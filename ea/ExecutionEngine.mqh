@@ -194,26 +194,40 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         }
 
         Layer L = InitLayer();
-        L.entry_price                = deal_price;
-        L.entry_spread_raw           = g_entry_spread;
-        L.entry_spread_adjusted      = g_entry_spread;
-        L.entry_time                 = deal_time;
-        L.EU_mid_12bars_ago_at_entry = g_EU_mid_12bars_ago;
-        L.GB_mid_12bars_ago_at_entry = g_GB_mid_12bars_ago;
-        L.r_EU_at_entry              = g_r_EU_signal;
-        L.r_GB_at_entry              = g_r_GB_signal;
-        L.strongest_at_entry         = g_strongest;
-        L.weakest_at_entry           = g_weakest;
+        L.entry_price = deal_price;
+        L.entry_time  = deal_time;
+
+        if (ArraySize(g_inventory) == 0) {
+            L.EU_mid_12bars_ago_at_entry = g_EU_mid_12bars_ago;
+            L.GB_mid_12bars_ago_at_entry = g_GB_mid_12bars_ago;
+            L.r_EU_at_entry              = g_r_EU_signal;
+            L.r_GB_at_entry              = g_r_GB_signal;
+            L.strongest_at_entry         = g_strongest;
+            L.weakest_at_entry           = g_weakest;
+            L.entry_price_eurusd_1h      = g_EU_mid_12bars_ago;
+            L.entry_price_gbpusd_1h      = g_GB_mid_12bars_ago;
+            L.entry_spread_raw           = g_entry_spread;
+            L.entry_spread_adjusted      = g_entry_spread;
+        } else {
+            L.EU_mid_12bars_ago_at_entry = g_inventory[0].EU_mid_12bars_ago_at_entry;
+            L.GB_mid_12bars_ago_at_entry = g_inventory[0].GB_mid_12bars_ago_at_entry;
+            L.r_EU_at_entry              = g_inventory[0].r_EU_at_entry;
+            L.r_GB_at_entry              = g_inventory[0].r_GB_at_entry;
+            L.strongest_at_entry         = g_inventory[0].strongest_at_entry;
+            L.weakest_at_entry           = g_inventory[0].weakest_at_entry;
+            L.entry_price_eurusd_1h      = g_inventory[0].entry_price_eurusd_1h;
+            L.entry_price_gbpusd_1h      = g_inventory[0].entry_price_gbpusd_1h;
+            L.entry_spread_raw           = g_inventory[0].entry_spread_raw;
+            L.entry_spread_adjusted      = g_inventory[0].entry_spread_adjusted;
+        }
 
         double eu_ask = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
         double eu_bid = SymbolInfoDouble("EURUSD", SYMBOL_BID);
         double gb_ask = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
         double gb_bid = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
 
-        L.entry_price_eurusd    = (eu_ask + eu_bid) / 2.0;
-        L.entry_price_gbpusd    = (gb_ask + gb_bid) / 2.0;
-        L.entry_price_eurusd_1h = g_EU_mid_12bars_ago;
-        L.entry_price_gbpusd_1h = g_GB_mid_12bars_ago;
+        L.entry_price_eurusd = (eu_ask + eu_bid) / 2.0;
+        L.entry_price_gbpusd = (gb_ask + gb_bid) / 2.0;
 
         if ((g_strongest == 0 && g_weakest == 1) ||
             (g_strongest == 1 && g_weakest == 0))
