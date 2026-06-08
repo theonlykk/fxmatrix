@@ -334,13 +334,11 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
 
     if (exit_price < 0.0) {
         Print("INFO: Marketable Reversion Exception. Exit target through "
-              "market. Executing immediate market close for Layer ",
-              layer_idx);
+              "market. Executing market hedge for Layer ", layer_idx);
 
         MqlTradeRequest req = {};
         MqlTradeResult  res = {};
         req.action   = TRADE_ACTION_DEAL;
-        req.position = g_inventory[layer_idx].position_ticket;
         req.symbol   = exit_symbol;
         req.volume   = deal_volume;
         req.type     = (g_inventory[layer_idx].direction == DIRECTION_BUY)
@@ -349,20 +347,24 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                        ? SymbolInfoDouble(exit_symbol, SYMBOL_BID)
                        : SymbolInfoDouble(exit_symbol, SYMBOL_ASK);
         req.type_filling = ORDER_FILLING_IOC;
-        req.comment  = "FXMatrix_Market_Close";
+        req.comment  = "FXMatrix_Market_Hedge";
 
         if (!OrderSend(req, res)) {
-            Print("ERROR: Marketable Reversion Close failed. retcode=",
-                  res.retcode);
-            g_halted = true;
-        } else {
-            g_inventory[layer_idx].remaining_exit_volume -= deal_volume;
-            if (g_inventory[layer_idx].remaining_exit_volume
-                <= VOLUME_EPSILON) {
-                LogLayerExit(g_inventory[layer_idx], deal_time, 0.0);
-                ArrayRemove(g_inventory, layer_idx, 1);
+            req.type_filling = ORDER_FILLING_FOK;
+            if (!OrderSend(req, res)) {
+                Print("ERROR: Market hedge OrderSend failed. retcode=",
+                      res.retcode);
+                g_halted = true;
+                return;
             }
         }
+
+        int n = ArraySize(g_inventory[layer_idx].exit_tickets);
+        ArrayResize(g_inventory[layer_idx].exit_tickets, n + 1);
+        g_inventory[layer_idx].exit_tickets[n] = res.order;
+
+        Print("INFO: Market hedge placed. ticket=", res.order,
+              ". Awaiting CloseBy intercept.");
         return;
     }
 
