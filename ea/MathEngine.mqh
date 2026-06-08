@@ -201,7 +201,7 @@ double ComputeExitPrice(const Layer &layer) {
 }
 
 bool IsClearOfFreezeLevel(double price, int direction, string symbol) {
-    long   freeze_pts   = SymbolInfoInteger(symbol, SYMBOL_FREEZE_LEVEL);
+    long    freeze_pts    = SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL);
     double freeze_price = freeze_pts
                           * SymbolInfoDouble(symbol, SYMBOL_POINT);
 
