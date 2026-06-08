@@ -211,8 +211,24 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             L.weakest_at_entry           = g_weakest;
             L.entry_price_eurusd_1h      = g_EU_mid_12bars_ago;
             L.entry_price_gbpusd_1h      = g_GB_mid_12bars_ago;
-            L.entry_spread_raw           = g_entry_spread;
-            L.entry_spread_adjusted      = g_entry_spread;
+            {
+                double eu_mid_l0 = (eu_ask + eu_bid) / 2.0;
+                double gb_mid_l0 = (gb_ask + gb_bid) / 2.0;
+                double r_EU_l0   = MathLog(eu_mid_l0
+                                   / L.EU_mid_12bars_ago_at_entry);
+                double r_GB_l0   = MathLog(gb_mid_l0
+                                   / L.GB_mid_12bars_ago_at_entry);
+                double usd_l0    = -(r_EU_l0 + r_GB_l0) / 3.0;
+                double eur_l0    =   r_EU_l0 + usd_l0;
+                double gbp_l0    =   r_GB_l0 + usd_l0;
+                double scores_l0[3];
+                scores_l0[0] = eur_l0;
+                scores_l0[1] = gbp_l0;
+                scores_l0[2] = usd_l0;
+                L.entry_spread_raw      = scores_l0[L.weakest_at_entry]
+                                        - scores_l0[L.strongest_at_entry];
+                L.entry_spread_adjusted = L.entry_spread_raw;
+            }
         } else {
             L.EU_mid_12bars_ago_at_entry = g_inventory[0].EU_mid_12bars_ago_at_entry;
             L.GB_mid_12bars_ago_at_entry = g_inventory[0].GB_mid_12bars_ago_at_entry;
@@ -222,8 +238,15 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             L.r_EU_at_entry = g_inventory[0].r_EU_at_entry;
             L.r_GB_at_entry = g_inventory[0].r_GB_at_entry;
 
-            L.entry_price_eurusd_1h = g_EU_mid_12bars_ago;
-            L.entry_price_gbpusd_1h = g_GB_mid_12bars_ago;
+            // 3. Inherit carry references from Layer 0 (Option A — Gemini ruling)
+            //    All layers in the pod share the same carry baseline:
+            //    the 1h-prior price at the time of the original pod signal.
+            //    This keeps the RunCarryRecalculation() reference frame
+            //    identical across all tranches, preserving parallel grid
+            //    geometry. Slight carry overstatement for later layers is
+            //    an accepted V1 approximation.
+            L.entry_price_eurusd_1h = L.EU_mid_12bars_ago_at_entry;
+            L.entry_price_gbpusd_1h = L.GB_mid_12bars_ago_at_entry;
 
             double eu_mid_now = (eu_ask + eu_bid) / 2.0;
             double gb_mid_now = (gb_ask + gb_bid) / 2.0;
@@ -249,18 +272,18 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.entry_price_eurusd = (eu_ask + eu_bid) / 2.0;
         L.entry_price_gbpusd = (gb_ask + gb_bid) / 2.0;
 
-        if ((g_strongest == 0 && g_weakest == 1) ||
-            (g_strongest == 1 && g_weakest == 0))
+        if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
+            (L.strongest_at_entry == 1 && L.weakest_at_entry == 0))
             L.instrument = INSTRUMENT_EURGBP;
-        else if ((g_strongest == 0 && g_weakest == 2) ||
-                 (g_strongest == 2 && g_weakest == 0))
+        else if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
+                 (L.strongest_at_entry == 2 && L.weakest_at_entry == 0))
             L.instrument = INSTRUMENT_EURUSD;
         else
             L.instrument = INSTRUMENT_GBPUSD;
 
-        if ((g_strongest == 0 && g_weakest == 1) ||
-            (g_strongest == 0 && g_weakest == 2) ||
-            (g_strongest == 1 && g_weakest == 2))
+        if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
+            (L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
+            (L.strongest_at_entry == 1 && L.weakest_at_entry == 2))
             L.direction = DIRECTION_SELL;
         else
             L.direction = DIRECTION_BUY;
