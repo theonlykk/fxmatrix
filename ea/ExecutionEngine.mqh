@@ -326,9 +326,49 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
     }
 
     double exit_price = g_inventory[layer_idx].exit_target;
-    ulong  exit_tkt   = PlaceExitLimit(exit_price, deal_volume,
-                                       g_inventory[layer_idx].direction,
-                                       deal_symbol);
+
+    string exit_symbol = (g_inventory[layer_idx].instrument == INSTRUMENT_EURUSD)
+                         ? "EURUSD"
+                         : (g_inventory[layer_idx].instrument == INSTRUMENT_GBPUSD)
+                           ? "GBPUSD" : "EURGBP";
+
+    if (exit_price < 0.0) {
+        Print("INFO: Marketable Reversion Exception. Exit target through "
+              "market. Executing immediate market close for Layer ",
+              layer_idx);
+
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action   = TRADE_ACTION_DEAL;
+        req.position = g_inventory[layer_idx].position_ticket;
+        req.symbol   = exit_symbol;
+        req.volume   = deal_volume;
+        req.type     = (g_inventory[layer_idx].direction == DIRECTION_BUY)
+                       ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+        req.price    = (req.type == ORDER_TYPE_SELL)
+                       ? SymbolInfoDouble(exit_symbol, SYMBOL_BID)
+                       : SymbolInfoDouble(exit_symbol, SYMBOL_ASK);
+        req.type_filling = ORDER_FILLING_IOC;
+        req.comment  = "FXMatrix_Market_Close";
+
+        if (!OrderSend(req, res)) {
+            Print("ERROR: Marketable Reversion Close failed. retcode=",
+                  res.retcode);
+            g_halted = true;
+        } else {
+            g_inventory[layer_idx].remaining_exit_volume -= deal_volume;
+            if (g_inventory[layer_idx].remaining_exit_volume
+                <= VOLUME_EPSILON) {
+                LogLayerExit(g_inventory[layer_idx], deal_time, 0.0);
+                ArrayRemove(g_inventory, layer_idx, 1);
+            }
+        }
+        return;
+    }
+
+    ulong exit_tkt = PlaceExitLimit(exit_price, deal_volume,
+                                    g_inventory[layer_idx].direction,
+                                    exit_symbol);
     if (exit_tkt > 0) {
         int n = ArraySize(g_inventory[layer_idx].exit_tickets);
         ArrayResize(g_inventory[layer_idx].exit_tickets, n + 1);
