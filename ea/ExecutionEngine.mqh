@@ -197,6 +197,11 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.entry_price = deal_price;
         L.entry_time  = deal_time;
 
+        double eu_ask = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
+        double eu_bid = SymbolInfoDouble("EURUSD", SYMBOL_BID);
+        double gb_ask = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
+        double gb_bid = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
+
         if (ArraySize(g_inventory) == 0) {
             L.EU_mid_12bars_ago_at_entry = g_EU_mid_12bars_ago;
             L.GB_mid_12bars_ago_at_entry = g_GB_mid_12bars_ago;
@@ -211,20 +216,35 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         } else {
             L.EU_mid_12bars_ago_at_entry = g_inventory[0].EU_mid_12bars_ago_at_entry;
             L.GB_mid_12bars_ago_at_entry = g_inventory[0].GB_mid_12bars_ago_at_entry;
-            L.r_EU_at_entry              = g_inventory[0].r_EU_at_entry;
-            L.r_GB_at_entry              = g_inventory[0].r_GB_at_entry;
             L.strongest_at_entry         = g_inventory[0].strongest_at_entry;
             L.weakest_at_entry           = g_inventory[0].weakest_at_entry;
-            L.entry_price_eurusd_1h      = g_inventory[0].entry_price_eurusd_1h;
-            L.entry_price_gbpusd_1h      = g_inventory[0].entry_price_gbpusd_1h;
-            L.entry_spread_raw           = g_inventory[0].entry_spread_raw;
-            L.entry_spread_adjusted      = g_inventory[0].entry_spread_adjusted;
-        }
 
-        double eu_ask = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
-        double eu_bid = SymbolInfoDouble("EURUSD", SYMBOL_BID);
-        double gb_ask = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
-        double gb_bid = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
+            L.r_EU_at_entry = g_inventory[0].r_EU_at_entry;
+            L.r_GB_at_entry = g_inventory[0].r_GB_at_entry;
+
+            L.entry_price_eurusd_1h = g_EU_mid_12bars_ago;
+            L.entry_price_gbpusd_1h = g_GB_mid_12bars_ago;
+
+            double eu_mid_now = (eu_ask + eu_bid) / 2.0;
+            double gb_mid_now = (gb_ask + gb_bid) / 2.0;
+
+            double r_EU_now = MathLog(eu_mid_now
+                              / L.EU_mid_12bars_ago_at_entry);
+            double r_GB_now = MathLog(gb_mid_now
+                              / L.GB_mid_12bars_ago_at_entry);
+            double usd_now  = -(r_EU_now + r_GB_now) / 3.0;
+            double eur_now  =   r_EU_now + usd_now;
+            double gbp_now  =   r_GB_now + usd_now;
+
+            double scores_now[3];
+            scores_now[0] = eur_now;
+            scores_now[1] = gbp_now;
+            scores_now[2] = usd_now;
+
+            L.entry_spread_raw      = scores_now[L.weakest_at_entry]
+                                    - scores_now[L.strongest_at_entry];
+            L.entry_spread_adjusted = L.entry_spread_raw;
+        }
 
         L.entry_price_eurusd = (eu_ask + eu_bid) / 2.0;
         L.entry_price_gbpusd = (gb_ask + gb_bid) / 2.0;
