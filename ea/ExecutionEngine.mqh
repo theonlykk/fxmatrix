@@ -294,38 +294,34 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
 
 void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     double deal_volume, datetime deal_time,
-                    double deal_profit) {
+                    double deal_profit,
+                    ulong hedge_position_ticket = 0) {
     for (int i = 0; i < ArraySize(g_inventory); i++) {
         int n_tickets = ArraySize(g_inventory[i].exit_tickets);
         for (int j = 0; j < n_tickets; j++) {
             if (g_inventory[i].exit_tickets[j] == order_ticket) {
-                ulong exit_position_id = (ulong)HistoryDealGetInteger(
-                                             deal_ticket,
-                                             DEAL_POSITION_ID);
-
-                if (exit_position_id > 0 &&
-                    g_inventory[i].position_ticket > 0 &&
-                    exit_position_id != g_inventory[i].position_ticket) {
+                if (hedge_position_ticket > 0 &&
+                    g_inventory[i].position_ticket > 0) {
 
                     MqlTradeRequest close_req = {};
                     MqlTradeResult  close_res = {};
                     close_req.action      = TRADE_ACTION_CLOSE_BY;
                     close_req.position    = g_inventory[i].position_ticket;
-                    close_req.position_by = exit_position_id;
+                    close_req.position_by = hedge_position_ticket;
 
                     if (!OrderSend(close_req, close_res)) {
                         Print("ERROR: CloseBy failed. ",
                               "position=",    g_inventory[i].position_ticket,
-                              " position_by=", exit_position_id,
+                              " position_by=", hedge_position_ticket,
                               " retcode=",    close_res.retcode);
                         g_halted = true;
                         return;
                     }
 
-                    Print("INFO: CloseBy executed. ",
-                          "position=",    g_inventory[i].position_ticket,
-                          " position_by=", exit_position_id,
-                          " volume=",     DoubleToString(deal_volume, 4));
+                    Print("INFO: CloseBy successful. Layer ", i,
+                          " position=",    g_inventory[i].position_ticket,
+                          " position_by=", hedge_position_ticket,
+                          " volume=",      DoubleToString(deal_volume, 4));
                 }
 
                 g_inventory[i].remaining_exit_volume -= deal_volume;
@@ -398,8 +394,26 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
     double   deal_profit  = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
 
     if (deal_entry == DEAL_ENTRY_IN) {
-        HandleEntryFill(deal_ticket, order_ticket, deal_volume,
-                        deal_price, deal_time, deal_symbol);
+        bool is_exit_limit_fill = false;
+        for (int i = 0; i < ArraySize(g_inventory); i++) {
+            for (int j = 0; j < ArraySize(g_inventory[i].exit_tickets); j++) {
+                if (g_inventory[i].exit_tickets[j] == order_ticket) {
+                    is_exit_limit_fill = true;
+                    break;
+                }
+            }
+            if (is_exit_limit_fill) break;
+        }
+
+        if (is_exit_limit_fill) {
+            ulong new_hedge_position = (ulong)HistoryDealGetInteger(
+                                           deal_ticket, DEAL_POSITION_ID);
+            HandleExitFill(deal_ticket, order_ticket, deal_volume,
+                           deal_time, deal_profit, new_hedge_position);
+        } else {
+            HandleEntryFill(deal_ticket, order_ticket, deal_volume,
+                            deal_price, deal_time, deal_symbol);
+        }
         return;
     }
 
