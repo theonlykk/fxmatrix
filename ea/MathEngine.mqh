@@ -94,7 +94,8 @@ double InvertSpreadToPrice(
     double r_GB_fixed,
     double T,
     int    strongest,
-    int    weakest
+    int    weakest,
+    bool   is_exit
 ) {
     string symbol    = "";
     int    direction = 0;
@@ -121,48 +122,63 @@ double InvertSpreadToPrice(
         direction = DIRECTION_SELL;
         double EG_history = anchor_EU / anchor_GB;
         double EG_target  = EG_history * MathExp(-T);
-        price = EG_target + eg_half_spread;
+        price = EG_target;
     }
     else if (strongest == 1 && weakest == 0) {
         symbol    = "EURGBP";
         direction = DIRECTION_BUY;
         double EG_history = anchor_EU / anchor_GB;
         double EG_target  = EG_history * MathExp(-T);
-        price = EG_target - eg_half_spread;
+        price = EG_target;
     }
     else if (strongest == 0 && weakest == 2) {
         symbol    = "EURUSD";
         direction = DIRECTION_SELL;
         double r_EU_target   = r_GB_fixed - T;
         double EU_target_mid = anchor_EU * MathExp(r_EU_target);
-        price = EU_target_mid + eu_half_spread;
+        price = EU_target_mid;
     }
     else if (strongest == 2 && weakest == 0) {
         symbol    = "EURUSD";
         direction = DIRECTION_BUY;
         double r_EU_target   = r_GB_fixed - T;
         double EU_target_mid = anchor_EU * MathExp(r_EU_target);
-        price = EU_target_mid - eu_half_spread;
+        price = EU_target_mid;
     }
     else if (strongest == 1 && weakest == 2) {
         symbol    = "GBPUSD";
         direction = DIRECTION_SELL;
         double r_GB_target   = r_EU_fixed + T;
         double GB_target_mid = anchor_GB * MathExp(r_GB_target);
-        price = GB_target_mid + gb_half_spread;
+        price = GB_target_mid;
     }
     else if (strongest == 2 && weakest == 1) {
         symbol    = "GBPUSD";
         direction = DIRECTION_BUY;
         double r_GB_target   = r_EU_fixed + T;
         double GB_target_mid = anchor_GB * MathExp(r_GB_target);
-        price = GB_target_mid - gb_half_spread;
+        price = GB_target_mid;
     }
     else {
         Print("ERROR: InvertSpreadToPrice — invalid routing: ",
               "strongest=", strongest, " weakest=", weakest);
         return -1.0;
     }
+
+    if (is_exit) {
+        direction = (direction == DIRECTION_BUY)
+                    ? DIRECTION_SELL : DIRECTION_BUY;
+    }
+
+    double half_spread = 0.0;
+    if      (symbol == "EURGBP") half_spread = eg_half_spread;
+    else if (symbol == "EURUSD") half_spread = eu_half_spread;
+    else                         half_spread = gb_half_spread;
+
+    if (direction == DIRECTION_SELL)
+        price = price + half_spread;
+    else
+        price = price - half_spread;
 
     if (!IsPassive(price, direction, symbol)) {
         Print("INFO: Passivity failure — order skipped. ",
@@ -184,7 +200,8 @@ double ComputeEntryPrice() {
         g_r_GB_signal,
         g_entry_spread,
         g_strongest,
-        g_weakest
+        g_weakest,
+        false
     );
 }
 
@@ -196,7 +213,8 @@ double ComputeExitPrice(const Layer &layer) {
         layer.r_GB_at_entry,
         layer.exit_spread_target,
         layer.strongest_at_entry,
-        layer.weakest_at_entry
+        layer.weakest_at_entry,
+        true
     );
 }
 
