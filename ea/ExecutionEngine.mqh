@@ -175,9 +175,9 @@ double GetH4ATR(string symbol) {
 void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
                          datetime deal_time);
 
-void HandleEntryFill(ulong order_ticket, double deal_volume,
-                     double deal_price, datetime deal_time,
-                     string deal_symbol) {
+void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
+                     double deal_volume, double deal_price,
+                     datetime deal_time, string deal_symbol) {
     int layer_idx = -1;
     for (int i = 0; i < ArraySize(g_inventory); i++) {
         if (g_inventory[i].entry_ticket == order_ticket) {
@@ -233,7 +233,9 @@ void HandleEntryFill(ulong order_ticket, double deal_volume,
         L.lot_size               = BaseLotSize;
         L.remaining_entry_volume = BaseLotSize;
         L.remaining_exit_volume  = 0.0;
-        L.entry_ticket           = order_ticket;
+        L.entry_ticket    = order_ticket;
+        L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
+                                                         DEAL_POSITION_ID);
 
         L.exit_spread_target = ComputeExitSpreadTarget(L);
         double exit_price    = ComputeExitPrice(L);
@@ -290,12 +292,42 @@ void HandleEntryFill(ulong order_ticket, double deal_volume,
     }
 }
 
-void HandleExitFill(ulong order_ticket, double deal_volume,
-                    datetime deal_time, double deal_profit) {
+void HandleExitFill(ulong deal_ticket, ulong order_ticket,
+                    double deal_volume, datetime deal_time,
+                    double deal_profit) {
     for (int i = 0; i < ArraySize(g_inventory); i++) {
         int n_tickets = ArraySize(g_inventory[i].exit_tickets);
         for (int j = 0; j < n_tickets; j++) {
             if (g_inventory[i].exit_tickets[j] == order_ticket) {
+                ulong exit_position_id = (ulong)HistoryDealGetInteger(
+                                             deal_ticket,
+                                             DEAL_POSITION_ID);
+
+                if (exit_position_id > 0 &&
+                    g_inventory[i].position_ticket > 0 &&
+                    exit_position_id != g_inventory[i].position_ticket) {
+
+                    MqlTradeRequest close_req = {};
+                    MqlTradeResult  close_res = {};
+                    close_req.action      = TRADE_ACTION_CLOSE_BY;
+                    close_req.position    = g_inventory[i].position_ticket;
+                    close_req.position_by = exit_position_id;
+
+                    if (!OrderSend(close_req, close_res)) {
+                        Print("ERROR: CloseBy failed. ",
+                              "position=",    g_inventory[i].position_ticket,
+                              " position_by=", exit_position_id,
+                              " retcode=",    close_res.retcode);
+                        g_halted = true;
+                        return;
+                    }
+
+                    Print("INFO: CloseBy executed. ",
+                          "position=",    g_inventory[i].position_ticket,
+                          " position_by=", exit_position_id,
+                          " volume=",     DoubleToString(deal_volume, 4));
+                }
+
                 g_inventory[i].remaining_exit_volume -= deal_volume;
 
                 ArrayRemove(g_inventory[i].exit_tickets, j, 1);
@@ -366,13 +398,14 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
     double   deal_profit  = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
 
     if (deal_entry == DEAL_ENTRY_IN) {
-        HandleEntryFill(order_ticket, deal_volume, deal_price,
-                        deal_time, deal_symbol);
+        HandleEntryFill(deal_ticket, order_ticket, deal_volume,
+                        deal_price, deal_time, deal_symbol);
         return;
     }
 
     if (deal_entry == DEAL_ENTRY_OUT) {
-        HandleExitFill(order_ticket, deal_volume, deal_time, deal_profit);
+        HandleExitFill(deal_ticket, order_ticket, deal_volume,
+                       deal_time, deal_profit);
         return;
     }
 }

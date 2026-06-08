@@ -52,6 +52,7 @@ struct Layer {
 
     // --- Order tracking ---
     ulong    entry_ticket;
+    ulong    position_ticket;
     ulong    exit_tickets[];
 };
 
@@ -73,6 +74,8 @@ struct Layer {
 //   entry_price_gbpusd_1h
 //   instrument
 //   direction
+//   entry_ticket
+//   position_ticket
 //
 // The following fields are modified ONLY by ADR-003 carry logic:
 //   entry_spread_adjusted
@@ -114,6 +117,7 @@ Layer InitLayer() {
     L.remaining_entry_volume         = 0.0;
     L.remaining_exit_volume          = 0.0;
     L.entry_ticket                 = 0;
+    L.position_ticket              = 0;
     ArrayResize(L.exit_tickets, 0);
     return L;
 }
