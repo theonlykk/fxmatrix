@@ -73,13 +73,28 @@ void OnTick() {
         RunSignalOnBarClose();
 
         if (g_signal_active && ArraySize(g_inventory) == 0) {
-            double entry_price = ComputeEntryPrice();
-            if (entry_price > 0) {
-                string symbol = GetEntrySymbol();
-                ulong  tkt    = PlaceEntryLimit(entry_price,
-                                    GetEntryDirection(), symbol);
-                if (tkt > 0)
-                    g_pending_entry_ticket = tkt;
+            if (g_pending_entry_ticket > 0) {
+                // Existing limit is live — nudge logic in OnTick()
+                // handles price updates. Do not place a new limit.
+            } else {
+                // No tracked pending limit. Pre-flight sweep: cancel
+                // any ghost limits from prior reloads or missed nudges
+                // before placing a fresh one. Highlander Rule:
+                // there can be only one.
+                CancelAllPendingEntries();
+
+                double entry_price = ComputeEntryPrice();
+                if (entry_price > 0) {
+                    string symbol = GetEntrySymbol();
+                    ulong  tkt    = PlaceEntryLimit(entry_price,
+                                        GetEntryDirection(), symbol);
+                    if (tkt > 0) {
+                        g_pending_entry_ticket = tkt;
+                        SaveInventoryState(); // Persist new Layer 0 ticket —
+                                              // prevents reload loop where EA
+                                              // cancels its own valid limit
+                    }
+                }
             }
         }
     }
