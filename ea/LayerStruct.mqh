@@ -56,6 +56,14 @@ struct Layer {
     ulong    exit_tickets[];
 };
 
+// CloseBy async queue task — used when MT5 ledger desync prevents
+// immediate CloseBy after market hedge fill
+struct CloseByTask {
+    ulong ticket1;   // original position ticket
+    ulong ticket2;   // new hedge position ticket
+    int   retries;   // OnTick attempt counter (max 10)
+};
+
 //--- IMMUTABILITY CONTRACT (DO NOT MODIFY IN ANY OTHER FILE) ---
 // The following Layer fields are set ONCE at first fill and
 // must NEVER be modified by any function outside OnTradeTransaction:

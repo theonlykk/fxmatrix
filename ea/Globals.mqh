@@ -55,7 +55,8 @@ double   g_peak_equity          = 0.0;
 double   g_NudgeThreshold       = 0.0;   // computed at InitGlobals() from NudgePips
 
 //--- Inventory
-Layer    g_inventory[];                  // dynamic array of open layers
+Layer        g_inventory[];              // dynamic array of open layers
+CloseByTask  g_closeby_queue[];          // pending CloseBy retry tasks
 
 ulong    g_pending_entry_ticket = 0;   // ticket of pre-inventory entry limit
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit

@@ -18,6 +18,7 @@ bool CheckCircuitBreakers();
 void CloseAllPositions();
 void CancelAllPending();
 void CancelAllPendingEntries();
+void ProcessCloseByQueue();
 string GetEntrySymbol();
 int    GetEntryDirection();
 double GetPendingOrderPrice(ulong ticket);
@@ -60,6 +61,11 @@ void OnTick() {
     if (g_halted) return;
 
     if (CheckCircuitBreakers()) return;
+
+    // Process pending CloseBy tasks before any signal logic.
+    // Resolves MT5 ledger desync on market hedge fills.
+    ProcessCloseByQueue();
+    if (g_halted) return;
 
     if (ArraySize(g_inventory) > 0)
         CheckCarryTrigger();
@@ -233,6 +239,51 @@ void CancelAllPendingEntries() {
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
           " pending orders on ", _Symbol);
+}
+
+void ProcessCloseByQueue() {
+    int q_size = ArraySize(g_closeby_queue);
+    if (q_size == 0) return;
+
+    for (int i = q_size - 1; i >= 0; i--) {
+        g_closeby_queue[i].retries++;
+
+        if (g_closeby_queue[i].retries >= 10) {
+            Print("SEV-1 ERROR: CloseBy queue task failed after 10 retries. ",
+                  "position=", g_closeby_queue[i].ticket1,
+                  " position_by=", g_closeby_queue[i].ticket2,
+                  " — halting EA for human review.");
+            ArrayRemove(g_closeby_queue, i, 1);
+            g_halted = true;
+            return;
+        }
+
+        if (!PositionSelectByTicket(g_closeby_queue[i].ticket1) ||
+            !PositionSelectByTicket(g_closeby_queue[i].ticket2)) {
+            Print("INFO: CloseBy queue retry ", g_closeby_queue[i].retries,
+                  "/10 — positions not yet on ledger. Waiting.");
+            continue;
+        }
+
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action      = TRADE_ACTION_CLOSE_BY;
+        req.position    = g_closeby_queue[i].ticket1;
+        req.position_by = g_closeby_queue[i].ticket2;
+
+        if (OrderSend(req, res)) {
+            Print("INFO: CloseBy queue success on retry ",
+                  g_closeby_queue[i].retries,
+                  ". position=", g_closeby_queue[i].ticket1,
+                  " position_by=", g_closeby_queue[i].ticket2);
+            ArrayRemove(g_closeby_queue, i, 1);
+        } else {
+            Print("WARNING: CloseBy queue retry ", g_closeby_queue[i].retries,
+                  "/10 failed. retcode=", res.retcode,
+                  " position=", g_closeby_queue[i].ticket1,
+                  " position_by=", g_closeby_queue[i].ticket2);
+        }
+    }
 }
 
 string GetEntrySymbol() {

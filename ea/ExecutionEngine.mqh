@@ -414,25 +414,45 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                 if (hedge_position_ticket > 0 &&
                     g_inventory[i].position_ticket > 0) {
 
-                    MqlTradeRequest close_req = {};
-                    MqlTradeResult  close_res = {};
-                    close_req.action      = TRADE_ACTION_CLOSE_BY;
-                    close_req.position    = g_inventory[i].position_ticket;
-                    close_req.position_by = hedge_position_ticket;
+                    // Ledger guard: verify hedge position is committed
+                    // before firing CloseBy. Market hedge fills via
+                    // TRADE_ACTION_DEAL can desync in the tester.
+                    // DO NOT return early — must fall through to volume
+                    // decrement and SaveInventoryState() below.
+                    if (!PositionSelectByTicket(hedge_position_ticket)) {
+                        int q_idx = ArraySize(g_closeby_queue);
+                        ArrayResize(g_closeby_queue, q_idx + 1);
+                        g_closeby_queue[q_idx].ticket1 = g_inventory[i].position_ticket;
+                        g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
+                        g_closeby_queue[q_idx].retries = 0;
+                        Print("INFO: Ledger desync detected. CloseBy queued. ",
+                              "position=", g_inventory[i].position_ticket,
+                              " position_by=", hedge_position_ticket);
+                    } else {
+                        MqlTradeRequest close_req = {};
+                        MqlTradeResult  close_res = {};
+                        close_req.action      = TRADE_ACTION_CLOSE_BY;
+                        close_req.position    = g_inventory[i].position_ticket;
+                        close_req.position_by = hedge_position_ticket;
 
-                    if (!OrderSend(close_req, close_res)) {
-                        Print("ERROR: CloseBy failed. ",
-                              "position=",    g_inventory[i].position_ticket,
-                              " position_by=", hedge_position_ticket,
-                              " retcode=",    close_res.retcode);
-                        g_halted = true;
-                        return;
+                        if (!OrderSend(close_req, close_res)) {
+                            if (close_res.retcode == 10013) {
+                                int q_idx = ArraySize(g_closeby_queue);
+                                ArrayResize(g_closeby_queue, q_idx + 1);
+                                g_closeby_queue[q_idx].ticket1 = g_inventory[i].position_ticket;
+                                g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
+                                g_closeby_queue[q_idx].retries = 0;
+                                Print("INFO: CloseBy retcode=10013. Queued for retry. ",
+                                      "position=", g_inventory[i].position_ticket,
+                                      " position_by=", hedge_position_ticket);
+                            } else {
+                                Print("ERROR: CloseBy failed. position=",
+                                      g_inventory[i].position_ticket,
+                                      " position_by=", hedge_position_ticket,
+                                      " retcode=", close_res.retcode);
+                            }
+                        }
                     }
-
-                    Print("INFO: CloseBy successful. Layer ", i,
-                          " position=",    g_inventory[i].position_ticket,
-                          " position_by=", hedge_position_ticket,
-                          " volume=",      DoubleToString(deal_volume, 4));
                 }
 
                 g_inventory[i].remaining_exit_volume -= deal_volume;
