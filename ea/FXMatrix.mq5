@@ -265,11 +265,31 @@ void ProcessCloseByQueue() {
             continue;
         }
 
+        PositionSelectByTicket(g_closeby_queue[i].ticket1);
+        string sym = PositionGetString(POSITION_SYMBOL);
+
+        PositionSelectByTicket(g_closeby_queue[i].ticket2);
+        string sym2 = PositionGetString(POSITION_SYMBOL);
+
+        if (sym != sym2) {
+            Print("ERROR: Inconsistent symbols in CloseBy queue. ",
+                  "ticket1=", g_closeby_queue[i].ticket1,
+                  " sym1=", sym,
+                  " ticket2=", g_closeby_queue[i].ticket2,
+                  " sym2=", sym2,
+                  " — removing task and halting.");
+            ArrayRemove(g_closeby_queue, i, 1);
+            g_halted = true;
+            return;
+        }
+
         MqlTradeRequest req = {};
         MqlTradeResult  res = {};
         req.action      = TRADE_ACTION_CLOSE_BY;
         req.position    = g_closeby_queue[i].ticket1;
         req.position_by = g_closeby_queue[i].ticket2;
+        req.symbol      = sym;
+        req.magic       = EA_MAGIC;
 
         if (OrderSend(req, res)) {
             Print("INFO: CloseBy queue success on retry ",

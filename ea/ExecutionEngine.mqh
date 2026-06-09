@@ -429,11 +429,17 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                               "position=", g_inventory[i].position_ticket,
                               " position_by=", hedge_position_ticket);
                     } else {
+                        string exit_symbol = (g_inventory[i].instrument == INSTRUMENT_EURUSD)
+                                             ? "EURUSD"
+                                             : (g_inventory[i].instrument == INSTRUMENT_GBPUSD)
+                                               ? "GBPUSD" : "EURGBP";
                         MqlTradeRequest close_req = {};
                         MqlTradeResult  close_res = {};
                         close_req.action      = TRADE_ACTION_CLOSE_BY;
                         close_req.position    = g_inventory[i].position_ticket;
                         close_req.position_by = hedge_position_ticket;
+                        close_req.symbol      = exit_symbol;
+                        close_req.magic       = EA_MAGIC;
 
                         if (!OrderSend(close_req, close_res)) {
                             if (close_res.retcode == 10013) {
