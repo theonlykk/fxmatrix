@@ -185,7 +185,8 @@ void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
 
 void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                      double deal_volume, double deal_price,
-                     datetime deal_time, string deal_symbol) {
+                     datetime deal_time, string deal_symbol,
+                     long deal_type) {
     int layer_idx = -1;
     for (int i = 0; i < ArraySize(g_inventory); i++) {
         if (g_inventory[i].entry_ticket == order_ticket) {
@@ -215,10 +216,39 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             L.GB_mid_12bars_ago_at_entry = g_GB_mid_12bars_ago;
             L.r_EU_at_entry              = g_r_EU_signal;
             L.r_GB_at_entry              = g_r_GB_signal;
-            L.strongest_at_entry         = g_strongest;
-            L.weakest_at_entry           = g_weakest;
             L.entry_price_eurusd_1h      = g_EU_mid_12bars_ago;
             L.entry_price_gbpusd_1h      = g_GB_mid_12bars_ago;
+
+            // Physical ledger is ground truth (Gemini ruling).
+            // Derive instrument and direction from the actual broker fill,
+            // not from live globals which may have rotated since placement.
+            if      (deal_symbol == "EURUSD") L.instrument = INSTRUMENT_EURUSD;
+            else if (deal_symbol == "GBPUSD") L.instrument = INSTRUMENT_GBPUSD;
+            else if (deal_symbol == "EURGBP") L.instrument = INSTRUMENT_EURGBP;
+            else {
+                Print("SEV-1 ERROR: HandleEntryFill — unrecognised deal_symbol=",
+                      deal_symbol, ". Halting.");
+                g_halted = true;
+                return;
+            }
+
+            L.direction = (deal_type == DEAL_TYPE_BUY)
+                          ? DIRECTION_BUY : DIRECTION_SELL;
+
+            // Reverse-derive routing indices from physical instrument + direction.
+            // These anchor the pod's matrix geometry to the physical fill,
+            // completely severing the connection to live g_strongest/g_weakest.
+            if (L.instrument == INSTRUMENT_EURGBP) {
+                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 0; L.weakest_at_entry = 1; }
+                else                               { L.strongest_at_entry = 1; L.weakest_at_entry = 0; }
+            } else if (L.instrument == INSTRUMENT_EURUSD) {
+                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 0; L.weakest_at_entry = 2; }
+                else                               { L.strongest_at_entry = 2; L.weakest_at_entry = 0; }
+            } else { // INSTRUMENT_GBPUSD
+                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 1; L.weakest_at_entry = 2; }
+                else                               { L.strongest_at_entry = 2; L.weakest_at_entry = 1; }
+            }
+
             {
                 double eu_mid_l0 = (eu_ask + eu_bid) / 2.0;
                 double gb_mid_l0 = (gb_ask + gb_bid) / 2.0;
@@ -280,21 +310,23 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.entry_price_eurusd = (eu_ask + eu_bid) / 2.0;
         L.entry_price_gbpusd = (gb_ask + gb_bid) / 2.0;
 
-        if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
-            (L.strongest_at_entry == 1 && L.weakest_at_entry == 0))
-            L.instrument = INSTRUMENT_EURGBP;
-        else if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
-                 (L.strongest_at_entry == 2 && L.weakest_at_entry == 0))
-            L.instrument = INSTRUMENT_EURUSD;
-        else
-            L.instrument = INSTRUMENT_GBPUSD;
+        if (ArraySize(g_inventory) > 0) {
+            if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
+                (L.strongest_at_entry == 1 && L.weakest_at_entry == 0))
+                L.instrument = INSTRUMENT_EURGBP;
+            else if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
+                     (L.strongest_at_entry == 2 && L.weakest_at_entry == 0))
+                L.instrument = INSTRUMENT_EURUSD;
+            else
+                L.instrument = INSTRUMENT_GBPUSD;
 
-        if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
-            (L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
-            (L.strongest_at_entry == 1 && L.weakest_at_entry == 2))
-            L.direction = DIRECTION_SELL;
-        else
-            L.direction = DIRECTION_BUY;
+            if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
+                (L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
+                (L.strongest_at_entry == 1 && L.weakest_at_entry == 2))
+                L.direction = DIRECTION_SELL;
+            else
+                L.direction = DIRECTION_BUY;
+        }
         L.lot_size               = BaseLotSize;
         L.remaining_entry_volume = BaseLotSize;
         L.remaining_exit_volume  = 0.0;
@@ -538,6 +570,7 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
     double   deal_volume  = HistoryDealGetDouble(deal_ticket, DEAL_VOLUME);
     double   deal_price   = HistoryDealGetDouble(deal_ticket, DEAL_PRICE);
     long     deal_entry   = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+    long     deal_type    = HistoryDealGetInteger(deal_ticket, DEAL_TYPE);
     string   deal_symbol  = HistoryDealGetString(deal_ticket, DEAL_SYMBOL);
     datetime deal_time    = (datetime)HistoryDealGetInteger(deal_ticket,
                                                             DEAL_TIME);
@@ -562,7 +595,8 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
                            deal_time, deal_profit, new_hedge_position);
         } else {
             HandleEntryFill(deal_ticket, order_ticket, deal_volume,
-                            deal_price, deal_time, deal_symbol);
+                            deal_price, deal_time, deal_symbol,
+                            deal_type);
         }
         return;
     }
