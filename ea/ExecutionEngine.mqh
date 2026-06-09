@@ -4,6 +4,8 @@
 #include "MathEngine.mqh"
 #include "StateEngine.mqh"
 
+void CancelAllPendingEntries();
+
 ulong PlaceEntryLimit(double price, int direction, string symbol) {
     if (!IsClearOfFreezeLevel(price, direction, symbol)) {
         Print("INFO: PlaceEntryLimit skipped — freeze level. ",
@@ -24,6 +26,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
     req.symbol       = symbol;
     req.volume       = BaseLotSize;
     req.price        = price;
+    req.magic        = EA_MAGIC;
     req.type         = (direction == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
                        : ORDER_TYPE_SELL_LIMIT;
@@ -73,6 +76,7 @@ ulong PlaceExitLimit(double exit_price, double volume,
     req.symbol       = symbol;
     req.volume       = volume;
     req.price        = exit_price;
+    req.magic        = EA_MAGIC;
     req.type         = (exit_dir == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
                        : ORDER_TYPE_SELL_LIMIT;
@@ -114,6 +118,7 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol) {
     req.symbol       = symbol;
     req.volume       = BaseLotSize;
     req.price        = price;
+    req.magic        = EA_MAGIC;
     req.type         = (direction == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
                        : ORDER_TYPE_SELL_LIMIT;
@@ -345,6 +350,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         req.action   = TRADE_ACTION_DEAL;
         req.symbol   = exit_symbol;
         req.volume   = deal_volume;
+        req.magic    = EA_MAGIC;
         req.type     = (g_inventory[layer_idx].direction == DIRECTION_BUY)
                        ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
         req.price    = (req.type == ORDER_TYPE_SELL)
@@ -437,8 +443,19 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     LogLayerExit(g_inventory[i], deal_time, deal_profit);
                     ArrayRemove(g_inventory, i, 1);
                     Print("INFO: Layer ", i, " fully closed and removed.");
+
+                    if (ArraySize(g_inventory) == 0) {
+                        Print("INFO: Pod fully closed. Initiating "
+                              "pending entry teardown.");
+                        CancelAllPendingEntries();
+                    }
                 }
 
+                // Save unconditionally: captures both partial volume
+                // decrements and full layer removals.
+                // Note: if CancelAllPendingEntries() was called above,
+                // it already saves state — this is a no-op in terms
+                // of correctness but harmless.
                 SaveInventoryState();
                 return;
             }

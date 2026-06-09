@@ -17,6 +17,7 @@
 bool CheckCircuitBreakers();
 void CloseAllPositions();
 void CancelAllPending();
+void CancelAllPendingEntries();
 string GetEntrySymbol();
 int    GetEntryDirection();
 double GetPendingOrderPrice(ulong ticket);
@@ -151,6 +152,7 @@ void CloseAllPositions() {
     for (int i = PositionsTotal() - 1; i >= 0; i--) {
         ulong ticket = PositionGetTicket(i);
         if (ticket == 0) continue;
+        if (PositionGetInteger(POSITION_MAGIC) != (long)EA_MAGIC) continue;
 
         MqlTradeRequest req = {};
         MqlTradeResult  res = {};
@@ -176,6 +178,7 @@ void CancelAllPending() {
     for (int i = OrdersTotal() - 1; i >= 0; i--) {
         ulong ticket = OrderGetTicket(i);
         if (ticket == 0) continue;
+        if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
 
         MqlTradeRequest req = {};
         MqlTradeResult  res = {};
@@ -186,6 +189,35 @@ void CancelAllPending() {
             Print("ERROR: CancelAllPending failed. ticket=", ticket,
                   " retcode=", res.retcode);
     }
+}
+
+void CancelAllPendingEntries() {
+    int cancelled = 0;
+    for (int i = OrdersTotal() - 1; i >= 0; i--) {
+        ulong ticket = OrderGetTicket(i);
+        if (ticket == 0) continue;
+        if (OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
+        if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
+
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action = TRADE_ACTION_REMOVE;
+        req.order  = ticket;
+
+        if (!OrderSend(req, res)) {
+            Print("WARNING: CancelAllPendingEntries — cancel failed. ",
+                  "ticket=", ticket,
+                  " retcode=", res.retcode);
+        } else {
+            cancelled++;
+        }
+    }
+
+    g_pending_entry_ticket = 0;
+    SaveInventoryState();
+
+    Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
+          " pending orders on ", _Symbol);
 }
 
 string GetEntrySymbol() {

@@ -14,6 +14,7 @@ input double MinFillThreshold   = 0.50;    // fraction of lot_size before next l
 //--- Layer mechanics
 input int    MaxLayers          = 5;
 input double BaseLotSize        = 0.01;
+input ulong  EA_MAGIC           = 20260608; // FXMatrix Pod Identifier
 input double AddRatio           = 0.75;    // × H4 ATR for add_next spacing
 
 //--- Nudging

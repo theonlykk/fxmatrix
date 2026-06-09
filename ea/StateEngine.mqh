@@ -256,6 +256,7 @@ void CheckForOrphans() {
     for (int i = 0; i < total; i++) {
         ulong ticket = PositionGetTicket(i);
         if (PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+        if (PositionGetInteger(POSITION_MAGIC) != (long)EA_MAGIC) continue;
 
         bool found = false;
         for (int j = 0; j < ArraySize(g_inventory); j++) {
