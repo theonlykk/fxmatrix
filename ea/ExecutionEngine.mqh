@@ -2,6 +2,7 @@
 #define EXECUTION_ENGINE_MQH
 
 #include "MathEngine.mqh"
+#include "StateEngine.mqh"
 
 ulong PlaceEntryLimit(double price, int direction, string symbol) {
     if (!IsClearOfFreezeLevel(price, direction, symbol)) {
@@ -126,6 +127,8 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol) {
         return 0;
     }
 
+    g_pending_entry_ticket = res.order;
+    SaveInventoryState();
     Print("INFO: Next entry limit placed. ticket=", res.order,
           " add_next=", DoubleToString(price, 5));
     return res.order;
@@ -310,6 +313,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         layer_idx = new_idx;
 
         g_pending_entry_ticket = 0;
+        SaveInventoryState();
     }
 
     g_inventory[layer_idx].remaining_entry_volume -= deal_volume;
@@ -362,6 +366,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         int n = ArraySize(g_inventory[layer_idx].exit_tickets);
         ArrayResize(g_inventory[layer_idx].exit_tickets, n + 1);
         g_inventory[layer_idx].exit_tickets[n] = res.order;
+        SaveInventoryState();
 
         Print("INFO: Market hedge placed. ticket=", res.order,
               ". Awaiting CloseBy intercept.");
@@ -375,6 +380,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         int n = ArraySize(g_inventory[layer_idx].exit_tickets);
         ArrayResize(g_inventory[layer_idx].exit_tickets, n + 1);
         g_inventory[layer_idx].exit_tickets[n] = exit_tkt;
+        SaveInventoryState();
     }
 
     double filled_so_far   = g_inventory[layer_idx].lot_size
@@ -432,6 +438,8 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     ArrayRemove(g_inventory, i, 1);
                     Print("INFO: Layer ", i, " fully closed and removed.");
                 }
+
+                SaveInventoryState();
                 return;
             }
         }

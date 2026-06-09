@@ -12,6 +12,7 @@
 #include "MathEngine.mqh"
 #include "ExecutionEngine.mqh"
 #include "CarryEngine.mqh"
+#include "StateEngine.mqh"
 
 bool CheckCircuitBreakers();
 void CloseAllPositions();
@@ -23,6 +24,14 @@ double GetPendingOrderPrice(ulong ticket);
 int OnInit() {
     int result = InitGlobals();
     if (result != INIT_SUCCEEDED) return result;
+
+    LoadInventoryState();
+    CheckForOrphans();
+    if (g_halted) {
+        Print("ERROR: OnInit halted — orphan positions detected. "
+              "Resolve manually before reattaching EA.");
+        return INIT_FAILED;
+    }
 
     string parts[];
     if (StringSplit(CarryRecalcTime, ':', parts) == 2) {
