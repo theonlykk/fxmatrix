@@ -236,17 +236,25 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                           ? DIRECTION_BUY : DIRECTION_SELL;
 
             // Reverse-derive routing indices from physical instrument + direction.
-            // These anchor the pod's matrix geometry to the physical fill,
-            // completely severing the connection to live g_strongest/g_weakest.
+            // Mean-reversion: indices reflect the market state that CAUSED the
+            // signal (the dislocation we are fading), NOT the desired future exposure.
+            // A GBPUSD SELL means GBP spiked (strongest=GBP), we fade it back down.
+            // CRITICAL: this block must execute BEFORE entry_spread_raw computation.
             if (L.instrument == INSTRUMENT_EURGBP) {
-                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 0; L.weakest_at_entry = 1; }
-                else                               { L.strongest_at_entry = 1; L.weakest_at_entry = 0; }
+                // EURGBP BUY: GBP strong, EUR weak (fading EUR drop vs GBP)
+                // EURGBP SELL: EUR strong, GBP weak (fading EUR spike vs GBP)
+                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 1; L.weakest_at_entry = 0; }
+                else                               { L.strongest_at_entry = 0; L.weakest_at_entry = 1; }
             } else if (L.instrument == INSTRUMENT_EURUSD) {
-                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 0; L.weakest_at_entry = 2; }
-                else                               { L.strongest_at_entry = 2; L.weakest_at_entry = 0; }
+                // EURUSD BUY: USD strong, EUR weak (fading EUR drop vs USD)
+                // EURUSD SELL: EUR strong, USD weak (fading EUR spike vs USD)
+                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 2; L.weakest_at_entry = 0; }
+                else                               { L.strongest_at_entry = 0; L.weakest_at_entry = 2; }
             } else { // INSTRUMENT_GBPUSD
-                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 1; L.weakest_at_entry = 2; }
-                else                               { L.strongest_at_entry = 2; L.weakest_at_entry = 1; }
+                // GBPUSD BUY: USD strong, GBP weak (fading GBP drop vs USD)
+                // GBPUSD SELL: GBP strong, USD weak (fading GBP spike vs USD)
+                if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 2; L.weakest_at_entry = 1; }
+                else                               { L.strongest_at_entry = 1; L.weakest_at_entry = 2; }
             }
 
             {
