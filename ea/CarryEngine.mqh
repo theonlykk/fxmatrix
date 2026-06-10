@@ -10,6 +10,8 @@ string GetInstrumentSymbol(int instrument) {
 }
 
 void RunCarryRecalculation() {
+    if (ArraySize(g_inventory) == 0) return;
+
     if (EnableVerboseLog)
         Print("INFO: Carry recalculation started. Layers=",
               ArraySize(g_inventory));
@@ -46,7 +48,16 @@ void RunCarryRecalculation() {
         double eur_fwd =   r_EU_fwd + usd_fwd;
         double gbp_fwd =   r_GB_fwd + usd_fwd;
 
-        double new_spread = gbp_fwd - eur_fwd;
+        // Dynamic spread: route through layer's weakest/strongest indices
+        // Index mapping (Gemini-confirmed): 0=EUR, 1=GBP, 2=USD
+        // spread = scores[weakest] - scores[strongest] (always negative
+        // by construction for a valid mean-reversion dislocation)
+        double scores_fwd[3];
+        scores_fwd[0] = eur_fwd;
+        scores_fwd[1] = gbp_fwd;
+        scores_fwd[2] = usd_fwd;
+        double new_spread = scores_fwd[g_inventory[i].weakest_at_entry]
+                          - scores_fwd[g_inventory[i].strongest_at_entry];
 
         g_inventory[i].entry_spread_adjusted = new_spread;
 
@@ -112,6 +123,7 @@ void RunCarryRecalculation() {
                   " new_exit=",   DoubleToString(new_exit_price, 5));
     }
 
+    SaveInventoryState();
     Print("INFO: Carry recalculation finished.");
 }
 
