@@ -19,7 +19,6 @@ void CloseAllPositions();
 void CancelAllPending();
 void CancelAllPendingEntries();
 void ProcessCloseByQueue();
-void PlaceRadarTarget(const RadarTarget &t);
 string GetEntrySymbol();
 int    GetEntryDirection();
 double GetPendingOrderPrice(ulong ticket);
@@ -79,49 +78,24 @@ void OnTick() {
 
         RunSignalOnBarClose();
 
-        // --- RADAR STATE MACHINE ---
-        // MathEngine identifies best target. FXMatrix executes.
-        RadarTarget target = GetBestRadarTarget(EntryThreshold);
-
-        // FORCE SYNC: Override theoretical globals with Radar target.
-        // This guarantees ComputeEntryPrice() calculates the correct
-        // threshold price for the Radar's chosen pair — not whatever
-        // pair RunSignalOnBarClose() happened to set last.
-        if (target.is_active) {
-            g_strongest = target.strongest_idx;
-            g_weakest   = target.weakest_idx;
-        }
-
+        // --- PLAIN MATRIX ENTRY ---
+        // Commit to first active signal and hold until fill or fade.
+        // Radar concept parked in git history for future redesign.
         if (ArraySize(g_inventory) == 0) {
-            if (g_pending_entry_ticket > 0) {
-                if (OrderSelect(g_pending_entry_ticket)) {
-                    string current_sym = OrderGetString(ORDER_SYMBOL);
-                    int    current_dir = (OrderGetInteger(ORDER_TYPE)
-                                         == ORDER_TYPE_BUY_LIMIT)
-                                        ? DIRECTION_BUY : DIRECTION_SELL;
-
-                    if (target.is_active          &&
-                        target.symbol    == current_sym &&
-                        target.direction == current_dir) {
-                        // Best case matches physical order.
-                        // Nudge block below handles price updates.
-                    } else {
-                        // Best case rotated OR signal faded.
-                        // Cancel immediately — stale order is riskier
-                        // than no order. Sit flat if no valid replacement.
-                        CancelAllPendingEntries();
-                        if (target.is_active)
-                            PlaceRadarTarget(target);
-                        // If PlaceRadarTarget fails price validation,
-                        // we sit flat and re-evaluate next bar.
+            if (g_signal_active && g_pending_entry_ticket == 0) {
+                CancelAllPendingEntries();
+                double entry_price = ComputeEntryPrice();
+                if (entry_price > 0) {
+                    string symbol = GetEntrySymbol();
+                    ulong  tkt    = PlaceEntryLimit(entry_price,
+                                        GetEntryDirection(), symbol);
+                    if (tkt > 0) {
+                        g_pending_entry_ticket = tkt;
+                        SaveInventoryState();
                     }
-                } else {
-                    g_pending_entry_ticket = 0;
-                    SaveInventoryState();
                 }
-            } else {
-                if (target.is_active)
-                    PlaceRadarTarget(target);
+            } else if (!g_signal_active && g_pending_entry_ticket > 0) {
+                CancelAllPendingEntries();
             }
         }
     }
@@ -269,23 +243,6 @@ void CancelAllPendingEntries() {
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
           " pending orders on ", _Symbol);
-}
-
-void PlaceRadarTarget(const RadarTarget &t) {
-    double entry_price = ComputeEntryPrice();
-    if (entry_price <= 0) return;
-
-    CancelAllPendingEntries();
-    ulong tkt = PlaceEntryLimit(entry_price, t.direction, t.symbol);
-    if (tkt > 0) {
-        g_pending_entry_ticket = tkt;
-        SaveInventoryState();
-        if (EnableVerboseLog)
-            Print("INFO: Radar target placed. symbol=", t.symbol,
-                  " direction=", t.direction,
-                  " dislocation=", DoubleToString(t.dislocation, 6),
-                  " ticket=", tkt);
-    }
 }
 
 void ProcessCloseByQueue() {
