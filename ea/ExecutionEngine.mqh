@@ -164,6 +164,24 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
 }
 
 //------------------------------------------------------------------
+// ComputeLayerThreshold
+// Returns the entry threshold for layer idx using hybrid spacing:
+// - Exponential phase for idx <= InflectionLayer
+// - Linear phase for idx > InflectionLayer
+// Regime boundary maps mean-reversion (shallow) to trending
+// (deep) market structure.
+//------------------------------------------------------------------
+double ComputeLayerThreshold(int idx) {
+    if (idx <= InflectionLayer)
+        return BaseThreshold
+               * MathPow(ThresholdMultiplier, idx);
+    else
+        return BaseThreshold
+               * MathPow(ThresholdMultiplier, InflectionLayer)
+               + (idx - InflectionLayer) * ThresholdStep;
+}
+
+//------------------------------------------------------------------
 // ComputeNextLayerPrice
 // Returns the physical broker price at which the spread model
 // will cross layer_threshold(next_layer_idx).
@@ -178,12 +196,10 @@ double ComputeNextLayerPrice(int    next_layer_idx,
                              int    direction,
                              double deal_price) {
 
-    double current_threshold = BaseThreshold
-                               * MathPow(ThresholdMultiplier,
-                                         next_layer_idx - 1);
-    double next_threshold    = BaseThreshold
-                               * MathPow(ThresholdMultiplier,
-                                         next_layer_idx);
+    double current_threshold = ComputeLayerThreshold(
+                                   next_layer_idx - 1);
+    double next_threshold    = ComputeLayerThreshold(
+                                   next_layer_idx);
 
     int strongest = 0;
     int weakest   = 0;
