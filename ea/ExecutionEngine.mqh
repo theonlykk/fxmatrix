@@ -163,6 +163,23 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
           " | exit_time=",        TimeToString(exit_time));
 }
 
+double GetH4ATR(string symbol) {
+    double atr_buf[];
+    ArraySetAsSeries(atr_buf, true);
+    int handle = iATR(symbol, PERIOD_H4, 14);
+    if (handle == INVALID_HANDLE) {
+        Print("ERROR: GetH4ATR — iATR handle invalid for ", symbol);
+        return 0.001;
+    }
+    if (CopyBuffer(handle, 0, 0, 1, atr_buf) < 1) {
+        Print("ERROR: GetH4ATR — CopyBuffer failed for ", symbol);
+        IndicatorRelease(handle);
+        return 0.001;
+    }
+    IndicatorRelease(handle);
+    return atr_buf[0];
+}
+
 void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
                          datetime deal_time);
 
@@ -334,23 +351,14 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 
+        double h4_atr = GetH4ATR(deal_symbol);
+        if (L.direction == DIRECTION_BUY)
+            L.add_next = deal_price - AddRatio * h4_atr;
+        else
+            L.add_next = deal_price + AddRatio * h4_atr;
+
         ArrayResize(g_inventory, layer_idx + 1);
         g_inventory[layer_idx] = L;
-
-        // Escalating threshold: next layer requires greater dislocation
-        // next_layer_idx = ArraySize AFTER current layer appended
-        // (MQL5 zero-indexed: ArraySize == index of next element)
-        int    next_layer_idx  = ArraySize(g_inventory);
-        double next_threshold  = BaseThreshold + next_layer_idx * ThresholdStep;
-        g_inventory[layer_idx].add_next = InvertSpreadToPrice(
-            L.EU_mid_12bars_ago_at_entry,
-            L.GB_mid_12bars_ago_at_entry,
-            L.r_EU_at_entry,
-            L.r_GB_at_entry,
-            -next_threshold,
-            L.strongest_at_entry,
-            L.weakest_at_entry,
-            false);  // false = entry direction (not exit)
 
         g_pending_entry_ticket = 0;
         SaveInventoryState();
