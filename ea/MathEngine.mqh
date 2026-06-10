@@ -261,6 +261,11 @@ bool IsClearOfFreezeLevel(double price, int direction, string symbol) {
 }
 
 RadarTarget GetBestRadarTarget(double threshold) {
+    // Anchor validity guard — anchors not populated until 12 bars close
+    RadarTarget empty = {};
+    if (g_EU_mid_12bars_ago <= 0 || g_GB_mid_12bars_ago <= 0)
+        return empty;
+
     double eu_bid = SymbolInfoDouble("EURUSD", SYMBOL_BID);
     double eu_ask = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
     double gb_bid = SymbolInfoDouble("GBPUSD", SYMBOL_BID);

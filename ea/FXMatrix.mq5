@@ -106,19 +106,22 @@ void OnTick() {
                         // Best case matches physical order.
                         // Nudge block below handles price updates.
                     } else {
+                        // Best case rotated OR signal faded.
+                        // Cancel immediately — stale order is riskier
+                        // than no order. Sit flat if no valid replacement.
                         CancelAllPendingEntries();
                         if (target.is_active)
                             PlaceRadarTarget(target);
+                        // If PlaceRadarTarget fails price validation,
+                        // we sit flat and re-evaluate next bar.
                     }
                 } else {
                     g_pending_entry_ticket = 0;
                     SaveInventoryState();
                 }
             } else {
-                if (target.is_active) {
-                    CancelAllPendingEntries();
+                if (target.is_active)
                     PlaceRadarTarget(target);
-                }
             }
         }
     }
@@ -236,6 +239,8 @@ void CancelAllPending() {
 }
 
 void CancelAllPendingEntries() {
+    if (g_pending_entry_ticket == 0) return;
+
     int cancelled = 0;
     for (int i = OrdersTotal() - 1; i >= 0; i--) {
         ulong ticket = OrderGetTicket(i);
@@ -254,6 +259,8 @@ void CancelAllPendingEntries() {
                   " retcode=", res.retcode);
         } else {
             cancelled++;
+            if (ticket == g_pending_entry_ticket)
+                g_pending_entry_ticket = 0;
         }
     }
 
@@ -266,13 +273,9 @@ void CancelAllPendingEntries() {
 
 void PlaceRadarTarget(const RadarTarget &t) {
     double entry_price = ComputeEntryPrice();
-    if (entry_price <= 0) {
-        Print("WARNING: PlaceRadarTarget — ComputeEntryPrice returned ",
-              entry_price, " for ", t.symbol,
-              " direction=", t.direction, ". Skipping.");
-        return;
-    }
+    if (entry_price <= 0) return;
 
+    CancelAllPendingEntries();
     ulong tkt = PlaceEntryLimit(entry_price, t.direction, t.symbol);
     if (tkt > 0) {
         g_pending_entry_ticket = tkt;
