@@ -54,7 +54,7 @@ bool RunSignalOnBarClose() {
     double spread = scores[weakest] - scores[strongest];
     g_entry_spread = spread;
 
-    if (MathAbs(spread) > EntryThreshold) {
+    if (MathAbs(spread) > BaseThreshold) {
         g_signal_active = true;
     } else {
         g_signal_active = false;
@@ -73,14 +73,14 @@ bool RunSignalOnBarClose() {
                           ? "SELL" : "BUY";
             Print("INFO: Signal active: spread=",
                   DoubleToString(g_entry_spread, 6),
-                  " threshold=", DoubleToString(EntryThreshold, 6),
+                  " threshold=", DoubleToString(BaseThreshold, 6),
                   " strongest=", g_strongest,
                   " weakest=", g_weakest,
                   " -> ", inst, " ", dir);
         } else {
             Print("INFO: No signal: spread=",
                   DoubleToString(g_entry_spread, 6),
-                  " threshold=", DoubleToString(EntryThreshold, 6));
+                  " threshold=", DoubleToString(BaseThreshold, 6));
         }
     }
 

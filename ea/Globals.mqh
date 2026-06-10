@@ -5,7 +5,8 @@
 
 //--- Signal parameters
 input int    StrengthWindow     = 12;      // M5 bars = 1 hour
-input double EntryThreshold     = 0.0008;  // log-return units
+input double BaseThreshold      = 0.0004;  // Layer 0 entry threshold
+input double ThresholdStep      = 0.0002;  // per-layer threshold increment
 
 //--- Exit parameters
 input double ExitFraction       = 0.70;    // fraction of spread reversion to capture
@@ -17,7 +18,6 @@ input double MinFillThreshold   = 0.50;    // fraction of lot_size before next l
 input int    MaxLayers          = 20;
 input double BaseLotSize        = 0.01;
 input ulong  EA_MAGIC           = 20260608; // FXMatrix Pod Identifier
-input double AddRatio           = 0.75;    // × H4 ATR for add_next spacing
 
 //--- Nudging
 input double NudgePips          = 0.5;     // pips; converted to points per symbol

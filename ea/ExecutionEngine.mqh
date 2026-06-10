@@ -163,21 +163,62 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
           " | exit_time=",        TimeToString(exit_time));
 }
 
-double GetH4ATR(string symbol) {
-    double atr_buf[];
-    ArraySetAsSeries(atr_buf, true);
-    int handle = iATR(symbol, PERIOD_H4, 14);
-    if (handle == INVALID_HANDLE) {
-        Print("ERROR: GetH4ATR — iATR handle invalid for ", symbol);
-        return 0.001;
+//------------------------------------------------------------------
+// ComputeNextLayerPrice
+// Returns the physical broker price at which the spread model
+// will cross layer_threshold(next_layer_idx).
+// Uses a differential approach anchored to deal_price at fill
+// time — eliminates anchor-drift staleness risk.
+// Directionality is implicit: InvertSpreadToPrice() returns
+// prices below deal_price for BUY (add_next must be lower)
+// and above deal_price for SELL (add_next must be higher).
+//------------------------------------------------------------------
+double ComputeNextLayerPrice(int    next_layer_idx,
+                             int    instrument,
+                             int    direction,
+                             double deal_price) {
+
+    double current_threshold = BaseThreshold
+                               + (next_layer_idx - 1) * ThresholdStep;
+    double next_threshold    = BaseThreshold
+                               + next_layer_idx * ThresholdStep;
+
+    int strongest = 0;
+    int weakest   = 0;
+    if (instrument == INSTRUMENT_EURGBP) {
+        if (direction == DIRECTION_BUY)  { strongest = 1; weakest = 0; }
+        else                               { strongest = 0; weakest = 1; }
+    } else if (instrument == INSTRUMENT_EURUSD) {
+        if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 0; }
+        else                               { strongest = 0; weakest = 2; }
+    } else {
+        if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 1; }
+        else                               { strongest = 1; weakest = 2; }
     }
-    if (CopyBuffer(handle, 0, 0, 1, atr_buf) < 1) {
-        Print("ERROR: GetH4ATR — CopyBuffer failed for ", symbol);
-        IndicatorRelease(handle);
-        return 0.001;
-    }
-    IndicatorRelease(handle);
-    return atr_buf[0];
+
+    double price_current = InvertSpreadToPrice(
+        g_EU_mid_12bars_ago,
+        g_GB_mid_12bars_ago,
+        g_r_EU_signal,
+        g_r_GB_signal,
+        -current_threshold,
+        strongest,
+        weakest,
+        false);   // entry, not exit
+
+    double price_next = InvertSpreadToPrice(
+        g_EU_mid_12bars_ago,
+        g_GB_mid_12bars_ago,
+        g_r_EU_signal,
+        g_r_GB_signal,
+        -next_threshold,
+        strongest,
+        weakest,
+        false);   // entry, not exit
+
+    double price_offset = price_next - price_current;
+
+    return deal_price + price_offset;
 }
 
 void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
@@ -351,14 +392,18 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 
-        double h4_atr = GetH4ATR(deal_symbol);
-        if (L.direction == DIRECTION_BUY)
-            L.add_next = deal_price - AddRatio * h4_atr;
-        else
-            L.add_next = deal_price + AddRatio * h4_atr;
-
         ArrayResize(g_inventory, layer_idx + 1);
         g_inventory[layer_idx] = L;
+
+        // next_layer_idx: ArraySize AFTER current layer appended
+        // (MQL5 zero-indexed: ArraySize == index of next element)
+        // Gemini confirmed: use post-append ArraySize
+        int next_layer_idx = ArraySize(g_inventory);
+        g_inventory[layer_idx].add_next = ComputeNextLayerPrice(
+            next_layer_idx,
+            L.instrument,
+            L.direction,
+            deal_price);
 
         g_pending_entry_ticket = 0;
         SaveInventoryState();
