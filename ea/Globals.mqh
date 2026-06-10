@@ -6,7 +6,7 @@
 //--- Signal parameters
 input int    StrengthWindow     = 12;      // M5 bars = 1 hour
 input double BaseThreshold      = 0.0004;  // Layer 0 entry threshold
-input double ThresholdStep      = 0.0002;  // per-layer threshold increment
+input double ThresholdMultiplier = 1.5;    // exponential threshold growth per layer
 
 //--- Exit parameters
 input double ExitFraction       = 0.70;    // fraction of spread reversion to capture
@@ -87,6 +87,10 @@ int InitGlobals() {
     }
     if (ExitFractionMin <= 0.0) {
         Print("FATAL: ExitFractionMin must be > 0.0");
+        return INIT_PARAMETERS_INCORRECT;
+    }
+    if (ThresholdMultiplier <= 1.0) {
+        Print("FATAL: ThresholdMultiplier must be strictly > 1.0");
         return INIT_PARAMETERS_INCORRECT;
     }
     if (MinFillThreshold <= 0 || MinFillThreshold > 1.0) {

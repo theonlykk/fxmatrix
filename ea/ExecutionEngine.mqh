@@ -179,9 +179,11 @@ double ComputeNextLayerPrice(int    next_layer_idx,
                              double deal_price) {
 
     double current_threshold = BaseThreshold
-                               + (next_layer_idx - 1) * ThresholdStep;
+                               * MathPow(ThresholdMultiplier,
+                                         next_layer_idx - 1);
     double next_threshold    = BaseThreshold
-                               + next_layer_idx * ThresholdStep;
+                               * MathPow(ThresholdMultiplier,
+                                         next_layer_idx);
 
     int strongest = 0;
     int weakest   = 0;
