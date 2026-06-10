@@ -342,7 +342,10 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
                                                          DEAL_POSITION_ID);
 
-        L.exit_spread_target = ComputeExitSpreadTarget(L);
+        double layer_exit_frac = MathMax(
+            ExitFraction - (ArraySize(g_inventory) * ExitFractionStep),
+            ExitFractionMin);
+        L.exit_spread_target = L.entry_spread_adjusted * (1.0 - layer_exit_frac);
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 

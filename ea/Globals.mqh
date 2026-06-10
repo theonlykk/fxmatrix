@@ -9,6 +9,8 @@ input double EntryThreshold     = 0.0008;  // log-return units
 
 //--- Exit parameters
 input double ExitFraction       = 0.70;    // fraction of spread reversion to capture
+input double ExitFractionStep   = 0.10;    // per-layer reduction in exit fraction
+input double ExitFractionMin    = 0.10;    // minimum exit fraction (must be > 0.0)
 input double MinFillThreshold   = 0.50;    // fraction of lot_size before next layer
 
 //--- Layer mechanics
@@ -81,6 +83,10 @@ int InitGlobals() {
     }
     if (ExitFraction <= 0 || ExitFraction >= 1.0) {
         Print("ERROR: ExitFraction must be between 0 and 1");
+        return INIT_PARAMETERS_INCORRECT;
+    }
+    if (ExitFractionMin <= 0.0) {
+        Print("FATAL: ExitFractionMin must be > 0.0");
         return INIT_PARAMETERS_INCORRECT;
     }
     if (MinFillThreshold <= 0 || MinFillThreshold > 1.0) {
