@@ -12,7 +12,7 @@ input double ExitFraction       = 0.70;    // fraction of spread reversion to ca
 input double MinFillThreshold   = 0.50;    // fraction of lot_size before next layer
 
 //--- Layer mechanics
-input int    MaxLayers          = 5;
+input int    MaxLayers          = 20;
 input double BaseLotSize        = 0.01;
 input ulong  EA_MAGIC           = 20260608; // FXMatrix Pod Identifier
 input double AddRatio           = 0.75;    // × H4 ATR for add_next spacing
@@ -71,7 +71,7 @@ int InitGlobals() {
 
     ArrayResize(g_inventory, 0);
 
-    if (MaxLayers < 1 || MaxLayers > 10) {
+    if (MaxLayers < 1 || MaxLayers > 20) {
         Print("ERROR: MaxLayers out of range");
         return INIT_PARAMETERS_INCORRECT;
     }
