@@ -56,15 +56,35 @@ bool RunSignalOnBarClose() {
 
     if (MathAbs(spread) > EntryThreshold) {
         g_signal_active = true;
-        if (EnableVerboseLog)
-            Print("Signal active: strongest=", strongest,
-                  " weakest=", weakest,
-                  " spread=", DoubleToString(spread, 6));
-        return true;
+    } else {
+        g_signal_active = false;
     }
 
-    g_signal_active = false;
-    return false;
+    if (EnableVerboseLog) {
+        if (g_signal_active) {
+            string inst = ((g_strongest == 0 && g_weakest == 1) ||
+                           (g_strongest == 1 && g_weakest == 0)) ? "EURGBP" :
+                          ((g_strongest == 0 && g_weakest == 2) ||
+                           (g_strongest == 2 && g_weakest == 0)) ? "EURUSD" :
+                          "GBPUSD";
+            string dir  = ((g_strongest == 0 && g_weakest == 1) ||
+                           (g_strongest == 0 && g_weakest == 2) ||
+                           (g_strongest == 1 && g_weakest == 2))
+                          ? "SELL" : "BUY";
+            Print("INFO: Signal active: spread=",
+                  DoubleToString(g_entry_spread, 6),
+                  " threshold=", DoubleToString(EntryThreshold, 6),
+                  " strongest=", g_strongest,
+                  " weakest=", g_weakest,
+                  " -> ", inst, " ", dir);
+        } else {
+            Print("INFO: No signal: spread=",
+                  DoubleToString(g_entry_spread, 6),
+                  " threshold=", DoubleToString(EntryThreshold, 6));
+        }
+    }
+
+    return g_signal_active;
 }
 
 bool IsPassive(double price, int direction, string symbol) {
