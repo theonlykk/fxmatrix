@@ -98,7 +98,8 @@ void OnTick() {
         }
     }
 
-    if (ArraySize(g_inventory) == 0 &&
+    if (g_signal_active          &&
+        ArraySize(g_inventory) == 0 &&
         g_pending_entry_ticket > 0) {
 
         double recomputed = ComputeEntryPrice();
