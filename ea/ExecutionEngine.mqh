@@ -202,6 +202,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             return;
         }
 
+        layer_idx = ArraySize(g_inventory);
+
         Layer L = InitLayer();
         L.entry_price = deal_price;
         L.entry_time  = deal_time;
@@ -343,7 +345,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                                                          DEAL_POSITION_ID);
 
         double layer_exit_frac = MathMax(
-            ExitFraction - (ArraySize(g_inventory) * ExitFractionStep),
+            ExitFraction - (layer_idx * ExitFractionStep),
             ExitFractionMin);
         L.exit_spread_target = L.entry_spread_adjusted * (1.0 - layer_exit_frac);
         double exit_price    = ComputeExitPrice(L);
@@ -355,10 +357,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         else
             L.add_next = deal_price + AddRatio * h4_atr;
 
-        int new_idx = ArraySize(g_inventory);
-        ArrayResize(g_inventory, new_idx + 1);
-        g_inventory[new_idx] = L;
-        layer_idx = new_idx;
+        ArrayResize(g_inventory, layer_idx + 1);
+        g_inventory[layer_idx] = L;
 
         g_pending_entry_ticket = 0;
         SaveInventoryState();
