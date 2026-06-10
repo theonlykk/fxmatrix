@@ -105,7 +105,7 @@ void RunCarryRecalculation() {
                 }
             }
 
-            if (!ok) {
+            if (!ok && res.retcode != TRADE_RETCODE_NO_CHANGES) {
                 Print("ERROR: Carry OrderModify failed. ",
                       "ticket=", tkt, " layer=", i,
                       " retcode=", res.retcode,
