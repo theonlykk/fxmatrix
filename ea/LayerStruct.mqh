@@ -64,6 +64,16 @@ struct CloseByTask {
     int   retries;   // OnTick attempt counter (max 10)
 };
 
+// Radar targeting — identifies single best routing case per bar close
+struct RadarTarget {
+    string symbol;       // "EURUSD", "GBPUSD", or "EURGBP"
+    int    direction;    // DIRECTION_BUY or DIRECTION_SELL
+    double dislocation;  // absolute spread magnitude
+    bool   is_active;    // true if dislocation >= EntryThreshold
+    int    strongest_idx; // mean-reversion strongest currency index
+    int    weakest_idx;   // mean-reversion weakest currency index
+};
+
 //--- IMMUTABILITY CONTRACT (DO NOT MODIFY IN ANY OTHER FILE) ---
 // The following Layer fields are set ONCE at first fill and
 // must NEVER be modified by any function outside OnTradeTransaction:

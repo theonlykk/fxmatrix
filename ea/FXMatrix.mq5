@@ -19,6 +19,7 @@ void CloseAllPositions();
 void CancelAllPending();
 void CancelAllPendingEntries();
 void ProcessCloseByQueue();
+void PlaceRadarTarget(const RadarTarget &t);
 string GetEntrySymbol();
 int    GetEntryDirection();
 double GetPendingOrderPrice(ulong ticket);
@@ -78,35 +79,51 @@ void OnTick() {
 
         RunSignalOnBarClose();
 
-        if (g_signal_active && ArraySize(g_inventory) == 0) {
-            if (g_pending_entry_ticket > 0) {
-                // Existing limit is live — nudge logic in OnTick()
-                // handles price updates. Do not place a new limit.
-            } else {
-                // No tracked pending limit. Pre-flight sweep: cancel
-                // any ghost limits from prior reloads or missed nudges
-                // before placing a fresh one. Highlander Rule:
-                // there can be only one.
-                CancelAllPendingEntries();
+        // --- RADAR STATE MACHINE ---
+        // MathEngine identifies best target. FXMatrix executes.
+        RadarTarget target = GetBestRadarTarget(EntryThreshold);
 
-                double entry_price = ComputeEntryPrice();
-                if (entry_price > 0) {
-                    string symbol = GetEntrySymbol();
-                    ulong  tkt    = PlaceEntryLimit(entry_price,
-                                        GetEntryDirection(), symbol);
-                    if (tkt > 0) {
-                        g_pending_entry_ticket = tkt;
-                        SaveInventoryState(); // Persist new Layer 0 ticket —
-                                              // prevents reload loop where EA
-                                              // cancels its own valid limit
+        // FORCE SYNC: Override theoretical globals with Radar target.
+        // This guarantees ComputeEntryPrice() calculates the correct
+        // threshold price for the Radar's chosen pair — not whatever
+        // pair RunSignalOnBarClose() happened to set last.
+        if (target.is_active) {
+            g_strongest = target.strongest_idx;
+            g_weakest   = target.weakest_idx;
+        }
+
+        if (ArraySize(g_inventory) == 0) {
+            if (g_pending_entry_ticket > 0) {
+                if (OrderSelect(g_pending_entry_ticket)) {
+                    string current_sym = OrderGetString(ORDER_SYMBOL);
+                    int    current_dir = (OrderGetInteger(ORDER_TYPE)
+                                         == ORDER_TYPE_BUY_LIMIT)
+                                        ? DIRECTION_BUY : DIRECTION_SELL;
+
+                    if (target.is_active          &&
+                        target.symbol    == current_sym &&
+                        target.direction == current_dir) {
+                        // Best case matches physical order.
+                        // Nudge block below handles price updates.
+                    } else {
+                        CancelAllPendingEntries();
+                        if (target.is_active)
+                            PlaceRadarTarget(target);
                     }
+                } else {
+                    g_pending_entry_ticket = 0;
+                    SaveInventoryState();
+                }
+            } else {
+                if (target.is_active) {
+                    CancelAllPendingEntries();
+                    PlaceRadarTarget(target);
                 }
             }
         }
     }
 
-    if (g_signal_active          &&
-        ArraySize(g_inventory) == 0 &&
+    if (ArraySize(g_inventory) == 0 &&
         g_pending_entry_ticket > 0) {
 
         double recomputed = ComputeEntryPrice();
@@ -116,8 +133,14 @@ void OnTick() {
             if (current_pending > 0 &&
                 MathAbs(recomputed - current_pending) > g_NudgeThreshold) {
 
-                string symbol = GetEntrySymbol();
-                int    dir    = GetEntryDirection();
+                string symbol = OrderSelect(g_pending_entry_ticket)
+                                ? OrderGetString(ORDER_SYMBOL)
+                                : GetEntrySymbol();
+                int    dir    = OrderSelect(g_pending_entry_ticket)
+                                ? ((OrderGetInteger(ORDER_TYPE) ==
+                                    ORDER_TYPE_BUY_LIMIT)
+                                   ? DIRECTION_BUY : DIRECTION_SELL)
+                                : GetEntryDirection();
 
                 if (IsClearOfFreezeLevel(recomputed, dir, symbol) &&
                     IsPassive(recomputed, dir, symbol)) {
@@ -239,6 +262,27 @@ void CancelAllPendingEntries() {
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
           " pending orders on ", _Symbol);
+}
+
+void PlaceRadarTarget(const RadarTarget &t) {
+    double entry_price = ComputeEntryPrice();
+    if (entry_price <= 0) {
+        Print("WARNING: PlaceRadarTarget — ComputeEntryPrice returned ",
+              entry_price, " for ", t.symbol,
+              " direction=", t.direction, ". Skipping.");
+        return;
+    }
+
+    ulong tkt = PlaceEntryLimit(entry_price, t.direction, t.symbol);
+    if (tkt > 0) {
+        g_pending_entry_ticket = tkt;
+        SaveInventoryState();
+        if (EnableVerboseLog)
+            Print("INFO: Radar target placed. symbol=", t.symbol,
+                  " direction=", t.direction,
+                  " dislocation=", DoubleToString(t.dislocation, 6),
+                  " ticket=", tkt);
+    }
 }
 
 void ProcessCloseByQueue() {
