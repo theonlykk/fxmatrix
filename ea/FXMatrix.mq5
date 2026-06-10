@@ -94,8 +94,6 @@ void OnTick() {
                         SaveInventoryState();
                     }
                 }
-            } else if (!g_signal_active && g_pending_entry_ticket > 0) {
-                CancelAllPendingEntries();
             }
         }
     }
