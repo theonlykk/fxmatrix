@@ -119,7 +119,8 @@ double InvertSpreadToPrice(
     double T,
     int    strongest,
     int    weakest,
-    bool   is_exit
+    bool   is_exit,
+    bool   enforce_passivity = true
 ) {
     string symbol    = "";
     int    direction = 0;
@@ -204,7 +205,7 @@ double InvertSpreadToPrice(
     else
         price = price - half_spread;
 
-    if (!IsPassive(price, direction, symbol)) {
+    if (enforce_passivity && !IsPassive(price, direction, symbol)) {
         Print("INFO: Passivity failure — order skipped. ",
               "symbol=", symbol,
               " direction=", direction,

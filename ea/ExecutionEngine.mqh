@@ -204,7 +204,8 @@ double ComputeNextLayerPrice(int    next_layer_idx,
         -current_threshold,
         strongest,
         weakest,
-        false);   // entry, not exit
+        false,
+        false);   // enforce_passivity=false — pure math inversion
 
     double price_next = InvertSpreadToPrice(
         g_EU_mid_12bars_ago,
@@ -214,7 +215,16 @@ double ComputeNextLayerPrice(int    next_layer_idx,
         -next_threshold,
         strongest,
         weakest,
-        false);   // entry, not exit
+        false,
+        false);   // enforce_passivity=false — pure math inversion
+
+    if (price_current <= 0.0 || price_next <= 0.0) {
+        Print("SEV-2: ComputeNextLayerPrice — inversion returned "
+              "sentinel. price_current=", price_current,
+              " price_next=", price_next,
+              " next_layer_idx=", next_layer_idx);
+        return -1.0;
+    }
 
     double price_offset = price_next - price_current;
 
@@ -399,11 +409,32 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         // (MQL5 zero-indexed: ArraySize == index of next element)
         // Gemini confirmed: use post-append ArraySize
         int next_layer_idx = ArraySize(g_inventory);
-        g_inventory[layer_idx].add_next = ComputeNextLayerPrice(
+        double computed_next = ComputeNextLayerPrice(
             next_layer_idx,
             L.instrument,
             L.direction,
             deal_price);
+
+        // Sentinel guard — never store corrupted add_next
+        if (computed_next <= 0.0) {
+            Print("SEV-2: HandleEntryFill — add_next sentinel (-1.0). "
+                  "Layering skipped for this fill. "
+                  "next_layer_idx=", next_layer_idx,
+                  " deal_price=", deal_price);
+            g_inventory[layer_idx].add_next = 0.0;
+        }
+        // Sanity clamp — reject add_next > 5% from deal_price
+        else if (MathAbs(computed_next - deal_price) >
+                 deal_price * 0.05) {
+            Print("SEV-2: HandleEntryFill — add_next deviation > 5%. "
+                  "computed=", computed_next,
+                  " deal_price=", deal_price,
+                  " Layering skipped.");
+            g_inventory[layer_idx].add_next = 0.0;
+        }
+        else {
+            g_inventory[layer_idx].add_next = computed_next;
+        }
 
         g_pending_entry_ticket = 0;
         SaveInventoryState();
