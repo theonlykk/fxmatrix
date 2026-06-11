@@ -27,6 +27,10 @@ int OnInit() {
     int result = InitGlobals();
     if (result != INIT_SUCCEEDED) return result;
 
+    Print("FXMatrix EA initialised. "
+          "build=78a434e "
+          "NudgeThreshold=", g_NudgeThreshold, " points");
+
     LoadInventoryState();
     CheckForOrphans();
     if (g_halted) {
@@ -168,7 +172,7 @@ void OnTick() {
                     // to reflect the locked routing
                     g_entry_spread = scores[pending_weakest]
                                      - scores[pending_strongest];
-                    g_signal_active = (MathAbs(g_entry_spread) > BaseThreshold);
+                    g_signal_active = (g_entry_spread < -BaseThreshold);
                 }
             }
             // else: same routing — retain, nudge block handles naturally

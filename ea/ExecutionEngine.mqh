@@ -708,7 +708,8 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
         return;
     }
 
-    if (deal_entry == DEAL_ENTRY_OUT) {
+    if (deal_entry == DEAL_ENTRY_OUT ||
+        deal_entry == DEAL_ENTRY_OUT_BY) {
         HandleExitFill(deal_ticket, order_ticket, deal_volume,
                        deal_time, deal_profit);
         return;
