@@ -255,7 +255,10 @@ void CheckForOrphans() {
     int total = PositionsTotal();
     for (int i = 0; i < total; i++) {
         ulong ticket = PositionGetTicket(i);
-        if (PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+        string pos_sym = PositionGetString(POSITION_SYMBOL);
+        if (pos_sym != "EURUSD" &&
+            pos_sym != "GBPUSD" &&
+            pos_sym != "EURGBP") continue;
         if (PositionGetInteger(POSITION_MAGIC) != (long)EA_MAGIC) continue;
 
         bool found = false;
@@ -268,7 +271,7 @@ void CheckForOrphans() {
 
         if (!found) {
             Print("ERROR: Orphan position detected — ticket=", ticket,
-                  " symbol=", _Symbol,
+                  " symbol=", pos_sym,
                   " — EA cannot manage this position. Halting.");
             g_halted = true;
         }

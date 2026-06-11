@@ -86,6 +86,12 @@ void RunCarryRecalculation() {
         for (int j = 0; j < n_tickets; j++) {
             ulong tkt = g_inventory[i].exit_tickets[j];
 
+            if (!OrderSelect(tkt)) {
+                Print("INFO: Carry Engine skip — ticket ", tkt,
+                      " missing from order book.");
+                continue;
+            }
+
             MqlTradeRequest req = {};
             MqlTradeResult  res = {};
             req.action = TRADE_ACTION_MODIFY;

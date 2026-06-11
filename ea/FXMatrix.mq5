@@ -308,8 +308,6 @@ void CancelAllPending() {
 }
 
 void CancelAllPendingEntries() {
-    if (g_pending_entry_ticket == 0) return;
-
     int cancelled = 0;
     for (int i = OrdersTotal() - 1; i >= 0; i--) {
         ulong ticket = OrderGetTicket(i);
@@ -358,8 +356,18 @@ void ProcessCloseByQueue() {
 
         if (!PositionSelectByTicket(g_closeby_queue[i].ticket1) ||
             !PositionSelectByTicket(g_closeby_queue[i].ticket2)) {
-            Print("INFO: CloseBy queue retry ", g_closeby_queue[i].retries,
-                  "/10 — positions not yet on ledger. Waiting.");
+            // Check if broker already netted the position
+            if (HistorySelectByPosition(g_closeby_queue[i].ticket1) ||
+                HistorySelectByPosition(g_closeby_queue[i].ticket2)) {
+                Print("INFO: CloseBy position already closed in history. "
+                      "Discarding task gracefully.");
+                ArrayRemove(g_closeby_queue, i, 1);
+                continue;
+            }
+            // Genuine delay — retry
+            Print("INFO: CloseBy queue retry ",
+                  g_closeby_queue[i].retries, "/10 — positions not yet "
+                  "on ledger. Waiting.");
             continue;
         }
 

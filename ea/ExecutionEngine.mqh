@@ -255,6 +255,20 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
 
         layer_idx = ArraySize(g_inventory);
 
+        if (layer_idx > 0) {
+            string expected_symbol =
+                (g_inventory[0].instrument == INSTRUMENT_EURUSD) ? "EURUSD"
+                : (g_inventory[0].instrument == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                : "EURGBP";
+            if (deal_symbol != expected_symbol) {
+                Print("SEV-1: ALIEN FILL REJECTED. deal_symbol=", deal_symbol,
+                      " expected=", expected_symbol,
+                      " ticket=", deal_ticket);
+                g_halted = true;
+                return;
+            }
+        }
+
         Layer L = InitLayer();
         L.entry_price = deal_price;
         L.entry_time  = deal_time;
@@ -645,6 +659,12 @@ void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
 void OnTradeTransaction(const MqlTradeTransaction &trans,
                         const MqlTradeRequest     &request,
                         const MqlTradeResult      &result) {
+    if (g_halted) {
+        Print("WARNING: OnTradeTransaction fired while EA is halted. "
+              "Event dropped.");
+        return;
+    }
+
     if (trans.type != TRADE_TRANSACTION_DEAL_ADD) return;
 
     if (!HistoryDealSelect(trans.deal)) {
