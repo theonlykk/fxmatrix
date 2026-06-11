@@ -259,7 +259,6 @@ void CancelAllPendingEntries() {
     for (int i = OrdersTotal() - 1; i >= 0; i--) {
         ulong ticket = OrderGetTicket(i);
         if (ticket == 0) continue;
-        if (OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
         if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
 
         MqlTradeRequest req = {};
@@ -282,7 +281,7 @@ void CancelAllPendingEntries() {
     SaveInventoryState();
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
-          " pending orders on ", _Symbol);
+          " pending orders");
 }
 
 void ProcessCloseByQueue() {
