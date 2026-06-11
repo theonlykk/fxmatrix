@@ -28,7 +28,7 @@ int OnInit() {
     if (result != INIT_SUCCEEDED) return result;
 
     Print("FXMatrix EA initialised. "
-          "build=78a434e "
+          "build=1da31ec "
           "NudgeThreshold=", g_NudgeThreshold, " points");
 
     LoadInventoryState();
