@@ -312,6 +312,10 @@ void CancelAllPending() {
 }
 
 void CancelAllPendingEntries() {
+    // Skip sweep if no tracked ticket AND no EA orders on book
+    // Preserves F7 orphan sweep while avoiding per-bar SaveInventoryState
+    if (g_pending_entry_ticket == 0 && OrdersTotal() == 0) return;
+
     int cancelled = 0;
     for (int i = OrdersTotal() - 1; i >= 0; i--) {
         ulong ticket = OrderGetTicket(i);
