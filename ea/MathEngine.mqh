@@ -158,28 +158,28 @@ double InvertSpreadToPrice(
     else if (strongest == 0 && weakest == 2) {
         symbol    = "EURUSD";
         direction = DIRECTION_SELL;
-        double r_EU_target   = r_GB_fixed + MathAbs(T);  // SELL: add dislocation → higher price
+        double r_EU_target   = -T;  // T = usd-eur = -r_EU, so -T = r_EU
         double EU_target_mid = anchor_EU * MathExp(r_EU_target);
         price = EU_target_mid;
     }
     else if (strongest == 2 && weakest == 0) {
         symbol    = "EURUSD";
         direction = DIRECTION_BUY;
-        double r_EU_target   = r_GB_fixed - MathAbs(T);  // BUY: subtract dislocation → lower price
+        double r_EU_target   = T;   // T = eur-usd = r_EU (negative for BUY)
         double EU_target_mid = anchor_EU * MathExp(r_EU_target);
         price = EU_target_mid;
     }
     else if (strongest == 1 && weakest == 2) {
         symbol    = "GBPUSD";
         direction = DIRECTION_SELL;
-        double r_GB_target   = r_EU_fixed + MathAbs(T);  // SELL: add dislocation → higher price
+        double r_GB_target   = -T;  // T = usd-gbp = -r_GB, so -T = r_GB
         double GB_target_mid = anchor_GB * MathExp(r_GB_target);
         price = GB_target_mid;
     }
     else if (strongest == 2 && weakest == 1) {
         symbol    = "GBPUSD";
         direction = DIRECTION_BUY;
-        double r_GB_target   = r_EU_fixed - MathAbs(T);  // BUY: subtract dislocation → lower price
+        double r_GB_target   = T;   // T = gbp-usd = r_GB (negative for BUY)
         double GB_target_mid = anchor_GB * MathExp(r_GB_target);
         price = GB_target_mid;
     }
