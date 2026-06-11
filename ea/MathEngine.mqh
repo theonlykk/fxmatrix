@@ -42,6 +42,10 @@ bool RunSignalOnBarClose() {
     scores[1] = gbp;
     scores[2] = usd;
 
+    g_score_eur = eur;
+    g_score_gbp = gbp;
+    g_score_usd = usd;
+
     int strongest = 0, weakest = 0;
     for (int i = 1; i < 3; i++) {
         if (scores[i] > scores[strongest]) strongest = i;

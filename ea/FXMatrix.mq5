@@ -57,6 +57,28 @@ void OnDeinit(const int reason) {
     Print("INFO: FXMatrix EA deinitialised. Reason=", reason);
 }
 
+void GetImpliedIndices(string sym, int dir,
+                       int &out_strongest, int &out_weakest) {
+    if (sym == "EURUSD") {
+        if (dir == DIRECTION_BUY)
+            { out_strongest = 2; out_weakest = 0; }
+        else
+            { out_strongest = 0; out_weakest = 2; }
+    }
+    else if (sym == "GBPUSD") {
+        if (dir == DIRECTION_BUY)
+            { out_strongest = 2; out_weakest = 1; }
+        else
+            { out_strongest = 1; out_weakest = 2; }
+    }
+    else if (sym == "EURGBP") {
+        if (dir == DIRECTION_BUY)
+            { out_strongest = 1; out_weakest = 0; }
+        else
+            { out_strongest = 0; out_weakest = 1; }
+    }
+}
+
 void OnTick() {
     if (g_halted) return;
 
@@ -99,21 +121,54 @@ void OnTick() {
             }
             else if (pending_symbol    != GetEntrySymbol() ||
                      pending_direction != GetEntryDirection()) {
-                // Routing mismatch — targeted cancel
-                MqlTradeRequest req = {};
-                MqlTradeResult  res = {};
-                req.action = TRADE_ACTION_REMOVE;
-                req.order  = g_pending_entry_ticket;
 
-                if (OrderSend(req, res)) {
-                    g_pending_entry_ticket = 0;
-                    SaveInventoryState(); // Serialize the cleared state
-                    // Fall through to PlaceEntryLimit() below
+                // 1. Compute live spread of committed pending order
+                int    pending_strongest = 0, pending_weakest = 0;
+                GetImpliedIndices(pending_symbol, pending_direction,
+                                  pending_strongest, pending_weakest);
+
+                double scores[3];
+                scores[0] = g_score_eur;
+                scores[1] = g_score_gbp;
+                scores[2] = g_score_usd;
+
+                double pending_live_spread = MathAbs(
+                    scores[pending_weakest] - scores[pending_strongest]);
+
+                // 2. Compute live spread of new candidate
+                double candidate_live_spread = MathAbs(
+                    scores[g_weakest] - scores[g_strongest]);
+
+                // 3. Hysteresis gate — only rotate if candidate
+                //    beats pending by RotationThreshold
+                if (candidate_live_spread >
+                        pending_live_spread + RotationThreshold) {
+
+                    // Rotation approved — targeted cancel
+                    MqlTradeRequest req = {};
+                    MqlTradeResult  res = {};
+                    req.action = TRADE_ACTION_REMOVE;
+                    req.order  = g_pending_entry_ticket;
+
+                    if (OrderSend(req, res)) {
+                        g_pending_entry_ticket = 0;
+                        SaveInventoryState();
+                        // Fall through to PlaceEntryLimit() below
+                    } else {
+                        Print("INFO: Pending cancel failed retcode=", res.retcode,
+                              " — possible fill in race window, deferring");
+                    }
+
                 } else {
-                    // Cancel failed — possible fill in race window.
-                    // Defer rather than zeroing to avoid orphaned positions.
-                    Print("INFO: Pending cancel failed retcode=", res.retcode,
-                          " — possible fill in race window, deferring");
+                    // Rotation rejected — lock globals back to pending order
+                    // to protect nudge block from computing wrong instrument
+                    g_strongest = pending_strongest;
+                    g_weakest   = pending_weakest;
+                    // Also restore g_signal_active and g_entry_spread
+                    // to reflect the locked routing
+                    g_entry_spread = scores[pending_weakest]
+                                     - scores[pending_strongest];
+                    g_signal_active = (MathAbs(g_entry_spread) > BaseThreshold);
                 }
             }
             // else: same routing — retain, nudge block handles naturally

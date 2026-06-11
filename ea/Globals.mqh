@@ -7,6 +7,7 @@
 input int    StrengthWindow     = 12;      // M5 bars = 1 hour
 input double BaseThreshold      = 0.0004;  // Layer 0 entry threshold
 input double ThresholdStep      = 0.0002;  // per-layer threshold increment
+input double RotationThreshold  = 0.0002;  // min edge to rotate signal
 
 //--- Exit parameters
 input double ExitFraction       = 0.70;    // fraction of spread reversion to capture
@@ -44,6 +45,9 @@ int      g_strongest            = -1;    // 0=EUR, 1=GBP, 2=USD
 int      g_weakest              = -1;
 bool     g_signal_active        = false;
 double   g_entry_spread         = 0.0;
+double   g_score_eur            = 0.0;
+double   g_score_gbp            = 0.0;
+double   g_score_usd            = 0.0;
 
 //--- Bar tracking
 datetime g_last_bar_time        = 0;
