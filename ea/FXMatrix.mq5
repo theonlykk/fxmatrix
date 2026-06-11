@@ -78,6 +78,47 @@ void OnTick() {
 
         RunSignalOnBarClose();
 
+        if (g_pending_entry_ticket > 0) {
+            string pending_symbol    = "";
+            int    pending_direction = 0;
+            bool   order_exists      = false;
+
+            if (OrderSelect(g_pending_entry_ticket)) {
+                order_exists      = true;
+                pending_symbol    = OrderGetString(ORDER_SYMBOL);
+                pending_direction =
+                    (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
+                    ? DIRECTION_BUY : DIRECTION_SELL;
+            }
+
+            if (!order_exists) {
+                // Filled or cancelled — trust OnTradeTransaction.
+                // Physical ledger ground truth preserved via HandleEntryFill.
+                g_pending_entry_ticket = 0;
+                SaveInventoryState(); // Serialize the cleared state
+            }
+            else if (pending_symbol    != GetEntrySymbol() ||
+                     pending_direction != GetEntryDirection()) {
+                // Routing mismatch — targeted cancel
+                MqlTradeRequest req = {};
+                MqlTradeResult  res = {};
+                req.action = TRADE_ACTION_REMOVE;
+                req.order  = g_pending_entry_ticket;
+
+                if (OrderSend(req, res)) {
+                    g_pending_entry_ticket = 0;
+                    SaveInventoryState(); // Serialize the cleared state
+                    // Fall through to PlaceEntryLimit() below
+                } else {
+                    // Cancel failed — possible fill in race window.
+                    // Defer rather than zeroing to avoid orphaned positions.
+                    Print("INFO: Pending cancel failed retcode=", res.retcode,
+                          " — possible fill in race window, deferring");
+                }
+            }
+            // else: same routing — retain, nudge block handles naturally
+        }
+
         // --- PLAIN MATRIX ENTRY ---
         // Commit to first active signal and hold until fill or fade.
         // Radar concept parked in git history for future redesign.
