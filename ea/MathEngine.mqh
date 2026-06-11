@@ -18,10 +18,18 @@ bool RunSignalOnBarClose() {
         return false;
     }
 
-    double eu_now = eu_closes[0];
-    double eu_1h  = eu_closes[12];
-    double gb_now = gb_closes[0];
-    double gb_1h  = gb_closes[12];
+    double eu_ask_live = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
+    double eu_bid_live = SymbolInfoDouble("EURUSD", SYMBOL_BID);
+    double gb_ask_live = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
+    double gb_bid_live = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
+
+    double eu_half = (eu_ask_live - eu_bid_live) / 2.0;
+    double gb_half = (gb_ask_live - gb_bid_live) / 2.0;
+
+    double eu_now = eu_closes[0]  + eu_half;  // bid close → mid
+    double eu_1h  = eu_closes[12] + eu_half;  // bid close → mid
+    double gb_now = gb_closes[0]  + gb_half;  // bid close → mid
+    double gb_1h  = gb_closes[12] + gb_half;  // bid close → mid
 
     if (eu_1h <= 0 || gb_1h <= 0) {
         Print("ERROR: zero/negative close price");
@@ -146,14 +154,14 @@ double InvertSpreadToPrice(
         symbol    = "EURGBP";
         direction = DIRECTION_SELL;
         double EG_history = anchor_EU / anchor_GB;
-        double EG_target  = EG_history * MathExp(-T);
+        double EG_target  = EG_history * MathExp(-T); // SELL: unchanged
         price = EG_target;
     }
     else if (strongest == 1 && weakest == 0) {
         symbol    = "EURGBP";
         direction = DIRECTION_BUY;
         double EG_history = anchor_EU / anchor_GB;
-        double EG_target  = EG_history * MathExp(-T);
+        double EG_target  = EG_history * MathExp(T);  // BUY: fixed T not -T
         price = EG_target;
     }
     else if (strongest == 0 && weakest == 2) {
