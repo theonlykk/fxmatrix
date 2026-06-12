@@ -6,6 +6,18 @@
 
 void CancelAllPendingEntries();
 
+//------------------------------------------------------------------
+// GetInstrumentFromSymbol
+// Resolves the InstrumentType enum from a broker symbol string.
+// Used throughout ExecutionEngine to route to the correct
+// per-instrument inventory array.
+//------------------------------------------------------------------
+int GetInstrumentFromSymbol(string symbol) {
+    if (symbol == "EURUSD") return INSTRUMENT_EURUSD;
+    if (symbol == "GBPUSD") return INSTRUMENT_GBPUSD;
+    return INSTRUMENT_EURGBP;
+}
+
 ulong PlaceEntryLimit(double price, int direction, string symbol) {
     if (!IsClearOfFreezeLevel(price, direction, symbol)) {
         Print("INFO: PlaceEntryLimit skipped — freeze level. ",
@@ -132,9 +144,14 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol) {
         return 0;
     }
 
-    g_add_next_ticket = res.order;
-    SaveInventoryState();
+    int instrument = GetInstrumentFromSymbol(symbol);
+    if (instrument == INSTRUMENT_EURUSD)      g_add_next_EURUSD = res.order;
+    else if (instrument == INSTRUMENT_GBPUSD)  g_add_next_GBPUSD = res.order;
+    else                                        g_add_next_EURGBP = res.order;
+
+    SaveAllInventoryState();
     Print("INFO: Next entry limit placed (add_next). ticket=", res.order,
+          " symbol=", symbol,
           " add_next=", DoubleToString(price, 5));
     return res.order;
 }
@@ -206,9 +223,15 @@ double ComputeNextLayerPrice(int    next_layer_idx,
         else                              { strongest = 1; weakest = 2; }
     }
 
-    // Retrieve entry spread of the layer just filled.
+    // Read entry_spread from the correct per-instrument array.
     // next_layer_idx is post-append ArraySize; filled layer is at index next_layer_idx-1.
-    double entry_spread = g_inventory[next_layer_idx - 1].entry_spread_raw;
+    double entry_spread = 0.0;
+    if (instrument == INSTRUMENT_EURUSD)
+        entry_spread = g_inventory_EURUSD[next_layer_idx - 1].entry_spread_raw;
+    else if (instrument == INSTRUMENT_GBPUSD)
+        entry_spread = g_inventory_GBPUSD[next_layer_idx - 1].entry_spread_raw;
+    else
+        entry_spread = g_inventory_EURGBP[next_layer_idx - 1].entry_spread_raw;
 
     // add_next = entry_spread - S - S*(1-skew)
     // Guarantees |add_next - entry| > |exit - entry| for all skew < 1.
@@ -244,28 +267,63 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                      double deal_volume, double deal_price,
                      datetime deal_time, string deal_symbol,
                      long deal_type) {
+
+    // Resolve instrument from physical fill symbol
+    int instrument = GetInstrumentFromSymbol(deal_symbol);
+
+    // Resolve correct per-instrument array reference via instrument
+    // MQL5 does not allow array refs — use instrument enum throughout.
+
     int layer_idx = -1;
-    for (int i = 0; i < ArraySize(g_inventory); i++) {
-        if (g_inventory[i].entry_ticket == order_ticket) {
-            layer_idx = i;
-            break;
+
+    // Search per-instrument array for existing layer with this ticket
+    if (instrument == INSTRUMENT_EURUSD) {
+        for (int i = 0; i < ArraySize(g_inventory_EURUSD); i++) {
+            if (g_inventory_EURUSD[i].entry_ticket == order_ticket) {
+                layer_idx = i; break;
+            }
+        }
+    } else if (instrument == INSTRUMENT_GBPUSD) {
+        for (int i = 0; i < ArraySize(g_inventory_GBPUSD); i++) {
+            if (g_inventory_GBPUSD[i].entry_ticket == order_ticket) {
+                layer_idx = i; break;
+            }
+        }
+    } else {
+        for (int i = 0; i < ArraySize(g_inventory_EURGBP); i++) {
+            if (g_inventory_EURGBP[i].entry_ticket == order_ticket) {
+                layer_idx = i; break;
+            }
         }
     }
 
+    // Helper macro to get current array size for this instrument
+    int inv_size = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                 : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                 : ArraySize(g_inventory_EURGBP);
+
     if (layer_idx == -1) {
-        if (ArraySize(g_inventory) >= MaxLayers) {
+        if (inv_size >= MaxLayers) {
             Print("WARNING: Entry fill received but MaxLayers reached. ",
                   "ticket=", order_ticket);
             return;
         }
 
-        layer_idx = ArraySize(g_inventory);
+        layer_idx = inv_size;
 
+        // Alien fill guard — reject fills on wrong instrument for open pod
         if (layer_idx > 0) {
-            string expected_symbol =
-                (g_inventory[0].instrument == INSTRUMENT_EURUSD) ? "EURUSD"
-                : (g_inventory[0].instrument == INSTRUMENT_GBPUSD) ? "GBPUSD"
-                : "EURGBP";
+            int pod_instrument = INSTRUMENT_EURGBP;
+            if (instrument == INSTRUMENT_EURUSD && ArraySize(g_inventory_EURUSD) > 0)
+                pod_instrument = INSTRUMENT_EURUSD;
+            else if (instrument == INSTRUMENT_GBPUSD && ArraySize(g_inventory_GBPUSD) > 0)
+                pod_instrument = INSTRUMENT_GBPUSD;
+            else if (instrument == INSTRUMENT_EURGBP && ArraySize(g_inventory_EURGBP) > 0)
+                pod_instrument = INSTRUMENT_EURGBP;
+
+            string expected_symbol = (instrument == INSTRUMENT_EURUSD) ? "EURUSD"
+                                   : (instrument == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                                   : "EURGBP";
             if (deal_symbol != expected_symbol) {
                 Print("SEV-1: ALIEN FILL REJECTED. deal_symbol=", deal_symbol,
                       " expected=", expected_symbol,
@@ -279,12 +337,15 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.entry_price = deal_price;
         L.entry_time  = deal_time;
 
+        // Set layer_index — mandatory Phase 2 addition
+        L.layer_index = layer_idx;
+
         double eu_ask = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
         double eu_bid = SymbolInfoDouble("EURUSD", SYMBOL_BID);
         double gb_ask = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
         double gb_bid = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
 
-        if (ArraySize(g_inventory) == 0) {
+        if (layer_idx == 0) {
             L.EU_mid_12bars_ago_at_entry = g_EU_mid_12bars_ago;
             L.GB_mid_12bars_ago_at_entry = g_GB_mid_12bars_ago;
             L.r_EU_at_entry              = g_r_EU_signal;
@@ -292,9 +353,6 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             L.entry_price_eurusd_1h      = g_EU_mid_12bars_ago;
             L.entry_price_gbpusd_1h      = g_GB_mid_12bars_ago;
 
-            // Physical ledger is ground truth (Gemini ruling).
-            // Derive instrument and direction from the actual broker fill,
-            // not from live globals which may have rotated since placement.
             if      (deal_symbol == "EURUSD") L.instrument = INSTRUMENT_EURUSD;
             else if (deal_symbol == "GBPUSD") L.instrument = INSTRUMENT_GBPUSD;
             else if (deal_symbol == "EURGBP") L.instrument = INSTRUMENT_EURGBP;
@@ -308,24 +366,13 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             L.direction = (deal_type == DEAL_TYPE_BUY)
                           ? DIRECTION_BUY : DIRECTION_SELL;
 
-            // Reverse-derive routing indices from physical instrument + direction.
-            // Mean-reversion: indices reflect the market state that CAUSED the
-            // signal (the dislocation we are fading), NOT the desired future exposure.
-            // A GBPUSD SELL means GBP spiked (strongest=GBP), we fade it back down.
-            // CRITICAL: this block must execute BEFORE entry_spread_raw computation.
             if (L.instrument == INSTRUMENT_EURGBP) {
-                // EURGBP BUY: GBP strong, EUR weak (fading EUR drop vs GBP)
-                // EURGBP SELL: EUR strong, GBP weak (fading EUR spike vs GBP)
                 if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 1; L.weakest_at_entry = 0; }
                 else                               { L.strongest_at_entry = 0; L.weakest_at_entry = 1; }
             } else if (L.instrument == INSTRUMENT_EURUSD) {
-                // EURUSD BUY: USD strong, EUR weak (fading EUR drop vs USD)
-                // EURUSD SELL: EUR strong, USD weak (fading EUR spike vs USD)
                 if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 2; L.weakest_at_entry = 0; }
                 else                               { L.strongest_at_entry = 0; L.weakest_at_entry = 2; }
-            } else { // INSTRUMENT_GBPUSD
-                // GBPUSD BUY: USD strong, GBP weak (fading GBP drop vs USD)
-                // GBPUSD SELL: GBP strong, USD weak (fading GBP spike vs USD)
+            } else {
                 if (L.direction == DIRECTION_BUY)  { L.strongest_at_entry = 2; L.weakest_at_entry = 1; }
                 else                               { L.strongest_at_entry = 1; L.weakest_at_entry = 2; }
             }
@@ -333,10 +380,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             {
                 double eu_mid_l0 = (eu_ask + eu_bid) / 2.0;
                 double gb_mid_l0 = (gb_ask + gb_bid) / 2.0;
-                double r_EU_l0   = MathLog(eu_mid_l0
-                                   / L.EU_mid_12bars_ago_at_entry);
-                double r_GB_l0   = MathLog(gb_mid_l0
-                                   / L.GB_mid_12bars_ago_at_entry);
+                double r_EU_l0   = MathLog(eu_mid_l0 / L.EU_mid_12bars_ago_at_entry);
+                double r_GB_l0   = MathLog(gb_mid_l0 / L.GB_mid_12bars_ago_at_entry);
                 double usd_l0    = -(r_EU_l0 + r_GB_l0) / 3.0;
                 double eur_l0    =   r_EU_l0 + usd_l0;
                 double gbp_l0    =   r_GB_l0 + usd_l0;
@@ -349,65 +394,43 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                 L.entry_spread_adjusted = L.entry_spread_raw;
             }
         } else {
-            L.EU_mid_12bars_ago_at_entry = g_inventory[0].EU_mid_12bars_ago_at_entry;
-            L.GB_mid_12bars_ago_at_entry = g_inventory[0].GB_mid_12bars_ago_at_entry;
-            L.strongest_at_entry         = g_inventory[0].strongest_at_entry;
-            L.weakest_at_entry           = g_inventory[0].weakest_at_entry;
+            // Layer 1+: inherit from Layer 0 of same instrument
+            Layer L0;
+            if (instrument == INSTRUMENT_EURUSD)      L0 = g_inventory_EURUSD[0];
+            else if (instrument == INSTRUMENT_GBPUSD)  L0 = g_inventory_GBPUSD[0];
+            else                                        L0 = g_inventory_EURGBP[0];
 
-            L.r_EU_at_entry = g_inventory[0].r_EU_at_entry;
-            L.r_GB_at_entry = g_inventory[0].r_GB_at_entry;
-
-            // 3. Inherit carry references from Layer 0 (Option A — Gemini ruling)
-            //    All layers in the pod share the same carry baseline:
-            //    the 1h-prior price at the time of the original pod signal.
-            //    This keeps the RunCarryRecalculation() reference frame
-            //    identical across all tranches, preserving parallel grid
-            //    geometry. Slight carry overstatement for later layers is
-            //    an accepted V1 approximation.
-            L.entry_price_eurusd_1h = L.EU_mid_12bars_ago_at_entry;
-            L.entry_price_gbpusd_1h = L.GB_mid_12bars_ago_at_entry;
+            L.EU_mid_12bars_ago_at_entry = L0.EU_mid_12bars_ago_at_entry;
+            L.GB_mid_12bars_ago_at_entry = L0.GB_mid_12bars_ago_at_entry;
+            L.strongest_at_entry         = L0.strongest_at_entry;
+            L.weakest_at_entry           = L0.weakest_at_entry;
+            L.r_EU_at_entry              = L0.r_EU_at_entry;
+            L.r_GB_at_entry              = L0.r_GB_at_entry;
+            L.entry_price_eurusd_1h      = L0.EU_mid_12bars_ago_at_entry;
+            L.entry_price_gbpusd_1h      = L0.GB_mid_12bars_ago_at_entry;
 
             double eu_mid_now = (eu_ask + eu_bid) / 2.0;
             double gb_mid_now = (gb_ask + gb_bid) / 2.0;
-
-            double r_EU_now = MathLog(eu_mid_now
-                              / L.EU_mid_12bars_ago_at_entry);
-            double r_GB_now = MathLog(gb_mid_now
-                              / L.GB_mid_12bars_ago_at_entry);
-            double usd_now  = -(r_EU_now + r_GB_now) / 3.0;
-            double eur_now  =   r_EU_now + usd_now;
-            double gbp_now  =   r_GB_now + usd_now;
-
+            double r_EU_now   = MathLog(eu_mid_now / L.EU_mid_12bars_ago_at_entry);
+            double r_GB_now   = MathLog(gb_mid_now / L.GB_mid_12bars_ago_at_entry);
+            double usd_now    = -(r_EU_now + r_GB_now) / 3.0;
+            double eur_now    =   r_EU_now + usd_now;
+            double gbp_now    =   r_GB_now + usd_now;
             double scores_now[3];
             scores_now[0] = eur_now;
             scores_now[1] = gbp_now;
             scores_now[2] = usd_now;
-
             L.entry_spread_raw      = scores_now[L.weakest_at_entry]
                                     - scores_now[L.strongest_at_entry];
             L.entry_spread_adjusted = L.entry_spread_raw;
+
+            // Instrument and direction from Layer 0
+            L.instrument = L0.instrument;
+            L.direction  = L0.direction;
         }
 
         L.entry_price_eurusd = (eu_ask + eu_bid) / 2.0;
         L.entry_price_gbpusd = (gb_ask + gb_bid) / 2.0;
-
-        if (ArraySize(g_inventory) > 0) {
-            if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
-                (L.strongest_at_entry == 1 && L.weakest_at_entry == 0))
-                L.instrument = INSTRUMENT_EURGBP;
-            else if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
-                     (L.strongest_at_entry == 2 && L.weakest_at_entry == 0))
-                L.instrument = INSTRUMENT_EURUSD;
-            else
-                L.instrument = INSTRUMENT_GBPUSD;
-
-            if ((L.strongest_at_entry == 0 && L.weakest_at_entry == 1) ||
-                (L.strongest_at_entry == 0 && L.weakest_at_entry == 2) ||
-                (L.strongest_at_entry == 1 && L.weakest_at_entry == 2))
-                L.direction = DIRECTION_SELL;
-            else
-                L.direction = DIRECTION_BUY;
-        }
         L.lot_size               = BaseLotSize;
         L.remaining_entry_volume = BaseLotSize;
         L.remaining_exit_volume  = 0.0;
@@ -415,76 +438,99 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
                                                          DEAL_POSITION_ID);
 
-        // V2 Phase 1: exit geometry uses ComputeGridInterval() and ComputeSkew().
-        // exit = entry_spread + S * skew
-        // S and skew are both layer-aware — correct geometry at every depth.
         double S    = ComputeGridInterval(layer_idx);
         double skew = ComputeSkew(layer_idx);
         L.exit_spread_target = L.entry_spread_adjusted + S * skew;
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 
-        ArrayResize(g_inventory, layer_idx + 1);
-        g_inventory[layer_idx] = L;
+        // Append to correct per-instrument array
+        if (instrument == INSTRUMENT_EURUSD) {
+            ArrayResize(g_inventory_EURUSD, layer_idx + 1);
+            g_inventory_EURUSD[layer_idx] = L;
+        } else if (instrument == INSTRUMENT_GBPUSD) {
+            ArrayResize(g_inventory_GBPUSD, layer_idx + 1);
+            g_inventory_GBPUSD[layer_idx] = L;
+        } else {
+            ArrayResize(g_inventory_EURGBP, layer_idx + 1);
+            g_inventory_EURGBP[layer_idx] = L;
+        }
 
         // next_layer_idx: ArraySize AFTER current layer appended
-        // (MQL5 zero-indexed: ArraySize == index of next element)
-        // Gemini confirmed: use post-append ArraySize
-        int next_layer_idx = ArraySize(g_inventory);
+        int next_layer_idx = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                           : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                           : ArraySize(g_inventory_EURGBP);
+
         double computed_next = ComputeNextLayerPrice(
             next_layer_idx,
             L.instrument,
             L.direction,
             deal_price);
 
-        // Sentinel guard — never store corrupted add_next
         if (computed_next <= 0.0) {
-            Print("SEV-2: HandleEntryFill — add_next sentinel (-1.0). "
-                  "Layering skipped for this fill. "
-                  "next_layer_idx=", next_layer_idx,
-                  " deal_price=", deal_price);
-            g_inventory[layer_idx].add_next = 0.0;
-        }
-        // Sanity clamp — reject add_next > 5% from deal_price
-        else if (MathAbs(computed_next - deal_price) >
-                 deal_price * 0.05) {
-            Print("SEV-2: HandleEntryFill — add_next deviation > 5%. "
-                  "computed=", computed_next,
-                  " deal_price=", deal_price,
+            Print("SEV-2: HandleEntryFill — add_next sentinel (-1.0). ",
+                  "Layering skipped. next_layer_idx=", next_layer_idx);
+            if (instrument == INSTRUMENT_EURUSD)      g_inventory_EURUSD[layer_idx].add_next = 0.0;
+            else if (instrument == INSTRUMENT_GBPUSD)  g_inventory_GBPUSD[layer_idx].add_next = 0.0;
+            else                                        g_inventory_EURGBP[layer_idx].add_next = 0.0;
+        } else if (MathAbs(computed_next - deal_price) > deal_price * 0.05) {
+            Print("SEV-2: HandleEntryFill — add_next deviation > 5%. ",
+                  "computed=", computed_next, " deal_price=", deal_price,
                   " Layering skipped.");
-            g_inventory[layer_idx].add_next = 0.0;
-        }
-        else {
-            g_inventory[layer_idx].add_next = computed_next;
+            if (instrument == INSTRUMENT_EURUSD)      g_inventory_EURUSD[layer_idx].add_next = 0.0;
+            else if (instrument == INSTRUMENT_GBPUSD)  g_inventory_GBPUSD[layer_idx].add_next = 0.0;
+            else                                        g_inventory_EURGBP[layer_idx].add_next = 0.0;
+        } else {
+            if (instrument == INSTRUMENT_EURUSD)      g_inventory_EURUSD[layer_idx].add_next = computed_next;
+            else if (instrument == INSTRUMENT_GBPUSD)  g_inventory_GBPUSD[layer_idx].add_next = computed_next;
+            else                                        g_inventory_EURGBP[layer_idx].add_next = computed_next;
         }
 
-        g_pending_entry_ticket = 0;
-        SaveInventoryState();
+        // Clear per-instrument pending entry ticket
+        if (instrument == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = 0;
+        else if (instrument == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = 0;
+        else                                        g_pending_entry_EURGBP = 0;
+
+        SaveAllInventoryState();
     }
 
-    g_inventory[layer_idx].remaining_entry_volume -= deal_volume;
+    // Decrement remaining entry volume on correct array
+    if (instrument == INSTRUMENT_EURUSD)
+        g_inventory_EURUSD[layer_idx].remaining_entry_volume -= deal_volume;
+    else if (instrument == INSTRUMENT_GBPUSD)
+        g_inventory_GBPUSD[layer_idx].remaining_entry_volume -= deal_volume;
+    else
+        g_inventory_EURGBP[layer_idx].remaining_entry_volume -= deal_volume;
 
-    // Arm exit volume counter when entry is fully filled.
-    // Runs on every entry fill — not just the first.
-    // Double-arm guard: only fires once when crossing zero.
-    if (g_inventory[layer_idx].remaining_entry_volume <= VOLUME_EPSILON &&
-        g_inventory[layer_idx].remaining_exit_volume  == 0.0) {
-        g_inventory[layer_idx].remaining_exit_volume =
-            g_inventory[layer_idx].lot_size;
-        Print("INFO: Entry complete — exit volume armed. Layer ",
-              layer_idx);
+    // Arm exit volume when entry fully filled
+    double rem_entry = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[layer_idx].remaining_entry_volume
+                     : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[layer_idx].remaining_entry_volume
+                     : g_inventory_EURGBP[layer_idx].remaining_entry_volume;
+    double rem_exit  = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[layer_idx].remaining_exit_volume
+                     : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[layer_idx].remaining_exit_volume
+                     : g_inventory_EURGBP[layer_idx].remaining_exit_volume;
+
+    if (rem_entry <= VOLUME_EPSILON && rem_exit == 0.0) {
+        double lot = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[layer_idx].lot_size
+                   : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[layer_idx].lot_size
+                   : g_inventory_EURGBP[layer_idx].lot_size;
+        if (instrument == INSTRUMENT_EURUSD)      g_inventory_EURUSD[layer_idx].remaining_exit_volume = lot;
+        else if (instrument == INSTRUMENT_GBPUSD)  g_inventory_GBPUSD[layer_idx].remaining_exit_volume = lot;
+        else                                        g_inventory_EURGBP[layer_idx].remaining_exit_volume = lot;
+        Print("INFO: Entry complete — exit volume armed. Layer ", layer_idx,
+              " instrument=", deal_symbol);
     }
 
-    double exit_price = g_inventory[layer_idx].exit_target;
+    // Resolve layer reference for exit placement
+    Layer CurL = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[layer_idx]
+               : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[layer_idx]
+               : g_inventory_EURGBP[layer_idx];
 
-    string exit_symbol = (g_inventory[layer_idx].instrument == INSTRUMENT_EURUSD)
-                         ? "EURUSD"
-                         : (g_inventory[layer_idx].instrument == INSTRUMENT_GBPUSD)
-                           ? "GBPUSD" : "EURGBP";
+    double exit_price = CurL.exit_target;
+    string exit_symbol = deal_symbol;
 
     if (exit_price < 0.0) {
-        Print("INFO: Marketable Reversion Exception. Exit target through "
-              "market. Executing market hedge for Layer ", layer_idx);
+        Print("INFO: Marketable Reversion Exception. Layer ", layer_idx);
 
         MqlTradeRequest req = {};
         MqlTradeResult  res = {};
@@ -492,7 +538,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         req.symbol   = exit_symbol;
         req.volume   = deal_volume;
         req.magic    = EA_MAGIC;
-        req.type     = (g_inventory[layer_idx].direction == DIRECTION_BUY)
+        req.type     = (CurL.direction == DIRECTION_BUY)
                        ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
         req.price    = (req.type == ORDER_TYPE_SELL)
                        ? SymbolInfoDouble(exit_symbol, SYMBOL_BID)
@@ -503,44 +549,63 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         if (!OrderSend(req, res)) {
             req.type_filling = ORDER_FILLING_FOK;
             if (!OrderSend(req, res)) {
-                Print("ERROR: Market hedge OrderSend failed. retcode=",
-                      res.retcode);
+                Print("ERROR: Market hedge OrderSend failed. retcode=", res.retcode);
                 g_halted = true;
                 return;
             }
         }
 
-        int n = ArraySize(g_inventory[layer_idx].exit_tickets);
-        ArrayResize(g_inventory[layer_idx].exit_tickets, n + 1);
-        g_inventory[layer_idx].exit_tickets[n] = res.order;
-        SaveInventoryState();
-
+        int n = ArraySize(CurL.exit_tickets);
+        if (instrument == INSTRUMENT_EURUSD) {
+            ArrayResize(g_inventory_EURUSD[layer_idx].exit_tickets, n + 1);
+            g_inventory_EURUSD[layer_idx].exit_tickets[n] = res.order;
+        } else if (instrument == INSTRUMENT_GBPUSD) {
+            ArrayResize(g_inventory_GBPUSD[layer_idx].exit_tickets, n + 1);
+            g_inventory_GBPUSD[layer_idx].exit_tickets[n] = res.order;
+        } else {
+            ArrayResize(g_inventory_EURGBP[layer_idx].exit_tickets, n + 1);
+            g_inventory_EURGBP[layer_idx].exit_tickets[n] = res.order;
+        }
+        SaveAllInventoryState();
         Print("INFO: Market hedge placed. ticket=", res.order,
               ". Awaiting CloseBy intercept.");
         return;
     }
 
     ulong exit_tkt = PlaceExitLimit(exit_price, deal_volume,
-                                    g_inventory[layer_idx].direction,
-                                    exit_symbol);
+                                    CurL.direction, exit_symbol);
     if (exit_tkt > 0) {
-        int n = ArraySize(g_inventory[layer_idx].exit_tickets);
-        ArrayResize(g_inventory[layer_idx].exit_tickets, n + 1);
-        g_inventory[layer_idx].exit_tickets[n] = exit_tkt;
-        SaveInventoryState();
+        int n = ArraySize(CurL.exit_tickets);
+        if (instrument == INSTRUMENT_EURUSD) {
+            ArrayResize(g_inventory_EURUSD[layer_idx].exit_tickets, n + 1);
+            g_inventory_EURUSD[layer_idx].exit_tickets[n] = exit_tkt;
+        } else if (instrument == INSTRUMENT_GBPUSD) {
+            ArrayResize(g_inventory_GBPUSD[layer_idx].exit_tickets, n + 1);
+            g_inventory_GBPUSD[layer_idx].exit_tickets[n] = exit_tkt;
+        } else {
+            ArrayResize(g_inventory_EURGBP[layer_idx].exit_tickets, n + 1);
+            g_inventory_EURGBP[layer_idx].exit_tickets[n] = exit_tkt;
+        }
+        SaveAllInventoryState();
     }
 
-    double filled_so_far   = g_inventory[layer_idx].lot_size
-                           - g_inventory[layer_idx].remaining_entry_volume;
-    bool   threshold_met   = filled_so_far >=
-                             MinFillThreshold * g_inventory[layer_idx].lot_size;
-    bool   next_not_placed = ArraySize(g_inventory) == layer_idx + 1;
-    bool   capacity_ok     = ArraySize(g_inventory) < MaxLayers;
+    // Re-read CurL after modifications
+    CurL = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[layer_idx]
+         : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[layer_idx]
+         : g_inventory_EURGBP[layer_idx];
+
+    double filled_so_far = CurL.lot_size - CurL.remaining_entry_volume;
+    bool threshold_met   = filled_so_far >= MinFillThreshold * CurL.lot_size;
+    int  cur_inv_size    = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                         : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                         : ArraySize(g_inventory_EURGBP);
+    bool next_not_placed = cur_inv_size == layer_idx + 1;
+    bool capacity_ok     = cur_inv_size < MaxLayers;
 
     if (threshold_met && next_not_placed && capacity_ok) {
-        PlaceNextEntryLimit(g_inventory[layer_idx], deal_symbol);
+        PlaceNextEntryLimit(CurL, deal_symbol);
         Print("INFO: Next layer triggered at add_next=",
-              DoubleToString(g_inventory[layer_idx].add_next, 5));
+              DoubleToString(CurL.add_next, 5));
     }
 }
 
@@ -548,36 +613,46 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     double deal_volume, datetime deal_time,
                     double deal_profit,
                     ulong hedge_position_ticket = 0) {
-    for (int i = 0; i < ArraySize(g_inventory); i++) {
-        int n_tickets = ArraySize(g_inventory[i].exit_tickets);
-        for (int j = 0; j < n_tickets; j++) {
-            if (g_inventory[i].exit_tickets[j] == order_ticket) {
-                if (hedge_position_ticket > 0 &&
-                    g_inventory[i].position_ticket > 0) {
 
-                    // Ledger guard: verify hedge position is committed
-                    // before firing CloseBy. Market hedge fills via
-                    // TRADE_ACTION_DEAL can desync in the tester.
-                    // DO NOT return early — must fall through to volume
-                    // decrement and SaveInventoryState() below.
+    // Search all three per-instrument arrays for the matching exit ticket
+    // Use explicit array to decouple from enum integer values (Gemini ruling)
+    int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
+
+    for (int k = 0; k < 3; k++) {
+        int inst = target_instruments[k];
+        int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                     : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                     : ArraySize(g_inventory_EURGBP);
+
+        for (int i = 0; i < inv_size; i++) {
+            Layer CurL = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
+                       : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
+                       : g_inventory_EURGBP[i];
+
+            int n_tickets = ArraySize(CurL.exit_tickets);
+            for (int j = 0; j < n_tickets; j++) {
+                if (CurL.exit_tickets[j] != order_ticket) continue;
+
+                // Found matching exit ticket
+                if (hedge_position_ticket > 0 && CurL.position_ticket > 0) {
+                    string exit_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                                       : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                                       : "EURGBP";
+
                     if (!PositionSelectByTicket(hedge_position_ticket)) {
                         int q_idx = ArraySize(g_closeby_queue);
                         ArrayResize(g_closeby_queue, q_idx + 1);
-                        g_closeby_queue[q_idx].ticket1 = g_inventory[i].position_ticket;
+                        g_closeby_queue[q_idx].ticket1 = CurL.position_ticket;
                         g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
                         g_closeby_queue[q_idx].retries = 0;
                         Print("INFO: Ledger desync detected. CloseBy queued. ",
-                              "position=", g_inventory[i].position_ticket,
+                              "position=", CurL.position_ticket,
                               " position_by=", hedge_position_ticket);
                     } else {
-                        string exit_symbol = (g_inventory[i].instrument == INSTRUMENT_EURUSD)
-                                             ? "EURUSD"
-                                             : (g_inventory[i].instrument == INSTRUMENT_GBPUSD)
-                                               ? "GBPUSD" : "EURGBP";
                         MqlTradeRequest close_req = {};
                         MqlTradeResult  close_res = {};
                         close_req.action      = TRADE_ACTION_CLOSE_BY;
-                        close_req.position    = g_inventory[i].position_ticket;
+                        close_req.position    = CurL.position_ticket;
                         close_req.position_by = hedge_position_ticket;
                         close_req.symbol      = exit_symbol;
                         close_req.magic       = EA_MAGIC;
@@ -586,15 +661,15 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             if (close_res.retcode == 10013) {
                                 int q_idx = ArraySize(g_closeby_queue);
                                 ArrayResize(g_closeby_queue, q_idx + 1);
-                                g_closeby_queue[q_idx].ticket1 = g_inventory[i].position_ticket;
+                                g_closeby_queue[q_idx].ticket1 = CurL.position_ticket;
                                 g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
                                 g_closeby_queue[q_idx].retries = 0;
-                                Print("INFO: CloseBy retcode=10013. Queued for retry. ",
-                                      "position=", g_inventory[i].position_ticket,
+                                Print("INFO: CloseBy retcode=10013. Queued. ",
+                                      "position=", CurL.position_ticket,
                                       " position_by=", hedge_position_ticket);
                             } else {
                                 Print("ERROR: CloseBy failed. position=",
-                                      g_inventory[i].position_ticket,
+                                      CurL.position_ticket,
                                       " position_by=", hedge_position_ticket,
                                       " retcode=", close_res.retcode);
                             }
@@ -602,29 +677,54 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     }
                 }
 
-                g_inventory[i].remaining_exit_volume -= deal_volume;
+                // Decrement remaining exit volume
+                if (inst == INSTRUMENT_EURUSD)
+                    g_inventory_EURUSD[i].remaining_exit_volume -= deal_volume;
+                else if (inst == INSTRUMENT_GBPUSD)
+                    g_inventory_GBPUSD[i].remaining_exit_volume -= deal_volume;
+                else
+                    g_inventory_EURGBP[i].remaining_exit_volume -= deal_volume;
 
-                ArrayRemove(g_inventory[i].exit_tickets, j, 1);
+                // Remove the matched exit ticket
+                if (inst == INSTRUMENT_EURUSD)
+                    ArrayRemove(g_inventory_EURUSD[i].exit_tickets, j, 1);
+                else if (inst == INSTRUMENT_GBPUSD)
+                    ArrayRemove(g_inventory_GBPUSD[i].exit_tickets, j, 1);
+                else
+                    ArrayRemove(g_inventory_EURGBP[i].exit_tickets, j, 1);
 
-                if (g_inventory[i].remaining_exit_volume <= VOLUME_EPSILON) {
-                    LogLayerExit(g_inventory[i], deal_time, deal_profit);
-                    ArrayRemove(g_inventory, i, 1);
-                    Print("INFO: Layer ", i, " fully closed and removed.");
+                // Re-read after modification
+                CurL = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
+                     : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
+                     : g_inventory_EURGBP[i];
 
-                    if (ArraySize(g_inventory) == 0) {
-                        Print("INFO: Pod fully closed. Initiating "
-                              "pending entry teardown.");
-                        g_add_next_ticket = 0;
-                        CancelAllPendingEntries();
+                if (CurL.remaining_exit_volume <= VOLUME_EPSILON) {
+                    LogLayerExit(CurL, deal_time, deal_profit);
+                    if (inst == INSTRUMENT_EURUSD)      ArrayRemove(g_inventory_EURUSD, i, 1);
+                    else if (inst == INSTRUMENT_GBPUSD)  ArrayRemove(g_inventory_GBPUSD, i, 1);
+                    else                                  ArrayRemove(g_inventory_EURGBP, i, 1);
+                    Print("INFO: Layer ", i, " fully closed. instrument=",
+                          (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                          : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD" : "EURGBP");
+
+                    // Check if this instrument's pod is now flat
+                    int remaining = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                                  : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                                  : ArraySize(g_inventory_EURGBP);
+
+                    if (remaining == 0) {
+                        Print("INFO: Pod fully closed. instrument=",
+                              (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                              : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD" : "EURGBP");
+                        // Clear per-instrument add_next ticket
+                        if (inst == INSTRUMENT_EURUSD)      g_add_next_EURUSD = 0;
+                        else if (inst == INSTRUMENT_GBPUSD)  g_add_next_GBPUSD = 0;
+                        else                                  g_add_next_EURGBP = 0;
+                        // Note: CancelAllPendingEntries() scoping handled in Phase 2d
                     }
                 }
 
-                // Save unconditionally: captures both partial volume
-                // decrements and full layer removals.
-                // Note: if CancelAllPendingEntries() was called above,
-                // it already saves state — this is a no-op in terms
-                // of correctness but harmless.
-                SaveInventoryState();
+                SaveAllInventoryState();
                 return;
             }
         }
@@ -640,31 +740,56 @@ void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
           " volume=", DoubleToString(deal_volume, 4),
           " Attempting fallback match...");
 
-    for (int i = 0; i < ArraySize(g_inventory); i++) {
-        bool vol_match  = MathAbs(deal_volume - g_inventory[i].lot_size)
-                          < VOLUME_EPSILON;
-        bool time_match = MathAbs((double)(deal_time
-                          - g_inventory[i].entry_time))
-                          < FALLBACK_TIME_WINDOW;
+    // Search all three per-instrument arrays
+    // Use explicit array to decouple from enum integer values (Gemini ruling)
+    int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
 
-        if (vol_match && time_match) {
-            Print("WARNING: Fallback matched layer ", i,
-                  ". Processing as exit fill.");
-            g_inventory[i].remaining_exit_volume -= deal_volume;
-            if (g_inventory[i].remaining_exit_volume <= VOLUME_EPSILON) {
-                LogLayerExit(g_inventory[i], deal_time, 0.0);
-                ArrayRemove(g_inventory, i, 1);
+    for (int k = 0; k < 3; k++) {
+        int inst = target_instruments[k];
+        int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                     : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                     : ArraySize(g_inventory_EURGBP);
+
+        for (int i = 0; i < inv_size; i++) {
+            Layer CurL = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
+                       : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
+                       : g_inventory_EURGBP[i];
+
+            bool vol_match  = MathAbs(deal_volume - CurL.lot_size) < VOLUME_EPSILON;
+            bool time_match = MathAbs((double)(deal_time - CurL.entry_time))
+                              < FALLBACK_TIME_WINDOW;
+
+            if (vol_match && time_match) {
+                Print("WARNING: Fallback matched layer ", i, " instrument=",
+                      (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                      : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD" : "EURGBP");
+
+                if (inst == INSTRUMENT_EURUSD)
+                    g_inventory_EURUSD[i].remaining_exit_volume -= deal_volume;
+                else if (inst == INSTRUMENT_GBPUSD)
+                    g_inventory_GBPUSD[i].remaining_exit_volume -= deal_volume;
+                else
+                    g_inventory_EURGBP[i].remaining_exit_volume -= deal_volume;
+
+                CurL = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
+                     : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
+                     : g_inventory_EURGBP[i];
+
+                if (CurL.remaining_exit_volume <= VOLUME_EPSILON) {
+                    LogLayerExit(CurL, deal_time, 0.0);
+                    if (inst == INSTRUMENT_EURUSD)      ArrayRemove(g_inventory_EURUSD, i, 1);
+                    else if (inst == INSTRUMENT_GBPUSD)  ArrayRemove(g_inventory_GBPUSD, i, 1);
+                    else                                  ArrayRemove(g_inventory_EURGBP, i, 1);
+                }
+                return;
             }
-            return;
         }
     }
 
     Print("ERROR: Unmatched fill — no fallback match found. ",
-          "ticket=", order_ticket,
-          " Halting pod.");
+          "ticket=", order_ticket, " Halting pod.");
     g_halted = true;
 }
-
 void OnTradeTransaction(const MqlTradeTransaction &trans,
                         const MqlTradeRequest     &request,
                         const MqlTradeResult      &result) {

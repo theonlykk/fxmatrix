@@ -121,7 +121,7 @@ double ComputeExitSpreadTarget(const Layer &layer) {
     // When SkewStep=0 (default), ComputeSkew(0) == ComputeSkew(N)
     // for all N, so this is mathematically identical to Phase 0.
     // Phase 2 one-line patch: replace 0 with layer.layer_index.
-    return layer.entry_spread_adjusted + GridBase * ComputeSkew(0);
+    return layer.entry_spread_adjusted + GridBase * ComputeSkew(layer.layer_index);
 }
 
 double InvertSpreadToPrice(
