@@ -31,7 +31,9 @@ int OnInit() {
           "build=1da31ec "
           "NudgeThreshold=", g_NudgeThreshold, " points");
 
-    LoadInventoryState();
+    LoadInventoryState(INSTRUMENT_EURUSD);
+    LoadInventoryState(INSTRUMENT_GBPUSD);
+    LoadInventoryState(INSTRUMENT_EURGBP);
     CheckForOrphans();
     if (g_halted) {
         Print("ERROR: OnInit halted — orphan positions detected. "
@@ -93,7 +95,9 @@ void OnTick() {
     ProcessCloseByQueue();
     if (g_halted) return;
 
-    if (ArraySize(g_inventory) > 0)
+    if (ArraySize(g_inventory_EURUSD) > 0 ||
+        ArraySize(g_inventory_GBPUSD) > 0 ||
+        ArraySize(g_inventory_EURGBP) > 0)
         CheckCarryTrigger();
 
     datetime current_bar = iTime(_Symbol, PERIOD_M5, 0);
@@ -104,137 +108,240 @@ void OnTick() {
 
         RunSignalOnBarClose();
 
-        // Option A (Gemini ruling): EA is deaf to new signals while pod is open.
-        // Signal engine continues computing triads for analytics only.
-        if (ArraySize(g_inventory) == 0) {
+        // Per-instrument Option A deafness (Gemini Phase 2d ruling).
+        // Each instrument evaluates independently. A pod open on EURGBP
+        // does not suppress signal evaluation on EURUSD or GBPUSD.
+        // Entry direction derived at point of use from instrument enum.
 
-            if (g_pending_entry_ticket > 0) {
-            string pending_symbol    = "";
-            int    pending_direction = 0;
-            bool   order_exists      = false;
+        double scores[3];
+        scores[0] = g_score_eur;
+        scores[1] = g_score_gbp;
+        scores[2] = g_score_usd;
 
-            if (OrderSelect(g_pending_entry_ticket)) {
-                order_exists      = true;
-                pending_symbol    = OrderGetString(ORDER_SYMBOL);
-                pending_direction =
-                    (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
-                    ? DIRECTION_BUY : DIRECTION_SELL;
+        int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
+
+        for (int k = 0; k < 3; k++) {
+            int inst = target_instruments[k];
+
+            // Derive symbol and direction for this instrument
+            string inst_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                               : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                               : "EURGBP";
+
+            // Derive strongest/weakest for this instrument's routing
+            int inst_strongest = 0, inst_weakest = 0;
+            if (inst == INSTRUMENT_EURUSD) {
+                // EUR vs USD: compare scores[0] vs scores[2]
+                inst_strongest = (scores[0] > scores[2]) ? 0 : 2;
+                inst_weakest   = (scores[0] < scores[2]) ? 0 : 2;
+            } else if (inst == INSTRUMENT_GBPUSD) {
+                // GBP vs USD: compare scores[1] vs scores[2]
+                inst_strongest = (scores[1] > scores[2]) ? 1 : 2;
+                inst_weakest   = (scores[1] < scores[2]) ? 1 : 2;
+            } else {
+                // EUR vs GBP: compare scores[0] vs scores[1]
+                inst_strongest = (scores[0] > scores[1]) ? 0 : 1;
+                inst_weakest   = (scores[0] < scores[1]) ? 0 : 1;
             }
 
-            if (!order_exists) {
-                // Filled or cancelled — trust OnTradeTransaction.
-                // Physical ledger ground truth preserved via HandleEntryFill.
-                g_pending_entry_ticket = 0;
-                SaveInventoryState(); // Serialize the cleared state
-            }
-            else if (pending_symbol    != GetEntrySymbol() ||
-                     pending_direction != GetEntryDirection()) {
+            double inst_spread = scores[inst_weakest] - scores[inst_strongest];
+            bool   inst_signal = (inst_spread < -BaseThreshold);
 
-                // 1. Compute live spread of committed pending order
-                int    pending_strongest = 0, pending_weakest = 0;
-                GetImpliedIndices(pending_symbol, pending_direction,
-                                  pending_strongest, pending_weakest);
+            // Direction: SELL if strongest is EUR(0) or GBP(1) vs weaker,
+            // BUY if strongest is USD(2) or GBP(1) vs EUR(0)
+            int inst_direction;
+            if ((inst_strongest == 0 && inst_weakest == 1) ||
+                (inst_strongest == 0 && inst_weakest == 2) ||
+                (inst_strongest == 1 && inst_weakest == 2))
+                inst_direction = DIRECTION_SELL;
+            else
+                inst_direction = DIRECTION_BUY;
 
-                double scores[3];
-                scores[0] = g_score_eur;
-                scores[1] = g_score_gbp;
-                scores[2] = g_score_usd;
+            // Per-instrument pending entry ticket
+            ulong inst_pending = (inst == INSTRUMENT_EURUSD) ? g_pending_entry_EURUSD
+                               : (inst == INSTRUMENT_GBPUSD) ? g_pending_entry_GBPUSD
+                               : g_pending_entry_EURGBP;
 
-                double pending_live_spread = MathAbs(
-                    scores[pending_weakest] - scores[pending_strongest]);
+            int inst_inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                              : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                              : ArraySize(g_inventory_EURGBP);
 
-                // 2. Compute live spread of new candidate
-                double candidate_live_spread = MathAbs(
-                    scores[g_weakest] - scores[g_strongest]);
+            // Option A: skip if this instrument has open inventory
+            if (inst_inv_size > 0) continue;
 
-                // 3. Hysteresis gate — only rotate if candidate
-                //    beats pending by RotationThreshold
-                if (candidate_live_spread >
-                        pending_live_spread + RotationThreshold) {
+            // Rotation and plain-matrix entry for this instrument
+            if (inst_pending > 0) {
+                string pending_symbol    = "";
+                int    pending_direction = 0;
+                bool   order_exists      = false;
 
-                    // Rotation approved — targeted cancel
-                    MqlTradeRequest req = {};
-                    MqlTradeResult  res = {};
-                    req.action = TRADE_ACTION_REMOVE;
-                    req.order  = g_pending_entry_ticket;
-
-                    if (OrderSend(req, res)) {
-                        g_pending_entry_ticket = 0;
-                        SaveInventoryState();
-                        // Fall through to PlaceEntryLimit() below
-                    } else {
-                        Print("INFO: Pending cancel failed retcode=", res.retcode,
-                              " — possible fill in race window, deferring");
-                    }
-
-                } else {
-                    // Rotation rejected — lock globals back to pending order
-                    // to protect nudge block from computing wrong instrument
-                    g_strongest = pending_strongest;
-                    g_weakest   = pending_weakest;
-                    // Also restore g_signal_active and g_entry_spread
-                    // to reflect the locked routing
-                    g_entry_spread = scores[pending_weakest]
-                                     - scores[pending_strongest];
-                    g_signal_active = (g_entry_spread < -BaseThreshold);
+                if (OrderSelect(inst_pending)) {
+                    order_exists      = true;
+                    pending_symbol    = OrderGetString(ORDER_SYMBOL);
+                    pending_direction = (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
+                                        ? DIRECTION_BUY : DIRECTION_SELL;
                 }
-            }
-            // else: same routing — retain, nudge block handles naturally
+
+                if (!order_exists) {
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = 0;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = 0;
+                    else                                  g_pending_entry_EURGBP = 0;
+                    SaveAllInventoryState();
+                }
+                else if (pending_symbol    != inst_symbol ||
+                         pending_direction != inst_direction) {
+
+                    // Compute live spread of pending order
+                    int    p_strongest = 0, p_weakest = 0;
+                    GetImpliedIndices(pending_symbol, pending_direction,
+                                      p_strongest, p_weakest);
+
+                    double pending_live_spread = MathAbs(
+                        scores[p_weakest] - scores[p_strongest]);
+                    double candidate_live_spread = MathAbs(inst_spread);
+
+                    if (candidate_live_spread >
+                            pending_live_spread + RotationThreshold) {
+                        // Rotation approved
+                        MqlTradeRequest req = {};
+                        MqlTradeResult  res = {};
+                        req.action = TRADE_ACTION_REMOVE;
+                        req.order  = inst_pending;
+
+                        if (OrderSend(req, res)) {
+                            if (inst == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = 0;
+                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = 0;
+                            else                                  g_pending_entry_EURGBP = 0;
+                            SaveAllInventoryState();
+                        } else {
+                            Print("INFO: Pending cancel failed retcode=", res.retcode,
+                                  " instrument=", inst_symbol,
+                                  " — possible fill in race window, deferring");
+                            continue;
+                        }
+                    }
+                    // else: rotation rejected — retain pending, skip entry
+                    else { continue; }
+                }
+                // else: same routing — fall through to nudge (handled below)
             }
 
-        // --- PLAIN MATRIX ENTRY ---
-        // Commit to first active signal and hold until fill or fade.
-        // Radar concept parked in git history for future redesign.
-            if (g_signal_active && g_pending_entry_ticket == 0) {
-                CancelAllPendingEntries();
-                double entry_price = ComputeEntryPrice();
+            // Plain-matrix entry for this instrument
+            if (inst_signal && inst_pending == 0) {
+                double entry_price = InvertSpreadToPrice(
+                    g_EU_mid_12bars_ago,
+                    g_GB_mid_12bars_ago,
+                    g_r_EU_signal,
+                    g_r_GB_signal,
+                    inst_spread,
+                    inst_strongest,
+                    inst_weakest,
+                    false
+                );
+
                 if (entry_price > 0) {
-                    string symbol = GetEntrySymbol();
-                    ulong  tkt    = PlaceEntryLimit(entry_price,
-                                        GetEntryDirection(), symbol);
+                    ulong tkt = PlaceEntryLimit(entry_price, inst_direction, inst_symbol);
                     if (tkt > 0) {
-                        g_pending_entry_ticket = tkt;
-                        SaveInventoryState();
+                        if (inst == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = tkt;
+                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = tkt;
+                        else                                  g_pending_entry_EURGBP = tkt;
+                        SaveAllInventoryState();
                     }
                 }
-            } // End of plain-matrix entry block
-        } // End of Option A inventory guard
-    }
+            }
+        } // End per-instrument loop
+    } // End new_bar block
 
-    if (g_signal_active          &&
-        ArraySize(g_inventory) == 0 &&
-        g_pending_entry_ticket > 0) {
+    // Per-instrument nudge block
+    double scores_nudge[3];
+    scores_nudge[0] = g_score_eur;
+    scores_nudge[1] = g_score_gbp;
+    scores_nudge[2] = g_score_usd;
 
-        double recomputed = ComputeEntryPrice();
-        if (recomputed > 0) {
-            double current_pending = GetPendingOrderPrice(
-                                         g_pending_entry_ticket);
-            if (current_pending > 0 &&
-                MathAbs(recomputed - current_pending) > g_NudgeThreshold) {
+    int nudge_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
 
-                string symbol = OrderSelect(g_pending_entry_ticket)
-                                ? OrderGetString(ORDER_SYMBOL)
-                                : GetEntrySymbol();
-                int    dir    = OrderSelect(g_pending_entry_ticket)
-                                ? ((OrderGetInteger(ORDER_TYPE) ==
-                                    ORDER_TYPE_BUY_LIMIT)
-                                   ? DIRECTION_BUY : DIRECTION_SELL)
-                                : GetEntryDirection();
+    for (int k = 0; k < 3; k++) {
+        int inst = nudge_instruments[k];
 
-                if (IsClearOfFreezeLevel(recomputed, dir, symbol) &&
-                    IsPassive(recomputed, dir, symbol)) {
+        ulong inst_pending = (inst == INSTRUMENT_EURUSD) ? g_pending_entry_EURUSD
+                           : (inst == INSTRUMENT_GBPUSD) ? g_pending_entry_GBPUSD
+                           : g_pending_entry_EURGBP;
 
-                    MqlTradeRequest req = {};
-                    MqlTradeResult  res = {};
-                    req.action = TRADE_ACTION_MODIFY;
-                    req.order  = g_pending_entry_ticket;
-                    req.price  = recomputed;
-                    OrderSend(req, res);
+        int inst_inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                          : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                          : ArraySize(g_inventory_EURGBP);
 
+        if (inst_inv_size > 0 || inst_pending == 0) continue;
+
+        // Derive signal for this instrument
+        int inst_strongest = 0, inst_weakest = 0;
+        if (inst == INSTRUMENT_EURUSD) {
+            inst_strongest = (scores_nudge[0] > scores_nudge[2]) ? 0 : 2;
+            inst_weakest   = (scores_nudge[0] < scores_nudge[2]) ? 0 : 2;
+        } else if (inst == INSTRUMENT_GBPUSD) {
+            inst_strongest = (scores_nudge[1] > scores_nudge[2]) ? 1 : 2;
+            inst_weakest   = (scores_nudge[1] < scores_nudge[2]) ? 1 : 2;
+        } else {
+            inst_strongest = (scores_nudge[0] > scores_nudge[1]) ? 0 : 1;
+            inst_weakest   = (scores_nudge[0] < scores_nudge[1]) ? 0 : 1;
+        }
+
+        double inst_spread = scores_nudge[inst_weakest] - scores_nudge[inst_strongest];
+        bool   inst_signal = (inst_spread < -BaseThreshold);
+
+        if (!inst_signal) continue;
+
+        int inst_direction;
+        if ((inst_strongest == 0 && inst_weakest == 1) ||
+            (inst_strongest == 0 && inst_weakest == 2) ||
+            (inst_strongest == 1 && inst_weakest == 2))
+            inst_direction = DIRECTION_SELL;
+        else
+            inst_direction = DIRECTION_BUY;
+
+        string inst_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                           : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                           : "EURGBP";
+
+        double recomputed = InvertSpreadToPrice(
+            g_EU_mid_12bars_ago,
+            g_GB_mid_12bars_ago,
+            g_r_EU_signal,
+            g_r_GB_signal,
+            inst_spread,
+            inst_strongest,
+            inst_weakest,
+            false
+        );
+
+        if (recomputed <= 0) continue;
+
+        double current_pending = GetPendingOrderPrice(inst_pending);
+        if (current_pending > 0 &&
+            MathAbs(recomputed - current_pending) > g_NudgeThreshold) {
+
+            string sym = OrderSelect(inst_pending)
+                         ? OrderGetString(ORDER_SYMBOL) : inst_symbol;
+            int    dir = OrderSelect(inst_pending)
+                         ? ((OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
+                            ? DIRECTION_BUY : DIRECTION_SELL)
+                         : inst_direction;
+
+            if (IsClearOfFreezeLevel(recomputed, dir, sym) &&
+                IsPassive(recomputed, dir, sym)) {
+
+                MqlTradeRequest req = {};
+                MqlTradeResult  res = {};
+                req.action = TRADE_ACTION_MODIFY;
+                req.order  = inst_pending;
+                req.price  = recomputed;
+
+                if (!OrderSend(req, res)) {
                     if (res.retcode != TRADE_RETCODE_DONE &&
                         res.retcode != TRADE_RETCODE_PLACED)
                         Print("WARNING: Nudge OrderModify failed. ",
-                              "retcode=", res.retcode);
+                              "retcode=", res.retcode,
+                              " instrument=", inst_symbol);
                 }
             }
         }
@@ -315,9 +422,11 @@ void CancelAllPending() {
 }
 
 void CancelAllPendingEntries() {
-    // Skip sweep if no tracked ticket AND no EA orders on book
-    // Preserves F7 orphan sweep while avoiding per-bar SaveInventoryState
-    if (g_pending_entry_ticket == 0 && OrdersTotal() == 0) return;
+    // Skip sweep if no tracked tickets AND no EA orders on book
+    bool any_pending = (g_pending_entry_EURUSD > 0 ||
+                        g_pending_entry_GBPUSD > 0 ||
+                        g_pending_entry_EURGBP > 0);
+    if (!any_pending && OrdersTotal() == 0) return;
 
     int cancelled = 0;
     for (int i = OrdersTotal() - 1; i >= 0; i--) {
@@ -325,31 +434,36 @@ void CancelAllPendingEntries() {
         if (ticket == 0) continue;
         if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
 
-        MqlTradeRequest req = {};
-        MqlTradeResult  res = {};
-        req.action = TRADE_ACTION_REMOVE;
-        req.order  = ticket;
-
-        if (ticket == g_add_next_ticket) {
+        // Skip all three protected add_next tickets (Gemini ruling)
+        if (ticket == g_add_next_EURUSD ||
+            ticket == g_add_next_GBPUSD ||
+            ticket == g_add_next_EURGBP) {
             if (EnableVerboseLog)
                 Print("INFO: CancelAllPendingEntries — skipping protected "
                       "add_next ticket=", ticket);
             continue;
         }
 
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action = TRADE_ACTION_REMOVE;
+        req.order  = ticket;
+
         if (!OrderSend(req, res)) {
             Print("WARNING: CancelAllPendingEntries — cancel failed. ",
-                  "ticket=", ticket,
-                  " retcode=", res.retcode);
+                  "ticket=", ticket, " retcode=", res.retcode);
         } else {
             cancelled++;
-            if (ticket == g_pending_entry_ticket)
-                g_pending_entry_ticket = 0;
+            if (ticket == g_pending_entry_EURUSD) g_pending_entry_EURUSD = 0;
+            else if (ticket == g_pending_entry_GBPUSD) g_pending_entry_GBPUSD = 0;
+            else if (ticket == g_pending_entry_EURGBP) g_pending_entry_EURGBP = 0;
         }
     }
 
-    g_pending_entry_ticket = 0;
-    SaveInventoryState();
+    g_pending_entry_EURUSD = 0;
+    g_pending_entry_GBPUSD = 0;
+    g_pending_entry_EURGBP = 0;
+    SaveAllInventoryState();
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
           " pending orders");

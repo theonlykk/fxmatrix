@@ -819,14 +819,23 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 
     if (deal_entry == DEAL_ENTRY_IN) {
         bool is_exit_limit_fill = false;
-        for (int i = 0; i < ArraySize(g_inventory); i++) {
-            for (int j = 0; j < ArraySize(g_inventory[i].exit_tickets); j++) {
-                if (g_inventory[i].exit_tickets[j] == order_ticket) {
-                    is_exit_limit_fill = true;
-                    break;
+        int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
+        for (int k = 0; k < 3 && !is_exit_limit_fill; k++) {
+            int inst = target_instruments[k];
+            int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                         : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                         : ArraySize(g_inventory_EURGBP);
+            for (int i = 0; i < inv_size && !is_exit_limit_fill; i++) {
+                Layer CurL = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
+                           : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
+                           : g_inventory_EURGBP[i];
+                for (int j = 0; j < ArraySize(CurL.exit_tickets); j++) {
+                    if (CurL.exit_tickets[j] == order_ticket) {
+                        is_exit_limit_fill = true;
+                        break;
+                    }
                 }
             }
-            if (is_exit_limit_fill) break;
         }
 
         if (is_exit_limit_fill) {
