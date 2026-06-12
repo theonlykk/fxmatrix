@@ -44,8 +44,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
                        : ORDER_TYPE_SELL_LIMIT;
     req.type_filling = ORDER_FILLING_RETURN;
     req.type_time    = ORDER_TIME_GTC;
-    req.comment      = "FXMatrix_Entry_L" +
-                       IntegerToString(ArraySize(g_inventory) + 1);
+    req.comment      = "FXMatrix_Entry";
 
     if (!OrderSend(req, res)) {
         Print("ERROR: PlaceEntryLimit OrderSend failed. ",
@@ -136,8 +135,7 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol) {
                        : ORDER_TYPE_SELL_LIMIT;
     req.type_filling = ORDER_FILLING_RETURN;
     req.type_time    = ORDER_TIME_GTC;
-    req.comment      = "FXMatrix_Entry_L" +
-                       IntegerToString(ArraySize(g_inventory) + 1);
+    req.comment      = "FXMatrix_AddNext";
 
     if (!OrderSend(req, res)) {
         Print("ERROR: PlaceNextEntryLimit failed. retcode=", res.retcode);

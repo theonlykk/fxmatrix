@@ -10,126 +10,142 @@ string GetInstrumentSymbol(int instrument) {
 }
 
 void RunCarryRecalculation() {
-    if (ArraySize(g_inventory) == 0) return;
+    int total = ArraySize(g_inventory_EURUSD) +
+                ArraySize(g_inventory_GBPUSD) +
+                ArraySize(g_inventory_EURGBP);
+    if (total == 0) return;
 
     if (EnableVerboseLog)
-        Print("INFO: Carry recalculation started. Layers=",
-              ArraySize(g_inventory));
+        Print("INFO: Carry recalculation started. Layers=", total);
 
-    for (int i = 0; i < ArraySize(g_inventory); i++) {
-        double t = (double)(TimeCurrent() - g_inventory[i].entry_time)
-                   / 86400.0 / 365.0;
+    int instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
+    for (int k = 0; k < 3; k++) {
+        int inst = instruments[k];
+        int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                     : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                     : ArraySize(g_inventory_EURGBP);
 
-        if (t < 1.0 / 365.0) {
-            Print("INFO: Carry skip — same-day trade. Layer ", i);
-            continue;
-        }
+        for (int i = 0; i < inv_size; i++) {
+            Layer L = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
+                    : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
+                    : g_inventory_EURGBP[i];
 
-        double EURUSD_fwd = g_inventory[i].entry_price_eurusd
-                            * (1.0 + r_EUR * t)
-                            / (1.0 + r_USD * t);
-        double GBPUSD_fwd = g_inventory[i].entry_price_gbpusd
-                            * (1.0 + r_GBP * t)
-                            / (1.0 + r_USD * t);
+            double t = (double)(TimeCurrent() - L.entry_time)
+                       / 86400.0 / 365.0;
 
-        double ref_eu = g_inventory[i].entry_price_eurusd_1h;
-        double ref_gb = g_inventory[i].entry_price_gbpusd_1h;
-
-        if (ref_eu <= 0 || ref_gb <= 0) {
-            Print("ERROR: Carry recalc — zero reference price. Layer ", i,
-                  " Skipping.");
-            continue;
-        }
-
-        double r_EU_fwd = MathLog(EURUSD_fwd / ref_eu);
-        double r_GB_fwd = MathLog(GBPUSD_fwd / ref_gb);
-
-        double usd_fwd = -(r_EU_fwd + r_GB_fwd) / 3.0;
-        double eur_fwd =   r_EU_fwd + usd_fwd;
-        double gbp_fwd =   r_GB_fwd + usd_fwd;
-
-        // Dynamic spread: route through layer's weakest/strongest indices
-        // Index mapping (Gemini-confirmed): 0=EUR, 1=GBP, 2=USD
-        // spread = scores[weakest] - scores[strongest] (always negative
-        // by construction for a valid mean-reversion dislocation)
-        double scores_fwd[3];
-        scores_fwd[0] = eur_fwd;
-        scores_fwd[1] = gbp_fwd;
-        scores_fwd[2] = usd_fwd;
-        double new_spread = scores_fwd[g_inventory[i].weakest_at_entry]
-                          - scores_fwd[g_inventory[i].strongest_at_entry];
-
-        g_inventory[i].entry_spread_adjusted = new_spread;
-
-        g_inventory[i].exit_spread_target =
-            ComputeExitSpreadTarget(g_inventory[i]);
-
-        double new_exit_price = ComputeExitPrice(g_inventory[i]);
-
-        if (new_exit_price < 0) {
-            Print("INFO: Carry recalc — exit price passivity failure. ",
-                  "Layer ", i, " Retaining existing exit limits.");
-            continue;
-        }
-
-        string symbol   = GetInstrumentSymbol(g_inventory[i].instrument);
-        int    exit_dir = (g_inventory[i].direction == DIRECTION_BUY)
-                          ? DIRECTION_SELL : DIRECTION_BUY;
-
-        if (!IsClearOfFreezeLevel(new_exit_price, exit_dir, symbol)) {
-            Print("INFO: Carry recalc — exit modify skipped, freeze level. ",
-                  "Layer ", i, " Retaining existing exit limits.");
-            continue;
-        }
-
-        int n_tickets = ArraySize(g_inventory[i].exit_tickets);
-        for (int j = 0; j < n_tickets; j++) {
-            ulong tkt = g_inventory[i].exit_tickets[j];
-
-            if (!OrderSelect(tkt)) {
-                Print("INFO: Carry Engine skip — ticket ", tkt,
-                      " missing from order book.");
+            if (t < 1.0 / 365.0) {
+                Print("INFO: Carry skip — same-day trade. Instrument ", inst,
+                      " layer ", i);
                 continue;
             }
 
-            MqlTradeRequest req = {};
-            MqlTradeResult  res = {};
-            req.action = TRADE_ACTION_MODIFY;
-            req.order  = tkt;
-            req.price  = new_exit_price;
+            double EURUSD_fwd = L.entry_price_eurusd
+                                * (1.0 + r_EUR * t)
+                                / (1.0 + r_USD * t);
+            double GBPUSD_fwd = L.entry_price_gbpusd
+                                * (1.0 + r_GBP * t)
+                                / (1.0 + r_USD * t);
 
-            bool ok = OrderSend(req, res);
+            double ref_eu = L.entry_price_eurusd_1h;
+            double ref_gb = L.entry_price_gbpusd_1h;
 
-            if (!ok && res.retcode == TRADE_RETCODE_TOO_MANY_REQUESTS) {
-                Sleep(100);
-                ok = OrderSend(req, res);
-                if (!ok) {
-                    Print("WARNING: Carry OrderModify throttled. ",
-                          "ticket=", tkt, " layer=", i,
-                          " retcode=", res.retcode);
+            if (ref_eu <= 0 || ref_gb <= 0) {
+                Print("ERROR: Carry recalc — zero reference price. Instrument ",
+                      inst, " layer ", i, " Skipping.");
+                continue;
+            }
+
+            double r_EU_fwd = MathLog(EURUSD_fwd / ref_eu);
+            double r_GB_fwd = MathLog(GBPUSD_fwd / ref_gb);
+
+            double usd_fwd = -(r_EU_fwd + r_GB_fwd) / 3.0;
+            double eur_fwd =   r_EU_fwd + usd_fwd;
+            double gbp_fwd =   r_GB_fwd + usd_fwd;
+
+            double scores_fwd[3];
+            scores_fwd[0] = eur_fwd;
+            scores_fwd[1] = gbp_fwd;
+            scores_fwd[2] = usd_fwd;
+            double new_spread = scores_fwd[L.weakest_at_entry]
+                              - scores_fwd[L.strongest_at_entry];
+
+            L.entry_spread_adjusted = new_spread;
+            L.exit_spread_target = ComputeExitSpreadTarget(L);
+
+            double new_exit_price = ComputeExitPrice(L);
+
+            if (new_exit_price < 0) {
+                Print("INFO: Carry recalc — exit price passivity failure. ",
+                      "Instrument ", inst, " layer ", i,
+                      " Retaining existing exit limits.");
+                continue;
+            }
+
+            string symbol   = GetInstrumentSymbol(L.instrument);
+            int    exit_dir = (L.direction == DIRECTION_BUY)
+                              ? DIRECTION_SELL : DIRECTION_BUY;
+
+            if (!IsClearOfFreezeLevel(new_exit_price, exit_dir, symbol)) {
+                Print("INFO: Carry recalc — exit modify skipped, freeze level. ",
+                      "Instrument ", inst, " layer ", i,
+                      " Retaining existing exit limits.");
+                continue;
+            }
+
+            int n_tickets = ArraySize(L.exit_tickets);
+            for (int j = 0; j < n_tickets; j++) {
+                ulong tkt = L.exit_tickets[j];
+
+                if (!OrderSelect(tkt)) {
+                    Print("INFO: Carry Engine skip — ticket ", tkt,
+                          " missing from order book.");
                     continue;
+                }
+
+                MqlTradeRequest req = {};
+                MqlTradeResult  res = {};
+                req.action = TRADE_ACTION_MODIFY;
+                req.order  = tkt;
+                req.price  = new_exit_price;
+
+                bool ok = OrderSend(req, res);
+
+                if (!ok && res.retcode == TRADE_RETCODE_TOO_MANY_REQUESTS) {
+                    Sleep(100);
+                    ok = OrderSend(req, res);
+                    if (!ok) {
+                        Print("WARNING: Carry OrderModify throttled. ",
+                              "ticket=", tkt, " instrument=", inst,
+                              " layer=", i, " retcode=", res.retcode);
+                        continue;
+                    }
+                }
+
+                if (!ok && res.retcode != TRADE_RETCODE_NO_CHANGES) {
+                    Print("ERROR: Carry OrderModify failed. ",
+                          "ticket=", tkt, " instrument=", inst,
+                          " layer=", i, " retcode=", res.retcode,
+                          " Halting pod.");
+                    g_halted = true;
+                    return;
                 }
             }
 
-            if (!ok && res.retcode != TRADE_RETCODE_NO_CHANGES) {
-                Print("ERROR: Carry OrderModify failed. ",
-                      "ticket=", tkt, " layer=", i,
-                      " retcode=", res.retcode,
-                      " Halting pod.");
-                g_halted = true;
-                return;
-            }
+            L.exit_target = new_exit_price;
+
+            if (inst == INSTRUMENT_EURUSD)      g_inventory_EURUSD[i] = L;
+            else if (inst == INSTRUMENT_GBPUSD)  g_inventory_GBPUSD[i] = L;
+            else                                 g_inventory_EURGBP[i] = L;
+
+            if (EnableVerboseLog)
+                Print("INFO: Carry recalc complete. Instrument ", inst,
+                      " layer ", i,
+                      " new_spread=", DoubleToString(new_spread, 6),
+                      " new_exit=",   DoubleToString(new_exit_price, 5));
         }
-
-        g_inventory[i].exit_target = new_exit_price;
-
-        if (EnableVerboseLog)
-            Print("INFO: Carry recalc complete. Layer ", i,
-                  " new_spread=", DoubleToString(new_spread, 6),
-                  " new_exit=",   DoubleToString(new_exit_price, 5));
     }
 
-    SaveInventoryState();
+    SaveAllInventoryState();
     Print("INFO: Carry recalculation finished.");
 }
 

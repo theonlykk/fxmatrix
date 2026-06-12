@@ -1,8 +1,8 @@
-# ADR-007: V2 Phase 2 — State & Memory Refactor (Shadow State)
+# ADR-007: V2 Phase 2 — State & Memory Refactor
 
 **Date:** 2026-06-12  
-**Status:** Accepted (Phase 2a)  
-**Phase:** 2a — Shadow State Injection  
+**Status:** Accepted (Phase 2 complete — 2a through 2e)  
+**Phase:** 2 — Per-Instrument State & Memory  
 **Repo:** theonlykk/fxmatrix  
 
 ---
@@ -10,10 +10,10 @@
 ## Context
 
 Phase 2 migrates FXMatrix from a single monolithic inventory to per-instrument
-shadow state, enabling layer-aware carry geometry and eventual multi-pod isolation.
-Phase 2a follows the **Shadow State pattern**: add new variables alongside existing
-ones without deleting or modifying anything currently in use. Execution logic is
-completely untouched until Phase 2c.
+state, enabling layer-aware carry geometry and eventual multi-pod isolation.
+The migration followed the **Shadow State pattern** (2a–2d): add new variables
+alongside existing ones, route execution to the new arrays, then delete the
+legacy globals in Phase 2e (The Guillotine).
 
 Gemini Staff Architect Phase 2 ruling mandates this incremental approach to preserve
 Run 52/54 baseline behaviour while building toward structural regime hedging.
@@ -48,7 +48,7 @@ stressed by USD policy and Pod 2 by risk-off carry unwinds.
 
 ---
 
-## Decision — Phase 2a Shadow State Additions
+## Decision — Per-Instrument State (Complete)
 
 ### LayerStruct.mqh
 
@@ -59,40 +59,56 @@ int layer_index;   // 0-based depth; -1 = uninitialised sentinel
 ```
 
 - Initialised to `-1` in `InitLayer()` — deliberate sentinel forcing visible failure
-  if `HandleEntryFill()` omits assignment (Phase 2b)
+  if `HandleEntryFill()` omits assignment
 - Added to IMMUTABILITY CONTRACT — set once at first fill, never modified elsewhere
-- Enables `ComputeSkew(layer.layer_index)` in carry path (Phase 2b one-line patch)
+- Enables `ComputeSkew(layer.layer_index)` in carry path
 
-### Globals.mqh — Per-Instrument Shadow State
+### Globals.mqh — Per-Instrument State (Active)
 
-| Shadow Variable | Replaces (Phase 2c+) | Guillotine (Phase 2e) |
-|---|---|---|
-| `g_inventory_EURUSD[]` | `g_inventory[]` | Delete monolithic |
-| `g_inventory_GBPUSD[]` | | |
-| `g_inventory_EURGBP[]` | | |
-| `g_pending_entry_EURUSD` | `g_pending_entry_ticket` | Delete monolithic |
-| `g_pending_entry_GBPUSD` | | |
-| `g_pending_entry_EURGBP` | | |
-| `g_add_next_EURUSD` | `g_add_next_ticket` | Delete monolithic |
-| `g_add_next_GBPUSD` | | |
-| `g_add_next_EURGBP` | | |
+| Variable | Purpose |
+|---|---|
+| `g_inventory_EURUSD[]` | EURUSD layer inventory |
+| `g_inventory_GBPUSD[]` | GBPUSD layer inventory |
+| `g_inventory_EURGBP[]` | EURGBP layer inventory |
+| `g_pending_entry_EURUSD` | Pre-inventory entry limit ticket |
+| `g_pending_entry_GBPUSD` | |
+| `g_pending_entry_EURGBP` | |
+| `g_add_next_EURUSD` | Defensive add_next limit ticket |
+| `g_add_next_GBPUSD` | |
+| `g_add_next_EURGBP` | |
+| `g_closeby_queue[]` | Shared CloseBy retry queue |
 
-All shadow arrays explicitly initialised to size 0 in `InitGlobals()`.
-
-**Existing globals preserved unchanged** — `g_inventory[]`, `g_pending_entry_ticket`,
-`g_add_next_ticket` remain active until Phase 2e (The Guillotine).
+**Deleted in Phase 2e (The Guillotine):** `g_inventory[]`, `g_pending_entry_ticket`,
+`g_add_next_ticket`.
 
 ---
 
 ## Phase Roadmap
 
-| Phase | Scope |
+| Phase | Scope | Status |
+|---|---|---|
+| **2a** | Shadow state injection — declarations only | Complete |
+| **2b** | Per-instrument `SaveInventoryState(int)`, `LoadInventoryState(int)`, `SaveAllInventoryState()` | Complete |
+| **2c** | Execution logic migrates to per-instrument arrays; `layer_index` at fill | Complete |
+| **2d** | Per-instrument `OnTick()` loop; nudge block; exit detection fix | Complete |
+| **2e** | The Guillotine — delete monolithic globals and legacy no-arg state functions | Complete |
+
+---
+
+## Phase 2e Deletions
+
+| File | Removed |
 |---|---|
-| **2a** (this patch) | Shadow state injection — declarations only |
-| 2b | `layer_index` assignment in `HandleEntryFill()`; carry path `ComputeSkew()` fix |
-| 2c | Execution logic migrates to per-instrument shadow state |
-| 2d | State persistence for per-instrument arrays |
-| 2e | The Guillotine — delete monolithic globals |
+| `Globals.mqh` | `g_inventory[]`, `g_pending_entry_ticket`, `g_add_next_ticket`, shadow comment blocks |
+| `StateEngine.mqh` | `GetStateFilename()` (no-arg), `SaveInventoryState()` (no-arg), `LoadInventoryState()` (no-arg) |
+| `ExecutionEngine.mqh` | Order comment labels referencing `ArraySize(g_inventory)` |
+| `FXMatrix.mq5` | `GetEntrySymbol()`, `GetEntryDirection()` |
+
+**Retained:** `GetStateFilename(int)`, `SaveInventoryState(int)`, `LoadInventoryState(int)`,
+`SaveAllInventoryState()`, `CheckForOrphans()` (updated to scan all three arrays).
+
+**Collateral fix:** `CarryEngine.mqh` `RunCarryRecalculation()` migrated to per-instrument
+arrays and `SaveAllInventoryState()` — required for clean compile after guillotine.
 
 ---
 
@@ -101,22 +117,8 @@ All shadow arrays explicitly initialised to size 0 in `InitGlobals()`.
 | Scenario | Behaviour |
 |---|---|
 | `layer_index = -1` in logs | `HandleEntryFill()` failed to set depth at fill — visible sentinel failure |
-| Shadow arrays uninitialised | Prevented by explicit `ArrayResize(..., 0)` in `InitGlobals()` |
-| Premature shadow state use | No execution logic references shadow variables until Phase 2c — inert |
-
----
-
-## Scope (Phase 2a Only)
-
-| File | Change |
-|---|---|
-| `LayerStruct.mqh` | `layer_index` field, `InitLayer()` init, immutability contract |
-| `Globals.mqh` | Per-instrument shadow globals, `InitGlobals()` array init |
-
-### Explicitly Untouched
-
-`FXMatrix.mqh`, `StateEngine.mqh`, `MathEngine.mqh`, `CarryEngine.mqh`,
-`ExecutionEngine.mqh` — no changes in Phase 2a.
+| Per-instrument arrays uninitialised | Prevented by explicit `ArrayResize(..., 0)` in `InitGlobals()` |
+| Orphan position not in any inventory array | `CheckForOrphans()` halts pod |
 
 ---
 

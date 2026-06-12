@@ -19,8 +19,6 @@ void CloseAllPositions();
 void CancelAllPending();
 void CancelAllPendingEntries();
 void ProcessCloseByQueue();
-string GetEntrySymbol();
-int    GetEntryDirection();
 double GetPendingOrderPrice(ulong ticket);
 
 int OnInit() {
@@ -542,24 +540,6 @@ void ProcessCloseByQueue() {
                   " position_by=", g_closeby_queue[i].ticket2);
         }
     }
-}
-
-string GetEntrySymbol() {
-    if (g_strongest == 0 && g_weakest == 1) return "EURGBP";
-    if (g_strongest == 1 && g_weakest == 0) return "EURGBP";
-    if (g_strongest == 0 && g_weakest == 2) return "EURUSD";
-    if (g_strongest == 2 && g_weakest == 0) return "EURUSD";
-    if (g_strongest == 1 && g_weakest == 2) return "GBPUSD";
-    if (g_strongest == 2 && g_weakest == 1) return "GBPUSD";
-    return _Symbol;
-}
-
-int GetEntryDirection() {
-    if ((g_strongest == 0 && g_weakest == 1) ||
-        (g_strongest == 0 && g_weakest == 2) ||
-        (g_strongest == 1 && g_weakest == 2))
-        return DIRECTION_SELL;
-    return DIRECTION_BUY;
 }
 
 double GetPendingOrderPrice(ulong ticket) {
