@@ -63,10 +63,35 @@ Both legs use the same S = `GridBase`, preserving the asymmetrical spacing invar
 |---|---|
 | `Globals.mqh` | Add `GridBase` input; update `ExitFraction` default |
 | `ExecutionEngine.mqh` | Fix `ComputeNextLayerPrice()` and `exit_spread_target` in `HandleEntryFill()` |
+| `MathEngine.mqh` | Hotfix `ComputeExitSpreadTarget()` to GridBase formula (see below) |
 
 ### Explicitly Untouched
 
-`FXMatrix.mq5`, `StateEngine.mqh`, `LayerStruct.mqh`, `MathEngine.mqh`, `CarryEngine.mqh`, `g_add_next_ticket`, `CancelAllPendingEntries()`, OnTick inventory guard.
+`FXMatrix.mq5`, `StateEngine.mqh`, `LayerStruct.mqh`, `CarryEngine.mqh`, `g_add_next_ticket`, `CancelAllPendingEntries()`, OnTick inventory guard.
+
+---
+
+## Hotfix — `ComputeExitSpreadTarget()` Alignment (Run 51)
+
+Run 51 log analysis revealed a second geometry regression path: `CarryEngine` calls
+`ComputeExitSpreadTarget()` daily at 17:00 broker time, overwriting the correct
+`exit_spread_target` set at fill time in `HandleEntryFill()`.
+
+The carry path still used the old raw-magnitude formula:
+
+```
+entry_spread_adjusted * (1.0 - ExitFraction)
+```
+
+**Fix:** `ComputeExitSpreadTarget()` in `MathEngine.mqh` now uses:
+
+```
+entry_spread_adjusted + GridBase * ExitFraction
+```
+
+`ExitFractionStep` graduation is deferred to V2 — the carry recalc path does not
+have `layer_idx` in `LayerStruct` today, so it uses the base `ExitFraction` rather
+than per-layer `layer_exit_frac`.
 
 ---
 

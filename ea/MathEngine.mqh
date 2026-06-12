@@ -116,7 +116,14 @@ bool IsPassive(double price, int direction, string symbol) {
 }
 
 double ComputeExitSpreadTarget(const Layer &layer) {
-    return layer.entry_spread_adjusted * (1.0 - ExitFraction);
+    // Phase 0 hotfix: GridBase-anchored exit geometry.
+    // Aligned with HandleEntryFill() which uses the same formula.
+    // exit = entry_spread_adjusted + GridBase * ExitFraction
+    // entry_spread_adjusted is negative; adding GridBase * ExitFraction
+    // moves toward zero — correct direction for exit target.
+    // ExitFractionStep graduation deferred to V2 (requires layer_idx
+    // in LayerStruct, not yet available in carry recalc path).
+    return layer.entry_spread_adjusted + GridBase * ExitFraction;
 }
 
 double InvertSpreadToPrice(
