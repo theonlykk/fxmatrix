@@ -176,33 +176,24 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
 double ComputeNextLayerPrice(int    next_layer_idx,
                              int    instrument,
                              int    direction,
-                             double deal_price,
-                             double entry_spread_raw) {
+                             double deal_price) {
 
-    // Khalid's asymmetrical spacing formula (Gemini approved).
-    // S = signal magnitude at fill time (always positive).
-    // exit     = entry + S * ExitFraction          (closer to entry)
-    // add_next = entry - S - S*(1-ExitFraction)    (further from entry)
-    // Invariant: |add_next - entry| > |exit - entry| always.
-    // S is locked to this layer's actual entry_spread_raw,
-    // not the global ThresholdStep.
+    // Phase 0 interim fix (Gemini approved).
+    // S is a fixed grid interval anchored to GridBase input.
+    // entry_spread_raw is NOT the grid interval — it is the signal
+    // magnitude at fill time and is an order of magnitude too large.
+    // Full parameterised grid (linear/exponential/hybrid) comes in V2.
+
+    double S = GridBase;
+
+    if (S <= 0.0) {
+        Print("SEV-2: ComputeNextLayerPrice — GridBase is zero or negative.");
+        return -1.0;
+    }
 
     double layer_exit_frac = MathMax(
         ExitFraction - ((next_layer_idx - 1) * ExitFractionStep),
         ExitFractionMin);
-
-    // S is always positive (entry_spread_raw is negative; negate it)
-    double S = MathAbs(entry_spread_raw);
-
-    if (S <= 0.0) {
-        Print("SEV-2: ComputeNextLayerPrice — entry_spread_raw is zero. ",
-              "next_layer_idx=", next_layer_idx);
-        return -1.0;
-    }
-
-    // add_next spread: deeper dislocation than entry.
-    // entry_spread_raw is negative; subtracting pushes further negative.
-    double add_next_spread = entry_spread_raw - S - S * (1.0 - layer_exit_frac);
 
     int strongest = 0;
     int weakest   = 0;
@@ -216,6 +207,14 @@ double ComputeNextLayerPrice(int    next_layer_idx,
         if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 1; }
         else                              { strongest = 1; weakest = 2; }
     }
+
+    // Retrieve entry spread of the layer just filled.
+    // next_layer_idx is post-append ArraySize, so filled layer is at index next_layer_idx-1.
+    double entry_spread = g_inventory[next_layer_idx - 1].entry_spread_raw;
+
+    // add_next = entry_spread - S - S*(1-skew)
+    // Guarantees |add_next - entry| > |exit - entry| always.
+    double add_next_spread = entry_spread - S - S * (1.0 - layer_exit_frac);
 
     double price_add_next = InvertSpreadToPrice(
         g_EU_mid_12bars_ago,
@@ -419,7 +418,10 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         double layer_exit_frac = MathMax(
             ExitFraction - (layer_idx * ExitFractionStep),
             ExitFractionMin);
-        L.exit_spread_target = L.entry_spread_adjusted * (1.0 - layer_exit_frac);
+        // exit_spread_target uses GridBase as interval S, aligned with ComputeNextLayerPrice().
+        // exit = entry_spread + S * skew
+        // entry_spread_adjusted is negative; adding S*skew moves toward zero (correct direction).
+        L.exit_spread_target = L.entry_spread_adjusted + GridBase * layer_exit_frac;
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 
@@ -434,8 +436,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             next_layer_idx,
             L.instrument,
             L.direction,
-            deal_price,
-            L.entry_spread_raw);
+            deal_price);
 
         // Sentinel guard — never store corrupted add_next
         if (computed_next <= 0.0) {

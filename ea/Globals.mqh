@@ -7,10 +7,11 @@
 input int    StrengthWindow     = 12;      // M5 bars = 1 hour
 input double BaseThreshold      = 0.0004;  // Layer 0 entry threshold
 input double ThresholdStep      = 0.0002;  // per-layer threshold increment
+input double GridBase           = 0.0008;  // grid interval between layers (8bps default)
 input double RotationThreshold  = 0.0002;  // min edge to rotate signal
 
 //--- Exit parameters
-input double ExitFraction       = 0.70;    // fraction of spread reversion to capture
+input double ExitFraction       = 0.618;   // Fibonacci retracement exit (golden ratio)
 input double ExitFractionStep   = 0.10;    // per-layer reduction in exit fraction
 input double ExitFractionMin    = 0.40;    // minimum exit fraction (must be > 0.0)
 input double MinFillThreshold   = 0.50;    // fraction of lot_size before next layer
