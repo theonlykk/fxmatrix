@@ -70,8 +70,30 @@ double   g_NudgeThreshold       = 0.0;   // computed at InitGlobals() from Nudge
 Layer        g_inventory[];              // dynamic array of open layers
 CloseByTask  g_closeby_queue[];          // pending CloseBy retry tasks
 
+//--- Per-instrument inventory arrays (Phase 2 shadow state)
+//    These replace g_inventory[] in Phase 2c onwards.
+//    DO NOT DELETE g_inventory[] until Phase 2e (The Guillotine).
+Layer        g_inventory_EURUSD[];
+Layer        g_inventory_GBPUSD[];
+Layer        g_inventory_EURGBP[];
+
 ulong    g_pending_entry_ticket = 0;   // ticket of pre-inventory entry limit
+
+//--- Per-instrument pending entry tickets (Phase 2 shadow state)
+//    These replace g_pending_entry_ticket in Phase 2c onwards.
+//    DO NOT DELETE g_pending_entry_ticket until Phase 2e (The Guillotine).
+ulong    g_pending_entry_EURUSD = 0;
+ulong    g_pending_entry_GBPUSD = 0;
+ulong    g_pending_entry_EURGBP = 0;
+
 ulong    g_add_next_ticket      = 0;   // ticket of defensive add_next limit (inventory > 0 only)
+
+//--- Per-instrument add_next tickets (Phase 2 shadow state)
+//    These replace g_add_next_ticket in Phase 2c onwards.
+//    DO NOT DELETE g_add_next_ticket until Phase 2e (The Guillotine).
+ulong    g_add_next_EURUSD = 0;
+ulong    g_add_next_GBPUSD = 0;
+ulong    g_add_next_EURGBP = 0;
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 
@@ -83,6 +105,9 @@ int InitGlobals() {
     g_peak_equity = AccountInfoDouble(ACCOUNT_EQUITY);
 
     ArrayResize(g_inventory, 0);
+    ArrayResize(g_inventory_EURUSD, 0);
+    ArrayResize(g_inventory_GBPUSD, 0);
+    ArrayResize(g_inventory_EURGBP, 0);
 
     if (MaxLayers < 1 || MaxLayers > 20) {
         Print("ERROR: MaxLayers out of range");

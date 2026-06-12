@@ -17,6 +17,10 @@ enum DirectionType {
 };
 
 struct Layer {
+    // --- Layer identity ---
+    int      layer_index;               // 0-based depth — enables ComputeSkew() in carry path
+                                        // -1 = uninitialised sentinel (set at fill time only)
+
     // --- Entry state (immutable after first fill) ---
     double   entry_price;
     double   entry_spread_raw;
@@ -67,6 +71,7 @@ struct CloseByTask {
 //--- IMMUTABILITY CONTRACT (DO NOT MODIFY IN ANY OTHER FILE) ---
 // The following Layer fields are set ONCE at first fill and
 // must NEVER be modified by any function outside OnTradeTransaction:
+//   layer_index
 //   entry_price
 //   entry_spread_raw
 //   entry_time
@@ -101,6 +106,7 @@ struct CloseByTask {
 
 Layer InitLayer() {
     Layer L;
+    L.layer_index                  = -1;   // sentinel — must be set at fill time
     L.entry_price                  = 0.0;
     L.entry_spread_raw             = 0.0;
     L.entry_time                   = 0;
