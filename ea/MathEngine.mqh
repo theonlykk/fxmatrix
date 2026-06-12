@@ -116,14 +116,12 @@ bool IsPassive(double price, int direction, string symbol) {
 }
 
 double ComputeExitSpreadTarget(const Layer &layer) {
-    // Phase 0 hotfix: GridBase-anchored exit geometry.
-    // Aligned with HandleEntryFill() which uses the same formula.
-    // exit = entry_spread_adjusted + GridBase * ExitFraction
-    // entry_spread_adjusted is negative; adding GridBase * ExitFraction
-    // moves toward zero — correct direction for exit target.
-    // ExitFractionStep graduation deferred to V2 (requires layer_idx
-    // in LayerStruct, not yet available in carry recalc path).
-    return layer.entry_spread_adjusted + GridBase * ExitFraction;
+    // V2 Phase 1: uses ComputeSkew(0) as safe approximation.
+    // layer_index not yet in LayerStruct (Phase 2 addition).
+    // When SkewStep=0 (default), ComputeSkew(0) == ComputeSkew(N)
+    // for all N, so this is mathematically identical to Phase 0.
+    // Phase 2 one-line patch: replace 0 with layer.layer_index.
+    return layer.entry_spread_adjusted + GridBase * ComputeSkew(0);
 }
 
 double InvertSpreadToPrice(
@@ -230,6 +228,47 @@ double InvertSpreadToPrice(
     }
 
     return price;
+}
+
+//------------------------------------------------------------------
+// ComputeGridInterval
+// Returns the grid spacing S for a given layer index.
+// GridMode 0: constant S = GridBase
+// GridMode 1: linear S = GridBase + layer_idx * GridLinearStep
+// GridMode 2: hybrid — linear up to GridInflection, then exponential
+//------------------------------------------------------------------
+double ComputeGridInterval(int layer_idx) {
+    if (GridMode == 0) {
+        return GridBase;
+    }
+    else if (GridMode == 1) {
+        return GridBase + layer_idx * GridLinearStep;
+    }
+    else { // GridMode == 2: hybrid
+        if (layer_idx <= GridInflection) {
+            return GridBase + layer_idx * GridLinearStep;
+        }
+        else {
+            double S_at_inflection = GridBase + GridInflection * GridLinearStep;
+            return S_at_inflection * MathPow(GridExpBase,
+                                             layer_idx - GridInflection);
+        }
+    }
+}
+
+//------------------------------------------------------------------
+// ComputeSkew
+// Returns the exit capture fraction for a given layer index.
+// SkewMode 0: constant skew = SkewStart
+// SkewMode 1: linear decrease floored at SkewMin
+//------------------------------------------------------------------
+double ComputeSkew(int layer_idx) {
+    if (SkewMode == 0) {
+        return SkewStart;
+    }
+    else {
+        return MathMax(SkewStart - layer_idx * SkewStep, SkewMin);
+    }
 }
 
 double ComputeEntryPrice() {

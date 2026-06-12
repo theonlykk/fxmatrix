@@ -178,22 +178,20 @@ double ComputeNextLayerPrice(int    next_layer_idx,
                              int    direction,
                              double deal_price) {
 
-    // Phase 0 interim fix (Gemini approved).
-    // S is a fixed grid interval anchored to GridBase input.
-    // entry_spread_raw is NOT the grid interval — it is the signal
-    // magnitude at fill time and is an order of magnitude too large.
-    // Full parameterised grid (linear/exponential/hybrid) comes in V2.
+    // V2 Phase 1: parameterised grid interval and skew.
+    // S = ComputeGridInterval(next_layer_idx) — varies by layer and GridMode.
+    // skew = ComputeSkew(next_layer_idx) — varies by layer and SkewMode.
+    // Invariant: |add_next - entry| > |exit - entry| holds for skew < 1.
 
-    double S = GridBase;
+    double S    = ComputeGridInterval(next_layer_idx);
+    double skew = ComputeSkew(next_layer_idx);
 
     if (S <= 0.0) {
-        Print("SEV-2: ComputeNextLayerPrice — GridBase is zero or negative.");
+        Print("SEV-2: ComputeNextLayerPrice — S <= 0. ",
+              "next_layer_idx=", next_layer_idx,
+              " GridMode=", GridMode);
         return -1.0;
     }
-
-    double layer_exit_frac = MathMax(
-        ExitFraction - ((next_layer_idx - 1) * ExitFractionStep),
-        ExitFractionMin);
 
     int strongest = 0;
     int weakest   = 0;
@@ -209,12 +207,12 @@ double ComputeNextLayerPrice(int    next_layer_idx,
     }
 
     // Retrieve entry spread of the layer just filled.
-    // next_layer_idx is post-append ArraySize, so filled layer is at index next_layer_idx-1.
+    // next_layer_idx is post-append ArraySize; filled layer is at index next_layer_idx-1.
     double entry_spread = g_inventory[next_layer_idx - 1].entry_spread_raw;
 
     // add_next = entry_spread - S - S*(1-skew)
-    // Guarantees |add_next - entry| > |exit - entry| always.
-    double add_next_spread = entry_spread - S - S * (1.0 - layer_exit_frac);
+    // Guarantees |add_next - entry| > |exit - entry| for all skew < 1.
+    double add_next_spread = entry_spread - S - S * (1.0 - skew);
 
     double price_add_next = InvertSpreadToPrice(
         g_EU_mid_12bars_ago,
@@ -230,6 +228,8 @@ double ComputeNextLayerPrice(int    next_layer_idx,
     if (price_add_next <= 0.0) {
         Print("SEV-2: ComputeNextLayerPrice — inversion returned sentinel. ",
               "add_next_spread=", DoubleToString(add_next_spread, 8),
+              " S=", DoubleToString(S, 8),
+              " skew=", DoubleToString(skew, 4),
               " next_layer_idx=", next_layer_idx);
         return -1.0;
     }
@@ -415,13 +415,12 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
                                                          DEAL_POSITION_ID);
 
-        double layer_exit_frac = MathMax(
-            ExitFraction - (layer_idx * ExitFractionStep),
-            ExitFractionMin);
-        // exit_spread_target uses GridBase as interval S, aligned with ComputeNextLayerPrice().
+        // V2 Phase 1: exit geometry uses ComputeGridInterval() and ComputeSkew().
         // exit = entry_spread + S * skew
-        // entry_spread_adjusted is negative; adding S*skew moves toward zero (correct direction).
-        L.exit_spread_target = L.entry_spread_adjusted + GridBase * layer_exit_frac;
+        // S and skew are both layer-aware — correct geometry at every depth.
+        double S    = ComputeGridInterval(layer_idx);
+        double skew = ComputeSkew(layer_idx);
+        L.exit_spread_target = L.entry_spread_adjusted + S * skew;
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 

@@ -8,12 +8,17 @@ input int    StrengthWindow     = 12;      // M5 bars = 1 hour
 input double BaseThreshold      = 0.0004;  // Layer 0 entry threshold
 input double ThresholdStep      = 0.0002;  // per-layer threshold increment
 input double GridBase           = 0.0008;  // grid interval between layers (8bps default)
+input int    GridMode           = 0;       // 0=constant 1=linear 2=hybrid
+input double GridLinearStep     = 0.0002;  // interval increment per layer (linear/hybrid)
+input int    GridInflection     = 2;       // layer where linear switches to exponential
+input double GridExpBase        = 1.500;   // exponential multiplier (hybrid mode)
+input int    SkewMode           = 0;       // 0=constant 1=linear decrease
+input double SkewStart          = 0.618;   // starting capture fraction (Fibonacci golden ratio)
+input double SkewStep           = 0.000;   // reduction per layer (0=disabled)
+input double SkewMin            = 0.050;   // floor — avoids locking in transaction cost losses
 input double RotationThreshold  = 0.0002;  // min edge to rotate signal
 
-//--- Exit parameters
-input double ExitFraction       = 0.618;   // Fibonacci retracement exit (golden ratio)
-input double ExitFractionStep   = 0.10;    // per-layer reduction in exit fraction
-input double ExitFractionMin    = 0.40;    // minimum exit fraction (must be > 0.0)
+//--- Layer fill
 input double MinFillThreshold   = 0.50;    // fraction of lot_size before next layer
 
 //--- Layer mechanics
@@ -87,12 +92,20 @@ int InitGlobals() {
         Print("ERROR: BaseLotSize must be positive");
         return INIT_PARAMETERS_INCORRECT;
     }
-    if (ExitFraction <= 0 || ExitFraction >= 1.0) {
-        Print("ERROR: ExitFraction must be between 0 and 1");
+    if (SkewStart <= 0.0 || SkewStart >= 1.0) {
+        Print("ERROR: SkewStart must be between 0 and 1");
         return INIT_PARAMETERS_INCORRECT;
     }
-    if (ExitFractionMin <= 0.0) {
-        Print("FATAL: ExitFractionMin must be > 0.0");
+    if (SkewMin <= 0.0) {
+        Print("FATAL: SkewMin must be > 0.0");
+        return INIT_PARAMETERS_INCORRECT;
+    }
+    if (GridBase <= 0.0) {
+        Print("FATAL: GridBase must be > 0.0");
+        return INIT_PARAMETERS_INCORRECT;
+    }
+    if (GridExpBase <= 1.0 && GridMode == 2) {
+        Print("FATAL: GridExpBase must be > 1.0 in hybrid mode");
         return INIT_PARAMETERS_INCORRECT;
     }
     if (MinFillThreshold <= 0 || MinFillThreshold > 1.0) {
