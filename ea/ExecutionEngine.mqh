@@ -132,9 +132,9 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol) {
         return 0;
     }
 
-    g_pending_entry_ticket = res.order;
+    g_add_next_ticket = res.order;
     SaveInventoryState();
-    Print("INFO: Next entry limit placed. ticket=", res.order,
+    Print("INFO: Next entry limit placed (add_next). ticket=", res.order,
           " add_next=", DoubleToString(price, 5));
     return res.order;
 }
@@ -176,59 +176,66 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
 double ComputeNextLayerPrice(int    next_layer_idx,
                              int    instrument,
                              int    direction,
-                             double deal_price) {
+                             double deal_price,
+                             double entry_spread_raw) {
 
-    double current_threshold = BaseThreshold
-                               + (next_layer_idx - 1) * ThresholdStep;
-    double next_threshold    = BaseThreshold
-                               + next_layer_idx * ThresholdStep;
+    // Khalid's asymmetrical spacing formula (Gemini approved).
+    // S = signal magnitude at fill time (always positive).
+    // exit     = entry + S * ExitFraction          (closer to entry)
+    // add_next = entry - S - S*(1-ExitFraction)    (further from entry)
+    // Invariant: |add_next - entry| > |exit - entry| always.
+    // S is locked to this layer's actual entry_spread_raw,
+    // not the global ThresholdStep.
+
+    double layer_exit_frac = MathMax(
+        ExitFraction - ((next_layer_idx - 1) * ExitFractionStep),
+        ExitFractionMin);
+
+    // S is always positive (entry_spread_raw is negative; negate it)
+    double S = MathAbs(entry_spread_raw);
+
+    if (S <= 0.0) {
+        Print("SEV-2: ComputeNextLayerPrice — entry_spread_raw is zero. ",
+              "next_layer_idx=", next_layer_idx);
+        return -1.0;
+    }
+
+    // add_next spread: deeper dislocation than entry.
+    // entry_spread_raw is negative; subtracting pushes further negative.
+    double add_next_spread = entry_spread_raw - S - S * (1.0 - layer_exit_frac);
 
     int strongest = 0;
     int weakest   = 0;
     if (instrument == INSTRUMENT_EURGBP) {
         if (direction == DIRECTION_BUY)  { strongest = 1; weakest = 0; }
-        else                               { strongest = 0; weakest = 1; }
+        else                              { strongest = 0; weakest = 1; }
     } else if (instrument == INSTRUMENT_EURUSD) {
         if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 0; }
-        else                               { strongest = 0; weakest = 2; }
+        else                              { strongest = 0; weakest = 2; }
     } else {
         if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 1; }
-        else                               { strongest = 1; weakest = 2; }
+        else                              { strongest = 1; weakest = 2; }
     }
 
-    double price_current = InvertSpreadToPrice(
+    double price_add_next = InvertSpreadToPrice(
         g_EU_mid_12bars_ago,
         g_GB_mid_12bars_ago,
         g_r_EU_signal,
         g_r_GB_signal,
-        -current_threshold,
+        add_next_spread,
         strongest,
         weakest,
         false,
         false);   // enforce_passivity=false — pure math inversion
 
-    double price_next = InvertSpreadToPrice(
-        g_EU_mid_12bars_ago,
-        g_GB_mid_12bars_ago,
-        g_r_EU_signal,
-        g_r_GB_signal,
-        -next_threshold,
-        strongest,
-        weakest,
-        false,
-        false);   // enforce_passivity=false — pure math inversion
-
-    if (price_current <= 0.0 || price_next <= 0.0) {
-        Print("SEV-2: ComputeNextLayerPrice — inversion returned "
-              "sentinel. price_current=", price_current,
-              " price_next=", price_next,
+    if (price_add_next <= 0.0) {
+        Print("SEV-2: ComputeNextLayerPrice — inversion returned sentinel. ",
+              "add_next_spread=", DoubleToString(add_next_spread, 8),
               " next_layer_idx=", next_layer_idx);
         return -1.0;
     }
 
-    double price_offset = price_next - price_current;
-
-    return deal_price + price_offset;
+    return price_add_next;
 }
 
 void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
@@ -427,7 +434,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             next_layer_idx,
             L.instrument,
             L.direction,
-            deal_price);
+            deal_price,
+            L.entry_spread_raw);
 
         // Sentinel guard — never store corrupted add_next
         if (computed_next <= 0.0) {
@@ -606,6 +614,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     if (ArraySize(g_inventory) == 0) {
                         Print("INFO: Pod fully closed. Initiating "
                               "pending entry teardown.");
+                        g_add_next_ticket = 0;
                         CancelAllPendingEntries();
                     }
                 }

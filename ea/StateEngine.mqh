@@ -18,6 +18,8 @@ void SaveInventoryState() {
     FileWrite(fh, "{");
     FileWrite(fh, "  \"pending_entry_ticket\": " +
               IntegerToString(g_pending_entry_ticket) + ",");
+    FileWrite(fh, "  \"add_next_ticket\": " +
+              IntegerToString(g_add_next_ticket) + ",");
     FileWrite(fh, "  \"inventory\": [");
 
     int n = ArraySize(g_inventory);
@@ -113,6 +115,7 @@ bool LoadInventoryState() {
 
     ArrayResize(g_inventory, 0);
     g_pending_entry_ticket = 0;
+    g_add_next_ticket      = 0;
 
     Layer L = InitLayer();
     bool in_layer     = false;
@@ -169,6 +172,8 @@ bool LoadInventoryState() {
         if (!in_layer) {
             if (key == "pending_entry_ticket")
                 g_pending_entry_ticket = (ulong)StringToInteger(val);
+            else if (key == "add_next_ticket")
+                g_add_next_ticket = (ulong)StringToInteger(val);
             continue;
         }
 

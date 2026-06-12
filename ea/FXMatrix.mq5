@@ -104,7 +104,11 @@ void OnTick() {
 
         RunSignalOnBarClose();
 
-        if (g_pending_entry_ticket > 0) {
+        // Option A (Gemini ruling): EA is deaf to new signals while pod is open.
+        // Signal engine continues computing triads for analytics only.
+        if (ArraySize(g_inventory) == 0) {
+
+            if (g_pending_entry_ticket > 0) {
             string pending_symbol    = "";
             int    pending_direction = 0;
             bool   order_exists      = false;
@@ -176,12 +180,11 @@ void OnTick() {
                 }
             }
             // else: same routing — retain, nudge block handles naturally
-        }
+            }
 
         // --- PLAIN MATRIX ENTRY ---
         // Commit to first active signal and hold until fill or fade.
         // Radar concept parked in git history for future redesign.
-        if (ArraySize(g_inventory) == 0) {
             if (g_signal_active && g_pending_entry_ticket == 0) {
                 CancelAllPendingEntries();
                 double entry_price = ComputeEntryPrice();
@@ -194,8 +197,8 @@ void OnTick() {
                         SaveInventoryState();
                     }
                 }
-            }
-        }
+            } // End of plain-matrix entry block
+        } // End of Option A inventory guard
     }
 
     if (g_signal_active          &&
@@ -326,6 +329,13 @@ void CancelAllPendingEntries() {
         MqlTradeResult  res = {};
         req.action = TRADE_ACTION_REMOVE;
         req.order  = ticket;
+
+        if (ticket == g_add_next_ticket) {
+            if (EnableVerboseLog)
+                Print("INFO: CancelAllPendingEntries — skipping protected "
+                      "add_next ticket=", ticket);
+            continue;
+        }
 
         if (!OrderSend(req, res)) {
             Print("WARNING: CancelAllPendingEntries — cancel failed. ",

@@ -65,6 +65,7 @@ Layer        g_inventory[];              // dynamic array of open layers
 CloseByTask  g_closeby_queue[];          // pending CloseBy retry tasks
 
 ulong    g_pending_entry_ticket = 0;   // ticket of pre-inventory entry limit
+ulong    g_add_next_ticket      = 0;   // ticket of defensive add_next limit (inventory > 0 only)
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 
