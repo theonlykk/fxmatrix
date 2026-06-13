@@ -1,7 +1,7 @@
 # ADR-007: V2 Phase 2 — State & Memory Refactor
 
 **Date:** 2026-06-12  
-**Status:** Accepted (Phase 2 complete — 2a through 2e)  
+**Status:** Accepted (Phase 2 complete — 2a through 2f)  
 **Phase:** 2 — Per-Instrument State & Memory  
 **Repo:** theonlykk/fxmatrix  
 
@@ -92,6 +92,31 @@ int layer_index;   // 0-based depth; -1 = uninitialised sentinel
 | **2c** | Execution logic migrates to per-instrument arrays; `layer_index` at fill | Complete |
 | **2d** | Per-instrument `OnTick()` loop; nudge block; exit detection fix | Complete |
 | **2e** | The Guillotine — delete monolithic globals and legacy no-arg state functions | Complete |
+| **2f** | add_next orphan fix (SEV-1) + dual-tier per-pod circuit breaker (F13) | Complete |
+
+---
+
+## Phase 2f — Risk Isolation + add_next Bug Fix
+
+### Bug 1 (SEV-1) — Orphaned add_next limits
+
+`HandleEntryFill()` placed `PlaceNextEntryLimit()` without clearing `g_add_next_X`
+when the add_next limit itself filled. Stale tracking globals left orphaned limits
+on the book, causing runaway layer accumulation during trends.
+
+**Fix (`ExecutionEngine.mqh`):**
+- Clear `g_add_next_X` at top of `HandleEntryFill()` when `order_ticket == cur_add_next`
+- Guard `PlaceNextEntryLimit()` with `cur_add_next == 0`
+
+### Bug 2 (F13 SEV-3) — Account-wide circuit breaker
+
+`CheckCircuitBreakers()` used `AccountInfoDouble(ACCOUNT_PROFIT)` for Tier 1,
+breaching on combined three-instrument exposure rather than per-instrument isolation.
+
+**Fix (`FXMatrix.mq5`):**
+- **Tier 1:** `GetPodUnrealizedPnL(int)` per instrument → `ClosePodPositions(int)` amputation
+- **Tier 2:** Global nuclear failsafe on `ACCOUNT_PROFIT` vs `GlobalDrawdown` (0.045)
+- `ClosePodPositions()` closes positions, cancels pending orders, clears per-instrument globals
 
 ---
 

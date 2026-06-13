@@ -269,6 +269,21 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
     // Resolve instrument from physical fill symbol
     int instrument = GetInstrumentFromSymbol(deal_symbol);
 
+    // If the filling ticket IS the resting add_next limit, it is now off
+    // the book. Clear the global before any further logic runs.
+    // This prevents the deadlock where cur_add_next stays non-zero and
+    // blocks PlaceNextEntryLimit() from firing on the new layer.
+    ulong cur_add_next = (instrument == INSTRUMENT_EURUSD) ? g_add_next_EURUSD
+                       : (instrument == INSTRUMENT_GBPUSD) ? g_add_next_GBPUSD
+                       : g_add_next_EURGBP;
+
+    if (order_ticket == cur_add_next) {
+        if (instrument == INSTRUMENT_EURUSD)      g_add_next_EURUSD = 0;
+        else if (instrument == INSTRUMENT_GBPUSD)  g_add_next_GBPUSD = 0;
+        else                                        g_add_next_EURGBP = 0;
+        cur_add_next = 0;   // sync local variable
+    }
+
     // Resolve correct per-instrument array reference via instrument
     // MQL5 does not allow array refs — use instrument enum throughout.
 
@@ -600,7 +615,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
     bool next_not_placed = cur_inv_size == layer_idx + 1;
     bool capacity_ok     = cur_inv_size < MaxLayers;
 
-    if (threshold_met && next_not_placed && capacity_ok) {
+    if (threshold_met && next_not_placed && capacity_ok && cur_add_next == 0) {
         PlaceNextEntryLimit(CurL, deal_symbol);
         Print("INFO: Next layer triggered at add_next=",
               DoubleToString(CurL.add_next, 5));

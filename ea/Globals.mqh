@@ -31,7 +31,7 @@ input double NudgePips          = 0.5;     // pips; converted to points per symb
 
 //--- Risk controls
 input double MaxPodDrawdown     = 0.02;    // 2% per pod
-input double GlobalDrawdown     = 0.05;    // 5% global equity
+input double GlobalDrawdown     = 0.045;   // 4.5% global — front-runs FTMO 5% daily limit
 
 //--- Carry adjustment (ADR-003)
 input double r_USD              = 0.0533;  // SOFR annualised — update weekly

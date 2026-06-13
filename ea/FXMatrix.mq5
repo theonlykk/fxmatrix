@@ -14,7 +14,7 @@
 #include "CarryEngine.mqh"
 #include "StateEngine.mqh"
 
-bool CheckCircuitBreakers();
+void CheckCircuitBreakers();
 void CloseAllPositions();
 void CancelAllPending();
 void CancelAllPendingEntries();
@@ -86,7 +86,8 @@ void GetImpliedIndices(string sym, int dir,
 void OnTick() {
     if (g_halted) return;
 
-    if (CheckCircuitBreakers()) return;
+    CheckCircuitBreakers();
+    if (g_halted) return;
 
     // Process pending CloseBy tasks before any signal logic.
     // Resolves MT5 ledger desync on market hedge fills.
@@ -346,34 +347,153 @@ void OnTick() {
     }
 }
 
-bool CheckCircuitBreakers() {
-    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+//------------------------------------------------------------------
+// GetPodUnrealizedPnL
+// Returns the total unrealised P&L for all open positions belonging
+// to a single instrument's inventory. Uses PositionSelectByTicket()
+// to read live broker P&L per layer — strictly isolated per instrument.
+//------------------------------------------------------------------
+double GetPodUnrealizedPnL(int instrument) {
+    double total   = 0.0;
+    int    inv_size = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                    : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                    : ArraySize(g_inventory_EURGBP);
 
-    if (equity > g_peak_equity) g_peak_equity = equity;
+    for (int i = 0; i < inv_size; i++) {
+        ulong ticket = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i].position_ticket
+                     : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i].position_ticket
+                     : g_inventory_EURGBP[i].position_ticket;
 
-    if (equity < g_peak_equity * (1.0 - GlobalDrawdown)) {
-        Print("CRITICAL: Global circuit breaker fired. ",
-              "equity=", DoubleToString(equity, 2),
-              " peak=",  DoubleToString(g_peak_equity, 2));
-        CloseAllPositions();
-        CancelAllPending();
-        g_halted = true;
-        return true;
+        if (PositionSelectByTicket(ticket))
+            total += PositionGetDouble(POSITION_PROFIT);
+    }
+    return total;
+}
+
+//------------------------------------------------------------------
+// ClosePodPositions
+// Closes all open positions and cancels all pending orders for a
+// single instrument only. Leaves other instruments completely
+// untouched. Called by Tier 1 per-pod circuit breaker.
+//------------------------------------------------------------------
+void ClosePodPositions(int instrument) {
+    string symbol = (instrument == INSTRUMENT_EURUSD) ? "EURUSD"
+                  : (instrument == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                  : "EURGBP";
+
+    Print("INFO: ClosePodPositions — amputating ", symbol, " pod.");
+
+    // Close all open positions for this instrument
+    int inv_size = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                 : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                 : ArraySize(g_inventory_EURGBP);
+
+    for (int i = inv_size - 1; i >= 0; i--) {
+        ulong ticket = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i].position_ticket
+                     : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i].position_ticket
+                     : g_inventory_EURGBP[i].position_ticket;
+
+        if (!PositionSelectByTicket(ticket)) continue;
+
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action    = TRADE_ACTION_DEAL;
+        req.symbol    = symbol;
+        req.volume    = PositionGetDouble(POSITION_VOLUME);
+        req.magic     = EA_MAGIC;
+        req.type      = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+                        ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+        req.price     = (req.type == ORDER_TYPE_SELL)
+                        ? SymbolInfoDouble(symbol, SYMBOL_BID)
+                        : SymbolInfoDouble(symbol, SYMBOL_ASK);
+        req.type_filling = ORDER_FILLING_IOC;
+        req.deviation = 10;
+        req.comment   = "FXMatrix_PodAmputation";
+
+        if (!OrderSend(req, res))
+            Print("WARNING: ClosePodPositions — close failed. ",
+                  "ticket=", ticket, " retcode=", res.retcode);
     }
 
-    double unrealised = AccountInfoDouble(ACCOUNT_PROFIT);
-    double balance    = AccountInfoDouble(ACCOUNT_BALANCE);
+    // Cancel all pending orders for this instrument
+    for (int i = OrdersTotal() - 1; i >= 0; i--) {
+        ulong ticket = OrderGetTicket(i);
+        if (ticket == 0) continue;
+        if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
+        if (OrderGetString(ORDER_SYMBOL) != symbol) continue;
 
-    if (unrealised < -(balance * MaxPodDrawdown)) {
-        Print("CRITICAL: Pod circuit breaker fired. ",
-              "unrealised=", DoubleToString(unrealised, 2));
-        CloseAllPositions();
-        CancelAllPending();
-        g_halted = true;
-        return true;
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action = TRADE_ACTION_REMOVE;
+        req.order  = ticket;
+        OrderSend(req, res);
     }
 
-    return false;
+    // Clear per-instrument globals
+    if (instrument == INSTRUMENT_EURUSD) {
+        g_pending_entry_EURUSD = 0;
+        g_add_next_EURUSD      = 0;
+        ArrayResize(g_inventory_EURUSD, 0);
+    } else if (instrument == INSTRUMENT_GBPUSD) {
+        g_pending_entry_GBPUSD = 0;
+        g_add_next_GBPUSD      = 0;
+        ArrayResize(g_inventory_GBPUSD, 0);
+    } else {
+        g_pending_entry_EURGBP = 0;
+        g_add_next_EURGBP      = 0;
+        ArrayResize(g_inventory_EURGBP, 0);
+    }
+
+    SaveAllInventoryState();
+    Print("INFO: ClosePodPositions — ", symbol, " pod amputated.");
+}
+
+void CheckCircuitBreakers() {
+    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+    if (balance <= 0.0) return;
+
+    // ── Tier 1: Per-Pod Isolation ─────────────────────────────────────────
+    // If any single instrument's unrealised P&L breaches MaxPodDrawdown,
+    // amputate that instrument only. Other instruments continue operating.
+    int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD,
+                                  INSTRUMENT_EURGBP};
+
+    for (int k = 0; k < 3; k++) {
+        int inst = target_instruments[k];
+
+        int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
+                     : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
+                     : ArraySize(g_inventory_EURGBP);
+
+        if (inv_size == 0) continue;
+
+        double pod_pnl = GetPodUnrealizedPnL(inst);
+
+        if (pod_pnl < -(balance * MaxPodDrawdown)) {
+            string symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                          : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                          : "EURGBP";
+            Print("CRITICAL: Per-pod circuit breaker fired. ",
+                  "instrument=", symbol,
+                  " unrealised=", DoubleToString(pod_pnl, 2),
+                  " threshold=", DoubleToString(-(balance * MaxPodDrawdown), 2));
+            ClosePodPositions(inst);
+        }
+    }
+
+    // ── Tier 2: Global Nuclear Failsafe ───────────────────────────────────
+    // If total account equity drops below GlobalDrawdown, hard halt
+    // everything. This front-runs the FTMO 5% daily loss limit.
+    double total_unrealised = AccountInfoDouble(ACCOUNT_PROFIT);
+
+    if (total_unrealised < -(balance * GlobalDrawdown)) {
+        Print("CRITICAL: Global nuclear failsafe fired. ",
+              "total_unrealised=", DoubleToString(total_unrealised, 2),
+              " threshold=", DoubleToString(-(balance * GlobalDrawdown), 2));
+        CloseAllPositions();
+        CancelAllPendingEntries();
+        g_halted = true;
+    }
 }
 
 void CloseAllPositions() {
