@@ -165,6 +165,61 @@ void OnTick() {
                               : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
                               : ArraySize(g_inventory_EURGBP);
 
+            ulong inst_add_next = (inst == INSTRUMENT_EURUSD) ? g_add_next_EURUSD
+                                : (inst == INSTRUMENT_GBPUSD) ? g_add_next_GBPUSD
+                                : g_add_next_EURGBP;
+
+            // Phase 3: re-arm add_next after sleep expiry
+            // Fires when pod is open but undefended (no live add_next)
+            // and the sleep interval has elapsed
+            if (inst_inv_size > 0 && inst_add_next == 0) {
+                datetime last_layer = (inst == INSTRUMENT_EURUSD)
+                                      ? g_last_layer_time_EURUSD
+                                      : (inst == INSTRUMENT_GBPUSD)
+                                      ? g_last_layer_time_GBPUSD
+                                      : g_last_layer_time_EURGBP;
+
+                if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds) {
+                    // Sleep expired — re-arm at current market conditions
+                    int inv_size = inst_inv_size;
+
+                    // Get deepest open layer
+                    Layer deepest = (inst == INSTRUMENT_EURUSD)
+                                    ? g_inventory_EURUSD[inv_size - 1]
+                                    : (inst == INSTRUMENT_GBPUSD)
+                                    ? g_inventory_GBPUSD[inv_size - 1]
+                                    : g_inventory_EURGBP[inv_size - 1];
+
+                    // Compute fresh add_next price
+                    double computed = ComputeNextLayerPrice(
+                        inv_size,
+                        deepest.instrument,
+                        deepest.direction,
+                        deepest.entry_price);
+
+                    if (computed > 0.0) {
+                        // Use price_override so PlaceNextEntryLimit applies
+                        // gap-aware MathMin/MathMax on top
+                        PlaceNextEntryLimit(deepest, inst_symbol, computed);
+
+                        // Update last layer timestamp
+                        if (inst == INSTRUMENT_EURUSD)
+                            g_last_layer_time_EURUSD = TimeCurrent();
+                        else if (inst == INSTRUMENT_GBPUSD)
+                            g_last_layer_time_GBPUSD = TimeCurrent();
+                        else
+                            g_last_layer_time_EURGBP = TimeCurrent();
+
+                        Print("INFO: add_next re-armed after sleep. ",
+                              "instrument=", inst_symbol,
+                              " layer=", inv_size,
+                              " computed=", DoubleToString(computed, 5));
+                    }
+                }
+                // Sleep not yet expired — pod open but undefended. Fall through
+                // to Option A deafness (continue) below.
+            }
+
             // Option A: skip if this instrument has open inventory
             if (inst_inv_size > 0) continue;
 

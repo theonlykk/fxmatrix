@@ -18,6 +18,12 @@ input double SkewStep           = 0.000;   // reduction per layer (0=disabled)
 input double SkewMin            = 0.050;   // floor — avoids locking in transaction cost losses
 input double RotationThreshold  = 0.0002;  // min edge to rotate signal
 
+//--- Phase 3: drawdown-responsive stress parameters
+input double LayerStressBase         = 1.500;  // exponential layer stress multiplier
+input double K_spread                = 1.000;  // PnL stress multiplier aggressiveness
+input double K_size                  = 0.500;  // lot size reduction aggressiveness
+input int    MinLayerIntervalSeconds = 300;    // min seconds between layer adds (1 M5 bar)
+
 //--- Layer fill
 input double MinFillThreshold   = 0.50;    // fraction of lot_size before next layer
 
@@ -80,6 +86,11 @@ ulong    g_pending_entry_EURGBP = 0;
 ulong    g_add_next_EURUSD = 0;
 ulong    g_add_next_GBPUSD = 0;
 ulong    g_add_next_EURGBP = 0;
+
+//--- Per-instrument last layer fill timestamps (Phase 3 sleep interval)
+datetime g_last_layer_time_EURUSD = 0;
+datetime g_last_layer_time_GBPUSD = 0;
+datetime g_last_layer_time_EURGBP = 0;
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 
@@ -93,6 +104,10 @@ int InitGlobals() {
     ArrayResize(g_inventory_EURUSD, 0);
     ArrayResize(g_inventory_GBPUSD, 0);
     ArrayResize(g_inventory_EURGBP, 0);
+
+    g_last_layer_time_EURUSD = 0;
+    g_last_layer_time_GBPUSD = 0;
+    g_last_layer_time_EURGBP = 0;
 
     if (MaxLayers < 1 || MaxLayers > 20) {
         Print("ERROR: MaxLayers out of range");

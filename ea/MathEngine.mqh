@@ -3,6 +3,10 @@
 
 #include "Globals.mqh"
 
+// Forward declaration — GetPodUnrealizedPnL() is defined in FXMatrix.mq5
+// Required for Phase 3 stress multiplier in ComputeGridInterval()
+double GetPodUnrealizedPnL(int instrument);
+
 bool RunSignalOnBarClose() {
     double eu_closes[], gb_closes[];
 
@@ -237,23 +241,42 @@ double InvertSpreadToPrice(
 // GridMode 1: linear S = GridBase + layer_idx * GridLinearStep
 // GridMode 2: hybrid — linear up to GridInflection, then exponential
 //------------------------------------------------------------------
-double ComputeGridInterval(int layer_idx) {
+double ComputeGridInterval(int layer_idx, int instrument = -1) {
+    // Base interval from existing grid mode logic
+    double base_interval = 0.0;
+
     if (GridMode == 0) {
-        return GridBase;
+        base_interval = GridBase;
     }
     else if (GridMode == 1) {
-        return GridBase + layer_idx * GridLinearStep;
+        base_interval = GridBase + layer_idx * GridLinearStep;
     }
     else { // GridMode == 2: hybrid
         if (layer_idx <= GridInflection) {
-            return GridBase + layer_idx * GridLinearStep;
+            base_interval = GridBase + layer_idx * GridLinearStep;
         }
         else {
             double S_at_inflection = GridBase + GridInflection * GridLinearStep;
-            return S_at_inflection * MathPow(GridExpBase,
-                                             layer_idx - GridInflection);
+            base_interval = S_at_inflection * MathPow(GridExpBase,
+                                                       layer_idx - GridInflection);
         }
     }
+
+    // Phase 3: dual stress multiplier
+    // Layer count stress (leading indicator) — fires immediately on each fill
+    double layer_stress = MathPow(LayerStressBase, layer_idx);
+
+    // PnL stress (lagging amplifier) — grows as pod bleeds
+    double pnl_stress = 1.0;
+    if (instrument >= 0) {
+        double balance  = AccountInfoDouble(ACCOUNT_BALANCE);
+        double pod_pnl  = GetPodUnrealizedPnL(instrument);
+        if (balance > 0.0 && MaxPodDrawdown > 0.0)
+            pnl_stress = 1.0 + K_spread *
+                         (MathAbs(pod_pnl) / (balance * MaxPodDrawdown));
+    }
+
+    return base_interval * layer_stress * pnl_stress;
 }
 
 //------------------------------------------------------------------

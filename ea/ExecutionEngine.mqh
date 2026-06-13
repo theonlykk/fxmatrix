@@ -106,8 +106,27 @@ ulong PlaceExitLimit(double exit_price, double volume,
     return res.order;
 }
 
-ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol) {
-    double price     = prev_layer.add_next;
+ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
+                          double price_override = -1.0) {
+    // Gap-aware passive pricing (Gemini Phase 3 ruling Q4/Q5).
+    // Always passive — never cross the spread regardless of gaps.
+    // Applied universally to all add_next placements.
+    double price = (price_override > 0.0) ? price_override : prev_layer.add_next;
+
+    if (prev_layer.direction == DIRECTION_BUY) {
+        // BUY limit: use minimum of computed level and current bid
+        // If market gapped below computed level, join top of book passively
+        double current_bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+        if (current_bid > 0.0)
+            price = MathMin(price, current_bid);
+    } else {
+        // SELL limit: use maximum of computed level and current ask
+        // If market gapped above computed level, join top of book passively
+        double current_ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+        if (current_ask > 0.0)
+            price = MathMax(price, current_ask);
+    }
+
     int    direction = prev_layer.direction;
 
     if (!IsClearOfFreezeLevel(price, direction, symbol)) {
@@ -198,7 +217,7 @@ double ComputeNextLayerPrice(int    next_layer_idx,
     // skew = ComputeSkew(next_layer_idx) — varies by layer and SkewMode.
     // Invariant: |add_next - entry| > |exit - entry| holds for skew < 1.
 
-    double S    = ComputeGridInterval(next_layer_idx);
+    double S    = ComputeGridInterval(next_layer_idx, instrument);
     double skew = ComputeSkew(next_layer_idx);
 
     if (S <= 0.0) {
@@ -444,8 +463,20 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
 
         L.entry_price_eurusd = (eu_ask + eu_bid) / 2.0;
         L.entry_price_gbpusd = (gb_ask + gb_bid) / 2.0;
-        L.lot_size               = BaseLotSize;
-        L.remaining_entry_volume = BaseLotSize;
+
+        // Phase 3: dynamic lot sizing — reduces capital deployed as pod bleeds
+        double balance   = AccountInfoDouble(ACCOUNT_BALANCE);
+        double pod_pnl   = GetPodUnrealizedPnL(instrument);
+        double size_mult = 1.0;
+        if (balance > 0.0 && MaxPodDrawdown > 0.0)
+            size_mult = MathMax(1.0 - K_size *
+                                (MathAbs(pod_pnl) / (balance * MaxPodDrawdown)),
+                                0.0);
+        double min_vol   = SymbolInfoDouble(deal_symbol, SYMBOL_VOLUME_MIN);
+        double lot_size  = MathMax(BaseLotSize * size_mult, min_vol);
+
+        L.lot_size               = lot_size;
+        L.remaining_entry_volume = lot_size;
         L.remaining_exit_volume  = 0.0;
         L.entry_ticket    = order_ticket;
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
@@ -616,9 +647,31 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
     bool capacity_ok     = cur_inv_size < MaxLayers;
 
     if (threshold_met && next_not_placed && capacity_ok && cur_add_next == 0) {
-        PlaceNextEntryLimit(CurL, deal_symbol);
-        Print("INFO: Next layer triggered at add_next=",
-              DoubleToString(CurL.add_next, 5));
+        // Phase 3: sleep gate — mandatory interval between layer adds
+        datetime last_layer = (instrument == INSTRUMENT_EURUSD)
+                              ? g_last_layer_time_EURUSD
+                              : (instrument == INSTRUMENT_GBPUSD)
+                              ? g_last_layer_time_GBPUSD
+                              : g_last_layer_time_EURGBP;
+
+        if (TimeCurrent() - last_layer < MinLayerIntervalSeconds) {
+            Print("INFO: Layer interval sleep active. Skipping add_next. ",
+                  "instrument=", deal_symbol,
+                  " remaining=", MinLayerIntervalSeconds -
+                  (int)(TimeCurrent() - last_layer), "s");
+            // add_next NOT placed. OnTick re-arm will fire when sleep expires.
+        } else {
+            PlaceNextEntryLimit(CurL, deal_symbol);
+            // Update last layer timestamp for this instrument
+            if (instrument == INSTRUMENT_EURUSD)
+                g_last_layer_time_EURUSD = TimeCurrent();
+            else if (instrument == INSTRUMENT_GBPUSD)
+                g_last_layer_time_GBPUSD = TimeCurrent();
+            else
+                g_last_layer_time_EURGBP = TimeCurrent();
+            Print("INFO: Next layer triggered at add_next=",
+                  DoubleToString(CurL.add_next, 5));
+        }
     }
 }
 
