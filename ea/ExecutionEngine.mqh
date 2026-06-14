@@ -475,6 +475,39 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         double min_vol   = SymbolInfoDouble(deal_symbol, SYMBOL_VOLUME_MIN);
         double lot_size  = MathMax(BaseLotSize * size_mult, min_vol);
 
+        // LDAK: apply correlation weight as final lot size multiplier
+        {
+            double r_eff_lot = 0.0;
+            int    inv_eu = ArraySize(g_inventory_EURUSD);
+            int    inv_gu = ArraySize(g_inventory_GBPUSD);
+            int    inv_eg = ArraySize(g_inventory_EURGBP);
+
+            bool other_pods_open = false;
+            if (instrument == INSTRUMENT_EURUSD) {
+                if (inv_gu > 0) { r_eff_lot = MathMax(r_eff_lot, g_r_EU_GU); other_pods_open = true; }
+                if (inv_eg > 0) { r_eff_lot = MathMax(r_eff_lot, g_r_EU_EG); other_pods_open = true; }
+            } else if (instrument == INSTRUMENT_GBPUSD) {
+                if (inv_eu > 0) { r_eff_lot = MathMax(r_eff_lot, g_r_EU_GU); other_pods_open = true; }
+                if (inv_eg > 0) { r_eff_lot = MathMax(r_eff_lot, g_r_GU_EG); other_pods_open = true; }
+            } else {
+                if (inv_eu > 0) { r_eff_lot = MathMax(r_eff_lot, g_r_EU_EG); other_pods_open = true; }
+                if (inv_gu > 0) { r_eff_lot = MathMax(r_eff_lot, g_r_GU_EG); other_pods_open = true; }
+            }
+
+            double w = 1.0;
+            if (other_pods_open) {
+                double r_pos = MathMax(r_eff_lot, 0.0);
+                w = 1.0 / (1.0 + r_pos * r_pos);
+            }
+
+            lot_size = MathMax(lot_size * w, SymbolInfoDouble(deal_symbol, SYMBOL_VOLUME_MIN));
+
+            if (EnableVerboseLog && other_pods_open)
+                Print("INFO: LDAK lot weight w=", DoubleToString(w, 4),
+                      " lot_size=", DoubleToString(lot_size, 2),
+                      " instrument=", deal_symbol);
+        }
+
         L.lot_size               = lot_size;
         L.remaining_entry_volume = lot_size;
         L.remaining_exit_volume  = 0.0;

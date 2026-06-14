@@ -48,6 +48,9 @@ input string CarryRecalcTime    = "17:00"; // broker server time
 //--- Logging
 input bool   EnableVerboseLog   = true;
 
+//--- Phase 4: LDAK correlation penalty
+input double LDAK_Dilation_Max = 3.000; // LDAK: max grid dilation multiplier
+
 //--- Signal state (updated on each new M5 bar close)
 double   g_r_EU_signal          = 0.0;
 double   g_r_GB_signal          = 0.0;
@@ -60,6 +63,11 @@ double   g_entry_spread         = 0.0;
 double   g_score_eur            = 0.0;
 double   g_score_gbp            = 0.0;
 double   g_score_usd            = 0.0;
+
+// LDAK pairwise correlation globals (signed Pearson r, updated on bar close)
+double g_r_EU_GU = 0.0; // EURUSD vs GBPUSD
+double g_r_EU_EG = 0.0; // EURUSD vs EURGBP
+double g_r_GU_EG = 0.0; // GBPUSD vs EURGBP
 
 //--- Bar tracking
 datetime g_last_bar_time        = 0;
