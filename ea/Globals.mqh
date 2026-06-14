@@ -51,6 +51,11 @@ input bool   EnableVerboseLog   = true;
 //--- Phase 4: LDAK correlation penalty
 input double LDAK_Dilation_Max = 3.000; // LDAK: max grid dilation multiplier
 
+//--- Phase 5: FTMO equity failsafe
+input double FTMO_Initial_Balance = 10000.000; // FTMO starting account balance
+input double FTMO_Max_Loss_Pct    = 0.090;     // absolute loss buffer (9% — 1% below 10% limit)
+input double FTMO_Daily_Loss_Pct  = 0.040;     // daily loss buffer (4% — 1% below 5% limit)
+
 //--- Signal state (updated on each new M5 bar close)
 double   g_r_EU_signal          = 0.0;
 double   g_r_GB_signal          = 0.0;
@@ -83,6 +88,8 @@ datetime g_last_carry_recalc_date = 0;
 //--- Pod state
 bool     g_halted               = false;
 double   g_peak_equity          = 0.0;
+double   g_daily_start_balance  = 0.0; // balance at midnight CET rollover
+int      g_current_day          = -1;  // tracks day for midnight reset
 double   g_NudgeThreshold       = 0.0;   // computed at InitGlobals() from NudgePips
 
 //--- Shared queue

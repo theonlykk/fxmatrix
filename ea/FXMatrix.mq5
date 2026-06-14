@@ -25,6 +25,11 @@ int OnInit() {
     int result = InitGlobals();
     if (result != INIT_SUCCEEDED) return result;
 
+    g_daily_start_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+    g_current_day         = 0; // force reset on first tick
+    Print("INFO: FTMO failsafe initialised. ",
+          "daily_start_balance=", DoubleToString(g_daily_start_balance, 2));
+
     Print("FXMatrix EA initialised. "
           "build=1da31ec "
           "NudgeThreshold=", g_NudgeThreshold, " points");
@@ -549,6 +554,41 @@ void CheckCircuitBreakers() {
         CancelAllPendingEntries();
         g_halted = true;
     }
+
+    // ── Tier 3: FTMO Equity Failsafe ─────────────────────────────────────
+    // Enforces FTMO's two static equity floors on every tick.
+    // State is broker-held — VPS restart safe.
+    double current_equity  = AccountInfoDouble(ACCOUNT_EQUITY);
+    double current_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+
+    // Midnight CET rollover — reset daily start balance
+    MqlDateTime dt;
+    TimeCurrent(dt);
+    if (dt.day != g_current_day) {
+        g_daily_start_balance = current_balance;
+        g_current_day         = dt.day;
+        Print("INFO: FTMO daily floor reset. ",
+              "daily_start_balance=", DoubleToString(g_daily_start_balance, 2),
+              " day=", g_current_day);
+    }
+
+    // FTMO hard floors
+    double absolute_floor = FTMO_Initial_Balance * (1.0 - FTMO_Max_Loss_Pct);
+    double daily_floor    = g_daily_start_balance
+                            - (FTMO_Initial_Balance * FTMO_Daily_Loss_Pct);
+    double active_floor   = MathMax(absolute_floor, daily_floor);
+
+    if (current_equity <= active_floor) {
+        Print("CRITICAL: FTMO equity failsafe fired. ",
+              "equity=",        DoubleToString(current_equity, 2),
+              " active_floor=", DoubleToString(active_floor, 2),
+              " abs_floor=",    DoubleToString(absolute_floor, 2),
+              " daily_floor=",  DoubleToString(daily_floor, 2));
+        CloseAllPositions();
+        CancelAllPendingEntries();
+        g_halted = true;
+    }
+    // ── End Tier 3 ───────────────────────────────────────────────────────
 }
 
 void CloseAllPositions() {
