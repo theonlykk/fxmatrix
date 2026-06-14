@@ -69,6 +69,11 @@ double g_r_EU_GU = 0.0; // EURUSD vs GBPUSD
 double g_r_EU_EG = 0.0; // EURUSD vs EURGBP
 double g_r_GU_EG = 0.0; // GBPUSD vs EURGBP
 
+// LDAK volatility ratio globals (sigma_24 / sigma_288, updated on bar close)
+double g_vratio_EU = 1.0; // EURUSD volatility ratio
+double g_vratio_GU = 1.0; // GBPUSD volatility ratio
+double g_vratio_EG = 1.0; // EURGBP volatility ratio
+
 //--- Bar tracking
 datetime g_last_bar_time        = 0;
 

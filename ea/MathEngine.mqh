@@ -8,6 +8,26 @@
 double GetPodUnrealizedPnL(int instrument);
 
 //------------------------------------------------------------------
+// StdDev
+// Returns population standard deviation of log-return array
+// of length n. Returns 0.0 if degenerate.
+//------------------------------------------------------------------
+double StdDev(const double &a[], int n) {
+    if (n < 2) return 0.0;
+
+    double sum = 0.0;
+    for (int i = 0; i < n; i++) sum += a[i];
+    double mean = sum / n;
+
+    double var = 0.0;
+    for (int i = 0; i < n; i++) {
+        double d = a[i] - mean;
+        var += d * d;
+    }
+    return MathSqrt(var / n);
+}
+
+//------------------------------------------------------------------
 // PearsonR
 // Returns signed Pearson correlation coefficient r for two
 // log-return arrays of length n. Returns 0.0 if degenerate.
@@ -36,12 +56,12 @@ double PearsonR(const double &a[], const double &b[], int n) {
 bool RunSignalOnBarClose() {
     double eu_closes[], gb_closes[];
 
-    if (CopyClose("EURUSD", PERIOD_M5, 0, 25, eu_closes) < 25) {
+    if (CopyClose("EURUSD", PERIOD_M5, 0, 289, eu_closes) < 289) {
         Print("ERROR: CopyClose EURUSD failed");
         return false;
     }
     ArraySetAsSeries(eu_closes, true);
-    if (CopyClose("GBPUSD", PERIOD_M5, 0, 25, gb_closes) < 25) {
+    if (CopyClose("GBPUSD", PERIOD_M5, 0, 289, gb_closes) < 289) {
         Print("ERROR: CopyClose GBPUSD failed");
         return false;
     }
@@ -128,7 +148,7 @@ bool RunSignalOnBarClose() {
     // ── LDAK: pairwise correlation update ────────────────────────
     double eg_closes[];
     ArraySetAsSeries(eg_closes, true);
-    if (CopyClose("EURGBP", PERIOD_M5, 0, 25, eg_closes) >= 25) {
+    if (CopyClose("EURGBP", PERIOD_M5, 0, 289, eg_closes) >= 289) {
         // Compute log returns for all three instruments (24 returns)
         double r_eu[24], r_gu[24], r_eg[24];
         for (int i = 0; i < 24; i++) {
@@ -144,6 +164,35 @@ bool RunSignalOnBarClose() {
             Print("INFO: LDAK r — EU/GU=", DoubleToString(g_r_EU_GU, 4),
                   " EU/EG=", DoubleToString(g_r_EU_EG, 4),
                   " GU/EG=", DoubleToString(g_r_GU_EG, 4));
+
+        // V_ratio = sigma_24 / sigma_288 per instrument
+        // Uses the same log return arrays already computed above
+        // Fast window: first 24 returns (r_eu[0..23])
+        // Slow window: all 288 returns computed from 289-bar close array
+
+        double r_eu_slow[288], r_gu_slow[288], r_eg_slow[288];
+        for (int i = 0; i < 288; i++) {
+            r_eu_slow[i] = (eu_closes[i+1] > 0) ? MathLog(eu_closes[i] / eu_closes[i+1]) : 0.0;
+            r_gu_slow[i] = (gb_closes[i+1] > 0) ? MathLog(gb_closes[i] / gb_closes[i+1]) : 0.0;
+            r_eg_slow[i] = (eg_closes[i+1] > 0) ? MathLog(eg_closes[i] / eg_closes[i+1]) : 0.0;
+        }
+
+        double sd_eu_fast = StdDev(r_eu, 24);
+        double sd_gu_fast = StdDev(r_gu, 24);
+        double sd_eg_fast = StdDev(r_eg, 24);
+
+        double sd_eu_slow = StdDev(r_eu_slow, 288);
+        double sd_gu_slow = StdDev(r_gu_slow, 288);
+        double sd_eg_slow = StdDev(r_eg_slow, 288);
+
+        g_vratio_EU = (sd_eu_slow > 1e-12) ? sd_eu_fast / sd_eu_slow : 1.0;
+        g_vratio_GU = (sd_gu_slow > 1e-12) ? sd_gu_fast / sd_gu_slow : 1.0;
+        g_vratio_EG = (sd_eg_slow > 1e-12) ? sd_eg_fast / sd_eg_slow : 1.0;
+
+        if (EnableVerboseLog)
+            Print("INFO: LDAK V_ratio — EU=", DoubleToString(g_vratio_EU, 3),
+                  " GU=", DoubleToString(g_vratio_GU, 3),
+                  " EG=", DoubleToString(g_vratio_EG, 3));
     }
     // ── End LDAK ─────────────────────────────────────────────────
 
@@ -323,26 +372,49 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
                          (MathAbs(pod_pnl) / (balance * MaxPodDrawdown));
     }
 
-    // LDAK: grid dilation when pods correlated
+    // LDAK: volatility-gated grid dilation
     if (instrument >= 0) {
-        double r_eff = 0.0;
+        double S_eff = 0.0;
         int    inv_eu = ArraySize(g_inventory_EURUSD);
         int    inv_gu = ArraySize(g_inventory_GBPUSD);
         int    inv_eg = ArraySize(g_inventory_EURGBP);
 
         if (instrument == INSTRUMENT_EURUSD) {
-            if (inv_gu > 0) r_eff = MathMax(r_eff, g_r_EU_GU);
-            if (inv_eg > 0) r_eff = MathMax(r_eff, g_r_EU_EG);
+            if (inv_gu > 0) {
+                double v_eff = MathMax(g_vratio_EU, g_vratio_GU);
+                double S = MathMax(g_r_EU_GU, 0.0) * MathMax(v_eff - 1.0, 0.0);
+                S_eff = MathMax(S_eff, S);
+            }
+            if (inv_eg > 0) {
+                double v_eff = MathMax(g_vratio_EU, g_vratio_EG);
+                double S = MathMax(g_r_EU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
+                S_eff = MathMax(S_eff, S);
+            }
         } else if (instrument == INSTRUMENT_GBPUSD) {
-            if (inv_eu > 0) r_eff = MathMax(r_eff, g_r_EU_GU);
-            if (inv_eg > 0) r_eff = MathMax(r_eff, g_r_GU_EG);
+            if (inv_eu > 0) {
+                double v_eff = MathMax(g_vratio_GU, g_vratio_EU);
+                double S = MathMax(g_r_EU_GU, 0.0) * MathMax(v_eff - 1.0, 0.0);
+                S_eff = MathMax(S_eff, S);
+            }
+            if (inv_eg > 0) {
+                double v_eff = MathMax(g_vratio_GU, g_vratio_EG);
+                double S = MathMax(g_r_GU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
+                S_eff = MathMax(S_eff, S);
+            }
         } else {
-            if (inv_eu > 0) r_eff = MathMax(r_eff, g_r_EU_EG);
-            if (inv_gu > 0) r_eff = MathMax(r_eff, g_r_GU_EG);
+            if (inv_eu > 0) {
+                double v_eff = MathMax(g_vratio_EG, g_vratio_EU);
+                double S = MathMax(g_r_EU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
+                S_eff = MathMax(S_eff, S);
+            }
+            if (inv_gu > 0) {
+                double v_eff = MathMax(g_vratio_EG, g_vratio_GU);
+                double S = MathMax(g_r_GU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
+                S_eff = MathMax(S_eff, S);
+            }
         }
 
-        double r_pos    = MathMax(r_eff, 0.0);
-        double dilation = MathMin(1.0 + r_pos * r_pos, LDAK_Dilation_Max);
+        double dilation = MathMin(1.0 + S_eff * S_eff, LDAK_Dilation_Max);
         base_interval  *= layer_stress * pnl_stress * dilation;
         return base_interval;
     }
