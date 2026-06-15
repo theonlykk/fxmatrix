@@ -337,71 +337,74 @@ void OnTick() {
         }
 
         double inst_spread = scores_nudge[inst_weakest] - scores_nudge[inst_strongest];
-        bool   inst_signal = (inst_spread < -BaseThreshold);
 
-        if (!inst_signal) continue;
+        // Compute separate bid and offer nudge prices
+        double bid_spread_nudge   = inst_spread + BaseThreshold;
+        double offer_spread_nudge = inst_spread - BaseThreshold;
 
-        int inst_direction;
-        if ((inst_strongest == 0 && inst_weakest == 1) ||
-            (inst_strongest == 0 && inst_weakest == 2) ||
-            (inst_strongest == 1 && inst_weakest == 2))
-            inst_direction = DIRECTION_SELL;
-        else
-            inst_direction = DIRECTION_BUY;
+        double bid_recomputed = InvertSpreadToPrice(
+            g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
+            g_r_EU_signal, g_r_GB_signal,
+            bid_spread_nudge, inst_strongest, inst_weakest,
+            false, false);
 
-        string inst_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
-                           : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
-                           : "EURGBP";
+        double offer_recomputed = InvertSpreadToPrice(
+            g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
+            g_r_EU_signal, g_r_GB_signal,
+            offer_spread_nudge, inst_strongest, inst_weakest,
+            false, false);
 
-        double recomputed = InvertSpreadToPrice(
-            g_EU_mid_12bars_ago,
-            g_GB_mid_12bars_ago,
-            g_r_EU_signal,
-            g_r_GB_signal,
-            inst_spread,
-            inst_strongest,
-            inst_weakest,
-            false
-        );
-
-        if (recomputed <= 0) continue;
-
-        ulong nudge_tickets[2];
-        nudge_tickets[0] = inst_bid;
-        nudge_tickets[1] = inst_offer;
+        ulong  nudge_tickets[2] = {inst_bid,       inst_offer};
+        double nudge_prices[2]  = {bid_recomputed, offer_recomputed};
 
         for (int n = 0; n < 2; n++) {
-            ulong inst_pending = nudge_tickets[n];
-            if (inst_pending == 0) continue;
+            ulong  inst_pending = nudge_tickets[n];
+            double recomputed   = nudge_prices[n];
+            if (inst_pending == 0 || recomputed <= 0) continue;
 
             double current_pending = GetPendingOrderPrice(inst_pending);
-            if (current_pending > 0 &&
-                MathAbs(recomputed - current_pending) > g_NudgeThreshold) {
+            if (current_pending <= 0) continue;
+            if (MathAbs(recomputed - current_pending) <= g_NudgeThreshold) continue;
 
-                string sym = OrderSelect(inst_pending)
-                             ? OrderGetString(ORDER_SYMBOL) : inst_symbol;
-                int    dir = OrderSelect(inst_pending)
-                             ? ((OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
-                                ? DIRECTION_BUY : DIRECTION_SELL)
-                             : inst_direction;
+            if (!OrderSelect(inst_pending)) continue; // Fail fast — dead ticket
 
-                if (IsClearOfFreezeLevel(recomputed, dir, sym) &&
-                    IsPassive(recomputed, dir, sym)) {
+            string sym = OrderGetString(ORDER_SYMBOL);
+            int    dir = (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
+                         ? DIRECTION_BUY : DIRECTION_SELL;
 
-                    MqlTradeRequest req = {};
-                    MqlTradeResult  res = {};
-                    req.action = TRADE_ACTION_MODIFY;
-                    req.order  = inst_pending;
-                    req.price  = recomputed;
+            // Apply ADR-013 clamp to nudge price
+            int    stops_level = (int)SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL);
+            int    digits      = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
+            double point       = SymbolInfoDouble(sym, SYMBOL_POINT);
+            double min_dist    = MathMax(stops_level * point, point);
 
-                    if (!OrderSend(req, res)) {
-                        if (res.retcode != TRADE_RETCODE_DONE &&
-                            res.retcode != TRADE_RETCODE_PLACED)
-                            Print("WARNING: Nudge OrderModify failed. ",
-                                  "retcode=", res.retcode,
-                                  " instrument=", inst_symbol);
-                    }
-                }
+            if (dir == DIRECTION_BUY) {
+                double current_bid = SymbolInfoDouble(sym, SYMBOL_BID);
+                if (current_bid > 0.0)
+                    recomputed = NormalizeDouble(
+                        MathMin(recomputed, current_bid - min_dist), digits);
+            } else {
+                double current_ask = SymbolInfoDouble(sym, SYMBOL_ASK);
+                if (current_ask > 0.0)
+                    recomputed = NormalizeDouble(
+                        MathMax(recomputed, current_ask + min_dist), digits);
+            }
+
+            if (!IsClearOfFreezeLevel(recomputed, dir, sym)) continue;
+            if (!IsPassive(recomputed, dir, sym)) continue;
+
+            MqlTradeRequest req = {};
+            MqlTradeResult  res = {};
+            req.action = TRADE_ACTION_MODIFY;
+            req.order  = inst_pending;
+            req.price  = recomputed;
+
+            if (!OrderSend(req, res)) {
+                if (res.retcode != TRADE_RETCODE_DONE &&
+                    res.retcode != TRADE_RETCODE_PLACED)
+                    Print("WARNING: Nudge OrderModify failed. ",
+                          "retcode=", res.retcode,
+                          " instrument=", sym);
             }
         }
     }
