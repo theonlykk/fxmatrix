@@ -914,14 +914,123 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                   : ArraySize(g_inventory_EURGBP);
 
                     if (remaining == 0) {
-                        Print("INFO: Pod fully closed. instrument=",
-                              (inst == INSTRUMENT_EURUSD) ? "EURUSD"
-                              : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD" : "EURGBP");
-                        // Clear per-instrument add_next ticket
+                        // Phase 3: capture add-next ticket BEFORE zeroing globals
+                        ulong add_next_ticket = (inst == INSTRUMENT_EURUSD) ? g_add_next_EURUSD
+                                              : (inst == INSTRUMENT_GBPUSD) ? g_add_next_GBPUSD
+                                              : g_add_next_EURGBP;
+                        if (add_next_ticket > 0) {
+                            MqlTradeRequest an_req = {};
+                            MqlTradeResult  an_res = {};
+                            an_req.action = TRADE_ACTION_REMOVE;
+                            an_req.order  = add_next_ticket;
+                            if (!OrderSend(an_req, an_res))
+                                Print("WARNING: Phase 3 add-next cancel failed. ticket=",
+                                      add_next_ticket, " retcode=", an_res.retcode);
+                            else
+                                Print("INFO: Phase 3 orphaned add-next cancelled. ticket=",
+                                      add_next_ticket);
+                        }
+
+                        // Now safe to zero the globals
+                        if (inst == INSTRUMENT_EURUSD)      g_add_next_EURUSD = 0;
+                        else if (inst == INSTRUMENT_GBPUSD) g_add_next_GBPUSD = 0;
+                        else                                g_add_next_EURGBP = 0;
+
+                        Print("INFO: Pod fully closed. All layers unwound.");
+
+                        // Phase 3: resume two-way quoting immediately (unconditional,
+                        // no LDAK gate -- mirrors if (new_bar) flat-instrument logic exactly)
+                        string resume_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                                             : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
+                                             : "EURGBP";
+
+                        // Derive strongest/weakest indices and calculate spread locally
+                        int inst_strongest = 0, inst_weakest = 0;
+                        if (inst == INSTRUMENT_EURUSD) {
+                            inst_strongest = (g_score_eur > g_score_usd) ? 0 : 2;
+                            inst_weakest   = (g_score_eur < g_score_usd) ? 0 : 2;
+                        } else if (inst == INSTRUMENT_GBPUSD) {
+                            inst_strongest = (g_score_gbp > g_score_usd) ? 1 : 2;
+                            inst_weakest   = (g_score_gbp < g_score_usd) ? 1 : 2;
+                        } else {
+                            inst_strongest = (g_score_eur > g_score_gbp) ? 0 : 1;
+                            inst_weakest   = (g_score_eur < g_score_gbp) ? 0 : 1;
+                        }
+
+                        double scores_arr[3] = {g_score_eur, g_score_gbp, g_score_usd};
+                        double inst_spread   = scores_arr[inst_weakest] - scores_arr[inst_strongest];
+
+                        // Determine correct bid/offer directions
+                        int bid_direction, offer_direction;
+                        if ((inst_strongest == 0 && inst_weakest == 1) ||
+                            (inst_strongest == 0 && inst_weakest == 2) ||
+                            (inst_strongest == 1 && inst_weakest == 2)) {
+                            offer_direction = DIRECTION_SELL;
+                            bid_direction   = DIRECTION_BUY;
+                        } else {
+                            offer_direction = DIRECTION_BUY;
+                            bid_direction   = DIRECTION_SELL;
+                        }
+
+                        double bid_spread   = inst_spread + BaseThreshold;
+                        double offer_spread = inst_spread - BaseThreshold;
+
+                        double bid_price = InvertSpreadToPrice(
+                            g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
+                            g_r_EU_signal, g_r_GB_signal,
+                            bid_spread, inst_strongest, inst_weakest,
+                            false, false);
+
+                        double offer_price = InvertSpreadToPrice(
+                            g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
+                            g_r_EU_signal, g_r_GB_signal,
+                            offer_spread, inst_strongest, inst_weakest,
+                            false, false);
+
+                        if (bid_price > 0)   PlaceEntryLimit(bid_price, bid_direction, resume_symbol);
+                        if (offer_price > 0) PlaceEntryLimit(offer_price, offer_direction, resume_symbol);
+
+                        Print("INFO: Phase 3 resume quoting. instrument=", resume_symbol,
+                              " bid=", bid_price, " offer=", offer_price);
+                    }
+                    else {
+                        // Phase 3: partial unwind -- cancel stale add-next, resubmit for
+                        // new shallowest layer (index 0 after LIFO ArrayRemove)
+                        ulong stale_ticket = (inst == INSTRUMENT_EURUSD) ? g_add_next_EURUSD
+                                           : (inst == INSTRUMENT_GBPUSD) ? g_add_next_GBPUSD
+                                           : g_add_next_EURGBP;
+                        if (stale_ticket > 0) {
+                            MqlTradeRequest st_req = {};
+                            MqlTradeResult  st_res = {};
+                            st_req.action = TRADE_ACTION_REMOVE;
+                            st_req.order  = stale_ticket;
+                            if (!OrderSend(st_req, st_res))
+                                Print("WARNING: Phase 3 stale add-next cancel failed. ticket=",
+                                      stale_ticket, " retcode=", st_res.retcode);
+                        }
+                        // Zero regardless -- PlaceNextEntryLimit will resubmit
                         if (inst == INSTRUMENT_EURUSD)      g_add_next_EURUSD = 0;
                         else if (inst == INSTRUMENT_GBPUSD)  g_add_next_GBPUSD = 0;
                         else                                  g_add_next_EURGBP = 0;
-                        // Note: CancelAllPendingEntries() scoping handled in Phase 2d
+
+                        // Resubmit add-next for new shallowest layer (index 0)
+                        Layer NewShallowest = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[0]
+                                            : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[0]
+                                            : g_inventory_EURGBP[0];
+                        string sym = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
+                                   : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD" : "EURGBP";
+
+                        // remaining is the new inventory size after LIFO removal
+                        double computed = ComputeNextLayerPrice(remaining, NewShallowest.instrument,
+                                                                NewShallowest.direction,
+                                                                NewShallowest.entry_price);
+                        if (computed > 0.0) {
+                            PlaceNextEntryLimit(NewShallowest, sym, computed);
+                            Print("INFO: Phase 3 add-next resubmitted for new shallowest layer.",
+                                  " instrument=", sym,
+                                  " layer_price=", NewShallowest.entry_price,
+                                  " add_next=", computed);
+                        }
                     }
                 }
 

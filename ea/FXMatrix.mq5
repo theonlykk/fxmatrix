@@ -489,7 +489,9 @@ void ClosePodPositions(int instrument) {
         MqlTradeResult  res = {};
         req.action = TRADE_ACTION_REMOVE;
         req.order  = ticket;
-        OrderSend(req, res);
+        if (!OrderSend(req, res))
+            Print("WARNING: ClosePodPositions cancel failed. ticket=", ticket,
+                  " retcode=", res.retcode);
     }
 
     // Clear per-instrument globals
