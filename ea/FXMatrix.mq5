@@ -88,6 +88,19 @@ void GetImpliedIndices(string sym, int dir,
     }
 }
 
+// --- ADR-018: NY Rollover Dead Zone Defense ---
+// FTMO Server Time is UTC+3 (summer). NY Time is UTC-4 (summer).
+// Delta: +7 hours. NY Dead Zone 5:00 PM to 7:00 PM ET
+// translates to Broker Time 23:55 to 02:05 (with +/- 5 min buffer).
+bool IsRolloverWindow(datetime current_time) {
+    MqlDateTime dt;
+    TimeToStruct(current_time, dt);
+    if (dt.hour == 23 && dt.min >= 55) return true;
+    if (dt.hour == 0 || dt.hour == 1)  return true;
+    if (dt.hour == 2 && dt.min <= 5)   return true;
+    return false;
+}
+
 void OnTick() {
     if (g_halted) return;
 
@@ -267,29 +280,33 @@ void OnTick() {
                 false, false);
 
             // Place bid
-            if (bid_price > 0) {
-                ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
-                if (tkt > 0) {
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
-                    else                                  g_pending_bid_EURGBP   = tkt;
-                    Print("INFO: ADR-014 bid placed. symbol=", inst_symbol,
-                          " price=", DoubleToString(bid_price, 5),
-                          " spread=", DoubleToString(bid_spread, 6));
+            if (!IsRolloverWindow(TimeCurrent())) {
+                if (bid_price > 0) {
+                    ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
+                    if (tkt > 0) {
+                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
+                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
+                        else                                  g_pending_bid_EURGBP   = tkt;
+                        Print("INFO: ADR-014 bid placed. symbol=", inst_symbol,
+                              " price=", DoubleToString(bid_price, 5),
+                              " spread=", DoubleToString(bid_spread, 6));
+                    }
                 }
-            }
 
-            // Place offer
-            if (offer_price > 0) {
-                ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
-                if (tkt > 0) {
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
-                    else                                  g_pending_offer_EURGBP = tkt;
-                    Print("INFO: ADR-014 offer placed. symbol=", inst_symbol,
-                          " price=", DoubleToString(offer_price, 5),
-                          " spread=", DoubleToString(offer_spread, 6));
+                if (offer_price > 0) {
+                    ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
+                    if (tkt > 0) {
+                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
+                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
+                        else                                  g_pending_offer_EURGBP = tkt;
+                        Print("INFO: ADR-014 offer placed. symbol=", inst_symbol,
+                              " price=", DoubleToString(offer_price, 5),
+                              " spread=", DoubleToString(offer_spread, 6));
+                    }
                 }
+            } else {
+                Print("INFO: ADR-018 rollover window active. Placement suspended. ",
+                      "instrument=", inst_symbol);
             }
 
             SaveAllInventoryState();
