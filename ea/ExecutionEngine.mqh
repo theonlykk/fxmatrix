@@ -619,10 +619,17 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             else                                        g_inventory_EURGBP[layer_idx].add_next = computed_next;
         }
 
-        // Clear per-instrument pending entry ticket
-        if (instrument == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = 0;
-        else if (instrument == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = 0;
-        else                                        g_pending_entry_EURGBP = 0;
+        // Clear matching bid/offer ticket on fill
+        if (instrument == INSTRUMENT_EURUSD) {
+            if (order_ticket == g_pending_bid_EURUSD)   g_pending_bid_EURUSD   = 0;
+            if (order_ticket == g_pending_offer_EURUSD) g_pending_offer_EURUSD = 0;
+        } else if (instrument == INSTRUMENT_GBPUSD) {
+            if (order_ticket == g_pending_bid_GBPUSD)   g_pending_bid_GBPUSD   = 0;
+            if (order_ticket == g_pending_offer_GBPUSD) g_pending_offer_GBPUSD = 0;
+        } else {
+            if (order_ticket == g_pending_bid_EURGBP)   g_pending_bid_EURGBP   = 0;
+            if (order_ticket == g_pending_offer_EURGBP) g_pending_offer_EURGBP = 0;
+        }
 
         SaveAllInventoryState();
     }

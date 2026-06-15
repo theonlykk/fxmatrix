@@ -127,56 +127,55 @@ void OnTick() {
         for (int k = 0; k < 3; k++) {
             int inst = target_instruments[k];
 
-            // Derive symbol and direction for this instrument
             string inst_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
                                : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
                                : "EURGBP";
 
-            // Derive strongest/weakest for this instrument's routing
+            // Derive strongest/weakest for this instrument
             int inst_strongest = 0, inst_weakest = 0;
             if (inst == INSTRUMENT_EURUSD) {
-                // EUR vs USD: compare scores[0] vs scores[2]
                 inst_strongest = (scores[0] > scores[2]) ? 0 : 2;
                 inst_weakest   = (scores[0] < scores[2]) ? 0 : 2;
             } else if (inst == INSTRUMENT_GBPUSD) {
-                // GBP vs USD: compare scores[1] vs scores[2]
                 inst_strongest = (scores[1] > scores[2]) ? 1 : 2;
                 inst_weakest   = (scores[1] < scores[2]) ? 1 : 2;
             } else {
-                // EUR vs GBP: compare scores[0] vs scores[1]
                 inst_strongest = (scores[0] > scores[1]) ? 0 : 1;
                 inst_weakest   = (scores[0] < scores[1]) ? 0 : 1;
             }
 
             double inst_spread = scores[inst_weakest] - scores[inst_strongest];
-            bool   inst_signal = (inst_spread < -BaseThreshold);
 
-            // Direction: SELL if strongest is EUR(0) or GBP(1) vs weaker,
-            // BUY if strongest is USD(2) or GBP(1) vs EUR(0)
-            int inst_direction;
+            // Bid direction: buy the weak currency
+            // Offer direction: sell the strong currency
+            int bid_direction, offer_direction;
             if ((inst_strongest == 0 && inst_weakest == 1) ||
                 (inst_strongest == 0 && inst_weakest == 2) ||
-                (inst_strongest == 1 && inst_weakest == 2))
-                inst_direction = DIRECTION_SELL;
-            else
-                inst_direction = DIRECTION_BUY;
-
-            // Per-instrument pending entry ticket
-            ulong inst_pending = (inst == INSTRUMENT_EURUSD) ? g_pending_entry_EURUSD
-                               : (inst == INSTRUMENT_GBPUSD) ? g_pending_entry_GBPUSD
-                               : g_pending_entry_EURGBP;
+                (inst_strongest == 1 && inst_weakest == 2)) {
+                // strongest is EUR or GBP vs weaker → SELL is offer, BUY is bid
+                offer_direction = DIRECTION_SELL;
+                bid_direction   = DIRECTION_BUY;
+            } else {
+                offer_direction = DIRECTION_BUY;
+                bid_direction   = DIRECTION_SELL;
+            }
 
             int inst_inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
                               : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
                               : ArraySize(g_inventory_EURGBP);
 
+            ulong inst_bid   = (inst == INSTRUMENT_EURUSD) ? g_pending_bid_EURUSD
+                             : (inst == INSTRUMENT_GBPUSD) ? g_pending_bid_GBPUSD
+                             : g_pending_bid_EURGBP;
+            ulong inst_offer = (inst == INSTRUMENT_EURUSD) ? g_pending_offer_EURUSD
+                             : (inst == INSTRUMENT_GBPUSD) ? g_pending_offer_GBPUSD
+                             : g_pending_offer_EURGBP;
+
+            // ── Phase 3: re-arm add_next after sleep expiry ──────────────
             ulong inst_add_next = (inst == INSTRUMENT_EURUSD) ? g_add_next_EURUSD
                                 : (inst == INSTRUMENT_GBPUSD) ? g_add_next_GBPUSD
                                 : g_add_next_EURGBP;
 
-            // Phase 3: re-arm add_next after sleep expiry
-            // Fires when pod is open but undefended (no live add_next)
-            // and the sleep interval has elapsed
             if (inst_inv_size > 0 && inst_add_next == 0) {
                 datetime last_layer = (inst == INSTRUMENT_EURUSD)
                                       ? g_last_layer_time_EURUSD
@@ -185,130 +184,117 @@ void OnTick() {
                                       : g_last_layer_time_EURGBP;
 
                 if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds) {
-                    // Sleep expired — re-arm at current market conditions
                     int inv_size = inst_inv_size;
-
-                    // Get deepest open layer
                     Layer deepest = (inst == INSTRUMENT_EURUSD)
                                     ? g_inventory_EURUSD[inv_size - 1]
                                     : (inst == INSTRUMENT_GBPUSD)
                                     ? g_inventory_GBPUSD[inv_size - 1]
                                     : g_inventory_EURGBP[inv_size - 1];
 
-                    // Compute fresh add_next price
                     double computed = ComputeNextLayerPrice(
-                        inv_size,
-                        deepest.instrument,
-                        deepest.direction,
-                        deepest.entry_price);
+                        inv_size, deepest.instrument,
+                        deepest.direction, deepest.entry_price);
 
                     if (computed > 0.0) {
-                        // Use price_override so PlaceNextEntryLimit applies
-                        // gap-aware MathMin/MathMax on top
                         PlaceNextEntryLimit(deepest, inst_symbol, computed);
-
-                        // Update last layer timestamp
                         if (inst == INSTRUMENT_EURUSD)
                             g_last_layer_time_EURUSD = TimeCurrent();
                         else if (inst == INSTRUMENT_GBPUSD)
                             g_last_layer_time_GBPUSD = TimeCurrent();
                         else
                             g_last_layer_time_EURGBP = TimeCurrent();
-
                         Print("INFO: add_next re-armed after sleep. ",
                               "instrument=", inst_symbol,
                               " layer=", inv_size,
                               " computed=", DoubleToString(computed, 5));
                     }
                 }
-                // Sleep not yet expired — pod open but undefended. Fall through
-                // to Option A deafness (continue) below.
             }
 
-            // Option A: skip if this instrument has open inventory
+            // Option A: skip quoting if inventory open on this instrument
             if (inst_inv_size > 0) continue;
 
-            // Rotation and plain-matrix entry for this instrument
-            if (inst_pending > 0) {
-                string pending_symbol    = "";
-                int    pending_direction = 0;
-                bool   order_exists      = false;
+            // ── ADR-014: Always-On Two-Sided Quoting ─────────────────────
+            // Cancel and resubmit both sides on every bar close.
+            // Prices derived from current FairValue ± BaseThreshold.
+            // ADR-013 clamp applies in PlaceEntryLimit() — opportunistic
+            // fill at market level if calculated price is less conservative.
 
-                if (OrderSelect(inst_pending)) {
-                    order_exists      = true;
-                    pending_symbol    = OrderGetString(ORDER_SYMBOL);
-                    pending_direction = (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
-                                        ? DIRECTION_BUY : DIRECTION_SELL;
-                }
-
-                if (!order_exists) {
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = 0;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = 0;
-                    else                                  g_pending_entry_EURGBP = 0;
-                    SaveAllInventoryState();
-                }
-                else if (pending_symbol    != inst_symbol ||
-                         pending_direction != inst_direction) {
-
-                    // Compute live spread of pending order
-                    int    p_strongest = 0, p_weakest = 0;
-                    GetImpliedIndices(pending_symbol, pending_direction,
-                                      p_strongest, p_weakest);
-
-                    double pending_live_spread = MathAbs(
-                        scores[p_weakest] - scores[p_strongest]);
-                    double candidate_live_spread = MathAbs(inst_spread);
-
-                    if (candidate_live_spread >
-                            pending_live_spread + RotationThreshold) {
-                        // Rotation approved
-                        MqlTradeRequest req = {};
-                        MqlTradeResult  res = {};
-                        req.action = TRADE_ACTION_REMOVE;
-                        req.order  = inst_pending;
-
-                        if (OrderSend(req, res)) {
-                            if (inst == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = 0;
-                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = 0;
-                            else                                  g_pending_entry_EURGBP = 0;
-                            SaveAllInventoryState();
-                        } else {
-                            Print("INFO: Pending cancel failed retcode=", res.retcode,
-                                  " instrument=", inst_symbol,
-                                  " — possible fill in race window, deferring");
-                            continue;
-                        }
-                    }
-                    // else: rotation rejected — retain pending, skip entry
-                    else { continue; }
-                }
-                // else: same routing — fall through to nudge (handled below)
-            }
-
-            // Plain-matrix entry for this instrument
-            if (inst_signal && inst_pending == 0) {
-                double entry_price = InvertSpreadToPrice(
-                    g_EU_mid_12bars_ago,
-                    g_GB_mid_12bars_ago,
-                    g_r_EU_signal,
-                    g_r_GB_signal,
-                    inst_spread,
-                    inst_strongest,
-                    inst_weakest,
-                    false,
-                    false   // ADR-013: disable internal passivity — clamp applied in PlaceEntryLimit()
-                );
-
-                if (entry_price > 0) {
-                    ulong tkt = PlaceEntryLimit(entry_price, inst_direction, inst_symbol);
-                    if (tkt > 0) {
-                        if (inst == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = tkt;
-                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = tkt;
-                        else                                  g_pending_entry_EURGBP = tkt;
-                        SaveAllInventoryState();
-                    }
+            // Cancel stale bid
+            if (inst_bid > 0) {
+                MqlTradeRequest req = {}; MqlTradeResult res = {};
+                req.action = TRADE_ACTION_REMOVE;
+                req.order  = inst_bid;
+                if (OrderSend(req, res)) {
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
+                    else                                  g_pending_bid_EURGBP   = 0;
+                } else {
+                    Print("INFO: Stale bid cancel failed retcode=", res.retcode,
+                          " instrument=", inst_symbol, " — possible fill in race window");
                 }
             }
+
+            // Cancel stale offer
+            if (inst_offer > 0) {
+                MqlTradeRequest req = {}; MqlTradeResult res = {};
+                req.action = TRADE_ACTION_REMOVE;
+                req.order  = inst_offer;
+                if (OrderSend(req, res)) {
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
+                    else                                  g_pending_offer_EURGBP = 0;
+                } else {
+                    Print("INFO: Stale offer cancel failed retcode=", res.retcode,
+                          " instrument=", inst_symbol, " — possible fill in race window");
+                }
+            }
+
+            // Compute bid price: FairValue - BaseThreshold (buy the cheap side)
+            double bid_spread  = inst_spread + BaseThreshold;  // less negative = closer to fair
+            double offer_spread = inst_spread - BaseThreshold; // more negative = further from fair
+
+            double bid_price = InvertSpreadToPrice(
+                g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
+                g_r_EU_signal, g_r_GB_signal,
+                bid_spread, inst_strongest, inst_weakest,
+                false, false);
+
+            double offer_price = InvertSpreadToPrice(
+                g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
+                g_r_EU_signal, g_r_GB_signal,
+                offer_spread, inst_strongest, inst_weakest,
+                false, false);
+
+            // Place bid
+            if (bid_price > 0) {
+                ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
+                if (tkt > 0) {
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
+                    else                                  g_pending_bid_EURGBP   = tkt;
+                    Print("INFO: ADR-014 bid placed. symbol=", inst_symbol,
+                          " price=", DoubleToString(bid_price, 5),
+                          " spread=", DoubleToString(bid_spread, 6));
+                }
+            }
+
+            // Place offer
+            if (offer_price > 0) {
+                ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
+                if (tkt > 0) {
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
+                    else                                  g_pending_offer_EURGBP = tkt;
+                    Print("INFO: ADR-014 offer placed. symbol=", inst_symbol,
+                          " price=", DoubleToString(offer_price, 5),
+                          " spread=", DoubleToString(offer_spread, 6));
+                }
+            }
+
+            SaveAllInventoryState();
+            // ── End ADR-014 quoting ───────────────────────────────────────
+
         } // End per-instrument loop
     } // End new_bar block
 
@@ -323,15 +309,19 @@ void OnTick() {
     for (int k = 0; k < 3; k++) {
         int inst = nudge_instruments[k];
 
-        ulong inst_pending = (inst == INSTRUMENT_EURUSD) ? g_pending_entry_EURUSD
-                           : (inst == INSTRUMENT_GBPUSD) ? g_pending_entry_GBPUSD
-                           : g_pending_entry_EURGBP;
+        ulong inst_bid   = (inst == INSTRUMENT_EURUSD) ? g_pending_bid_EURUSD
+                         : (inst == INSTRUMENT_GBPUSD) ? g_pending_bid_GBPUSD
+                         : g_pending_bid_EURGBP;
+        ulong inst_offer = (inst == INSTRUMENT_EURUSD) ? g_pending_offer_EURUSD
+                         : (inst == INSTRUMENT_GBPUSD) ? g_pending_offer_GBPUSD
+                         : g_pending_offer_EURGBP;
 
         int inst_inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
                           : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
                           : ArraySize(g_inventory_EURGBP);
 
-        if (inst_inv_size > 0 || inst_pending == 0) continue;
+        if (inst_inv_size > 0) continue;
+        if (inst_bid == 0 && inst_offer == 0) continue;
 
         // Derive signal for this instrument
         int inst_strongest = 0, inst_weakest = 0;
@@ -376,32 +366,41 @@ void OnTick() {
 
         if (recomputed <= 0) continue;
 
-        double current_pending = GetPendingOrderPrice(inst_pending);
-        if (current_pending > 0 &&
-            MathAbs(recomputed - current_pending) > g_NudgeThreshold) {
+        ulong nudge_tickets[2];
+        nudge_tickets[0] = inst_bid;
+        nudge_tickets[1] = inst_offer;
 
-            string sym = OrderSelect(inst_pending)
-                         ? OrderGetString(ORDER_SYMBOL) : inst_symbol;
-            int    dir = OrderSelect(inst_pending)
-                         ? ((OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
-                            ? DIRECTION_BUY : DIRECTION_SELL)
-                         : inst_direction;
+        for (int n = 0; n < 2; n++) {
+            ulong inst_pending = nudge_tickets[n];
+            if (inst_pending == 0) continue;
 
-            if (IsClearOfFreezeLevel(recomputed, dir, sym) &&
-                IsPassive(recomputed, dir, sym)) {
+            double current_pending = GetPendingOrderPrice(inst_pending);
+            if (current_pending > 0 &&
+                MathAbs(recomputed - current_pending) > g_NudgeThreshold) {
 
-                MqlTradeRequest req = {};
-                MqlTradeResult  res = {};
-                req.action = TRADE_ACTION_MODIFY;
-                req.order  = inst_pending;
-                req.price  = recomputed;
+                string sym = OrderSelect(inst_pending)
+                             ? OrderGetString(ORDER_SYMBOL) : inst_symbol;
+                int    dir = OrderSelect(inst_pending)
+                             ? ((OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
+                                ? DIRECTION_BUY : DIRECTION_SELL)
+                             : inst_direction;
 
-                if (!OrderSend(req, res)) {
-                    if (res.retcode != TRADE_RETCODE_DONE &&
-                        res.retcode != TRADE_RETCODE_PLACED)
-                        Print("WARNING: Nudge OrderModify failed. ",
-                              "retcode=", res.retcode,
-                              " instrument=", inst_symbol);
+                if (IsClearOfFreezeLevel(recomputed, dir, sym) &&
+                    IsPassive(recomputed, dir, sym)) {
+
+                    MqlTradeRequest req = {};
+                    MqlTradeResult  res = {};
+                    req.action = TRADE_ACTION_MODIFY;
+                    req.order  = inst_pending;
+                    req.price  = recomputed;
+
+                    if (!OrderSend(req, res)) {
+                        if (res.retcode != TRADE_RETCODE_DONE &&
+                            res.retcode != TRADE_RETCODE_PLACED)
+                            Print("WARNING: Nudge OrderModify failed. ",
+                                  "retcode=", res.retcode,
+                                  " instrument=", inst_symbol);
+                    }
                 }
             }
         }
@@ -492,15 +491,18 @@ void ClosePodPositions(int instrument) {
 
     // Clear per-instrument globals
     if (instrument == INSTRUMENT_EURUSD) {
-        g_pending_entry_EURUSD = 0;
+        g_pending_bid_EURUSD   = 0;
+        g_pending_offer_EURUSD = 0;
         g_add_next_EURUSD      = 0;
         ArrayResize(g_inventory_EURUSD, 0);
     } else if (instrument == INSTRUMENT_GBPUSD) {
-        g_pending_entry_GBPUSD = 0;
+        g_pending_bid_GBPUSD   = 0;
+        g_pending_offer_GBPUSD = 0;
         g_add_next_GBPUSD      = 0;
         ArrayResize(g_inventory_GBPUSD, 0);
     } else {
-        g_pending_entry_EURGBP = 0;
+        g_pending_bid_EURGBP   = 0;
+        g_pending_offer_EURGBP = 0;
         g_add_next_EURGBP      = 0;
         ArrayResize(g_inventory_EURGBP, 0);
     }
@@ -637,9 +639,9 @@ void CancelAllPending() {
 
 void CancelAllPendingEntries() {
     // Skip sweep if no tracked tickets AND no EA orders on book
-    bool any_pending = (g_pending_entry_EURUSD > 0 ||
-                        g_pending_entry_GBPUSD > 0 ||
-                        g_pending_entry_EURGBP > 0);
+    bool any_pending = (g_pending_bid_EURUSD > 0   || g_pending_offer_EURUSD > 0 ||
+                        g_pending_bid_GBPUSD > 0   || g_pending_offer_GBPUSD > 0 ||
+                        g_pending_bid_EURGBP > 0   || g_pending_offer_EURGBP > 0);
     if (!any_pending && OrdersTotal() == 0) return;
 
     int cancelled = 0;
@@ -668,15 +670,21 @@ void CancelAllPendingEntries() {
                   "ticket=", ticket, " retcode=", res.retcode);
         } else {
             cancelled++;
-            if (ticket == g_pending_entry_EURUSD) g_pending_entry_EURUSD = 0;
-            else if (ticket == g_pending_entry_GBPUSD) g_pending_entry_GBPUSD = 0;
-            else if (ticket == g_pending_entry_EURGBP) g_pending_entry_EURGBP = 0;
+            if (ticket == g_pending_bid_EURUSD)        g_pending_bid_EURUSD   = 0;
+            else if (ticket == g_pending_offer_EURUSD) g_pending_offer_EURUSD = 0;
+            else if (ticket == g_pending_bid_GBPUSD)   g_pending_bid_GBPUSD   = 0;
+            else if (ticket == g_pending_offer_GBPUSD) g_pending_offer_GBPUSD = 0;
+            else if (ticket == g_pending_bid_EURGBP)   g_pending_bid_EURGBP   = 0;
+            else if (ticket == g_pending_offer_EURGBP) g_pending_offer_EURGBP = 0;
         }
     }
 
-    g_pending_entry_EURUSD = 0;
-    g_pending_entry_GBPUSD = 0;
-    g_pending_entry_EURGBP = 0;
+    g_pending_bid_EURUSD   = 0;
+    g_pending_offer_EURUSD = 0;
+    g_pending_bid_GBPUSD   = 0;
+    g_pending_offer_GBPUSD = 0;
+    g_pending_bid_EURGBP   = 0;
+    g_pending_offer_EURGBP = 0;
     SaveAllInventoryState();
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,

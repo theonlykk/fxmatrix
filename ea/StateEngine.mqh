@@ -28,27 +28,33 @@ void SaveInventoryState(int instrument) {
     }
 
     // Resolve correct globals for this instrument
-    ulong pending_ticket = 0;
+    ulong pending_bid_ticket   = 0;
+    ulong pending_offer_ticket = 0;
     ulong add_next_ticket_val = 0;
     int   n = 0;
 
     if (instrument == INSTRUMENT_EURUSD) {
-        pending_ticket     = g_pending_entry_EURUSD;
+        pending_bid_ticket   = g_pending_bid_EURUSD;
+        pending_offer_ticket = g_pending_offer_EURUSD;
         add_next_ticket_val = g_add_next_EURUSD;
         n = ArraySize(g_inventory_EURUSD);
     } else if (instrument == INSTRUMENT_GBPUSD) {
-        pending_ticket     = g_pending_entry_GBPUSD;
+        pending_bid_ticket   = g_pending_bid_GBPUSD;
+        pending_offer_ticket = g_pending_offer_GBPUSD;
         add_next_ticket_val = g_add_next_GBPUSD;
         n = ArraySize(g_inventory_GBPUSD);
     } else {
-        pending_ticket     = g_pending_entry_EURGBP;
+        pending_bid_ticket   = g_pending_bid_EURGBP;
+        pending_offer_ticket = g_pending_offer_EURGBP;
         add_next_ticket_val = g_add_next_EURGBP;
         n = ArraySize(g_inventory_EURGBP);
     }
 
     FileWrite(fh, "{");
-    FileWrite(fh, "  \"pending_entry_ticket\": " +
-              IntegerToString(pending_ticket) + ",");
+    FileWrite(fh, "  \"pending_bid_ticket\": " +
+              IntegerToString(pending_bid_ticket) + ",");
+    FileWrite(fh, "  \"pending_offer_ticket\": " +
+              IntegerToString(pending_offer_ticket) + ",");
     FileWrite(fh, "  \"add_next_ticket\": " +
               IntegerToString(add_next_ticket_val) + ",");
     FileWrite(fh, "  \"inventory\": [");
@@ -170,15 +176,18 @@ bool LoadInventoryState(int instrument) {
     // Reset target array and tickets
     if (instrument == INSTRUMENT_EURUSD) {
         ArrayResize(g_inventory_EURUSD, 0);
-        g_pending_entry_EURUSD = 0;
+        g_pending_bid_EURUSD   = 0;
+        g_pending_offer_EURUSD = 0;
         g_add_next_EURUSD      = 0;
     } else if (instrument == INSTRUMENT_GBPUSD) {
         ArrayResize(g_inventory_GBPUSD, 0);
-        g_pending_entry_GBPUSD = 0;
+        g_pending_bid_GBPUSD   = 0;
+        g_pending_offer_GBPUSD = 0;
         g_add_next_GBPUSD      = 0;
     } else {
         ArrayResize(g_inventory_EURGBP, 0);
-        g_pending_entry_EURGBP = 0;
+        g_pending_bid_EURGBP   = 0;
+        g_pending_offer_EURGBP = 0;
         g_add_next_EURGBP      = 0;
     }
 
@@ -246,11 +255,22 @@ bool LoadInventoryState(int instrument) {
             val = StringSubstr(val, 0, StringLen(val) - 1);
 
         if (!in_layer) {
-            if (key == "pending_entry_ticket") {
+            if (key == "pending_bid_ticket") {
                 ulong t = (ulong)StringToInteger(val);
-                if (instrument == INSTRUMENT_EURUSD)      g_pending_entry_EURUSD = t;
-                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_entry_GBPUSD = t;
-                else                                        g_pending_entry_EURGBP = t;
+                if (instrument == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = t;
+                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = t;
+                else                                        g_pending_bid_EURGBP   = t;
+            } else if (key == "pending_offer_ticket") {
+                ulong t = (ulong)StringToInteger(val);
+                if (instrument == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = t;
+                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = t;
+                else                                        g_pending_offer_EURGBP = t;
+            } else if (key == "pending_entry_ticket") {
+                // Legacy single-ticket schema — restore as bid side
+                ulong t = (ulong)StringToInteger(val);
+                if (instrument == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = t;
+                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = t;
+                else                                        g_pending_bid_EURGBP   = t;
             } else if (key == "add_next_ticket") {
                 ulong t = (ulong)StringToInteger(val);
                 if (instrument == INSTRUMENT_EURUSD)      g_add_next_EURUSD = t;
