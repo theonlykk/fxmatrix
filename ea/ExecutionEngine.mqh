@@ -19,15 +19,52 @@ int GetInstrumentFromSymbol(string symbol) {
 }
 
 ulong PlaceEntryLimit(double price, int direction, string symbol) {
-    if (!IsClearOfFreezeLevel(price, direction, symbol)) {
+    double entry_price = price;
+
+    if (!IsClearOfFreezeLevel(entry_price, direction, symbol)) {
         Print("INFO: PlaceEntryLimit skipped — freeze level. ",
-              "symbol=", symbol, " price=", DoubleToString(price, 5));
+              "symbol=", symbol, " price=", DoubleToString(entry_price, 5));
         return 0;
     }
 
-    if (!IsPassive(price, direction, symbol)) {
+    // --- ADR-013: Gap-Aware Entry Price Clamp ---
+    // If market has moved past theoretical entry (price improvement),
+    // clamp to top of book passively rather than rejecting the signal.
+    // Mirrors PlaceNextEntryLimit() gap-aware logic from Phase 3.
+    if (entry_price > 0.0) {
+        int    stops_level = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
+        int    digits      = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+        double point       = SymbolInfoDouble(symbol, SYMBOL_POINT);
+        double min_dist    = stops_level * point;
+
+        double theoretical = entry_price;
+
+        if (direction == DIRECTION_BUY) {
+            double current_bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+            if (current_bid > 0.0)
+                entry_price = NormalizeDouble(
+                    MathMin(theoretical, current_bid - min_dist), digits);
+        } else {
+            double current_ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+            if (current_ask > 0.0)
+                entry_price = NormalizeDouble(
+                    MathMax(theoretical, current_ask + min_dist), digits);
+        }
+
+        if (MathAbs(entry_price - theoretical) > point) {
+            Print("INFO: ADR-013 entry clamp applied. ",
+                  "symbol=", symbol,
+                  " theoretical=", DoubleToString(theoretical, digits),
+                  " clamped=",     DoubleToString(entry_price, digits),
+                  " improvement=", DoubleToString(
+                      MathAbs(entry_price - theoretical) / point, 1), " pts");
+        }
+    }
+    // --- End ADR-013 ---
+
+    if (!IsPassive(entry_price, direction, symbol)) {
         Print("INFO: PlaceEntryLimit skipped — passivity failure. ",
-              "symbol=", symbol, " price=", DoubleToString(price, 5));
+              "symbol=", symbol, " price=", DoubleToString(entry_price, 5));
         return 0;
     }
 
@@ -37,7 +74,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
     req.volume       = BaseLotSize;
-    req.price        = price;
+    req.price        = entry_price;
     req.magic        = EA_MAGIC;
     req.type         = (direction == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
@@ -50,13 +87,13 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
         Print("ERROR: PlaceEntryLimit OrderSend failed. ",
               "retcode=", res.retcode,
               " symbol=", symbol,
-              " price=", DoubleToString(price, 5));
+              " price=", DoubleToString(entry_price, 5));
         return 0;
     }
 
     Print("INFO: Entry limit placed. ticket=", res.order,
           " symbol=", symbol,
-          " price=", DoubleToString(price, 5),
+          " price=", DoubleToString(entry_price, 5),
           " direction=", direction);
     return res.order;
 }
