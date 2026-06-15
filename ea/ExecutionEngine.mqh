@@ -631,6 +631,45 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             if (order_ticket == g_pending_offer_EURGBP) g_pending_offer_EURGBP = 0;
         }
 
+        // --- ADR-014 Phase 2: Quote Substitution ---
+        // On Layer 0 fill only: cancel the opposing side quote.
+        // Prevents MT5 hedging trap — we cannot hold both bid and offer
+        // inventory on the same instrument simultaneously.
+        // Note: The filled ticket was just zeroed out in the block above.
+        // Therefore, any remaining ticket > 0 for this instrument is the opposing quote.
+        if (layer_idx == 0) {
+            ulong opposing_ticket = 0;
+
+            if (instrument == INSTRUMENT_EURUSD) {
+                if (g_pending_bid_EURUSD > 0)   { opposing_ticket = g_pending_bid_EURUSD;   g_pending_bid_EURUSD   = 0; }
+                if (g_pending_offer_EURUSD > 0) { opposing_ticket = g_pending_offer_EURUSD; g_pending_offer_EURUSD = 0; }
+            } else if (instrument == INSTRUMENT_GBPUSD) {
+                if (g_pending_bid_GBPUSD > 0)   { opposing_ticket = g_pending_bid_GBPUSD;   g_pending_bid_GBPUSD   = 0; }
+                if (g_pending_offer_GBPUSD > 0) { opposing_ticket = g_pending_offer_GBPUSD; g_pending_offer_GBPUSD = 0; }
+            } else {
+                if (g_pending_bid_EURGBP > 0)   { opposing_ticket = g_pending_bid_EURGBP;   g_pending_bid_EURGBP   = 0; }
+                if (g_pending_offer_EURGBP > 0) { opposing_ticket = g_pending_offer_EURGBP; g_pending_offer_EURGBP = 0; }
+            }
+
+            if (opposing_ticket > 0) {
+                MqlTradeRequest req = {};
+                MqlTradeResult  res = {};
+                req.action = TRADE_ACTION_REMOVE;
+                req.order  = opposing_ticket;
+                if (OrderSend(req, res)) {
+                    Print("INFO: ADR-014 quote substitution — opposing quote cancelled. ",
+                          "instrument=", deal_symbol,
+                          " layer=0 opposing_ticket=", opposing_ticket);
+                } else {
+                    Print("WARNING: ADR-014 quote substitution — cancel failed. ",
+                          "retcode=", res.retcode,
+                          " opposing_ticket=", opposing_ticket,
+                          " — possible race fill, HandleEntryFill will catch it");
+                }
+            }
+        }
+        // --- End ADR-014 Phase 2 ---
+
         SaveAllInventoryState();
     }
 
