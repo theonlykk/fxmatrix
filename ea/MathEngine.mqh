@@ -475,7 +475,7 @@ bool IsClearOfFreezeLevel(double price, int direction, string symbol) {
     if (direction == DIRECTION_SELL) distance = price - ask;
     else                             distance = bid - price;
 
-    if (distance <= freeze_price) {
+    if (distance < freeze_price) {
         if (EnableVerboseLog)
             Print("INFO: Freeze level skip — symbol=", symbol,
                   " distance=", DoubleToString(distance, 5),
