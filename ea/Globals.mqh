@@ -99,9 +99,13 @@ Layer        g_inventory_EURUSD[];
 Layer        g_inventory_GBPUSD[];
 Layer        g_inventory_EURGBP[];
 
-ulong    g_pending_entry_EURUSD = 0;
-ulong    g_pending_entry_GBPUSD = 0;
-ulong    g_pending_entry_EURGBP = 0;
+// ADR-014: two-sided quote tracking (bid + offer per instrument)
+ulong    g_pending_bid_EURUSD   = 0;  // bid-side: initial quote or add-next
+ulong    g_pending_offer_EURUSD = 0;  // offer-side: initial quote (cancelled on Layer 0 fill)
+ulong    g_pending_bid_GBPUSD   = 0;
+ulong    g_pending_offer_GBPUSD = 0;
+ulong    g_pending_bid_EURGBP   = 0;
+ulong    g_pending_offer_EURGBP = 0;
 
 ulong    g_add_next_EURUSD = 0;
 ulong    g_add_next_GBPUSD = 0;
