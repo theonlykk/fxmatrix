@@ -29,7 +29,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
         int    stops_level = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
         int    digits      = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
         double point       = SymbolInfoDouble(symbol, SYMBOL_POINT);
-        double min_dist    = stops_level * point;
+        double min_dist    = MathMax(stops_level * point, point);
 
         double theoretical = entry_price;
 
