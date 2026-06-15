@@ -295,7 +295,8 @@ void OnTick() {
                     inst_spread,
                     inst_strongest,
                     inst_weakest,
-                    false
+                    false,
+                    false   // ADR-013: disable internal passivity — clamp applied in PlaceEntryLimit()
                 );
 
                 if (entry_price > 0) {
