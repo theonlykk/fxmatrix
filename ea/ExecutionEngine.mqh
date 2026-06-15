@@ -21,12 +21,6 @@ int GetInstrumentFromSymbol(string symbol) {
 ulong PlaceEntryLimit(double price, int direction, string symbol) {
     double entry_price = price;
 
-    if (!IsClearOfFreezeLevel(entry_price, direction, symbol)) {
-        Print("INFO: PlaceEntryLimit skipped — freeze level. ",
-              "symbol=", symbol, " price=", DoubleToString(entry_price, 5));
-        return 0;
-    }
-
     // --- ADR-013: Gap-Aware Entry Price Clamp ---
     // If market has moved past theoretical entry (price improvement),
     // clamp to top of book passively rather than rejecting the signal.
@@ -61,6 +55,12 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
         }
     }
     // --- End ADR-013 ---
+
+    if (!IsClearOfFreezeLevel(entry_price, direction, symbol)) {
+        Print("INFO: PlaceEntryLimit skipped — freeze level. ",
+              "symbol=", symbol, " price=", DoubleToString(entry_price, 5));
+        return 0;
+    }
 
     if (!IsPassive(entry_price, direction, symbol)) {
         Print("INFO: PlaceEntryLimit skipped — passivity failure. ",
