@@ -261,11 +261,12 @@ void OnTick() {
             double current_offer_price = (inst_offer > 0)
                                          ? GetPendingOrderPrice(inst_offer) : -1;
 
-            if (current_bid_price   > 0 &&
+            if (!IsRolloverWindow(TimeCurrent()) &&
+                current_bid_price   > 0 &&
                 current_offer_price > 0 &&
                 MathAbs(bid_price   - current_bid_price)   < deadband &&
                 MathAbs(offer_price - current_offer_price) < deadband) {
-                continue; // quotes still valid — skip cancel+resubmit
+                continue; // normal market hours: skip cancel+resubmit if valid
             }
 
             // ── ADR-017: g_api_halt gate ─────────────────────────────────
