@@ -972,8 +972,8 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             bid_direction   = DIRECTION_SELL;
                         }
 
-                        double bid_spread   = inst_spread + BaseThreshold;
-                        double offer_spread = inst_spread - BaseThreshold;
+                        double bid_spread   = inst_spread + QuoteSpread;
+                        double offer_spread = inst_spread - QuoteSpread;
 
                         double bid_price = InvertSpreadToPrice(
                             g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
