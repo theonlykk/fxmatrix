@@ -45,6 +45,9 @@ input double r_EUR              = 0.0390;  // ESTR annualised — update weekly
 input double r_GBP              = 0.0520;  // SONIA annualised — update weekly
 input string CarryRecalcTime    = "17:00"; // broker server time
 
+enum ENUM_EXECUTION_MODE { MARKET_MAKER, SNIPER };
+input ENUM_EXECUTION_MODE ExecutionMode = MARKET_MAKER;
+
 //--- Logging
 input bool   EnableVerboseLog   = true;
 

@@ -254,116 +254,256 @@ void OnTick() {
                 offer_spread, inst_strongest, inst_weakest,
                 false, false);
 
-            // ── ADR-017: Spatial deadband ────────────────────────────────
-            double deadband = QuoteSpread * 0.25 - 0.5 * _Point;
-            double current_bid_price   = (inst_bid   > 0)
-                                         ? GetPendingOrderPrice(inst_bid)   : -1;
-            double current_offer_price = (inst_offer > 0)
-                                         ? GetPendingOrderPrice(inst_offer) : -1;
+            // ── ADR-019: Mode fork ───────────────────────────────────────
+            if (ExecutionMode == MARKET_MAKER) {
 
-            if (!IsRolloverWindow(TimeCurrent()) &&
-                current_bid_price   > 0 &&
-                current_offer_price > 0 &&
-                MathAbs(bid_price   - current_bid_price)   < deadband &&
-                MathAbs(offer_price - current_offer_price) < deadband) {
-                continue; // normal market hours: skip cancel+resubmit if valid
-            }
+                // ── ADR-017: Spatial deadband (two-sided) ────────────────
+                double deadband = QuoteSpread * 0.25 - 0.5 * _Point;
+                double current_bid_price   = (inst_bid   > 0)
+                                             ? GetPendingOrderPrice(inst_bid)   : -1;
+                double current_offer_price = (inst_offer > 0)
+                                             ? GetPendingOrderPrice(inst_offer) : -1;
 
-            // ── ADR-017: g_api_halt gate ─────────────────────────────────
-            if (g_api_halt) {
-                Print("INFO: API halt active. Flat quoting blocked. ",
-                      "instrument=", inst_symbol);
-                continue;
-            }
-
-            // ── Cancel stale bid ─────────────────────────────────────────
-            if (inst_bid > 0) {
-                MqlTradeRequest req = {}; MqlTradeResult res = {};
-                req.action = TRADE_ACTION_REMOVE;
-                req.order  = inst_bid;
-                if (OrderSend(req, res)) {
-                    g_daily_api_count++;
-                    if (g_daily_api_count >= 1800) {
-                        g_api_halt = true;
-                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
-                              g_daily_api_count);
-                    }
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
-                    else                                  g_pending_bid_EURGBP   = 0;
-                } else {
-                    Print("INFO: Stale bid cancel failed retcode=", res.retcode,
-                          " instrument=", inst_symbol,
-                          " — possible fill in race window");
+                if (!IsRolloverWindow(TimeCurrent()) &&
+                    current_bid_price   > 0 &&
+                    current_offer_price > 0 &&
+                    MathAbs(bid_price   - current_bid_price)   < deadband &&
+                    MathAbs(offer_price - current_offer_price) < deadband) {
+                    continue;
                 }
-            }
 
-            // ── Cancel stale offer ───────────────────────────────────────
-            if (inst_offer > 0) {
-                MqlTradeRequest req = {}; MqlTradeResult res = {};
-                req.action = TRADE_ACTION_REMOVE;
-                req.order  = inst_offer;
-                if (OrderSend(req, res)) {
-                    g_daily_api_count++;
-                    if (g_daily_api_count >= 1800) {
-                        g_api_halt = true;
-                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
-                              g_daily_api_count);
-                    }
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
-                    else                                  g_pending_offer_EURGBP = 0;
-                } else {
-                    Print("INFO: Stale offer cancel failed retcode=", res.retcode,
-                          " instrument=", inst_symbol,
-                          " — possible fill in race window");
+                // ── ADR-017: g_api_halt gate ─────────────────────────────
+                if (g_api_halt) {
+                    Print("INFO: API halt active. Flat quoting blocked. ",
+                          "instrument=", inst_symbol);
+                    continue;
                 }
-            }
 
-            // ── Place bid and offer (gated by rollover window) ───────────
-            if (!IsRolloverWindow(TimeCurrent())) {
-                if (bid_price > 0) {
-                    ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
-                    if (tkt > 0) {
+                // ── Cancel stale bid ─────────────────────────────────────
+                if (inst_bid > 0) {
+                    MqlTradeRequest req = {}; MqlTradeResult res = {};
+                    req.action = TRADE_ACTION_REMOVE;
+                    req.order  = inst_bid;
+                    if (OrderSend(req, res)) {
                         g_daily_api_count++;
                         if (g_daily_api_count >= 1800) {
                             g_api_halt = true;
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
                         }
-                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
-                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
-                        else                                  g_pending_bid_EURGBP   = tkt;
-                        Print("INFO: ADR-014 bid placed. symbol=", inst_symbol,
-                              " price=", DoubleToString(bid_price, 5),
-                              " spread=", DoubleToString(bid_spread, 6));
+                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
+                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
+                        else                                  g_pending_bid_EURGBP   = 0;
+                    } else {
+                        Print("INFO: Stale bid cancel failed retcode=", res.retcode,
+                              " instrument=", inst_symbol,
+                              " — possible fill in race window");
                     }
                 }
 
-                if (offer_price > 0) {
-                    ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
-                    if (tkt > 0) {
+                // ── Cancel stale offer ───────────────────────────────────
+                if (inst_offer > 0) {
+                    MqlTradeRequest req = {}; MqlTradeResult res = {};
+                    req.action = TRADE_ACTION_REMOVE;
+                    req.order  = inst_offer;
+                    if (OrderSend(req, res)) {
                         g_daily_api_count++;
                         if (g_daily_api_count >= 1800) {
                             g_api_halt = true;
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
                         }
-                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
-                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
-                        else                                  g_pending_offer_EURGBP = tkt;
-                        Print("INFO: ADR-014 offer placed. symbol=", inst_symbol,
-                              " price=", DoubleToString(offer_price, 5),
-                              " spread=", DoubleToString(offer_spread, 6));
+                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
+                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
+                        else                                  g_pending_offer_EURGBP = 0;
+                    } else {
+                        Print("INFO: Stale offer cancel failed retcode=", res.retcode,
+                              " instrument=", inst_symbol,
+                              " — possible fill in race window");
                     }
                 }
-            } else {
-                Print("INFO: ADR-018 rollover window active. Placement suspended. ",
-                      "instrument=", inst_symbol);
-            }
+
+                // ── Place bid and offer (gated by rollover window) ───────
+                if (!IsRolloverWindow(TimeCurrent())) {
+                    if (bid_price > 0) {
+                        ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
+                        if (tkt > 0) {
+                            g_daily_api_count++;
+                            if (g_daily_api_count >= 1800) {
+                                g_api_halt = true;
+                                Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                      g_daily_api_count);
+                            }
+                            if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
+                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
+                            else                                  g_pending_bid_EURGBP   = tkt;
+                            Print("INFO: ADR-014 bid placed. symbol=", inst_symbol,
+                                  " price=", DoubleToString(bid_price, 5),
+                                  " spread=", DoubleToString(bid_spread, 6));
+                        }
+                    }
+
+                    if (offer_price > 0) {
+                        ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
+                        if (tkt > 0) {
+                            g_daily_api_count++;
+                            if (g_daily_api_count >= 1800) {
+                                g_api_halt = true;
+                                Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                      g_daily_api_count);
+                            }
+                            if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
+                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
+                            else                                  g_pending_offer_EURGBP = tkt;
+                            Print("INFO: ADR-014 offer placed. symbol=", inst_symbol,
+                                  " price=", DoubleToString(offer_price, 5),
+                                  " spread=", DoubleToString(offer_spread, 6));
+                        }
+                    }
+                } else {
+                    Print("INFO: ADR-018 rollover window active. Placement suspended. ",
+                          "instrument=", inst_symbol);
+                }
+
+            } else { // SNIPER mode
+
+                // ── ADR-019: Sniper — determine active direction ─────────
+                bool signal_is_bid   = (inst_spread > 0);
+                double signal_mag    = MathAbs(inst_spread);
+                ulong  active_ticket = signal_is_bid ? inst_bid : inst_offer;
+                double active_price  = signal_is_bid ? bid_price : offer_price;
+                int    active_dir    = signal_is_bid ? bid_direction : offer_direction;
+
+                // ── ADR-019: Cancel opposite-side order (direction flip) ──
+                ulong opposite_ticket = signal_is_bid ? inst_offer : inst_bid;
+                if (opposite_ticket > 0) {
+                    MqlTradeRequest req = {}; MqlTradeResult res = {};
+                    req.action = TRADE_ACTION_REMOVE;
+                    req.order  = opposite_ticket;
+                    if (OrderSend(req, res)) {
+                        g_daily_api_count++;
+                        if (g_daily_api_count >= 1800) {
+                            g_api_halt = true;
+                            Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                  g_daily_api_count);
+                        }
+                        if (signal_is_bid) {
+                            if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
+                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
+                            else                                  g_pending_offer_EURGBP = 0;
+                        } else {
+                            if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
+                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
+                            else                                  g_pending_bid_EURGBP   = 0;
+                        }
+                        Print("INFO: ADR-019 Sniper — opposite-side order cancelled on direction flip. ",
+                              "instrument=", inst_symbol);
+                    }
+                }
+
+                if (signal_mag <= BaseThreshold) {
+                    // Signal below gate — cancel active resting order, place nothing
+                    if (active_ticket > 0) {
+                        MqlTradeRequest req = {}; MqlTradeResult res = {};
+                        req.action = TRADE_ACTION_REMOVE;
+                        req.order  = active_ticket;
+                        if (OrderSend(req, res)) {
+                            g_daily_api_count++;
+                            if (g_daily_api_count >= 1800) {
+                                g_api_halt = true;
+                                Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                      g_daily_api_count);
+                            }
+                            if (signal_is_bid) {
+                                if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
+                                else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
+                                else                                  g_pending_bid_EURGBP   = 0;
+                            } else {
+                                if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
+                                else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
+                                else                                  g_pending_offer_EURGBP = 0;
+                            }
+                            Print("INFO: ADR-019 Sniper — signal below threshold, order cancelled. ",
+                                  "instrument=", inst_symbol,
+                                  " signal_mag=", DoubleToString(signal_mag, 6));
+                        }
+                    }
+
+                } else {
+                    // Signal active — single-sided deadband then place
+                    double deadband = QuoteSpread * 0.25 - 0.5 * _Point;
+                    double current_active_price = (active_ticket > 0)
+                                                  ? GetPendingOrderPrice(active_ticket) : -1;
+
+                    if (!IsRolloverWindow(TimeCurrent()) &&
+                        current_active_price > 0 &&
+                        MathAbs(active_price - current_active_price) < deadband) {
+                        // Resting order within deadband — skip cancel+resubmit
+                    } else {
+                        if (g_api_halt) {
+                            Print("INFO: API halt active. Sniper placement blocked. ",
+                                  "instrument=", inst_symbol);
+                        } else {
+                            // Cancel stale active order
+                            if (active_ticket > 0) {
+                                MqlTradeRequest req = {}; MqlTradeResult res = {};
+                                req.action = TRADE_ACTION_REMOVE;
+                                req.order  = active_ticket;
+                                if (OrderSend(req, res)) {
+                                    g_daily_api_count++;
+                                    if (g_daily_api_count >= 1800) {
+                                        g_api_halt = true;
+                                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                              g_daily_api_count);
+                                    }
+                                    if (signal_is_bid) {
+                                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
+                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
+                                        else                                  g_pending_bid_EURGBP   = 0;
+                                    } else {
+                                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
+                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
+                                        else                                  g_pending_offer_EURGBP = 0;
+                                    }
+                                }
+                            }
+
+                            // Place single-sided limit
+                            if (!IsRolloverWindow(TimeCurrent()) && active_price > 0) {
+                                ulong tkt = PlaceEntryLimit(active_price, active_dir, inst_symbol);
+                                if (tkt > 0) {
+                                    g_daily_api_count++;
+                                    if (g_daily_api_count >= 1800) {
+                                        g_api_halt = true;
+                                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                              g_daily_api_count);
+                                    }
+                                    if (signal_is_bid) {
+                                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
+                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
+                                        else                                  g_pending_bid_EURGBP   = tkt;
+                                    } else {
+                                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
+                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
+                                        else                                  g_pending_offer_EURGBP = tkt;
+                                    }
+                                    Print("INFO: ADR-019 Sniper order placed. symbol=", inst_symbol,
+                                          " direction=", (signal_is_bid ? "BID" : "OFFER"),
+                                          " price=", DoubleToString(active_price, 5),
+                                          " signal_mag=", DoubleToString(signal_mag, 6));
+                                }
+                            } else {
+                                Print("INFO: ADR-018 rollover window active. Sniper placement suspended. ",
+                                      "instrument=", inst_symbol);
+                            }
+                        }
+                    }
+                }
+
+            } // end SNIPER mode
 
             SaveAllInventoryState();
-            // ── End ADR-014/ADR-017 quoting ──────────────────────────────
+            // ── End ADR-014/ADR-017/ADR-019 quoting ─────────────────────
 
         } // End per-instrument loop
     } // End new_bar block
