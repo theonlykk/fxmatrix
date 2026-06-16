@@ -56,6 +56,9 @@ input double FTMO_Initial_Balance = 10000.000; // FTMO starting account balance
 input double FTMO_Max_Loss_Pct    = 0.090;     // absolute loss buffer (9% — 1% below 10% limit)
 input double FTMO_Daily_Loss_Pct  = 0.040;     // daily loss buffer (4% — 1% below 5% limit)
 
+//--- ADR-017: Market making execution spread
+input double QuoteSpread = 0.0008; // execution distance from FairValue to quote (8 bps default)
+
 //--- Signal state (updated on each new M5 bar close)
 double   g_r_EU_signal          = 0.0;
 double   g_r_GB_signal          = 0.0;
@@ -117,6 +120,10 @@ datetime g_last_layer_time_GBPUSD = 0;
 datetime g_last_layer_time_EURGBP = 0;
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
+
+//--- ADR-017: Hard API request counter
+int  g_daily_api_count = 0;    // resets at broker midnight with g_daily_start_balance
+bool g_api_halt        = false; // true when g_daily_api_count >= 1800
 
 int InitGlobals() {
     g_NudgeThreshold = NudgePips

@@ -209,17 +209,28 @@ void OnTick() {
                         deepest.direction, deepest.entry_price);
 
                     if (computed > 0.0) {
-                        PlaceNextEntryLimit(deepest, inst_symbol, computed);
-                        if (inst == INSTRUMENT_EURUSD)
-                            g_last_layer_time_EURUSD = TimeCurrent();
-                        else if (inst == INSTRUMENT_GBPUSD)
-                            g_last_layer_time_GBPUSD = TimeCurrent();
-                        else
-                            g_last_layer_time_EURGBP = TimeCurrent();
-                        Print("INFO: add_next re-armed after sleep. ",
-                              "instrument=", inst_symbol,
-                              " layer=", inv_size,
-                              " computed=", DoubleToString(computed, 5));
+                        if (!g_api_halt) {
+                            PlaceNextEntryLimit(deepest, inst_symbol, computed);
+                            g_daily_api_count++;
+                            if (g_daily_api_count >= 1800) {
+                                g_api_halt = true;
+                                Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                      g_daily_api_count);
+                            }
+                            if (inst == INSTRUMENT_EURUSD)
+                                g_last_layer_time_EURUSD = TimeCurrent();
+                            else if (inst == INSTRUMENT_GBPUSD)
+                                g_last_layer_time_GBPUSD = TimeCurrent();
+                            else
+                                g_last_layer_time_EURGBP = TimeCurrent();
+                            Print("INFO: add_next re-armed after sleep. ",
+                                  "instrument=", inst_symbol,
+                                  " layer=", inv_size,
+                                  " computed=", DoubleToString(computed, 5));
+                        } else {
+                            Print("INFO: API halt active. Add-next re-arm blocked. ",
+                                  "instrument=", inst_symbol);
+                        }
                     }
                 }
             }
@@ -227,45 +238,9 @@ void OnTick() {
             // Option A: skip quoting if inventory open on this instrument
             if (inst_inv_size > 0) continue;
 
-            // ── ADR-014: Always-On Two-Sided Quoting ─────────────────────
-            // Cancel and resubmit both sides on every bar close.
-            // Prices derived from current FairValue ± BaseThreshold.
-            // ADR-013 clamp applies in PlaceEntryLimit() — opportunistic
-            // fill at market level if calculated price is less conservative.
-
-            // Cancel stale bid
-            if (inst_bid > 0) {
-                MqlTradeRequest req = {}; MqlTradeResult res = {};
-                req.action = TRADE_ACTION_REMOVE;
-                req.order  = inst_bid;
-                if (OrderSend(req, res)) {
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
-                    else                                  g_pending_bid_EURGBP   = 0;
-                } else {
-                    Print("INFO: Stale bid cancel failed retcode=", res.retcode,
-                          " instrument=", inst_symbol, " — possible fill in race window");
-                }
-            }
-
-            // Cancel stale offer
-            if (inst_offer > 0) {
-                MqlTradeRequest req = {}; MqlTradeResult res = {};
-                req.action = TRADE_ACTION_REMOVE;
-                req.order  = inst_offer;
-                if (OrderSend(req, res)) {
-                    if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
-                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
-                    else                                  g_pending_offer_EURGBP = 0;
-                } else {
-                    Print("INFO: Stale offer cancel failed retcode=", res.retcode,
-                          " instrument=", inst_symbol, " — possible fill in race window");
-                }
-            }
-
-            // Compute bid price: FairValue - BaseThreshold (buy the cheap side)
-            double bid_spread  = inst_spread + BaseThreshold;  // less negative = closer to fair
-            double offer_spread = inst_spread - BaseThreshold; // more negative = further from fair
+            // ── ADR-017: Compute fair-value prices ───────────────────────
+            double bid_spread   = inst_spread + QuoteSpread;
+            double offer_spread = inst_spread - QuoteSpread;
 
             double bid_price = InvertSpreadToPrice(
                 g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
@@ -279,11 +254,82 @@ void OnTick() {
                 offer_spread, inst_strongest, inst_weakest,
                 false, false);
 
-            // Place bid
+            // ── ADR-017: Spatial deadband ────────────────────────────────
+            double deadband = QuoteSpread * 0.25 - 0.5 * _Point;
+            double current_bid_price   = (inst_bid   > 0)
+                                         ? GetPendingOrderPrice(inst_bid)   : -1;
+            double current_offer_price = (inst_offer > 0)
+                                         ? GetPendingOrderPrice(inst_offer) : -1;
+
+            if (current_bid_price   > 0 &&
+                current_offer_price > 0 &&
+                MathAbs(bid_price   - current_bid_price)   < deadband &&
+                MathAbs(offer_price - current_offer_price) < deadband) {
+                continue; // quotes still valid — skip cancel+resubmit
+            }
+
+            // ── ADR-017: g_api_halt gate ─────────────────────────────────
+            if (g_api_halt) {
+                Print("INFO: API halt active. Flat quoting blocked. ",
+                      "instrument=", inst_symbol);
+                continue;
+            }
+
+            // ── Cancel stale bid ─────────────────────────────────────────
+            if (inst_bid > 0) {
+                MqlTradeRequest req = {}; MqlTradeResult res = {};
+                req.action = TRADE_ACTION_REMOVE;
+                req.order  = inst_bid;
+                if (OrderSend(req, res)) {
+                    g_daily_api_count++;
+                    if (g_daily_api_count >= 1800) {
+                        g_api_halt = true;
+                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                              g_daily_api_count);
+                    }
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
+                    else                                  g_pending_bid_EURGBP   = 0;
+                } else {
+                    Print("INFO: Stale bid cancel failed retcode=", res.retcode,
+                          " instrument=", inst_symbol,
+                          " — possible fill in race window");
+                }
+            }
+
+            // ── Cancel stale offer ───────────────────────────────────────
+            if (inst_offer > 0) {
+                MqlTradeRequest req = {}; MqlTradeResult res = {};
+                req.action = TRADE_ACTION_REMOVE;
+                req.order  = inst_offer;
+                if (OrderSend(req, res)) {
+                    g_daily_api_count++;
+                    if (g_daily_api_count >= 1800) {
+                        g_api_halt = true;
+                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                              g_daily_api_count);
+                    }
+                    if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
+                    else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
+                    else                                  g_pending_offer_EURGBP = 0;
+                } else {
+                    Print("INFO: Stale offer cancel failed retcode=", res.retcode,
+                          " instrument=", inst_symbol,
+                          " — possible fill in race window");
+                }
+            }
+
+            // ── Place bid and offer (gated by rollover window) ───────────
             if (!IsRolloverWindow(TimeCurrent())) {
                 if (bid_price > 0) {
                     ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
                     if (tkt > 0) {
+                        g_daily_api_count++;
+                        if (g_daily_api_count >= 1800) {
+                            g_api_halt = true;
+                            Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                  g_daily_api_count);
+                        }
                         if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
                         else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
                         else                                  g_pending_bid_EURGBP   = tkt;
@@ -296,6 +342,12 @@ void OnTick() {
                 if (offer_price > 0) {
                     ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
                     if (tkt > 0) {
+                        g_daily_api_count++;
+                        if (g_daily_api_count >= 1800) {
+                            g_api_halt = true;
+                            Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                  g_daily_api_count);
+                        }
                         if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
                         else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
                         else                                  g_pending_offer_EURGBP = tkt;
@@ -310,7 +362,7 @@ void OnTick() {
             }
 
             SaveAllInventoryState();
-            // ── End ADR-014 quoting ───────────────────────────────────────
+            // ── End ADR-014/ADR-017 quoting ──────────────────────────────
 
         } // End per-instrument loop
     } // End new_bar block
@@ -481,6 +533,9 @@ void CheckCircuitBreakers() {
     if (dt.day != g_current_day) {
         g_daily_start_balance = current_balance;
         g_current_day         = dt.day;
+        g_daily_api_count = 0;
+        g_api_halt        = false;
+        Print("INFO: ADR-017 API counter reset. New day=", dt.day);
         Print("INFO: FTMO daily floor reset. ",
               "daily_start_balance=", DoubleToString(g_daily_start_balance, 2),
               " day=", g_current_day);
