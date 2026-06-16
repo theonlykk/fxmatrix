@@ -987,8 +987,22 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             offer_spread, inst_strongest, inst_weakest,
                             false, false);
 
-                        if (bid_price > 0)   PlaceEntryLimit(bid_price, bid_direction, resume_symbol);
-                        if (offer_price > 0) PlaceEntryLimit(offer_price, offer_direction, resume_symbol);
+                        if (bid_price > 0) {
+                            ulong bid_tkt = PlaceEntryLimit(bid_price, bid_direction, resume_symbol);
+                            if (bid_tkt > 0) {
+                                if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD = bid_tkt;
+                                else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD = bid_tkt;
+                                else                                  g_pending_bid_EURGBP = bid_tkt;
+                            }
+                        }
+                        if (offer_price > 0) {
+                            ulong offer_tkt = PlaceEntryLimit(offer_price, offer_direction, resume_symbol);
+                            if (offer_tkt > 0) {
+                                if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = offer_tkt;
+                                else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = offer_tkt;
+                                else                                  g_pending_offer_EURGBP = offer_tkt;
+                            }
+                        }
 
                         Print("INFO: Phase 3 resume quoting. instrument=", resume_symbol,
                               " bid=", bid_price, " offer=", offer_price);
