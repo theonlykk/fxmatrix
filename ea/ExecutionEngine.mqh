@@ -75,7 +75,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
     req.symbol       = symbol;
     req.volume       = BaseLotSize;
     req.price        = entry_price;
-    req.magic        = EA_MAGIC;
+    req.magic        = EA_MAGIC;  // Layer 0 entries and resume-quoting
     req.type         = (direction == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
                        : ORDER_TYPE_SELL_LIMIT;
@@ -124,7 +124,7 @@ ulong PlaceExitLimit(double exit_price, double volume,
     req.symbol       = symbol;
     req.volume       = volume;
     req.price        = exit_price;
-    req.magic        = EA_MAGIC;
+    req.magic        = EA_MAGIC + 2;  // Exit limits
     req.type         = (exit_dir == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
                        : ORDER_TYPE_SELL_LIMIT;
@@ -185,7 +185,7 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     req.symbol       = symbol;
     req.volume       = BaseLotSize;
     req.price        = price;
-    req.magic        = EA_MAGIC;
+    req.magic        = EA_MAGIC + 1;  // Add-next entries
     req.type         = (direction == DIRECTION_BUY)
                        ? ORDER_TYPE_BUY_LIMIT
                        : ORDER_TYPE_SELL_LIMIT;
@@ -1142,35 +1142,24 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
     double   deal_profit  = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
 
     if (deal_entry == DEAL_ENTRY_IN) {
-        bool is_exit_limit_fill = false;
-        int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
-        for (int k = 0; k < 3 && !is_exit_limit_fill; k++) {
-            int inst = target_instruments[k];
-            int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
-                         : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
-                         : ArraySize(g_inventory_EURGBP);
-            for (int i = 0; i < inv_size && !is_exit_limit_fill; i++) {
-                Layer CurL = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
-                           : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
-                           : g_inventory_EURGBP[i];
-                for (int j = 0; j < ArraySize(CurL.exit_tickets); j++) {
-                    if (CurL.exit_tickets[j] == order_ticket) {
-                        is_exit_limit_fill = true;
-                        break;
-                    }
-                }
-            }
-        }
+        long deal_magic = HistoryDealGetInteger(deal_ticket, DEAL_MAGIC);
 
-        if (is_exit_limit_fill) {
+        if (deal_magic == (long)(EA_MAGIC + 2)) {
+            // Exit limit fill — deterministic magic number routing
             ulong new_hedge_position = (ulong)HistoryDealGetInteger(
                                            deal_ticket, DEAL_POSITION_ID);
             HandleExitFill(deal_ticket, order_ticket, deal_volume,
                            deal_time, deal_profit, new_hedge_position);
-        } else {
+        } else if (deal_magic == (long)EA_MAGIC ||
+                   deal_magic == (long)(EA_MAGIC + 1)) {
+            // Entry fill (EA_MAGIC = Layer 0, EA_MAGIC+1 = add-next)
             HandleEntryFill(deal_ticket, order_ticket, deal_volume,
                             deal_price, deal_time, deal_symbol,
                             deal_type);
+        } else {
+            // Ignore manual trades (Magic 0) or other EA trades
+            Print("INFO: Ignored DEAL_ENTRY_IN with unmanaged magic=",
+                  deal_magic);
         }
         return;
     }
