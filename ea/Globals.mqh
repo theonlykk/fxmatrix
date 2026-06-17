@@ -47,6 +47,7 @@ input string CarryRecalcTime    = "17:00"; // broker server time
 
 enum ENUM_EXECUTION_MODE { MARKET_MAKER, SNIPER };
 input ENUM_EXECUTION_MODE ExecutionMode = MARKET_MAKER;
+input double SniperThreshold = 0.0008; // ADR-019: Decoupled entry gate for SNIPER mode
 
 //--- Logging
 input bool   EnableVerboseLog   = true;

@@ -401,7 +401,7 @@ void OnTick() {
                     }
                 }
 
-                if (signal_mag <= BaseThreshold) {
+                if (signal_mag <= SniperThreshold) {
                     // Signal below gate — cancel active resting order, place nothing
                     if (active_ticket > 0) {
                         MqlTradeRequest req = {}; MqlTradeResult res = {};
