@@ -30,7 +30,7 @@ input double MinFillThreshold   = 0.50;    // fraction of lot_size before next l
 //--- Layer mechanics
 input int    MaxLayers          = 20;
 input double BaseLotSize        = 0.01;
-input ulong  EA_MAGIC           = 20260608; // FXMatrix Pod Identifier
+input ulong   EA_MAGIC    = 20260000; // ADR-021: Instance base magic (MM=20260000, SNIPER=20260100)
 
 //--- Nudging
 input double NudgePips          = 0.5;     // pips; converted to points per symbol
@@ -47,6 +47,7 @@ input string CarryRecalcTime    = "17:00"; // broker server time
 
 enum ENUM_EXECUTION_MODE { MARKET_MAKER, SNIPER };
 input ENUM_EXECUTION_MODE ExecutionMode = MARKET_MAKER;
+input string  InstanceID  = "MM";     // ADR-021: Instance identifier for JSON state segregation
 input double SniperThreshold = 0.0008; // ADR-019: Decoupled entry gate for SNIPER mode
 
 //--- Logging

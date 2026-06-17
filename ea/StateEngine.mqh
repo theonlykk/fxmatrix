@@ -8,9 +8,12 @@
 // Returns the correct JSON filename for a given instrument.
 //------------------------------------------------------------------
 string GetStateFilename(int instrument) {
-    if (instrument == INSTRUMENT_EURUSD) return "fxmatrix_state_EURUSD.json";
-    if (instrument == INSTRUMENT_GBPUSD) return "fxmatrix_state_GBPUSD.json";
-    return "fxmatrix_state_EURGBP.json";
+    string inst_string = "";
+    if (instrument == INSTRUMENT_EURUSD)      inst_string = "EURUSD";
+    else if (instrument == INSTRUMENT_GBPUSD) inst_string = "GBPUSD";
+    else                                      inst_string = "EURGBP";
+    string filename = "fxmatrix_state_" + inst_string + "_" + InstanceID + ".json";
+    return filename;
 }
 
 //------------------------------------------------------------------

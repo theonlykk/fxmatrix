@@ -212,7 +212,7 @@ void OnTick() {
                         if (!g_api_halt) {
                             PlaceNextEntryLimit(deepest, inst_symbol, computed);
                             g_daily_api_count++;
-                            if (g_daily_api_count >= 1800) {
+                            if (g_daily_api_count >= 900) {
                                 g_api_halt = true;
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
@@ -286,7 +286,7 @@ void OnTick() {
                     req.order  = inst_bid;
                     if (OrderSend(req, res)) {
                         g_daily_api_count++;
-                        if (g_daily_api_count >= 1800) {
+                        if (g_daily_api_count >= 900) {
                             g_api_halt = true;
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
@@ -308,7 +308,7 @@ void OnTick() {
                     req.order  = inst_offer;
                     if (OrderSend(req, res)) {
                         g_daily_api_count++;
-                        if (g_daily_api_count >= 1800) {
+                        if (g_daily_api_count >= 900) {
                             g_api_halt = true;
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
@@ -329,7 +329,7 @@ void OnTick() {
                         ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
                         if (tkt > 0) {
                             g_daily_api_count++;
-                            if (g_daily_api_count >= 1800) {
+                            if (g_daily_api_count >= 900) {
                                 g_api_halt = true;
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
@@ -347,7 +347,7 @@ void OnTick() {
                         ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
                         if (tkt > 0) {
                             g_daily_api_count++;
-                            if (g_daily_api_count >= 1800) {
+                            if (g_daily_api_count >= 900) {
                                 g_api_halt = true;
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
@@ -382,7 +382,7 @@ void OnTick() {
                     req.order  = opposite_ticket;
                     if (OrderSend(req, res)) {
                         g_daily_api_count++;
-                        if (g_daily_api_count >= 1800) {
+                        if (g_daily_api_count >= 900) {
                             g_api_halt = true;
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
@@ -409,7 +409,7 @@ void OnTick() {
                         req.order  = active_ticket;
                         if (OrderSend(req, res)) {
                             g_daily_api_count++;
-                            if (g_daily_api_count >= 1800) {
+                            if (g_daily_api_count >= 900) {
                                 g_api_halt = true;
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
@@ -451,7 +451,7 @@ void OnTick() {
                                 req.order  = active_ticket;
                                 if (OrderSend(req, res)) {
                                     g_daily_api_count++;
-                                    if (g_daily_api_count >= 1800) {
+                                    if (g_daily_api_count >= 900) {
                                         g_api_halt = true;
                                         Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                               g_daily_api_count);
@@ -473,7 +473,7 @@ void OnTick() {
                                 ulong tkt = PlaceEntryLimit(active_price, active_dir, inst_symbol);
                                 if (tkt > 0) {
                                     g_daily_api_count++;
-                                    if (g_daily_api_count >= 1800) {
+                                    if (g_daily_api_count >= 900) {
                                         g_api_halt = true;
                                         Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                               g_daily_api_count);
