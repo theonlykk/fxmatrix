@@ -150,7 +150,9 @@ string BuildTelemetryPayload(
         "\"engine_state\":{"
             "\"execution_mode\":\"%s\","
             "\"quote_spread\":%.6f,"
-            "\"daily_api_count\":%d"
+            "\"daily_api_count\":%d,"
+            "\"ldak_vratios\":{\"EU\":%.3f,\"GU\":%.3f,\"EG\":%.3f},"
+            "\"rollover_active\":%s"
         "},"
         "\"active_pods\":{"
             "\"EURUSD\":%s,"
@@ -166,6 +168,10 @@ string BuildTelemetryPayload(
         exec_mode_str,
         QuoteSpread,
         g_daily_api_count,
+        g_vratio_EU,
+        g_vratio_GU,
+        g_vratio_EG,
+        IsRolloverWindow(TimeGMT()) ? "true" : "false",
         eu_pod,
         gu_pod,
         eg_pod
