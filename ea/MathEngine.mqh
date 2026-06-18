@@ -54,65 +54,62 @@ double PearsonR(const double &a[], const double &b[], int n) {
 }
 
 bool RunSignalOnBarClose() {
-    double eu_closes[], gb_closes[];
+    double ac_closes[], bc_closes[];
 
-    if (CopyClose("EURUSD", PERIOD_M5, 0, 289, eu_closes) < 289) {
-        Print("ERROR: CopyClose EURUSD failed");
+    if (CopyClose(g_symbols[SLOT_AC], PERIOD_M5, 0, 289, ac_closes) < 289) {
+        Print("ERROR: CopyClose ", g_symbols[SLOT_AC], " failed");
         return false;
     }
-    ArraySetAsSeries(eu_closes, true);
-    if (CopyClose("GBPUSD", PERIOD_M5, 0, 289, gb_closes) < 289) {
-        Print("ERROR: CopyClose GBPUSD failed");
+    ArraySetAsSeries(ac_closes, true);
+    if (CopyClose(g_symbols[SLOT_BC], PERIOD_M5, 0, 289, bc_closes) < 289) {
+        Print("ERROR: CopyClose ", g_symbols[SLOT_BC], " failed");
         return false;
     }
-    ArraySetAsSeries(gb_closes, true);
+    ArraySetAsSeries(bc_closes, true);
 
-    double eu_ask_live = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
-    double eu_bid_live = SymbolInfoDouble("EURUSD", SYMBOL_BID);
-    double gb_ask_live = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
-    double gb_bid_live = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
+    double ac_ask_live = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_ASK);
+    double ac_bid_live = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_BID);
+    double bc_ask_live = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_ASK);
+    double bc_bid_live = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_BID);
 
-    double eu_half = (eu_ask_live - eu_bid_live) / 2.0;
-    double gb_half = (gb_ask_live - gb_bid_live) / 2.0;
+    double ac_half = (ac_ask_live - ac_bid_live) / 2.0;
+    double bc_half = (bc_ask_live - bc_bid_live) / 2.0;
 
-    double eu_now = eu_closes[0]  + eu_half;  // bid close → mid
-    double eu_1h  = eu_closes[12] + eu_half;  // bid close → mid
-    double gb_now = gb_closes[0]  + gb_half;  // bid close → mid
-    double gb_1h  = gb_closes[12] + gb_half;  // bid close → mid
+    double ac_now = ac_closes[0]  + ac_half;  // bid close → mid
+    double ac_1h  = ac_closes[12] + ac_half;  // bid close → mid
+    double bc_now = bc_closes[0]  + bc_half;  // bid close → mid
+    double bc_1h  = bc_closes[12] + bc_half;  // bid close → mid
 
-    if (eu_1h <= 0 || gb_1h <= 0) {
+    if (ac_1h <= 0 || bc_1h <= 0) {
         Print("ERROR: zero/negative close price");
         return false;
     }
 
-    g_r_EU_signal       = MathLog(eu_now / eu_1h);
-    g_r_GB_signal       = MathLog(gb_now / gb_1h);
-    g_EU_mid_12bars_ago = eu_1h;
-    g_GB_mid_12bars_ago = gb_1h;
+    g_r_signal[0] = MathLog(ac_now / ac_1h);   // r_AC: PairAC log return
+    g_r_signal[1] = MathLog(bc_now / bc_1h);   // r_BC: PairBC log return
+    g_anchor[0]   = ac_1h;                      // PairAC 12-bar-ago mid
+    g_anchor[1]   = bc_1h;                      // PairBC 12-bar-ago mid
 
-    double usd = -(g_r_EU_signal + g_r_GB_signal) / 3.0;
-    double eur =   g_r_EU_signal + usd;
-    double gbp =   g_r_GB_signal + usd;
+    // V3 generic score decomposition — zero-sum constraint
+    // scores[2] = score_C (base currency), scores[0] = score_A, scores[1] = score_B
+    double score_C = -(g_r_signal[0] + g_r_signal[1]) / 3.0;
+    double score_A =   g_r_signal[0] + score_C;
+    double score_B =   g_r_signal[1] + score_C;
 
-    double scores[3];
-    scores[0] = eur;
-    scores[1] = gbp;
-    scores[2] = usd;
-
-    g_score_eur = eur;
-    g_score_gbp = gbp;
-    g_score_usd = usd;
+    g_scores[0] = score_A;
+    g_scores[1] = score_B;
+    g_scores[2] = score_C;
 
     int strongest = 0, weakest = 0;
     for (int i = 1; i < 3; i++) {
-        if (scores[i] > scores[strongest]) strongest = i;
-        if (scores[i] < scores[weakest])   weakest   = i;
+        if (g_scores[i] > g_scores[strongest]) strongest = i;
+        if (g_scores[i] < g_scores[weakest])   weakest   = i;
     }
 
     g_strongest = strongest;
     g_weakest   = weakest;
 
-    double spread = scores[weakest] - scores[strongest];
+    double spread = g_scores[weakest] - g_scores[strongest];
     g_entry_spread = spread;
 
     if (MathAbs(spread) > BaseThreshold) {
@@ -124,10 +121,12 @@ bool RunSignalOnBarClose() {
     if (EnableVerboseLog) {
         if (g_signal_active) {
             string inst = ((g_strongest == 0 && g_weakest == 1) ||
-                           (g_strongest == 1 && g_weakest == 0)) ? "EURGBP" :
+                           (g_strongest == 1 && g_weakest == 0))
+                          ? g_symbols[SLOT_AB] :
                           ((g_strongest == 0 && g_weakest == 2) ||
-                           (g_strongest == 2 && g_weakest == 0)) ? "EURUSD" :
-                          "GBPUSD";
+                           (g_strongest == 2 && g_weakest == 0))
+                          ? g_symbols[SLOT_AC] :
+                          g_symbols[SLOT_BC];
             string dir  = ((g_strongest == 0 && g_weakest == 1) ||
                            (g_strongest == 0 && g_weakest == 2) ||
                            (g_strongest == 1 && g_weakest == 2))
@@ -146,53 +145,52 @@ bool RunSignalOnBarClose() {
     }
 
     // ── LDAK: pairwise correlation update ────────────────────────
-    double eg_closes[];
-    ArraySetAsSeries(eg_closes, true);
-    if (CopyClose("EURGBP", PERIOD_M5, 0, 289, eg_closes) >= 289) {
-        // Compute log returns for all three instruments (24 returns)
-        double r_eu[24], r_gu[24], r_eg[24];
+    // LDAK: slot ordering BINDING — [SLOT_AC, SLOT_BC, SLOT_AB]
+    // g_corr[0]=corr(AC,BC), g_corr[1]=corr(AC,AB), g_corr[2]=corr(BC,AB)
+    double ab_closes[];
+    ArraySetAsSeries(ab_closes, true);
+    if (CopyClose(g_symbols[SLOT_AB], PERIOD_M5, 0, 289, ab_closes) >= 289) {
+        // 24-bar log returns per slot
+        double r_slot0[24], r_slot1[24], r_slot2[24];
         for (int i = 0; i < 24; i++) {
-            r_eu[i] = (eu_closes[i+1] > 0) ? MathLog(eu_closes[i] / eu_closes[i+1]) : 0.0;
-            r_gu[i] = (gb_closes[i+1] > 0) ? MathLog(gb_closes[i] / gb_closes[i+1]) : 0.0;
-            r_eg[i] = (eg_closes[i+1] > 0) ? MathLog(eg_closes[i] / eg_closes[i+1]) : 0.0;
+            r_slot0[i] = (ac_closes[i+1] > 0) ? MathLog(ac_closes[i] / ac_closes[i+1]) : 0.0;
+            r_slot1[i] = (bc_closes[i+1] > 0) ? MathLog(bc_closes[i] / bc_closes[i+1]) : 0.0;
+            r_slot2[i] = (ab_closes[i+1] > 0) ? MathLog(ab_closes[i] / ab_closes[i+1]) : 0.0;
         }
-        g_r_EU_GU = PearsonR(r_eu, r_gu, 24);
-        g_r_EU_EG = PearsonR(r_eu, r_eg, 24);
-        g_r_GU_EG = PearsonR(r_gu, r_eg, 24);
+        // g_corr indices match slot ordering [AC, BC, AB]
+        g_corr[0] = PearsonR(r_slot0, r_slot1, 24);  // corr(AC, BC)
+        g_corr[1] = PearsonR(r_slot0, r_slot2, 24);  // corr(AC, AB)
+        g_corr[2] = PearsonR(r_slot1, r_slot2, 24);  // corr(BC, AB)
 
         if (EnableVerboseLog)
-            Print("INFO: LDAK r — EU/GU=", DoubleToString(g_r_EU_GU, 4),
-                  " EU/EG=", DoubleToString(g_r_EU_EG, 4),
-                  " GU/EG=", DoubleToString(g_r_GU_EG, 4));
+            Print("INFO: LDAK r — [AC/BC]=", DoubleToString(g_corr[0], 4),
+                  " [AC/AB]=", DoubleToString(g_corr[1], 4),
+                  " [BC/AB]=", DoubleToString(g_corr[2], 4));
 
-        // V_ratio = sigma_24 / sigma_288 per instrument
-        // Uses the same log return arrays already computed above
-        // Fast window: first 24 returns (r_eu[0..23])
-        // Slow window: all 288 returns computed from 289-bar close array
-
-        double r_eu_slow[288], r_gu_slow[288], r_eg_slow[288];
+        // 288-bar slow window
+        double r_slot0_slow[288], r_slot1_slow[288], r_slot2_slow[288];
         for (int i = 0; i < 288; i++) {
-            r_eu_slow[i] = (eu_closes[i+1] > 0) ? MathLog(eu_closes[i] / eu_closes[i+1]) : 0.0;
-            r_gu_slow[i] = (gb_closes[i+1] > 0) ? MathLog(gb_closes[i] / gb_closes[i+1]) : 0.0;
-            r_eg_slow[i] = (eg_closes[i+1] > 0) ? MathLog(eg_closes[i] / eg_closes[i+1]) : 0.0;
+            r_slot0_slow[i] = (ac_closes[i+1] > 0) ? MathLog(ac_closes[i] / ac_closes[i+1]) : 0.0;
+            r_slot1_slow[i] = (bc_closes[i+1] > 0) ? MathLog(bc_closes[i] / bc_closes[i+1]) : 0.0;
+            r_slot2_slow[i] = (ab_closes[i+1] > 0) ? MathLog(ab_closes[i] / ab_closes[i+1]) : 0.0;
         }
 
-        double sd_eu_fast = StdDev(r_eu, 24);
-        double sd_gu_fast = StdDev(r_gu, 24);
-        double sd_eg_fast = StdDev(r_eg, 24);
+        double sd0_fast = StdDev(r_slot0, 24);
+        double sd1_fast = StdDev(r_slot1, 24);
+        double sd2_fast = StdDev(r_slot2, 24);
 
-        double sd_eu_slow = StdDev(r_eu_slow, 288);
-        double sd_gu_slow = StdDev(r_gu_slow, 288);
-        double sd_eg_slow = StdDev(r_eg_slow, 288);
+        double sd0_slow = StdDev(r_slot0_slow, 288);
+        double sd1_slow = StdDev(r_slot1_slow, 288);
+        double sd2_slow = StdDev(r_slot2_slow, 288);
 
-        g_vratio_EU = (sd_eu_slow > 1e-12) ? sd_eu_fast / sd_eu_slow : 1.0;
-        g_vratio_GU = (sd_gu_slow > 1e-12) ? sd_gu_fast / sd_gu_slow : 1.0;
-        g_vratio_EG = (sd_eg_slow > 1e-12) ? sd_eg_fast / sd_eg_slow : 1.0;
+        g_vratio[0] = (sd0_slow > 1e-12) ? sd0_fast / sd0_slow : 1.0;  // PairAC
+        g_vratio[1] = (sd1_slow > 1e-12) ? sd1_fast / sd1_slow : 1.0;  // PairBC
+        g_vratio[2] = (sd2_slow > 1e-12) ? sd2_fast / sd2_slow : 1.0;  // PairAB
 
         if (EnableVerboseLog)
-            Print("INFO: LDAK V_ratio — EU=", DoubleToString(g_vratio_EU, 3),
-                  " GU=", DoubleToString(g_vratio_GU, 3),
-                  " EG=", DoubleToString(g_vratio_EG, 3));
+            Print("INFO: LDAK V_ratio — [AC]=", DoubleToString(g_vratio[0], 3),
+                  " [BC]=", DoubleToString(g_vratio[1], 3),
+                  " [AB]=", DoubleToString(g_vratio[2], 3));
     }
     // ── End LDAK ─────────────────────────────────────────────────
 
@@ -225,10 +223,10 @@ double ComputeExitSpreadTarget(const Layer &layer) {
 }
 
 double InvertSpreadToPrice(
-    double anchor_EU,
-    double anchor_GB,
-    double r_EU_fixed,
-    double r_GB_fixed,
+    double anchor_A,
+    double anchor_B,
+    double r_AC_fixed,
+    double r_BC_fixed,
     double T,
     int    strongest,
     int    weakest,
@@ -239,63 +237,59 @@ double InvertSpreadToPrice(
     int    direction = 0;
     double price     = -1.0;
 
-    double eu_bid = SymbolInfoDouble("EURUSD", SYMBOL_BID);
-    double eu_ask = SymbolInfoDouble("EURUSD", SYMBOL_ASK);
-    double gb_bid = SymbolInfoDouble("GBPUSD", SYMBOL_BID);
-    double gb_ask = SymbolInfoDouble("GBPUSD", SYMBOL_ASK);
-    double eg_bid = SymbolInfoDouble("EURGBP", SYMBOL_BID);
-    double eg_ask = SymbolInfoDouble("EURGBP", SYMBOL_ASK);
+    double ac_bid = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_BID);
+    double ac_ask = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_ASK);
+    double bc_bid = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_BID);
+    double bc_ask = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_ASK);
+    double ab_bid = SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_BID);
+    double ab_ask = SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_ASK);
 
-    if (eg_bid <= 0 || eg_ask <= 0) {
-        Print("WARNING: EURGBP liquidity guard triggered");
+    if (ab_bid <= 0 || ab_ask <= 0) {
+        Print("WARNING: ", g_symbols[SLOT_AB], " liquidity guard triggered");
         return -1.0;
     }
 
-    double eu_half_spread = (eu_ask - eu_bid) / 2.0;
-    double gb_half_spread = (gb_ask - gb_bid) / 2.0;
-    double eg_half_spread = (eg_ask - eg_bid) / 2.0;
+    double ac_half_spread = (ac_ask - ac_bid) / 2.0;
+    double bc_half_spread = (bc_ask - bc_bid) / 2.0;
+    double ab_half_spread = (ab_ask - ab_bid) / 2.0;
 
     if (strongest == 0 && weakest == 1) {
-        symbol    = "EURGBP";
+        // A strongest, B weakest → sell PairAB (sell A, buy B)
+        symbol    = g_symbols[SLOT_AB];
         direction = DIRECTION_SELL;
-        double EG_history = anchor_EU / anchor_GB;
-        double EG_target  = EG_history * MathExp(-T); // SELL: unchanged
-        price = EG_target;
+        double AB_history = anchor_A / anchor_B;
+        price = AB_history * MathExp(-T);
     }
     else if (strongest == 1 && weakest == 0) {
-        symbol    = "EURGBP";
+        // B strongest, A weakest → buy PairAB (buy A, sell B)
+        symbol    = g_symbols[SLOT_AB];
         direction = DIRECTION_BUY;
-        double EG_history = anchor_EU / anchor_GB;
-        double EG_target  = EG_history * MathExp(T);  // BUY: fixed T not -T
-        price = EG_target;
+        double AB_history = anchor_A / anchor_B;
+        price = AB_history * MathExp(T);
     }
     else if (strongest == 0 && weakest == 2) {
-        symbol    = "EURUSD";
+        // A strongest, C weakest → sell PairAC (sell A, buy C)
+        symbol    = g_symbols[SLOT_AC];
         direction = DIRECTION_SELL;
-        double r_EU_target   = -T;  // T = usd-eur = -r_EU, so -T = r_EU
-        double EU_target_mid = anchor_EU * MathExp(r_EU_target);
-        price = EU_target_mid;
+        price = anchor_A * MathExp(-T);
     }
     else if (strongest == 2 && weakest == 0) {
-        symbol    = "EURUSD";
+        // C strongest, A weakest → buy PairAC (buy A, sell C)
+        symbol    = g_symbols[SLOT_AC];
         direction = DIRECTION_BUY;
-        double r_EU_target   = T;   // T = eur-usd = r_EU (negative for BUY)
-        double EU_target_mid = anchor_EU * MathExp(r_EU_target);
-        price = EU_target_mid;
+        price = anchor_A * MathExp(T);
     }
     else if (strongest == 1 && weakest == 2) {
-        symbol    = "GBPUSD";
+        // B strongest, C weakest → sell PairBC (sell B, buy C)
+        symbol    = g_symbols[SLOT_BC];
         direction = DIRECTION_SELL;
-        double r_GB_target   = -T;  // T = usd-gbp = -r_GB, so -T = r_GB
-        double GB_target_mid = anchor_GB * MathExp(r_GB_target);
-        price = GB_target_mid;
+        price = anchor_B * MathExp(-T);
     }
     else if (strongest == 2 && weakest == 1) {
-        symbol    = "GBPUSD";
+        // C strongest, B weakest → buy PairBC (buy B, sell C)
+        symbol    = g_symbols[SLOT_BC];
         direction = DIRECTION_BUY;
-        double r_GB_target   = T;   // T = gbp-usd = r_GB (negative for BUY)
-        double GB_target_mid = anchor_GB * MathExp(r_GB_target);
-        price = GB_target_mid;
+        price = anchor_B * MathExp(T);
     }
     else {
         Print("ERROR: InvertSpreadToPrice — invalid routing: ",
@@ -309,9 +303,9 @@ double InvertSpreadToPrice(
     }
 
     double half_spread = 0.0;
-    if      (symbol == "EURGBP") half_spread = eg_half_spread;
-    else if (symbol == "EURUSD") half_spread = eu_half_spread;
-    else                         half_spread = gb_half_spread;
+    if      (symbol == g_symbols[SLOT_AB]) half_spread = ab_half_spread;
+    else if (symbol == g_symbols[SLOT_AC]) half_spread = ac_half_spread;
+    else                                   half_spread = bc_half_spread;
 
     if (direction == DIRECTION_SELL)
         price = price + half_spread;
@@ -375,43 +369,27 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
     // LDAK: volatility-gated grid dilation
     if (instrument >= 0) {
         double S_eff = 0.0;
-        int    inv_eu = ArraySize(g_inventory_EURUSD);
-        int    inv_gu = ArraySize(g_inventory_GBPUSD);
-        int    inv_eg = ArraySize(g_inventory_EURGBP);
+        int inv_size[3];
+        inv_size[0] = ArraySize(g_inventory_0);
+        inv_size[1] = ArraySize(g_inventory_1);
+        inv_size[2] = ArraySize(g_inventory_2);
 
-        if (instrument == INSTRUMENT_EURUSD) {
-            if (inv_gu > 0) {
-                double v_eff = MathMax(g_vratio_EU, g_vratio_GU);
-                double S = MathMax(g_r_EU_GU, 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
-            if (inv_eg > 0) {
-                double v_eff = MathMax(g_vratio_EU, g_vratio_EG);
-                double S = MathMax(g_r_EU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
-        } else if (instrument == INSTRUMENT_GBPUSD) {
-            if (inv_eu > 0) {
-                double v_eff = MathMax(g_vratio_GU, g_vratio_EU);
-                double S = MathMax(g_r_EU_GU, 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
-            if (inv_eg > 0) {
-                double v_eff = MathMax(g_vratio_GU, g_vratio_EG);
-                double S = MathMax(g_r_GU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
-        } else {
-            if (inv_eu > 0) {
-                double v_eff = MathMax(g_vratio_EG, g_vratio_EU);
-                double S = MathMax(g_r_EU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
-            if (inv_gu > 0) {
-                double v_eff = MathMax(g_vratio_EG, g_vratio_GU);
-                double S = MathMax(g_r_GU_EG, 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
+        // Generic LDAK loop — slot ordering [AC, BC, AB] is binding
+        for (int j = 0; j < 3; j++) {
+            if (j == instrument) continue;
+            if (inv_size[j] == 0) continue;
+
+            // corr_index: symmetric lookup for pair (instrument, j)
+            int ci;
+            int lo = MathMin(instrument, j);
+            int hi = MathMax(instrument, j);
+            if      (lo == 0 && hi == 1) ci = 0;
+            else if (lo == 0 && hi == 2) ci = 1;
+            else                          ci = 2;  // lo==1, hi==2
+
+            double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
+            double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
+            S_eff = MathMax(S_eff, S);
         }
 
         double dilation = MathMin(1.0 + S_eff * S_eff, LDAK_Dilation_Max);
@@ -439,10 +417,10 @@ double ComputeSkew(int layer_idx) {
 
 double ComputeEntryPrice() {
     return InvertSpreadToPrice(
-        g_EU_mid_12bars_ago,
-        g_GB_mid_12bars_ago,
-        g_r_EU_signal,
-        g_r_GB_signal,
+        g_anchor[0],
+        g_anchor[1],
+        g_r_signal[0],
+        g_r_signal[1],
         g_entry_spread,
         g_strongest,
         g_weakest,
@@ -452,10 +430,10 @@ double ComputeEntryPrice() {
 
 double ComputeExitPrice(const Layer &layer) {
     return InvertSpreadToPrice(
-        layer.EU_mid_12bars_ago_at_entry,
-        layer.GB_mid_12bars_ago_at_entry,
-        layer.r_EU_at_entry,
-        layer.r_GB_at_entry,
+        layer.anchor_A_at_entry,
+        layer.anchor_B_at_entry,
+        layer.r_AC_at_entry,
+        layer.r_BC_at_entry,
         layer.exit_spread_target,
         layer.strongest_at_entry,
         layer.weakest_at_entry,
