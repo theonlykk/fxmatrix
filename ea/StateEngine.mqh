@@ -8,10 +8,9 @@
 // Returns the correct JSON filename for a given instrument.
 //------------------------------------------------------------------
 string GetStateFilename(int instrument) {
-    string inst_string = "";
-    if (instrument == INSTRUMENT_EURUSD)      inst_string = "EURUSD";
-    else if (instrument == INSTRUMENT_GBPUSD) inst_string = "GBPUSD";
-    else                                      inst_string = "EURGBP";
+    string inst_string = (instrument >= 0 && instrument < 3)
+                         ? g_symbols[instrument]
+                         : "UNKNOWN";
     string filename = "fxmatrix_state_" + inst_string + "_" + InstanceID + ".json";
     return filename;
 }
@@ -36,22 +35,12 @@ void SaveInventoryState(int instrument) {
     ulong add_next_ticket_val = 0;
     int   n = 0;
 
-    if (instrument == INSTRUMENT_EURUSD) {
-        pending_bid_ticket   = g_pending_bid_EURUSD;
-        pending_offer_ticket = g_pending_offer_EURUSD;
-        add_next_ticket_val = g_add_next_EURUSD;
-        n = ArraySize(g_inventory_EURUSD);
-    } else if (instrument == INSTRUMENT_GBPUSD) {
-        pending_bid_ticket   = g_pending_bid_GBPUSD;
-        pending_offer_ticket = g_pending_offer_GBPUSD;
-        add_next_ticket_val = g_add_next_GBPUSD;
-        n = ArraySize(g_inventory_GBPUSD);
-    } else {
-        pending_bid_ticket   = g_pending_bid_EURGBP;
-        pending_offer_ticket = g_pending_offer_EURGBP;
-        add_next_ticket_val = g_add_next_EURGBP;
-        n = ArraySize(g_inventory_EURGBP);
-    }
+    pending_bid_ticket   = g_pending_bid[instrument];
+    pending_offer_ticket = g_pending_offer[instrument];
+    add_next_ticket_val  = g_add_next[instrument];
+    n = (instrument == 0) ? ArraySize(g_inventory_0)
+      : (instrument == 1) ? ArraySize(g_inventory_1)
+      : ArraySize(g_inventory_2);
 
     FileWrite(fh, "{");
     FileWrite(fh, "  \"pending_bid_ticket\": " +
@@ -64,9 +53,9 @@ void SaveInventoryState(int instrument) {
 
     for (int i = 0; i < n; i++) {
         Layer L;
-        if (instrument == INSTRUMENT_EURUSD)      L = g_inventory_EURUSD[i];
-        else if (instrument == INSTRUMENT_GBPUSD)  L = g_inventory_GBPUSD[i];
-        else                                        L = g_inventory_EURGBP[i];
+        if (instrument == 0)      L = g_inventory_0[i];
+        else if (instrument == 1) L = g_inventory_1[i];
+        else                      L = g_inventory_2[i];
 
         string comma = (i < n - 1) ? "," : "";
 
@@ -79,26 +68,26 @@ void SaveInventoryState(int instrument) {
                   + DoubleToString(L.entry_spread_raw, 8) + ",");
         FileWrite(fh, "      \"entry_time\": "
                   + IntegerToString(L.entry_time) + ",");
-        FileWrite(fh, "      \"EU_mid_12bars_ago_at_entry\": "
-                  + DoubleToString(L.EU_mid_12bars_ago_at_entry, 8) + ",");
-        FileWrite(fh, "      \"GB_mid_12bars_ago_at_entry\": "
-                  + DoubleToString(L.GB_mid_12bars_ago_at_entry, 8) + ",");
-        FileWrite(fh, "      \"r_EU_at_entry\": "
-                  + DoubleToString(L.r_EU_at_entry, 8) + ",");
-        FileWrite(fh, "      \"r_GB_at_entry\": "
-                  + DoubleToString(L.r_GB_at_entry, 8) + ",");
+        FileWrite(fh, "      \"anchor_A_at_entry\": "
+                  + DoubleToString(L.anchor_A_at_entry, 8) + ",");
+        FileWrite(fh, "      \"anchor_B_at_entry\": "
+                  + DoubleToString(L.anchor_B_at_entry, 8) + ",");
+        FileWrite(fh, "      \"r_AC_at_entry\": "
+                  + DoubleToString(L.r_AC_at_entry, 8) + ",");
+        FileWrite(fh, "      \"r_BC_at_entry\": "
+                  + DoubleToString(L.r_BC_at_entry, 8) + ",");
         FileWrite(fh, "      \"strongest_at_entry\": "
                   + IntegerToString(L.strongest_at_entry) + ",");
         FileWrite(fh, "      \"weakest_at_entry\": "
                   + IntegerToString(L.weakest_at_entry) + ",");
-        FileWrite(fh, "      \"entry_price_eurusd\": "
-                  + DoubleToString(L.entry_price_eurusd, 8) + ",");
-        FileWrite(fh, "      \"entry_price_gbpusd\": "
-                  + DoubleToString(L.entry_price_gbpusd, 8) + ",");
-        FileWrite(fh, "      \"entry_price_eurusd_1h\": "
-                  + DoubleToString(L.entry_price_eurusd_1h, 8) + ",");
-        FileWrite(fh, "      \"entry_price_gbpusd_1h\": "
-                  + DoubleToString(L.entry_price_gbpusd_1h, 8) + ",");
+        FileWrite(fh, "      \"entry_price_AC\": "
+                  + DoubleToString(L.entry_price_AC, 8) + ",");
+        FileWrite(fh, "      \"entry_price_BC\": "
+                  + DoubleToString(L.entry_price_BC, 8) + ",");
+        FileWrite(fh, "      \"entry_price_AC_1h\": "
+                  + DoubleToString(L.entry_price_AC_1h, 8) + ",");
+        FileWrite(fh, "      \"entry_price_BC_1h\": "
+                  + DoubleToString(L.entry_price_BC_1h, 8) + ",");
         FileWrite(fh, "      \"instrument\": "
                   + IntegerToString(L.instrument) + ",");
         FileWrite(fh, "      \"direction\": "
@@ -150,9 +139,9 @@ void SaveInventoryState(int instrument) {
 // Use this at every mutation point.
 //------------------------------------------------------------------
 void SaveAllInventoryState() {
-    SaveInventoryState(INSTRUMENT_EURUSD);
-    SaveInventoryState(INSTRUMENT_GBPUSD);
-    SaveInventoryState(INSTRUMENT_EURGBP);
+    SaveInventoryState(SLOT_AC);
+    SaveInventoryState(SLOT_BC);
+    SaveInventoryState(SLOT_AB);
 }
 
 //------------------------------------------------------------------
@@ -177,22 +166,12 @@ bool LoadInventoryState(int instrument) {
     }
 
     // Reset target array and tickets
-    if (instrument == INSTRUMENT_EURUSD) {
-        ArrayResize(g_inventory_EURUSD, 0);
-        g_pending_bid_EURUSD   = 0;
-        g_pending_offer_EURUSD = 0;
-        g_add_next_EURUSD      = 0;
-    } else if (instrument == INSTRUMENT_GBPUSD) {
-        ArrayResize(g_inventory_GBPUSD, 0);
-        g_pending_bid_GBPUSD   = 0;
-        g_pending_offer_GBPUSD = 0;
-        g_add_next_GBPUSD      = 0;
-    } else {
-        ArrayResize(g_inventory_EURGBP, 0);
-        g_pending_bid_EURGBP   = 0;
-        g_pending_offer_EURGBP = 0;
-        g_add_next_EURGBP      = 0;
-    }
+    if (instrument == 0)      ArrayResize(g_inventory_0, 0);
+    else if (instrument == 1) ArrayResize(g_inventory_1, 0);
+    else                      ArrayResize(g_inventory_2, 0);
+    g_pending_bid[instrument]   = 0;
+    g_pending_offer[instrument] = 0;
+    g_add_next[instrument]      = 0;
 
     Layer L = InitLayer();
     bool in_layer     = false;
@@ -223,19 +202,19 @@ bool LoadInventoryState(int instrument) {
         }
 
         if (in_layer && (line == "}" || line == "},")) {
-            // Append to correct array
-            if (instrument == INSTRUMENT_EURUSD) {
-                int idx = ArraySize(g_inventory_EURUSD);
-                ArrayResize(g_inventory_EURUSD, idx + 1);
-                g_inventory_EURUSD[idx] = L;
-            } else if (instrument == INSTRUMENT_GBPUSD) {
-                int idx = ArraySize(g_inventory_GBPUSD);
-                ArrayResize(g_inventory_GBPUSD, idx + 1);
-                g_inventory_GBPUSD[idx] = L;
+            // Append to correct slot array
+            if (instrument == 0) {
+                int idx = ArraySize(g_inventory_0);
+                ArrayResize(g_inventory_0, idx + 1);
+                g_inventory_0[idx] = L;
+            } else if (instrument == 1) {
+                int idx = ArraySize(g_inventory_1);
+                ArrayResize(g_inventory_1, idx + 1);
+                g_inventory_1[idx] = L;
             } else {
-                int idx = ArraySize(g_inventory_EURGBP);
-                ArrayResize(g_inventory_EURGBP, idx + 1);
-                g_inventory_EURGBP[idx] = L;
+                int idx = ArraySize(g_inventory_2);
+                ArrayResize(g_inventory_2, idx + 1);
+                g_inventory_2[idx] = L;
             }
             in_layer = false;
             continue;
@@ -259,26 +238,14 @@ bool LoadInventoryState(int instrument) {
 
         if (!in_layer) {
             if (key == "pending_bid_ticket") {
-                ulong t = (ulong)StringToInteger(val);
-                if (instrument == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = t;
-                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = t;
-                else                                        g_pending_bid_EURGBP   = t;
+                g_pending_bid[instrument] = (ulong)StringToInteger(val);
             } else if (key == "pending_offer_ticket") {
-                ulong t = (ulong)StringToInteger(val);
-                if (instrument == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = t;
-                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = t;
-                else                                        g_pending_offer_EURGBP = t;
+                g_pending_offer[instrument] = (ulong)StringToInteger(val);
             } else if (key == "pending_entry_ticket") {
                 // Legacy single-ticket schema — restore as bid side
-                ulong t = (ulong)StringToInteger(val);
-                if (instrument == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = t;
-                else if (instrument == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = t;
-                else                                        g_pending_bid_EURGBP   = t;
+                g_pending_bid[instrument] = (ulong)StringToInteger(val);
             } else if (key == "add_next_ticket") {
-                ulong t = (ulong)StringToInteger(val);
-                if (instrument == INSTRUMENT_EURUSD)      g_add_next_EURUSD = t;
-                else if (instrument == INSTRUMENT_GBPUSD)  g_add_next_GBPUSD = t;
-                else                                        g_add_next_EURGBP = t;
+                g_add_next[instrument] = (ulong)StringToInteger(val);
             }
             continue;
         }
@@ -292,26 +259,26 @@ bool LoadInventoryState(int instrument) {
             L.entry_spread_raw = StringToDouble(val);
         else if (key == "entry_time")
             L.entry_time = (datetime)StringToInteger(val);
-        else if (key == "EU_mid_12bars_ago_at_entry")
-            L.EU_mid_12bars_ago_at_entry = StringToDouble(val);
-        else if (key == "GB_mid_12bars_ago_at_entry")
-            L.GB_mid_12bars_ago_at_entry = StringToDouble(val);
-        else if (key == "r_EU_at_entry")
-            L.r_EU_at_entry = StringToDouble(val);
-        else if (key == "r_GB_at_entry")
-            L.r_GB_at_entry = StringToDouble(val);
+        else if (key == "anchor_A_at_entry")
+            L.anchor_A_at_entry = StringToDouble(val);
+        else if (key == "anchor_B_at_entry")
+            L.anchor_B_at_entry = StringToDouble(val);
+        else if (key == "r_AC_at_entry")
+            L.r_AC_at_entry = StringToDouble(val);
+        else if (key == "r_BC_at_entry")
+            L.r_BC_at_entry = StringToDouble(val);
         else if (key == "strongest_at_entry")
             L.strongest_at_entry = (int)StringToInteger(val);
         else if (key == "weakest_at_entry")
             L.weakest_at_entry = (int)StringToInteger(val);
-        else if (key == "entry_price_eurusd")
-            L.entry_price_eurusd = StringToDouble(val);
-        else if (key == "entry_price_gbpusd")
-            L.entry_price_gbpusd = StringToDouble(val);
-        else if (key == "entry_price_eurusd_1h")
-            L.entry_price_eurusd_1h = StringToDouble(val);
-        else if (key == "entry_price_gbpusd_1h")
-            L.entry_price_gbpusd_1h = StringToDouble(val);
+        else if (key == "entry_price_AC")
+            L.entry_price_AC = StringToDouble(val);
+        else if (key == "entry_price_BC")
+            L.entry_price_BC = StringToDouble(val);
+        else if (key == "entry_price_AC_1h")
+            L.entry_price_AC_1h = StringToDouble(val);
+        else if (key == "entry_price_BC_1h")
+            L.entry_price_BC_1h = StringToDouble(val);
         else if (key == "instrument")
             L.instrument = (int)StringToInteger(val);
         else if (key == "direction")
@@ -361,10 +328,9 @@ bool LoadInventoryState(int instrument) {
 
     FileClose(fh);
 
-    int loaded = 0;
-    if (instrument == INSTRUMENT_EURUSD)      loaded = ArraySize(g_inventory_EURUSD);
-    else if (instrument == INSTRUMENT_GBPUSD)  loaded = ArraySize(g_inventory_GBPUSD);
-    else                                        loaded = ArraySize(g_inventory_EURGBP);
+    int loaded = (instrument == 0) ? ArraySize(g_inventory_0)
+               : (instrument == 1) ? ArraySize(g_inventory_1)
+               : ArraySize(g_inventory_2);
 
     Print("INFO: LoadInventoryState(", instrument, ") — loaded ",
           loaded, " layers from ", filename);
@@ -376,25 +342,22 @@ void CheckForOrphans() {
     for (int i = 0; i < total; i++) {
         ulong ticket = PositionGetTicket(i);
         string pos_sym = PositionGetString(POSITION_SYMBOL);
-        if (pos_sym != "EURUSD" &&
-            pos_sym != "GBPUSD" &&
-            pos_sym != "EURGBP") continue;
+
+        // Filter: only check positions on our configured triad symbols
+        if (pos_sym != g_symbols[SLOT_AC] &&
+            pos_sym != g_symbols[SLOT_BC] &&
+            pos_sym != g_symbols[SLOT_AB]) continue;
         if (PositionGetInteger(POSITION_MAGIC) != (long)EA_MAGIC) continue;
 
         bool found = false;
-        int instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
         for (int k = 0; k < 3 && !found; k++) {
-            int inv_size = (instruments[k] == INSTRUMENT_EURUSD)
-                           ? ArraySize(g_inventory_EURUSD)
-                           : (instruments[k] == INSTRUMENT_GBPUSD)
-                             ? ArraySize(g_inventory_GBPUSD)
-                             : ArraySize(g_inventory_EURGBP);
+            int inv_size = (k == 0) ? ArraySize(g_inventory_0)
+                         : (k == 1) ? ArraySize(g_inventory_1)
+                         : ArraySize(g_inventory_2);
             for (int j = 0; j < inv_size; j++) {
-                ulong pos_tkt = (instruments[k] == INSTRUMENT_EURUSD)
-                                ? g_inventory_EURUSD[j].position_ticket
-                                : (instruments[k] == INSTRUMENT_GBPUSD)
-                                  ? g_inventory_GBPUSD[j].position_ticket
-                                  : g_inventory_EURGBP[j].position_ticket;
+                ulong pos_tkt = (k == 0) ? g_inventory_0[j].position_ticket
+                              : (k == 1) ? g_inventory_1[j].position_ticket
+                              : g_inventory_2[j].position_ticket;
                 if (pos_tkt == ticket) {
                     found = true;
                     break;
