@@ -632,7 +632,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         else                      g_inventory_2[layer_idx].remaining_exit_volume = lot;
         Print("INFO: Entry complete — exit volume armed. Layer ", layer_idx,
               " instrument=", deal_symbol);
-      //  EmitTelemetry(true);
+        EmitTelemetry(true);
     }
 
     // Resolve layer reference for exit placement
@@ -847,7 +847,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         g_add_next[inst] = 0;
 
                         Print("INFO: Pod fully closed. All layers unwound.");
-              //          EmitTelemetry(true);
+                        EmitTelemetry(true);
 
                         // Pipshed Phase 2: emit closed pod record
                         // Uses CurL (last closed Layer), deal_profit, inst — all in scope

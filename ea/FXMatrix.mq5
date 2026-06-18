@@ -35,9 +35,9 @@ int OnInit() {
           "build=1da31ec "
           "NudgeThreshold=", g_NudgeThreshold, " points");
 
-    LoadInventoryState(INSTRUMENT_EURUSD);
-    LoadInventoryState(INSTRUMENT_GBPUSD);
-    LoadInventoryState(INSTRUMENT_EURGBP);
+    LoadInventoryState(SLOT_AC);
+    LoadInventoryState(SLOT_BC);
+    LoadInventoryState(SLOT_AB);
     CheckForOrphans();
     if (g_halted) {
         Print("ERROR: OnInit halted — orphan positions detected. "
@@ -69,23 +69,16 @@ void OnDeinit(const int reason) {
 
 void GetImpliedIndices(string sym, int dir,
                        int &out_strongest, int &out_weakest) {
-    if (sym == "EURUSD") {
-        if (dir == DIRECTION_BUY)
-            { out_strongest = 2; out_weakest = 0; }
-        else
-            { out_strongest = 0; out_weakest = 2; }
-    }
-    else if (sym == "GBPUSD") {
-        if (dir == DIRECTION_BUY)
-            { out_strongest = 2; out_weakest = 1; }
-        else
-            { out_strongest = 1; out_weakest = 2; }
-    }
-    else if (sym == "EURGBP") {
-        if (dir == DIRECTION_BUY)
-            { out_strongest = 1; out_weakest = 0; }
-        else
-            { out_strongest = 0; out_weakest = 1; }
+    int slot = GetInstrumentFromSymbol(sym);
+    if (slot == SLOT_AC) {
+        if (dir == DIRECTION_BUY) { out_strongest = 2; out_weakest = 0; }
+        else                       { out_strongest = 0; out_weakest = 2; }
+    } else if (slot == SLOT_BC) {
+        if (dir == DIRECTION_BUY) { out_strongest = 2; out_weakest = 1; }
+        else                       { out_strongest = 1; out_weakest = 2; }
+    } else { // SLOT_AB
+        if (dir == DIRECTION_BUY) { out_strongest = 1; out_weakest = 0; }
+        else                       { out_strongest = 0; out_weakest = 1; }
     }
 }
 
@@ -113,9 +106,9 @@ void OnTick() {
     ProcessCloseByQueue();
     if (g_halted) return;
 
-    if (ArraySize(g_inventory_EURUSD) > 0 ||
-        ArraySize(g_inventory_GBPUSD) > 0 ||
-        ArraySize(g_inventory_EURGBP) > 0)
+    if (ArraySize(g_inventory_0) > 0 ||
+        ArraySize(g_inventory_1) > 0 ||
+        ArraySize(g_inventory_2) > 0)
         CheckCarryTrigger();
 
     datetime current_bar = iTime(_Symbol, PERIOD_M5, 0);
@@ -131,34 +124,28 @@ void OnTick() {
         // does not suppress signal evaluation on EURUSD or GBPUSD.
         // Entry direction derived at point of use from instrument enum.
 
-        double scores[3];
-        scores[0] = g_score_eur;
-        scores[1] = g_score_gbp;
-        scores[2] = g_score_usd;
-
-        int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
+        // V3: use g_scores[] directly — already slot-indexed
+        int target_instruments[3] = {SLOT_AC, SLOT_BC, SLOT_AB};
 
         for (int k = 0; k < 3; k++) {
             int inst = target_instruments[k];
 
-            string inst_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
-                               : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
-                               : "EURGBP";
+            string inst_symbol = g_symbols[inst];
 
             // Derive strongest/weakest for this instrument
             int inst_strongest = 0, inst_weakest = 0;
-            if (inst == INSTRUMENT_EURUSD) {
-                inst_strongest = (scores[0] > scores[2]) ? 0 : 2;
-                inst_weakest   = (scores[0] < scores[2]) ? 0 : 2;
-            } else if (inst == INSTRUMENT_GBPUSD) {
-                inst_strongest = (scores[1] > scores[2]) ? 1 : 2;
-                inst_weakest   = (scores[1] < scores[2]) ? 1 : 2;
-            } else {
-                inst_strongest = (scores[0] > scores[1]) ? 0 : 1;
-                inst_weakest   = (scores[0] < scores[1]) ? 0 : 1;
+            if (inst == SLOT_AC) {
+                inst_strongest = (g_scores[0] > g_scores[2]) ? 0 : 2;
+                inst_weakest   = (g_scores[0] < g_scores[2]) ? 0 : 2;
+            } else if (inst == SLOT_BC) {
+                inst_strongest = (g_scores[1] > g_scores[2]) ? 1 : 2;
+                inst_weakest   = (g_scores[1] < g_scores[2]) ? 1 : 2;
+            } else { // SLOT_AB
+                inst_strongest = (g_scores[0] > g_scores[1]) ? 0 : 1;
+                inst_weakest   = (g_scores[0] < g_scores[1]) ? 0 : 1;
             }
 
-            double inst_spread = scores[inst_weakest] - scores[inst_strongest];
+            double inst_spread = g_scores[inst_weakest] - g_scores[inst_strongest];
 
             // Bid direction: buy the weak currency
             // Offer direction: sell the strong currency
@@ -174,36 +161,24 @@ void OnTick() {
                 bid_direction   = DIRECTION_SELL;
             }
 
-            int inst_inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
-                              : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
-                              : ArraySize(g_inventory_EURGBP);
+            int inst_inv_size = (inst == 0) ? ArraySize(g_inventory_0)
+                              : (inst == 1) ? ArraySize(g_inventory_1)
+                              : ArraySize(g_inventory_2);
 
-            ulong inst_bid   = (inst == INSTRUMENT_EURUSD) ? g_pending_bid_EURUSD
-                             : (inst == INSTRUMENT_GBPUSD) ? g_pending_bid_GBPUSD
-                             : g_pending_bid_EURGBP;
-            ulong inst_offer = (inst == INSTRUMENT_EURUSD) ? g_pending_offer_EURUSD
-                             : (inst == INSTRUMENT_GBPUSD) ? g_pending_offer_GBPUSD
-                             : g_pending_offer_EURGBP;
+            ulong inst_bid      = g_pending_bid[inst];
+            ulong inst_offer    = g_pending_offer[inst];
 
             // ── Phase 3: re-arm add_next after sleep expiry ──────────────
-            ulong inst_add_next = (inst == INSTRUMENT_EURUSD) ? g_add_next_EURUSD
-                                : (inst == INSTRUMENT_GBPUSD) ? g_add_next_GBPUSD
-                                : g_add_next_EURGBP;
+            ulong inst_add_next = g_add_next[inst];
 
             if (inst_inv_size > 0 && inst_add_next == 0) {
-                datetime last_layer = (inst == INSTRUMENT_EURUSD)
-                                      ? g_last_layer_time_EURUSD
-                                      : (inst == INSTRUMENT_GBPUSD)
-                                      ? g_last_layer_time_GBPUSD
-                                      : g_last_layer_time_EURGBP;
+                datetime last_layer = g_last_layer_time[inst];
 
                 if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds) {
                     int inv_size = inst_inv_size;
-                    Layer deepest = (inst == INSTRUMENT_EURUSD)
-                                    ? g_inventory_EURUSD[inv_size - 1]
-                                    : (inst == INSTRUMENT_GBPUSD)
-                                    ? g_inventory_GBPUSD[inv_size - 1]
-                                    : g_inventory_EURGBP[inv_size - 1];
+                    Layer deepest = (inst == 0) ? g_inventory_0[inv_size - 1]
+                                  : (inst == 1) ? g_inventory_1[inv_size - 1]
+                                  : g_inventory_2[inv_size - 1];
 
                     double computed = ComputeNextLayerPrice(
                         inv_size, deepest.instrument,
@@ -218,12 +193,7 @@ void OnTick() {
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
                             }
-                            if (inst == INSTRUMENT_EURUSD)
-                                g_last_layer_time_EURUSD = TimeCurrent();
-                            else if (inst == INSTRUMENT_GBPUSD)
-                                g_last_layer_time_GBPUSD = TimeCurrent();
-                            else
-                                g_last_layer_time_EURGBP = TimeCurrent();
+                            g_last_layer_time[inst] = TimeCurrent();
                             Print("INFO: add_next re-armed after sleep. ",
                                   "instrument=", inst_symbol,
                                   " layer=", inv_size,
@@ -244,14 +214,14 @@ void OnTick() {
             double offer_spread = inst_spread - QuoteSpread;
 
             double bid_price = InvertSpreadToPrice(
-                g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
-                g_r_EU_signal, g_r_GB_signal,
+                g_anchor[0], g_anchor[1],
+                g_r_signal[0], g_r_signal[1],
                 bid_spread, inst_strongest, inst_weakest,
                 false, false);
 
             double offer_price = InvertSpreadToPrice(
-                g_EU_mid_12bars_ago, g_GB_mid_12bars_ago,
-                g_r_EU_signal, g_r_GB_signal,
+                g_anchor[0], g_anchor[1],
+                g_r_signal[0], g_r_signal[1],
                 offer_spread, inst_strongest, inst_weakest,
                 false, false);
 
@@ -292,9 +262,7 @@ void OnTick() {
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
                         }
-                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
-                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
-                        else                                  g_pending_bid_EURGBP   = 0;
+                        g_pending_bid[inst] = 0;
                     } else {
                         Print("INFO: Stale bid cancel failed retcode=", res.retcode,
                               " instrument=", inst_symbol,
@@ -314,9 +282,7 @@ void OnTick() {
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
                         }
-                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
-                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
-                        else                                  g_pending_offer_EURGBP = 0;
+                        g_pending_offer[inst] = 0;
                     } else {
                         Print("INFO: Stale offer cancel failed retcode=", res.retcode,
                               " instrument=", inst_symbol,
@@ -335,9 +301,7 @@ void OnTick() {
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
                             }
-                            if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
-                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
-                            else                                  g_pending_bid_EURGBP   = tkt;
+                            g_pending_bid[inst] = tkt;
                             Print("INFO: ADR-014 bid placed. symbol=", inst_symbol,
                                   " price=", DoubleToString(bid_price, 5),
                                   " spread=", DoubleToString(bid_spread, 6));
@@ -353,9 +317,7 @@ void OnTick() {
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
                             }
-                            if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
-                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
-                            else                                  g_pending_offer_EURGBP = tkt;
+                            g_pending_offer[inst] = tkt;
                             Print("INFO: ADR-014 offer placed. symbol=", inst_symbol,
                                   " price=", DoubleToString(offer_price, 5),
                                   " spread=", DoubleToString(offer_spread, 6));
@@ -388,15 +350,10 @@ void OnTick() {
                             Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                   g_daily_api_count);
                         }
-                        if (signal_is_bid) {
-                            if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
-                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
-                            else                                  g_pending_offer_EURGBP = 0;
-                        } else {
-                            if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
-                            else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
-                            else                                  g_pending_bid_EURGBP   = 0;
-                        }
+                        if (signal_is_bid)
+                            g_pending_offer[inst] = 0;
+                        else
+                            g_pending_bid[inst] = 0;
                         Print("INFO: ADR-019 Sniper — opposite-side order cancelled on direction flip. ",
                               "instrument=", inst_symbol);
                     }
@@ -415,15 +372,10 @@ void OnTick() {
                                 Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                       g_daily_api_count);
                             }
-                            if (signal_is_bid) {
-                                if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
-                                else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
-                                else                                  g_pending_bid_EURGBP   = 0;
-                            } else {
-                                if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
-                                else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
-                                else                                  g_pending_offer_EURGBP = 0;
-                            }
+                            if (signal_is_bid)
+                                g_pending_bid[inst] = 0;
+                            else
+                                g_pending_offer[inst] = 0;
                             Print("INFO: ADR-019 Sniper — signal below threshold, order cancelled. ",
                                   "instrument=", inst_symbol,
                                   " signal_mag=", DoubleToString(signal_mag, 6));
@@ -457,15 +409,10 @@ void OnTick() {
                                         Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                               g_daily_api_count);
                                     }
-                                    if (signal_is_bid) {
-                                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = 0;
-                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = 0;
-                                        else                                  g_pending_bid_EURGBP   = 0;
-                                    } else {
-                                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = 0;
-                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = 0;
-                                        else                                  g_pending_offer_EURGBP = 0;
-                                    }
+                                    if (signal_is_bid)
+                                        g_pending_bid[inst] = 0;
+                                    else
+                                        g_pending_offer[inst] = 0;
                                 }
                             }
 
@@ -479,15 +426,10 @@ void OnTick() {
                                         Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
                                               g_daily_api_count);
                                     }
-                                    if (signal_is_bid) {
-                                        if (inst == INSTRUMENT_EURUSD)      g_pending_bid_EURUSD   = tkt;
-                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_bid_GBPUSD   = tkt;
-                                        else                                  g_pending_bid_EURGBP   = tkt;
-                                    } else {
-                                        if (inst == INSTRUMENT_EURUSD)      g_pending_offer_EURUSD = tkt;
-                                        else if (inst == INSTRUMENT_GBPUSD)  g_pending_offer_GBPUSD = tkt;
-                                        else                                  g_pending_offer_EURGBP = tkt;
-                                    }
+                                    if (signal_is_bid)
+                                        g_pending_bid[inst] = tkt;
+                                    else
+                                        g_pending_offer[inst] = tkt;
                                     Print("INFO: ADR-019 Sniper order placed. symbol=", inst_symbol,
                                           " direction=", (signal_is_bid ? "BID" : "OFFER"),
                                           " price=", DoubleToString(active_price, 5),
@@ -510,11 +452,7 @@ void OnTick() {
     } // End new_bar block
 
     // ── Pipshed telemetry heartbeat ──────────────────────────────
-    EmitTelemetry(
-        GetInstrumentSymbol(INSTRUMENT_EURUSD), g_inventory_EURUSD, ArraySize(g_inventory_EURUSD),
-        GetInstrumentSymbol(INSTRUMENT_GBPUSD), g_inventory_GBPUSD, ArraySize(g_inventory_GBPUSD),
-        GetInstrumentSymbol(INSTRUMENT_EURGBP), g_inventory_EURGBP, ArraySize(g_inventory_EURGBP)
-    );
+    EmitTelemetry();
 }
 
 //------------------------------------------------------------------
@@ -525,14 +463,14 @@ void OnTick() {
 //------------------------------------------------------------------
 double GetPodUnrealizedPnL(int instrument) {
     double total   = 0.0;
-    int    inv_size = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
-                    : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
-                    : ArraySize(g_inventory_EURGBP);
+    int    inv_size = (instrument == 0) ? ArraySize(g_inventory_0)
+                    : (instrument == 1) ? ArraySize(g_inventory_1)
+                    : ArraySize(g_inventory_2);
 
     for (int i = 0; i < inv_size; i++) {
-        ulong ticket = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i].position_ticket
-                     : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i].position_ticket
-                     : g_inventory_EURGBP[i].position_ticket;
+        ulong ticket = (instrument == 0) ? g_inventory_0[i].position_ticket
+                     : (instrument == 1) ? g_inventory_1[i].position_ticket
+                     : g_inventory_2[i].position_ticket;
 
         if (PositionSelectByTicket(ticket))
             total += PositionGetDouble(POSITION_PROFIT);
@@ -547,21 +485,18 @@ double GetPodUnrealizedPnL(int instrument) {
 // untouched. Called by Tier 1 per-pod circuit breaker.
 //------------------------------------------------------------------
 void ClosePodPositions(int instrument) {
-    string symbol = (instrument == INSTRUMENT_EURUSD) ? "EURUSD"
-                  : (instrument == INSTRUMENT_GBPUSD) ? "GBPUSD"
-                  : "EURGBP";
+    string symbol = g_symbols[instrument];
 
     Print("INFO: ClosePodPositions — amputating ", symbol, " pod.");
 
-    // Close all open positions for this instrument
-    int inv_size = (instrument == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
-                 : (instrument == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
-                 : ArraySize(g_inventory_EURGBP);
+    int inv_size = (instrument == 0) ? ArraySize(g_inventory_0)
+                 : (instrument == 1) ? ArraySize(g_inventory_1)
+                 : ArraySize(g_inventory_2);
 
     for (int i = inv_size - 1; i >= 0; i--) {
-        ulong ticket = (instrument == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i].position_ticket
-                     : (instrument == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i].position_ticket
-                     : g_inventory_EURGBP[i].position_ticket;
+        ulong ticket = (instrument == 0) ? g_inventory_0[i].position_ticket
+                     : (instrument == 1) ? g_inventory_1[i].position_ticket
+                     : g_inventory_2[i].position_ticket;
 
         if (!PositionSelectByTicket(ticket)) continue;
 
@@ -601,23 +536,13 @@ void ClosePodPositions(int instrument) {
                   " retcode=", res.retcode);
     }
 
-    // Clear per-instrument globals
-    if (instrument == INSTRUMENT_EURUSD) {
-        g_pending_bid_EURUSD   = 0;
-        g_pending_offer_EURUSD = 0;
-        g_add_next_EURUSD      = 0;
-        ArrayResize(g_inventory_EURUSD, 0);
-    } else if (instrument == INSTRUMENT_GBPUSD) {
-        g_pending_bid_GBPUSD   = 0;
-        g_pending_offer_GBPUSD = 0;
-        g_add_next_GBPUSD      = 0;
-        ArrayResize(g_inventory_GBPUSD, 0);
-    } else {
-        g_pending_bid_EURGBP   = 0;
-        g_pending_offer_EURGBP = 0;
-        g_add_next_EURGBP      = 0;
-        ArrayResize(g_inventory_EURGBP, 0);
-    }
+    // Clear slot globals
+    g_pending_bid[instrument]   = 0;
+    g_pending_offer[instrument] = 0;
+    g_add_next[instrument]      = 0;
+    if (instrument == 0)      ArrayResize(g_inventory_0, 0);
+    else if (instrument == 1) ArrayResize(g_inventory_1, 0);
+    else                      ArrayResize(g_inventory_2, 0);
 
     SaveAllInventoryState();
     Print("INFO: ClosePodPositions — ", symbol, " pod amputated.");
@@ -630,26 +555,20 @@ void CheckCircuitBreakers() {
     // ── Tier 1: Per-Pod Isolation ─────────────────────────────────────────
     // If any single instrument's unrealised P&L breaches MaxPodDrawdown,
     // amputate that instrument only. Other instruments continue operating.
-    int target_instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD,
-                                  INSTRUMENT_EURGBP};
-
     for (int k = 0; k < 3; k++) {
-        int inst = target_instruments[k];
+        int inst = k;
 
-        int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
-                     : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
-                     : ArraySize(g_inventory_EURGBP);
+        int inv_size = (inst == 0) ? ArraySize(g_inventory_0)
+                     : (inst == 1) ? ArraySize(g_inventory_1)
+                     : ArraySize(g_inventory_2);
 
         if (inv_size == 0) continue;
 
         double pod_pnl = GetPodUnrealizedPnL(inst);
 
         if (pod_pnl < -(balance * MaxPodDrawdown)) {
-            string symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
-                          : (inst == INSTRUMENT_GBPUSD) ? "GBPUSD"
-                          : "EURGBP";
             Print("CRITICAL: Per-pod circuit breaker fired. ",
-                  "instrument=", symbol,
+                  "instrument=", g_symbols[inst],
                   " unrealised=", DoubleToString(pod_pnl, 2),
                   " threshold=", DoubleToString(-(balance * MaxPodDrawdown), 2));
             ClosePodPositions(inst);
@@ -754,9 +673,9 @@ void CancelAllPending() {
 
 void CancelAllPendingEntries() {
     // Skip sweep if no tracked tickets AND no EA orders on book
-    bool any_pending = (g_pending_bid_EURUSD > 0   || g_pending_offer_EURUSD > 0 ||
-                        g_pending_bid_GBPUSD > 0   || g_pending_offer_GBPUSD > 0 ||
-                        g_pending_bid_EURGBP > 0   || g_pending_offer_EURGBP > 0);
+    bool any_pending = (g_pending_bid[0] > 0 || g_pending_offer[0] > 0 ||
+                        g_pending_bid[1] > 0 || g_pending_offer[1] > 0 ||
+                        g_pending_bid[2] > 0 || g_pending_offer[2] > 0);
     if (!any_pending && OrdersTotal() == 0) return;
 
     int cancelled = 0;
@@ -766,9 +685,9 @@ void CancelAllPendingEntries() {
         if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
 
         // Skip all three protected add_next tickets (Gemini ruling)
-        if (ticket == g_add_next_EURUSD ||
-            ticket == g_add_next_GBPUSD ||
-            ticket == g_add_next_EURGBP) {
+        if (ticket == g_add_next[0] ||
+            ticket == g_add_next[1] ||
+            ticket == g_add_next[2]) {
             if (EnableVerboseLog)
                 Print("INFO: CancelAllPendingEntries — skipping protected "
                       "add_next ticket=", ticket);
@@ -785,21 +704,17 @@ void CancelAllPendingEntries() {
                   "ticket=", ticket, " retcode=", res.retcode);
         } else {
             cancelled++;
-            if (ticket == g_pending_bid_EURUSD)        g_pending_bid_EURUSD   = 0;
-            else if (ticket == g_pending_offer_EURUSD) g_pending_offer_EURUSD = 0;
-            else if (ticket == g_pending_bid_GBPUSD)   g_pending_bid_GBPUSD   = 0;
-            else if (ticket == g_pending_offer_GBPUSD) g_pending_offer_GBPUSD = 0;
-            else if (ticket == g_pending_bid_EURGBP)   g_pending_bid_EURGBP   = 0;
-            else if (ticket == g_pending_offer_EURGBP) g_pending_offer_EURGBP = 0;
+            for (int s = 0; s < 3; s++) {
+                if (ticket == g_pending_bid[s])   { g_pending_bid[s]   = 0; break; }
+                if (ticket == g_pending_offer[s]) { g_pending_offer[s] = 0; break; }
+            }
         }
     }
 
-    g_pending_bid_EURUSD   = 0;
-    g_pending_offer_EURUSD = 0;
-    g_pending_bid_GBPUSD   = 0;
-    g_pending_offer_GBPUSD = 0;
-    g_pending_bid_EURGBP   = 0;
-    g_pending_offer_EURGBP = 0;
+    for (int s = 0; s < 3; s++) {
+        g_pending_bid[s]   = 0;
+        g_pending_offer[s] = 0;
+    }
     SaveAllInventoryState();
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,

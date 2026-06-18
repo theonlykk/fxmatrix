@@ -38,15 +38,19 @@ string TelDoubleStr(double val, int digits = 5) {
 
 //------------------------------------------------------------------
 // GetPodMetrics
-// Pass physical symbol strings (e.g. "EURUSD", "EURUSD.pro") from
-// the caller to avoid hardcoded broker-agnostic symbol failures.
+// ADR-024 T2: slot-indexed — reads g_inventory_0/1/2 from globals.
 // Fix: Bid/Ask asymmetry — exit distance uses correct price side.
 //------------------------------------------------------------------
-void GetPodMetrics(string symbol,
-                   Layer& layers[], int layer_count,
+// ADR-024 T2: reads slot inventory directly from globals
+// slot: 0=PairAC, 1=PairBC, 2=PairAB
+void GetPodMetrics(int slot,
                    int&    out_layers,
                    double& out_pnl,
                    double& out_dist_pips) {
+
+    int layer_count = (slot == 0) ? ArraySize(g_inventory_0)
+                    : (slot == 1) ? ArraySize(g_inventory_1)
+                    : ArraySize(g_inventory_2);
 
     out_layers    = layer_count;
     out_pnl       = 0.0;
@@ -54,42 +58,52 @@ void GetPodMetrics(string symbol,
 
     if (layer_count == 0) return;
 
-    double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
-    if (point == 0.0) return; // symbol not found — fail silently
+    string symbol = g_symbols[slot];
+    double point  = SymbolInfoDouble(symbol, SYMBOL_POINT);
+    if (point == 0.0) return;
 
-    // Aggregate unrealised P&L across all layers
     for (int i = 0; i < layer_count; i++) {
-        if (PositionSelectByTicket(layers[i].position_ticket)) {
+        ulong pos_tkt = (slot == 0) ? g_inventory_0[i].position_ticket
+                      : (slot == 1) ? g_inventory_1[i].position_ticket
+                      : g_inventory_2[i].position_ticket;
+        if (PositionSelectByTicket(pos_tkt))
             out_pnl += PositionGetDouble(POSITION_PROFIT);
-        }
     }
 
-    // Distance to target: shallowest layer (Layer 0) exit ticket
-    // Fix: use ASK for buy limits, BID for sell limits
-    if (ArraySize(layers[0].exit_tickets) > 0 && OrderSelect(layers[0].exit_tickets[0])) {
+    // Distance to target: shallowest layer (index 0) exit ticket
+    ulong first_exit = 0;
+    int   n_exits    = 0;
+    if (slot == 0) {
+        n_exits    = ArraySize(g_inventory_0[0].exit_tickets);
+        if (n_exits > 0) first_exit = g_inventory_0[0].exit_tickets[0];
+    } else if (slot == 1) {
+        n_exits    = ArraySize(g_inventory_1[0].exit_tickets);
+        if (n_exits > 0) first_exit = g_inventory_1[0].exit_tickets[0];
+    } else {
+        n_exits    = ArraySize(g_inventory_2[0].exit_tickets);
+        if (n_exits > 0) first_exit = g_inventory_2[0].exit_tickets[0];
+    }
+
+    if (first_exit > 0 && OrderSelect(first_exit)) {
         double exit_price  = OrderGetDouble(ORDER_PRICE_OPEN);
         ENUM_ORDER_TYPE ot = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
-
         double reference_price = (ot == ORDER_TYPE_BUY_LIMIT)
             ? SymbolInfoDouble(symbol, SYMBOL_ASK)
             : SymbolInfoDouble(symbol, SYMBOL_BID);
-
         out_dist_pips = MathAbs(exit_price - reference_price) / point / 10.0;
     }
 }
 
 //------------------------------------------------------------------
 // SerializePodJSON
-// Returns a JSON object string for one instrument pod.
-// Accepts physical symbol string from caller.
+// Returns a JSON object string for one instrument pod (slot-indexed).
 //------------------------------------------------------------------
-string SerializePodJSON(string symbol, Layer& layers[], int layer_count) {
+string SerializePodJSON(int slot) {
     int    pod_layers = 0;
     double pod_pnl    = 0.0;
     double pod_dist   = 0.0;
 
-    GetPodMetrics(symbol, layers, layer_count,
-                  pod_layers, pod_pnl, pod_dist);
+    GetPodMetrics(slot, pod_layers, pod_pnl, pod_dist);
 
     string dist_str = (pod_layers == 0)
         ? "null"
@@ -105,14 +119,11 @@ string SerializePodJSON(string symbol, Layer& layers[], int layer_count) {
 
 //------------------------------------------------------------------
 // BuildTelemetryPayload
-// Constructs the full JSON string per Gemini Phase 1 spec.
-// Caller passes physical symbol strings for broker-suffix safety.
+// ADR-024 T2: constructs full JSON from globals; dynamic symbol keys.
 //------------------------------------------------------------------
-string BuildTelemetryPayload(
-    string eu_symbol, Layer& eu_layers[], int eu_count,
-    string gu_symbol, Layer& gu_layers[], int gu_count,
-    string eg_symbol, Layer& eg_layers[], int eg_count)
-{
+// ADR-024 T2: reads all state from globals directly
+// Dynamic JSON keys per Gemini Q2 ruling — dashboard uses Object.keys()
+string BuildTelemetryPayload() {
     // Timestamp in ISO 8601 UTC
     MqlDateTime dt;
     TimeToStruct(TimeGMT(), dt);
@@ -132,10 +143,24 @@ string BuildTelemetryPayload(
         ? "PASSIVE_QUOTING"
         : "SNIPER";
 
-    // Pod JSON blocks — pass physical symbol strings
-    string eu_pod = SerializePodJSON(eu_symbol, eu_layers, eu_count);
-    string gu_pod = SerializePodJSON(gu_symbol, gu_layers, gu_count);
-    string eg_pod = SerializePodJSON(eg_symbol, eg_layers, eg_count);
+    // Dynamic ldak_vratios — keyed by physical symbol string
+    string ldak_json = StringFormat(
+        "{\"%s\":%.3f,\"%s\":%.3f,\"%s\":%.3f}",
+        g_symbols[SLOT_AC], g_vratio[SLOT_AC],
+        g_symbols[SLOT_BC], g_vratio[SLOT_BC],
+        g_symbols[SLOT_AB], g_vratio[SLOT_AB]);
+
+    // Pod JSON blocks — slot-indexed
+    string pod0 = SerializePodJSON(SLOT_AC);
+    string pod1 = SerializePodJSON(SLOT_BC);
+    string pod2 = SerializePodJSON(SLOT_AB);
+
+    // Dynamic active_pods — keyed by physical symbol string
+    string pods_json = StringFormat(
+        "{\"%s\":%s,\"%s\":%s,\"%s\":%s}",
+        g_symbols[SLOT_AC], pod0,
+        g_symbols[SLOT_BC], pod1,
+        g_symbols[SLOT_AB], pod2);
 
     return StringFormat(
         "{"
@@ -151,14 +176,10 @@ string BuildTelemetryPayload(
             "\"execution_mode\":\"%s\","
             "\"quote_spread\":%.6f,"
             "\"daily_api_count\":%d,"
-            "\"ldak_vratios\":{\"EU\":%.3f,\"GU\":%.3f,\"EG\":%.3f},"
+            "\"ldak_vratios\":%s,"
             "\"rollover_active\":%s"
         "},"
-        "\"active_pods\":{"
-            "\"EURUSD\":%s,"
-            "\"GBPUSD\":%s,"
-            "\"EURGBP\":%s"
-        "}"
+        "\"active_pods\":%s"
         "}",
         ts,
         InstanceID,
@@ -168,13 +189,9 @@ string BuildTelemetryPayload(
         exec_mode_str,
         QuoteSpread,
         g_daily_api_count,
-        g_vratio_EU,
-        g_vratio_GU,
-        g_vratio_EG,
+        ldak_json,
         IsRolloverWindow(TimeGMT()) ? "true" : "false",
-        eu_pod,
-        gu_pod,
-        eg_pod
+        pods_json
     );
 }
 
@@ -189,23 +206,15 @@ string BuildTelemetryPayload(
 //
 // Future: replace with FileWrite + Python daemon for async decoupling.
 //------------------------------------------------------------------
-void EmitTelemetry(
-    string eu_symbol, Layer& eu_layers[], int eu_count,
-    string gu_symbol, Layer& gu_layers[], int gu_count,
-    string eg_symbol, Layer& eg_layers[], int eg_count,
-    bool force = false)
-{
+// ADR-024 T2: no array arguments — reads g_inventory_0/1/2 via globals
+void EmitTelemetry(bool force = false) {
     if (!EnableTelemetry) return;
     if (TelemetryURL == "" || TelemetryAPIKey == "") return;
 
     datetime now = TimeCurrent();
     if (!force && (now - g_last_telemetry_emit) < TelemetryIntervalSec) return;
 
-    string payload = BuildTelemetryPayload(
-        eu_symbol, eu_layers, eu_count,
-        gu_symbol, gu_layers, gu_count,
-        eg_symbol, eg_layers, eg_count
-    );
+    string payload = BuildTelemetryPayload();
 
     string headers = "Content-Type: application/json\r\n"
                    + "Authorization: Bearer " + TelemetryAPIKey + "\r\n";
@@ -231,7 +240,9 @@ void EmitTelemetry(
         g_last_telemetry_emit = now;
         if (EnableVerboseLog)
             Print("INFO: Telemetry emitted. instance=", InstanceID,
-                  " eu=", eu_count, " gu=", gu_count, " eg=", eg_count);
+                  " slots=[", ArraySize(g_inventory_0), ",",
+                  ArraySize(g_inventory_1), ",",
+                  ArraySize(g_inventory_2), "]");
     } else {
         if (EnableVerboseLog)
             Print("INFO: Telemetry dropped. status=", http_status,
