@@ -1198,8 +1198,16 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
     }
 
     if (deal_entry == DEAL_ENTRY_OUT) {
-        HandleExitFill(deal_ticket, order_ticket, deal_volume,
-                       deal_time, deal_profit);
+        long deal_magic = HistoryDealGetInteger(deal_ticket, DEAL_MAGIC);
+        if (deal_magic == (long)(EA_MAGIC + 2)) {
+            HandleExitFill(deal_ticket, order_ticket, deal_volume,
+                           deal_time, deal_profit);
+        } else {
+            if (EnableVerboseLog) {
+                Print("INFO: Ignored DEAL_ENTRY_OUT with unmanaged magic=",
+                      deal_magic);
+            }
+        }
         return;
     }
 }
