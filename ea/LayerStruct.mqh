@@ -5,11 +5,21 @@
 #define FALLBACK_TIME_WINDOW 30       // seconds, for ticket fallback matching
 #define MAX_EXIT_TICKETS     20       // maximum exit ticket slots per layer
 
-enum InstrumentType {
-    INSTRUMENT_EURUSD = 0,
-    INSTRUMENT_GBPUSD = 1,
-    INSTRUMENT_EURGBP = 2
-};
+// ADR-024: V3 Generic Triad — pair slot indices
+// Slot ordering is BINDING per Gemini ruling:
+//   Slot 0 = PairAC (signal pair 1, e.g. EURUSD)
+//   Slot 1 = PairBC (signal pair 2, e.g. GBPUSD)
+//   Slot 2 = PairAB (cross pair,   e.g. EURGBP)
+// DO NOT REORDER. LDAK correlation indices depend on this ordering.
+#define SLOT_AC  0   // PairAC — first signal pair
+#define SLOT_BC  1   // PairBC — second signal pair
+#define SLOT_AB  2   // PairAB — cross pair
+
+// Legacy aliases — used in files not yet migrated to V3.
+// Remove these aliases once all files are migrated in subsequent prompts.
+#define INSTRUMENT_EURUSD  SLOT_AC
+#define INSTRUMENT_GBPUSD  SLOT_BC
+#define INSTRUMENT_EURGBP  SLOT_AB
 
 enum DirectionType {
     DIRECTION_BUY  =  1,
@@ -25,18 +35,18 @@ struct Layer {
     double   entry_price;
     double   entry_spread_raw;
     datetime entry_time;
-    double   EU_mid_12bars_ago_at_entry;
-    double   GB_mid_12bars_ago_at_entry;
-    double   r_EU_at_entry;
-    double   r_GB_at_entry;
+    double   anchor_A_at_entry;
+    double   anchor_B_at_entry;
+    double   r_AC_at_entry;
+    double   r_BC_at_entry;
     int      strongest_at_entry;
     int      weakest_at_entry;
 
     // --- Carry recalculation inputs (immutable) ---
-    double   entry_price_eurusd;
-    double   entry_price_gbpusd;
-    double   entry_price_eurusd_1h;
-    double   entry_price_gbpusd_1h;
+    double   entry_price_AC;
+    double   entry_price_BC;
+    double   entry_price_AC_1h;
+    double   entry_price_BC_1h;
     int      instrument;
     int      direction;
 
@@ -75,16 +85,16 @@ struct CloseByTask {
 //   entry_price
 //   entry_spread_raw
 //   entry_time
-//   EU_mid_12bars_ago_at_entry
-//   GB_mid_12bars_ago_at_entry
-//   r_EU_at_entry
-//   r_GB_at_entry
+//   anchor_A_at_entry
+//   anchor_B_at_entry
+//   r_AC_at_entry
+//   r_BC_at_entry
 //   strongest_at_entry
 //   weakest_at_entry
-//   entry_price_eurusd
-//   entry_price_gbpusd
-//   entry_price_eurusd_1h
-//   entry_price_gbpusd_1h
+//   entry_price_AC
+//   entry_price_BC
+//   entry_price_AC_1h
+//   entry_price_BC_1h
 //   instrument
 //   direction
 //   entry_ticket
@@ -110,17 +120,17 @@ Layer InitLayer() {
     L.entry_price                  = 0.0;
     L.entry_spread_raw             = 0.0;
     L.entry_time                   = 0;
-    L.EU_mid_12bars_ago_at_entry   = 0.0;
-    L.GB_mid_12bars_ago_at_entry   = 0.0;
-    L.r_EU_at_entry                = 0.0;
-    L.r_GB_at_entry                = 0.0;
+    L.anchor_A_at_entry            = 0.0;
+    L.anchor_B_at_entry            = 0.0;
+    L.r_AC_at_entry                = 0.0;
+    L.r_BC_at_entry                = 0.0;
     L.strongest_at_entry           = 0;
     L.weakest_at_entry             = 0;
-    L.entry_price_eurusd           = 0.0;
-    L.entry_price_gbpusd           = 0.0;
-    L.entry_price_eurusd_1h        = 0.0;
-    L.entry_price_gbpusd_1h        = 0.0;
-    L.instrument                   = INSTRUMENT_EURUSD;
+    L.entry_price_AC               = 0.0;
+    L.entry_price_BC               = 0.0;
+    L.entry_price_AC_1h            = 0.0;
+    L.entry_price_BC_1h            = 0.0;
+    L.instrument                   = SLOT_AC;
     L.direction                    = DIRECTION_BUY;
     L.entry_spread_adjusted        = 0.0;
     L.entry_price_forward          = 0.0;
@@ -137,3 +147,19 @@ Layer InitLayer() {
 }
 
 #endif // LAYER_STRUCT_MQH
+
+// ---------------------------------------------------------------
+// ADR-024 P1C: Legacy struct field macro shield
+// Preprocessor token replacement — allows unmigrated engine files
+// (MathEngine, CarryEngine, StateEngine, ExecutionEngine) to compile
+// against the V3 Layer struct without modification.
+// Remove each alias once the corresponding engine file is migrated.
+// ---------------------------------------------------------------
+#define EU_mid_12bars_ago_at_entry  anchor_A_at_entry
+#define GB_mid_12bars_ago_at_entry  anchor_B_at_entry
+#define r_EU_at_entry               r_AC_at_entry
+#define r_GB_at_entry               r_BC_at_entry
+#define entry_price_eurusd          entry_price_AC
+#define entry_price_gbpusd          entry_price_BC
+#define entry_price_eurusd_1h       entry_price_AC_1h
+#define entry_price_gbpusd_1h       entry_price_BC_1h
