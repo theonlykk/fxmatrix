@@ -4,31 +4,30 @@
 #include "MathEngine.mqh"
 
 string GetInstrumentSymbol(int instrument) {
-    if (instrument == INSTRUMENT_EURUSD) return "EURUSD";
-    if (instrument == INSTRUMENT_GBPUSD) return "GBPUSD";
-    return "EURGBP";
+    if (instrument >= 0 && instrument < 3) return g_symbols[instrument];
+    Print("ERROR: GetInstrumentSymbol — invalid slot ", instrument);
+    return "";
 }
 
 void RunCarryRecalculation() {
-    int total = ArraySize(g_inventory_EURUSD) +
-                ArraySize(g_inventory_GBPUSD) +
-                ArraySize(g_inventory_EURGBP);
+    int total = ArraySize(g_inventory_0) +
+                ArraySize(g_inventory_1) +
+                ArraySize(g_inventory_2);
     if (total == 0) return;
 
     if (EnableVerboseLog)
         Print("INFO: Carry recalculation started. Layers=", total);
 
-    int instruments[3] = {INSTRUMENT_EURUSD, INSTRUMENT_GBPUSD, INSTRUMENT_EURGBP};
     for (int k = 0; k < 3; k++) {
-        int inst = instruments[k];
-        int inv_size = (inst == INSTRUMENT_EURUSD) ? ArraySize(g_inventory_EURUSD)
-                     : (inst == INSTRUMENT_GBPUSD) ? ArraySize(g_inventory_GBPUSD)
-                     : ArraySize(g_inventory_EURGBP);
+        int inst = k;   // slot index: 0=PairAC, 1=PairBC, 2=PairAB
+        int inv_size = (inst == 0) ? ArraySize(g_inventory_0)
+                     : (inst == 1) ? ArraySize(g_inventory_1)
+                     : ArraySize(g_inventory_2);
 
         for (int i = 0; i < inv_size; i++) {
-            Layer L = (inst == INSTRUMENT_EURUSD) ? g_inventory_EURUSD[i]
-                    : (inst == INSTRUMENT_GBPUSD) ? g_inventory_GBPUSD[i]
-                    : g_inventory_EURGBP[i];
+            Layer L = (inst == 0) ? g_inventory_0[i]
+                    : (inst == 1) ? g_inventory_1[i]
+                    : g_inventory_2[i];
 
             double t = (double)(TimeCurrent() - L.entry_time)
                        / 86400.0 / 365.0;
@@ -39,33 +38,37 @@ void RunCarryRecalculation() {
                 continue;
             }
 
-            double EURUSD_fwd = L.entry_price_eurusd
-                                * (1.0 + r_EUR * t)
-                                / (1.0 + r_USD * t);
-            double GBPUSD_fwd = L.entry_price_gbpusd
-                                * (1.0 + r_GBP * t)
-                                / (1.0 + r_USD * t);
+            // V3 generic carry forward — PairAC and PairBC only (slot 0 and 1)
+            // RateA = rate for CurrencyA, RateB = rate for CurrencyB,
+            // RateC = rate for CurrencyC (base denominator in both pairs)
+            double PairAC_fwd = L.entry_price_AC
+                                * (1.0 + RateA * t)
+                                / (1.0 + RateC * t);
+            double PairBC_fwd = L.entry_price_BC
+                                * (1.0 + RateB * t)
+                                / (1.0 + RateC * t);
 
-            double ref_eu = L.entry_price_eurusd_1h;
-            double ref_gb = L.entry_price_gbpusd_1h;
+            double ref_AC = L.entry_price_AC_1h;
+            double ref_BC = L.entry_price_BC_1h;
 
-            if (ref_eu <= 0 || ref_gb <= 0) {
+            if (ref_AC <= 0 || ref_BC <= 0) {
                 Print("ERROR: Carry recalc — zero reference price. Instrument ",
                       inst, " layer ", i, " Skipping.");
                 continue;
             }
 
-            double r_EU_fwd = MathLog(EURUSD_fwd / ref_eu);
-            double r_GB_fwd = MathLog(GBPUSD_fwd / ref_gb);
+            double r_AC_fwd = MathLog(PairAC_fwd / ref_AC);
+            double r_BC_fwd = MathLog(PairBC_fwd / ref_BC);
 
-            double usd_fwd = -(r_EU_fwd + r_GB_fwd) / 3.0;
-            double eur_fwd =   r_EU_fwd + usd_fwd;
-            double gbp_fwd =   r_GB_fwd + usd_fwd;
+            // V3 generic score decomposition — zero-sum constraint
+            double score_C_fwd = -(r_AC_fwd + r_BC_fwd) / 3.0;
+            double score_A_fwd =   r_AC_fwd + score_C_fwd;
+            double score_B_fwd =   r_BC_fwd + score_C_fwd;
 
             double scores_fwd[3];
-            scores_fwd[0] = eur_fwd;
-            scores_fwd[1] = gbp_fwd;
-            scores_fwd[2] = usd_fwd;
+            scores_fwd[0] = score_A_fwd;
+            scores_fwd[1] = score_B_fwd;
+            scores_fwd[2] = score_C_fwd;
             double new_spread = scores_fwd[L.weakest_at_entry]
                               - scores_fwd[L.strongest_at_entry];
 
@@ -133,9 +136,9 @@ void RunCarryRecalculation() {
 
             L.exit_target = new_exit_price;
 
-            if (inst == INSTRUMENT_EURUSD)      g_inventory_EURUSD[i] = L;
-            else if (inst == INSTRUMENT_GBPUSD)  g_inventory_GBPUSD[i] = L;
-            else                                 g_inventory_EURGBP[i] = L;
+            if (inst == 0)      g_inventory_0[i] = L;
+            else if (inst == 1) g_inventory_1[i] = L;
+            else                g_inventory_2[i] = L;
 
             if (EnableVerboseLog)
                 Print("INFO: Carry recalc complete. Instrument ", inst,
