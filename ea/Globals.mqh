@@ -43,10 +43,6 @@ input double GlobalDrawdown     = 0.03;   // 4.5% global — front-runs FTMO 5% 
 input double RateA              = 0.0390;  // Interest rate for CurrencyA (e.g. ESTR for EUR)
 input double RateB              = 0.0520;  // Interest rate for CurrencyB (e.g. SONIA for GBP)
 input double RateC              = 0.0533;  // Interest rate for CurrencyC (e.g. SOFR for USD)
-// Legacy carry rate aliases — remove once CarryEngine.mqh is migrated
-#define r_EUR  RateA
-#define r_GBP  RateB
-#define r_USD  RateC
 input string CarryRecalcTime    = "17:00"; // broker server time
 
 //--- ADR-024: V3 Generic Triad Configuration
@@ -88,11 +84,6 @@ input double QuoteSpread = 0.0004; // execution distance from FairValue to quote
 double   g_r_signal[2]          = {0.0, 0.0};  // log returns [AC, BC]
 double   g_anchor[2]            = {0.0, 0.0};  // 12-bar-ago mids [AC, BC]
 
-// Legacy aliases — remove once MathEngine.mqh and ExecutionEngine.mqh migrated
-#define g_r_EU_signal        g_r_signal[0]
-#define g_r_GB_signal        g_r_signal[1]
-#define g_EU_mid_12bars_ago  g_anchor[0]
-#define g_GB_mid_12bars_ago  g_anchor[1]
 int      g_strongest            = -1;    // 0=EUR, 1=GBP, 2=USD
 int      g_weakest              = -1;
 bool     g_signal_active        = false;
@@ -100,11 +91,6 @@ double   g_entry_spread         = 0.0;
 // ADR-024: V3 slot-indexed currency scores
 // scores[0]=score_A, scores[1]=score_B, scores[2]=score_C
 double g_scores[3]            = {0.0, 0.0, 0.0};
-
-// Legacy aliases — remove once all files migrated
-#define g_score_eur  g_scores[0]
-#define g_score_gbp  g_scores[1]
-#define g_score_usd  g_scores[2]
 
 // ADR-024: V3 canonical symbol array — slot ordering BINDING
 // g_symbols[SLOT_AC] = PairAC, g_symbols[SLOT_BC] = PairBC,
@@ -117,22 +103,11 @@ string g_symbols[3];
 //   g_corr[0] = corr(slot0, slot1) = corr(PairAC, PairBC)
 //   g_corr[1] = corr(slot0, slot2) = corr(PairAC, PairAB)
 //   g_corr[2] = corr(slot1, slot2) = corr(PairBC, PairAB)
-// When A=EUR, B=GBP, C=USD:
-//   g_corr[0] = g_r_EU_GU, g_corr[1] = g_r_EU_EG, g_corr[2] = g_r_GU_EG
+// When A=EUR, B=GBP, C=USD: g_corr[0]=corr(AC,BC), g_corr[1]=corr(AC,AB), g_corr[2]=corr(BC,AB)
 double g_corr[3]  = {0.0, 0.0, 0.0};
-
-// Legacy aliases — remove once MathEngine.mqh migrated
-#define g_r_EU_GU  g_corr[0]
-#define g_r_EU_EG  g_corr[1]
-#define g_r_GU_EG  g_corr[2]
 
 // ADR-024: V3 LDAK volatility ratio array [slot 0, 1, 2]
 double g_vratio[3] = {1.0, 1.0, 1.0};
-
-// Legacy aliases — remove once MathEngine.mqh migrated
-#define g_vratio_EU  g_vratio[0]
-#define g_vratio_GU  g_vratio[1]
-#define g_vratio_EG  g_vratio[2]
 
 //--- Bar tracking
 datetime g_last_bar_time        = 0;
@@ -153,40 +128,18 @@ CloseByTask  g_closeby_queue[];          // pending CloseBy retry tasks
 // ADR-024: V3 slot-indexed inventory — g_inventory[slot][layer]
 // slot 0=PairAC, slot 1=PairBC, slot 2=PairAB
 // MQL5 requires fixed first dimension for 2D arrays declared globally.
-// We use three flat arrays named by slot for compiler compatibility,
-// accessed via slot index through helper macros below.
+// We use three flat arrays named by slot for compiler compatibility.
 Layer        g_inventory_0[];   // PairAC inventory
 Layer        g_inventory_1[];   // PairBC inventory
 Layer        g_inventory_2[];   // PairAB inventory
-
-// Legacy aliases — remove once all files migrated
-#define g_inventory_EURUSD  g_inventory_0
-#define g_inventory_GBPUSD  g_inventory_1
-#define g_inventory_EURGBP  g_inventory_2
 
 // ADR-024: V3 slot-indexed pending ticket arrays
 ulong    g_pending_bid[3]   = {0, 0, 0};
 ulong    g_pending_offer[3] = {0, 0, 0};
 ulong    g_add_next[3]      = {0, 0, 0};
 
-// Legacy aliases — remove once ExecutionEngine.mqh and FXMatrix.mq5 migrated
-#define g_pending_bid_EURUSD    g_pending_bid[0]
-#define g_pending_offer_EURUSD  g_pending_offer[0]
-#define g_pending_bid_GBPUSD    g_pending_bid[1]
-#define g_pending_offer_GBPUSD  g_pending_offer[1]
-#define g_pending_bid_EURGBP    g_pending_bid[2]
-#define g_pending_offer_EURGBP  g_pending_offer[2]
-#define g_add_next_EURUSD       g_add_next[0]
-#define g_add_next_GBPUSD       g_add_next[1]
-#define g_add_next_EURGBP       g_add_next[2]
-
 // ADR-024: V3 slot-indexed last layer timestamps
 datetime g_last_layer_time[3] = {0, 0, 0};
-
-// Legacy aliases — remove once FXMatrix.mq5 migrated
-#define g_last_layer_time_EURUSD  g_last_layer_time[0]
-#define g_last_layer_time_GBPUSD  g_last_layer_time[1]
-#define g_last_layer_time_EURGBP  g_last_layer_time[2]
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 

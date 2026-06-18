@@ -15,12 +15,6 @@
 #define SLOT_BC  1   // PairBC — second signal pair
 #define SLOT_AB  2   // PairAB — cross pair
 
-// Legacy aliases — used in files not yet migrated to V3.
-// Remove these aliases once all files are migrated in subsequent prompts.
-#define INSTRUMENT_EURUSD  SLOT_AC
-#define INSTRUMENT_GBPUSD  SLOT_BC
-#define INSTRUMENT_EURGBP  SLOT_AB
-
 enum DirectionType {
     DIRECTION_BUY  =  1,
     DIRECTION_SELL = -1
@@ -147,19 +141,3 @@ Layer InitLayer() {
 }
 
 #endif // LAYER_STRUCT_MQH
-
-// ---------------------------------------------------------------
-// ADR-024 P1C: Legacy struct field macro shield
-// Preprocessor token replacement — allows unmigrated engine files
-// (MathEngine, CarryEngine, StateEngine, ExecutionEngine) to compile
-// against the V3 Layer struct without modification.
-// Remove each alias once the corresponding engine file is migrated.
-// ---------------------------------------------------------------
-#define EU_mid_12bars_ago_at_entry  anchor_A_at_entry
-#define GB_mid_12bars_ago_at_entry  anchor_B_at_entry
-#define r_EU_at_entry               r_AC_at_entry
-#define r_GB_at_entry               r_BC_at_entry
-#define entry_price_eurusd          entry_price_AC
-#define entry_price_gbpusd          entry_price_BC
-#define entry_price_eurusd_1h       entry_price_AC_1h
-#define entry_price_gbpusd_1h       entry_price_BC_1h
