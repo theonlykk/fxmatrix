@@ -66,7 +66,7 @@ void GetPodMetrics(string symbol,
 
     // Distance to target: shallowest layer (Layer 0) exit ticket
     // Fix: use ASK for buy limits, BID for sell limits
-    if (layers[0].exit_ticket > 0 && OrderSelect(layers[0].exit_ticket)) {
+    if (ArraySize(layers[0].exit_tickets) > 0 && OrderSelect(layers[0].exit_tickets[0])) {
         double exit_price  = OrderGetDouble(ORDER_PRICE_OPEN);
         ENUM_ORDER_TYPE ot = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
 
