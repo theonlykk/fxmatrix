@@ -233,4 +233,74 @@ void EmitTelemetry(
     }
 }
 
+//------------------------------------------------------------------
+// EmitPodClose
+// Fires a single closed pod record to POST /api/telemetry/pod_closed.
+// Called from HandleExitFill() after full LIFO unwind confirmed.
+// P&L passed directly from deal_profit — never recalculated from
+// dead tickets (positions are already closed at call time).
+//------------------------------------------------------------------
+void EmitPodClose(string   symbol,
+                  string   direction,
+                  int      layers_closed,
+                  double   avg_entry_price,
+                  double   exit_price,
+                  double   hold_time_minutes,
+                  double   gross_pnl)
+{
+    if (!EnableTelemetry) return;
+    if (TelemetryURL == "" || TelemetryAPIKey == "") return;
+
+    MqlDateTime dt;
+    TimeToStruct(TimeGMT(), dt);
+    string ts = StringFormat("%04d-%02d-%02dT%02d:%02d:%02dZ",
+        dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec);
+
+    string payload = StringFormat(
+        "{"
+        "\"close_time\":\"%s\","
+        "\"instrument\":\"%s\","
+        "\"direction\":\"%s\","
+        "\"layers_closed\":%d,"
+        "\"avg_entry_price\":%.5f,"
+        "\"exit_price\":%.5f,"
+        "\"hold_time_minutes\":%.1f,"
+        "\"gross_pnl\":%.2f,"
+        "\"instance_id\":\"%s\""
+        "}",
+        ts, symbol, direction, layers_closed,
+        avg_entry_price, exit_price, hold_time_minutes,
+        gross_pnl, InstanceID
+    );
+
+    // Derive pod_closed URL from TelemetryURL by replacing /push with /pod_closed
+    string pod_closed_url = "";
+    int push_pos = StringFind(TelemetryURL, "/push");
+    if (push_pos >= 0)
+        pod_closed_url = StringSubstr(TelemetryURL, 0, push_pos) + "/pod_closed";
+    else
+        pod_closed_url = TelemetryURL + "/pod_closed";
+
+    string headers = "Content-Type: application/json\r\n"
+                   + "Authorization: Bearer " + TelemetryAPIKey + "\r\n";
+
+    char   post_data[];
+    char   result_data[];
+    string result_headers;
+    StringToCharArray(payload, post_data, 0, StringLen(payload));
+
+    int http_status = WebRequest(
+        "POST", pod_closed_url, headers, 200,
+        post_data, result_data, result_headers
+    );
+
+    if (EnableVerboseLog) {
+        if (http_status == 200)
+            Print("INFO: Pod close telemetry emitted. symbol=", symbol,
+                  " direction=", direction, " pnl=", DoubleToString(gross_pnl, 2));
+        else
+            Print("INFO: Pod close telemetry dropped. status=", http_status);
+    }
+}
+
 #endif // TELEMETRY_ENGINE_MQH

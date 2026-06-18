@@ -950,6 +950,27 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             true
                         );
 
+                        // Pipshed Phase 2: emit closed pod record
+                        // Uses CurL (last closed Layer), deal_profit, inst — all in scope
+                        // avg_entry_price = CurL.entry_price (Layer 0 entry as proxy)
+                        // exit_price = CurL.exit_target (the LIFO unwind target price)
+                        // hold_time_minutes derived from CurL.entry_time to now
+                        // gross_pnl = deal_profit (passed directly, never recalculated from dead tickets)
+                        {
+                            string _pod_symbol    = GetInstrumentSymbol(inst);
+                            string _pod_direction = (CurL.direction == DIRECTION_BUY) ? "LONG" : "SHORT";
+                            double _pod_hold_mins = (double)(TimeCurrent() - CurL.entry_time) / 60.0;
+                            EmitPodClose(
+                                _pod_symbol,
+                                _pod_direction,
+                                1,
+                                CurL.entry_price,
+                                CurL.exit_target,
+                                _pod_hold_mins,
+                                deal_profit
+                            );
+                        }
+
                         // Phase 3: resume two-way quoting immediately (unconditional,
                         // no LDAK gate -- mirrors if (new_bar) flat-instrument logic exactly)
                         string resume_symbol = (inst == INSTRUMENT_EURUSD) ? "EURUSD"
