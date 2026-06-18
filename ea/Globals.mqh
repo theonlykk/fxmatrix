@@ -8,7 +8,7 @@ input int    StrengthWindow     = 12;      // M5 bars = 1 hour
 input double BaseThreshold      = 0.0004;  // Layer 0 entry threshold
 input double ThresholdStep      = 0.0002;  // per-layer threshold increment
 input double GridBase           = 0.0008;  // grid interval between layers (8bps default)
-input int    GridMode           = 0;       // 0=constant 1=linear 2=hybrid
+input int    GridMode           = 2;       // 0=constant 1=linear 2=hybrid
 input double GridLinearStep     = 0.0002;  // interval increment per layer (linear/hybrid)
 input int    GridInflection     = 2;       // layer where linear switches to exponential
 input double GridExpBase        = 1.500;   // exponential multiplier (hybrid mode)
@@ -19,7 +19,7 @@ input double SkewMin            = 0.050;   // floor — avoids locking in transa
 input double RotationThreshold  = 0.0002;  // min edge to rotate signal
 
 //--- Phase 3: drawdown-responsive stress parameters
-input double LayerStressBase         = 1.500;  // exponential layer stress multiplier
+input double LayerStressBase         = 1.0;  // exponential layer stress multiplier
 input double K_spread                = 1.000;  // PnL stress multiplier aggressiveness
 input double K_size                  = 0.500;  // lot size reduction aggressiveness
 input int    MinLayerIntervalSeconds = 300;    // min seconds between layer adds (1 M5 bar)
@@ -36,8 +36,8 @@ input ulong   EA_MAGIC    = 20260000; // ADR-021: Instance base magic (MM=202600
 input double NudgePips          = 0.5;     // pips; converted to points per symbol
 
 //--- Risk controls
-input double MaxPodDrawdown     = 0.02;    // 2% per pod
-input double GlobalDrawdown     = 0.045;   // 4.5% global — front-runs FTMO 5% daily limit
+input double MaxPodDrawdown     = 0.03;    // 2% per pod
+input double GlobalDrawdown     = 0.03;   // 4.5% global — front-runs FTMO 5% daily limit
 
 //--- Carry adjustment (ADR-003)
 input double r_USD              = 0.0533;  // SOFR annualised — update weekly
@@ -48,10 +48,10 @@ input string CarryRecalcTime    = "17:00"; // broker server time
 enum ENUM_EXECUTION_MODE { MARKET_MAKER, SNIPER };
 input ENUM_EXECUTION_MODE ExecutionMode = MARKET_MAKER;
 input string  InstanceID  = "MM";     // ADR-021: Instance identifier for JSON state segregation
-input double SniperThreshold = 0.0008; // ADR-019: Decoupled entry gate for SNIPER mode
+input double SniperThreshold = 0.0014; // ADR-019: Decoupled entry gate for SNIPER mode
 
 //--- Pipshed Telemetry
-input string TelemetryURL         = "https://pipshed.theonlykhalid.com/api/telemetry/push";
+input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "";
 input int    TelemetryIntervalSec = 60;
 input bool   EnableTelemetry      = true;
@@ -68,7 +68,7 @@ input double FTMO_Max_Loss_Pct    = 0.090;     // absolute loss buffer (9% — 1
 input double FTMO_Daily_Loss_Pct  = 0.040;     // daily loss buffer (4% — 1% below 5% limit)
 
 //--- ADR-017: Market making execution spread
-input double QuoteSpread = 0.0008; // execution distance from FairValue to quote (8 bps default)
+input double QuoteSpread = 0.0004; // execution distance from FairValue to quote (8 bps default)
 
 //--- Signal state (updated on each new M5 bar close)
 double   g_r_EU_signal          = 0.0;
