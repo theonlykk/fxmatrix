@@ -698,6 +698,12 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         else                                        g_inventory_EURGBP[layer_idx].remaining_exit_volume = lot;
         Print("INFO: Entry complete — exit volume armed. Layer ", layer_idx,
               " instrument=", deal_symbol);
+        EmitTelemetry(
+            GetInstrumentSymbol(INSTRUMENT_EURUSD), g_inventory_EURUSD, ArraySize(g_inventory_EURUSD),
+            GetInstrumentSymbol(INSTRUMENT_GBPUSD), g_inventory_GBPUSD, ArraySize(g_inventory_GBPUSD),
+            GetInstrumentSymbol(INSTRUMENT_EURGBP), g_inventory_EURGBP, ArraySize(g_inventory_EURGBP),
+            true
+        );
     }
 
     // Resolve layer reference for exit placement
@@ -937,6 +943,12 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         else                                g_add_next_EURGBP = 0;
 
                         Print("INFO: Pod fully closed. All layers unwound.");
+                        EmitTelemetry(
+                            GetInstrumentSymbol(INSTRUMENT_EURUSD), g_inventory_EURUSD, ArraySize(g_inventory_EURUSD),
+                            GetInstrumentSymbol(INSTRUMENT_GBPUSD), g_inventory_GBPUSD, ArraySize(g_inventory_GBPUSD),
+                            GetInstrumentSymbol(INSTRUMENT_EURGBP), g_inventory_EURGBP, ArraySize(g_inventory_EURGBP),
+                            true
+                        );
 
                         // Phase 3: resume two-way quoting immediately (unconditional,
                         // no LDAK gate -- mirrors if (new_bar) flat-instrument logic exactly)

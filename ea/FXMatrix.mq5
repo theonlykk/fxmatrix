@@ -13,6 +13,7 @@
 #include "ExecutionEngine.mqh"
 #include "CarryEngine.mqh"
 #include "StateEngine.mqh"
+#include "TelemetryEngine.mqh"
 
 void CheckCircuitBreakers();
 void CloseAllPositions();
@@ -507,6 +508,13 @@ void OnTick() {
 
         } // End per-instrument loop
     } // End new_bar block
+
+    // ── Pipshed telemetry heartbeat ──────────────────────────────
+    EmitTelemetry(
+        GetInstrumentSymbol(INSTRUMENT_EURUSD), g_inventory_EURUSD, ArraySize(g_inventory_EURUSD),
+        GetInstrumentSymbol(INSTRUMENT_GBPUSD), g_inventory_GBPUSD, ArraySize(g_inventory_GBPUSD),
+        GetInstrumentSymbol(INSTRUMENT_EURGBP), g_inventory_EURGBP, ArraySize(g_inventory_EURGBP)
+    );
 }
 
 //------------------------------------------------------------------
