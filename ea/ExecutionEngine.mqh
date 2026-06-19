@@ -21,7 +21,56 @@ int GetInstrumentFromSymbol(string symbol) {
     return SLOT_AB;
 }
 
-ulong PlaceEntryLimit(double price, int direction, string symbol) {
+//------------------------------------------------------------------
+// ComputeLDAKLotSize
+// Computes the LDAK-penalized lot size for a given instrument slot.
+// Must be called BEFORE PlaceEntryLimit/PlaceNextEntryLimit so the
+// physical order is sized correctly from the start.
+//------------------------------------------------------------------
+double ComputeLDAKLotSize(int instrument) {
+    double balance   = AccountInfoDouble(ACCOUNT_BALANCE);
+    double pod_pnl   = GetPodUnrealizedPnL(instrument);
+    double size_mult = 1.0;
+    if (balance > 0.0 && MaxPodDrawdown > 0.0)
+        size_mult = MathMax(1.0 - K_size *
+                            (MathAbs(pod_pnl) / (balance * MaxPodDrawdown)),
+                            0.0);
+    string symbol  = g_symbols[instrument];
+    double min_vol = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
+    double lot_size = MathMax(BaseLotSize * size_mult, min_vol);
+
+    // LDAK volatility-gated penalty
+    double S_eff = 0.0;
+    int inv_size_ldak[3];
+    inv_size_ldak[0] = ArraySize(g_inventory_0);
+    inv_size_ldak[1] = ArraySize(g_inventory_1);
+    inv_size_ldak[2] = ArraySize(g_inventory_2);
+
+    for (int j = 0; j < 3; j++) {
+        if (j == instrument) continue;
+        if (inv_size_ldak[j] == 0) continue;
+        int lo = MathMin(instrument, j);
+        int hi = MathMax(instrument, j);
+        int ci = (lo == 0 && hi == 1) ? 0
+               : (lo == 0 && hi == 2) ? 1 : 2;
+        double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
+        double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
+        S_eff = MathMax(S_eff, S);
+    }
+
+    double w = 1.0 / (1.0 + S_eff * S_eff);
+    lot_size = MathMax(lot_size * w, SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN));
+
+    if (EnableVerboseLog && S_eff > 0.0)
+        Print("INFO: LDAK S_eff=", DoubleToString(S_eff, 4),
+              " w=", DoubleToString(w, 4),
+              " lot_size=", DoubleToString(lot_size, 2),
+              " instrument=", symbol);
+
+    return lot_size;
+}
+
+ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument) {
     double entry_price = price;
 
     // --- ADR-013: Gap-Aware Entry Price Clamp ---
@@ -76,7 +125,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol) {
 
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
-    req.volume       = BaseLotSize;
+    req.volume       = ComputeLDAKLotSize(instrument);
     req.price        = entry_price;
     req.magic        = EA_MAGIC;  // Layer 0 entries and resume-quoting
     req.type         = (direction == DIRECTION_BUY)
@@ -184,9 +233,11 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     MqlTradeRequest req = {};
     MqlTradeResult  res = {};
 
+    int _inst = GetInstrumentFromSymbol(symbol);
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
-    req.volume       = BaseLotSize;
+    // Resolve instrument first to pass into LDAK compute
+    req.volume       = ComputeLDAKLotSize(_inst);
     req.price        = price;
     req.magic        = EA_MAGIC + 1;  // Add-next entries
     req.type         = (direction == DIRECTION_BUY)
@@ -201,7 +252,7 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
         return 0;
     }
 
-    int instrument = GetInstrumentFromSymbol(symbol);
+    int instrument = _inst;
     g_add_next[instrument] = res.order;
 
     SaveAllInventoryState();
@@ -476,49 +527,10 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.entry_price_AC = (ac_ask + ac_bid) / 2.0;
         L.entry_price_BC = (bc_ask + bc_bid) / 2.0;
 
-        // Phase 3: dynamic lot sizing — reduces capital deployed as pod bleeds
-        double balance   = AccountInfoDouble(ACCOUNT_BALANCE);
-        double pod_pnl   = GetPodUnrealizedPnL(instrument);
-        double size_mult = 1.0;
-        if (balance > 0.0 && MaxPodDrawdown > 0.0)
-            size_mult = MathMax(1.0 - K_size *
-                                (MathAbs(pod_pnl) / (balance * MaxPodDrawdown)),
-                                0.0);
-        double min_vol   = SymbolInfoDouble(deal_symbol, SYMBOL_VOLUME_MIN);
-        double lot_size  = MathMax(BaseLotSize * size_mult, min_vol);
-
-        // LDAK: volatility-gated lot size penalty
-        {
-            double S_eff = 0.0;
-            int inv_size_ldak[3];
-            inv_size_ldak[0] = ArraySize(g_inventory_0);
-            inv_size_ldak[1] = ArraySize(g_inventory_1);
-            inv_size_ldak[2] = ArraySize(g_inventory_2);
-
-            for (int j = 0; j < 3; j++) {
-                if (j == instrument) continue;
-                if (inv_size_ldak[j] == 0) continue;
-                int lo = MathMin(instrument, j);
-                int hi = MathMax(instrument, j);
-                int ci = (lo == 0 && hi == 1) ? 0
-                       : (lo == 0 && hi == 2) ? 1 : 2;
-                double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
-                double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
-                S_eff = MathMax(S_eff, S);
-            }
-
-            double w = 1.0 / (1.0 + S_eff * S_eff);
-            lot_size = MathMax(lot_size * w, SymbolInfoDouble(deal_symbol, SYMBOL_VOLUME_MIN));
-
-            if (EnableVerboseLog && S_eff > 0.0)
-                Print("INFO: LDAK S_eff=", DoubleToString(S_eff, 4),
-                      " w=", DoubleToString(w, 4),
-                      " lot_size=", DoubleToString(lot_size, 2),
-                      " instrument=", deal_symbol);
-        }
-
-        L.lot_size               = lot_size;
-        L.remaining_entry_volume = lot_size;
+        // W4 fix: inherit physical deal volume from broker fill
+        // LDAK sizing now applied upstream in PlaceEntryLimit/PlaceNextEntryLimit
+        L.lot_size               = deal_volume;
+        L.remaining_entry_volume = deal_volume;
         L.remaining_exit_volume  = 0.0;
         L.entry_ticket    = order_ticket;
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
@@ -893,11 +905,11 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             false, false);
 
                         if (bid_price > 0) {
-                            ulong bid_tkt = PlaceEntryLimit(bid_price, bid_direction, resume_symbol);
+                            ulong bid_tkt = PlaceEntryLimit(bid_price, bid_direction, resume_symbol, inst);
                             if (bid_tkt > 0)   g_pending_bid[inst]   = bid_tkt;
                         }
                         if (offer_price > 0) {
-                            ulong offer_tkt = PlaceEntryLimit(offer_price, offer_direction, resume_symbol);
+                            ulong offer_tkt = PlaceEntryLimit(offer_price, offer_direction, resume_symbol, inst);
                             if (offer_tkt > 0) g_pending_offer[inst] = offer_tkt;
                         }
 

@@ -308,7 +308,7 @@ void OnTick() {
                 // ── Place bid and offer (gated by rollover window) ───────
                 if (!IsRolloverWindow(TimeCurrent())) {
                     if (bid_price > 0) {
-                        ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol);
+                        ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol, inst);
                         if (tkt > 0) {
                             g_daily_api_count++;
                             if (g_daily_api_count >= 900) {
@@ -324,7 +324,7 @@ void OnTick() {
                     }
 
                     if (offer_price > 0) {
-                        ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol);
+                        ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol, inst);
                         if (tkt > 0) {
                             g_daily_api_count++;
                             if (g_daily_api_count >= 900) {
@@ -433,7 +433,7 @@ void OnTick() {
 
                             // Place single-sided limit
                             if (!IsRolloverWindow(TimeCurrent()) && active_price > 0) {
-                                ulong tkt = PlaceEntryLimit(active_price, active_dir, inst_symbol);
+                                ulong tkt = PlaceEntryLimit(active_price, active_dir, inst_symbol, inst);
                                 if (tkt > 0) {
                                     g_daily_api_count++;
                                     if (g_daily_api_count >= 900) {
@@ -601,6 +601,30 @@ void CheckCircuitBreakers() {
               " threshold=", DoubleToString(-(balance * GlobalDrawdown), 2));
         CloseAllPositions();
         CancelAllPendingEntries();
+        // F1 fix: cancel ALL orders across all EA magic variants
+        // Exit limits (EA_MAGIC+2) and add_next (EA_MAGIC+1) are not
+        // touched by CancelAllPendingEntries — cancel them explicitly here
+        // to prevent GTC exit limits from filling against closed positions.
+        for (int _i = OrdersTotal() - 1; _i >= 0; _i--) {
+            ulong _tkt = OrderGetTicket(_i);
+            if (_tkt == 0) continue;
+            long _m = OrderGetInteger(ORDER_MAGIC);
+            if (_m != (long)EA_MAGIC &&
+                _m != (long)(EA_MAGIC + 1) &&
+                _m != (long)(EA_MAGIC + 2)) continue;
+            MqlTradeRequest _req = {};
+            MqlTradeResult  _res = {};
+            _req.action = TRADE_ACTION_REMOVE;
+            _req.order  = _tkt;
+            if (!OrderSend(_req, _res))
+                Print("WARNING: F1 failsafe — cancel failed. ticket=", _tkt,
+                      " retcode=", _res.retcode);
+        }
+        // Clear all inventory arrays and persist clean state
+        ArrayResize(g_inventory_0, 0);
+        ArrayResize(g_inventory_1, 0);
+        ArrayResize(g_inventory_2, 0);
+        SaveAllInventoryState();
         g_halted = true;
     }
 
