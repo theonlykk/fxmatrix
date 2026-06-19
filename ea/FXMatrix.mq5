@@ -19,6 +19,7 @@ void CheckCircuitBreakers();
 void CloseAllPositions();
 void CancelAllPending();
 void CancelAllPendingEntries();
+void AuditExitLimits();
 void ProcessCloseByQueue();
 double GetPendingOrderPrice(ulong ticket);
 
@@ -103,6 +104,7 @@ void OnTick() {
 
     // Process pending CloseBy tasks before any signal logic.
     // Resolves MT5 ledger desync on market hedge fills.
+    AuditExitLimits();
     ProcessCloseByQueue();
     if (g_halted) return;
 
@@ -732,6 +734,77 @@ void CancelAllPendingEntries() {
 
     Print("INFO: CancelAllPendingEntries — cancelled ", cancelled,
           " pending orders");
+}
+
+//------------------------------------------------------------------
+// AuditExitLimits
+// Continuous state reconciliation — runs every OnTick.
+// Scans all open layers across all three slots. If any layer is
+// fully filled (remaining_entry_volume <= VOLUME_EPSILON) but has
+// no physical exit ticket (ArraySize(exit_tickets) == 0), attempts
+// to place the exit limit again via PlaceExitLimit().
+//
+// This resolves the fire-and-forget blind spot in HandleEntryFill:
+// if PlaceExitLimit() fails at fill time due to broker freeze level
+// or passivity failure, the exit is orphaned. AuditExitLimits()
+// retries every tick until market conditions allow placement.
+//------------------------------------------------------------------
+void AuditExitLimits() {
+    for (int slot = 0; slot < 3; slot++) {
+        int inv_size = (slot == 0) ? ArraySize(g_inventory_0)
+                     : (slot == 1) ? ArraySize(g_inventory_1)
+                     : ArraySize(g_inventory_2);
+
+        for (int i = 0; i < inv_size; i++) {
+            Layer L = (slot == 0) ? g_inventory_0[i]
+                    : (slot == 1) ? g_inventory_1[i]
+                    : g_inventory_2[i];
+
+            // Skip if entry not fully filled yet
+            if (L.remaining_entry_volume > VOLUME_EPSILON) continue;
+
+            // Skip if exit already placed
+            if (ArraySize(L.exit_tickets) > 0) continue;
+
+            // Skip if exit volume not armed yet
+            if (L.remaining_exit_volume <= VOLUME_EPSILON) continue;
+
+            // Layer is fully filled but missing exit — attempt placement
+            string symbol    = g_symbols[slot];
+            double exit_price = ComputeExitPrice(L);
+
+            if (exit_price < 0.0) {
+                // Marketable reversion — skip, HandleEntryFill handles this
+                continue;
+            }
+
+            // Silently attempt placement — no pre-placement log to avoid
+            // flooding journal at 100x/second during freeze level conditions
+            ulong exit_tkt = PlaceExitLimit(exit_price,
+                                            L.remaining_exit_volume,
+                                            L.direction,
+                                            symbol);
+            if (exit_tkt > 0) {
+                int n = ArraySize(L.exit_tickets);
+                if (slot == 0) {
+                    ArrayResize(g_inventory_0[i].exit_tickets, n + 1);
+                    g_inventory_0[i].exit_tickets[n] = exit_tkt;
+                } else if (slot == 1) {
+                    ArrayResize(g_inventory_1[i].exit_tickets, n + 1);
+                    g_inventory_1[i].exit_tickets[n] = exit_tkt;
+                } else {
+                    ArrayResize(g_inventory_2[i].exit_tickets, n + 1);
+                    g_inventory_2[i].exit_tickets[n] = exit_tkt;
+                }
+                SaveAllInventoryState();
+                Print("INFO: AuditExitLimits — successfully recovered orphaned exit. ",
+                      "slot=", slot, " layer=", i,
+                      " ticket=", exit_tkt,
+                      " price=", DoubleToString(exit_price, 5));
+            }
+            // If placement fails again, no action — retry next tick
+        }
+    }
 }
 
 void ProcessCloseByQueue() {
