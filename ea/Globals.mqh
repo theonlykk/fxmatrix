@@ -12,7 +12,7 @@ input int    GridMode           = 2;       // 0=constant 1=linear 2=hybrid
 input double GridLinearStep     = 0.0002;  // interval increment per layer (linear/hybrid)
 input int    GridInflection     = 2;       // layer where linear switches to exponential
 input double GridExpBase        = 1.500;   // exponential multiplier (hybrid mode)
-input int    SkewMode           = 0;       // 0=constant 1=linear decrease
+input int    SkewMode           = 2;       // 0=constant 1=linear decrease 2=geometric decay (0.618^n+1)
 input double SkewStart          = 0.618;   // starting capture fraction (Fibonacci golden ratio)
 input double SkewStep           = 0.000;   // reduction per layer (0=disabled)
 input double SkewMin            = 0.050;   // floor — avoids locking in transaction cost losses
@@ -62,7 +62,7 @@ input double SniperThreshold = 0.0014; // ADR-019: Decoupled entry gate for SNIP
 
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
-input string TelemetryAPIKey      = "";
+input string TelemetryAPIKey      = "G_o9MVJgWSGVS0CuTX7_1LiR76qbtwJMMwBjb_ncT7A";
 input int    TelemetryIntervalSec = 60;
 input bool   EnableTelemetry      = true;
 
