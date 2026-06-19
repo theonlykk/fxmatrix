@@ -214,12 +214,23 @@ bool IsPassive(double price, int direction, string symbol) {
 }
 
 double ComputeExitSpreadTarget(const Layer &layer) {
-    // V2 Phase 1: uses ComputeSkew(0) as safe approximation.
-    // layer_index not yet in LayerStruct (Phase 2 addition).
-    // When SkewStep=0 (default), ComputeSkew(0) == ComputeSkew(N)
-    // for all N, so this is mathematically identical to Phase 0.
-    // Phase 2 one-line patch: replace 0 with layer.layer_index.
-    return layer.entry_spread_adjusted + GridBase * ComputeSkew(layer.layer_index);
+    // ADR-025 Phase 1: multiplicative exit spread target.
+    // exit_target = entry_spread_adjusted * skew_fraction
+    // where skew_fraction = ComputeSkew(layer_index).
+    //
+    // With production defaults (SkewMode=0, SkewStart=0.618):
+    //   exit_target = entry_spread_adjusted * 0.618
+    //
+    // entry_spread_adjusted is negative (weakest - strongest < 0).
+    // skew fraction is positive (0 < skew <= 1).
+    // exit_target is therefore negative, closer to zero than entry_spread.
+    // InvertSpreadToPrice() uses this to place the exit limit between
+    // current price and fair value.
+    //
+    // Phase 2 (geometric decay): ComputeSkew() will be updated to
+    // return 0.618^(layer_index+1) with a layer-decaying floor.
+    // No changes needed here — the multiplicative form is already correct.
+    return layer.entry_spread_adjusted * ComputeSkew(layer.layer_index);
 }
 
 double InvertSpreadToPrice(
