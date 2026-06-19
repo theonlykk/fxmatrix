@@ -186,6 +186,14 @@ void OnTick() {
             // ── Phase 3: re-arm add_next after sleep expiry ──────────────
             ulong inst_add_next = g_add_next[inst];
 
+            // W2: validate resting ticket; zero if broker silently dropped it
+            if (inst_add_next != 0 && !OrderSelect(inst_add_next)) {
+                Print("WARNING: add_next stale — broker dropped order. ",
+                      "instrument=", inst_symbol, " ticket=", inst_add_next);
+                g_add_next[inst] = 0;
+                inst_add_next    = 0;
+            }
+
             if (inst_inv_size > 0 && inst_add_next == 0) {
                 datetime last_layer = g_last_layer_time[inst];
 
@@ -787,8 +795,24 @@ void AuditExitLimits() {
             // Skip if entry not fully filled yet
             if (L.remaining_entry_volume > VOLUME_EPSILON) continue;
 
-            // Skip if exit already placed
-            if (ArraySize(L.exit_tickets) > 0) continue;
+            // Skip if exit already placed and at least one ticket is still live
+            if (ArraySize(L.exit_tickets) > 0) {
+                bool any_live = false;
+                for (int t = 0; t < ArraySize(L.exit_tickets); t++) {
+                    if (OrderSelect(L.exit_tickets[t])) { any_live = true; break; }
+                }
+                if (any_live) continue;
+                // All tickets stale — clear inventory array directly (L is a value copy)
+                if (slot == 0)      ArrayResize(g_inventory_0[i].exit_tickets, 0);
+                else if (slot == 1) ArrayResize(g_inventory_1[i].exit_tickets, 0);
+                else                ArrayResize(g_inventory_2[i].exit_tickets, 0);
+                // Re-read L so downstream ArraySize(L.exit_tickets) == 0
+                L = (slot == 0) ? g_inventory_0[i]
+                  : (slot == 1) ? g_inventory_1[i]
+                  : g_inventory_2[i];
+                Print("WARNING: AuditExitLimits — stale exit ticket(s) cleared. ",
+                      "slot=", slot, " layer=", i, " — re-placing.");
+            }
 
             // Skip if exit volume not armed yet
             if (L.remaining_exit_volume <= VOLUME_EPSILON) continue;

@@ -862,31 +862,31 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         // no LDAK gate -- mirrors if (new_bar) flat-instrument logic exactly)
                         string resume_symbol = g_symbols[inst];
 
-                        // V3 generic: derive strongest/weakest from slot and g_scores[]
-                        int inst_strongest = 0, inst_weakest = 0;
-                        if (inst == SLOT_AB) {
-                            inst_strongest = (g_scores[0] > g_scores[1]) ? 0 : 1;
-                            inst_weakest   = (g_scores[0] < g_scores[1]) ? 0 : 1;
-                        } else if (inst == SLOT_AC) {
-                            inst_strongest = (g_scores[0] > g_scores[2]) ? 0 : 2;
-                            inst_weakest   = (g_scores[0] < g_scores[2]) ? 0 : 2;
-                        } else { // SLOT_BC
-                            inst_strongest = (g_scores[1] > g_scores[2]) ? 1 : 2;
-                            inst_weakest   = (g_scores[1] < g_scores[2]) ? 1 : 2;
-                        }
-
-                        double inst_spread = g_scores[inst_weakest] - g_scores[inst_strongest];
-
-                        // Determine correct bid/offer directions
+                        // W3: structural slot routing — matches flat-quoting loop exactly.
+                        // Score-dependent derivation collapses to equal indices when scores
+                        // are equal, inverting directions and firing marketable orders.
+                        int bid_strongest, bid_weakest, offer_strongest, offer_weakest;
                         int bid_direction, offer_direction;
-                        if ((inst_strongest == 0 && inst_weakest == 1) ||
-                            (inst_strongest == 0 && inst_weakest == 2) ||
-                            (inst_strongest == 1 && inst_weakest == 2)) {
-                            offer_direction = DIRECTION_SELL;
+                        double inst_spread;
+
+                        if (inst == SLOT_AC) {
+                            bid_strongest   = 2; bid_weakest   = 0;
+                            offer_strongest = 0; offer_weakest = 2;
                             bid_direction   = DIRECTION_BUY;
-                        } else {
-                            offer_direction = DIRECTION_BUY;
-                            bid_direction   = DIRECTION_SELL;
+                            offer_direction = DIRECTION_SELL;
+                            inst_spread     = g_scores[0] - g_scores[2];
+                        } else if (inst == SLOT_BC) {
+                            bid_strongest   = 2; bid_weakest   = 1;
+                            offer_strongest = 1; offer_weakest = 2;
+                            bid_direction   = DIRECTION_BUY;
+                            offer_direction = DIRECTION_SELL;
+                            inst_spread     = g_scores[1] - g_scores[2];
+                        } else { // SLOT_AB
+                            bid_strongest   = 1; bid_weakest   = 0;
+                            offer_strongest = 0; offer_weakest = 1;
+                            bid_direction   = DIRECTION_BUY;
+                            offer_direction = DIRECTION_SELL;
+                            inst_spread     = g_scores[0] - g_scores[1];
                         }
 
                         double bid_spread   = inst_spread + QuoteSpread;
@@ -895,13 +895,13 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         double bid_price = InvertSpreadToPrice(
                             g_anchor[0], g_anchor[1],
                             g_r_signal[0], g_r_signal[1],
-                            bid_spread, inst_strongest, inst_weakest,
+                            bid_spread, bid_strongest, bid_weakest,
                             false, false);
 
                         double offer_price = InvertSpreadToPrice(
                             g_anchor[0], g_anchor[1],
                             g_r_signal[0], g_r_signal[1],
-                            offer_spread, inst_strongest, inst_weakest,
+                            offer_spread, offer_strongest, offer_weakest,
                             false, false);
 
                         if (bid_price > 0) {
