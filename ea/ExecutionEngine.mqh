@@ -524,9 +524,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
                                                          DEAL_POSITION_ID);
 
-        double S    = ComputeGridInterval(layer_idx);
-        double skew = ComputeSkew(layer_idx);
-        L.exit_spread_target = L.entry_spread_adjusted + S * skew;
+        L.exit_spread_target = ComputeExitSpreadTarget(L);
         double exit_price    = ComputeExitPrice(L);
         L.exit_target        = exit_price;
 

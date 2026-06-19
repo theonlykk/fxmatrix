@@ -418,11 +418,14 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
 // SkewMode 1: linear decrease floored at SkewMin
 //------------------------------------------------------------------
 double ComputeSkew(int layer_idx) {
+    // ADR-025 Phase 1.5: clamp skew to (0, 1.0] to guarantee
+    // exit_target = entry_spread * skew is always closer to zero
+    // than entry_spread. skew > 1 would invert the exit geometry.
     if (SkewMode == 0) {
-        return SkewStart;
+        return MathMin(SkewStart, 1.0);
     }
     else {
-        return MathMax(SkewStart - layer_idx * SkewStep, SkewMin);
+        return MathMax(MathMin(SkewStart - layer_idx * SkewStep, 1.0), SkewMin);
     }
 }
 
