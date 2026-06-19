@@ -149,8 +149,8 @@ void OnTick() {
                 // PairAC: A vs C
                 // BUY:  A strongest (0), C weakest (2) — buy A
                 // SELL: C strongest (2), A weakest (0) — sell A
-                bid_strongest   = 0; bid_weakest   = 2;
-                offer_strongest = 2; offer_weakest = 0;
+                bid_strongest   = 2; bid_weakest   = 0;
+                offer_strongest = 0; offer_weakest = 2;
                 bid_direction   = DIRECTION_BUY;
                 offer_direction = DIRECTION_SELL;
                 inst_spread     = g_scores[0] - g_scores[2]; // A score - C score
@@ -158,8 +158,8 @@ void OnTick() {
                 // PairBC: B vs C
                 // BUY:  B strongest (1), C weakest (2) — buy B
                 // SELL: C strongest (2), B weakest (1) — sell B
-                bid_strongest   = 1; bid_weakest   = 2;
-                offer_strongest = 2; offer_weakest = 1;
+                bid_strongest   = 2; bid_weakest   = 1;
+                offer_strongest = 1; offer_weakest = 2;
                 bid_direction   = DIRECTION_BUY;
                 offer_direction = DIRECTION_SELL;
                 inst_spread     = g_scores[1] - g_scores[2]; // B score - C score
@@ -167,8 +167,8 @@ void OnTick() {
                 // SLOT_AB: PairAB: A vs B
                 // BUY:  A strongest (0), B weakest (1) — buy A
                 // SELL: B strongest (1), A weakest (0) — sell A
-                bid_strongest   = 0; bid_weakest   = 1;
-                offer_strongest = 1; offer_weakest = 0;
+                bid_strongest   = 1; bid_weakest   = 0;
+                offer_strongest = 0; offer_weakest = 1;
                 bid_direction   = DIRECTION_BUY;
                 offer_direction = DIRECTION_SELL;
                 inst_spread     = g_scores[0] - g_scores[1]; // A score - B score
