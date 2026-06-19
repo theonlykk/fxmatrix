@@ -132,33 +132,46 @@ void OnTick() {
 
             string inst_symbol = g_symbols[inst];
 
-            // Derive strongest/weakest for this instrument
-            int inst_strongest = 0, inst_weakest = 0;
-            if (inst == SLOT_AC) {
-                inst_strongest = (g_scores[0] > g_scores[2]) ? 0 : 2;
-                inst_weakest   = (g_scores[0] < g_scores[2]) ? 0 : 2;
-            } else if (inst == SLOT_BC) {
-                inst_strongest = (g_scores[1] > g_scores[2]) ? 1 : 2;
-                inst_weakest   = (g_scores[1] < g_scores[2]) ? 1 : 2;
-            } else { // SLOT_AB
-                inst_strongest = (g_scores[0] > g_scores[1]) ? 0 : 1;
-                inst_weakest   = (g_scores[0] < g_scores[1]) ? 0 : 1;
-            }
+            // ADR: Structural slot routing fix.
+            // Replace score-dependent strongest/weakest derivation with
+            // direction-based structural mapping. Score comparisons collapse
+            // to inst_strongest == inst_weakest when scores are equal,
+            // inverting bid/offer directions and causing machine-gun fills.
+            //
+            // inst_spread magnitude still derived from signal scores (correct).
+            // Only the INDEX pair passed to InvertSpreadToPrice is structural.
 
-            double inst_spread = g_scores[inst_weakest] - g_scores[inst_strongest];
-
-            // Bid direction: buy the weak currency
-            // Offer direction: sell the strong currency
+            double inst_spread = 0.0;
+            int bid_strongest, bid_weakest, offer_strongest, offer_weakest;
             int bid_direction, offer_direction;
-            if ((inst_strongest == 0 && inst_weakest == 1) ||
-                (inst_strongest == 0 && inst_weakest == 2) ||
-                (inst_strongest == 1 && inst_weakest == 2)) {
-                // strongest is EUR or GBP vs weaker → SELL is offer, BUY is bid
-                offer_direction = DIRECTION_SELL;
+
+            if (inst == SLOT_AC) {
+                // PairAC: A vs C
+                // BUY:  A strongest (0), C weakest (2) — buy A
+                // SELL: C strongest (2), A weakest (0) — sell A
+                bid_strongest   = 0; bid_weakest   = 2;
+                offer_strongest = 2; offer_weakest = 0;
                 bid_direction   = DIRECTION_BUY;
+                offer_direction = DIRECTION_SELL;
+                inst_spread     = g_scores[0] - g_scores[2]; // A score - C score
+            } else if (inst == SLOT_BC) {
+                // PairBC: B vs C
+                // BUY:  B strongest (1), C weakest (2) — buy B
+                // SELL: C strongest (2), B weakest (1) — sell B
+                bid_strongest   = 1; bid_weakest   = 2;
+                offer_strongest = 2; offer_weakest = 1;
+                bid_direction   = DIRECTION_BUY;
+                offer_direction = DIRECTION_SELL;
+                inst_spread     = g_scores[1] - g_scores[2]; // B score - C score
             } else {
-                offer_direction = DIRECTION_BUY;
-                bid_direction   = DIRECTION_SELL;
+                // SLOT_AB: PairAB: A vs B
+                // BUY:  A strongest (0), B weakest (1) — buy A
+                // SELL: B strongest (1), A weakest (0) — sell A
+                bid_strongest   = 0; bid_weakest   = 1;
+                offer_strongest = 1; offer_weakest = 0;
+                bid_direction   = DIRECTION_BUY;
+                offer_direction = DIRECTION_SELL;
+                inst_spread     = g_scores[0] - g_scores[1]; // A score - B score
             }
 
             int inst_inv_size = (inst == 0) ? ArraySize(g_inventory_0)
@@ -216,13 +229,13 @@ void OnTick() {
             double bid_price = InvertSpreadToPrice(
                 g_anchor[0], g_anchor[1],
                 g_r_signal[0], g_r_signal[1],
-                bid_spread, inst_strongest, inst_weakest,
+                bid_spread, bid_strongest, bid_weakest,
                 false, false);
 
             double offer_price = InvertSpreadToPrice(
                 g_anchor[0], g_anchor[1],
                 g_r_signal[0], g_r_signal[1],
-                offer_spread, inst_strongest, inst_weakest,
+                offer_spread, offer_strongest, offer_weakest,
                 false, false);
 
             // ── ADR-019: Mode fork ───────────────────────────────────────
