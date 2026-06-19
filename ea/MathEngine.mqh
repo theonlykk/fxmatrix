@@ -214,23 +214,43 @@ bool IsPassive(double price, int direction, string symbol) {
 }
 
 double ComputeExitSpreadTarget(const Layer &layer) {
-    // ADR-025 Phase 1: multiplicative exit spread target.
-    // exit_target = entry_spread_adjusted * skew_fraction
-    // where skew_fraction = ComputeSkew(layer_index).
+    // ADR-025 Phase 2: multiplicative exit spread target with
+    // optional layer-decaying floor for SkewMode=2.
     //
-    // With production defaults (SkewMode=0, SkewStart=0.618):
-    //   exit_target = entry_spread_adjusted * 0.618
-    //
-    // entry_spread_adjusted is negative (weakest - strongest < 0).
-    // skew fraction is positive (0 < skew <= 1).
-    // exit_target is therefore negative, closer to zero than entry_spread.
-    // InvertSpreadToPrice() uses this to place the exit limit between
-    // current price and fair value.
-    //
-    // Phase 2 (geometric decay): ComputeSkew() will be updated to
-    // return 0.618^(layer_index+1) with a layer-decaying floor.
-    // No changes needed here — the multiplicative form is already correct.
-    return layer.entry_spread_adjusted * ComputeSkew(layer.layer_index);
+    // entry_spread_adjusted is always negative (weakest - strongest < 0).
+    // Invariant enforced: entry_spread_adjusted < exit_target < 0
+    //   i.e., exit is always closer to zero (fair value) than entry.
+
+    double raw_skew = ComputeSkew(layer.layer_index);
+
+    if (SkewMode != 2) {
+        // SkewMode 0/1: simple multiplicative — floor handled by SkewMin clamp
+        return layer.entry_spread_adjusted * raw_skew;
+    }
+
+    // SkewMode=2: apply layer-decaying floor and 0.99 ceiling
+    // Floor_n = max(SkewFloor0 * phi^layer_idx, MinLayerExitPoints * _Point)
+    // phi^layer_idx decays the floor in lockstep with the skew geometry
+    double phi     = 0.6180339887;
+    string symbol  = g_symbols[layer.instrument];
+    double pt      = SymbolInfoDouble(symbol, SYMBOL_POINT);
+    double floor_n = MathMax(
+        SkewFloor0 * MathPow(phi, layer.layer_index),
+        MinLayerExitPoints * pt
+    );
+
+    // Convert floor to a skew fraction relative to entry spread magnitude
+    double abs_entry   = MathAbs(layer.entry_spread_adjusted);
+    double floor_skew  = (abs_entry > 1e-10) ? floor_n / abs_entry : raw_skew;
+
+    // Effective skew: max of raw decay and floor fraction
+    // Cap at 0.99 to guarantee exit strictly closer to zero than entry
+    // (prevents exit being placed beyond entry when floor > abs_entry)
+    double effective_skew = MathMin(MathMax(raw_skew, floor_skew), 0.99);
+
+    // entry_spread_adjusted is negative; result is negative and
+    // closer to zero than entry_spread_adjusted (invariant satisfied)
+    return layer.entry_spread_adjusted * effective_skew;
 }
 
 double InvertSpreadToPrice(
@@ -418,14 +438,20 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
 // SkewMode 1: linear decrease floored at SkewMin
 //------------------------------------------------------------------
 double ComputeSkew(int layer_idx) {
-    // ADR-025 Phase 1.5: clamp skew to (0, 1.0] to guarantee
-    // exit_target = entry_spread * skew is always closer to zero
-    // than entry_spread. skew > 1 would invert the exit geometry.
     if (SkewMode == 0) {
+        // Constant fraction — MM production default
         return MathMin(SkewStart, 1.0);
     }
-    else {
+    else if (SkewMode == 1) {
+        // Linear decrease per layer, floored at SkewMin
         return MathMax(MathMin(SkewStart - layer_idx * SkewStep, 1.0), SkewMin);
+    }
+    else {
+        // ADR-025 Phase 2: geometric decay — raw fraction only
+        // Floor and 0.99 ceiling applied in ComputeExitSpreadTarget()
+        // phi = golden ratio conjugate = 0.618...
+        double phi = 0.6180339887;
+        return MathPow(phi, layer_idx + 1);
     }
 }
 
