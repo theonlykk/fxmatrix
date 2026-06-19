@@ -757,43 +757,21 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
 
                 // Found matching exit ticket
                 if (hedge_position_ticket > 0 && CurL.position_ticket > 0) {
-                    string exit_symbol = g_symbols[inst];
-
-                    if (!PositionSelectByTicket(hedge_position_ticket)) {
+                    // ADR: Route ALL CloseBy tasks directly to queue.
+                    // Never attempt CloseBy inline inside OnTradeTransaction —
+                    // the broker may not have settled the hedge position on its
+                    // server ledger yet, producing retcode=10013 (Invalid Request).
+                    // ProcessCloseByQueue() on the next OnTick provides the
+                    // natural async buffer for position settlement.
+                    {
                         int q_idx = ArraySize(g_closeby_queue);
                         ArrayResize(g_closeby_queue, q_idx + 1);
                         g_closeby_queue[q_idx].ticket1 = CurL.position_ticket;
                         g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
                         g_closeby_queue[q_idx].retries = 0;
-                        Print("INFO: Ledger desync detected. CloseBy queued. ",
+                        Print("INFO: CloseBy queued for next tick. ",
                               "position=", CurL.position_ticket,
                               " position_by=", hedge_position_ticket);
-                    } else {
-                        MqlTradeRequest close_req = {};
-                        MqlTradeResult  close_res = {};
-                        close_req.action      = TRADE_ACTION_CLOSE_BY;
-                        close_req.position    = CurL.position_ticket;
-                        close_req.position_by = hedge_position_ticket;
-                        close_req.symbol      = exit_symbol;
-                        close_req.magic       = EA_MAGIC;
-
-                        if (!OrderSend(close_req, close_res)) {
-                            if (close_res.retcode == 10013) {
-                                int q_idx = ArraySize(g_closeby_queue);
-                                ArrayResize(g_closeby_queue, q_idx + 1);
-                                g_closeby_queue[q_idx].ticket1 = CurL.position_ticket;
-                                g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
-                                g_closeby_queue[q_idx].retries = 0;
-                                Print("INFO: CloseBy retcode=10013. Queued. ",
-                                      "position=", CurL.position_ticket,
-                                      " position_by=", hedge_position_ticket);
-                            } else {
-                                Print("ERROR: CloseBy failed. position=",
-                                      CurL.position_ticket,
-                                      " position_by=", hedge_position_ticket,
-                                      " retcode=", close_res.retcode);
-                            }
-                        }
                     }
                 }
 

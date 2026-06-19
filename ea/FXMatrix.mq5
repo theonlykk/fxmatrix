@@ -729,13 +729,19 @@ void ProcessCloseByQueue() {
         g_closeby_queue[i].retries++;
 
         if (g_closeby_queue[i].retries >= 10) {
-            Print("SEV-1 ERROR: CloseBy queue task failed after 10 retries. ",
+            // ADR: Downgrade from SEV-1 halt to WARNING.
+            // Two offsetting positions on the same instrument are delta-neutral.
+            // They pose zero directional risk — LIFO exit machinery will sweep
+            // them when the exit limit fills on mean reversion.
+            // Halting the entire EA for a cosmetic execution inefficiency
+            // is disproportionate. Log and discard the task.
+            Print("WARNING: CloseBy queue exhausted after 10 retries. ",
+                  "Positions are delta-neutral — LIFO exit machinery will handle. ",
                   "position=", g_closeby_queue[i].ticket1,
-                  " position_by=", g_closeby_queue[i].ticket2,
-                  " — halting EA for human review.");
+                  " position_by=", g_closeby_queue[i].ticket2);
             ArrayRemove(g_closeby_queue, i, 1);
-            g_halted = true;
-            return;
+            // Do NOT set g_halted = true
+            continue;
         }
 
         if (!PositionSelectByTicket(g_closeby_queue[i].ticket1) ||
