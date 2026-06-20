@@ -184,7 +184,8 @@ bool LoadInventoryState(int instrument) {
         StringTrimLeft(line);
         StringTrimRight(line);
 
-        if (line == "" || line == "{" || line == "}") continue;
+        if (line == "") continue;
+        if (!in_inventory && (line == "{" || line == "}")) continue;
 
         if (StringFind(line, "\"inventory\"") >= 0) {
             in_inventory = true;

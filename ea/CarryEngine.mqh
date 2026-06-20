@@ -72,6 +72,17 @@ void RunCarryRecalculation() {
             double new_spread = scores_fwd[L.weakest_at_entry]
                               - scores_fwd[L.strongest_at_entry];
 
+            // O2 guard: entry_spread_adjusted must remain negative.
+            // If carry fully offsets the dislocation (new_spread >= 0),
+            // the geometric routing assumptions break — exit limit would
+            // move to the wrong side of the market. Skip carry update and
+            // hold the current adjusted spread (locks exit deep in profit).
+            if (new_spread >= 0.0) {
+                Print("WARNING: Carry flipped entry_spread_adjusted sign. ",
+                      "Skipping carry update. layer=", i,
+                      " new_spread=", DoubleToString(new_spread, 6));
+                continue;
+            }
             L.entry_spread_adjusted = new_spread;
             L.exit_spread_target = ComputeExitSpreadTarget(L);
 
