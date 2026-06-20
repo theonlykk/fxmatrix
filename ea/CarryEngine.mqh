@@ -106,6 +106,24 @@ void RunCarryRecalculation() {
                 continue;
             }
 
+            // F5 fix: check stops level before OrderModify.
+            // During rollover, spreads blow out and stops distances expand.
+            // A stops-level reject triggers a bare halt — catastrophic per F1.
+            // Skip gracefully instead of halting.
+            double stops_pts = SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL)
+                               * SymbolInfoDouble(symbol, SYMBOL_POINT);
+            double ask        = SymbolInfoDouble(symbol, SYMBOL_ASK);
+            double bid        = SymbolInfoDouble(symbol, SYMBOL_BID);
+            double ref_price  = (exit_dir == DIRECTION_BUY) ? ask : bid;
+            if (MathAbs(new_exit_price - ref_price) < stops_pts) {
+                if (EnableVerboseLog)
+                    Print("INFO: Carry OrderModify skipped — stops level. ",
+                          "symbol=", symbol,
+                          " new_exit=", DoubleToString(new_exit_price, 5),
+                          " stops_pts=", DoubleToString(stops_pts, 5));
+                continue;
+            }
+
             int n_tickets = ArraySize(L.exit_tickets);
             for (int j = 0; j < n_tickets; j++) {
                 ulong tkt = L.exit_tickets[j];
@@ -136,12 +154,11 @@ void RunCarryRecalculation() {
                 }
 
                 if (!ok && res.retcode != TRADE_RETCODE_NO_CHANGES) {
-                    Print("ERROR: Carry OrderModify failed. ",
-                          "ticket=", tkt, " instrument=", inst,
-                          " layer=", i, " retcode=", res.retcode,
-                          " Halting pod.");
-                    g_halted = true;
-                    return;
+                    Print("WARNING: Carry OrderModify failed. ",
+                          "symbol=", symbol,
+                          " retcode=", res.retcode,
+                          " — skipping carry update, old exit retained.");
+                    continue;
                 }
             }
 

@@ -97,8 +97,9 @@ bool IsRolloverWindow(datetime current_time) {
 }
 
 void OnTick() {
-    if (g_halted) return;
-
+    // F1 fix: CheckCircuitBreakers runs unconditionally — even when halted.
+    // The FTMO equity failsafe must never be disabled by an internal halt.
+    // Circuit breakers close positions and cancel orders before re-halting.
     CheckCircuitBreakers();
     if (g_halted) return;
 

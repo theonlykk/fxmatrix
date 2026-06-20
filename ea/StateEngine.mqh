@@ -348,7 +348,16 @@ void CheckForOrphans() {
         if (pos_sym != g_symbols[SLOT_AC] &&
             pos_sym != g_symbols[SLOT_BC] &&
             pos_sym != g_symbols[SLOT_AB]) continue;
-        if (PositionGetInteger(POSITION_MAGIC) != (long)EA_MAGIC) continue;
+        // F4 fix: check all EA magic variants.
+        // EA_MAGIC   = flat-quote entry positions
+        // EA_MAGIC+1 = deep add-next layer positions
+        // EA_MAGIC+2 = hedge/exit positions
+        // All three must be inspected — blind spots in +1/+2 leave
+        // unmanaged deep-grid and hedge positions after blackout/reboot.
+        long pos_magic = PositionGetInteger(POSITION_MAGIC);
+        if (pos_magic != (long)EA_MAGIC &&
+            pos_magic != (long)(EA_MAGIC + 1) &&
+            pos_magic != (long)(EA_MAGIC + 2)) continue;
 
         bool found = false;
         for (int k = 0; k < 3 && !found; k++) {
