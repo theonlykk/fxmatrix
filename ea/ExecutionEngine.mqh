@@ -428,6 +428,21 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         }
 
         Layer L = InitLayer();
+
+        // F2 fix: initialize lot_size from the original order volume,
+        // not from deal_volume of the first (possibly partial) fill.
+        // Partial fills accumulate via the decrement at lines 624-626.
+        // NOTE: On partial fills, the order is still LIVE. Check both books.
+        double order_vol_initial = deal_volume; // safe fallback
+
+        if (OrderSelect(order_ticket)) {
+            double vol = OrderGetDouble(ORDER_VOLUME_INITIAL);
+            if (vol > VOLUME_EPSILON) order_vol_initial = vol;
+        } else if (HistoryOrderSelect(order_ticket)) {
+            double vol = HistoryOrderGetDouble(order_ticket, ORDER_VOLUME_INITIAL);
+            if (vol > VOLUME_EPSILON) order_vol_initial = vol;
+        }
+
         L.entry_price = deal_price;
         L.entry_time  = deal_time;
 
@@ -527,10 +542,9 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.entry_price_AC = (ac_ask + ac_bid) / 2.0;
         L.entry_price_BC = (bc_ask + bc_bid) / 2.0;
 
-        // W4 fix: inherit physical deal volume from broker fill
-        // LDAK sizing now applied upstream in PlaceEntryLimit/PlaceNextEntryLimit
-        L.lot_size               = deal_volume;
-        L.remaining_entry_volume = deal_volume;
+        // F2 fix: use order_vol_initial so partial fills accumulate correctly
+        L.lot_size               = order_vol_initial;
+        L.remaining_entry_volume = order_vol_initial;
         L.remaining_exit_volume  = 0.0;
         L.entry_ticket    = order_ticket;
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,

@@ -187,12 +187,26 @@ void OnTick() {
             // ── Phase 3: re-arm add_next after sleep expiry ──────────────
             ulong inst_add_next = g_add_next[inst];
 
-            // W2: validate resting ticket; zero if broker silently dropped it
+            // F3 fix: distinguish filled from dropped for add_next tickets.
+            // OrderSelect returns false for BOTH filled and cancelled orders.
+            // Under chaotic execution, OnTick can see a filled ticket before
+            // OnTradeTransaction processes it — re-arming here would duplicate.
             if (inst_add_next != 0 && !OrderSelect(inst_add_next)) {
-                Print("WARNING: add_next stale — broker dropped order. ",
-                      "instrument=", inst_symbol, " ticket=", inst_add_next);
-                g_add_next[inst] = 0;
-                inst_add_next    = 0;
+                bool is_filled = false;
+                if (HistoryOrderSelect(inst_add_next)) {
+                    long state = HistoryOrderGetInteger(inst_add_next, ORDER_STATE);
+                    is_filled  = (state == ORDER_STATE_FILLED ||
+                                  state == ORDER_STATE_PARTIAL);
+                }
+                if (!is_filled) {
+                    // Genuinely dropped (cancelled/rejected/expired) — re-arm
+                    Print("WARNING: add_next stale — broker dropped order. ",
+                          "instrument=", inst_symbol,
+                          " ticket=", inst_add_next);
+                    g_add_next[inst] = 0;
+                    inst_add_next    = 0;
+                }
+                // If filled: leave ticket in place, let OnTradeTransaction handle it
             }
 
             if (inst_inv_size > 0 && inst_add_next == 0) {
@@ -798,11 +812,31 @@ void AuditExitLimits() {
 
             // Skip if exit already placed and at least one ticket is still live
             if (ArraySize(L.exit_tickets) > 0) {
-                bool any_live = false;
+                // F3 fix: distinguish filled from dropped for exit tickets.
+                // A filled ticket that hasn't been processed by OnTradeTransaction
+                // yet will fail OrderSelect — must not re-place on top of it.
+                bool any_live_or_filled = false;
                 for (int t = 0; t < ArraySize(L.exit_tickets); t++) {
-                    if (OrderSelect(L.exit_tickets[t])) { any_live = true; break; }
+                    ulong tkt = L.exit_tickets[t];
+                    if (OrderSelect(tkt)) {
+                        // Still resting on book
+                        any_live_or_filled = true;
+                        break;
+                    }
+                    // Not in live book — check history
+                    if (HistoryOrderSelect(tkt)) {
+                        long state = HistoryOrderGetInteger(tkt, ORDER_STATE);
+                        if (state == ORDER_STATE_FILLED ||
+                            state == ORDER_STATE_PARTIAL) {
+                            // Filled but not yet processed — leave it
+                            any_live_or_filled = true;
+                            break;
+                        }
+                        // Cancelled/rejected/expired — genuinely dropped, fall through
+                    }
+                    // Not in live book or history — also genuinely dropped
                 }
-                if (any_live) continue;
+                if (any_live_or_filled) continue;
                 // All tickets stale — clear inventory array directly (L is a value copy)
                 if (slot == 0)      ArrayResize(g_inventory_0[i].exit_tickets, 0);
                 else if (slot == 1) ArrayResize(g_inventory_1[i].exit_tickets, 0);
