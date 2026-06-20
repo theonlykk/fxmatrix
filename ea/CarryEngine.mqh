@@ -29,31 +29,81 @@ void RunCarryRecalculation() {
                     : (inst == 1) ? g_inventory_1[i]
                     : g_inventory_2[i];
 
-            double t = (double)(TimeCurrent() - L.entry_time)
-                       / 86400.0 / 365.0;
+            // F6: count actual 00:00 server time rollovers, not 24h fractions.
+            // MT5 charges swap strictly at midnight server time (17:00 ET).
+            // A 10-min hold crossing midnight costs 1 full day of swap.
+            datetime now        = TimeCurrent();
+            int      days_held  = 0;
 
-            if (t < 1.0 / 365.0) {
-                Print("INFO: Carry skip — same-day trade. Instrument ", inst,
-                      " layer ", i);
+            // Align to 00:00 of entry day
+            MqlDateTime entry_dt;
+            TimeToStruct(L.entry_time, entry_dt);
+            entry_dt.hour = 0; entry_dt.min = 0; entry_dt.sec = 0;
+            datetime cursor_midnight = StructToTime(entry_dt);
+
+            // First rollover occurs at midnight following entry
+            datetime rollover_time = cursor_midnight + 86400;
+
+            while (rollover_time <= now) {
+                MqlDateTime r_dt;
+                TimeToStruct(rollover_time, r_dt);
+                // Skip Saturday (6) and Sunday (0) server midnights — no swap
+                // Triple swap triggered at Thursday 00:00 (Wednesday 17:00 ET)
+                if (r_dt.day_of_week != 0 && r_dt.day_of_week != 6) {
+                    days_held += (r_dt.day_of_week == 4) ? 3 : 1;
+                }
+                rollover_time += 86400;
+            }
+
+            if (days_held == 0) {
+                if (EnableVerboseLog)
+                    Print("INFO: Carry skip — no 00:00 rollover crossed yet. ",
+                          "slot=", inst, " layer=", i);
                 continue;
             }
 
-            // V3 generic carry forward — PairAC and PairBC only (slot 0 and 1)
-            // RateA = rate for CurrencyA, RateB = rate for CurrencyB,
-            // RateC = rate for CurrencyC (base denominator in both pairs)
-            double PairAC_fwd = L.entry_price_AC
-                                * (1.0 + RateA * t)
-                                / (1.0 + RateC * t);
-            double PairBC_fwd = L.entry_price_BC
-                                * (1.0 + RateB * t)
-                                / (1.0 + RateC * t);
+            // F6: live swap accumulation — replaces static CIP formula.
+            // Broker swap already encapsulates interbank rate + markup.
+            // Negative swap = position bleeds per day = exit must move
+            // further in our favour to break even.
+            string sym_AC = g_symbols[SLOT_AC];
+            string sym_BC = g_symbols[SLOT_BC];
 
             double ref_AC = L.entry_price_AC_1h;
             double ref_BC = L.entry_price_BC_1h;
 
-            if (ref_AC <= 0 || ref_BC <= 0) {
-                Print("ERROR: Carry recalc — zero reference price. Instrument ",
-                      inst, " layer ", i, " Skipping.");
+            if (ref_AC <= 0.0 || ref_BC <= 0.0) {
+                Print("ERROR: Carry recalc — zero reference price. slot=", inst,
+                      " layer=", i, " Skipping.");
+                continue;
+            }
+
+            double pt_AC = SymbolInfoDouble(sym_AC, SYMBOL_POINT);
+            double pt_BC = SymbolInfoDouble(sym_BC, SYMBOL_POINT);
+            if (pt_AC <= 0.0 || pt_BC <= 0.0) continue;
+
+            // Poll live swap in points, convert to price delta
+            // Direction: if layer is BUY on PairAC, pay SWAP_LONG for PairAC
+            // Negative swap means position bleeds — price must rise more to cover
+            double swap_AC_pts = (L.direction == DIRECTION_BUY)
+                ? SymbolInfoDouble(sym_AC, SYMBOL_SWAP_LONG)
+                : SymbolInfoDouble(sym_AC, SYMBOL_SWAP_SHORT);
+            double swap_BC_pts = (L.direction == DIRECTION_BUY)
+                ? SymbolInfoDouble(sym_BC, SYMBOL_SWAP_LONG)
+                : SymbolInfoDouble(sym_BC, SYMBOL_SWAP_SHORT);
+
+            // Accumulate swap over days_held rollovers
+            double swap_AC_price = swap_AC_pts * pt_AC * days_held;
+            double swap_BC_price = swap_BC_pts * pt_BC * days_held;
+
+            // Forward price = entry price adjusted by accumulated swap
+            // Negative swap reduces forward (need more move to break even)
+            double PairAC_fwd = L.entry_price_AC + swap_AC_price;
+            double PairBC_fwd = L.entry_price_BC + swap_BC_price;
+
+            if (PairAC_fwd <= 0.0 || PairBC_fwd <= 0.0) {
+                Print("ERROR: Carry recalc — invalid forward price. slot=", inst,
+                      " layer=", i, " Skipping.");
                 continue;
             }
 

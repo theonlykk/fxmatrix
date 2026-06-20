@@ -42,9 +42,6 @@ input double MaxPodDrawdown     = 0.03;    // 2% per pod
 input double GlobalDrawdown     = 0.03;   // 4.5% global — front-runs FTMO 5% daily limit
 
 //--- Carry adjustment (ADR-003)
-input double RateA              = 0.0390;  // Interest rate for CurrencyA (e.g. ESTR for EUR)
-input double RateB              = 0.0520;  // Interest rate for CurrencyB (e.g. SONIA for GBP)
-input double RateC              = 0.0533;  // Interest rate for CurrencyC (e.g. SOFR for USD)
 input string CarryRecalcTime    = "17:00"; // broker server time
 
 //--- ADR-024: V3 Generic Triad Configuration
