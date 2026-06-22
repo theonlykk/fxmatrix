@@ -289,7 +289,7 @@ double InvertSpreadToPrice(
         symbol    = g_symbols[SLOT_AB];
         direction = DIRECTION_SELL;
         double AB_history = anchor_A / anchor_B;
-        price = AB_history * MathExp(-T);
+        price = AB_history * MathExp(T);
     }
     else if (strongest == 1 && weakest == 0) {
         // B strongest, A weakest → buy PairAB (buy A, sell B)
@@ -302,7 +302,7 @@ double InvertSpreadToPrice(
         // A strongest, C weakest → sell PairAC (sell A, buy C)
         symbol    = g_symbols[SLOT_AC];
         direction = DIRECTION_SELL;
-        price = anchor_A * MathExp(-T);
+        price = anchor_A * MathExp(T);
     }
     else if (strongest == 2 && weakest == 0) {
         // C strongest, A weakest → buy PairAC (buy A, sell C)
@@ -314,7 +314,7 @@ double InvertSpreadToPrice(
         // B strongest, C weakest → sell PairBC (sell B, buy C)
         symbol    = g_symbols[SLOT_BC];
         direction = DIRECTION_SELL;
-        price = anchor_B * MathExp(-T);
+        price = anchor_B * MathExp(T);
     }
     else if (strongest == 2 && weakest == 1) {
         // C strongest, B weakest → buy PairBC (buy B, sell C)
