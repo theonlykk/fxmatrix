@@ -336,9 +336,15 @@ double ComputeNextLayerPrice(int    next_layer_idx,
                         : (instrument == 1) ? g_inventory_1[next_layer_idx - 1].entry_spread_raw
                         : g_inventory_2[next_layer_idx - 1].entry_spread_raw;
 
-    // add_next = entry_spread - S - S*(1-skew)
-    // Guarantees |add_next - entry| > |exit - entry| for all skew < 1.
-    double add_next_spread = entry_spread - S - S * (1.0 - skew);
+    // add_next spread is direction-aware: BUY subtracts S (price falls),
+    // SELL adds S (price rises). Guarantees |add_next - entry| > |exit - entry|.
+    // Direction-aware grid step: SELL scales in on rising price (spread widens),
+    // BUY scales in on falling price (spread narrows).
+    double add_next_spread;
+    if (direction == DIRECTION_BUY)
+        add_next_spread = entry_spread - S - S * (1.0 - skew);
+    else
+        add_next_spread = entry_spread + S + S * (1.0 - skew);
 
     double price_add_next = InvertSpreadToPrice(
         g_anchor[0],
