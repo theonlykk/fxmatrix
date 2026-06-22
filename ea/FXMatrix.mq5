@@ -244,8 +244,8 @@ void OnTick() {
                 }
             }
 
-            // Option A: skip quoting if inventory open on this instrument
-            if (inst_inv_size > 0) continue;
+            // Option A: skip quoting if inventory open OR pending orders exist on this instrument
+            if (inst_inv_size > 0 || inst_bid > 0 || inst_offer > 0) continue;
 
             // ── ADR-017: Compute fair-value prices ───────────────────────
             double bid_spread   = inst_spread + QuoteSpread;
