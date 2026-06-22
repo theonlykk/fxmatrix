@@ -676,12 +676,43 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
     if (exit_price < 0.0) {
         Print("INFO: Marketable Reversion Exception. Layer ", layer_idx);
 
+        // ADR-029 Part 2: State lock — refuse to fire another hedge if one
+        // is already live, pending, or filled for this layer.
+        bool hedge_in_flight = false;
+        Layer LockCheck = (instrument == 0) ? g_inventory_0[layer_idx]
+                        : (instrument == 1) ? g_inventory_1[layer_idx]
+                        : g_inventory_2[layer_idx];
+        int n_tickets = ArraySize(LockCheck.exit_tickets);
+        for (int h = 0; h < n_tickets; h++) {
+            ulong htkt = LockCheck.exit_tickets[h];
+            if (htkt == 0) continue;
+            if (OrderSelect(htkt)) {
+                hedge_in_flight = true;
+                break;
+            }
+            if (HistoryOrderSelect(htkt)) {
+                long hstate = HistoryOrderGetInteger(htkt, ORDER_STATE);
+                if (hstate == ORDER_STATE_FILLED ||
+                    hstate == ORDER_STATE_PARTIAL) {
+                    hedge_in_flight = true;
+                    break;
+                }
+            }
+        }
+
+        if (hedge_in_flight) {
+            Print("INFO: Marketable Reversion — hedge already in flight. ",
+                  "Layer ", layer_idx, " instrument=", deal_symbol,
+                  " Skipping duplicate hedge.");
+            return;
+        }
+
         MqlTradeRequest req = {};
         MqlTradeResult  res = {};
         req.action   = TRADE_ACTION_DEAL;
         req.symbol   = exit_symbol;
         req.volume   = deal_volume;
-        req.magic    = EA_MAGIC;
+        req.magic    = EA_MAGIC + 2;   // ADR-029 Part 1: route to HandleExitFill
         req.type     = (CurL.direction == DIRECTION_BUY)
                        ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
         req.price    = (req.type == ORDER_TYPE_SELL)
@@ -693,7 +724,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         if (!OrderSend(req, res)) {
             req.type_filling = ORDER_FILLING_FOK;
             if (!OrderSend(req, res)) {
-                Print("ERROR: Market hedge OrderSend failed. retcode=", res.retcode);
+                Print("ERROR: Market hedge OrderSend failed. retcode=",
+                      res.retcode);
                 g_halted = true;
                 return;
             }
