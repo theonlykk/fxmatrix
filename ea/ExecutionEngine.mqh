@@ -87,12 +87,12 @@ ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument
 
         if (direction == DIRECTION_BUY) {
             double current_bid = SymbolInfoDouble(symbol, SYMBOL_BID);
-            if (current_bid > 0.0)
+            if (current_bid > 0.0 && theoretical >= current_bid)
                 entry_price = NormalizeDouble(
                     MathMin(theoretical, current_bid - min_dist), digits);
         } else {
             double current_ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
-            if (current_ask > 0.0)
+            if (current_ask > 0.0 && theoretical <= current_ask)
                 entry_price = NormalizeDouble(
                     MathMax(theoretical, current_ask + min_dist), digits);
         }

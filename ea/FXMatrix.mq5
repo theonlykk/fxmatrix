@@ -252,8 +252,8 @@ void OnTick() {
             if (inst_inv_size > 0 || inst_bid > 0 || inst_offer > 0) continue;
 
             // ── ADR-017: Compute fair-value prices ───────────────────────
-            double bid_spread   = inst_spread + QuoteSpread;
-            double offer_spread = inst_spread - QuoteSpread;
+            double bid_spread   = inst_spread - QuoteSpread;
+            double offer_spread = inst_spread + QuoteSpread;
 
             double bid_price = InvertSpreadToPrice(
                 g_anchor[0], g_anchor[1],
