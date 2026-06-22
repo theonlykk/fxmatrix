@@ -117,6 +117,70 @@ void OnTick() {
     datetime current_bar = iTime(_Symbol, PERIOD_M5, 0);
     bool new_bar = (current_bar != g_last_bar_time);
 
+    // ── Option B: add_next grid layering (every tick) ──────────────────
+    {
+        int target_instruments[3] = {SLOT_AC, SLOT_BC, SLOT_AB};
+        for (int k = 0; k < 3; k++) {
+            int inst        = target_instruments[k];
+            string inst_symbol = g_symbols[inst];
+
+            int inst_inv_size = (inst == 0) ? ArraySize(g_inventory_0)
+                              : (inst == 1) ? ArraySize(g_inventory_1)
+                              : ArraySize(g_inventory_2);
+
+            ulong inst_add_next = g_add_next[inst];
+
+            // F3 fix: distinguish filled from dropped for add_next tickets.
+            if (inst_add_next != 0 && !OrderSelect(inst_add_next)) {
+                bool is_filled = false;
+                if (HistoryOrderSelect(inst_add_next)) {
+                    long state = HistoryOrderGetInteger(inst_add_next, ORDER_STATE);
+                    is_filled  = (state == ORDER_STATE_FILLED ||
+                                  state == ORDER_STATE_PARTIAL);
+                }
+                if (!is_filled) {
+                    Print("WARNING: add_next stale — broker dropped order. ",
+                          "instrument=", inst_symbol,
+                          " ticket=", inst_add_next);
+                    g_add_next[inst] = 0;
+                    inst_add_next    = 0;
+                }
+            }
+
+            if (inst_inv_size > 0 && inst_add_next == 0) {
+                datetime last_layer = g_last_layer_time[inst];
+                if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds) {
+                    int inv_size = inst_inv_size;
+                    Layer deepest = (inst == 0) ? g_inventory_0[inv_size - 1]
+                                  : (inst == 1) ? g_inventory_1[inv_size - 1]
+                                  : g_inventory_2[inv_size - 1];
+                    double computed = ComputeNextLayerPrice(
+                        inv_size, deepest.instrument,
+                        deepest.direction, deepest.entry_price);
+                    if (computed > 0.0) {
+                        if (!g_api_halt) {
+                            PlaceNextEntryLimit(deepest, inst_symbol, computed);
+                            g_daily_api_count++;
+                            if (g_daily_api_count >= 900) {
+                                g_api_halt = true;
+                                Print("WARNING: ADR-017 API halt tripped. ",
+                                      "g_daily_api_count=", g_daily_api_count);
+                            }
+                            g_last_layer_time[inst] = TimeCurrent();
+                            Print("INFO: add_next re-armed after sleep. ",
+                                  "instrument=", inst_symbol,
+                                  " layer=", inv_size,
+                                  " computed=", DoubleToString(computed, 5));
+                        } else {
+                            Print("INFO: API halt active. Add-next re-arm blocked. ",
+                                  "instrument=", inst_symbol);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (new_bar) {
         g_last_bar_time = current_bar;
 
@@ -183,66 +247,6 @@ void OnTick() {
 
             ulong inst_bid      = g_pending_bid[inst];
             ulong inst_offer    = g_pending_offer[inst];
-
-            // ── Phase 3: re-arm add_next after sleep expiry ──────────────
-            ulong inst_add_next = g_add_next[inst];
-
-            // F3 fix: distinguish filled from dropped for add_next tickets.
-            // OrderSelect returns false for BOTH filled and cancelled orders.
-            // Under chaotic execution, OnTick can see a filled ticket before
-            // OnTradeTransaction processes it — re-arming here would duplicate.
-            if (inst_add_next != 0 && !OrderSelect(inst_add_next)) {
-                bool is_filled = false;
-                if (HistoryOrderSelect(inst_add_next)) {
-                    long state = HistoryOrderGetInteger(inst_add_next, ORDER_STATE);
-                    is_filled  = (state == ORDER_STATE_FILLED ||
-                                  state == ORDER_STATE_PARTIAL);
-                }
-                if (!is_filled) {
-                    // Genuinely dropped (cancelled/rejected/expired) — re-arm
-                    Print("WARNING: add_next stale — broker dropped order. ",
-                          "instrument=", inst_symbol,
-                          " ticket=", inst_add_next);
-                    g_add_next[inst] = 0;
-                    inst_add_next    = 0;
-                }
-                // If filled: leave ticket in place, let OnTradeTransaction handle it
-            }
-
-            if (inst_inv_size > 0 && inst_add_next == 0) {
-                datetime last_layer = g_last_layer_time[inst];
-
-                if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds) {
-                    int inv_size = inst_inv_size;
-                    Layer deepest = (inst == 0) ? g_inventory_0[inv_size - 1]
-                                  : (inst == 1) ? g_inventory_1[inv_size - 1]
-                                  : g_inventory_2[inv_size - 1];
-
-                    double computed = ComputeNextLayerPrice(
-                        inv_size, deepest.instrument,
-                        deepest.direction, deepest.entry_price);
-
-                    if (computed > 0.0) {
-                        if (!g_api_halt) {
-                            PlaceNextEntryLimit(deepest, inst_symbol, computed);
-                            g_daily_api_count++;
-                            if (g_daily_api_count >= 900) {
-                                g_api_halt = true;
-                                Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
-                                      g_daily_api_count);
-                            }
-                            g_last_layer_time[inst] = TimeCurrent();
-                            Print("INFO: add_next re-armed after sleep. ",
-                                  "instrument=", inst_symbol,
-                                  " layer=", inv_size,
-                                  " computed=", DoubleToString(computed, 5));
-                        } else {
-                            Print("INFO: API halt active. Add-next re-arm blocked. ",
-                                  "instrument=", inst_symbol);
-                        }
-                    }
-                }
-            }
 
             // Option A: skip quoting if inventory open OR pending orders exist on this instrument
             if (inst_inv_size > 0 || inst_bid > 0 || inst_offer > 0) continue;
