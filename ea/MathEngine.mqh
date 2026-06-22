@@ -264,6 +264,7 @@ double InvertSpreadToPrice(
     bool   is_exit,
     bool   enforce_passivity = true
 ) {
+    if (is_exit) T = -T;   // ADR-034: invert spread sign before routing
     string symbol    = "";
     int    direction = 0;
     double price     = -1.0;

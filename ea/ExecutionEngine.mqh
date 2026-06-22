@@ -203,17 +203,25 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     double price = (price_override > 0.0) ? price_override : prev_layer.add_next;
 
     if (prev_layer.direction == DIRECTION_BUY) {
-        // BUY limit: use minimum of computed level and current bid
+        // BUY limit: use minimum of computed level and current bid - min_dist
         // If market gapped below computed level, join top of book passively
         double current_bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+        int    stops_level = (int)SymbolInfoInteger(symbol,
+                                 SYMBOL_TRADE_STOPS_LEVEL);
+        double point       = SymbolInfoDouble(symbol, SYMBOL_POINT);
+        double min_dist    = MathMax(stops_level * point, point);
         if (current_bid > 0.0)
-            price = MathMin(price, current_bid);
+            price = MathMin(price, current_bid - min_dist);
     } else {
-        // SELL limit: use maximum of computed level and current ask
+        // SELL limit: use maximum of computed level and current ask + min_dist
         // If market gapped above computed level, join top of book passively
         double current_ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+        int    stops_level = (int)SymbolInfoInteger(symbol,
+                                 SYMBOL_TRADE_STOPS_LEVEL);
+        double point       = SymbolInfoDouble(symbol, SYMBOL_POINT);
+        double min_dist    = MathMax(stops_level * point, point);
         if (current_ask > 0.0)
-            price = MathMax(price, current_ask);
+            price = MathMax(price, current_ask + min_dist);
     }
 
     int    direction = prev_layer.direction;
