@@ -272,11 +272,22 @@ void OnTick() {
 
                 // ADR-037: gate Option A if signal too weak to support exit floor
                 if (MathAbs(inst_spread) <= SkewFloor0) {
-                    Print("INFO: ADR-037 signal too weak to quote. ",
+                    Print("INFO: ADR-037 weak signal — baseline bracket fallback. ",
                           "instrument=", inst_symbol,
                           " abs_spread=", DoubleToString(MathAbs(inst_spread), 6),
                           " SkewFloor0=", DoubleToString(SkewFloor0, 6));
-                    continue;
+                    bid_spread   = -QuoteSpread;
+                    offer_spread =  QuoteSpread;
+                    bid_price = InvertSpreadToPrice(
+                        g_anchor[0], g_anchor[1],
+                        g_r_signal[0], g_r_signal[1],
+                        bid_spread, bid_strongest, bid_weakest,
+                        false, false);
+                    offer_price = InvertSpreadToPrice(
+                        g_anchor[0], g_anchor[1],
+                        g_r_signal[0], g_r_signal[1],
+                        offer_spread, offer_strongest, offer_weakest,
+                        false, false);
                 }
 
                 // ── ADR-017: Spatial deadband (two-sided) ────────────────

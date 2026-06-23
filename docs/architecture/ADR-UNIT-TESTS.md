@@ -281,6 +281,41 @@ Inputs: SkewFloor0 = 0.0002
 
 ---
 
+## TEST 12 — ADR-037 Baseline Fallback (Weak Signal, Flat Pod)
+When abs(inst_spread) <= SkewFloor0, MM mode resets to flat anchor
+bracket (±QuoteSpread) and recomputes bid_price/offer_price before
+PlaceEntryLimit — no continue, no wash-trade entry at weak signal level.
+
+Inputs:
+- inst_spread = 0.000151 (weak, below SkewFloor0)
+- SkewFloor0 = 0.0002
+- QuoteSpread = 0.0004
+- anchor_B = 1.32441 (GBPUSD / SLOT_BC)
+- bc_half_spread = 0.000030
+
+12a. Gate fires — baseline reset (no continue):
+     MathAbs(0.000151) <= 0.0002 = TRUE
+     bid_spread   = -0.0004
+     offer_spread = +0.0004
+     Expected: proceeds to place orders
+
+12b. bid_price (BUY, strongest=2, weakest=1):
+     1.32441 × exp(−0.0004) − 0.000030 = 1.32385
+     Expected: 1.32385 PASS
+
+12c. offer_price (SELL, strongest=1, weakest=2):
+     1.32441 × exp(+0.0004) + 0.000030 = 1.32497
+     Expected: 1.32497 PASS
+
+12d. Bracket width:
+     1.32497 − 1.32385 = 0.00112 = 11.2 pips
+     Expected: 11.2 pips PASS
+
+12e. Orders placed?
+     Expected: YES — PlaceEntryLimit uses recomputed bid_price/offer_price
+
+---
+
 ## COVERAGE MAP
 
 | Test | ADR | Component |
@@ -300,6 +335,7 @@ Inputs: SkewFloor0 = 0.0002
 | 9 | ADR-013 | Broker zero-spread glitch |
 | 10 | ADR-036 | Dynamic exit clamp overrun |
 | 11 | ADR-037 | SkewFloor0 signal gate — wash trade preventer |
+| 12 | ADR-037 | Baseline bracket fallback — weak signal flat pod |
 
 ---
 
