@@ -270,6 +270,15 @@ void OnTick() {
             // ── ADR-019: Mode fork ───────────────────────────────────────
             if (ExecutionMode == MARKET_MAKER) {
 
+                // ADR-037: gate Option A if signal too weak to support exit floor
+                if (MathAbs(inst_spread) <= SkewFloor0) {
+                    Print("INFO: ADR-037 signal too weak to quote. ",
+                          "instrument=", inst_symbol,
+                          " abs_spread=", DoubleToString(MathAbs(inst_spread), 6),
+                          " SkewFloor0=", DoubleToString(SkewFloor0, 6));
+                    continue;
+                }
+
                 // ── ADR-017: Spatial deadband (two-sided) ────────────────
                 double deadband = QuoteSpread * 0.25 - 0.5 * _Point;
                 double current_bid_price   = (inst_bid   > 0)
