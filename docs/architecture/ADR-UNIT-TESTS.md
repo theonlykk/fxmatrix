@@ -255,6 +255,32 @@ Expected: PASS — deviation is acceptable and by design.
 
 ---
 
+## TEST 11 — ADR-037 SkewFloor0 Signal Gate (Wash Trade Preventer)
+Validates that Option A refuses to quote when signal is too weak to
+support a meaningful exit, preventing the SkewFloor0 wash trade trap.
+
+Inputs: SkewFloor0 = 0.0002
+
+11a. Weak signal blocked:
+     inst_spread = -0.000140
+     abs(inst_spread) <= SkewFloor0?
+     0.000140 <= 0.0002 = TRUE
+     Expected: Option A skips — continue fired
+
+11b. Why gate is mandatory even with corrected SkewFloor0=0.0002:
+     floor_skew = 0.0002 / 0.000140 = 1.43 → clamped to 0.99
+     exit_spread = -0.000140 * 0.99 = -0.0001386
+     Still a wash trade — gate correctly prevents entry
+     Expected: PASS (gate fires before order placed)
+
+11c. Strong signal passes gate:
+     inst_spread = -0.000500
+     abs(inst_spread) <= SkewFloor0?
+     0.000500 <= 0.0002 = FALSE
+     Expected: Option A proceeds to quote
+
+---
+
 ## COVERAGE MAP
 
 | Test | ADR | Component |
@@ -273,6 +299,7 @@ Expected: PASS — deviation is acceptable and by design.
 | 8 | ADR-013 | Zero-delta boundary |
 | 9 | ADR-013 | Broker zero-spread glitch |
 | 10 | ADR-036 | Dynamic exit clamp overrun |
+| 11 | ADR-037 | SkewFloor0 signal gate — wash trade preventer |
 
 ---
 
