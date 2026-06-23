@@ -374,7 +374,7 @@ double ComputeNextLayerPrice(int    next_layer_idx,
         return -1.0;
     }
 
-    Print("DIAG NextLayer: layer=", next_layer_idx,
+    if (EnableVerboseLog) Print("DIAG NextLayer: layer=", next_layer_idx,
           " entry_spread=", DoubleToString(entry_spread, 6),
           " S=", DoubleToString(S, 6),
           " skew=", DoubleToString(skew, 6),
