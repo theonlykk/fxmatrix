@@ -67,6 +67,11 @@ bool RunSignalOnBarClose() {
     }
     ArraySetAsSeries(bc_closes, true);
 
+    Print("DIAG Signal: ac_close_0=", DoubleToString(ac_closes[0], 5),
+          " ac_close_12=", DoubleToString(ac_closes[12], 5),
+          " bc_close_0=", DoubleToString(bc_closes[0], 5),
+          " bc_close_12=", DoubleToString(bc_closes[12], 5));
+
     double ac_ask_live = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_ASK);
     double ac_bid_live = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_BID);
     double bc_ask_live = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_ASK);
@@ -99,6 +104,20 @@ bool RunSignalOnBarClose() {
     g_scores[0] = score_A;
     g_scores[1] = score_B;
     g_scores[2] = score_C;
+
+    Print("DIAG Signal: anchor_A=", DoubleToString(g_anchor[0], 5),
+          " anchor_B=", DoubleToString(g_anchor[1], 5));
+    Print("DIAG Signal: scores=[",
+          DoubleToString(g_scores[0], 6), ",",
+          DoubleToString(g_scores[1], 6), ",",
+          DoubleToString(g_scores[2], 6), "]");
+    Print("DIAG Signal: r_signal=[",
+          DoubleToString(g_r_signal[0], 6), ",",
+          DoubleToString(g_r_signal[1], 6), "]");
+    Print("DIAG Signal: inst_spread AC=",
+          DoubleToString(g_scores[0] - g_scores[2], 6),
+          " BC=", DoubleToString(g_scores[1] - g_scores[2], 6),
+          " AB=", DoubleToString(g_scores[0] - g_scores[1], 6));
 
     int strongest = 0, weakest = 0;
     for (int i = 1; i < 3; i++) {
@@ -225,7 +244,12 @@ double ComputeExitSpreadTarget(const Layer &layer) {
 
     if (SkewMode != 2) {
         // SkewMode 0/1: simple multiplicative — floor handled by SkewMin clamp
-        return layer.entry_spread_adjusted * raw_skew;
+        double result = layer.entry_spread_adjusted * raw_skew;
+        Print("DIAG ExitSpread: layer=", layer.layer_index,
+              " entry_adj=", DoubleToString(layer.entry_spread_adjusted, 6),
+              " raw_skew=", DoubleToString(raw_skew, 6),
+              " exit_spread=", DoubleToString(result, 6));
+        return result;
     }
 
     // SkewMode=2: apply layer-decaying floor and 0.99 ceiling
@@ -250,6 +274,13 @@ double ComputeExitSpreadTarget(const Layer &layer) {
 
     // entry_spread_adjusted is negative; result is negative and
     // closer to zero than entry_spread_adjusted (invariant satisfied)
+    Print("DIAG ExitSpread: layer=", layer.layer_index,
+          " entry_adj=", DoubleToString(layer.entry_spread_adjusted, 6),
+          " raw_skew=", DoubleToString(raw_skew, 6),
+          " floor_n=", DoubleToString(floor_n, 6),
+          " floor_skew=", DoubleToString(floor_skew, 6),
+          " effective_skew=", DoubleToString(effective_skew, 6),
+          " exit_spread=", DoubleToString(layer.entry_spread_adjusted * effective_skew, 6));
     return layer.entry_spread_adjusted * effective_skew;
 }
 
@@ -278,12 +309,17 @@ double InvertSpreadToPrice(
 
     if (ab_bid <= 0 || ab_ask <= 0) {
         Print("WARNING: ", g_symbols[SLOT_AB], " liquidity guard triggered");
+        Print("DIAG Invert: LIQUIDITY GUARD fired symbol=", g_symbols[SLOT_AB]);
         return -1.0;
     }
 
     double ac_half_spread = (ac_ask - ac_bid) / 2.0;
     double bc_half_spread = (bc_ask - bc_bid) / 2.0;
     double ab_half_spread = (ab_ask - ab_bid) / 2.0;
+
+    Print("DIAG Invert: T=", DoubleToString(T, 6),
+          " strongest=", strongest, " weakest=", weakest,
+          " is_exit=", is_exit);
 
     if (strongest == 0 && weakest == 1) {
         // A strongest, B weakest → sell PairAB (sell A, buy B)
@@ -339,10 +375,17 @@ double InvertSpreadToPrice(
     else if (symbol == g_symbols[SLOT_AC]) half_spread = ac_half_spread;
     else                                   half_spread = bc_half_spread;
 
+    Print("DIAG Invert: price_raw=", DoubleToString(price, 5),
+          " half_spread=", DoubleToString(half_spread, 6),
+          " direction=", direction);
+
     if (direction == DIRECTION_SELL)
         price = price + half_spread;
     else
         price = price - half_spread;
+
+    Print("DIAG Invert: final_price=", DoubleToString(price, 5),
+          " symbol=", symbol);
 
     if (enforce_passivity && !IsPassive(price, direction, symbol)) {
         Print("INFO: Passivity failure — order skipped. ",
@@ -426,9 +469,21 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
 
         double dilation = MathMin(1.0 + S_eff * S_eff, LDAK_Dilation_Max);
         base_interval  *= layer_stress * pnl_stress * dilation;
+        Print("DIAG GridInterval: layer=", layer_idx,
+              " base=", DoubleToString(base_interval / (layer_stress * pnl_stress * dilation), 6),
+              " layer_stress=", DoubleToString(layer_stress, 6),
+              " pnl_stress=", DoubleToString(pnl_stress, 6),
+              " dilation=", DoubleToString(dilation, 6),
+              " result=", DoubleToString(base_interval, 6));
         return base_interval;
     }
 
+    Print("DIAG GridInterval: layer=", layer_idx,
+          " base=", DoubleToString(base_interval / (layer_stress * pnl_stress), 6),
+          " layer_stress=", DoubleToString(layer_stress, 6),
+          " pnl_stress=", DoubleToString(pnl_stress, 6),
+          " dilation=N/A",
+          " result=", DoubleToString(base_interval * layer_stress * pnl_stress, 6));
     return base_interval * layer_stress * pnl_stress;
 }
 
@@ -441,18 +496,27 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
 double ComputeSkew(int layer_idx) {
     if (SkewMode == 0) {
         // Constant fraction — MM production default
-        return MathMin(SkewStart, 1.0);
+        double result = MathMin(SkewStart, 1.0);
+        Print("DIAG ComputeSkew: mode=0 layer=", layer_idx,
+              " result=", DoubleToString(result, 6));
+        return result;
     }
     else if (SkewMode == 1) {
         // Linear decrease per layer, floored at SkewMin
-        return MathMax(MathMin(SkewStart - layer_idx * SkewStep, 1.0), SkewMin);
+        double result = MathMax(MathMin(SkewStart - layer_idx * SkewStep, 1.0), SkewMin);
+        Print("DIAG ComputeSkew: mode=1 layer=", layer_idx,
+              " result=", DoubleToString(result, 6));
+        return result;
     }
     else {
         // ADR-025 Phase 2: geometric decay — raw fraction only
         // Floor and 0.99 ceiling applied in ComputeExitSpreadTarget()
         // phi = golden ratio conjugate = 0.618...
         double phi = 0.6180339887;
-        return MathPow(phi, layer_idx + 1);
+        double result = MathPow(phi, layer_idx + 1);
+        Print("DIAG ComputeSkew: mode=2 layer=", layer_idx,
+              " phi^(n+1)=", DoubleToString(result, 6));
+        return result;
     }
 }
 

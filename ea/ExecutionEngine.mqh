@@ -374,6 +374,12 @@ double ComputeNextLayerPrice(int    next_layer_idx,
         return -1.0;
     }
 
+    Print("DIAG NextLayer: layer=", next_layer_idx,
+          " entry_spread=", DoubleToString(entry_spread, 6),
+          " S=", DoubleToString(S, 6),
+          " skew=", DoubleToString(skew, 6),
+          " add_next_spread=", DoubleToString(add_next_spread, 6),
+          " price=", DoubleToString(price_add_next, 5));
     return price_add_next;
 }
 
