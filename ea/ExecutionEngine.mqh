@@ -570,8 +570,13 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
                                                          DEAL_POSITION_ID);
 
-        L.exit_spread_target = ComputeExitSpreadTarget(L);
-        double exit_price    = ComputeExitPrice(L);
+        // ADR-039 Phase 1: JIT exit spread from live prices at fill time.
+        // exit_spread_target stored in Layer is diagnostic only — live
+        // pricing always goes through ComputeExitPriceJIT, never the cache.
+        L.exit_spread_target = ComputeExitSpreadJIT(L);
+        double exit_price    = (L.exit_spread_target == INVALID_EXIT_SPREAD)
+                               ? INVALID_EXIT_SPREAD
+                               : ComputeExitPriceJIT(L);
         L.exit_target        = exit_price;
 
         // Append to correct per-instrument array
@@ -687,9 +692,14 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
     double exit_price = CurL.exit_target;
     string exit_symbol = deal_symbol;
 
+    // ADR-039 sentinel guard: INVALID_EXIT_SPREAD (-1.0) is set by
+    // ComputeExitPriceJIT when anchor is invalid, spread is degenerate,
+    // or a transient price inversion is detected. Not an error —
+    // AuditExitLimits retries next tick with fresh JIT prices.
+    // PlaceExitLimit must never be called with price -1.0.
     if (exit_price < 0.0) {
-        Print("INFO: Exit target not yet passive — waiting for spread ",
-              "to clear. Layer ", layer_idx,
+        Print("INFO: Exit target deferred — JIT sentinel or spread not yet passive. ",
+              "Layer ", layer_idx,
               " instrument=", deal_symbol);
         return;
     }

@@ -882,11 +882,16 @@ void AuditExitLimits() {
             if (L.remaining_exit_volume <= VOLUME_EPSILON) continue;
 
             // Layer is fully filled but missing exit — attempt placement
+            // ADR-039 Phase 1: JIT recompute exit price from live prices every tick.
+            // Eliminates Bug 3: stale exit_spread_target frozen for 81,806 ticks
+            // is never re-read. Each tick gets fresh inst_spread computation.
+            // INVALID_EXIT_SPREAD (-1.0) caught by existing < 0.0 guard below.
             string symbol    = g_symbols[slot];
-            double exit_price = ComputeExitPrice(L);
+            double exit_price = ComputeExitPriceJIT(L);
 
             if (exit_price < 0.0) {
-                // Marketable reversion — skip, HandleEntryFill handles this
+                // JIT returned invalid (anchor not ready, degenerate spread,
+                // or transient inversion) — retry next tick silently.
                 continue;
             }
 
