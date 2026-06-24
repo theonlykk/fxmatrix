@@ -579,8 +579,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         double E_n_add     = MathAbs(L.entry_spread_raw)
                              * MathPow(0.618, L.layer_index + 1);
         double base_add    = QuoteSpread * (L.layer_index + 1);
-        double pt_add      = SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT);
-        double A_n         = MathMax(base_add, E_n_add + 10.0 * pt_add);
+        double A_golden    = E_n_add * 1.618;
+        double A_n         = MathMax(base_add, A_golden);
         double computed_next = (L.direction == DIRECTION_BUY)
                                ? L.entry_price - A_n
                                : L.entry_price + A_n;
