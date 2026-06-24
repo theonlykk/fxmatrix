@@ -481,167 +481,36 @@ double ComputeEntryPrice() {
     );
 }
 
-// ADR-039: Sentinel value returned by JIT functions when anchor or spread is invalid.
-// Consistent with InvertSpreadToPrice contract (returns -1.0 on failure).
-// Callers must treat any return value < 0.0 as a silent skip.
-#define INVALID_EXIT_SPREAD (-1.0)
-
 //------------------------------------------------------------------
-// ComputeExitSpreadJIT
-// ADR-039 Phase 1: stateless pure function. No cached state written.
-//
-// Reads cached bar-close anchor (g_anchor[0/1]) — anchor is a bar-level
-// signal and correctly stays on the bar-close path (RunSignalOnBarClose).
-// Reads LIVE bid/ask for SLOT_AC and SLOT_BC to compute inst_spread at
-// the moment of placement, not at fill time.
-//
-// Eliminates Bugs 1 and 3: stale exit_spread_target cached at fill time
-// with an invalid anchor (Bug 1) or transient sign inversion (Bug 3)
-// can no longer freeze the exit engine. Each tick gets fresh computation.
-//
-// Eliminates Bug 2: positive inst_spread guard detects transient inversion
-// and skips the tick rather than writing a wrong-side exit permanently.
-//
-// Returns INVALID_EXIT_SPREAD (-1.0) if:
-//   - Either cached anchor <= 0 (session-open race / anchor not yet populated)
-//   - Any bid/ask is zero (liquidity gap)
-//   - MathAbs(inst_spread) <= DBL_EPSILON (degenerate spread)
-//   - inst_spread > 0 (transient inversion — skip tick, retry next)
+// ComputeExitPriceDeterministic
+// ADR-040: grid exit price — computed once at fill, never from live prices.
 //------------------------------------------------------------------
-double ComputeExitSpreadJIT(const Layer &layer) {
-    // Anchor guard: catches session-open race (Bug 1)
-    if (g_anchor[0] <= 0.0 || g_anchor[1] <= 0.0) {
-        if (EnableVerboseLog)
-            Print("DIAG ExitSpreadJIT: anchor invalid — skipping. ",
-                  "anchor_A=", DoubleToString(g_anchor[0], 5),
-                  " anchor_B=", DoubleToString(g_anchor[1], 5));
-        return INVALID_EXIT_SPREAD;
-    }
+double ComputeExitPriceDeterministic(
+    double entry_price,
+    double entry_spread_raw,
+    int    layer_index,
+    int    direction,
+    double half_spread,
+    int    min_layer_exit_points,
+    double point_value)
+{
+    double E_n = MathAbs(entry_spread_raw) * MathPow(0.618, layer_index + 1);
 
-    // Read live mid prices — convention matches RunSignalOnBarClose exactly
-    double ac_ask = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_ASK);
-    double ac_bid = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_BID);
-    double bc_ask = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_ASK);
-    double bc_bid = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_BID);
+    double raw_target;
+    if (direction == DIRECTION_BUY)
+        raw_target = entry_price + E_n - half_spread;
+    else
+        raw_target = entry_price - E_n + half_spread;
 
-    if (ac_ask <= 0.0 || ac_bid <= 0.0 || bc_ask <= 0.0 || bc_bid <= 0.0) {
-        Print("WARNING: ComputeExitSpreadJIT — zero bid/ask on signal pair");
-        return INVALID_EXIT_SPREAD;
-    }
+    double floor_dist = min_layer_exit_points * point_value;
 
-    double ac_mid = (ac_ask + ac_bid) / 2.0;
-    double bc_mid = (bc_ask + bc_bid) / 2.0;
+    double exit_price;
+    if (direction == DIRECTION_BUY)
+        exit_price = MathMax(raw_target, entry_price + floor_dist);
+    else
+        exit_price = MathMin(raw_target, entry_price - floor_dist);
 
-    // JIT log return against cached anchor
-    double r_AC = MathLog(ac_mid / g_anchor[0]);
-    double r_BC = MathLog(bc_mid / g_anchor[1]);
-
-    // Zero-sum score decomposition — identical to RunSignalOnBarClose
-    double score_C = -(r_AC + r_BC) / 3.0;
-    double score_A =   r_AC + score_C;
-    double score_B =   r_BC + score_C;
-    double scores[3];
-    scores[0] = score_A;
-    scores[1] = score_B;
-    scores[2] = score_C;
-
-    // inst_spread = scores[weakest] - scores[strongest]
-    // Normal invariant: weakest < strongest → negative result
-    double inst_spread = scores[layer.weakest_at_entry] - scores[layer.strongest_at_entry];
-
-    // Degenerate spread guard
-    if (MathAbs(inst_spread) <= DBL_EPSILON) {
-        if (EnableVerboseLog)
-            Print("DIAG ExitSpreadJIT: degenerate inst_spread — skipping. ",
-                  "weakest=", layer.weakest_at_entry,
-                  " strongest=", layer.strongest_at_entry,
-                  " inst_spread=", DoubleToString(inst_spread, 8));
-        return INVALID_EXIT_SPREAD;
-    }
-
-    // Bug 2 / sign guard: positive inst_spread = transient inversion.
-    // Exit price would land on wrong side of anchor. Skip tick, retry next.
-    if (inst_spread > 0.0) {
-        if (EnableVerboseLog)
-            Print("DIAG ExitSpreadJIT: transient inversion — skipping tick. ",
-                  "inst_spread=", DoubleToString(inst_spread, 8),
-                  " weakest=", layer.weakest_at_entry,
-                  " strongest=", layer.strongest_at_entry);
-        return INVALID_EXIT_SPREAD;
-    }
-
-    // Apply skew and floor — identical logic to ComputeExitSpreadTarget
-    double raw_skew = ComputeSkew(layer.layer_index);
-
-    if (SkewMode != 2) {
-        double result = inst_spread * raw_skew;
-        if (EnableVerboseLog)
-            Print("DIAG ExitSpreadJIT: mode=", SkewMode,
-                  " layer=", layer.layer_index,
-                  " inst_spread=", DoubleToString(inst_spread, 6),
-                  " raw_skew=", DoubleToString(raw_skew, 6),
-                  " exit_spread=", DoubleToString(result, 6));
-        return result;
-    }
-
-    // SkewMode=2: layer-decaying floor (ADR-038)
-    string symbol  = g_symbols[layer.instrument];
-    double pt      = SymbolInfoDouble(symbol, SYMBOL_POINT);
-    double phi     = 0.6180339887;
-    double floor_n = MathMax(
-        SkewFloor0 * MathPow(phi, layer.layer_index),
-        MinLayerExitPoints * pt
-    );
-
-    double abs_entry      = MathAbs(inst_spread);
-    double floor_skew     = (abs_entry > 1e-10) ? floor_n / abs_entry : raw_skew;
-    double effective_skew = MathMin(MathMax(raw_skew, floor_skew), 0.99);
-    double result         = inst_spread * effective_skew;
-
-    if (EnableVerboseLog)
-        Print("DIAG ExitSpreadJIT: layer=", layer.layer_index,
-              " inst_spread=", DoubleToString(inst_spread, 6),
-              " raw_skew=", DoubleToString(raw_skew, 6),
-              " floor_n=", DoubleToString(floor_n, 6),
-              " floor_skew=", DoubleToString(floor_skew, 6),
-              " effective_skew=", DoubleToString(effective_skew, 6),
-              " exit_spread=", DoubleToString(result, 6));
-
-    return result;
-}
-
-//------------------------------------------------------------------
-// ComputeExitPriceJIT
-// ADR-039 Phase 1+2: JIT exit price via ComputeExitSpreadJIT.
-//
-// Sign contract (Phase 2):
-//   ComputeExitSpreadJIT guarantees a strictly negative return value
-//   (sign guard returns INVALID_EXIT_SPREAD if inst_spread >= 0).
-//   InvertSpreadToPrice internally does `if (is_exit) T = -T` on its
-//   first line, negating to positive before anchor * MathExp(T).
-//   This places the exit above anchor for BUY (sell limit) and below
-//   anchor for SELL (buy limit) — correct for both cases.
-//   No MathAbs() needed: the contract is pass negative spread, function
-//   inverts internally via the is_exit flag.
-//
-// Returns INVALID_EXIT_SPREAD (-1.0) if JIT spread is invalid.
-// Callers use existing `if (exit_price < 0.0)` guards unchanged.
-//------------------------------------------------------------------
-double ComputeExitPriceJIT(const Layer &layer) {
-    double exit_spread = ComputeExitSpreadJIT(layer);
-    if (exit_spread == INVALID_EXIT_SPREAD)
-        return INVALID_EXIT_SPREAD;
-
-    return InvertSpreadToPrice(
-        layer.anchor_A_at_entry,
-        layer.anchor_B_at_entry,
-        layer.r_AC_at_entry,
-        layer.r_BC_at_entry,
-        exit_spread,
-        layer.strongest_at_entry,
-        layer.weakest_at_entry,
-        true
-    );
+    return exit_price;
 }
 
 bool IsClearOfFreezeLevel(double price, int direction, string symbol) {

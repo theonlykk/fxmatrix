@@ -135,47 +135,34 @@ void RunCarryRecalculation() {
             }
             L.entry_spread_adjusted = new_spread;
 
-            // ADR-039: CarryEngine cannot use ComputeExitSpreadJIT because
-            // JIT reads live spot prices, discarding the carry-adjusted spread.
-            // Instead inline the skew computation using new_spread directly,
-            // then route through InvertSpreadToPrice as before.
-            // new_spread is guaranteed negative (O2 guard above confirmed < 0).
+            // ADR-040: Recompute deterministic exit after carry adjustment
+            // new_spread is the carry-adjusted entry_spread_raw equivalent
+            // Use original fill price (L.entry_price), not live prices
+            double half_spread = 0.0;
             {
-                double raw_skew_carry = ComputeSkew(L.layer_index);
-                double carry_exit_spread;
-
-                if (SkewMode != 2) {
-                    carry_exit_spread = new_spread * raw_skew_carry;
-                } else {
-                    string sym_carry = g_symbols[L.instrument];
-                    double pt_carry  = SymbolInfoDouble(sym_carry, SYMBOL_POINT);
-                    double phi_carry = 0.6180339887;
-                    double floor_n_carry = MathMax(
-                        SkewFloor0 * MathPow(phi_carry, L.layer_index),
-                        MinLayerExitPoints * pt_carry
-                    );
-                    double abs_entry_carry   = MathAbs(new_spread);
-                    double floor_skew_carry  = (abs_entry_carry > 1e-10)
-                                              ? floor_n_carry / abs_entry_carry
-                                              : raw_skew_carry;
-                    double eff_skew_carry    = MathMin(MathMax(raw_skew_carry,
-                                                               floor_skew_carry), 0.99);
-                    carry_exit_spread = new_spread * eff_skew_carry;
-                }
-
-                L.exit_spread_target = carry_exit_spread;
+                string sym = g_symbols[L.instrument];
+                double _bid = SymbolInfoDouble(sym, SYMBOL_BID);
+                double _ask = SymbolInfoDouble(sym, SYMBOL_ASK);
+                if (_bid > 0.0 && _ask > 0.0)
+                    half_spread = (_ask - _bid) / 2.0;
             }
+            L.exit_price_fixed = ComputeExitPriceDeterministic(
+                L.entry_price,
+                new_spread,
+                L.layer_index,
+                L.direction,
+                half_spread,
+                MinLayerExitPoints,
+                SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT));
 
-            double new_exit_price = InvertSpreadToPrice(
-                L.anchor_A_at_entry,
-                L.anchor_B_at_entry,
-                L.r_AC_at_entry,
-                L.r_BC_at_entry,
-                L.exit_spread_target,
-                L.strongest_at_entry,
-                L.weakest_at_entry,
-                true
-            );
+            L.exit_spread_target = MathAbs(new_spread)
+                                   * MathPow(0.618, L.layer_index + 1);
+
+            PrintFormat("DIAG [ADR-040] CarryEngine updated exit_price_fixed=%.5f "
+                        "new_spread=%.6f layer=%d",
+                        L.exit_price_fixed, new_spread, L.layer_index);
+
+            double new_exit_price = L.exit_price_fixed;
 
             if (new_exit_price < 0) {
                 Print("INFO: Carry recalc — exit price passivity failure. ",
@@ -251,7 +238,7 @@ void RunCarryRecalculation() {
                 }
             }
 
-            L.exit_target = new_exit_price;
+            L.exit_target = L.exit_price_fixed;
 
             if (inst == 0)      g_inventory_0[i] = L;
             else if (inst == 1) g_inventory_1[i] = L;

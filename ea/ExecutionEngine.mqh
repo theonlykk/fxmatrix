@@ -152,21 +152,33 @@ ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument
 
 ulong PlaceExitLimit(double exit_price, double volume,
                      int direction, string symbol) {
-    int exit_dir = (direction == DIRECTION_BUY)
-                   ? DIRECTION_SELL : DIRECTION_BUY;
-
-    if (!IsClearOfFreezeLevel(exit_price, exit_dir, symbol)) {
-        Print("INFO: PlaceExitLimit skipped — freeze level. ",
-              "symbol=", symbol,
-              " price=", DoubleToString(exit_price, 5));
+    if (exit_price < 0.0) {
+        Print("WARN [ADR-040] PlaceExitLimit: exit_price_fixed is sentinel, skipping.");
         return 0;
     }
 
-    if (!IsPassive(exit_price, exit_dir, symbol)) {
-        Print("INFO: PlaceExitLimit skipped — passivity failure. ",
-              "symbol=", symbol,
-              " price=", DoubleToString(exit_price, 5));
-        return 0;
+    int exit_dir = (direction == DIRECTION_BUY)
+                   ? DIRECTION_SELL : DIRECTION_BUY;
+
+    double pt     = SymbolInfoDouble(symbol, SYMBOL_POINT);
+    double freeze = SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL) * pt;
+
+    if (direction == DIRECTION_BUY) {
+        double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+        if (exit_price <= ask + freeze) {
+            PrintFormat("DIAG [ADR-040] PlaceExitLimit passivity fail — "
+                        "exit=%.5f ask=%.5f freeze=%.5f",
+                        exit_price, ask, freeze);
+            return 0;
+        }
+    } else {
+        double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+        if (exit_price >= bid - freeze) {
+            PrintFormat("DIAG [ADR-040] PlaceExitLimit passivity fail — "
+                        "exit=%.5f bid=%.5f freeze=%.5f",
+                        exit_price, bid, freeze);
+            return 0;
+        }
     }
 
     MqlTradeRequest req = {};
@@ -293,93 +305,36 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
 
 //------------------------------------------------------------------
 // ComputeNextLayerPrice
-// Returns the physical broker price at which the spread model
-// will cross layer_threshold(next_layer_idx).
-// Uses a differential approach anchored to deal_price at fill
-// time — eliminates anchor-drift staleness risk.
-// Directionality is implicit: InvertSpreadToPrice() returns
-// prices below deal_price for BUY (add_next must be lower)
-// and above deal_price for SELL (add_next must be higher).
+// ADR-040: arithmetic add distance A_n from fill price.
 //------------------------------------------------------------------
 double ComputeNextLayerPrice(int    next_layer_idx,
                              int    instrument,
                              int    direction,
                              double deal_price) {
 
-    // V2 Phase 1: parameterised grid interval and skew.
-    // S = ComputeGridInterval(next_layer_idx) — varies by layer and GridMode.
-    // skew = ComputeSkew(next_layer_idx) — varies by layer and SkewMode.
-    // Invariant: |add_next - entry| > |exit - entry| holds for skew < 1.
+    int prev_idx = next_layer_idx - 1;
+    if (prev_idx < 0) return -1.0;
 
-    double S    = ComputeGridInterval(next_layer_idx, instrument);
-    double skew = ComputeSkew(next_layer_idx);
+    Layer prev = (instrument == 0) ? g_inventory_0[prev_idx]
+               : (instrument == 1) ? g_inventory_1[prev_idx]
+               : g_inventory_2[prev_idx];
 
-    if (S <= 0.0) {
-        Print("SEV-2: ComputeNextLayerPrice — S <= 0. ",
-              "next_layer_idx=", next_layer_idx,
-              " GridMode=", GridMode);
-        return -1.0;
-    }
+    double pt       = SymbolInfoDouble(g_symbols[instrument], SYMBOL_POINT);
+    double E_n      = MathAbs(prev.entry_spread_raw)
+                      * MathPow(0.618, prev.layer_index + 1);
+    double base_add = QuoteSpread * (prev.layer_index + 1);
+    double A_n      = MathMax(base_add, E_n + 10.0 * pt);
 
-    // V3 generic strongest/weakest from slot and direction
-    // Slot 0=PairAC: A vs C → scores[0] vs scores[2]
-    // Slot 1=PairBC: B vs C → scores[1] vs scores[2]
-    // Slot 2=PairAB: A vs B → scores[0] vs scores[1]
-    int strongest = 0;
-    int weakest   = 0;
-    if (instrument == SLOT_AB) {
-        if (direction == DIRECTION_BUY)  { strongest = 1; weakest = 0; }
-        else                              { strongest = 0; weakest = 1; }
-    } else if (instrument == SLOT_AC) {
-        if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 0; }
-        else                              { strongest = 0; weakest = 2; }
-    } else { // SLOT_BC
-        if (direction == DIRECTION_BUY)  { strongest = 2; weakest = 1; }
-        else                              { strongest = 1; weakest = 2; }
-    }
+    double price_add_next = (prev.direction == DIRECTION_BUY)
+                            ? prev.entry_price - A_n
+                            : prev.entry_price + A_n;
 
-    // Read entry_spread from the correct per-instrument array.
-    // next_layer_idx is post-append ArraySize; filled layer is at index next_layer_idx-1.
-    double entry_spread = (instrument == 0) ? g_inventory_0[next_layer_idx - 1].entry_spread_raw
-                        : (instrument == 1) ? g_inventory_1[next_layer_idx - 1].entry_spread_raw
-                        : g_inventory_2[next_layer_idx - 1].entry_spread_raw;
+    if (EnableVerboseLog)
+        Print("DIAG ComputeNextLayerPrice: layer=", prev.layer_index,
+              " E_n=", DoubleToString(E_n, 6),
+              " A_n=", DoubleToString(A_n, 6),
+              " price=", DoubleToString(price_add_next, 5));
 
-    // add_next spread is direction-aware: BUY subtracts S (price falls),
-    // SELL adds S (price rises). Guarantees |add_next - entry| > |exit - entry|.
-    // Direction-aware grid step: SELL scales in on rising price (spread widens),
-    // BUY scales in on falling price (spread narrows).
-    double add_next_spread;
-    if (direction == DIRECTION_BUY)
-        add_next_spread = entry_spread - S - S * (1.0 - skew);
-    else
-        add_next_spread = entry_spread + S + S * (1.0 - skew);
-
-    double price_add_next = InvertSpreadToPrice(
-        g_anchor[0],
-        g_anchor[1],
-        g_r_signal[0],
-        g_r_signal[1],
-        add_next_spread,
-        strongest,
-        weakest,
-        false,
-        false);   // enforce_passivity=false — pure math inversion
-
-    if (price_add_next <= 0.0) {
-        Print("SEV-2: ComputeNextLayerPrice — inversion returned sentinel. ",
-              "add_next_spread=", DoubleToString(add_next_spread, 8),
-              " S=", DoubleToString(S, 8),
-              " skew=", DoubleToString(skew, 4),
-              " next_layer_idx=", next_layer_idx);
-        return -1.0;
-    }
-
-    if (EnableVerboseLog) Print("DIAG NextLayer: layer=", next_layer_idx,
-          " entry_spread=", DoubleToString(entry_spread, 6),
-          " S=", DoubleToString(S, 6),
-          " skew=", DoubleToString(skew, 6),
-          " add_next_spread=", DoubleToString(add_next_spread, 6),
-          " price=", DoubleToString(price_add_next, 5));
     return price_add_next;
 }
 
@@ -570,14 +525,44 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         L.position_ticket = (ulong)HistoryDealGetInteger(deal_ticket,
                                                          DEAL_POSITION_ID);
 
-        // ADR-039 Phase 1: JIT exit spread from live prices at fill time.
-        // exit_spread_target stored in Layer is diagnostic only — live
-        // pricing always goes through ComputeExitPriceJIT, never the cache.
-        L.exit_spread_target = ComputeExitSpreadJIT(L);
-        double exit_price    = (L.exit_spread_target == INVALID_EXIT_SPREAD)
-                               ? INVALID_EXIT_SPREAD
-                               : ComputeExitPriceJIT(L);
-        L.exit_target        = exit_price;
+        // ADR-040: Near-zero signal diagnostic
+        if (MathAbs(L.entry_spread_raw) < SkewFloor0) {
+            PrintFormat("WARNING [ADR-040] Toxic entry detected on %s layer=%d "
+                        "entry_spread_raw=%.6f is below SkewFloor0=%.6f. "
+                        "Exit will be floor-clamped. Investigate entry gate leak.",
+                        g_symbols[L.instrument], L.layer_index,
+                        L.entry_spread_raw, SkewFloor0);
+        }
+
+        // ADR-040: Compute half_spread inline (no helper function exists)
+        double half_spread = 0.0;
+        {
+            string sym = g_symbols[L.instrument];
+            double _bid = SymbolInfoDouble(sym, SYMBOL_BID);
+            double _ask = SymbolInfoDouble(sym, SYMBOL_ASK);
+            if (_bid > 0.0 && _ask > 0.0)
+                half_spread = (_ask - _bid) / 2.0;
+        }
+
+        // ADR-040: Compute deterministic exit price
+        L.exit_price_fixed = ComputeExitPriceDeterministic(
+            L.entry_price,
+            L.entry_spread_raw,
+            L.layer_index,
+            L.direction,
+            half_spread,
+            MinLayerExitPoints,
+            SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT));
+
+        L.exit_spread_target = MathAbs(L.entry_spread_raw)
+                               * MathPow(0.618, L.layer_index + 1);
+        L.exit_target        = L.exit_price_fixed;
+
+        PrintFormat("DIAG [ADR-040] exit_price_fixed=%.5f entry=%.5f E_n=%.6f "
+                    "layer=%d direction=%d",
+                    L.exit_price_fixed, L.entry_price,
+                    MathAbs(L.entry_spread_raw) * MathPow(0.618, L.layer_index + 1),
+                    L.layer_index, L.direction);
 
         // Append to correct per-instrument array
         if (instrument == 0) {
@@ -591,20 +576,18 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             g_inventory_2[layer_idx] = L;
         }
 
-        // next_layer_idx: ArraySize AFTER current layer appended
-        int next_layer_idx = (instrument == 0) ? ArraySize(g_inventory_0)
-                           : (instrument == 1) ? ArraySize(g_inventory_1)
-                           : ArraySize(g_inventory_2);
-
-        double computed_next = ComputeNextLayerPrice(
-            next_layer_idx,
-            L.instrument,
-            L.direction,
-            deal_price);
+        double E_n_add     = MathAbs(L.entry_spread_raw)
+                             * MathPow(0.618, L.layer_index + 1);
+        double base_add    = QuoteSpread * (L.layer_index + 1);
+        double pt_add      = SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT);
+        double A_n         = MathMax(base_add, E_n_add + 10.0 * pt_add);
+        double computed_next = (L.direction == DIRECTION_BUY)
+                               ? L.entry_price - A_n
+                               : L.entry_price + A_n;
 
         if (computed_next <= 0.0) {
             Print("SEV-2: HandleEntryFill — add_next sentinel (-1.0). ",
-                  "Layering skipped. next_layer_idx=", next_layer_idx);
+                  "Layering skipped. layer=", L.layer_index);
             if (instrument == 0)      g_inventory_0[layer_idx].add_next = 0.0;
             else if (instrument == 1) g_inventory_1[layer_idx].add_next = 0.0;
             else                      g_inventory_2[layer_idx].add_next = 0.0;
@@ -689,18 +672,14 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                : (instrument == 1) ? g_inventory_1[layer_idx]
                : g_inventory_2[layer_idx];
 
-    double exit_price = CurL.exit_target;
+    double exit_price = CurL.exit_price_fixed;
     string exit_symbol = deal_symbol;
 
-    // ADR-039 sentinel guard: INVALID_EXIT_SPREAD (-1.0) is set by
-    // ComputeExitPriceJIT when anchor is invalid, spread is degenerate,
-    // or a transient price inversion is detected. Not an error —
-    // AuditExitLimits retries next tick with fresh JIT prices.
-    // PlaceExitLimit must never be called with price -1.0.
+    // ADR-040 sentinel guard: exit_price_fixed < 0 — defer placement;
+    // AuditExitLimits retries next tick.
     if (exit_price < 0.0) {
-        Print("INFO: Exit target deferred — JIT sentinel or spread not yet passive. ",
-              "Layer ", layer_idx,
-              " instrument=", deal_symbol);
+        PrintFormat("INFO: Exit target deferred — exit_price_fixed sentinel. "
+                    "Layer %d instrument=%s", layer_idx, deal_symbol);
         return;
     }
 

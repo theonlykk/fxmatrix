@@ -100,6 +100,8 @@ void SaveInventoryState(int instrument) {
                   + DoubleToString(L.exit_spread_target, 8) + ",");
         FileWrite(fh, "      \"exit_target\": "
                   + DoubleToString(L.exit_target, 8) + ",");
+        FileWrite(fh, "      \"exit_price_fixed\": "
+                  + DoubleToString(L.exit_price_fixed, 8) + ",");
         FileWrite(fh, "      \"add_next\": "
                   + DoubleToString(L.add_next, 8) + ",");
         FileWrite(fh, "      \"lot_size\": "
@@ -292,6 +294,8 @@ bool LoadInventoryState(int instrument) {
             L.exit_spread_target = StringToDouble(val);
         else if (key == "exit_target")
             L.exit_target = StringToDouble(val);
+        else if (key == "exit_price_fixed")
+            L.exit_price_fixed = StringToDouble(val);
         else if (key == "add_next")
             L.add_next = StringToDouble(val);
         else if (key == "lot_size")

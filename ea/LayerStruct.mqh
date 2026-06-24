@@ -51,6 +51,7 @@ struct Layer {
     // --- Exit targets (ADR-003 OrderModify only) ---
     double   exit_spread_target;
     double   exit_target;
+    double   exit_price_fixed;   // ADR-040: computed once at fill, never recomputed from live prices
 
     // --- Layer mechanics ---
     double   add_next;
@@ -130,6 +131,7 @@ Layer InitLayer() {
     L.entry_price_forward          = 0.0;
     L.exit_spread_target           = 0.0;
     L.exit_target                  = 0.0;
+    L.exit_price_fixed             = -1.0;
     L.add_next                     = 0.0;
     L.lot_size                     = 0.0;
     L.remaining_entry_volume         = 0.0;

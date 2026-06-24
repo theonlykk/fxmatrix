@@ -46,6 +46,68 @@ int OnInit() {
         return INIT_FAILED;
     }
 
+    // ADR-040: Reconciliation pass — recompute exit_price_fixed for any sentinel layer
+    int rearm_count = 0;
+    for (int s = 0; s < 3; s++) {
+        int inv_size = (s == 0) ? ArraySize(g_inventory_0)
+                     : (s == 1) ? ArraySize(g_inventory_1)
+                     : ArraySize(g_inventory_2);
+        for (int i = 0; i < inv_size; i++) {
+            double epf = (s == 0) ? g_inventory_0[i].exit_price_fixed
+                       : (s == 1) ? g_inventory_1[i].exit_price_fixed
+                       : g_inventory_2[i].exit_price_fixed;
+            if (epf >= 0.0) continue;
+
+            string sym = g_symbols[s];
+            double pt  = SymbolInfoDouble(sym, SYMBOL_POINT);
+            double entry_price = (s == 0) ? g_inventory_0[i].entry_price
+                               : (s == 1) ? g_inventory_1[i].entry_price
+                               : g_inventory_2[i].entry_price;
+            double entry_spread_raw = (s == 0) ? g_inventory_0[i].entry_spread_raw
+                                    : (s == 1) ? g_inventory_1[i].entry_spread_raw
+                                    : g_inventory_2[i].entry_spread_raw;
+            int layer_index = (s == 0) ? g_inventory_0[i].layer_index
+                            : (s == 1) ? g_inventory_1[i].layer_index
+                            : g_inventory_2[i].layer_index;
+            int direction = (s == 0) ? g_inventory_0[i].direction
+                          : (s == 1) ? g_inventory_1[i].direction
+                          : g_inventory_2[i].direction;
+            ulong entry_ticket = (s == 0) ? g_inventory_0[i].entry_ticket
+                               : (s == 1) ? g_inventory_1[i].entry_ticket
+                               : g_inventory_2[i].entry_ticket;
+
+            double new_epf = ComputeExitPriceDeterministic(
+                entry_price,
+                entry_spread_raw,
+                layer_index,
+                direction,
+                0.0,
+                MinLayerExitPoints,
+                pt);
+
+            if (s == 0) {
+                g_inventory_0[i].exit_price_fixed = new_epf;
+                g_inventory_0[i].exit_target      = new_epf;
+            } else if (s == 1) {
+                g_inventory_1[i].exit_price_fixed = new_epf;
+                g_inventory_1[i].exit_target      = new_epf;
+            } else {
+                g_inventory_2[i].exit_price_fixed = new_epf;
+                g_inventory_2[i].exit_target      = new_epf;
+            }
+
+            PrintFormat("INFO [ADR-040] Reconciliation: recomputed exit_price_fixed=%.5f "
+                        "for slot=%d layer=%d ticket=%d",
+                        new_epf, s, layer_index, entry_ticket);
+            rearm_count++;
+        }
+    }
+    if (rearm_count > 0) {
+        g_reconciliation_pending = true;
+        PrintFormat("INFO [ADR-040] Reconciliation pass complete. %d layer(s) pending re-arm on first tick.",
+                    rearm_count);
+    }
+
     string parts[];
     if (StringSplit(CarryRecalcTime, ':', parts) == 2) {
         g_carry_hour   = (int)StringToInteger(parts[0]);
@@ -102,6 +164,45 @@ void OnTick() {
     // Circuit breakers close positions and cancel orders before re-halting.
     CheckCircuitBreakers();
     if (g_halted) return;
+
+    // ADR-040: Execute reconciliation re-arm on first live tick after reattach
+    if (g_reconciliation_pending) {
+        for (int s = 0; s < 3; s++) {
+            int inv_size = (s == 0) ? ArraySize(g_inventory_0)
+                         : (s == 1) ? ArraySize(g_inventory_1)
+                         : ArraySize(g_inventory_2);
+            for (int i = 0; i < inv_size; i++) {
+                Layer L = (s == 0) ? g_inventory_0[i]
+                        : (s == 1) ? g_inventory_1[i]
+                        : g_inventory_2[i];
+                if (L.exit_price_fixed <= 0.0) continue;
+                if (ArraySize(L.exit_tickets) > 0) continue;
+                if (L.remaining_exit_volume <= VOLUME_EPSILON) continue;
+
+                string sym = g_symbols[s];
+                ulong exit_tkt = PlaceExitLimit(L.exit_price_fixed,
+                                                L.remaining_exit_volume,
+                                                L.direction,
+                                                sym);
+                if (exit_tkt > 0) {
+                    int n = ArraySize(L.exit_tickets);
+                    if (s == 0) {
+                        ArrayResize(g_inventory_0[i].exit_tickets, n + 1);
+                        g_inventory_0[i].exit_tickets[n] = exit_tkt;
+                    } else if (s == 1) {
+                        ArrayResize(g_inventory_1[i].exit_tickets, n + 1);
+                        g_inventory_1[i].exit_tickets[n] = exit_tkt;
+                    } else {
+                        ArrayResize(g_inventory_2[i].exit_tickets, n + 1);
+                        g_inventory_2[i].exit_tickets[n] = exit_tkt;
+                    }
+                }
+            }
+        }
+        g_reconciliation_pending = false;
+        SaveAllInventoryState();
+        Print("INFO [ADR-040] Reconciliation re-arm complete. g_reconciliation_pending cleared.");
+    }
 
     // Process pending CloseBy tasks before any signal logic.
     // Resolves MT5 ledger desync on market hedge fills.
@@ -882,16 +983,12 @@ void AuditExitLimits() {
             if (L.remaining_exit_volume <= VOLUME_EPSILON) continue;
 
             // Layer is fully filled but missing exit — attempt placement
-            // ADR-039 Phase 1: JIT recompute exit price from live prices every tick.
-            // Eliminates Bug 3: stale exit_spread_target frozen for 81,806 ticks
-            // is never re-read. Each tick gets fresh inst_spread computation.
-            // INVALID_EXIT_SPREAD (-1.0) caught by existing < 0.0 guard below.
+            // ADR-040: read deterministic exit price locked at fill time.
             string symbol    = g_symbols[slot];
-            double exit_price = ComputeExitPriceJIT(L);
+            double exit_price = L.exit_price_fixed;
 
             if (exit_price < 0.0) {
-                // JIT returned invalid (anchor not ready, degenerate spread,
-                // or transient inversion) — retry next tick silently.
+                // Sentinel — retry next tick after reconciliation or fill
                 continue;
             }
 

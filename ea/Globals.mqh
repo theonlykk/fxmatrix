@@ -146,6 +146,8 @@ int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 int  g_daily_api_count = 0;    // resets at broker midnight with g_daily_start_balance
 bool g_api_halt        = false; // true when g_daily_api_count >= 1800
 
+bool g_reconciliation_pending = false;
+
 int InitGlobals() {
     g_NudgeThreshold = NudgePips
                        * SymbolInfoDouble(_Symbol, SYMBOL_POINT)
