@@ -271,11 +271,16 @@ void OnTick() {
             if (ExecutionMode == MARKET_MAKER) {
 
                 // ADR-037: gate Option A if signal too weak to support exit floor
-                if (MathAbs(inst_spread) <= SkewFloor0) {
+                double phi     = 0.6180339887;
+                double point   = SymbolInfoDouble(inst_symbol, SYMBOL_POINT);
+                double floor_n = MathMax(SkewFloor0 * MathPow(phi, 0), MinLayerExitPoints * point);
+                if (MathAbs(inst_spread) <= floor_n) {
                     Print("INFO: ADR-037 weak signal — baseline bracket fallback. ",
                           "instrument=", inst_symbol,
                           " abs_spread=", DoubleToString(MathAbs(inst_spread), 6),
-                          " SkewFloor0=", DoubleToString(SkewFloor0, 6));
+                          " floor_n=", DoubleToString(floor_n, 6),
+                          " SkewFloor0=", DoubleToString(SkewFloor0, 6),
+                          " MinLayerExitPoints=", MinLayerExitPoints);
                     bid_spread   = -QuoteSpread;
                     offer_spread =  QuoteSpread;
                     bid_price = InvertSpreadToPrice(

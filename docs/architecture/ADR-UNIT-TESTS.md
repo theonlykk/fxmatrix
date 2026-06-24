@@ -176,28 +176,12 @@ theoretical_offer=1.14600, current_ask=1.14600, min_dist=0.00001
 
 ---
 
-## TEST 10 — Exit Clamp: ADR-036 Overrun Protection
-min_dist=0.00001
-
-10a. BUY Position Overrun (SELL Exit):
-     raw_exit=1.32410, current_ask=1.32415
-     Pre-check: 1.32410 <= 1.32415 = TRUE
-     Clamp: MathMax(1.32410, 1.32415 + 0.00001) = 1.32416
-     IsPassive: 1.32416 > 1.32415 = TRUE
-     Expected: PASS
-
-10b. SELL Position Overrun (BUY Exit):
-     raw_exit=1.14505, current_bid=1.14500
-     Pre-check: 1.14505 >= 1.14500 = TRUE
-     Clamp: MathMin(1.14505, 1.14500 - 0.00001) = 1.14499
-     IsPassive: 1.14499 < 1.14500 = TRUE
-     Expected: PASS
-
-10c. Native Passivity (No Clamp):
-     raw_exit=1.32450, current_ask=1.32415
-     Pre-check: 1.32450 <= 1.32415 = FALSE
-     exit_price = 1.32450 (unclamped)
-     Expected: PASS
+## TEST 10 — ADR-036 Exit Clamp (SUPERSEDED by ADR-038)
+Status: SUPERSEDED
+ADR-036 clamp block has been removed from PlaceExitLimit (ADR-038).
+10a — overrun SELL: PlaceExitLimit now hits IsPassive and returns 0. No re-pricing. SUPERSEDED.
+10b — overrun BUY: PlaceExitLimit now hits IsPassive and returns 0. No re-pricing. SUPERSEDED.
+10c — passive case: exit_price unchanged, order placed. PASS (behaviour unchanged).
 
 ---
 
@@ -255,29 +239,10 @@ Expected: PASS — deviation is acceptable and by design.
 
 ---
 
-## TEST 11 — ADR-037 SkewFloor0 Signal Gate (Wash Trade Preventer)
-Validates that Option A refuses to quote when signal is too weak to
-support a meaningful exit, preventing the SkewFloor0 wash trade trap.
-
-Inputs: SkewFloor0 = 0.0002
-
-11a. Weak signal blocked:
-     inst_spread = -0.000140
-     abs(inst_spread) <= SkewFloor0?
-     0.000140 <= 0.0002 = TRUE
-     Expected: Option A skips — continue fired
-
-11b. Why gate is mandatory even with corrected SkewFloor0=0.0002:
-     floor_skew = 0.0002 / 0.000140 = 1.43 → clamped to 0.99
-     exit_spread = -0.000140 * 0.99 = -0.0001386
-     Still a wash trade — gate correctly prevents entry
-     Expected: PASS (gate fires before order placed)
-
-11c. Strong signal passes gate:
-     inst_spread = -0.000500
-     abs(inst_spread) <= SkewFloor0?
-     0.000500 <= 0.0002 = FALSE
-     Expected: Option A proceeds to quote
+## TEST 11 — ADR-037 Weak Signal Gate
+11a — STALE: doc expected `continue`; current behaviour is baseline bracket fallback (see Test 12). SUPERSEDED by ADR-037 revision in ADR-038.
+11b — wash trade math: PASS (behaviour unchanged).
+11c — strong signal passes gate: PASS (behaviour unchanged).
 
 ---
 
@@ -313,6 +278,32 @@ Inputs:
 
 12e. Orders placed?
      Expected: YES — PlaceEntryLimit uses recomputed bid_price/offer_price
+
+---
+
+## TEST 13 — MinLayerExitPoints / SkewFloor0 synchronisation
+Given: SkewFloor0=0.0002, MinLayerExitPoints=2, point=0.00001
+floor_n = MathMax(0.0002 * MathPow(0.618, 0), 2 * 0.00001)
+        = MathMax(0.0002, 0.00002)
+        = 0.0002
+
+13a. entry_adj=0.000276
+     floor_skew = 0.0002 / 0.000276 = 0.725
+     effective_skew = MathMax(0.618, 0.725) = 0.725
+     exit_spread = 0.000276 × 0.725 = 0.000200
+     Expected: NOT a wash trade — PASS
+
+13b. entry_adj=0.000149
+     abs(0.000149) <= 0.0002 = TRUE → baseline fallback, no entry placed
+     Expected: gate fires correctly — PASS
+
+13c. Regression — old MinLayerExitPoints=30:
+     floor_n = MathMax(0.0002, 0.0003) = 0.0003
+     entry_adj=0.000276
+     floor_skew = 0.0003 / 0.000276 = 1.087
+     effective_skew = MathMin(0.99, 1.087) = 0.99
+     exit_spread = 0.000276 × 0.99 = 0.000273 ≈ entry_spread → wash trade
+     Expected: FAIL — confirms bug is fixed by new parameter
 
 ---
 

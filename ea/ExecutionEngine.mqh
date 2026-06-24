@@ -155,29 +155,6 @@ ulong PlaceExitLimit(double exit_price, double volume,
     int exit_dir = (direction == DIRECTION_BUY)
                    ? DIRECTION_SELL : DIRECTION_BUY;
 
-    // ADR-036: Dynamic Exit Clamp — overrun protection
-    // If exit_price has been overrun by market, clamp to nearest passive tick.
-    {
-        int    digits     = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
-        int    stops_lvl  = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
-        double point      = SymbolInfoDouble(symbol, SYMBOL_POINT);
-        double min_dist   = MathMax(stops_lvl * point, point);
-
-        if (exit_dir == DIRECTION_SELL) {
-            double current_ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
-            if (current_ask > 0.0 && exit_price <= current_ask)
-                exit_price = NormalizeDouble(current_ask + min_dist, digits);
-        } else {
-            double current_bid = SymbolInfoDouble(symbol, SYMBOL_BID);
-            if (current_bid > 0.0 && exit_price >= current_bid)
-                exit_price = NormalizeDouble(current_bid - min_dist, digits);
-        }
-
-        if (EnableVerboseLog) Print("INFO: ADR-036 exit clamp check. symbol=", symbol,
-              " exit_dir=", exit_dir,
-              " exit_price=", DoubleToString(exit_price, digits));
-    }
-
     if (!IsClearOfFreezeLevel(exit_price, exit_dir, symbol)) {
         Print("INFO: PlaceExitLimit skipped — freeze level. ",
               "symbol=", symbol,
