@@ -458,7 +458,6 @@ double ComputeSkew(int layer_idx) {
     }
     else {
         // ADR-025 Phase 2: geometric decay — raw fraction only
-        // Floor and 0.99 ceiling applied in ComputeExitSpreadTarget()
         // phi = golden ratio conjugate = 0.618...
         double phi = 0.6180339887;
         double result = MathPow(phi, layer_idx + 1);

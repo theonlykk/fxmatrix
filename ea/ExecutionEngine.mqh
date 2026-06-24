@@ -295,7 +295,6 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
           " | entry_price=",      DoubleToString(layer.entry_price, 5),
           " | entry_spread_raw=", DoubleToString(layer.entry_spread_raw, 6),
           " | entry_spread_adj=", DoubleToString(layer.entry_spread_adjusted, 6),
-          " | exit_spread_tgt=",  DoubleToString(layer.exit_spread_target, 6),
           " | carry_delta=",      DoubleToString(carry_delta, 6),
           " | holding_days=",     DoubleToString(holding_days, 2),
           " | gross_pnl=",        DoubleToString(gross_pnl, 2),
@@ -554,8 +553,6 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             MinLayerExitPoints,
             SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT));
 
-        L.exit_spread_target = MathAbs(L.entry_spread_raw)
-                               * MathPow(0.618, L.layer_index + 1);
         L.exit_target        = L.exit_price_fixed;
 
         PrintFormat("DIAG [ADR-040] exit_price_fixed=%.5f entry=%.5f E_n=%.6f "

@@ -96,8 +96,6 @@ void SaveInventoryState(int instrument) {
                   + DoubleToString(L.entry_spread_adjusted, 8) + ",");
         FileWrite(fh, "      \"entry_price_forward\": "
                   + DoubleToString(L.entry_price_forward, 8) + ",");
-        FileWrite(fh, "      \"exit_spread_target\": "
-                  + DoubleToString(L.exit_spread_target, 8) + ",");
         FileWrite(fh, "      \"exit_target\": "
                   + DoubleToString(L.exit_target, 8) + ",");
         FileWrite(fh, "      \"exit_price_fixed\": "
@@ -290,8 +288,6 @@ bool LoadInventoryState(int instrument) {
             L.entry_spread_adjusted = StringToDouble(val);
         else if (key == "entry_price_forward")
             L.entry_price_forward = StringToDouble(val);
-        else if (key == "exit_spread_target")
-            L.exit_spread_target = StringToDouble(val);
         else if (key == "exit_target")
             L.exit_target = StringToDouble(val);
         else if (key == "exit_price_fixed")

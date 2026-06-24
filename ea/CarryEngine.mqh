@@ -155,9 +155,6 @@ void RunCarryRecalculation() {
                 MinLayerExitPoints,
                 SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT));
 
-            L.exit_spread_target = MathAbs(new_spread)
-                                   * MathPow(0.618, L.layer_index + 1);
-
             PrintFormat("DIAG [ADR-040] CarryEngine updated exit_price_fixed=%.5f "
                         "new_spread=%.6f layer=%d",
                         L.exit_price_fixed, new_spread, L.layer_index);

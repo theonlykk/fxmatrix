@@ -49,7 +49,6 @@ struct Layer {
     double   entry_price_forward;
 
     // --- Exit targets (ADR-003 OrderModify only) ---
-    double   exit_spread_target;
     double   exit_target;
     double   exit_price_fixed;   // ADR-040: computed once at fill, never recomputed from live prices
 
@@ -98,7 +97,6 @@ struct CloseByTask {
 // The following fields are modified ONLY by ADR-003 carry logic:
 //   entry_spread_adjusted
 //   entry_price_forward
-//   exit_spread_target
 //   exit_target
 //   exit_tickets[] contents (OrderModify targets)
 //
@@ -129,7 +127,6 @@ Layer InitLayer() {
     L.direction                    = DIRECTION_BUY;
     L.entry_spread_adjusted        = 0.0;
     L.entry_price_forward          = 0.0;
-    L.exit_spread_target           = 0.0;
     L.exit_target                  = 0.0;
     L.exit_price_fixed             = -1.0;
     L.add_next                     = 0.0;

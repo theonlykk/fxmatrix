@@ -17,7 +17,7 @@ input double SkewStart          = 0.618;   // starting capture fraction (Fibonac
 input double SkewStep           = 0.000;   // reduction per layer (0=disabled)
 input double SkewMin            = 0.050;   // floor — avoids locking in transaction cost losses
 input double SkewFloor0         = 0.0002; // ADR-037: Floor_0 at Layer 0 (2 bps, below QuoteSpread=0.0004)
-input int    MinLayerExitPoints = 2;      // ADR-038: Hard minimum exit distance in broker points (2 pts = 0.2 pips)
+input int    MinLayerExitPoints = 30;     // ADR-041: Hard minimum exit distance in broker points (30 pts = 3.0 pips)
 input double RotationThreshold  = 0.0002;  // min edge to rotate signal
 
 //--- Phase 3: drawdown-responsive stress parameters
