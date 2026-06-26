@@ -462,6 +462,15 @@ void OnTick() {
                     }
                 }
 
+                // ── ADR-042 Fix: Slot-level LDAK suppression gate ────────
+                // Evaluated once per slot before placing either bid or offer.
+                // Symmetric: either both limits are placed or neither is.
+                if (IsSlotSuppressedByLDAK(inst)) {
+                    Print("INFO [LDAK] Slot suppressed — both directions blocked.",
+                          " instrument=", inst_symbol);
+                    continue;
+                }
+
                 // ── Place bid and offer (gated by rollover window) ───────
                 if (!IsRolloverWindow(TimeCurrent())) {
                     if (bid_price > 0) {

@@ -837,6 +837,7 @@ expected: return 0.0
 | 30 | Median anchor | StrengthWindow anchor + MathMedianCentered spike protection |
 | 31 | ADR-045 | Spatial carry drift math — rollover limit adjustment |
 | 32 | ADR-046 | Dynamic spread cooldown & exit decoupling |
+| 33 | ADR-042 Fix | Symmetric slot-level LDAK gate |
 
 ---
 
@@ -1087,6 +1088,54 @@ g_cooldown_LDAK[0] = 1.0 (already at floor)
 live_dilation = 1.0
 1.0 * 0.99 = 0.99 → MathMax(1.0, 0.99) = 1.0
 expected: g_cooldown_LDAK[0] = 1.0  (no change)
+```
+
+---
+
+## TEST 33 — Symmetric Slot-Level LDAK Gate (ADR-042 Fix)
+
+**Purpose:** Verify slot-level LDAK suppression math and SLOT_AB exemption.
+
+### 33a — High correlation does not suppress slot
+
+```
+g_corr[AC/BC] = 0.95, g_vratio[AC] = 1.3, g_vratio[BC] = 1.2
+S_eff = 0.95 * max(1.3 - 1.0, 0) = 0.95 * 0.3 = 0.285
+w = 1 / (1 + 0.285^2) = 1 / 1.081225 = 0.92487688
+raw_vol = 0.01 * 0.92487688 = 0.00924877
+0.00924877 >= 0.007 → NOT suppressed
+expected: IsSlotSuppressedByLDAK = false
+```
+
+### 33b — Very high correlation suppresses slot
+
+```
+g_corr[AC/BC] = 0.95, g_vratio[AC] = 2.0, g_vratio[BC] = 1.8
+S_eff = 0.95 * max(2.0 - 1.0, 0) = 0.95 * 1.0 = 0.95
+w = 1 / (1 + 0.95^2) = 1 / 1.9025 = 0.52562418
+raw_vol = 0.01 * 0.52562418 = 0.00525624
+0.00525624 < 0.007 → SUPPRESSED
+expected: IsSlotSuppressedByLDAK = true
+```
+
+### 33c — SLOT_AB never suppressed
+
+```
+instrument = SLOT_AB (2)
+expected: IsSlotSuppressedByLDAK = false immediately (no peer check)
+```
+
+### 33d — Low correlation allows both legs
+
+```
+g_corr[AC/BC] = 0.0007 (from live log 04:05)
+g_vratio[AC] = 0.670, g_vratio[BC] = 0.686
+v_eff = max(0.670, 0.686) = 0.686
+S = 0.0007 * max(0.686 - 1.0, 0) = 0.0007 * 0 = 0.0
+S_eff = 0.0
+w = 1.0
+raw_vol = 0.01 >= 0.007 → NOT suppressed
+expected: IsSlotSuppressedByLDAK = false
 ```
 
 ---

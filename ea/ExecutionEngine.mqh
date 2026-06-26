@@ -22,13 +22,96 @@ int GetInstrumentFromSymbol(string symbol) {
 }
 
 //------------------------------------------------------------------
+// ComputeSlotSEff
+// Computes the LDAK S_eff for a given slot using live g_corr and
+// g_vratio. Used by IsSlotSuppressedByLDAK() for the suppression
+// decision. Direction-agnostic.
+//------------------------------------------------------------------
+double ComputeSlotSEff(int instrument) {
+    double S_eff = 0.0;
+    for (int j = 0; j < 3; j++) {
+        if (j == instrument) continue;
+        int lo = MathMin(instrument, j);
+        int hi = MathMax(instrument, j);
+        int ci = (lo == 0 && hi == 1) ? 0
+               : (lo == 0 && hi == 2) ? 1 : 2;
+        double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
+        double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
+        S_eff = MathMax(S_eff, S);
+    }
+    return S_eff;
+}
+
+//------------------------------------------------------------------
+// IsSlotSuppressedByLDAK
+// ADR-042 Fix: Evaluates whether a slot should be suppressed due to
+// high correlation with its peer slot. Direction-agnostic — makes a
+// single binary decision for the entire slot before any order is placed.
+// Only applies to SLOT_AC and SLOT_BC (the USD legs).
+// Returns true if the slot should be fully suppressed (both bid and
+// offer blocked). Returns false if quoting should proceed normally.
+//------------------------------------------------------------------
+bool IsSlotSuppressedByLDAK(int instrument) {
+    if (instrument != SLOT_AC && instrument != SLOT_BC) return false;
+
+    int peer_slot = (instrument == SLOT_AC) ? SLOT_BC : SLOT_AC;
+
+    // Check peer for open positions (EA_MAGIC, EA_MAGIC+1 only)
+    for (int i = PositionsTotal() - 1; i >= 0; i--) {
+        ulong ticket = PositionGetTicket(i);
+        if (ticket == 0) continue;
+        long pos_magic = PositionGetInteger(POSITION_MAGIC);
+        if (pos_magic != (long)EA_MAGIC &&
+            pos_magic != (long)(EA_MAGIC + 1)) continue;
+        if (PositionGetString(POSITION_SYMBOL) != g_symbols[peer_slot]) continue;
+        // Peer has an open position — compute S_eff to decide suppression
+        double S_eff = ComputeSlotSEff(instrument);
+        double w     = 1.0 / (1.0 + S_eff * S_eff);
+        double raw_vol = BaseLotSize * w;
+        if (raw_vol < SymbolInfoDouble(g_symbols[instrument], SYMBOL_VOLUME_MIN) * 0.70) {
+            if (EnableVerboseLog)
+                Print("INFO [LDAK] Slot suppressed (position overlap) — peer=",
+                      g_symbols[peer_slot],
+                      " S_eff=", DoubleToString(S_eff, 4),
+                      " instrument=", g_symbols[instrument]);
+            return true;
+        }
+    }
+
+    // Check peer for pending entry limit orders (EA_MAGIC, EA_MAGIC+1 only)
+    for (int i = OrdersTotal() - 1; i >= 0; i--) {
+        ulong ticket = OrderGetTicket(i);
+        if (ticket == 0) continue;
+        long order_magic = OrderGetInteger(ORDER_MAGIC);
+        if (order_magic != (long)EA_MAGIC &&
+            order_magic != (long)(EA_MAGIC + 1)) continue;
+        if (OrderGetString(ORDER_SYMBOL) != g_symbols[peer_slot]) continue;
+        ENUM_ORDER_TYPE otype = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+        if (otype != ORDER_TYPE_BUY_LIMIT && otype != ORDER_TYPE_SELL_LIMIT) continue;
+        // Peer has a pending entry limit — compute S_eff to decide suppression
+        double S_eff = ComputeSlotSEff(instrument);
+        double w     = 1.0 / (1.0 + S_eff * S_eff);
+        double raw_vol = BaseLotSize * w;
+        if (raw_vol < SymbolInfoDouble(g_symbols[instrument], SYMBOL_VOLUME_MIN) * 0.70) {
+            if (EnableVerboseLog)
+                Print("INFO [LDAK] Slot suppressed (order overlap) — peer=",
+                      g_symbols[peer_slot],
+                      " S_eff=", DoubleToString(S_eff, 4),
+                      " instrument=", g_symbols[instrument]);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+//------------------------------------------------------------------
 // ComputeLDAKLotSize
 // Computes the LDAK-penalized lot size for a given instrument slot.
 // Must be called BEFORE PlaceEntryLimit/PlaceNextEntryLimit so the
 // physical order is sized correctly from the start.
-// ADR-042: signal_direction drives intent gate; do not infer from inventory.
 //------------------------------------------------------------------
-double ComputeLDAKLotSize(int instrument, int signal_direction) {
+double ComputeLDAKLotSize(int instrument) {
     double balance   = AccountInfoDouble(ACCOUNT_BALANCE);
     double pod_pnl   = GetPodUnrealizedPnL(instrument);
     double size_mult = 1.0;
@@ -41,71 +124,21 @@ double ComputeLDAKLotSize(int instrument, int signal_direction) {
 
     // LDAK volatility-gated penalty
     double S_eff = 0.0;
-    bool   intent_override = false;
+    int inv_size_ldak[3];
+    inv_size_ldak[0] = ArraySize(g_inventory_0);
+    inv_size_ldak[1] = ArraySize(g_inventory_1);
+    inv_size_ldak[2] = ArraySize(g_inventory_2);
 
-    // ADR-042: Intent gate — AC/BC peer same-direction overlap forces S_eff=10.0
-    if (instrument == SLOT_AC || instrument == SLOT_BC) {
-        int  peer_slot = (instrument == SLOT_AC) ? SLOT_BC : SLOT_AC;
-        bool overlap   = false;
-
-        for (int i = PositionsTotal() - 1; i >= 0 && !overlap; i--) {
-            ulong ticket = PositionGetTicket(i);
-            if (ticket == 0) continue;
-            long pos_magic = PositionGetInteger(POSITION_MAGIC);
-            if (pos_magic != (long)EA_MAGIC &&
-                pos_magic != (long)(EA_MAGIC + 1)) continue;
-            if (PositionGetString(POSITION_SYMBOL) != g_symbols[peer_slot]) continue;
-            if (signal_direction == DIRECTION_BUY) {
-                if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
-                    overlap = true;
-            } else {
-                if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
-                    overlap = true;
-            }
-        }
-
-        for (int i = OrdersTotal() - 1; i >= 0 && !overlap; i--) {
-            ulong ticket = OrderGetTicket(i);
-            if (ticket == 0) continue;
-            long order_magic = OrderGetInteger(ORDER_MAGIC);
-            if (order_magic != (long)EA_MAGIC &&
-                order_magic != (long)(EA_MAGIC + 1)) continue;
-            if (OrderGetString(ORDER_SYMBOL) != g_symbols[peer_slot]) continue;
-            if (signal_direction == DIRECTION_BUY) {
-                if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
-                    overlap = true;
-            } else {
-                if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_SELL_LIMIT)
-                    overlap = true;
-            }
-        }
-
-        if (overlap) {
-            S_eff = 10.0;
-            intent_override = true;
-            if (EnableVerboseLog)
-                Print("INFO [LDAK] Intent overlap detected — peer=", g_symbols[peer_slot],
-                      " forcing S_eff=10.0");
-        }
-    }
-
-    if (!intent_override) {
-        int inv_size_ldak[3];
-        inv_size_ldak[0] = ArraySize(g_inventory_0);
-        inv_size_ldak[1] = ArraySize(g_inventory_1);
-        inv_size_ldak[2] = ArraySize(g_inventory_2);
-
-        for (int j = 0; j < 3; j++) {
-            if (j == instrument) continue;
-            if (inv_size_ldak[j] == 0) continue;
-            int lo = MathMin(instrument, j);
-            int hi = MathMax(instrument, j);
-            int ci = (lo == 0 && hi == 1) ? 0
-                   : (lo == 0 && hi == 2) ? 1 : 2;
-            double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
-            double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
-            S_eff = MathMax(S_eff, S);
-        }
+    for (int j = 0; j < 3; j++) {
+        if (j == instrument) continue;
+        if (inv_size_ldak[j] == 0) continue;
+        int lo = MathMin(instrument, j);
+        int hi = MathMax(instrument, j);
+        int ci = (lo == 0 && hi == 1) ? 0
+               : (lo == 0 && hi == 2) ? 1 : 2;
+        double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
+        double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
+        S_eff = MathMax(S_eff, S);
     }
 
     double w = 1.0 / (1.0 + S_eff * S_eff);
@@ -214,7 +247,7 @@ ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument
 
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
-    req.volume       = ComputeLDAKLotSize(instrument, direction);
+    req.volume       = ComputeLDAKLotSize(instrument);
     if (req.volume < SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN)) {
         if (EnableVerboseLog)
             Print("INFO [LDAK] Entry suppressed — volume below minimum. Skipping order.");
@@ -350,7 +383,7 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     int _inst = GetInstrumentFromSymbol(symbol);
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
-    req.volume       = ComputeLDAKLotSize(_inst, direction);
+    req.volume       = ComputeLDAKLotSize(_inst);
     if (req.volume < SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN)) {
         if (EnableVerboseLog)
             Print("INFO [LDAK] Entry suppressed — volume below minimum. Skipping order.");
