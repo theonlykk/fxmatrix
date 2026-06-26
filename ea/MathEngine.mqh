@@ -243,6 +243,39 @@ bool RunSignalOnBarClose() {
     }
     // ── End LDAK ─────────────────────────────────────────────────
 
+    // ── ADR-046: Viscous cooldown LDAK update ────────────────────
+    // Compute live dilation per slot and update high-water mark.
+    // Instant dilation on shock; viscous decay toward 1.0 on calm.
+    for (int slot = 0; slot < 3; slot++) {
+        double S_eff_slot = 0.0;
+        for (int j = 0; j < 3; j++) {
+            if (j == slot) continue;
+            int lo = MathMin(slot, j);
+            int hi = MathMax(slot, j);
+            int ci = (lo == 0 && hi == 1) ? 0
+                   : (lo == 0 && hi == 2) ? 1 : 2;
+            double v_eff = MathMax(g_vratio[slot], g_vratio[j]);
+            double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
+            S_eff_slot   = MathMax(S_eff_slot, S);
+        }
+        double live_dilation = MathMin(1.0 + S_eff_slot * S_eff_slot, LDAK_Dilation_Max);
+
+        if (live_dilation > g_cooldown_LDAK[slot]) {
+            // Instant snap to new high-water mark
+            g_cooldown_LDAK[slot] = live_dilation;
+        } else {
+            // Viscous decay — floor at 1.0
+            g_cooldown_LDAK[slot] = MathMax(1.0,
+                g_cooldown_LDAK[slot] * (1.0 - CooldownDecayRate));
+        }
+    }
+    if (EnableVerboseLog)
+        Print("DIAG [ADR-046] cooldown_LDAK=[",
+              DoubleToString(g_cooldown_LDAK[0], 4), ",",
+              DoubleToString(g_cooldown_LDAK[1], 4), ",",
+              DoubleToString(g_cooldown_LDAK[2], 4), "]");
+    // ── End ADR-046 cooldown update ──────────────────────────────
+
     return g_signal_active;
 }
 
@@ -378,6 +411,112 @@ double InvertSpreadToPrice(
 }
 
 //------------------------------------------------------------------
+// RunSpreadCooldownReconciliation
+// ADR-046: Runs on new M5 bar close only. Walks resting entry limits
+// closer to spot as g_cooldown_LDAK decays. Only drags orders toward
+// market — never away (dilation is handled by ping-pong replacement).
+// Uses IsClearOfFreezeLevel() before every OrderModify.
+//------------------------------------------------------------------
+void RunSpreadCooldownReconciliation() {
+    for (int slot = 0; slot < 3; slot++) {
+        if (g_cooldown_LDAK[slot] <= 1.0) continue;  // no dilation — nothing to drag
+
+        string symbol = g_symbols[slot];
+
+        // Recompute ideal entry prices using current cooled-down spread
+        // bid and offer spreads derived from g_scores (already updated this bar)
+        double inst_spread;
+        if (slot == SLOT_AC)      inst_spread = g_scores[0] - g_scores[2];
+        else if (slot == SLOT_BC) inst_spread = g_scores[1] - g_scores[2];
+        else                      inst_spread = g_scores[0] - g_scores[1];
+
+        // Determine bid/offer directions per slot (binding slot ordering)
+        int bid_strongest, bid_weakest, offer_strongest, offer_weakest;
+        int bid_dir, offer_dir;
+        if (slot == SLOT_AC) {
+            bid_strongest = 2; bid_weakest = 0; bid_dir = DIRECTION_BUY;
+            offer_strongest = 0; offer_weakest = 2; offer_dir = DIRECTION_SELL;
+        } else if (slot == SLOT_BC) {
+            bid_strongest = 2; bid_weakest = 1; bid_dir = DIRECTION_BUY;
+            offer_strongest = 1; offer_weakest = 2; offer_dir = DIRECTION_SELL;
+        } else {
+            bid_strongest = 1; bid_weakest = 0; bid_dir = DIRECTION_BUY;
+            offer_strongest = 0; offer_weakest = 1; offer_dir = DIRECTION_SELL;
+        }
+
+        double bid_spread   = inst_spread + QuoteSpread;
+        double offer_spread = inst_spread - QuoteSpread;
+
+        double ideal_bid = InvertSpreadToPrice(
+            g_anchor[0], g_anchor[1], g_r_signal[0], g_r_signal[1],
+            bid_spread, bid_strongest, bid_weakest, false, false);
+        double ideal_offer = InvertSpreadToPrice(
+            g_anchor[0], g_anchor[1], g_r_signal[0], g_r_signal[1],
+            offer_spread, offer_strongest, offer_weakest, false, false);
+
+        // Loop pending entry orders for this slot — drag toward market if cooled
+        for (int i = OrdersTotal() - 1; i >= 0; i--) {
+            ulong ticket = OrderGetTicket(i);
+            if (ticket == 0) continue;
+            if (OrderGetString(ORDER_SYMBOL) != symbol) continue;
+
+            ulong magic = OrderGetInteger(ORDER_MAGIC);
+            if (magic != EA_MAGIC && magic != EA_MAGIC + 1) continue;  // entries only
+
+            ENUM_ORDER_TYPE otype       = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+            double          cur_price   = OrderGetDouble(ORDER_PRICE_OPEN);
+            double          ideal_price = 0.0;
+            int             direction   = -1;
+
+            if (otype == ORDER_TYPE_BUY_LIMIT) {
+                ideal_price = ideal_bid;
+                direction   = DIRECTION_BUY;
+                // Only drag UP — closer to market for a buy limit
+                if (ideal_price <= cur_price) continue;
+            } else if (otype == ORDER_TYPE_SELL_LIMIT) {
+                ideal_price = ideal_offer;
+                direction   = DIRECTION_SELL;
+                // Only drag DOWN — closer to market for a sell limit
+                if (ideal_price >= cur_price) continue;
+            } else {
+                continue;
+            }
+
+            if (ideal_price <= 0) continue;
+
+            if (!IsClearOfFreezeLevel(ideal_price, direction, symbol)) {
+                if (EnableVerboseLog)
+                    Print("INFO [ADR-046] Cooldown drag skipped — freeze level.",
+                          " ticket=", ticket, " symbol=", symbol);
+                continue;
+            }
+
+            MqlTradeRequest req = {};
+            MqlTradeResult  res = {};
+            req.action     = TRADE_ACTION_MODIFY;
+            req.order      = ticket;
+            req.price      = ideal_price;
+            req.sl         = OrderGetDouble(ORDER_SL);
+            req.tp         = OrderGetDouble(ORDER_TP);
+            req.type_time  = (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
+            req.expiration = (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
+
+            if (OrderSend(req, res)) {
+                if (EnableVerboseLog)
+                    Print("INFO [ADR-046] Cooldown drag applied.",
+                          " symbol=", symbol, " ticket=", ticket,
+                          " old=", DoubleToString(cur_price, 5),
+                          " new=", DoubleToString(ideal_price, 5),
+                          " cooldown_LDAK=", DoubleToString(g_cooldown_LDAK[slot], 4));
+            } else {
+                Print("ERROR [ADR-046] Cooldown drag OrderModify failed.",
+                      " ticket=", ticket, " retcode=", res.retcode);
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------
 // ComputeGridInterval
 // Returns the grid spacing S for a given layer index.
 // GridMode 0: constant S = GridBase
@@ -421,31 +560,9 @@ double ComputeGridInterval(int layer_idx, int instrument = -1) {
 
     // LDAK: volatility-gated grid dilation
     if (instrument >= 0) {
-        double S_eff = 0.0;
-        int inv_size[3];
-        inv_size[0] = ArraySize(g_inventory_0);
-        inv_size[1] = ArraySize(g_inventory_1);
-        inv_size[2] = ArraySize(g_inventory_2);
-
-        // Generic LDAK loop — slot ordering [AC, BC, AB] is binding
-        for (int j = 0; j < 3; j++) {
-            if (j == instrument) continue;
-            if (inv_size[j] == 0) continue;
-
-            // corr_index: symmetric lookup for pair (instrument, j)
-            int ci;
-            int lo = MathMin(instrument, j);
-            int hi = MathMax(instrument, j);
-            if      (lo == 0 && hi == 1) ci = 0;
-            else if (lo == 0 && hi == 2) ci = 1;
-            else                          ci = 2;  // lo==1, hi==2
-
-            double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
-            double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
-            S_eff = MathMax(S_eff, S);
-        }
-
-        double dilation = MathMin(1.0 + S_eff * S_eff, LDAK_Dilation_Max);
+        // ADR-046: use viscous cooldown LDAK instead of live dilation
+        // g_cooldown_LDAK snaps up instantly on shock, decays slowly on calm
+        double dilation = g_cooldown_LDAK[instrument];
         base_interval  *= layer_stress * pnl_stress * dilation;
         if (EnableVerboseLog) Print("DIAG GridInterval: layer=", layer_idx,
               " base=", DoubleToString(base_interval / (layer_stress * pnl_stress * dilation), 6),
@@ -523,7 +640,12 @@ double ComputeExitPriceDeterministic(
     int    min_layer_exit_points,
     double point_value)
 {
-    double E_n = MathAbs(entry_spread_raw) * MathPow(0.618, layer_index + 1);
+    // ADR-046 Exit Decoupling: cap entry spread at structural baseline.
+    // Prevents LDAK macro-dilation from stranding exit targets.
+    // A 35bps dilated entry is treated as 8bps for exit geometry.
+    double effective_spread = MathMin(MathAbs(entry_spread_raw), MathAbs(BaseThreshold));
+
+    double E_n = effective_spread * MathPow(0.618, layer_index + 1);
 
     double raw_target;
     if (direction == DIRECTION_BUY)

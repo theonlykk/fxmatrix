@@ -68,6 +68,7 @@ input bool   EnableVerboseLog   = true;
 
 //--- Phase 4: LDAK correlation penalty
 input double LDAK_Dilation_Max = 3.000; // LDAK: max grid dilation multiplier
+input double CooldownDecayRate = 0.010; // ADR-046: fractional decay per M5 bar (1% default)
 
 //--- Phase 5: FTMO equity failsafe
 input double FTMO_Initial_Balance = 10000.000; // FTMO starting account balance
@@ -107,6 +108,9 @@ double g_corr[3]  = {0.0, 0.0, 0.0};
 
 // ADR-024: V3 LDAK volatility ratio array [slot 0, 1, 2]
 double g_vratio[3] = {1.0, 1.0, 1.0};
+
+// ADR-046: viscous LDAK high-water mark per slot — decays toward 1.0 at CooldownDecayRate per bar
+double g_cooldown_LDAK[3] = {1.0, 1.0, 1.0};
 
 //--- Bar tracking
 datetime g_last_bar_time        = 0;

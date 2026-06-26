@@ -836,6 +836,7 @@ expected: return 0.0
 | 29 | ADR-043 | Layer 0 inventory gate — Phase 3 resume ping-pong fix |
 | 30 | Median anchor | StrengthWindow anchor + MathMedianCentered spike protection |
 | 31 | ADR-045 | Spatial carry drift math — rollover limit adjustment |
+| 32 | ADR-046 | Dynamic spread cooldown & exit decoupling |
 
 ---
 
@@ -1022,6 +1023,70 @@ swap_short = -3.0 points, multiplier = 1, point = 0.00001
 shift = 3.0 * 1 * 0.00001 = 0.00003
 SELL_LIMIT entry: 0.86500 - 0.00003 = 0.86497
 expected: 0.86497
+```
+
+---
+
+## TEST 32 — Dynamic Spread Cooldown & Exit Decoupling (ADR-046)
+
+**Purpose:** Verify viscous cooldown high-water mark, decay floor, and exit spread decoupling from LDAK dilation.
+
+### 32a — Cooldown snap on shock
+
+```
+g_cooldown_LDAK[0] = 1.2  (current)
+live_dilation = 2.5        (new shock)
+live_dilation > g_cooldown_LDAK[0] → snap
+expected: g_cooldown_LDAK[0] = 2.5
+```
+
+### 32b — Cooldown viscous decay
+
+```
+g_cooldown_LDAK[0] = 2.5, CooldownDecayRate = 0.01
+live_dilation = 1.1  (calm, below HWM)
+g_cooldown_LDAK[0] * (1 - 0.01) = 2.5 * 0.99 = 2.475
+MathMax(1.0, 2.475) = 2.475
+expected: g_cooldown_LDAK[0] = 2.475
+```
+
+### 32c — Cooldown floor at 1.0
+
+```
+g_cooldown_LDAK[0] = 1.005, CooldownDecayRate = 0.01
+live_dilation = 1.0
+1.005 * 0.99 = 0.99495
+MathMax(1.0, 0.99495) = 1.0
+expected: g_cooldown_LDAK[0] = 1.0
+```
+
+### 32d — Exit decoupling: dilated spread capped at BaseThreshold
+
+```
+entry_spread_raw = 0.0035  (35 bps — dilated by LDAK shock)
+BaseThreshold = 0.0004     (8 bps baseline — note: use MathAbs)
+effective_spread = MathMin(0.0035, 0.0004) = 0.0004
+E_0 = 0.0004 * MathPow(0.618, 1) = 0.0004 * 0.618 = 0.0002472
+expected: E_0 = 0.0002472
+```
+
+### 32e — Exit decoupling: normal spread unchanged
+
+```
+entry_spread_raw = 0.0003  (3 bps — below BaseThreshold)
+BaseThreshold = 0.0004
+effective_spread = MathMin(0.0003, 0.0004) = 0.0003
+E_0 = 0.0003 * 0.618 = 0.0001854
+expected: E_0 = 0.0001854
+```
+
+### 32f — Cooldown decay rate boundary: exactly at 1.0
+
+```
+g_cooldown_LDAK[0] = 1.0 (already at floor)
+live_dilation = 1.0
+1.0 * 0.99 = 0.99 → MathMax(1.0, 0.99) = 1.0
+expected: g_cooldown_LDAK[0] = 1.0  (no change)
 ```
 
 ---

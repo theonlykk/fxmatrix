@@ -289,6 +289,8 @@ void OnTick() {
 
         RunSignalOnBarClose();
 
+        RunSpreadCooldownReconciliation();
+
         // Per-instrument Option A deafness (Gemini Phase 2d ruling).
         // Each instrument evaluates independently. A pod open on EURGBP
         // does not suppress signal evaluation on EURUSD or GBPUSD.
