@@ -26,8 +26,9 @@ int GetInstrumentFromSymbol(string symbol) {
 // Computes the LDAK-penalized lot size for a given instrument slot.
 // Must be called BEFORE PlaceEntryLimit/PlaceNextEntryLimit so the
 // physical order is sized correctly from the start.
+// ADR-042: signal_direction drives intent gate; do not infer from inventory.
 //------------------------------------------------------------------
-double ComputeLDAKLotSize(int instrument) {
+double ComputeLDAKLotSize(int instrument, int signal_direction) {
     double balance   = AccountInfoDouble(ACCOUNT_BALANCE);
     double pod_pnl   = GetPodUnrealizedPnL(instrument);
     double size_mult = 1.0;
@@ -37,29 +38,89 @@ double ComputeLDAKLotSize(int instrument) {
                             0.0);
     string symbol  = g_symbols[instrument];
     double min_vol = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
-    double lot_size = MathMax(BaseLotSize * size_mult, min_vol);
 
     // LDAK volatility-gated penalty
     double S_eff = 0.0;
-    int inv_size_ldak[3];
-    inv_size_ldak[0] = ArraySize(g_inventory_0);
-    inv_size_ldak[1] = ArraySize(g_inventory_1);
-    inv_size_ldak[2] = ArraySize(g_inventory_2);
+    bool   intent_override = false;
 
-    for (int j = 0; j < 3; j++) {
-        if (j == instrument) continue;
-        if (inv_size_ldak[j] == 0) continue;
-        int lo = MathMin(instrument, j);
-        int hi = MathMax(instrument, j);
-        int ci = (lo == 0 && hi == 1) ? 0
-               : (lo == 0 && hi == 2) ? 1 : 2;
-        double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
-        double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
-        S_eff = MathMax(S_eff, S);
+    // ADR-042: Intent gate — AC/BC peer same-direction overlap forces S_eff=10.0
+    if (instrument == SLOT_AC || instrument == SLOT_BC) {
+        int  peer_slot = (instrument == SLOT_AC) ? SLOT_BC : SLOT_AC;
+        bool overlap   = false;
+
+        for (int i = PositionsTotal() - 1; i >= 0 && !overlap; i--) {
+            ulong ticket = PositionGetTicket(i);
+            if (ticket == 0) continue;
+            long pos_magic = PositionGetInteger(POSITION_MAGIC);
+            if (pos_magic != (long)EA_MAGIC &&
+                pos_magic != (long)(EA_MAGIC + 1)) continue;
+            if (PositionGetString(POSITION_SYMBOL) != g_symbols[peer_slot]) continue;
+            if (signal_direction == DIRECTION_BUY) {
+                if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+                    overlap = true;
+            } else {
+                if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
+                    overlap = true;
+            }
+        }
+
+        for (int i = OrdersTotal() - 1; i >= 0 && !overlap; i--) {
+            ulong ticket = OrderGetTicket(i);
+            if (ticket == 0) continue;
+            long order_magic = OrderGetInteger(ORDER_MAGIC);
+            if (order_magic != (long)EA_MAGIC &&
+                order_magic != (long)(EA_MAGIC + 1)) continue;
+            if (OrderGetString(ORDER_SYMBOL) != g_symbols[peer_slot]) continue;
+            if (signal_direction == DIRECTION_BUY) {
+                if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT)
+                    overlap = true;
+            } else {
+                if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_SELL_LIMIT)
+                    overlap = true;
+            }
+        }
+
+        if (overlap) {
+            S_eff = 10.0;
+            intent_override = true;
+            if (EnableVerboseLog)
+                Print("INFO [LDAK] Intent overlap detected — peer=", g_symbols[peer_slot],
+                      " forcing S_eff=10.0");
+        }
+    }
+
+    if (!intent_override) {
+        int inv_size_ldak[3];
+        inv_size_ldak[0] = ArraySize(g_inventory_0);
+        inv_size_ldak[1] = ArraySize(g_inventory_1);
+        inv_size_ldak[2] = ArraySize(g_inventory_2);
+
+        for (int j = 0; j < 3; j++) {
+            if (j == instrument) continue;
+            if (inv_size_ldak[j] == 0) continue;
+            int lo = MathMin(instrument, j);
+            int hi = MathMax(instrument, j);
+            int ci = (lo == 0 && hi == 1) ? 0
+                   : (lo == 0 && hi == 2) ? 1 : 2;
+            double v_eff = MathMax(g_vratio[instrument], g_vratio[j]);
+            double S     = MathMax(g_corr[ci], 0.0) * MathMax(v_eff - 1.0, 0.0);
+            S_eff = MathMax(S_eff, S);
+        }
     }
 
     double w = 1.0 / (1.0 + S_eff * S_eff);
-    lot_size = MathMax(lot_size * w, SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN));
+
+    // ADR-042: 70% binary volume gate
+    double raw_vol = BaseLotSize * size_mult * w;
+    if (raw_vol < min_vol * 0.70) {
+        if (EnableVerboseLog)
+            Print("INFO [LDAK] Size scaled below broker minimum. Quote pulled.",
+                  " raw_vol=", DoubleToString(raw_vol, 6),
+                  " min_vol=", DoubleToString(min_vol, 4),
+                  " instrument=", symbol);
+        return 0.0;
+    }
+    double lot_size = MathMax(raw_vol, min_vol);
 
     if (EnableVerboseLog && S_eff > 0.0)
         Print("INFO: LDAK S_eff=", DoubleToString(S_eff, 4),
@@ -68,6 +129,34 @@ double ComputeLDAKLotSize(int instrument) {
               " instrument=", symbol);
 
     return lot_size;
+}
+
+//------------------------------------------------------------------
+// SameDirectionInventoryExists
+// ADR-043: Returns true if the slot holds any live open position
+// in the given direction. Uses position_ticket > 0 as the canonical
+// live-position signal per Gemini architectural ruling.
+// Called before every Layer 0 PlaceEntryLimit to enforce the
+// Continuous Risk Paradigm (no blind reload of directional risk).
+//------------------------------------------------------------------
+bool SameDirectionInventoryExists(int instrument, int direction) {
+    int inv_size = (instrument == 0) ? ArraySize(g_inventory_0)
+                 : (instrument == 1) ? ArraySize(g_inventory_1)
+                 : ArraySize(g_inventory_2);
+
+    for (int i = 0; i < inv_size; i++) {
+        int  layer_dir = (instrument == 0) ? g_inventory_0[i].direction
+                       : (instrument == 1) ? g_inventory_1[i].direction
+                       : g_inventory_2[i].direction;
+
+        ulong pos_tkt  = (instrument == 0) ? g_inventory_0[i].position_ticket
+                       : (instrument == 1) ? g_inventory_1[i].position_ticket
+                       : g_inventory_2[i].position_ticket;
+
+        if (layer_dir == direction && pos_tkt > 0)
+            return true;
+    }
+    return false;
 }
 
 ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument) {
@@ -125,7 +214,12 @@ ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument
 
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
-    req.volume       = ComputeLDAKLotSize(instrument);
+    req.volume       = ComputeLDAKLotSize(instrument, direction);
+    if (req.volume < SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN)) {
+        if (EnableVerboseLog)
+            Print("INFO [LDAK] Entry suppressed — volume below minimum. Skipping order.");
+        return 0;
+    }
     req.price        = entry_price;
     req.magic        = EA_MAGIC;  // Layer 0 entries and resume-quoting
     req.type         = (direction == DIRECTION_BUY)
@@ -256,8 +350,12 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     int _inst = GetInstrumentFromSymbol(symbol);
     req.action       = TRADE_ACTION_PENDING;
     req.symbol       = symbol;
-    // Resolve instrument first to pass into LDAK compute
-    req.volume       = ComputeLDAKLotSize(_inst);
+    req.volume       = ComputeLDAKLotSize(_inst, direction);
+    if (req.volume < SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN)) {
+        if (EnableVerboseLog)
+            Print("INFO [LDAK] Entry suppressed — volume below minimum. Skipping order.");
+        return 0;
+    }
     req.price        = price;
     req.magic        = EA_MAGIC + 1;  // Add-next entries
     req.type         = (direction == DIRECTION_BUY)
@@ -889,12 +987,24 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             false, false);
 
                         if (bid_price > 0) {
-                            ulong bid_tkt = PlaceEntryLimit(bid_price, bid_direction, resume_symbol, inst);
-                            if (bid_tkt > 0)   g_pending_bid[inst]   = bid_tkt;
+                            if (!SameDirectionInventoryExists(inst, bid_direction)) {
+                                ulong bid_tkt = PlaceEntryLimit(bid_price, bid_direction, resume_symbol, inst);
+                                if (bid_tkt > 0) g_pending_bid[inst] = bid_tkt;
+                            } else {
+                                if (EnableVerboseLog)
+                                    Print("INFO [ADR-043] Layer 0 blocked — same-direction inventory exists.",
+                                          " instrument=", resume_symbol, " direction=BUY");
+                            }
                         }
                         if (offer_price > 0) {
-                            ulong offer_tkt = PlaceEntryLimit(offer_price, offer_direction, resume_symbol, inst);
-                            if (offer_tkt > 0) g_pending_offer[inst] = offer_tkt;
+                            if (!SameDirectionInventoryExists(inst, offer_direction)) {
+                                ulong offer_tkt = PlaceEntryLimit(offer_price, offer_direction, resume_symbol, inst);
+                                if (offer_tkt > 0) g_pending_offer[inst] = offer_tkt;
+                            } else {
+                                if (EnableVerboseLog)
+                                    Print("INFO [ADR-043] Layer 0 blocked — same-direction inventory exists.",
+                                          " instrument=", resume_symbol, " direction=SELL");
+                            }
                         }
 
                         Print("INFO: Phase 3 resume quoting. instrument=", resume_symbol,

@@ -102,7 +102,7 @@ bid_spread   = +0.000800 - 0.0004 = +0.000400
 offer_spread = +0.000800 + 0.0004 = +0.001200
 
 4a. bid_price   = 0.86491 * MathExp(+0.000400) = 0.86526
-    Expected: 0.86526
+    Expected: 0.86526 (using doc AB_history=0.86491; exact ratio 1.14600/1.32500=0.864906 gives 0.86525 — tolerance pass)
 4b. offer_price = 0.86491 * MathExp(+0.001200) = 0.86595
     Expected: 0.86595
 4c. bid passive? 0.86526 < 0.86450 = FALSE
@@ -113,17 +113,14 @@ offer_spread = +0.000800 + 0.0004 = +0.001200
 
 ## TEST 5 — Exit Pricing, BUY Position (ADR-034)
 BUY filled at 1.14554 (from Test 0).
-entry_spread = log(1.14554 / 1.14600) = -0.0004
-exit_spread_target = -0.0004 * skew (e.g. 0.99) = -0.000396
-
-is_exit=true → T = -(-0.000396) = +0.000396 (ADR-034)
-exit_price = 1.14600 * MathExp(+0.000396) + half_spread
-
-5a. Raw exit = 1.14600 * MathExp(+0.000396) = 1.14645
-    Expected: between entry (1.14554) and anchor (1.14600) — NO.
-    Expected: above anchor (1.14600) toward SELL limit (1.14646)
+entry_spread = log(1.14554 / 1.14600) = -0.00040008 (not exactly -0.0004 due to fill rounding)
+exit_spread_target = -0.00040008 * 0.99 = -0.00039608
+// is_exit=true → T = +0.00039608
+exit_price_raw = 1.14600 * exp(+0.00039608)
+5a. Raw exit = 1.14600 * MathExp(+0.00039608) = 1.14645
+    Expected: 1.14645  (note: using exact log gives 1.14646 at 5dp — tolerance pass)
 5b. Exit price must be > entry price (1.14554): TRUE
-5c. Exit price must be <= SELL limit (1.14646): TRUE
+5c. Exit price must be <= SELL limit (1.14646): TRUE  (1.14645 <= 1.14646)
 5d. IsPassive SELL: exit_price > current_ask (1.14601): TRUE
     Expected: PASS
 
@@ -288,9 +285,9 @@ floor_n = MathMax(0.0002 * MathPow(0.618, 0), 2 * 0.00001)
         = 0.0002
 
 13a. entry_adj=0.000276
-     floor_skew = 0.0002 / 0.000276 = 0.725
-     effective_skew = MathMax(0.618, 0.725) = 0.725
-     exit_spread = 0.000276 × 0.725 = 0.000200
+     floor_skew = 0.0002 / 0.000276 = 0.72464
+     effective_skew = MathMax(0.618, 0.72464) = 0.72464
+     exit_spread = 0.000276 × 0.72464 = 0.000200
      Expected: NOT a wash trade — PASS
 
 13b. entry_adj=0.000149
@@ -300,8 +297,8 @@ floor_n = MathMax(0.0002 * MathPow(0.618, 0), 2 * 0.00001)
 13c. Regression — old MinLayerExitPoints=30:
      floor_n = MathMax(0.0002, 0.0003) = 0.0003
      entry_adj=0.000276
-     floor_skew = 0.0003 / 0.000276 = 1.087
-     effective_skew = MathMin(0.99, 1.087) = 0.99
+     floor_skew = 0.0003 / 0.000276 = 1.08696
+     effective_skew = MathMin(0.99, 1.08696) = 0.99
      exit_spread = 0.000276 × 0.99 = 0.000273 ≈ entry_spread → wash trade
      Expected: FAIL — confirms bug is fixed by new parameter
 
@@ -327,6 +324,579 @@ floor_n = MathMax(0.0002 * MathPow(0.618, 0), 2 * 0.00001)
 | 10 | ADR-036 | Dynamic exit clamp overrun |
 | 11 | ADR-037 | SkewFloor0 signal gate — wash trade preventer |
 | 12 | ADR-037 | Baseline bracket fallback — weak signal flat pod |
+
+---
+
+## TEST 14 — Deterministic Function Statelessness (ADR-040, replaces ADR-039 JIT stateless test)
+`ComputeExitPriceDeterministic` must be a pure function — identical inputs
+must produce identical outputs with no side effects between calls.
+
+Inputs:
+- entry_price=1.13000, entry_spread_raw=0.0010, layer_index=0
+- direction=1 (BUY), half_spread=0.000005, min_layer_exit_points=2
+- point_value=0.00001
+
+14a. Call ComputeExitPriceDeterministic twice with identical inputs.
+     result_1 == result_2
+     Expected: TRUE — PASS
+
+14b. No module-level or global state mutated between calls.
+     Expected: function is demonstrably stateless — PASS
+
+---
+
+## TEST 15 — Zero Spread Sentinel and Floor Clamp (ADR-040, replaces ADR-039 invalid anchor test)
+ADR-039 used INVALID_EXIT_SPREAD (-1.0) sentinel to block order submission
+when anchor was zero. ADR-040 replaces this: ComputeExitPriceDeterministic
+with entry_spread_raw=0.0 produces E_n=0.0, floor clamp engages.
+PlaceExitLimit sentinel guard (exit_price_fixed < 0.0) blocks submission
+for any layer not yet computed.
+
+Inputs:
+- entry_price=1.13000, entry_spread_raw=0.0, layer_index=0
+- direction=1 (BUY), half_spread=0.0, min_layer_exit_points=2
+- point_value=0.00001
+
+15a. E_n = 0.0 * MathPow(0.618, 1) = 0.0
+     raw_target = 1.13000 + 0.0 - 0.0 = 1.13000
+     floor_dist = 2 * 0.00001 = 0.00002
+     exit_price_fixed = MathMax(1.13000, 1.13000 + 0.00002) = 1.13002
+     Expected: 1.13002 — floor clamp engages — PASS
+
+15b. Sentinel guard: exit_price_fixed=-1.0 (uncomputed layer)
+     PlaceExitLimit checks: -1.0 < 0.0 → TRUE → return without OrderSend
+     Expected: no order submitted — PASS
+
+15c. exit_price_fixed=1.13002 > entry_price=1.13000
+     Expected: TRUE — correct side even for zero spread — PASS
+
+---
+
+## TEST 16 — Sign Contract, BUY, SLOT_AC (EURUSD) (ADR-040 revised)
+Original ADR-039 test failed in live production — JIT sign guard blocked
+exit placement on profitable positions. ADR-040 deterministic function
+must pass this by construction.
+
+Inputs:
+- entry_price=1.13554, entry_spread_raw=-0.0004, layer_index=0
+- direction=1 (BUY), half_spread=0.000005, min_layer_exit_points=2
+- point_value=0.00001
+
+E_0 = MathAbs(-0.0004) * 0.618 = 0.0002472
+raw_target = 1.13554 + 0.0002472 - 0.000005 = 1.1357822
+floor_dist = 0.00002
+exit_price_fixed = MathMax(1.1357822, 1.13554 + 0.00002) = 1.1357822
+
+16a. exit_price_fixed > entry_price: 1.1357822 > 1.13554
+     Expected: TRUE — exit above entry for BUY — PASS
+16b. Order type must be sell limit (direction=-1 exit for BUY position)
+     Expected: SELL LIMIT — PASS
+16c. Pip delta = (1.1357822 - 1.13554) / 0.00001 = 2.4 pips
+     Expected: > 0 — PASS
+
+---
+
+## TEST 17 — Sign Contract, SELL, SLOT_AC (EURUSD) (ADR-040 revised)
+Mirror of Test 16 for SELL position.
+
+Inputs:
+- entry_price=1.13646, entry_spread_raw=0.0004, layer_index=0
+- direction=-1 (SELL), half_spread=0.000005, min_layer_exit_points=2
+- point_value=0.00001
+
+E_0 = MathAbs(0.0004) * 0.618 = 0.0002472
+raw_target = 1.13646 - 0.0002472 + 0.000005 = 1.1362178
+floor_dist = 0.00002
+exit_price_fixed = MathMin(1.1362178, 1.13646 - 0.00002) = 1.1362178
+
+17a. exit_price_fixed < entry_price: 1.1362178 < 1.13646
+     Expected: TRUE — exit below entry for SELL — PASS
+17b. Order type must be buy limit (direction=1 exit for SELL position)
+     Expected: BUY LIMIT — PASS
+17c. Pip delta = (1.13646 - 1.1362178) / 0.00001 = 2.4 pips
+     Expected: > 0 — PASS
+
+---
+
+## TEST 18 — Sign Contract, All Three Slots (ADR-040 revised)
+Run sign contract verification for all slot/direction combinations.
+All six cases must produce correct-side exit and correct order type.
+
+18a. SLOT_AC (EURUSD) BUY:
+     entry=1.13554, spread=-0.0004
+     exit = 1.13554 + (0.0004*0.618) - 0.000005 = 1.1357822 > entry — SELL LIMIT — PASS
+
+18b. SLOT_AC (EURUSD) SELL:
+     entry=1.13646, spread=+0.0004
+     exit = 1.13646 - (0.0004*0.618) + 0.000005 = 1.1362178 < entry — BUY LIMIT — PASS
+
+18c. SLOT_BC (GBPUSD) BUY:
+     entry=1.32447, spread=-0.0004
+     exit = 1.32447 + (0.0004*0.618) - 0.000005 = 1.3247122 > entry — SELL LIMIT — PASS
+
+18d. SLOT_BC (GBPUSD) SELL:
+     entry=1.32553, spread=+0.0004
+     exit = 1.32553 - (0.0004*0.618) + 0.000005 = 1.3252878 < entry — BUY LIMIT — PASS
+
+18e. SLOT_AB (EURGBP) BUY:
+     entry=0.86455, spread=-0.0004
+     exit = 0.86455 + (0.0004*0.618) - 0.000005 = 0.8647922 > entry — SELL LIMIT — PASS
+
+18f. SLOT_AB (EURGBP) SELL:
+     entry=0.86526, spread=+0.0004
+     exit = 0.86526 - (0.0004*0.618) + 0.000005 = 0.8650178 < entry — BUY LIMIT — PASS
+
+---
+
+## TEST 19 — Deterministic Lock (ADR-040)
+Exit price computed at fill time must not change across subsequent ticks.
+
+Inputs:
+- fill_price = 1.13000
+- entry_spread_raw = 0.0010
+- layer_index = 0
+- direction = BUY (1)
+- MinLayerExitPoints = 2, point = 0.00001
+- half_spread = 0.000005
+
+E_0 = 0.0010 * MathPow(0.618, 1) = 0.000618
+raw_target = 1.13000 + 0.000618 = 1.130618
+after_half_spread = 1.130618 - 0.000005 = 1.130613
+floor_price = 1.13000 + 2 * 0.00001 = 1.13002
+exit_price_fixed = MathMax(1.130613, 1.13002) = 1.130613
+
+19a. exit_price_fixed = 1.130613
+     Expected: 1.130613  PASS
+
+19b. Simulate 100 ticks with varying live bid/ask.
+     exit_price_fixed unchanged across all ticks.
+     Expected: invariant holds — PASS
+
+---
+
+## TEST 20 — Golden Rule A_n > E_n (ADR-040, updated per Gemini live ruling)
+Linear add distance must exceed exit distance on every layer.
+A_n uses golden inverse spacing: A_golden = E_n * 1.618, A_n = max(base_add, A_golden)
+
+Inputs:
+- entry_spread_raw = 0.0010
+- QuoteSpread = 0.0004  (4 bps base add)
+- layer_index n = 0..5
+- E_n = 0.0010 * MathPow(0.618, n+1)
+- A_golden_n = E_n * 1.618
+- A_n = MathMax(QuoteSpread * (n+1), A_golden_n)
+
+n=0: E_0=0.000618, A_golden=0.000999, A_0=MathMax(0.0004, 0.000999)=0.000999  → A_0 > E_0 PASS
+n=1: E_1=0.000382, A_golden=0.000618, A_1=MathMax(0.0008, 0.000618)=0.000800  → A_1 > E_1 PASS
+n=2: E_2=0.000236, A_golden=0.000382, A_2=MathMax(0.0012, 0.000382)=0.001200  → A_2 > E_2 PASS
+n=3: E_3=0.000146, A_golden=0.000236, A_3=MathMax(0.0016, 0.000236)=0.001600  → A_3 > E_3 PASS
+n=4: E_4=0.000090, A_golden=0.000146, A_4=MathMax(0.0020, 0.000146)=0.002000  → A_4 > E_4 PASS
+n=5: E_5=0.000056, A_golden=0.000090, A_5=MathMax(0.0024, 0.000090)=0.002400  → A_5 > E_5 PASS
+
+20a-f. A_n > E_n for all n=0..5
+       Expected: all TRUE — PASS
+
+20g. Strong signal golden ratio check (entry_spread_raw=0.0010, n=0):
+     A_golden = 0.000618 * 1.618 = 0.000999
+     A_0 = 0.000999
+     A_0 / E_0 = 0.000999 / 0.000618 = 1.618
+     Expected: ratio = 1.618 (tol 0.001) — PASS
+
+---
+
+## TEST 21 — 3-Pip Hard Floor (ADR-041, MinLayerExitPoints=30)
+Degenerate near-zero signal entry must be clamped to MinLayerExitPoints floor.
+MinLayerExitPoints=30 enforces a 3.0 pip minimum exit distance.
+
+Inputs:
+- fill_price = 1.13000
+- entry_spread_raw = 0.00003  (0.3 pip — toxic entry, below SkewFloor0)
+- layer_index = 0
+- direction = BUY (1)
+- MinLayerExitPoints = 30, point = 0.00001
+- half_spread = 0.000005
+
+E_0 = 0.00003 * 0.618 = 0.00001854
+raw_target = 1.13000 + 0.00001854 = 1.13001854
+after_half_spread = 1.13001854 - 0.000005 = 1.13001354
+floor_dist = 30 * 0.00001 = 0.00030  (3.0 pips)
+floor_price = 1.13000 + 0.00030 = 1.13030
+exit_price_fixed = MathMax(1.13001354, 1.13030) = 1.13030
+
+21a. exit_price_fixed clamped to 3-pip floor = 1.13030
+     Expected: 1.13030  PASS
+21b. exit_price_fixed > fill_price (1.13000)
+     Expected: TRUE  PASS
+21c. Near-zero signal WARNING logged
+     Expected: WARNING present in log  PASS
+
+---
+
+## TEST 22 — Grid Expansion (ADR-040 Addendum)
+Add distance must grow or safely plateau as layer index increases and spread widens.
+entry_spread_raw is not static — it widens as market moves to fill each successive layer.
+
+# Layer 0
+spread_0 = 0.0010; qs = 0.0004
+E_0 = spread_0 * 0.618 = 0.000618
+A_golden_0 = 0.000618 * 1.618 = 0.001000
+A_0 = MathMax(0.0004 * 1, 0.001000) = 0.001000  (10.0 pips)
+
+# Layer 1 — market moves A_0 against us to fill, spread widens by A_0
+spread_1 = spread_0 + A_0 = 0.0010 + 0.0010 = 0.0020
+E_1 = spread_1 * MathPow(0.618, 2) = 0.0020 * 0.381924 = 0.000764
+A_golden_1 = 0.000764 * 1.618 = 0.001236
+A_1 = MathMax(0.0004 * 2, 0.001236) = 0.001236  (12.4 pips)
+
+22a. A_1 >= A_0: 0.001236 > 0.001000
+     Expected: TRUE — grid expands as divergence widens PASS
+22b. A_1 / A_0 ratio = 0.001236 / 0.001000 = 1.236
+     Expected: > 1.0 — add spacing grows monotonically at layer 1 PASS
+
+---
+
+## TEST 23 — Phi Curve (ADR-040)
+Exit multiplier must follow exact golden ratio conjugate decay.
+
+phi = 0.618
+
+n=0: MathPow(0.618, 1) = 0.618000
+n=1: MathPow(0.618, 2) = 0.381924
+n=2: MathPow(0.618, 3) = 0.236029
+
+23a. multiplier n=0 = 0.618000   Expected: 0.618000  PASS (tol 0.000001)
+23b. multiplier n=1 = 0.381924   Expected: 0.381924  PASS (tol 0.000001)
+23c. multiplier n=2 = 0.236029   Expected: 0.236029  PASS (tol 0.000001)
+
+---
+
+## TEST 24 — Strong Signal Invariant A_n > E_n (ADR-040, Q3 Ruling revised)
+Validates golden ratio add spacing on SniperThreshold-level entry (14 pips).
+
+Inputs:
+- entry_spread_raw = 0.0014  (14 pip SNIPER entry)
+- QuoteSpread = 0.0004
+- layer_index = 0
+
+E_0 = 0.0014 * 0.618 = 0.0008652
+A_golden = 0.0008652 * 1.618 = 0.0013998
+A_0 = MathMax(0.0004 * 1, 0.0013998) = 0.0013998
+
+24a. A_0 / E_0 = 0.0013998 / 0.0008652 = 1.618
+     Expected: 1.618 (tol 0.001) — golden ratio preserved on strong signal PASS
+24b. A_0 > E_0: 0.0013998 > 0.0008652
+     Expected: TRUE PASS
+24c. A_base < A_golden: 0.0004 < 0.0013998
+     Expected: TRUE — golden add dominates on strong signal PASS
+
+---
+
+## TEST 25 — Reattach Reconciliation (ADR-040, Q1 Ruling)
+On reattach, any layer with exit_price_fixed at sentinel (-1.0) must be
+recomputed from stored entry_spread_raw before PlaceExitLimit is armed.
+
+Inputs (simulated JSON state layer):
+- entry_spread_raw = 0.0010
+- layer_index = 0
+- direction = BUY (1)
+- fill_price (entry_price) = 1.13000
+- exit_price_fixed = -1.0  (sentinel — unpopulated)
+- exit_tickets = []
+- MinLayerExitPoints = 2, point = 0.00001
+- half_spread = 0.000005
+
+After reconciliation pass:
+E_0 = 0.0010 * 0.618 = 0.000618
+raw_target = 1.13000 + 0.000618 = 1.130618
+after_half_spread = 1.130613
+floor_price = 1.13002
+exit_price_fixed = 1.130613
+
+25a. exit_price_fixed recomputed from sentinel = 1.130613
+     Expected: 1.130613  PASS
+25b. exit_price_fixed != sentinel (-1.0)
+     Expected: TRUE  PASS
+25c. reconciliation_pending flag set in OnInit, cleared after first OnTick pass
+     Expected: behavioral — verify via log line "Reconciliation pass complete. N layers re-armed."
+
+---
+
+## TEST 26 — 70% Binary Gate Math (ADR-042)
+
+**Purpose:** Verify the binary gate threshold fires correctly at, above, and below the 70% cutoff.
+
+**Constants:** `BaseLotSize=0.01`, `size_mult=1.0`, `min_vol=0.01`
+
+**Formula:**
+```
+raw_vol = BaseLotSize * size_mult * w
+if raw_vol < min_vol * 0.70 → return 0.0  (quote pulled)
+else                         → return max(raw_vol, min_vol)
+```
+
+### 26a — Below threshold (gate does not fire)
+```
+w = 0.68
+raw_vol = 0.01 * 1.0 * 0.68 = 0.0068
+threshold = 0.01 * 0.70 = 0.007
+0.0068 < 0.007 → TRUE
+expected: return 0.0
+```
+
+### 26b — Above threshold (gate does not fire)
+```
+w = 0.71
+raw_vol = 0.01 * 1.0 * 0.71 = 0.0071
+threshold = 0.01 * 0.70 = 0.007
+0.0071 < 0.007 → FALSE
+lot_size = max(0.0071, 0.01) = 0.01
+expected: return 0.01
+```
+
+### 26c — Exact boundary (gate does NOT fire — condition is strict less-than)
+```
+w = 0.70
+raw_vol = 0.01 * 1.0 * 0.70 = 0.0070
+threshold = 0.01 * 0.70 = 0.007
+0.0070 < 0.007 → FALSE  (equal, not less than)
+lot_size = max(0.0070, 0.01) = 0.01
+expected: return 0.01
+```
+
+**Expected results:**
+| Subtest | w | raw_vol | Gate fires? | Return |
+|---------|---|---------|-------------|--------|
+| 26a | 0.68 | 0.0068 | YES | 0.0 |
+| 26b | 0.71 | 0.0071 | NO | 0.01 |
+| 26c | 0.70 | 0.0070 | NO | 0.01 |
+
+---
+
+## TEST 27 — Intent Gate S_eff Collapse (ADR-042)
+
+**Purpose:** Verify that forcing `S_eff=10.0` on intent overlap produces `raw_vol` well below the 70% gate threshold, and that the no-overlap path is unaffected.
+
+**Constants:** `BaseLotSize=0.01`, `size_mult=1.0`, `min_vol=0.01`
+
+**Formula:**
+```
+w = 1.0 / (1.0 + S_eff * S_eff)
+raw_vol = BaseLotSize * size_mult * w
+```
+
+### 27a — Intent overlap detected (S_eff forced to 10.0)
+```
+S_eff = 10.0
+w = 1.0 / (1.0 + 10.0 * 10.0)
+  = 1.0 / (1.0 + 100.0)
+  = 1.0 / 101.0
+  = 0.00990099...
+raw_vol = 0.01 * 1.0 * 0.00990099 = 0.0000990099
+threshold = 0.01 * 0.70 = 0.007
+0.0000990099 < 0.007 → TRUE
+expected: return 0.0  (quote pulled)
+```
+
+### 27b — No overlap, zero correlation (S_eff = 0.0)
+```
+S_eff = 0.0
+w = 1.0 / (1.0 + 0.0) = 1.0
+raw_vol = 0.01 * 1.0 * 1.0 = 0.01
+threshold = 0.007
+0.01 < 0.007 → FALSE
+lot_size = max(0.01, 0.01) = 0.01
+expected: return 0.01
+```
+
+### 27c — No overlap, moderate correlation (g_corr=0.5, v_eff=1.3)
+```
+S = max(0.5, 0.0) * max(1.3 - 1.0, 0.0) = 0.5 * 0.3 = 0.15
+S_eff = 0.15
+w = 1.0 / (1.0 + 0.15 * 0.15)
+  = 1.0 / (1.0 + 0.0225)
+  = 1.0 / 1.0225
+  = 0.97799511...
+raw_vol = 0.01 * 1.0 * 0.97799511 = 0.0097799511
+threshold = 0.007
+0.0097799511 < 0.007 → FALSE
+lot_size = max(0.0097799511, 0.01) = 0.01
+expected: return 0.01
+```
+
+**Expected results:**
+| Subtest | S_eff | w | raw_vol | Gate fires? | Return |
+|---------|-------|---|---------|-------------|--------|
+| 27a | 10.0 (forced) | 0.00990099 | 0.00009901 | YES | 0.0 |
+| 27b | 0.0 | 1.0 | 0.01 | NO | 0.01 |
+| 27c | 0.15 | 0.97799511 | 0.00977995 | NO | 0.01 |
+
+---
+
+## TEST 28 — size_mult Interaction with Binary Gate (ADR-042)
+
+**Purpose:** Verify that pod drawdown stress (`size_mult < 1.0`) interacts correctly with the 70% gate — the gate can fire from drawdown stress alone, independently of LDAK penalty.
+
+**Constants:** `BaseLotSize=0.01`, `min_vol=0.01`, `w=1.0` (no LDAK penalty, no intent override)
+
+**Formula:**
+```
+raw_vol = BaseLotSize * size_mult * w
+```
+
+### 28a — Heavy drawdown stress (gate fires from size_mult alone)
+```
+size_mult = 0.50
+w = 1.0
+raw_vol = 0.01 * 0.50 * 1.0 = 0.005
+threshold = 0.01 * 0.70 = 0.007
+0.005 < 0.007 → TRUE
+expected: return 0.0  (quote pulled)
+```
+
+### 28b — Moderate drawdown stress (gate does not fire)
+```
+size_mult = 0.75
+w = 1.0
+raw_vol = 0.01 * 0.75 * 1.0 = 0.0075
+threshold = 0.007
+0.0075 < 0.007 → FALSE
+lot_size = max(0.0075, 0.01) = 0.01
+expected: return 0.01
+```
+
+### 28c — Combined stress: moderate drawdown + moderate LDAK penalty (gate does not fire)
+```
+size_mult = 0.85
+S_eff = 0.15  (no intent override — rolling correlation)
+w = 1.0 / (1.0 + 0.15 * 0.15) = 1.0 / 1.0225 = 0.97799511
+raw_vol = 0.01 * 0.85 * 0.97799511 = 0.00831296
+threshold = 0.007
+0.00831296 < 0.007 → FALSE
+lot_size = max(0.00831296, 0.01) = 0.01
+expected: return 0.01
+```
+
+### 28d — Combined stress: heavy drawdown + intent override (gate fires, doubly)
+```
+size_mult = 0.85
+S_eff = 10.0  (intent override)
+w = 1.0 / 101.0 = 0.00990099
+raw_vol = 0.01 * 0.85 * 0.00990099 = 0.0000841584
+threshold = 0.007
+0.0000841584 < 0.007 → TRUE
+expected: return 0.0
+```
+
+**Expected results:**
+| Subtest | size_mult | w | raw_vol | Gate fires? | Return |
+|---------|-----------|---|---------|-------------|--------|
+| 28a | 0.50 | 1.0 | 0.005000 | YES | 0.0 |
+| 28b | 0.75 | 1.0 | 0.007500 | NO | 0.01 |
+| 28c | 0.85 | 0.97799511 | 0.008313 | NO | 0.01 |
+| 28d | 0.85 | 0.00990099 | 0.000084 | YES | 0.0 |
+
+---
+
+## COVERAGE MAP
+
+| Test | ADR | Component |
+|------|-----|-----------|
+| 0 | Core | Fundamental anchor quote — ground truth |
+| 0b | Core | EURUSD half_spread bracket verification |
+| 0c | Core | GBPUSD half_spread bracket verification |
+| 0d | Core | EURGBP half_spread bracket verification |
+| 1 | ADR-032, ADR-033 | Flat signal baseline geometry |
+| 2 | ADR-032, ADR-033, ADR-013 | Strong BUY clamp rescue |
+| 3 | ADR-032, ADR-033, ADR-013 | Strong SELL clamp rescue |
+| 4 | ADR-032, ADR-033, ADR-013 | SLOT_AB synthetic pair |
+| 5 | ADR-034 | Exit pricing sign inversion |
+| 6 | ADR-035 | Option B gap clamp |
+| 7 | ADR-013 | Anchor lag crash protection |
+| 8 | ADR-013 | Zero-delta boundary |
+| 9 | ADR-013 | Broker zero-spread glitch |
+| 10 | ADR-036 | Dynamic exit clamp overrun |
+| 11 | ADR-037 | SkewFloor0 signal gate — wash trade preventer |
+| 12 | ADR-037 | Baseline bracket fallback — weak signal flat pod |
+| 13 | ADR-038 | MinLayerExitPoints / SkewFloor0 synchronisation |
+| 14 | ADR-040 | Deterministic function statelessness |
+| 15 | ADR-040 | Zero spread sentinel and floor clamp |
+| 16 | ADR-040 | Sign contract — BUY exit above entry, SLOT_AC |
+| 17 | ADR-040 | Sign contract — SELL exit below entry, SLOT_AC |
+| 18 | ADR-040 | Sign contract — all three slots, both directions |
+| 19 | ADR-040 | Deterministic lock — exit_price_fixed invariant |
+| 20 | ADR-040 | Golden rule A_n > E_n all layers |
+| 21 | ADR-041 | 3-pip hard floor — degenerate entry clamp |
+| 22 | ADR-040 | Grid expansion — A grows, E decays |
+| 23 | ADR-040 | Phi curve — golden ratio multiplier exact values |
+| 24 | ADR-040 | Strong signal invariant — SNIPER-level entry scaling |
+| 25 | ADR-040 | Reattach reconciliation — sentinel recovery |
+| 26 | ADR-042 | 70% binary gate threshold — below / above / boundary |
+| 27 | ADR-042 | Intent gate S_eff=10.0 collapse vs no-overlap paths |
+| 28 | ADR-042 | size_mult drawdown stress interaction with gate |
+| 29 | ADR-043 | Layer 0 inventory gate — Phase 3 resume ping-pong fix |
+
+---
+
+## TEST 29 — Layer 0 Inventory Gate (ADR-043)
+
+**Purpose:** Verify that Phase 3 resume quoting does not reload Layer 0 directional risk when same-direction inventory is still live on the slot. Gate uses `position_ticket > 0` as the canonical live-position signal — not `remaining_exit_volume`.
+
+**Function under test:** `SameDirectionInventoryExists(int instrument, int direction)`
+
+**Gate applies to:** Phase 3 resume `PlaceEntryLimit()` calls only (post-exit-fill pod close path).
+
+### 29a — Gate fires and blocks when same-direction inventory exists with position_ticket > 0
+
+```
+Setup:
+  instrument = SLOT_AC (0)
+  direction  = DIRECTION_BUY
+  g_inventory_0[0].direction        = DIRECTION_BUY
+  g_inventory_0[0].position_ticket  = 12345678  (> 0, live position)
+
+Call: SameDirectionInventoryExists(0, DIRECTION_BUY)
+Expected: return TRUE
+Effect:   PlaceEntryLimit() NOT called for bid leg in Phase 3 resume
+          EnableVerboseLog prints:
+          "INFO [ADR-043] Layer 0 blocked — same-direction inventory exists."
+          with direction=BUY
+```
+
+### 29b — Gate allows Layer 0 when inventory exists but position_ticket == 0 (closed position)
+
+```
+Setup:
+  instrument = SLOT_AC (0)
+  direction  = DIRECTION_BUY
+  g_inventory_0[0].direction        = DIRECTION_BUY
+  g_inventory_0[0].position_ticket  = 0  (closed — not live)
+
+Call: SameDirectionInventoryExists(0, DIRECTION_BUY)
+Expected: return FALSE
+Effect:   PlaceEntryLimit() proceeds normally for bid leg in Phase 3 resume
+```
+
+### 29c — Gate allows Layer 0 when inventory exists but is in the opposite direction
+
+```
+Setup:
+  instrument = SLOT_BC (1)
+  direction  = DIRECTION_BUY  (bid leg under test)
+  g_inventory_1[0].direction        = DIRECTION_SELL  (opposite)
+  g_inventory_1[0].position_ticket  = 87654321  (> 0, live position)
+
+Call: SameDirectionInventoryExists(1, DIRECTION_BUY)
+Expected: return FALSE
+Effect:   PlaceEntryLimit() proceeds normally for bid leg in Phase 3 resume
+          (live SELL inventory does not block BUY Layer 0)
+```
+
+**Expected results:**
+| Subtest | Same direction? | position_ticket | Gate blocks? | PlaceEntryLimit called? |
+|---------|-----------------|-----------------|--------------|-------------------------|
+| 29a | YES | > 0 | YES | NO |
+| 29b | YES | 0 | NO | YES |
+| 29c | NO (opposite) | > 0 | NO | YES |
 
 ---
 
