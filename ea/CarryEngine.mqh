@@ -253,6 +253,193 @@ void RunCarryRecalculation() {
     Print("INFO: Carry recalculation finished.");
 }
 
+//------------------------------------------------------------------
+// RunDailyRolloverReconciliation
+// ADR-045: Fires once per day at 00:01 broker server time.
+// Translates daily swap costs into spatial price drift on all
+// parked entry limits and exit limits. Unified drift math:
+//   Long-side negative swap → all long orders drift UP (+shift)
+//   Short-side negative swap → all short orders drift DOWN (-shift)
+// Positive carry (swap >= 0) → no adjustment, free yield kept.
+//------------------------------------------------------------------
+void RunDailyRolloverReconciliation() {
+    // Trigger gate: block the 00:00 liquidity vacuum, allow any time after 00:01.
+    // State-driven (g_last_rollover_date) ensures exactly one fire per day regardless
+    // of when the first valid tick arrives — including after terminal restarts.
+    MqlDateTime dt;
+    TimeToStruct(TimeCurrent(), dt);
+    if (dt.hour == 0 && dt.min < 1) return;
+
+    datetime today = StringToTime(StringFormat("%04d.%02d.%02d", dt.year, dt.mon, dt.day));
+    if (today == g_last_rollover_date) return;
+    g_last_rollover_date = today;
+
+    // Wednesday triple swap multiplier (TimeDayOfWeek: 0=Sun, 3=Wed)
+    int multiplier = (dt.day_of_week == 3) ? 3 : 1;
+
+    Print("INFO [ADR-045] RunDailyRolloverReconciliation firing. multiplier=", multiplier);
+
+    for (int slot = 0; slot < 3; slot++) {
+        string symbol = g_symbols[slot];
+        double point  = SymbolInfoDouble(symbol, SYMBOL_POINT);
+
+        // Verify swap mode — must be points, skip otherwise
+        if (SymbolInfoInteger(symbol, SYMBOL_SWAP_MODE) != SYMBOL_SWAP_MODE_POINTS) {
+            Print("WARNING [ADR-045] Swap mode not POINTS — skipping. symbol=", symbol);
+            continue;
+        }
+
+        double swap_long  = SymbolInfoDouble(symbol, SYMBOL_SWAP_LONG);
+        double swap_short = SymbolInfoDouble(symbol, SYMBOL_SWAP_SHORT);
+
+        //--------------------------------------------------------------
+        // PRE-FILL: adjust pending entry limits (EA_MAGIC, EA_MAGIC+1)
+        // Loop backwards — safe MQL5 pattern for OrderModify loops
+        //--------------------------------------------------------------
+        for (int i = OrdersTotal() - 1; i >= 0; i--) {
+            ulong ticket = OrderGetTicket(i);
+            if (ticket == 0) continue;
+            if (OrderGetString(ORDER_SYMBOL) != symbol) continue;
+
+            ulong magic = OrderGetInteger(ORDER_MAGIC);
+            if (magic != EA_MAGIC && magic != EA_MAGIC + 1) continue;
+
+            ENUM_ORDER_TYPE otype = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+            double current_price  = OrderGetDouble(ORDER_PRICE_OPEN);
+            double swap, new_price;
+
+            if (otype == ORDER_TYPE_BUY_LIMIT) {
+                swap = swap_long;
+                if (swap >= 0.0) continue;  // positive carry — no adjustment
+                double shift = MathAbs(swap) * multiplier * point;
+                new_price = current_price + shift;  // long side drifts UP
+            } else if (otype == ORDER_TYPE_SELL_LIMIT) {
+                swap = swap_short;
+                if (swap >= 0.0) continue;  // positive carry — no adjustment
+                double shift = MathAbs(swap) * multiplier * point;
+                new_price = current_price - shift;  // short side drifts DOWN
+            } else {
+                continue;  // not a limit order we manage
+            }
+
+            // Freeze level check before OrderModify
+            int direction = (otype == ORDER_TYPE_BUY_LIMIT) ? DIRECTION_BUY : DIRECTION_SELL;
+            if (!IsClearOfFreezeLevel(new_price, direction, symbol)) {
+                Print("INFO [ADR-045] Entry modify skipped — freeze level.",
+                      " ticket=", ticket, " symbol=", symbol);
+                continue;
+            }
+
+            MqlTradeRequest req = {};
+            MqlTradeResult  res = {};
+            req.action     = TRADE_ACTION_MODIFY;
+            req.order      = ticket;
+            req.price      = new_price;
+            req.sl         = OrderGetDouble(ORDER_SL);
+            req.tp         = OrderGetDouble(ORDER_TP);
+            req.type_time  = (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
+            req.expiration = (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
+
+            if (OrderSend(req, res)) {
+                Print("INFO [ADR-045] Entry adjusted.",
+                      " symbol=", symbol, " ticket=", ticket,
+                      " old=", DoubleToString(current_price, 5),
+                      " new=", DoubleToString(new_price, 5),
+                      " shift=", DoubleToString(MathAbs(swap) * multiplier * point, 5),
+                      " multiplier=", multiplier);
+            } else {
+                Print("ERROR [ADR-045] Entry OrderModify failed.",
+                      " ticket=", ticket, " retcode=", res.retcode);
+            }
+        }
+
+        //--------------------------------------------------------------
+        // POST-FILL: adjust pending exit limits via inventory struct
+        // Use g_inventory_X — never blindly loop OrdersTotal for exits
+        //--------------------------------------------------------------
+        int inv_size = (slot == 0) ? ArraySize(g_inventory_0)
+                     : (slot == 1) ? ArraySize(g_inventory_1)
+                     : ArraySize(g_inventory_2);
+
+        for (int i = 0; i < inv_size; i++) {
+            // Read layer by slot
+            int   layer_dir = (slot == 0) ? g_inventory_0[i].direction
+                            : (slot == 1) ? g_inventory_1[i].direction
+                            : g_inventory_2[i].direction;
+            ulong pos_tkt   = (slot == 0) ? g_inventory_0[i].position_ticket
+                            : (slot == 1) ? g_inventory_1[i].position_ticket
+                            : g_inventory_2[i].position_ticket;
+
+            if (pos_tkt == 0) continue;  // no live position
+
+            double swap = (layer_dir == DIRECTION_BUY) ? swap_long : swap_short;
+            if (swap >= 0.0) continue;  // positive carry — no adjustment
+
+            double shift = MathAbs(swap) * multiplier * point;
+
+            int n_exits = (slot == 0) ? ArraySize(g_inventory_0[i].exit_tickets)
+                        : (slot == 1) ? ArraySize(g_inventory_1[i].exit_tickets)
+                        : ArraySize(g_inventory_2[i].exit_tickets);
+
+            for (int j = 0; j < n_exits; j++) {
+                ulong exit_tkt = (slot == 0) ? g_inventory_0[i].exit_tickets[j]
+                               : (slot == 1) ? g_inventory_1[i].exit_tickets[j]
+                               : g_inventory_2[i].exit_tickets[j];
+                if (exit_tkt == 0) continue;
+
+                if (!OrderSelect(exit_tkt)) continue;
+                double current_exit = OrderGetDouble(ORDER_PRICE_OPEN);
+
+                double new_exit;
+                int exit_direction;
+                if (layer_dir == DIRECTION_BUY) {
+                    new_exit       = current_exit + shift;  // long side drifts UP
+                    exit_direction = DIRECTION_SELL;
+                } else {
+                    new_exit       = current_exit - shift;  // short side drifts DOWN
+                    exit_direction = DIRECTION_BUY;
+                }
+
+                if (!IsClearOfFreezeLevel(new_exit, exit_direction, symbol)) {
+                    Print("INFO [ADR-045] Exit modify skipped — freeze level.",
+                          " ticket=", exit_tkt, " symbol=", symbol);
+                    continue;
+                }
+
+                MqlTradeRequest req = {};
+                MqlTradeResult  res = {};
+                req.action     = TRADE_ACTION_MODIFY;
+                req.order      = exit_tkt;
+                req.price      = new_exit;
+                req.sl         = OrderGetDouble(ORDER_SL);
+                req.tp         = OrderGetDouble(ORDER_TP);
+                req.type_time  = (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
+                req.expiration = (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
+
+                if (OrderSend(req, res)) {
+                    // Sync Layer struct — exit_price_fixed must mirror live order
+                    if (slot == 0)      g_inventory_0[i].exit_price_fixed = new_exit;
+                    else if (slot == 1) g_inventory_1[i].exit_price_fixed = new_exit;
+                    else                g_inventory_2[i].exit_price_fixed = new_exit;
+
+                    Print("INFO [ADR-045] Exit adjusted.",
+                          " symbol=", symbol, " ticket=", exit_tkt,
+                          " old=", DoubleToString(current_exit, 5),
+                          " new=", DoubleToString(new_exit, 5),
+                          " shift=", DoubleToString(shift, 5),
+                          " multiplier=", multiplier);
+                } else {
+                    Print("ERROR [ADR-045] Exit OrderModify failed.",
+                          " ticket=", exit_tkt, " retcode=", res.retcode);
+                }
+            }
+        }
+    }
+
+    SaveAllInventoryState();
+    Print("INFO [ADR-045] Rollover reconciliation complete.");
+}
+
 void CheckCarryTrigger() {
     datetime    now = TimeCurrent();
     MqlDateTime now_dt, last_dt;

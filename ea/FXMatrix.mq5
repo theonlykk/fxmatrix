@@ -215,6 +215,8 @@ void OnTick() {
         ArraySize(g_inventory_2) > 0)
         CheckCarryTrigger();
 
+    RunDailyRolloverReconciliation();
+
     datetime current_bar = iTime(_Symbol, PERIOD_M5, 0);
     bool new_bar = (current_bar != g_last_bar_time);
 

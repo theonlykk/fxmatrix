@@ -835,6 +835,7 @@ expected: return 0.0
 | 28 | ADR-042 | size_mult drawdown stress interaction with gate |
 | 29 | ADR-043 | Layer 0 inventory gate — Phase 3 resume ping-pong fix |
 | 30 | Median anchor | StrengthWindow anchor + MathMedianCentered spike protection |
+| 31 | ADR-045 | Spatial carry drift math — rollover limit adjustment |
 
 ---
 
@@ -969,6 +970,58 @@ arr = [1.13510, 1.13520, 1.13530]  (ArraySize = 3)
 center_index = 1, width = 5 → half = 2
 center_index - half = -1 < 0 → bounds check fires
 expected: return arr[1] = 1.13520  (graceful degradation, no crash)
+```
+
+---
+
+## TEST 31 — Spatial Carry Drift Math (ADR-045)
+
+**Purpose:** Verify unified drift math for daily rollover spatial adjustment on entry and exit limits.
+
+### 31a — Long side negative swap, Tuesday
+
+```
+swap_long = -4.0 points, multiplier = 1, point = 0.00001
+shift = 4.0 * 1 * 0.00001 = 0.00004
+BUY_LIMIT entry: 1.30000 + 0.00004 = 1.30004
+SELL_LIMIT exit (long pos): 1.30800 + 0.00004 = 1.30804
+expected: entry=1.30004, exit=1.30804
+```
+
+### 31b — Short side negative swap, Tuesday
+
+```
+swap_short = -6.0 points, multiplier = 1, point = 0.00001
+shift = 6.0 * 1 * 0.00001 = 0.00006
+SELL_LIMIT entry: 1.30500 - 0.00006 = 1.30494
+BUY_LIMIT exit (short pos): 1.29800 - 0.00006 = 1.29794
+expected: entry=1.30494, exit=1.29794
+```
+
+### 31c — Wednesday triple swap
+
+```
+swap_long = -4.0 points, multiplier = 3, point = 0.00001
+shift = 4.0 * 3 * 0.00001 = 0.00012
+BUY_LIMIT entry: 1.30000 + 0.00012 = 1.30012
+expected: 1.30012
+```
+
+### 31d — Positive carry, no adjustment
+
+```
+swap_long = +2.0 points
+swap >= 0 → no adjustment
+expected: order price unchanged
+```
+
+### 31e — EURGBP 5-digit point value
+
+```
+swap_short = -3.0 points, multiplier = 1, point = 0.00001
+shift = 3.0 * 1 * 0.00001 = 0.00003
+SELL_LIMIT entry: 0.86500 - 0.00003 = 0.86497
+expected: 0.86497
 ```
 
 ---
