@@ -81,7 +81,7 @@ input double QuoteSpread = 0.0004; // execution distance from FairValue to quote
 // ADR-024: V3 slot-indexed signal globals
 // Index 0 = PairAC signal, Index 1 = PairBC signal
 double   g_r_signal[2]          = {0.0, 0.0};  // log returns [AC, BC]
-double   g_anchor[2]            = {0.0, 0.0};  // 12-bar-ago mids [AC, BC]
+double   g_anchor[2]            = {0.0, 0.0};  // StrengthWindow-bar-ago mids [AC, BC]
 
 int      g_strongest            = -1;    // 0=EUR, 1=GBP, 2=USD
 int      g_weakest              = -1;

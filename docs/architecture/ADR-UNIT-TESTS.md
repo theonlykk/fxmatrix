@@ -834,6 +834,7 @@ expected: return 0.0
 | 27 | ADR-042 | Intent gate S_eff=10.0 collapse vs no-overlap paths |
 | 28 | ADR-042 | size_mult drawdown stress interaction with gate |
 | 29 | ADR-043 | Layer 0 inventory gate — Phase 3 resume ping-pong fix |
+| 30 | Median anchor | StrengthWindow anchor + MathMedianCentered spike protection |
 
 ---
 
@@ -897,6 +898,78 @@ Effect:   PlaceEntryLimit() proceeds normally for bid leg in Phase 3 resume
 | 29a | YES | > 0 | YES | NO |
 | 29b | YES | 0 | NO | YES |
 | 29c | NO (opposite) | > 0 | NO | YES |
+
+---
+
+## TEST 30 — Median Anchor Filter & StrengthWindow Fix
+
+**Purpose:** Verify `MathMedianCentered()` median anchor immunization and `StrengthWindow`-driven anchor index (replacing hardcoded `closes[12]`).
+
+### 30a — MathMedianCentered() odd count, clean series
+
+```
+arr = [..., 1.13500, 1.13510, 1.13520, 1.13530, 1.13540, ...]
+center_index = 2 (value 1.13520), width = 5
+window = [arr[0], arr[1], arr[2], arr[3], arr[4]]
+       = [1.13500, 1.13510, 1.13520, 1.13530, 1.13540]
+sorted = [1.13500, 1.13510, 1.13520, 1.13530, 1.13540]
+median = sorted[2] = 1.13520
+expected: 1.13520
+```
+
+### 30b — MathMedianCentered() spike immunization
+
+```
+arr = [..., 1.13500, 1.13510, 1.13999, 1.13530, 1.13540, ...]
+center_index = 2 (spike at 1.13999), width = 5
+window = [1.13500, 1.13510, 1.13999, 1.13530, 1.13540]
+sorted = [1.13500, 1.13510, 1.13530, 1.13540, 1.13999]
+median = sorted[2] = 1.13530
+expected: 1.13530  (spike pushed to edge, median unaffected)
+```
+
+### 30c — StrengthWindow=12 anchor index
+
+```
+StrengthWindow = 12, width = 5
+window covers indices 10, 11, 12, 13, 14
+Before fix: single bar closes[12]
+After fix:  median of closes[10..14]
+At SW=12, clean series: median ≈ closes[12] (centre value)
+expected: no material behavioural change on clean data
+```
+
+### 30d — StrengthWindow=6 anchor index
+
+```
+StrengthWindow = 6, width = 5
+window covers indices 4, 5, 6, 7, 8
+Before fix: single bar closes[12]  (wrong — always 1 hour ago)
+After fix:  median of closes[4..8] (correct — centred on 30 min ago)
+expected: different anchor value — fix is material when SW != 12
+```
+
+### 30e — CopyClose buffer guard
+
+```
+StrengthWindow = 48
+min_bars = MathMax(289, 48 + 25) = MathMax(289, 73) = 289
+
+StrengthWindow = 300 (hypothetical)
+min_bars = MathMax(289, 300 + 25) = MathMax(289, 325) = 325
+
+expected: min_bars = 289 for SW <= 264
+          min_bars = SW + 25 for SW > 264
+```
+
+### 30f — MathMedianCentered() bounds degradation
+
+```
+arr = [1.13510, 1.13520, 1.13530]  (ArraySize = 3)
+center_index = 1, width = 5 → half = 2
+center_index - half = -1 < 0 → bounds check fires
+expected: return arr[1] = 1.13520  (graceful degradation, no crash)
+```
 
 ---
 

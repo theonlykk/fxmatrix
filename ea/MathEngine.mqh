@@ -53,15 +53,44 @@ double PearsonR(const double &a[], const double &b[], int n) {
     return cov / MathSqrt(var_a * var_b);
 }
 
+//------------------------------------------------------------------
+// MathMedianCentered
+// Returns the median of a window of `width` elements centred on
+// `center_index` in a series-ordered array (index 0 = most recent).
+// Includes strict bounds checking to prevent ArrayOutOfRange fatal crashes.
+// Gracefully degrades to single-bar arr[center_index] if window exceeds
+// array bounds (e.g. StrengthWindow misconfiguration or insufficient history).
+//------------------------------------------------------------------
+double MathMedianCentered(const double &arr[], int center_index, int width) {
+    if (width <= 0) return arr[center_index];
+
+    int half  = width / 2;
+    int count = 2 * half + 1;  // enforce odd window
+
+    // DEFENSIVE GUARD: degrade to single close rather than crash EA
+    if (center_index - half < 0 || center_index + half >= ArraySize(arr))
+        return arr[center_index];
+
+    double temp[];
+    ArrayResize(temp, count);
+    for (int i = 0; i < count; i++)
+        temp[i] = arr[center_index - half + i];
+
+    ArraySort(temp);
+    return temp[half];
+}
+
 bool RunSignalOnBarClose() {
     double ac_closes[], bc_closes[];
 
-    if (CopyClose(g_symbols[SLOT_AC], PERIOD_M5, 0, 289, ac_closes) < 289) {
+    int min_bars = MathMax(289, StrengthWindow + 25);
+    if (CopyClose(g_symbols[SLOT_AC], PERIOD_M5, 0, min_bars, ac_closes) < min_bars) {
         Print("ERROR: CopyClose ", g_symbols[SLOT_AC], " failed");
         return false;
     }
     ArraySetAsSeries(ac_closes, true);
-    if (CopyClose(g_symbols[SLOT_BC], PERIOD_M5, 0, 289, bc_closes) < 289) {
+    min_bars = MathMax(289, StrengthWindow + 25);
+    if (CopyClose(g_symbols[SLOT_BC], PERIOD_M5, 0, min_bars, bc_closes) < min_bars) {
         Print("ERROR: CopyClose ", g_symbols[SLOT_BC], " failed");
         return false;
     }
@@ -80,10 +109,10 @@ bool RunSignalOnBarClose() {
     double ac_half = (ac_ask_live - ac_bid_live) / 2.0;
     double bc_half = (bc_ask_live - bc_bid_live) / 2.0;
 
-    double ac_now = ac_closes[0]  + ac_half;  // bid close → mid
-    double ac_1h  = ac_closes[12] + ac_half;  // bid close → mid
-    double bc_now = bc_closes[0]  + bc_half;  // bid close → mid
-    double bc_1h  = bc_closes[12] + bc_half;  // bid close → mid
+    double ac_now = ac_closes[0]                                    + ac_half;
+    double ac_1h  = MathMedianCentered(ac_closes, StrengthWindow, 5) + ac_half;
+    double bc_now = bc_closes[0]                                    + bc_half;
+    double bc_1h  = MathMedianCentered(bc_closes, StrengthWindow, 5) + bc_half;
 
     if (ac_1h <= 0 || bc_1h <= 0) {
         Print("ERROR: zero/negative close price");
@@ -168,7 +197,8 @@ bool RunSignalOnBarClose() {
     // g_corr[0]=corr(AC,BC), g_corr[1]=corr(AC,AB), g_corr[2]=corr(BC,AB)
     double ab_closes[];
     ArraySetAsSeries(ab_closes, true);
-    if (CopyClose(g_symbols[SLOT_AB], PERIOD_M5, 0, 289, ab_closes) >= 289) {
+    min_bars = MathMax(289, StrengthWindow + 25);
+    if (CopyClose(g_symbols[SLOT_AB], PERIOD_M5, 0, min_bars, ab_closes) >= min_bars) {
         // 24-bar log returns per slot
         double r_slot0[24], r_slot1[24], r_slot2[24];
         for (int i = 0; i < 24; i++) {
