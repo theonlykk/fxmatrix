@@ -1165,6 +1165,25 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
         return;
     }
 
+    // ADR-049: Magic number filter — drop events belonging to other EA instances.
+    // OnTradeTransaction is a global MT5 broadcast; without this gate both MM and
+    // SNIPER instances process each other's fills, corrupting inventory state.
+    // Extract magic from deal history before any other processing.
+    if (trans.type == TRADE_TRANSACTION_DEAL_ADD) {
+        if (HistoryDealSelect(trans.deal)) {
+            long trans_magic = HistoryDealGetInteger(trans.deal, DEAL_MAGIC);
+            if (trans_magic != 0 &&
+                trans_magic != (long)EA_MAGIC &&
+                trans_magic != (long)(EA_MAGIC + 1) &&
+                trans_magic != (long)(EA_MAGIC + 2)) {
+                if (EnableVerboseLog)
+                    Print("INFO [ADR-049] Foreign instance event dropped. magic=",
+                          trans_magic, " deal=", trans.deal);
+                return;
+            }
+        }
+    }
+
     if (trans.type != TRADE_TRANSACTION_DEAL_ADD) return;
 
     if (!HistoryDealSelect(trans.deal)) {

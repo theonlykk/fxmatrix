@@ -1250,6 +1250,52 @@ expected: drag proceeds
 
 ---
 
+## TEST 36 — OnTradeTransaction Magic Filter (ADR-049)
+
+**Purpose:** Verify early-exit magic number filter at top of OnTradeTransaction.
+
+### 36a — Own magic passes (EA_MAGIC)
+
+```
+EA_MAGIC = 20260000, trans_magic = 20260000
+trans_magic == EA_MAGIC → passes filter
+expected: event processed (no early return)
+```
+
+### 36b — Own magic passes (EA_MAGIC+1)
+
+```
+EA_MAGIC = 20260000, trans_magic = 20260001
+trans_magic == EA_MAGIC+1 → passes filter
+expected: event processed
+```
+
+### 36c — Own magic passes (EA_MAGIC+2)
+
+```
+EA_MAGIC = 20260000, trans_magic = 20260002
+trans_magic == EA_MAGIC+2 → passes filter
+expected: event processed
+```
+
+### 36d — Foreign instance magic dropped
+
+```
+EA_MAGIC = 20260000, trans_magic = 20260100 (SNIPER instance)
+trans_magic != 0, != EA_MAGIC, != EA_MAGIC+1, != EA_MAGIC+2 → dropped
+expected: early return, INFO [ADR-049] logged
+```
+
+### 36e — Manual trade magic passes (magic=0)
+
+```
+trans_magic = 0
+trans_magic == 0 → condition (trans_magic != 0) is false → passes filter
+expected: event processed (manual trades not dropped)
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or
