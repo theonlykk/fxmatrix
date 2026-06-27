@@ -1004,8 +1004,25 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             inst_spread     = g_scores[0] - g_scores[1];
                         }
 
-                        double bid_spread   = inst_spread + QuoteSpread;
-                        double offer_spread = inst_spread - QuoteSpread;
+                        // ADR-047: ADR-037 weak signal gate for Phase 3 resume.
+                        // If signal is too weak to support exit floor, skip resume
+                        // entirely and let the flat-quoting loop handle it on the
+                        // next valid M5 bar. Option A ruling (Gemini 2026-06-27).
+                        double phi_r3     = 0.6180339887;
+                        double point_r3   = SymbolInfoDouble(resume_symbol, SYMBOL_POINT);
+                        double floor_n_r3 = MathMax(SkewFloor0 * MathPow(phi_r3, 0),
+                                                    MinLayerExitPoints * point_r3);
+                        if (MathAbs(inst_spread) <= floor_n_r3) {
+                            if (EnableVerboseLog)
+                                Print("INFO [ADR-047] Phase 3 resume suppressed — weak signal.",
+                                      " instrument=", resume_symbol,
+                                      " abs_spread=", DoubleToString(MathAbs(inst_spread), 6),
+                                      " floor_n=", DoubleToString(floor_n_r3, 6));
+                            // skip to next instrument — do not place any limits
+                        } else {
+
+                        double bid_spread   = inst_spread - QuoteSpread;
+                        double offer_spread = inst_spread + QuoteSpread;
 
                         double bid_price = InvertSpreadToPrice(
                             g_anchor[0], g_anchor[1],
@@ -1042,6 +1059,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
 
                         Print("INFO: Phase 3 resume quoting. instrument=", resume_symbol,
                               " bid=", bid_price, " offer=", offer_price);
+                        } // end ADR-047 weak signal gate
                     }
                     else {
                         // Phase 3: partial unwind -- cancel stale add-next, resubmit for

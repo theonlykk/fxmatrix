@@ -1140,6 +1140,59 @@ expected: IsSlotSuppressedByLDAK = false
 
 ---
 
+## TEST 34 — Phase 3 Resume ADR-047
+
+**Purpose:** Verify spread sign correction and ADR-037 weak signal gate on Phase 3 resume.
+
+### 34a — Spread sign correction (BUY slot, positive inst_spread)
+
+```
+inst_spread = 0.000686, QuoteSpread = 0.0004
+bid_spread   = 0.000686 - 0.0004 = 0.000286  ← bid below mid
+offer_spread = 0.000686 + 0.0004 = 0.001086  ← offer above mid
+expected: bid_spread=0.000286, offer_spread=0.001086
+```
+
+### 34b — Spread sign correction (SELL slot, negative inst_spread)
+
+```
+inst_spread = -0.000779, QuoteSpread = 0.0004
+bid_spread   = -0.000779 - 0.0004 = -0.001179  ← bid below mid
+offer_spread = -0.000779 + 0.0004 = -0.000379  ← offer above mid (less negative)
+expected: bid_spread=-0.001179, offer_spread=-0.000379
+```
+
+### 34c — ADR-037 gate fires (weak signal)
+
+```
+inst_spread = 0.000109, SkewFloor0 = 0.0002, MinLayerExitPoints = 30, point = 0.00001
+floor_n = MathMax(0.0002 * 0.618^0, 30 * 0.00001) = MathMax(0.0002, 0.0003) = 0.0003
+MathAbs(0.000109) = 0.000109 <= 0.0003 → gate fires
+expected: resume suppressed, no PlaceEntryLimit calls
+```
+
+### 34d — ADR-037 gate does not fire (strong signal)
+
+```
+inst_spread = -0.000779, SkewFloor0 = 0.0002, MinLayerExitPoints = 30, point = 0.00001
+floor_n = MathMax(0.0002, 0.0003) = 0.0003
+MathAbs(-0.000779) = 0.000779 > 0.0003 → gate does not fire
+expected: resume proceeds, PlaceEntryLimit called for both directions
+```
+
+### 34e — floor_n computation
+
+```
+SkewFloor0 = 0.0002, phi = 0.6180339887
+SkewFloor0 * MathPow(phi, 0) = 0.0002 * 1.0 = 0.0002
+MinLayerExitPoints = 30, point = 0.00001
+MinLayerExitPoints * point = 0.0003
+floor_n = MathMax(0.0002, 0.0003) = 0.0003
+expected: floor_n = 0.0003
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or
