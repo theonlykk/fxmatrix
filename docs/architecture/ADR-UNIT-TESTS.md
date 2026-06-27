@@ -1193,6 +1193,63 @@ expected: floor_n = 0.0003
 
 ---
 
+## TEST 35 — Freeze Level Clamp (ADR-048)
+
+**Purpose:** Verify freeze-zone clamp and post-clamp direction checks in cooldown drag.
+
+### 35a — BUY limit inside freeze zone, clamp fires
+
+```
+bid = 1.32200, freeze_pts = 20, point = 0.00001
+freeze_dist = 20 * 0.00001 = 0.00020
+min_dist = 0.00020 + 2 * 0.00001 = 0.00022
+ideal_price = 1.32190  (bid - ideal = 0.00010 < 0.00022 → clamp fires)
+clamped = bid - min_dist = 1.32200 - 0.00022 = 1.32178
+expected: ideal_price = 1.32178
+```
+
+### 35b — SELL limit inside freeze zone, clamp fires
+
+```
+ask = 1.32210, freeze_pts = 20, point = 0.00001
+freeze_dist = 0.00020, min_dist = 0.00022
+ideal_price = 1.32220  (ideal - ask = 0.00010 < 0.00022 → clamp fires)
+clamped = ask + min_dist = 1.32210 + 0.00022 = 1.32232
+expected: ideal_price = 1.32232
+```
+
+### 35c — BUY limit outside freeze zone, no clamp
+
+```
+bid = 1.32200, freeze_pts = 20, point = 0.00001
+min_dist = 0.00022
+ideal_price = 1.31970  (bid - ideal = 0.00230 > 0.00022 → no clamp)
+expected: ideal_price = 1.31970 (unchanged)
+```
+
+### 35d — Post-clamp direction check: clamped BUY not above cur_price, skip
+
+```
+cur_price = 1.32185  (current resting BUY limit price)
+clamped ideal_price = 1.32178
+direction = DIRECTION_BUY
+ideal_price (1.32178) <= cur_price (1.32185) → continue (skip, not moving toward market)
+expected: drag skipped
+```
+
+### 35e — Post-clamp direction check: clamped BUY above cur_price, proceed
+
+```
+cur_price = 1.32150  (current resting BUY limit price)
+clamped ideal_price = 1.32178
+direction = DIRECTION_BUY
+For a BUY limit, dragging toward market means moving UP (closer to bid).
+ideal_price (1.32178) > cur_price (1.32150) → proceed
+expected: drag proceeds
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

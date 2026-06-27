@@ -484,9 +484,37 @@ void RunSpreadCooldownReconciliation() {
 
             if (ideal_price <= 0) continue;
 
+            // ── ADR-048: Freeze Level Clamp ────────────────────────────
+            // Instead of skipping when ideal_price is inside the freeze zone,
+            // clamp it to the minimum legally permitted distance from market.
+            // 2-point safety buffer prevents microsecond-tick rejections.
+            {
+                long   freeze_pts  = SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL);
+                double freeze_dist = freeze_pts * SymbolInfoDouble(symbol, SYMBOL_POINT);
+                double ask_now     = SymbolInfoDouble(symbol, SYMBOL_ASK);
+                double bid_now     = SymbolInfoDouble(symbol, SYMBOL_BID);
+                double pt          = SymbolInfoDouble(symbol, SYMBOL_POINT);
+
+                if (direction == DIRECTION_BUY) {
+                    double min_dist = freeze_dist + (2.0 * pt);
+                    if (bid_now - ideal_price < min_dist)
+                        ideal_price = bid_now - min_dist;
+                } else {
+                    double min_dist = freeze_dist + (2.0 * pt);
+                    if (ideal_price - ask_now < min_dist)
+                        ideal_price = ask_now + min_dist;
+                }
+            }
+            // ── End ADR-048 Clamp ──────────────────────────────────────
+
+            // After clamp: verify we are still dragging TOWARD market, not away
+            if (direction == DIRECTION_BUY  && ideal_price <= cur_price) continue;
+            if (direction == DIRECTION_SELL && ideal_price >= cur_price) continue;
+
+            // Final safety gate (defence in depth — post-clamp validation)
             if (!IsClearOfFreezeLevel(ideal_price, direction, symbol)) {
                 if (EnableVerboseLog)
-                    Print("INFO [ADR-046] Cooldown drag skipped — freeze level.",
+                    Print("INFO [ADR-048] Cooldown drag aborted — freeze level check failed post-clamp.",
                           " ticket=", ticket, " symbol=", symbol);
                 continue;
             }
