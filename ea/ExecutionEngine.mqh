@@ -918,7 +918,17 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                      : g_inventory_2[i];
 
                 if (CurL.remaining_exit_volume <= VOLUME_EPSILON) {
-                    LogLayerExit(CurL, deal_time, deal_profit);
+                    // ADR-050: MT5 attributes P&L to the OUT deal, making deal_profit=0
+                    // on the IN deal. Intercept the exact floating profit of the original
+                    // position just before we remove it — position is still open and locked
+                    // on FTMO hedging accounts when DEAL_ENTRY_IN fires.
+                    // Includes swap and commission for accurate Net PnL.
+                    double real_profit = deal_profit;
+                    if (real_profit == 0.0 && PositionSelectByTicket(CurL.position_ticket)) {
+                        real_profit = PositionGetDouble(POSITION_PROFIT) +
+                                      PositionGetDouble(POSITION_SWAP);
+                    }
+                    LogLayerExit(CurL, deal_time, real_profit);
                     if (inst == 0)      ArrayRemove(g_inventory_0, i, 1);
                     else if (inst == 1) ArrayRemove(g_inventory_1, i, 1);
                     else                ArrayRemove(g_inventory_2, i, 1);

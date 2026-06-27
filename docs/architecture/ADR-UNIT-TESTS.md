@@ -1296,6 +1296,39 @@ expected: event processed (manual trades not dropped)
 
 ---
 
+## TEST 37 — gross_pnl Logging Fix (ADR-050)
+
+**Purpose:** Verify real_profit capture before LogLayerExit when deal_profit is zero.
+
+### 37a — real_profit fallback when deal_profit is zero
+
+```
+deal_profit = 0.0
+POSITION_PROFIT = 0.30, POSITION_SWAP = 0.02
+real_profit = 0.0 → condition (== 0.0) true → query position
+real_profit = 0.30 + 0.02 + 0.00 = 0.32
+expected: LogLayerExit called with gross_pnl=0.32
+```
+
+### 37b — real_profit uses deal_profit when non-zero
+
+```
+deal_profit = 0.31
+real_profit = deal_profit = 0.31 → condition (== 0.0) false → no position query
+expected: LogLayerExit called with gross_pnl=0.31
+```
+
+### 37c — real_profit fallback when position already settled (PositionSelectByTicket fails)
+
+```
+deal_profit = 0.0
+PositionSelectByTicket returns false (position already closed)
+real_profit stays 0.0
+expected: LogLayerExit called with gross_pnl=0.0 (best available)
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or
