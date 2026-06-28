@@ -123,6 +123,14 @@ void ComputeTermStructure(const double &ac_closes[],
     double bc_point        = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_POINT);
     double bc_sigma_points = (bc_point > 0) ? bc_sigma / bc_point : 0.0;
 
+    // Write to globals for downstream consumption (Step B wiring)
+    g_fv_combined[0]  = ac_fv_combined;
+    g_fv_combined[1]  = bc_fv_combined;
+    g_sigma_fv[0]     = ac_sigma;
+    g_sigma_fv[1]     = bc_sigma;
+    g_sigma_fv_pts[0] = ac_sigma_points;
+    g_sigma_fv_pts[1] = bc_sigma_points;
+
     // ── Logging ───────────────────────────────────────────────────
     if (EnableVerboseLog) {
         Print("DIAG [ADR-052] AC term structure:",
@@ -177,79 +185,6 @@ bool RunSignalOnBarClose() {
     if (ac_1h <= 0 || bc_1h <= 0) {
         Print("ERROR: zero/negative close price");
         return false;
-    }
-
-    g_r_signal[0] = MathLog(ac_now / ac_1h);   // r_AC: PairAC log return
-    g_r_signal[1] = MathLog(bc_now / bc_1h);   // r_BC: PairBC log return
-    g_anchor[0]   = ac_1h;                      // PairAC 12-bar-ago mid
-    g_anchor[1]   = bc_1h;                      // PairBC 12-bar-ago mid
-
-    // V3 generic score decomposition — zero-sum constraint
-    // scores[2] = score_C (base currency), scores[0] = score_A, scores[1] = score_B
-    double score_C = -(g_r_signal[0] + g_r_signal[1]) / 3.0;
-    double score_A =   g_r_signal[0] + score_C;
-    double score_B =   g_r_signal[1] + score_C;
-
-    g_scores[0] = score_A;
-    g_scores[1] = score_B;
-    g_scores[2] = score_C;
-
-    if (EnableVerboseLog) Print("DIAG Signal: anchor_A=", DoubleToString(g_anchor[0], 5),
-          " anchor_B=", DoubleToString(g_anchor[1], 5));
-    if (EnableVerboseLog) Print("DIAG Signal: scores=[",
-          DoubleToString(g_scores[0], 6), ",",
-          DoubleToString(g_scores[1], 6), ",",
-          DoubleToString(g_scores[2], 6), "]");
-    if (EnableVerboseLog) Print("DIAG Signal: r_signal=[",
-          DoubleToString(g_r_signal[0], 6), ",",
-          DoubleToString(g_r_signal[1], 6), "]");
-    if (EnableVerboseLog) Print("DIAG Signal: inst_spread AC=",
-          DoubleToString(g_scores[0] - g_scores[2], 6),
-          " BC=", DoubleToString(g_scores[1] - g_scores[2], 6),
-          " AB=", DoubleToString(g_scores[0] - g_scores[1], 6));
-
-    int strongest = 0, weakest = 0;
-    for (int i = 1; i < 3; i++) {
-        if (g_scores[i] > g_scores[strongest]) strongest = i;
-        if (g_scores[i] < g_scores[weakest])   weakest   = i;
-    }
-
-    g_strongest = strongest;
-    g_weakest   = weakest;
-
-    double spread = g_scores[weakest] - g_scores[strongest];
-    g_entry_spread = spread;
-
-    if (MathAbs(spread) > BaseThreshold) {
-        g_signal_active = true;
-    } else {
-        g_signal_active = false;
-    }
-
-    if (EnableVerboseLog) {
-        if (g_signal_active) {
-            string inst = ((g_strongest == 0 && g_weakest == 1) ||
-                           (g_strongest == 1 && g_weakest == 0))
-                          ? g_symbols[SLOT_AB] :
-                          ((g_strongest == 0 && g_weakest == 2) ||
-                           (g_strongest == 2 && g_weakest == 0))
-                          ? g_symbols[SLOT_AC] :
-                          g_symbols[SLOT_BC];
-            string dir  = ((g_strongest == 0 && g_weakest == 1) ||
-                           (g_strongest == 0 && g_weakest == 2) ||
-                           (g_strongest == 1 && g_weakest == 2))
-                          ? "SELL" : "BUY";
-            Print("INFO: Signal active: spread=",
-                  DoubleToString(g_entry_spread, 6),
-                  " threshold=", DoubleToString(BaseThreshold, 6),
-                  " strongest=", g_strongest,
-                  " weakest=", g_weakest,
-                  " -> ", inst, " ", dir);
-        } else {
-            Print("INFO: No signal: spread=",
-                  DoubleToString(g_entry_spread, 6),
-                  " threshold=", DoubleToString(BaseThreshold, 6));
-        }
     }
 
     // ── LDAK: pairwise correlation update ────────────────────────
@@ -336,11 +271,84 @@ bool RunSignalOnBarClose() {
               DoubleToString(g_cooldown_LDAK[2], 4), "]");
     // ── End ADR-046 cooldown update ──────────────────────────────
 
-    // ── ADR-052 Step A: Term structure (logging only) ─────────────
-    // Requires ac_closes[] and bc_closes[] to be populated above.
-    // Does not mutate any globals — observation only at this stage.
+    // ── ADR-052: Compute term structure before anchor assignment ──
     ComputeTermStructure(ac_closes, bc_closes);
-    // ── End ADR-052 Step A ────────────────────────────────────────
+    // ── End ADR-052 term structure ────────────────────────────────
+
+    // ADR-052 Step B: Use blended multi-timeframe anchor instead of single StrengthWindow bar.
+    // g_fv_combined[] populated by ComputeTermStructure() above.
+    g_r_signal[0] = MathLog(ac_now / g_fv_combined[0]);  // r_AC vs blended anchor
+    g_r_signal[1] = MathLog(bc_now / g_fv_combined[1]);  // r_BC vs blended anchor
+    g_anchor[0]   = g_fv_combined[0];                     // blended AC anchor
+    g_anchor[1]   = g_fv_combined[1];                     // blended BC anchor
+
+    // V3 generic score decomposition — zero-sum constraint
+    // scores[2] = score_C (base currency), scores[0] = score_A, scores[1] = score_B
+    double score_C = -(g_r_signal[0] + g_r_signal[1]) / 3.0;
+    double score_A =   g_r_signal[0] + score_C;
+    double score_B =   g_r_signal[1] + score_C;
+
+    g_scores[0] = score_A;
+    g_scores[1] = score_B;
+    g_scores[2] = score_C;
+
+    if (EnableVerboseLog) Print("DIAG Signal: anchor_A=", DoubleToString(g_anchor[0], 5),
+          " anchor_B=", DoubleToString(g_anchor[1], 5));
+    if (EnableVerboseLog) Print("DIAG Signal: scores=[",
+          DoubleToString(g_scores[0], 6), ",",
+          DoubleToString(g_scores[1], 6), ",",
+          DoubleToString(g_scores[2], 6), "]");
+    if (EnableVerboseLog) Print("DIAG Signal: r_signal=[",
+          DoubleToString(g_r_signal[0], 6), ",",
+          DoubleToString(g_r_signal[1], 6), "]");
+    if (EnableVerboseLog) Print("DIAG Signal: inst_spread AC=",
+          DoubleToString(g_scores[0] - g_scores[2], 6),
+          " BC=", DoubleToString(g_scores[1] - g_scores[2], 6),
+          " AB=", DoubleToString(g_scores[0] - g_scores[1], 6));
+
+    int strongest = 0, weakest = 0;
+    for (int i = 1; i < 3; i++) {
+        if (g_scores[i] > g_scores[strongest]) strongest = i;
+        if (g_scores[i] < g_scores[weakest])   weakest   = i;
+    }
+
+    g_strongest = strongest;
+    g_weakest   = weakest;
+
+    double spread = g_scores[weakest] - g_scores[strongest];
+    g_entry_spread = spread;
+
+    if (MathAbs(spread) > BaseThreshold) {
+        g_signal_active = true;
+    } else {
+        g_signal_active = false;
+    }
+
+    if (EnableVerboseLog) {
+        if (g_signal_active) {
+            string inst = ((g_strongest == 0 && g_weakest == 1) ||
+                           (g_strongest == 1 && g_weakest == 0))
+                          ? g_symbols[SLOT_AB] :
+                          ((g_strongest == 0 && g_weakest == 2) ||
+                           (g_strongest == 2 && g_weakest == 0))
+                          ? g_symbols[SLOT_AC] :
+                          g_symbols[SLOT_BC];
+            string dir  = ((g_strongest == 0 && g_weakest == 1) ||
+                           (g_strongest == 0 && g_weakest == 2) ||
+                           (g_strongest == 1 && g_weakest == 2))
+                          ? "SELL" : "BUY";
+            Print("INFO: Signal active: spread=",
+                  DoubleToString(g_entry_spread, 6),
+                  " threshold=", DoubleToString(BaseThreshold, 6),
+                  " strongest=", g_strongest,
+                  " weakest=", g_weakest,
+                  " -> ", inst, " ", dir);
+        } else {
+            Print("INFO: No signal: spread=",
+                  DoubleToString(g_entry_spread, 6),
+                  " threshold=", DoubleToString(BaseThreshold, 6));
+        }
+    }
 
     return g_signal_active;
 }

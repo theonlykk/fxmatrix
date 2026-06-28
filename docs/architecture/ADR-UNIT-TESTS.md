@@ -1433,6 +1433,46 @@ expected: 1.00 (exact)
 
 ---
 
+## TEST 40 — FV_combined Anchor Wiring (ADR-052 Step B)
+
+**Purpose:** Verify blended anchor wiring into `g_r_signal[]` and `g_anchor[]`.
+
+### 40a — g_r_signal uses blended anchor
+
+```
+ac_now = 1.13650 (current median price)
+g_fv_combined[0] = 1.13590 (blended anchor from Test 39a)
+g_r_signal[0] = MathLog(1.13650 / 1.13590)
+              = MathLog(1.00052814...)
+              = 0.00052800... (approximately)
+expected: g_r_signal[0] = 0.00052800 (tolerance 0.00001)
+```
+
+### 40b — g_anchor set to FV_combined
+
+```
+g_fv_combined[0] = 1.13590
+g_anchor[0] = g_fv_combined[0] = 1.13590
+expected: g_anchor[0] = 1.13590
+```
+
+### 40c — higher weight on micro anchor pulls FV_combined toward FV6
+
+```
+FV6 = 1.13500 (w=0.50), FV12 = 1.13900 (w=0.30), FV48 = 1.14100 (w=0.20)
+FV_combined = 1.13500*0.50 + 1.13900*0.30 + 1.14100*0.20
+            = 0.56750 + 0.34170 + 0.22820
+            = 1.13740
+FV6 = 1.13500, FV_combined = 1.13740
+FV_combined closer to FV6 than to FV48?
+|FV_combined - FV6| = 0.00240
+|FV_combined - FV48| = 0.00360
+Yes — micro anchor dominates
+expected: FV_combined = 1.13740, closer to FV6 than FV48
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

@@ -113,6 +113,11 @@ double g_vratio[3] = {1.0, 1.0, 1.0};
 // ADR-046: viscous LDAK high-water mark per slot — decays toward 1.0 at CooldownDecayRate per bar
 double g_cooldown_LDAK[3] = {1.0, 1.0, 1.0};
 
+// ADR-052 Step B: Multi-timeframe term structure outputs
+double g_fv_combined[2]  = {0.0, 0.0};  // [SLOT_AC, SLOT_BC] weighted blended anchor
+double g_sigma_fv[2]     = {0.0, 0.0};  // [SLOT_AC, SLOT_BC] dispersion in price units
+double g_sigma_fv_pts[2] = {0.0, 0.0};  // [SLOT_AC, SLOT_BC] dispersion in points
+
 //--- Bar tracking
 datetime g_last_bar_time        = 0;
 
