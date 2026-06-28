@@ -129,7 +129,7 @@ datetime g_last_bar_time        = 0;
 
 //--- Carry recalculation
 datetime g_last_carry_recalc_date = 0;
-datetime g_last_rollover_date     = 0;  // ADR-045: gate for once-per-day rollover reconciliation
+int      g_last_rollover_day_of_year = 0; // ADR-045 fix: broker window gate, stores dt.day_of_year
 
 //--- Pod state
 bool     g_halted               = false;

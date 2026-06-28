@@ -263,16 +263,20 @@ void RunCarryRecalculation() {
 // Positive carry (swap >= 0) → no adjustment, free yield kept.
 //------------------------------------------------------------------
 void RunDailyRolloverReconciliation() {
-    // Trigger gate: block the 00:00 liquidity vacuum, allow any time after 00:01.
-    // State-driven (g_last_rollover_date) ensures exactly one fire per day regardless
-    // of when the first valid tick arrives — including after terminal restarts.
+    // ADR-045 fix: Broker Window Gate (Gemini ruling 2026-06-28)
+    // Only fire during 00:00-00:59 broker time. Outside this window,
+    // return immediately — no state is read or written.
+    // Within the window, fire exactly once per calendar day via
+    // day_of_year discriminator. Handles month-end and year-end
+    // rollovers natively (Jan 1: day_of_year resets to 1, prev=365/366).
+    // Reboot safety: g_last_rollover_day_of_year is serialized to
+    // fxmatrix_global_state_<InstanceID>.json — loaded on OnInit()
+    // before inventory hydration, preventing double-carry on VPS reboot.
     MqlDateTime dt;
     TimeToStruct(TimeCurrent(), dt);
-    if (dt.hour == 0 && dt.min < 1) return;
-
-    datetime today = StringToTime(StringFormat("%04d.%02d.%02d", dt.year, dt.mon, dt.day));
-    if (today == g_last_rollover_date) return;
-    g_last_rollover_date = today;
+    if (dt.hour != 0) return;                                    // broker window gate
+    if (g_last_rollover_day_of_year == dt.day_of_year) return;  // already fired today
+    g_last_rollover_day_of_year = dt.day_of_year;
 
     // Wednesday triple swap multiplier (TimeDayOfWeek: 0=Sun, 3=Wed)
     int multiplier = (dt.day_of_week == 3) ? 3 : 1;

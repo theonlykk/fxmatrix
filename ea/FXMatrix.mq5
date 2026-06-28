@@ -36,6 +36,7 @@ int OnInit() {
           "build=1da31ec "
           "NudgeThreshold=", g_NudgeThreshold, " points");
 
+    LoadGlobalState();             // ADR-045: global scalars before inventory hydration
     LoadInventoryState(SLOT_AC);
     LoadInventoryState(SLOT_BC);
     LoadInventoryState(SLOT_AB);

@@ -16,6 +16,83 @@ string GetStateFilename(int instrument) {
 }
 
 //------------------------------------------------------------------
+// GetGlobalStateFilename
+// Returns path for the single global state JSON file.
+// Scope: one file per EA instance (InstanceID-keyed).
+//------------------------------------------------------------------
+string GetGlobalStateFilename() {
+    return "fxmatrix_global_state_" + InstanceID + ".json";
+}
+
+//------------------------------------------------------------------
+// SaveGlobalState
+// ADR-045: Persists global scalar state to disk.
+// Schema is intentionally flat — Phase 3 globals (daily drawdown
+// counters, correlated exposure limits) will be added here.
+// Called at the end of SaveAllInventoryState().
+//------------------------------------------------------------------
+void SaveGlobalState() {
+    string filename = GetGlobalStateFilename();
+    int fh = FileOpen(filename, FILE_WRITE | FILE_TXT);
+    if (fh == INVALID_HANDLE) {
+        Print("ERROR [ADR-045] SaveGlobalState — FileOpen failed: ", filename);
+        return;
+    }
+    FileWrite(fh, "{");
+    FileWrite(fh, "  \"last_rollover_day_of_year\": "
+              + IntegerToString(g_last_rollover_day_of_year));
+    FileWrite(fh, "}");
+    FileClose(fh);
+    if (EnableVerboseLog)
+        Print("INFO [ADR-045] SaveGlobalState — saved. ",
+              "last_rollover_day_of_year=", g_last_rollover_day_of_year);
+}
+
+//------------------------------------------------------------------
+// LoadGlobalState
+// ADR-045: Restores global scalar state from disk on OnInit().
+// Must be called BEFORE LoadInventoryState() calls so global rules
+// are established before per-slot inventory is hydrated.
+// Returns false on missing file (clean start — value stays 0).
+//------------------------------------------------------------------
+bool LoadGlobalState() {
+    string filename = GetGlobalStateFilename();
+    if (!FileIsExist(filename)) {
+        Print("INFO [ADR-045] LoadGlobalState — no file found. Clean start.");
+        return false;
+    }
+    int fh = FileOpen(filename, FILE_READ | FILE_TXT);
+    if (fh == INVALID_HANDLE) {
+        Print("ERROR [ADR-045] LoadGlobalState — FileOpen failed: ", filename);
+        return false;
+    }
+    while (!FileIsEnding(fh)) {
+        string raw  = FileReadString(fh);
+        string line = raw;
+        StringTrimLeft(line);
+        StringTrimRight(line);
+        if (line == "" || line == "{" || line == "}") continue;
+        int colon = StringFind(line, ":");
+        if (colon < 0) continue;
+        string key = StringSubstr(line, 0, colon);
+        string val = StringSubstr(line, colon + 1);
+        StringReplace(key, "\"", "");
+        StringTrimLeft(key);  StringTrimRight(key);
+        StringReplace(val, "\"", "");
+        StringTrimLeft(val);  StringTrimRight(val);
+        if (StringLen(val) > 0 &&
+            StringGetCharacter(val, StringLen(val) - 1) == ',')
+            val = StringSubstr(val, 0, StringLen(val) - 1);
+        if (key == "last_rollover_day_of_year")
+            g_last_rollover_day_of_year = (int)StringToInteger(val);
+    }
+    FileClose(fh);
+    Print("INFO [ADR-045] LoadGlobalState — loaded. ",
+          "last_rollover_day_of_year=", g_last_rollover_day_of_year);
+    return true;
+}
+
+//------------------------------------------------------------------
 // SaveInventoryState (parameterised — Phase 2)
 // Saves one instrument's inventory to its own state file.
 // Includes layer_index in JSON schema.
@@ -142,6 +219,7 @@ void SaveAllInventoryState() {
     SaveInventoryState(SLOT_AC);
     SaveInventoryState(SLOT_BC);
     SaveInventoryState(SLOT_AB);
+    SaveGlobalState();  // ADR-045: persist global scalars after all slots saved
 }
 
 //------------------------------------------------------------------
