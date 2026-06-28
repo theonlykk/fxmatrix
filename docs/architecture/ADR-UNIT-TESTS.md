@@ -1375,6 +1375,64 @@ expected: cancel triggered
 
 ---
 
+## TEST 39 — Term Structure Math (ADR-052 Step A)
+
+**Purpose:** Verify FV_combined weighted average, population sigma, and sigma_points conversion.
+
+### 39a — FV_combined weighted average
+
+```
+FV6 = 1.13500, FV12 = 1.13600, FV48 = 1.13800
+FV_combined = 1.13500*0.50 + 1.13600*0.30 + 1.13800*0.20
+            = 0.56750 + 0.34080 + 0.22760
+            = 1.13590
+expected: FV_combined = 1.13590
+```
+
+### 39b — sigma_FV population standard deviation
+
+```
+FV6 = 1.13500, FV12 = 1.13600, FV48 = 1.13800
+mean = (1.13500 + 1.13600 + 1.13800) / 3.0 = 1.13633333
+deviations: (1.13500-1.13633333) = -0.00133333
+            (1.13600-1.13633333) = -0.00033333
+            (1.13800-1.13633333) = +0.00166667
+squares:    0.00000177778
+            0.00000011111
+            0.00000277778
+sum/3 = 0.00000466667 / 3.0 = 0.00000155556
+sigma = sqrt(0.00000155556) = 0.00124722...
+expected: sigma = 0.00124722 (tolerance 0.00001)
+```
+
+### 39c — sigma_points conversion
+
+```
+sigma = 0.00124722, SYMBOL_POINT = 0.00001 (EURUSD 5-digit)
+sigma_points = 0.00124722 / 0.00001 = 124.72
+expected: sigma_points = 124.72191 (tolerance 0.001)
+```
+
+### 39d — low dispersion case (anchors agree)
+
+```
+FV6 = 1.13500, FV12 = 1.13502, FV48 = 1.13501
+mean = 1.13501
+sigma = sqrt(((-0.00001)^2 + (0.00001)^2 + (0)^2) / 3.0)
+      = sqrt(0.000000000067) = 0.00000816...
+sigma_points = 0.00000816 / 0.00001 = 0.816
+expected: sigma_points < 1.0 (tight agreement)
+```
+
+### 39e — weights sum to 1.0
+
+```
+0.50 + 0.30 + 0.20 = 1.00
+expected: 1.00 (exact)
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

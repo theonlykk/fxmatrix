@@ -80,6 +80,66 @@ double MathMedianCentered(const double &arr[], int center_index, int width) {
     return temp[half];
 }
 
+//------------------------------------------------------------------
+// ComputeTermStructure
+// ADR-052 Step A: Multi-timeframe fair value and dispersion.
+// Computes FV_combined (weighted average of 3 anchor prices) and
+// sigma_FV (dispersion across anchors, in points) for SLOT_AC and
+// SLOT_BC using the close arrays already loaded by RunSignalOnBarClose.
+// LOGGING ONLY — no globals mutated, no execution impact.
+// Called from RunSignalOnBarClose() after close arrays are populated.
+//------------------------------------------------------------------
+void ComputeTermStructure(const double &ac_closes[],
+                          const double &bc_closes[]) {
+    // ── SLOT_AC (EURUSD) ─────────────────────────────────────────
+    double ac_fv6  = ac_closes[6];
+    double ac_fv12 = ac_closes[12];
+    double ac_fv48 = ac_closes[48];
+
+    double ac_fv_combined = ac_fv6 * 0.50 + ac_fv12 * 0.30 + ac_fv48 * 0.20;
+
+    double ac_mean  = (ac_fv6 + ac_fv12 + ac_fv48) / 3.0;
+    double ac_sigma = MathSqrt(
+        ((ac_fv6 - ac_mean) * (ac_fv6 - ac_mean) +
+         (ac_fv12 - ac_mean) * (ac_fv12 - ac_mean) +
+         (ac_fv48 - ac_mean) * (ac_fv48 - ac_mean)) / 3.0
+    );
+    double ac_point        = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_POINT);
+    double ac_sigma_points = (ac_point > 0) ? ac_sigma / ac_point : 0.0;
+
+    // ── SLOT_BC (GBPUSD) ─────────────────────────────────────────
+    double bc_fv6  = bc_closes[6];
+    double bc_fv12 = bc_closes[12];
+    double bc_fv48 = bc_closes[48];
+
+    double bc_fv_combined = bc_fv6 * 0.50 + bc_fv12 * 0.30 + bc_fv48 * 0.20;
+
+    double bc_mean  = (bc_fv6 + bc_fv12 + bc_fv48) / 3.0;
+    double bc_sigma = MathSqrt(
+        ((bc_fv6 - bc_mean) * (bc_fv6 - bc_mean) +
+         (bc_fv12 - bc_mean) * (bc_fv12 - bc_mean) +
+         (bc_fv48 - bc_mean) * (bc_fv48 - bc_mean)) / 3.0
+    );
+    double bc_point        = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_POINT);
+    double bc_sigma_points = (bc_point > 0) ? bc_sigma / bc_point : 0.0;
+
+    // ── Logging ───────────────────────────────────────────────────
+    if (EnableVerboseLog) {
+        Print("DIAG [ADR-052] AC term structure:",
+              " FV6=",  DoubleToString(ac_fv6, 5),
+              " FV12=", DoubleToString(ac_fv12, 5),
+              " FV48=", DoubleToString(ac_fv48, 5),
+              " FV_combined=", DoubleToString(ac_fv_combined, 5),
+              " sigma_pts=", DoubleToString(ac_sigma_points, 2));
+        Print("DIAG [ADR-052] BC term structure:",
+              " FV6=",  DoubleToString(bc_fv6, 5),
+              " FV12=", DoubleToString(bc_fv12, 5),
+              " FV48=", DoubleToString(bc_fv48, 5),
+              " FV_combined=", DoubleToString(bc_fv_combined, 5),
+              " sigma_pts=", DoubleToString(bc_sigma_points, 2));
+    }
+}
+
 bool RunSignalOnBarClose() {
     double ac_closes[], bc_closes[];
 
@@ -275,6 +335,12 @@ bool RunSignalOnBarClose() {
               DoubleToString(g_cooldown_LDAK[1], 4), ",",
               DoubleToString(g_cooldown_LDAK[2], 4), "]");
     // ── End ADR-046 cooldown update ──────────────────────────────
+
+    // ── ADR-052 Step A: Term structure (logging only) ─────────────
+    // Requires ac_closes[] and bc_closes[] to be populated above.
+    // Does not mutate any globals — observation only at this stage.
+    ComputeTermStructure(ac_closes, bc_closes);
+    // ── End ADR-052 Step A ────────────────────────────────────────
 
     return g_signal_active;
 }
