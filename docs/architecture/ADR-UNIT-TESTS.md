@@ -1546,6 +1546,71 @@ expected: multiplier always in [1.0, 3.0]
 
 ---
 
+## TEST 42 — ADR-045 Broker Window Gate Logic
+
+**Purpose:** Verify broker window gate (`hour == 0` only), day-of-year discriminator (fire once per calendar day), year-end rollover (365→1), and reboot scenarios (no double-carry when persisted doy matches current doy; fire when persisted doy is yesterday).
+
+Pure Python simulation of `RunDailyRolloverReconciliation()` gate logic — no MQL5 dependency.
+
+### 42a — Outside window (hour=12)
+
+```
+hour=12, current_doy=178, last_doy=0
+hour != 0 → must not fire
+expected: fires = False
+```
+
+### 42b — First fire inside window (hour=0, fresh day)
+
+```
+hour=0, current_doy=178, last_doy=0
+must fire; new_last_doy = 178
+expected: fires = True, doy42b = 178
+```
+
+### 42c — No double-fire same day
+
+```
+hour=0, current_doy=178, last_doy=178
+last_doy == current_doy → must not fire
+expected: fires = False
+```
+
+### 42d — Reattach mid-hour blocked
+
+```
+hour=0, current_doy=178, last_doy=178 (already stamped)
+expected: fires = False
+```
+
+### 42e — Year-end rollover (365→1)
+
+```
+hour=0, current_doy=1, last_doy=365
+must fire; new_last_doy = 1
+expected: fires = True, doy42e = 1
+```
+
+### 42f — Reboot after carry done (persisted doy matches)
+
+```
+hour=0, current_doy=178, last_doy=178
+carry already ran before reboot — must not double-fire
+expected: fires = False
+```
+
+### 42g — Reboot after carry missed (persisted doy is yesterday)
+
+```
+hour=0, current_doy=178, last_doy=177
+carry had not run before reboot — must fire once
+expected: fires = True, doy42g = 178
+```
+
+**Total subtest count (Tests 0–42):** 208/208 PASS
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or
