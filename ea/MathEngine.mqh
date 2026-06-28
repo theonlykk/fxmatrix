@@ -619,6 +619,44 @@ void RunSpreadCooldownReconciliation() {
 }
 
 //------------------------------------------------------------------
+// ComputeDynamicHalfSpread
+// ADR-052 Step C: Returns the half-spread expanded by term structure
+// dispersion. Low dispersion = tight spread. High dispersion = wide.
+// slot: SLOT_AC=0, SLOT_BC=1, SLOT_AB=2 (AB uses min of AC/BC sigma)
+//------------------------------------------------------------------
+double ComputeDynamicHalfSpread(int slot) {
+    double sigma;
+    if (slot == SLOT_AB)
+        // ADR-052: Synthetic cross inherits dispersion of most volatile leg.
+        // Prevents triangular arbitrage during asymmetric shocks (weakest-link survival).
+        sigma = MathMax(g_sigma_fv[0], g_sigma_fv[1]);
+    else
+        sigma = g_sigma_fv[slot];
+    return QuoteSpread + (sigma * SpreadMultiplier);
+}
+
+//------------------------------------------------------------------
+// ComputeSigmoidLotMultiplier
+// ADR-052 Step C: Maps term structure dispersion to a lot size
+// multiplier via mirrored logistic function. High agreement → MaxScale.
+// High dispersion → 1.0 (baseline). Never below 1.0 or above MaxScale.
+// slot: SLOT_AC=0, SLOT_BC=1, SLOT_AB=2 (AB uses min of AC/BC sigma)
+//------------------------------------------------------------------
+double ComputeSigmoidLotMultiplier(int slot) {
+    double sigma_pts;
+    if (slot == SLOT_AB)
+        // ADR-052: Synthetic cross inherits dispersion of most volatile leg.
+        // Prevents triangular arbitrage during asymmetric shocks (weakest-link survival).
+        sigma_pts = MathMax(g_sigma_fv_pts[0], g_sigma_fv_pts[1]);
+    else
+        sigma_pts = g_sigma_fv_pts[slot];
+
+    double multiplier = 1.0 + (SigmoidMaxScale - 1.0) /
+                        (1.0 + MathExp(SigmoidSteepness * (sigma_pts - SigmoidMidpoint)));
+    return MathMax(1.0, MathMin(SigmoidMaxScale, multiplier));
+}
+
+//------------------------------------------------------------------
 // ComputeGridInterval
 // Returns the grid spacing S for a given layer index.
 // GridMode 0: constant S = GridBase

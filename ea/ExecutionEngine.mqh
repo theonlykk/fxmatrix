@@ -161,6 +161,19 @@ double ComputeLDAKLotSize(int instrument) {
               " lot_size=", DoubleToString(lot_size, 2),
               " instrument=", symbol);
 
+    // ADR-052 Step C: Sigmoid lot scaling — high term structure agreement = larger quote
+    double sig_mult = ComputeSigmoidLotMultiplier(instrument);
+    lot_size = MathMax(lot_size * sig_mult, min_vol);
+
+    if (EnableVerboseLog && sig_mult > 1.0)
+        Print("INFO [ADR-052] Sigmoid lot scale: instrument=", symbol,
+              " sigma_pts=", DoubleToString(
+                  (instrument == SLOT_AB)
+                  ? MathMax(g_sigma_fv_pts[0], g_sigma_fv_pts[1])
+                  : g_sigma_fv_pts[instrument], 1),
+              " multiplier=", DoubleToString(sig_mult, 3),
+              " lot_size=", DoubleToString(lot_size, 2));
+
     return lot_size;
 }
 
@@ -1031,8 +1044,10 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             // skip to next instrument — do not place any limits
                         } else {
 
-                        double bid_spread   = inst_spread - QuoteSpread;
-                        double offer_spread = inst_spread + QuoteSpread;
+                        // ADR-052 Step C: Dynamic half-spread in Phase 3 resume
+                        double dynamic_hs_r3 = ComputeDynamicHalfSpread(inst);
+                        double bid_spread     = inst_spread - dynamic_hs_r3;
+                        double offer_spread   = inst_spread + dynamic_hs_r3;
 
                         double bid_price = InvertSpreadToPrice(
                             g_anchor[0], g_anchor[1],

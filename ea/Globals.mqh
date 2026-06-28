@@ -71,6 +71,12 @@ input bool   EnableVerboseLog   = true;
 input double LDAK_Dilation_Max = 3.000; // LDAK: max grid dilation multiplier
 input double CooldownDecayRate = 0.025; // ADR-046: fractional decay per M5 bar (2.5% default)
 
+//--- ADR-052 Step C: Dynamic Spread & Confidence Sizing
+input double SpreadMultiplier  = 0.500; // ADR-052: adds (sigma_FV * multiplier) to base half-spread
+input double SigmoidMaxScale   = 3.000; // ADR-052: maximum lot multiplier when timeframes agree (σ≈0)
+input double SigmoidMidpoint   = 50.0;  // ADR-052: dispersion in points where lot multiplier halves
+input double SigmoidSteepness  = 0.150; // ADR-052: rate of lot size decay with dispersion (k)
+
 //--- Phase 5: FTMO equity failsafe
 input double FTMO_Initial_Balance = 10000.000; // FTMO starting account balance
 input double FTMO_Max_Loss_Pct    = 0.090;     // absolute loss buffer (9% — 1% below 10% limit)

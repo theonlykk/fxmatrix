@@ -357,8 +357,10 @@ void OnTick() {
             if (inst_inv_size > 0 || inst_bid > 0 || inst_offer > 0) continue;
 
             // ── ADR-017: Compute fair-value prices ───────────────────────
-            double bid_spread   = inst_spread - QuoteSpread;
-            double offer_spread = inst_spread + QuoteSpread;
+            // ADR-052 Step C: Dynamic half-spread expands with term structure dispersion
+            double dynamic_hs   = ComputeDynamicHalfSpread(inst);
+            double bid_spread   = inst_spread - dynamic_hs;
+            double offer_spread = inst_spread + dynamic_hs;
 
             double bid_price = InvertSpreadToPrice(
                 g_anchor[0], g_anchor[1],

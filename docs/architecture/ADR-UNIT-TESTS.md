@@ -1473,6 +1473,79 @@ expected: FV_combined = 1.13740, closer to FV6 than FV48
 
 ---
 
+## TEST 41 — Dynamic Spread & Sigmoid Sizing (ADR-052 Step C)
+
+**Purpose:** Verify dynamic half-spread expansion and sigmoid lot multiplier math.
+
+### 41a — Dynamic half-spread, low dispersion
+
+```
+QuoteSpread = 0.0004, SpreadMultiplier = 0.5
+sigma_fv = 0.00020 (20 points of dispersion)
+dynamic_hs = 0.0004 + (0.00020 * 0.5) = 0.0004 + 0.00010 = 0.00050
+expected: dynamic_hs = 0.00050
+```
+
+### 41b — Dynamic half-spread, high dispersion
+
+```
+QuoteSpread = 0.0004, SpreadMultiplier = 0.5
+sigma_fv = 0.00124 (124 points)
+dynamic_hs = 0.0004 + (0.00124 * 0.5) = 0.0004 + 0.00062 = 0.00102
+expected: dynamic_hs = 0.00102
+```
+
+### 41c — Sigmoid multiplier at perfect agreement (σ=0)
+
+```
+SigmoidMaxScale=3.0, SigmoidMidpoint=50.0, SigmoidSteepness=0.15, sigma_pts=0
+multiplier = 1.0 + (3.0 - 1.0) / (1.0 + exp(0.15 * (0 - 50)))
+           = 1.0 + 2.0 / (1.0 + exp(-7.5))
+           = 1.0 + 2.0 / (1.0 + 0.000553)
+           = 1.0 + 2.0 / 1.000553
+           = 1.0 + 1.998894
+           = 2.998894
+MathMax(1.0, MathMin(3.0, 2.998894)) = 2.998894
+expected: multiplier ≈ 2.999 (tolerance 0.001)
+```
+
+### 41d — Sigmoid multiplier at midpoint (σ=50pts)
+
+```
+sigma_pts = 50, k=0.15, mid=50
+multiplier = 1.0 + 2.0 / (1.0 + exp(0.15 * (50 - 50)))
+           = 1.0 + 2.0 / (1.0 + exp(0))
+           = 1.0 + 2.0 / (1.0 + 1.0)
+           = 1.0 + 2.0 / 2.0
+           = 1.0 + 1.0
+           = 2.0
+expected: multiplier = 2.0 (exact)
+```
+
+### 41e — Sigmoid multiplier at high dispersion (σ=124pts)
+
+```
+sigma_pts = 124, k=0.15, mid=50
+multiplier = 1.0 + 2.0 / (1.0 + exp(0.15 * (124 - 50)))
+           = 1.0 + 2.0 / (1.0 + exp(11.1))
+           = 1.0 + 2.0 / (1.0 + 66686.3)
+           = 1.0 + 2.0 / 66687.3
+           = 1.0 + 0.000030
+           = 1.000030
+MathMax(1.0, MathMin(3.0, 1.000030)) = 1.000030
+expected: multiplier ≈ 1.000 (tolerance 0.001)
+```
+
+### 41f — Sigmoid floor and ceiling clamp
+
+```
+Any multiplier < 1.0 → clamped to 1.0
+Any multiplier > 3.0 → clamped to 3.0
+expected: multiplier always in [1.0, 3.0]
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or
