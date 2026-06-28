@@ -565,6 +565,40 @@ void OnTick() {
 
                 } else {
                     // Signal active — single-sided deadband then place
+                    // ADR-051: SNIPER order expiry — cancel if unfilled after SniperExpiryBars bars.
+                    // Uses ORDER_TIME_SETUP from MT5 broker — stateless, survives VPS reboots.
+                    if (active_ticket > 0) {
+                        if (OrderSelect(active_ticket)) {
+                            datetime setup_time  = (datetime)OrderGetInteger(ORDER_TIME_SETUP);
+                            int      bars_elapsed = (int)((TimeCurrent() - setup_time) / 300);
+                            if (bars_elapsed >= SniperExpiryBars) {
+                                MqlTradeRequest req = {}; MqlTradeResult res = {};
+                                req.action = TRADE_ACTION_REMOVE;
+                                req.order  = active_ticket;
+                                if (OrderSend(req, res)) {
+                                    g_daily_api_count++;
+                                    if (g_daily_api_count >= 900) {
+                                        g_api_halt = true;
+                                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                              g_daily_api_count);
+                                    }
+                                    if (signal_is_bid)
+                                        g_pending_bid[inst] = 0;
+                                    else
+                                        g_pending_offer[inst] = 0;
+                                    active_ticket = 0;
+                                    Print("INFO [ADR-051] SNIPER order expired and cancelled.",
+                                          " symbol=", inst_symbol,
+                                          " bars_elapsed=", bars_elapsed,
+                                          " ticket=", req.order);
+                                } else {
+                                    Print("WARNING [ADR-051] SNIPER expiry cancel failed.",
+                                          " retcode=", res.retcode,
+                                          " ticket=", active_ticket);
+                                }
+                            }
+                        }
+                    }
                     double deadband = QuoteSpread * 0.25 - 0.5 * _Point;
                     double current_active_price = (active_ticket > 0)
                                                   ? GetPendingOrderPrice(active_ticket) : -1;

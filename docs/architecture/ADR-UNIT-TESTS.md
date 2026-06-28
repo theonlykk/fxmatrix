@@ -1329,6 +1329,52 @@ expected: LogLayerExit called with gross_pnl=0.0 (best available)
 
 ---
 
+## TEST 38 — SNIPER Order Expiry (ADR-051)
+
+**Purpose:** Verify bars_elapsed expiry math for SNIPER limit cancellation.
+
+### 38a — bars_elapsed calculation, expiry fires
+
+```
+setup_time = T, current_time = T + 310 seconds
+bars_elapsed = int(310 / 300) = 1
+SniperExpiryBars = 1
+bars_elapsed (1) >= SniperExpiryBars (1) → TRUE
+expected: cancel triggered
+```
+
+### 38b — not yet expired
+
+```
+setup_time = T, current_time = T + 250 seconds
+bars_elapsed = int(250 / 300) = 0
+SniperExpiryBars = 1
+bars_elapsed (0) >= SniperExpiryBars (1) → FALSE
+expected: no cancel
+```
+
+### 38c — SniperExpiryBars=3, not enough time
+
+```
+setup_time = T, current_time = T + 850 seconds
+bars_elapsed = int(850 / 300) = 2
+SniperExpiryBars = 3
+bars_elapsed (2) >= SniperExpiryBars (3) → FALSE
+expected: no cancel
+```
+
+### 38d — SniperExpiryBars=3, expiry fires
+
+```
+setup_time = T, current_time = T + 950 seconds
+bars_elapsed = int(950 / 300) = 3
+SniperExpiryBars = 3
+bars_elapsed (3) >= SniperExpiryBars (3) → TRUE
+expected: cancel triggered
+```
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

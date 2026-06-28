@@ -56,6 +56,7 @@ enum ENUM_EXECUTION_MODE { MARKET_MAKER, SNIPER };
 input ENUM_EXECUTION_MODE ExecutionMode = MARKET_MAKER;
 input string  InstanceID  = "MM";     // ADR-021: Instance identifier for JSON state segregation
 input double SniperThreshold = 0.0014; // ADR-019: Decoupled entry gate for SNIPER mode
+input int    SniperExpiryBars = 1;     // ADR-051: Cancel unfilled SNIPER limit after N M5 bars (default 1)
 
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
