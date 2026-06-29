@@ -163,7 +163,9 @@ double ComputeLDAKLotSize(int instrument) {
 
     // ADR-052 Step C: Sigmoid lot scaling — high term structure agreement = larger quote
     double sig_mult = ComputeSigmoidLotMultiplier(instrument);
-    lot_size = MathMax(lot_size * sig_mult, min_vol);
+    double vol_step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+    double raw_lot    = MathMax(lot_size * sig_mult, min_vol);
+    lot_size = MathRound(raw_lot / vol_step) * vol_step;
 
     if (EnableVerboseLog && sig_mult > 1.0)
         Print("INFO [ADR-052] Sigmoid lot scale: instrument=", symbol,
