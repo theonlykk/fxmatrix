@@ -273,9 +273,18 @@ void EmitPodClose(string   symbol,
     string ts = StringFormat("%04d-%02d-%02dT%02d:%02d:%02dZ",
         dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec);
 
+    // ADR-053: broker local trade date for frontend date filtering
+    // Uses TimeCurrent() (broker local) not TimeGMT() -- trades belong
+    // to the broker session date, not UTC calendar date.
+    MqlDateTime dtLocal;
+    TimeToStruct(TimeCurrent(), dtLocal);
+    string trade_date = StringFormat("%04d-%02d-%02d",
+                                     dtLocal.year, dtLocal.mon, dtLocal.day);
+
     string payload = StringFormat(
         "{"
         "\"close_time\":\"%s\","
+        "\"trade_date\":\"%s\","
         "\"instrument\":\"%s\","
         "\"direction\":\"%s\","
         "\"layers_closed\":%d,"
@@ -285,7 +294,7 @@ void EmitPodClose(string   symbol,
         "\"gross_pnl\":%.2f,"
         "\"instance_id\":\"%s\""
         "}",
-        ts, symbol, direction, layers_closed,
+        ts, trade_date, symbol, direction, layers_closed,
         avg_entry_price, exit_price, hold_time_minutes,
         gross_pnl, InstanceID
     );

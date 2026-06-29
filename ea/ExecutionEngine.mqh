@@ -879,6 +879,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
 void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     double deal_volume, datetime deal_time,
                     double deal_profit,
+                    double deal_price,
                     ulong hedge_position_ticket = 0) {
 
     // Search all three per-instrument arrays for the matching exit ticket
@@ -987,12 +988,20 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             string _pod_symbol    = GetInstrumentSymbol(inst);
                             string _pod_direction = (CurL.direction == DIRECTION_BUY) ? "LONG" : "SHORT";
                             double _pod_hold_mins = (double)(TimeCurrent() - CurL.entry_time) / 60.0;
+
+                            // ADR-053: derive absolute pod size at close time
+                            // inst is already in scope from the enclosing loop
+                            int inv_size = (inst == SLOT_AC) ? ArraySize(g_inventory_0) :
+                                           (inst == SLOT_BC) ? ArraySize(g_inventory_1) :
+                                                               ArraySize(g_inventory_2);
+
+                            // ADR-053: pass actual deal_price (not planned exit_target)
                             EmitPodClose(
                                 _pod_symbol,
                                 _pod_direction,
-                                1,
+                                inv_size,
                                 CurL.entry_price,
-                                CurL.exit_target,
+                                deal_price,
                                 _pod_hold_mins,
                                 deal_profit
                             );
@@ -1237,7 +1246,8 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
             ulong new_hedge_position = (ulong)HistoryDealGetInteger(
                                            deal_ticket, DEAL_POSITION_ID);
             HandleExitFill(deal_ticket, order_ticket, deal_volume,
-                           deal_time, deal_profit, new_hedge_position);
+                           deal_time, deal_profit, deal_price,
+                           new_hedge_position);
         } else if (deal_magic == (long)EA_MAGIC ||
                    deal_magic == (long)(EA_MAGIC + 1)) {
             // Entry fill (EA_MAGIC = Layer 0, EA_MAGIC+1 = add-next)
@@ -1256,7 +1266,7 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
         long deal_magic = HistoryDealGetInteger(deal_ticket, DEAL_MAGIC);
         if (deal_magic == (long)(EA_MAGIC + 2)) {
             HandleExitFill(deal_ticket, order_ticket, deal_volume,
-                           deal_time, deal_profit);
+                           deal_time, deal_profit, deal_price);
         } else {
             if (EnableVerboseLog) {
                 Print("INFO: Ignored DEAL_ENTRY_OUT with unmanaged magic=",
