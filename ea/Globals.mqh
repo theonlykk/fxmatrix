@@ -25,6 +25,10 @@ input double LayerStressBase         = 1.0;  // exponential layer stress multipl
 input double K_spread                = 1.000;  // PnL stress multiplier aggressiveness
 input double K_size                  = 0.500;  // lot size reduction aggressiveness
 input int    MinLayerIntervalSeconds = 300;    // min seconds between layer adds (1 M5 bar)
+    // ADR-057: Kinetic Entry Gate parameters
+    input double KineticSigmaThreshold    = 50.0; // sigma_pts where grid doubles (Component 1)
+    input int    KineticVelocityBars      = 5;    // rolling window in M5 bars (Component 2)
+    input double KineticVelocityThreshold = 5.0;  // max pts/bar to permit add-next (Component 3)
 
 //--- Layer fill
 input double MinFillThreshold   = 0.50;    // fraction of lot_size before next layer

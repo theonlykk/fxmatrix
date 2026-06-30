@@ -253,7 +253,8 @@ void OnTick() {
 
             if (inst_inv_size > 0 && inst_add_next == 0) {
                 datetime last_layer = g_last_layer_time[inst];
-                if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds) {
+                if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds
+                    && KineticGateOpen(inst, inst_inv_size)) {
                     int inv_size = inst_inv_size;
                     Layer deepest = (inst == 0) ? g_inventory_0[inv_size - 1]
                                   : (inst == 1) ? g_inventory_1[inv_size - 1]

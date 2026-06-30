@@ -449,6 +449,80 @@ void LogLayerExit(const Layer &layer, datetime exit_time,
 }
 
 //------------------------------------------------------------------
+// ComputeKineticDistance
+// ADR-057 Component 1: Volatility-scaled add-next spacing.
+// Stretches grid gap dynamically based on term structure dispersion.
+// When sigma_pts is low (tight triad), spacing = GridBase.
+// When sigma_pts is high (volatile), spacing expands proportionally.
+//------------------------------------------------------------------
+double ComputeKineticDistance(int inst) {
+    double sigma_pts = (inst == SLOT_AB)
+                       ? MathMax(g_sigma_fv_pts[0], g_sigma_fv_pts[1])
+                       : g_sigma_fv_pts[inst];
+    double kinetic_scale = 1.0 + (sigma_pts / KineticSigmaThreshold);
+    return GridBase * kinetic_scale;
+}
+
+//------------------------------------------------------------------
+// ComputeSyntheticSpreadVelocity
+// ADR-057 Component 2: 5-bar synthetic triad spread velocity.
+// Measures how fast the implied cross (AC/BC) is moving.
+// For SLOT_AB: direct iClose on AB pair.
+// For SLOT_AC/BC: implied cross = iClose(AC) / iClose(BC).
+// Point scale uses SLOT_AB for uniform cross-asset comparison.
+// Gemini ruling 2026-06-29: Option B (true synthetic spread velocity).
+//------------------------------------------------------------------
+double ComputeSyntheticSpreadVelocity(int inst) {
+    double pt_ab = SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_POINT);
+    if (pt_ab <= 0.0) return 0.0;
+
+    double spread_now, spread_5;
+
+    if (inst == SLOT_AB) {
+        // Direct AB pair velocity
+        spread_now = iClose(g_symbols[SLOT_AB], PERIOD_M5, 0);
+        spread_5   = iClose(g_symbols[SLOT_AB], PERIOD_M5, KineticVelocityBars);
+    } else {
+        // Implied cross: iClose(AC) / iClose(BC)
+        double ac_now = iClose(g_symbols[SLOT_AC], PERIOD_M5, 0);
+        double bc_now = iClose(g_symbols[SLOT_BC], PERIOD_M5, 0);
+        double ac_5   = iClose(g_symbols[SLOT_AC], PERIOD_M5, KineticVelocityBars);
+        double bc_5   = iClose(g_symbols[SLOT_BC], PERIOD_M5, KineticVelocityBars);
+        if (bc_now <= 0.0 || bc_5 <= 0.0) return 0.0;
+        spread_now = ac_now / bc_now;
+        spread_5   = ac_5   / bc_5;
+    }
+
+    if (spread_now <= 0.0 || spread_5 <= 0.0) return 0.0;
+    return MathAbs(spread_now - spread_5) / pt_ab
+           / MathMax(KineticVelocityBars, 1);
+}
+
+//------------------------------------------------------------------
+// KineticGateOpen
+// ADR-057: Returns true when all three Kinetic Gate conditions pass.
+// Component 1 (distance) is checked at call site in ComputeNextLayerPrice.
+// Component 2+3 (velocity + inventory patience) checked here.
+// Absolute floor of 1.0 pt/bar prevents mathematical impossibility
+// at deep inventory (Gemini ruling: MathMax(1.0, threshold/inv_size)).
+//------------------------------------------------------------------
+bool KineticGateOpen(int inst, int inv_size) {
+    double velocity          = ComputeSyntheticSpreadVelocity(inst);
+    double raw_threshold     = KineticVelocityThreshold / MathMax(inv_size, 1);
+    double effective_thresh  = MathMax(1.0, raw_threshold);  // absolute floor
+    bool   gate_open         = (velocity < effective_thresh);
+
+    if (EnableVerboseLog)
+        Print("DIAG [ADR-057] KineticGate: inst=", g_symbols[inst],
+              " velocity=", DoubleToString(velocity, 2),
+              " threshold=", DoubleToString(effective_thresh, 2),
+              " inv=", inv_size,
+              " open=", gate_open ? "YES" : "NO");
+
+    return gate_open;
+}
+
+//------------------------------------------------------------------
 // ComputeNextLayerPrice
 // ADR-040: arithmetic add distance A_n from fill price.
 //------------------------------------------------------------------
@@ -465,10 +539,12 @@ double ComputeNextLayerPrice(int    next_layer_idx,
                : g_inventory_2[prev_idx];
 
     double pt       = SymbolInfoDouble(g_symbols[instrument], SYMBOL_POINT);
-    double E_n      = MathAbs(prev.entry_spread_raw)
-                      * MathPow(0.618, prev.layer_index + 1);
-    double base_add = QuoteSpread * (prev.layer_index + 1);
-    double A_n      = MathMax(base_add, E_n + 10.0 * pt);
+    double E_n           = MathAbs(prev.entry_spread_raw)
+                           * MathPow(0.618, prev.layer_index + 1);
+    double base_add      = QuoteSpread * (prev.layer_index + 1);
+    // ADR-057 Component 1: kinetic distance stretches with sigma_pts
+    double kinetic_dist  = ComputeKineticDistance(instrument);
+    double A_n           = MathMax(base_add, MathMax(E_n + 10.0 * pt, kinetic_dist));
 
     double price_add_next = (prev.direction == DIRECTION_BUY)
                             ? prev.entry_price - A_n
@@ -866,9 +942,13 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                   " remaining=", MinLayerIntervalSeconds -
                   (int)(TimeCurrent() - last_layer), "s");
             // add_next NOT placed. OnTick re-arm will fire when sleep expires.
+        } else if (!KineticGateOpen(instrument, cur_inv_size)) {
+            // ADR-057: time floor passed but kinetic gate blocked
+            // velocity too high or inventory patience not met
+            Print("INFO [ADR-057] Kinetic gate blocked add_next. ",
+                  "instrument=", deal_symbol);
         } else {
             PlaceNextEntryLimit(CurL, deal_symbol);
-            // Update last layer timestamp for this instrument
             g_last_layer_time[instrument] = TimeCurrent();
             Print("INFO: Next layer triggered at add_next=",
                   DoubleToString(CurL.add_next, 5));
