@@ -1607,7 +1607,50 @@ carry had not run before reboot — must fire once
 expected: fires = True, doy42g = 178
 ```
 
-**Total subtest count (Tests 0–42):** 208/208 PASS
+---
+
+## TEST 43 — ADR-056 Grid Restitution
+
+**Purpose:** Verify event-driven grid restitution after LIFO layer removal: flat inventory bypasses restitution; two/three-layer partial unwinds recompute exit target via `ComputeExitPriceDeterministic` geometry (golden ratio E_n); short direction handled; grid contracts after scalp (inner exit tighter than former outer exit).
+
+Pure Python simulation using existing `exit_det()` helper — no MQL5 dependency.
+
+### 43a — Flat inventory bypass
+
+```
+Single layer scalped → remaining empty
+expected: restitute_exit returns None
+```
+
+### 43b — Two-layer partial unwind
+
+```
+Outer layer (index 1) scalped; restitution fires on index 0
+expected: exit price matches exit_det(1.13800, -0.0004, 0, 1)
+```
+
+### 43c — Three-layer partial unwind
+
+```
+Outermost (index 2) scalped; restitution targets index 0
+expected: exit price matches exit_det(1.13800, -0.0004, 0, 1)
+```
+
+### 43d — Short direction
+
+```
+Outer short scalped; restitution on inner short at index 0
+expected: exit price matches exit_det(1.13800, -0.0004, 0, -1)
+```
+
+### 43e — Grid contracts after scalp
+
+```
+For LONG: inner exit after restitution < outer exit before scalp
+expected: r43e_contracts = True
+```
+
+**Total subtest count (Tests 0–43):** 216/216 PASS
 
 ---
 

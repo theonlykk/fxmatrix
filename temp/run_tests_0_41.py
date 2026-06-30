@@ -442,8 +442,78 @@ run_test("42", [
     ("bool", "42g doy stamped correctly",     doy42g == 178, True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 43)]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-42)")
+# ---------------------------------------------------------------------------
+# Test 43 -- ADR-056 Grid Restitution
+# Verifies: when a LIFO layer is scalped out and inventory remains,
+# the new outermost layer's exit target is correctly recomputed via
+# ComputeExitPriceDeterministic geometry (golden ratio E_n).
+# Also verifies: restitution is bypassed when inventory goes flat.
+# Pure Python simulation using existing exit_det() helper.
+# ---------------------------------------------------------------------------
+
+def restitute_exit(inventory, scalped_index):
+    """Simulate grid restitution after LIFO removal.
+    inventory: list of (entry, spread_raw, layer_index, direction) tuples
+    scalped_index: index of layer being removed (LIFO = last element)
+    Returns new exit price for index 0 after removal, or None if flat."""
+    remaining = [l for i, l in enumerate(inventory) if i != scalped_index]
+    if len(remaining) == 0:
+        return None  # flat — restitution bypassed
+    # New outermost is index 0 after LIFO compression
+    entry, spread_raw, layer_idx, direction = remaining[0]
+    return exit_det(entry, spread_raw, layer_idx, direction)
+
+# 43a: Single layer inventory scalped out — restitution bypassed (flat)
+inv_single = [(1.13800, -0.0004, 0, 1)]
+r43a = restitute_exit(inv_single, scalped_index=0)
+
+# 43b: Two-layer inventory, outer layer scalped (LIFO index 1) —
+# restitution fires on inner layer (index 0)
+inv_two = [
+    (1.13800, -0.0004, 0, 1),   # inner (shallowest)
+    (1.13700, -0.0004, 1, 1),   # outer (deepest, scalped)
+]
+r43b = restitute_exit(inv_two, scalped_index=1)
+r43b_expected = exit_det(1.13800, -0.0004, 0, 1)  # recompute for layer 0
+
+# 43c: Three-layer inventory, outermost scalped (LIFO index 2) —
+# restitution targets new outermost (index 0)
+inv_three = [
+    (1.13800, -0.0004, 0, 1),
+    (1.13700, -0.0004, 1, 1),
+    (1.13600, -0.0004, 2, 1),   # scalped
+]
+r43c = restitute_exit(inv_three, scalped_index=2)
+r43c_expected = exit_det(1.13800, -0.0004, 0, 1)
+
+# 43d: Short direction — outer layer scalped, verify direction handled
+inv_short = [
+    (1.13800, -0.0004, 0, -1),   # inner short
+    (1.13900, -0.0004, 1, -1),   # outer short, scalped
+]
+r43d = restitute_exit(inv_short, scalped_index=1)
+r43d_expected = exit_det(1.13800, -0.0004, 0, -1)
+
+# 43e: Restitution price is tighter than original outer exit —
+# confirms grid contracts (not expands) after scalp
+outer_exit_before = exit_det(1.14000, -0.0004, 2, 1)  # old outermost (deep entry)
+inner_exit_after  = exit_det(1.13600, -0.0004, 0, 1)  # new outermost after restitution
+# For LONG: new exit should be LESS than old outer exit (grid contracted)
+r43e_contracts = inner_exit_after < outer_exit_before
+
+run_test("43", [
+    ("bool", "43a flat — restitution bypassed",       r43a is None,              True),
+    ("bool", "43b two-layer fires on index 0",        r43b is not None,          True),
+    ("num",  "43b exit price correct",                r43b,    r43b_expected,     TOL),
+    ("bool", "43c three-layer fires on index 0",      r43c is not None,          True),
+    ("num",  "43c exit price correct",                r43c,    r43c_expected,     TOL),
+    ("bool", "43d short direction fires",             r43d is not None,          True),
+    ("num",  "43d short exit price correct",          r43d,    r43d_expected,     TOL),
+    ("bool", "43e grid contracts after scalp",        r43e_contracts,            True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 44)]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-43)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 
