@@ -40,12 +40,21 @@ void SaveGlobalState() {
     }
     FileWrite(fh, "{");
     FileWrite(fh, "  \"last_rollover_day_of_year\": "
-              + IntegerToString(g_last_rollover_day_of_year));
+              + IntegerToString(g_last_rollover_day_of_year) + ",");
+    // Phase 3.A: persist daily state for reboot shield
+    FileWrite(fh, "  \"daily_start_balance\": "
+              + DoubleToString(g_daily_start_balance, 8) + ",");
+    FileWrite(fh, "  \"daily_start_date\": \""
+              + g_daily_start_date + "\",");
+    FileWrite(fh, "  \"warning_sent\": "
+              + (g_warning_sent ? "true" : "false"));
     FileWrite(fh, "}");
     FileClose(fh);
     if (EnableVerboseLog)
         Print("INFO [ADR-045] SaveGlobalState — saved. ",
-              "last_rollover_day_of_year=", g_last_rollover_day_of_year);
+              "last_rollover_day_of_year=", g_last_rollover_day_of_year,
+              " daily_start_balance=", DoubleToString(g_daily_start_balance, 2),
+              " daily_start_date=", g_daily_start_date);
 }
 
 //------------------------------------------------------------------
@@ -85,10 +94,18 @@ bool LoadGlobalState() {
             val = StringSubstr(val, 0, StringLen(val) - 1);
         if (key == "last_rollover_day_of_year")
             g_last_rollover_day_of_year = (int)StringToInteger(val);
+        else if (key == "daily_start_balance")
+            g_daily_start_balance = StringToDouble(val);
+        else if (key == "daily_start_date")
+            g_daily_start_date = val;
+        else if (key == "warning_sent")
+            g_warning_sent = (val == "true");
     }
     FileClose(fh);
     Print("INFO [ADR-045] LoadGlobalState — loaded. ",
-          "last_rollover_day_of_year=", g_last_rollover_day_of_year);
+          "last_rollover_day_of_year=", g_last_rollover_day_of_year,
+          " daily_start_balance=", DoubleToString(g_daily_start_balance, 2),
+          " daily_start_date=", g_daily_start_date);
     return true;
 }
 

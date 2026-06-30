@@ -793,21 +793,66 @@ void CheckCircuitBreakers() {
         }
     }
 
-    // ── Tier 2: Global Nuclear Failsafe ───────────────────────────────────
-    // If total account equity drops below GlobalDrawdown, hard halt
-    // everything. This front-runs the FTMO 5% daily loss limit.
-    double total_unrealised = AccountInfoDouble(ACCOUNT_PROFIT);
+    // ── Tier 2: Phase 3.A Soft Warning (3% drawdown) ─────────────────────
+    // Sends a push notification and terminal warning when daily drawdown
+    // reaches 3% of g_daily_start_balance. Takes NO market action —
+    // Khalid triages manually. g_warning_sent prevents API spam per day.
+    double current_equity_t2 = AccountInfoDouble(ACCOUNT_EQUITY);
+    double tier2_floor = g_daily_start_balance * (1.0 - (InpSoftDrawdownLimit / 100.0));
 
-    if (total_unrealised < -(balance * GlobalDrawdown)) {
-        Print("CRITICAL: Global nuclear failsafe fired. ",
-              "total_unrealised=", DoubleToString(total_unrealised, 2),
-              " threshold=", DoubleToString(-(balance * GlobalDrawdown), 2));
+    if (current_equity_t2 <= tier2_floor && !g_warning_sent) {
+        g_warning_sent = true;
+        string warn_msg = StringFormat(
+            "FXMATRIX WARNING: 3pct drawdown breached. "
+            "equity=%.2f daily_start=%.2f floor=%.2f instance=%s",
+            current_equity_t2, g_daily_start_balance, tier2_floor, InstanceID);
+        Print("WARNING [Phase3A] ", warn_msg);
+        SendNotification(warn_msg);
+    }
+
+    // ── Tier 3: Phase 3.A Hard Kill Switch (4% drawdown) ─────────────────
+    // Fires when equity drops 4% below g_daily_start_balance.
+    // Full institutional sweep: close all, cancel all, clear inventory,
+    // halt, detach. Requires manual reattach and Khalid triage.
+    double current_equity  = AccountInfoDouble(ACCOUNT_EQUITY);
+    double current_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+
+    // Midnight rollover — reset daily state and persist to disk
+    MqlDateTime dt;
+    TimeToStruct(TimeCurrent(), dt);
+    string today_str = StringFormat("%04d%02d%02d", dt.year, dt.mon, dt.day);
+
+    if (today_str != g_daily_start_date) {
+        g_daily_start_balance = current_balance;
+        g_daily_start_date    = today_str;
+        g_current_day         = dt.day;
+        g_daily_api_count     = 0;
+        g_api_halt            = false;
+        g_warning_sent        = false;  // reset soft warning for new day
+        SaveGlobalState();              // persist to disk — reboot shield
+        Print("INFO: ADR-017 API counter reset. New day=", dt.day);
+        Print("INFO: FTMO daily floor reset. ",
+              "daily_start_balance=", DoubleToString(g_daily_start_balance, 2),
+              " day=", g_current_day);
+    }
+
+    // Phase 3.A Hard Kill Switch: 4% daily drawdown
+    double tier3_floor = g_daily_start_balance * (1.0 - (InpHardDrawdownLimit / 100.0));
+
+    if (current_equity <= tier3_floor) {
+        Print("CRITICAL [Phase3A] Hard kill switch fired. ",
+              "equity=",         DoubleToString(current_equity, 2),
+              " daily_start=",   DoubleToString(g_daily_start_balance, 2),
+              " tier3_floor=",   DoubleToString(tier3_floor, 2),
+              " instance=",      InstanceID);
+
+        // Full institutional sweep
         CloseAllPositions();
         CancelAllPendingEntries();
-        // F1 fix: cancel ALL orders across all EA magic variants
-        // Exit limits (EA_MAGIC+2) and add_next (EA_MAGIC+1) are not
-        // touched by CancelAllPendingEntries — cancel them explicitly here
-        // to prevent GTC exit limits from filling against closed positions.
+
+        // Cancel ALL order types across all magic variants
+        // (exit limits EA_MAGIC+2 and add_next EA_MAGIC+1 not caught
+        // by CancelAllPendingEntries — must cancel explicitly)
         for (int _i = OrdersTotal() - 1; _i >= 0; _i--) {
             ulong _tkt = OrderGetTicket(_i);
             if (_tkt == 0) continue;
@@ -820,52 +865,51 @@ void CheckCircuitBreakers() {
             _req.action = TRADE_ACTION_REMOVE;
             _req.order  = _tkt;
             if (!OrderSend(_req, _res))
-                Print("WARNING: F1 failsafe — cancel failed. ticket=", _tkt,
+                Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt,
                       " retcode=", _res.retcode);
         }
-        // Clear all inventory arrays and persist clean state
+
+        // Clear inventory and persist clean state
+        ArrayResize(g_inventory_0, 0);
+        ArrayResize(g_inventory_1, 0);
+        ArrayResize(g_inventory_2, 0);
+        SaveAllInventoryState();
+
+        g_halted = true;
+        ExpertRemove();  // forcibly detach EA — requires manual reattach
+        return;
+    }
+
+    // Legacy FTMO absolute floor (account-level, not daily)
+    double absolute_floor = FTMO_Initial_Balance * (1.0 - FTMO_Max_Loss_Pct);
+    if (current_equity <= absolute_floor) {
+        Print("CRITICAL [Phase3A] Absolute equity floor breached. ",
+              "equity=",         DoubleToString(current_equity, 2),
+              " absolute_floor=", DoubleToString(absolute_floor, 2));
+        CloseAllPositions();
+        CancelAllPendingEntries();
+        for (int _j = OrdersTotal() - 1; _j >= 0; _j--) {
+            ulong _tkt2 = OrderGetTicket(_j);
+            if (_tkt2 == 0) continue;
+            long _m2 = OrderGetInteger(ORDER_MAGIC);
+            if (_m2 != (long)EA_MAGIC &&
+                _m2 != (long)(EA_MAGIC + 1) &&
+                _m2 != (long)(EA_MAGIC + 2)) continue;
+            MqlTradeRequest _req2 = {};
+            MqlTradeResult  _res2 = {};
+            _req2.action = TRADE_ACTION_REMOVE;
+            _req2.order  = _tkt2;
+            if (!OrderSend(_req2, _res2))
+                Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt2,
+                      " retcode=", _res2.retcode);
+        }
         ArrayResize(g_inventory_0, 0);
         ArrayResize(g_inventory_1, 0);
         ArrayResize(g_inventory_2, 0);
         SaveAllInventoryState();
         g_halted = true;
-    }
-
-    // ── Tier 3: FTMO Equity Failsafe ─────────────────────────────────────
-    // Enforces FTMO's two static equity floors on every tick.
-    // State is broker-held — VPS restart safe.
-    double current_equity  = AccountInfoDouble(ACCOUNT_EQUITY);
-    double current_balance = AccountInfoDouble(ACCOUNT_BALANCE);
-
-    // Midnight CET rollover — reset daily start balance
-    MqlDateTime dt;
-    TimeCurrent(dt);
-    if (dt.day != g_current_day) {
-        g_daily_start_balance = current_balance;
-        g_current_day         = dt.day;
-        g_daily_api_count = 0;
-        g_api_halt        = false;
-        Print("INFO: ADR-017 API counter reset. New day=", dt.day);
-        Print("INFO: FTMO daily floor reset. ",
-              "daily_start_balance=", DoubleToString(g_daily_start_balance, 2),
-              " day=", g_current_day);
-    }
-
-    // FTMO hard floors
-    double absolute_floor = FTMO_Initial_Balance * (1.0 - FTMO_Max_Loss_Pct);
-    double daily_floor    = g_daily_start_balance
-                            - (FTMO_Initial_Balance * FTMO_Daily_Loss_Pct);
-    double active_floor   = MathMax(absolute_floor, daily_floor);
-
-    if (current_equity <= active_floor) {
-        Print("CRITICAL: FTMO equity failsafe fired. ",
-              "equity=",        DoubleToString(current_equity, 2),
-              " active_floor=", DoubleToString(active_floor, 2),
-              " abs_floor=",    DoubleToString(absolute_floor, 2),
-              " daily_floor=",  DoubleToString(daily_floor, 2));
-        CloseAllPositions();
-        CancelAllPendingEntries();
-        g_halted = true;
+        ExpertRemove();
+        return;
     }
     // ── End Tier 3 ───────────────────────────────────────────────────────
 }

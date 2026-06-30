@@ -40,6 +40,8 @@ input double NudgePips          = 0.5;     // pips; converted to points per symb
 //--- Risk controls
 input double MaxPodDrawdown     = 0.03;    // 2% per pod
 input double GlobalDrawdown     = 0.03;   // 4.5% global — front-runs FTMO 5% daily limit
+input double InpSoftDrawdownLimit = 3.0; // Tier 2 Soft Warning (% of daily start balance)
+input double InpHardDrawdownLimit = 4.0; // Tier 3 Hard Kill Switch (% of daily start balance)
 
 //--- Carry adjustment (ADR-003)
 input string CarryRecalcTime    = "17:00"; // broker server time
@@ -136,6 +138,8 @@ bool     g_halted               = false;
 double   g_peak_equity          = 0.0;
 double   g_daily_start_balance  = 0.0; // balance at midnight CET rollover
 int      g_current_day          = -1;  // tracks day for midnight reset
+bool     g_warning_sent         = false; // Phase 3.A: soft warning gate (one-time per day)
+string   g_daily_start_date     = "";    // Phase 3.A: YYYYMMDD string for reboot shield
 double   g_NudgeThreshold       = 0.0;   // computed at InitGlobals() from NudgePips
 
 //--- Shared queue
