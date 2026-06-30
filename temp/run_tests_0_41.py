@@ -512,8 +512,87 @@ run_test("43", [
     ("bool", "43e grid contracts after scalp",        r43e_contracts,            True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 44)]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-43)")
+# ---------------------------------------------------------------------------
+# Test 44 -- ADR-057 Kinetic Entry Gate
+# Verifies: (a) ComputeKineticDistance scales correctly with sigma_pts,
+# (b) KineticGateOpen passes when velocity < threshold,
+# (c) KineticGateOpen blocks when velocity >= threshold,
+# (d) inventory-weighted patience tightens with inv_size,
+# (e) MathMax(1.0) absolute floor prevents mathematical impossibility,
+# (f) effective threshold never drops below 1.0 at any inv_size.
+# Pure Python simulation -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+# Component 1: ComputeKineticDistance
+KINETIC_SIGMA_THRESHOLD = 50.0
+GRID_BASE = 0.0008
+
+def compute_kinetic_distance(sigma_pts):
+    kinetic_scale = 1.0 + (sigma_pts / KINETIC_SIGMA_THRESHOLD)
+    return GRID_BASE * kinetic_scale
+
+# Component 2+3: KineticGateOpen
+KINETIC_VELOCITY_THRESHOLD = 5.0
+
+def kinetic_gate_open(velocity, inv_size):
+    raw_threshold    = KINETIC_VELOCITY_THRESHOLD / max(inv_size, 1)
+    effective_thresh = max(1.0, raw_threshold)
+    return velocity < effective_thresh
+
+def effective_threshold(inv_size):
+    return max(1.0, KINETIC_VELOCITY_THRESHOLD / max(inv_size, 1))
+
+# 44a: sigma_pts=0 -- distance equals GridBase (no scaling)
+d44a = compute_kinetic_distance(0.0)
+
+# 44b: sigma_pts=50 -- distance doubles (scale=2.0)
+d44b = compute_kinetic_distance(50.0)
+
+# 44c: sigma_pts=100 -- distance triples (scale=3.0)
+d44c = compute_kinetic_distance(100.0)
+
+# 44d: gate OPEN -- velocity below threshold at inv_size=1
+g44d = kinetic_gate_open(velocity=3.0, inv_size=1)  # thresh=5.0, 3<5 -> open
+
+# 44e: gate BLOCKED -- velocity above threshold at inv_size=1
+g44e = kinetic_gate_open(velocity=6.0, inv_size=1)  # thresh=5.0, 6>=5 -> blocked
+
+# 44f: gate BLOCKED -- inv_size=5 tightens threshold to 1.0, velocity=1.5
+g44f = kinetic_gate_open(velocity=1.5, inv_size=5)  # thresh=1.0, 1.5>=1.0 -> blocked
+
+# 44g: gate OPEN -- inv_size=5, velocity=0.8 (below tightened threshold)
+g44g = kinetic_gate_open(velocity=0.8, inv_size=5)  # thresh=1.0, 0.8<1.0 -> open
+
+# 44h: absolute floor -- at inv_size=100, threshold never drops below 1.0
+t44h = effective_threshold(100)  # raw=0.05, floor clamps to 1.0
+
+# 44i: absolute floor -- at inv_size=71 (real event), threshold = 1.0
+t44i = effective_threshold(71)   # raw=0.07, floor clamps to 1.0
+
+# 44j: gate OPEN at inv_size=71 with near-flat velocity=0.5
+g44j = kinetic_gate_open(velocity=0.5, inv_size=71)  # thresh=1.0, 0.5<1.0 -> open
+
+# 44k: grid expands with sigma (Component 1 monotonicity check)
+k44k_monotone = (compute_kinetic_distance(0) <
+                 compute_kinetic_distance(50) <
+                 compute_kinetic_distance(100))
+
+run_test("44", [
+    ("num",  "44a sigma=0 distance=GridBase",       d44a, 0.0008,  TOL),
+    ("num",  "44b sigma=50 distance=2xGridBase",    d44b, 0.0016,  TOL),
+    ("num",  "44c sigma=100 distance=3xGridBase",   d44c, 0.0024,  TOL),
+    ("bool", "44d gate open vel<thresh inv=1",      g44d,          True),
+    ("bool", "44e gate blocked vel>=thresh inv=1",  g44e,          False),
+    ("bool", "44f gate blocked inv=5 tightened",    g44f,          False),
+    ("bool", "44g gate open inv=5 vel<floor",       g44g,          True),
+    ("num",  "44h floor clamp at inv=100",          t44h, 1.0,     TOL),
+    ("num",  "44i floor clamp at inv=71",           t44i, 1.0,     TOL),
+    ("bool", "44j gate open inv=71 near-flat",      g44j,          True),
+    ("bool", "44k distance monotone with sigma",    k44k_monotone, True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 45)]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-44)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

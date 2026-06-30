@@ -1650,7 +1650,44 @@ For LONG: inner exit after restitution < outer exit before scalp
 expected: r43e_contracts = True
 ```
 
-**Total subtest count (Tests 0–43):** 216/216 PASS
+---
+
+## TEST 44 — ADR-057 Kinetic Entry Gate
+
+**Purpose:** Verify Kinetic Gate components in pure Python: volatility-scaled distance (`ComputeKineticDistance`), velocity threshold gate (`KineticGateOpen`), inventory-weighted patience, and `MathMax(1.0)` absolute floor at deep inventory (inv=71 real event).
+
+### 44a–44c — Distance scaling (Component 1)
+
+```
+sigma_pts=0   -> distance = GridBase (0.0008)
+sigma_pts=50  -> distance = 2× GridBase (0.0016)
+sigma_pts=100 -> distance = 3× GridBase (0.0024)
+```
+
+### 44d–44g — Gate open/blocked (Components 2+3)
+
+```
+inv=1, vel=3.0 -> open (thresh=5.0)
+inv=1, vel=6.0 -> blocked
+inv=5, vel=1.5 -> blocked (thresh clamped to 1.0)
+inv=5, vel=0.8 -> open
+```
+
+### 44h–44j — Absolute floor at deep inventory
+
+```
+inv=100 -> effective_thresh = 1.0 (raw=0.05 clamped)
+inv=71  -> effective_thresh = 1.0 (raw=0.07 clamped)
+inv=71, vel=0.5 -> open
+```
+
+### 44k — Monotonicity
+
+```
+d(0) < d(50) < d(100) — distance expands with sigma_pts
+```
+
+**Total subtest count (Tests 0–44):** 227/227 PASS
 
 ---
 
