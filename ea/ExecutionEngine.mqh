@@ -1133,6 +1133,96 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                     }
                 }
 
+                // ADR-056: Grid Restitution — drag outermost exit limit
+                // to correct geometry for the new shallowest layer.
+                // Fires only when inventory remains after LIFO removal.
+                // Gemini ruling 2026-06-29: event-driven, not per-bar sweep.
+                {
+                    int post_inv_size = (inst == 0) ? ArraySize(g_inventory_0)
+                                     : (inst == 1) ? ArraySize(g_inventory_1)
+                                     : ArraySize(g_inventory_2);
+
+                    if (post_inv_size > 0) {
+                        // New outermost layer is index 0 after LIFO removal
+                        Layer RestLayer = (inst == 0) ? g_inventory_0[0]
+                                       : (inst == 1) ? g_inventory_1[0]
+                                       : g_inventory_2[0];
+
+                        string rest_sym   = g_symbols[inst];
+                        double rest_point = SymbolInfoDouble(rest_sym, SYMBOL_POINT);
+
+                        // Recompute correct exit target for this layer.
+                        // Mirror HandleEntryFill spread calculation exactly:
+                        // half_spread = (ask - bid) / 2.0 from live market.
+                        double _rest_bid = SymbolInfoDouble(rest_sym, SYMBOL_BID);
+                        double _rest_ask = SymbolInfoDouble(rest_sym, SYMBOL_ASK);
+                        double rest_half_spread = 0.0;
+                        if (_rest_bid > 0.0 && _rest_ask > 0.0)
+                            rest_half_spread = (_rest_ask - _rest_bid) / 2.0;
+                        double new_exit_price   = ComputeExitPriceDeterministic(
+                            RestLayer.entry_price,
+                            RestLayer.entry_spread_raw,
+                            RestLayer.layer_index,
+                            RestLayer.direction,
+                            rest_half_spread,
+                            MinLayerExitPoints,
+                            rest_point
+                        );
+
+                        // Find and modify the live exit ticket
+                        int n_exits = ArraySize(RestLayer.exit_tickets);
+                        for (int _ex = 0; _ex < n_exits; _ex++) {
+                            ulong rest_tkt = RestLayer.exit_tickets[_ex];
+                            if (rest_tkt == 0) continue;
+                            if (!OrderSelect(rest_tkt)) continue;
+
+                            double cur_exit = OrderGetDouble(ORDER_PRICE_OPEN);
+
+                            // Skip if already at correct price (within 1 point)
+                            if (MathAbs(cur_exit - new_exit_price) < rest_point) continue;
+
+                            // Freeze level check before modify
+                            int exit_dir = (RestLayer.direction == DIRECTION_BUY)
+                                           ? DIRECTION_SELL : DIRECTION_BUY;
+                            if (!IsClearOfFreezeLevel(new_exit_price, exit_dir, rest_sym)) {
+                                Print("INFO [ADR-056] Restitution skipped — freeze level.",
+                                      " ticket=", rest_tkt, " symbol=", rest_sym);
+                                continue;
+                            }
+
+                            MqlTradeRequest rst_req = {};
+                            MqlTradeResult  rst_res = {};
+                            rst_req.action     = TRADE_ACTION_MODIFY;
+                            rst_req.order      = rest_tkt;
+                            rst_req.price      = new_exit_price;
+                            rst_req.sl         = OrderGetDouble(ORDER_SL);
+                            rst_req.tp         = OrderGetDouble(ORDER_TP);
+                            rst_req.type_time  = (ENUM_ORDER_TYPE_TIME)
+                                                  OrderGetInteger(ORDER_TYPE_TIME);
+                            rst_req.expiration = (datetime)
+                                                  OrderGetInteger(ORDER_TIME_EXPIRATION);
+
+                            if (OrderSend(rst_req, rst_res)) {
+                                // Sync struct — exit_price_fixed must mirror live order
+                                if (inst == 0)      g_inventory_0[0].exit_price_fixed = new_exit_price;
+                                else if (inst == 1) g_inventory_1[0].exit_price_fixed = new_exit_price;
+                                else                g_inventory_2[0].exit_price_fixed = new_exit_price;
+
+                                Print("INFO [ADR-056] Grid restitution applied.",
+                                      " symbol=", rest_sym,
+                                      " ticket=", rest_tkt,
+                                      " old=", DoubleToString(cur_exit, 5),
+                                      " new=", DoubleToString(new_exit_price, 5),
+                                      " layer_index=", RestLayer.layer_index);
+                            } else {
+                                Print("ERROR [ADR-056] Restitution OrderModify failed.",
+                                      " ticket=", rest_tkt,
+                                      " retcode=", rst_res.retcode);
+                            }
+                        }
+                    }
+                }
+
                 SaveAllInventoryState();
                 return;
             }
