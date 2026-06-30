@@ -1076,6 +1076,12 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                                                ArraySize(g_inventory_2);
 
                             // ADR-053: pass actual deal_price (not planned exit_target)
+                            // ADR-059: pass real_profit (not raw deal_profit) --
+                            // matches the value already corrected and logged
+                            // by LogLayerExit() above. deal_profit is sometimes
+                            // 0.0 for CloseBy-settled positions; real_profit
+                            // falls back to PositionGetDouble(POSITION_PROFIT)
+                            // + POSITION_SWAP in that case.
                             EmitPodClose(
                                 _pod_symbol,
                                 _pod_direction,
@@ -1083,7 +1089,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                 CurL.entry_price,
                                 deal_price,
                                 _pod_hold_mins,
-                                deal_profit
+                                real_profit
                             );
                         }
 
