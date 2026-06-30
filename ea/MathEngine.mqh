@@ -535,7 +535,14 @@ void RunSpreadCooldownReconciliation() {
             if (OrderGetString(ORDER_SYMBOL) != symbol) continue;
 
             ulong magic = OrderGetInteger(ORDER_MAGIC);
-            if (magic != EA_MAGIC && magic != EA_MAGIC + 1) continue;  // entries only
+            // ADR-060: Cooldown drag restricted to Layer 0 (EA_MAGIC) only.
+            // add_next layers (EA_MAGIC+1) are structural grid defense nodes
+            // and must hold their kinetic-computed spacing (ADR-057) until
+            // filled or restituted (ADR-056). Dragging them toward market
+            // as volatility cools collapses the grid spacing entirely --
+            // observed 2026-06-30: four EURUSD layers spread across 107
+            // pips collapsed to within 2.7 pips after repeated drags.
+            if (magic != EA_MAGIC) continue;  // Layer 0 entries only
 
             ENUM_ORDER_TYPE otype       = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
             double          cur_price   = OrderGetDouble(ORDER_PRICE_OPEN);
