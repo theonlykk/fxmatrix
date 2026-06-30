@@ -591,8 +591,53 @@ run_test("44", [
     ("bool", "44k distance monotone with sigma",    k44k_monotone, True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 45)]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-44)")
+# ---------------------------------------------------------------------------
+# Test 45 -- ADR-058 Directional Bias Gate
+# Verifies: (a) BIAS_BOTH permits bid and offer,
+# (b) BIAS_LONG_ONLY permits bid, blocks offer,
+# (c) BIAS_SHORT_ONLY permits offer, blocks bid,
+# (d) exit placement always permitted regardless of bias,
+# (e) add_next always permitted regardless of bias.
+# Pure Python simulation -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+BIAS_BOTH       = 0
+BIAS_LONG_ONLY  = 1
+BIAS_SHORT_ONLY = 2
+
+def bias_permits_bid(bias):
+    """BUY_LIMIT Layer 0 entry -- blocked only for SHORT_ONLY."""
+    return bias != BIAS_SHORT_ONLY
+
+def bias_permits_offer(bias):
+    """SELL_LIMIT Layer 0 entry -- blocked only for LONG_ONLY."""
+    return bias != BIAS_LONG_ONLY
+
+def bias_permits_exit(bias):
+    """Exit limits always permitted regardless of bias."""
+    return True
+
+def bias_permits_addnext(bias):
+    """add_next always permitted regardless of bias."""
+    return True
+
+run_test("45", [
+    ("bool", "45a BOTH bid permitted",            bias_permits_bid(BIAS_BOTH),         True),
+    ("bool", "45b BOTH offer permitted",          bias_permits_offer(BIAS_BOTH),       True),
+    ("bool", "45c LONG_ONLY bid permitted",       bias_permits_bid(BIAS_LONG_ONLY),    True),
+    ("bool", "45d LONG_ONLY offer blocked",       bias_permits_offer(BIAS_LONG_ONLY),  False),
+    ("bool", "45e SHORT_ONLY bid blocked",        bias_permits_bid(BIAS_SHORT_ONLY),   False),
+    ("bool", "45f SHORT_ONLY offer permitted",    bias_permits_offer(BIAS_SHORT_ONLY), True),
+    ("bool", "45g LONG_ONLY exit permitted",      bias_permits_exit(BIAS_LONG_ONLY),   True),
+    ("bool", "45h SHORT_ONLY exit permitted",     bias_permits_exit(BIAS_SHORT_ONLY),  True),
+    ("bool", "45i LONG_ONLY addnext permitted",   bias_permits_addnext(BIAS_LONG_ONLY),  True),
+    ("bool", "45j SHORT_ONLY addnext permitted",  bias_permits_addnext(BIAS_SHORT_ONLY), True),
+    ("bool", "45k BOTH passes both gates",
+             bias_permits_bid(BIAS_BOTH) and bias_permits_offer(BIAS_BOTH), True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-45)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

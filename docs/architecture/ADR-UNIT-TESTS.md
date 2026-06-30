@@ -1691,6 +1691,35 @@ d(0) < d(50) < d(100) — distance expands with sigma_pts
 
 ---
 
+## TEST 45 — ADR-058 Directional Bias Gate
+
+**Purpose:** Verify directional bias gates Layer 0 entry placement only in pure Python: `BIAS_BOTH` permits both sides, `BIAS_LONG_ONLY` permits bid and blocks offer, `BIAS_SHORT_ONLY` permits offer and blocks bid. Exits and add_next always permitted regardless of bias.
+
+### 45a–45f — Layer 0 entry gates
+
+```
+BIAS_BOTH       -> bid permitted, offer permitted
+BIAS_LONG_ONLY  -> bid permitted, offer blocked
+BIAS_SHORT_ONLY -> bid blocked, offer permitted
+```
+
+### 45g–45j — Exit and add_next ungated
+
+```
+LONG_ONLY  -> exit permitted, add_next permitted
+SHORT_ONLY -> exit permitted, add_next permitted
+```
+
+### 45k — BOTH passes both gates
+
+```
+bias_permits_bid(BIAS_BOTH) and bias_permits_offer(BIAS_BOTH) == True
+```
+
+**Total subtest count (Tests 0–45):** 238/238 PASS
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or
