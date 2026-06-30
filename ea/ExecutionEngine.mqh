@@ -1188,9 +1188,43 @@ void HandleUnmatchedFill(ulong order_ticket, double deal_volume,
         }
     }
 
-    Print("ERROR: Unmatched fill — no fallback match found. ",
-          "ticket=", order_ticket, " Halting pod.");
-    g_halted = true;
+    // ADR-054: Downgrade unmatched fill to WARNING — do not halt.
+    // Unmatched fills are foreign noise from CloseBy broadcasts,
+    // manual interventions, or broker-assigned (magic=0) transient
+    // deals. They are not evidence of internal inventory corruption.
+    // Gemini ruling 2026-06-29: Warning & Skip, not Fatal Halt.
+    Print("WARNING [ADR-054] Unmatched fill — ignored as foreign noise. ",
+          "ticket=", order_ticket,
+          " volume=", DoubleToString(deal_volume, 4));
+    return;
+}
+
+// ADR-054: Internal corruption checks — these ARE fatal.
+// Called from HandleExitFill after a successful ticket match,
+// before inventory mutation.
+// Returns true if corruption detected (caller should halt).
+bool DetectInventoryCorruption(int inst, int layer_idx,
+                                double deal_volume, double expected_volume) {
+    // Hard halt 1: Volume mismatch on a fill we own
+    if (MathAbs(deal_volume - expected_volume) > VOLUME_EPSILON) {
+        Print("ERROR [ADR-054] Volume mismatch on owned fill — HALTING. ",
+              "inst=", inst, " layer=", layer_idx,
+              " deal_vol=", DoubleToString(deal_volume, 4),
+              " expected=", DoubleToString(expected_volume, 4));
+        g_halted = true;
+        return true;
+    }
+    // Hard halt 2: Inventory array overflow safety
+    int inv_size = (inst == 0) ? ArraySize(g_inventory_0)
+                 : (inst == 1) ? ArraySize(g_inventory_1)
+                 : ArraySize(g_inventory_2);
+    if (inv_size > 100) {
+        Print("ERROR [ADR-054] Inventory array overflow — HALTING. ",
+              "inst=", inst, " size=", inv_size);
+        g_halted = true;
+        return true;
+    }
+    return false;
 }
 void OnTradeTransaction(const MqlTradeTransaction &trans,
                         const MqlTradeRequest     &request,

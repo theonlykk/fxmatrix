@@ -454,6 +454,19 @@ void CheckForOrphans() {
         }
 
         if (!found) {
+            // ADR-054: Verify position is still open before halting.
+            // CloseBy transient positions appear briefly as untracked
+            // then settle — a re-check prevents spurious halts on
+            // broker-side settlement lag.
+            // Re-select the position ticket to confirm it still exists.
+            if (!PositionSelectByTicket(ticket)) {
+                // Position already closed/settled — not a real orphan
+                Print("INFO [ADR-054] Transient position already closed. ",
+                      "ticket=", ticket, " symbol=", pos_sym,
+                      " — skipping orphan halt.");
+                continue;
+            }
+            // Position still open and untracked — genuine orphan
             Print("ERROR: Orphan position detected — ticket=", ticket,
                   " symbol=", pos_sym,
                   " — EA cannot manage this position. Halting.");
