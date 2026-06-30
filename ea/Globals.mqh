@@ -58,8 +58,10 @@ input string PairAC     = "EURUSD";  // Slot 0: CurrencyA vs CurrencyC
 input string PairBC     = "GBPUSD";  // Slot 1: CurrencyB vs CurrencyC
 input string PairAB     = "EURGBP";  // Slot 2: CurrencyA vs CurrencyB
 
-enum ENUM_EXECUTION_MODE { MARKET_MAKER, SNIPER };
-input ENUM_EXECUTION_MODE ExecutionMode = MARKET_MAKER;
+enum ENUM_EXECUTION_MODE  { MARKET_MAKER, SNIPER };
+enum ENUM_DIRECTIONAL_BIAS { BIAS_BOTH, BIAS_LONG_ONLY, BIAS_SHORT_ONLY };  // ADR-058
+input ENUM_EXECUTION_MODE  ExecutionMode    = MARKET_MAKER;
+input ENUM_DIRECTIONAL_BIAS DirectionalBias = BIAS_BOTH;      // ADR-058: BIAS_BOTH/BIAS_LONG_ONLY/BIAS_SHORT_ONLY
 input string  InstanceID  = "MM";     // ADR-021: Instance identifier for JSON state segregation
 input double SniperThreshold = 0.0014; // ADR-019: Decoupled entry gate for SNIPER mode
 input int    SniperExpiryBars = 1;     // ADR-051: Cancel unfilled SNIPER limit after N M5 bars (default 1)

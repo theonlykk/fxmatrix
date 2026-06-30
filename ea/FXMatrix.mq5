@@ -477,7 +477,9 @@ void OnTick() {
 
                 // ── Place bid and offer (gated by rollover window) ───────
                 if (!IsRolloverWindow(TimeCurrent())) {
-                    if (bid_price > 0) {
+                    // ADR-058: DirectionalBias gate -- bid = BUY_LIMIT entry
+                    // SHORT_ONLY instances may not place new BUY_LIMIT Layer 0 entries
+                    if (bid_price > 0 && DirectionalBias != BIAS_SHORT_ONLY) {
                         ulong tkt = PlaceEntryLimit(bid_price, bid_direction, inst_symbol, inst);
                         if (tkt > 0) {
                             g_daily_api_count++;
@@ -493,7 +495,9 @@ void OnTick() {
                         }
                     }
 
-                    if (offer_price > 0) {
+                    // ADR-058: DirectionalBias gate -- offer = SELL_LIMIT entry
+                    // LONG_ONLY instances may not place new SELL_LIMIT Layer 0 entries
+                    if (offer_price > 0 && DirectionalBias != BIAS_LONG_ONLY) {
                         ulong tkt = PlaceEntryLimit(offer_price, offer_direction, inst_symbol, inst);
                         if (tkt > 0) {
                             g_daily_api_count++;
