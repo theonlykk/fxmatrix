@@ -124,11 +124,18 @@ int OnInit() {
           StringFormat("%02d", g_carry_minute),
           " broker server time.");
 
+    EventSetTimer(5);  // ADR-071: 5-second direction-consistency heartbeat
+
     return INIT_SUCCEEDED;
 }
 
 void OnDeinit(const int reason) {
+    EventKillTimer();
     Print("INFO: FXMatrix EA deinitialised. Reason=", reason);
+}
+
+void OnTimer() {
+    CheckDirectionConsistency();
 }
 
 void GetImpliedIndices(string sym, int dir,

@@ -492,4 +492,64 @@ void CheckForOrphans() {
     }
 }
 
+//------------------------------------------------------------------
+// CheckDirectionConsistency — ADR-014 / ADR-071
+// Periodic (OnTimer, 5s) reconciliation: for every layer with a
+// live position_ticket, confirm the broker's POSITION_TYPE matches
+// Layer.direction. A mismatch means the EA's belief about which
+// way it is positioned is WRONG -- it cannot be trusted to place
+// or manage exits correctly on that symbol. This is DETECTION
+// ONLY; it does not alter trade placement logic.
+//
+// Comparison is done via explicit boolean normalization, NOT direct
+// integer comparison -- DIRECTION_BUY (=1) and POSITION_TYPE_BUY
+// (=0) are different, incompatible enum domains. A direct integer
+// compare would silently and permanently misfire on every long
+// position. See ADR-071 for the full investigation.
+//------------------------------------------------------------------
+void CheckDirectionConsistency() {
+    for (int k = 0; k < 3; k++) {
+        int inv_size = (k == 0) ? ArraySize(g_inventory_0)
+                     : (k == 1) ? ArraySize(g_inventory_1)
+                     : ArraySize(g_inventory_2);
+
+        for (int j = 0; j < inv_size; j++) {
+            ulong pos_tkt = (k == 0) ? g_inventory_0[j].position_ticket
+                          : (k == 1) ? g_inventory_1[j].position_ticket
+                          : g_inventory_2[j].position_ticket;
+
+            if (pos_tkt == 0) continue;  // nothing to verify
+
+            if (!PositionSelectByTicket(pos_tkt)) continue;  // closed/stale -- not a mismatch
+
+            int layer_dir = (k == 0) ? g_inventory_0[j].direction
+                          : (k == 1) ? g_inventory_1[j].direction
+                          : g_inventory_2[j].direction;
+
+            bool is_layer_buy  = (layer_dir == DIRECTION_BUY);
+            bool is_broker_buy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
+
+            if (is_layer_buy != is_broker_buy) {
+                string alert_msg = StringFormat(
+                    "CRITICAL: ADR-014 Direction Mismatch. ticket=%I64u slot=%d layer_believed=%s broker_actual=%s",
+                    pos_tkt, k,
+                    is_layer_buy ? "BUY" : "SELL",
+                    is_broker_buy ? "BUY" : "SELL"
+                );
+
+                Print(alert_msg);
+
+                // Push to circular alert buffer BEFORE halting/removing,
+                // since ExpertRemove() ends event processing immediately.
+                g_critical_alerts[g_critical_alert_write_idx] = alert_msg;
+                g_critical_alert_write_idx = (g_critical_alert_write_idx + 1) % CRITICAL_ALERT_BUFFER_SIZE;
+
+                g_halted = true;
+                ExpertRemove();
+                return;  // stop scanning -- EA is being removed
+            }
+        }
+    }
+}
+
 #endif // STATE_ENGINE_MQH
