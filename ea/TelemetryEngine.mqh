@@ -36,6 +36,10 @@ string TelDoubleStr(double val, int digits = 5) {
     return DoubleToString(val, digits);
 }
 
+string TelPriceOrNull(double price) {
+    return (price > 0.0) ? TelDoubleStr(price, 5) : "null";
+}
+
 //------------------------------------------------------------------
 // GetPodMetrics
 // ADR-024 T2: slot-indexed — reads g_inventory_0/1/2 from globals.
@@ -94,6 +98,16 @@ void GetPodMetrics(int slot,
     }
 }
 
+// Defined in FXMatrix.mq5 — forward declare required because this header
+// is #included before FXMatrix.mq5's own forward declaration (line 24).
+double GetPendingOrderPrice(ulong ticket);
+
+string LdakGateToString(int gate) {
+    if (gate == LDAK_GATE_CLAMP)  return "clamp";
+    if (gate == LDAK_GATE_REFUSE) return "refuse";
+    return "pass";
+}
+
 //------------------------------------------------------------------
 // SerializePodJSON
 // Returns a JSON object string for one instrument pod (slot-indexed).
@@ -102,18 +116,69 @@ string SerializePodJSON(int slot) {
     int    pod_layers = 0;
     double pod_pnl    = 0.0;
     double pod_dist   = 0.0;
-
     GetPodMetrics(slot, pod_layers, pod_pnl, pod_dist);
 
-    string dist_str = (pod_layers == 0)
-        ? "null"
-        : TelDoubleStr(pod_dist, 1);
+    string dist_str = (pod_layers == 0) ? "null" : TelDoubleStr(pod_dist, 1);
+
+    string layers_json = "[";
+    int inv_size = (slot == 0) ? ArraySize(g_inventory_0)
+                 : (slot == 1) ? ArraySize(g_inventory_1)
+                 : ArraySize(g_inventory_2);
+
+    for (int i = 0; i < inv_size; i++) {
+        Layer L = (slot == 0) ? g_inventory_0[i]
+                : (slot == 1) ? g_inventory_1[i]
+                : g_inventory_2[i];
+
+        bool is_toxic         = (MathAbs(L.entry_spread_raw) < SkewFloor0);
+        bool is_floor_clamped = (L.exit_price_fixed > 0 &&
+                                  MathAbs(L.exit_price_fixed - L.entry_price)
+                                  <= MinLayerExitPoints * SymbolInfoDouble(g_symbols[slot], SYMBOL_POINT) * 1.01);
+        bool has_position     = (L.position_ticket > 0);
+        bool resting_exit_missing = (has_position && ArraySize(L.exit_tickets) == 0);
+
+        string layer_str = StringFormat(
+            "{"
+            "\"layer_index\":%d,"
+            "\"direction\":%d,"
+            "\"entry_price\":%.5f,"
+            "\"entry_spread_raw\":%.6f,"
+            "\"exit_price_fixed\":%.5f,"
+            "\"add_next\":%.5f,"
+            "\"lot_size\":%.2f,"
+            "\"position_ticket\":%llu,"
+            "\"has_exit_limit\":%s,"
+            "\"is_toxic\":%s,"
+            "\"is_floor_clamped\":%s,"
+            "\"resting_exit_missing\":%s"
+            "}",
+            L.layer_index, L.direction, L.entry_price, L.entry_spread_raw,
+            L.exit_price_fixed, L.add_next, L.lot_size, L.position_ticket,
+            has_position ? "true" : "false",
+            is_toxic ? "true" : "false",
+            is_floor_clamped ? "true" : "false",
+            resting_exit_missing ? "true" : "false"
+        );
+
+        if (i > 0) layers_json += ",";
+        layers_json += layer_str;
+    }
+    layers_json += "]";
 
     return StringFormat(
-        "{\"layers\":%d,\"net_pnl\":%.2f,\"distance_to_target_pips\":%s}",
-        pod_layers,
-        pod_pnl,
-        dist_str
+        "{"
+        "\"layers\":%d,"
+        "\"net_pnl\":%.2f,"
+        "\"distance_to_target_pips\":%s,"
+        "\"layer_detail\":%s,"
+        "\"ldak_status\":\"%s\","
+        "\"ldak_size_mult\":%.4f,"
+        "\"ldak_raw_vol\":%.6f"
+        "}",
+        pod_layers, pod_pnl, dist_str, layers_json,
+        LdakGateToString(g_ldak_last_gate[slot]),
+        g_ldak_last_size_mult[slot],
+        g_ldak_last_raw_vol[slot]
     );
 }
 
@@ -162,6 +227,58 @@ string BuildTelemetryPayload() {
         g_symbols[SLOT_BC], pod1,
         g_symbols[SLOT_AB], pod2);
 
+    string orders_json = StringFormat(
+        "{"
+        "\"%s\":{\"bid_ticket\":%llu,\"bid_price\":%s,\"offer_ticket\":%llu,\"offer_price\":%s},"
+        "\"%s\":{\"bid_ticket\":%llu,\"bid_price\":%s,\"offer_ticket\":%llu,\"offer_price\":%s},"
+        "\"%s\":{\"bid_ticket\":%llu,\"bid_price\":%s,\"offer_ticket\":%llu,\"offer_price\":%s}"
+        "}",
+        g_symbols[SLOT_AC], g_pending_bid[SLOT_AC],
+        TelPriceOrNull(g_pending_bid[SLOT_AC] > 0 ? GetPendingOrderPrice(g_pending_bid[SLOT_AC]) : -1.0),
+        g_pending_offer[SLOT_AC],
+        TelPriceOrNull(g_pending_offer[SLOT_AC] > 0 ? GetPendingOrderPrice(g_pending_offer[SLOT_AC]) : -1.0),
+        g_symbols[SLOT_BC], g_pending_bid[SLOT_BC],
+        TelPriceOrNull(g_pending_bid[SLOT_BC] > 0 ? GetPendingOrderPrice(g_pending_bid[SLOT_BC]) : -1.0),
+        g_pending_offer[SLOT_BC],
+        TelPriceOrNull(g_pending_offer[SLOT_BC] > 0 ? GetPendingOrderPrice(g_pending_offer[SLOT_BC]) : -1.0),
+        g_symbols[SLOT_AB], g_pending_bid[SLOT_AB],
+        TelPriceOrNull(g_pending_bid[SLOT_AB] > 0 ? GetPendingOrderPrice(g_pending_bid[SLOT_AB]) : -1.0),
+        g_pending_offer[SLOT_AB],
+        TelPriceOrNull(g_pending_offer[SLOT_AB] > 0 ? GetPendingOrderPrice(g_pending_offer[SLOT_AB]) : -1.0)
+    );
+
+    string market_json = StringFormat(
+        "{"
+        "\"%s\":{\"bid\":%.5f,\"ask\":%.5f},"
+        "\"%s\":{\"bid\":%.5f,\"ask\":%.5f},"
+        "\"%s\":{\"bid\":%.5f,\"ask\":%.5f}"
+        "}",
+        g_symbols[SLOT_AC], SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_BID), SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_ASK),
+        g_symbols[SLOT_BC], SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_BID), SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_ASK),
+        g_symbols[SLOT_AB], SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_BID), SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_ASK)
+    );
+
+    string cooldown_json = StringFormat(
+        "{\"%s\":%.4f,\"%s\":%.4f,\"%s\":%.4f}",
+        g_symbols[SLOT_AC], g_cooldown_LDAK[SLOT_AC],
+        g_symbols[SLOT_BC], g_cooldown_LDAK[SLOT_BC],
+        g_symbols[SLOT_AB], g_cooldown_LDAK[SLOT_AB]
+    );
+
+    // ADR-063 Ruling 5 (critical leaks): dump the full circular buffer.
+    // Never clear on read (Gemini ruling). Empty slots (never written,
+    // still "") are omitted from the array rather than sent as empty
+    // strings, so Pipshed never has to filter blanks.
+    string alerts_json = "[";
+    bool first_alert = true;
+    for (int a = 0; a < CRITICAL_ALERT_BUFFER_SIZE; a++) {
+        if (StringLen(g_critical_alerts[a]) == 0) continue;
+        if (!first_alert) alerts_json += ",";
+        alerts_json += "\"" + g_critical_alerts[a] + "\"";
+        first_alert = false;
+    }
+    alerts_json += "]";
+
     return StringFormat(
         "{"
         "\"timestamp\":\"%s\","
@@ -179,7 +296,12 @@ string BuildTelemetryPayload() {
             "\"ldak_vratios\":%s,"
             "\"rollover_active\":%s"
         "},"
-        "\"active_pods\":%s"
+        "\"active_pods\":%s,"
+        "\"working_orders\":%s,"
+        "\"market_prices\":%s,"
+        "\"cooldown_ldak\":%s,"
+        "\"bias_backstop_count\":%d,"
+        "\"system_alerts\":%s"
         "}",
         ts,
         InstanceID,
@@ -191,7 +313,12 @@ string BuildTelemetryPayload() {
         g_daily_api_count,
         ldak_json,
         IsRolloverWindow(TimeGMT()) ? "true" : "false",
-        pods_json
+        pods_json,
+        orders_json,
+        market_json,
+        cooldown_json,
+        g_bias_backstop_count,
+        alerts_json
     );
 }
 
