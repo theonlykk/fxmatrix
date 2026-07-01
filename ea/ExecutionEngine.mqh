@@ -145,13 +145,41 @@ double ComputeLDAKLotSize(int instrument) {
 
     // ADR-042: 70% binary volume gate
     double raw_vol = BaseLotSize * size_mult * w;
+
+    // ADR-061: unconditional diagnostic -- fires on EVERY call, before
+    // the gate, regardless of outcome (refuse, clamp, or pass normally)
+    if (EnableVerboseLog)
+        Print("DIAG [ADR-061] ComputeLDAKLotSize: instrument=", symbol,
+              " size_mult=", DoubleToString(size_mult, 4),
+              " S_eff=", DoubleToString(S_eff, 4),
+              " w=", DoubleToString(w, 4),
+              " raw_vol=", DoubleToString(raw_vol, 6),
+              " min_vol=", DoubleToString(min_vol, 4));
+
     if (raw_vol < min_vol * 0.70) {
-        if (EnableVerboseLog)
-            Print("INFO [LDAK] Size scaled below broker minimum. Quote pulled.",
-                  " raw_vol=", DoubleToString(raw_vol, 6),
-                  " min_vol=", DoubleToString(min_vol, 4),
-                  " instrument=", symbol);
-        return 0.0;
+        // ADR-061: split gate. Drawdown brake (size_mult low) still
+        // refuses outright -- ADR-042's intended behavior. Correlation-
+        // only suppression (size_mult healthy, w low) floor-clamps
+        // instead, so the grid's structural geometry isn't sacrificed
+        // to a temporary correlation spike.
+        if (size_mult < InpLDAKDrawdownHealthyThreshold) {
+            if (EnableVerboseLog)
+                Print("INFO [LDAK] Size scaled below broker minimum -- drawdown brake engaged. Quote pulled.",
+                      " raw_vol=", DoubleToString(raw_vol, 6),
+                      " min_vol=", DoubleToString(min_vol, 4),
+                      " size_mult=", DoubleToString(size_mult, 4),
+                      " instrument=", symbol);
+            return 0.0;
+        } else {
+            if (EnableVerboseLog)
+                Print("INFO [ADR-061] Size below broker minimum from correlation brake only -- floor-clamped, not skipped.",
+                      " raw_vol=", DoubleToString(raw_vol, 6),
+                      " min_vol=", DoubleToString(min_vol, 4),
+                      " size_mult=", DoubleToString(size_mult, 4),
+                      " w=", DoubleToString(w, 4),
+                      " instrument=", symbol);
+            raw_vol = min_vol;
+        }
     }
     double lot_size = MathMax(raw_vol, min_vol);
 
@@ -1210,11 +1238,16 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                                                 NewShallowest.direction,
                                                                 NewShallowest.entry_price);
                         if (computed > 0.0) {
-                            PlaceNextEntryLimit(NewShallowest, sym, computed);
-                            Print("INFO: Phase 3 add-next resubmitted for new shallowest layer.",
-                                  " instrument=", sym,
-                                  " layer_price=", NewShallowest.entry_price,
-                                  " add_next=", computed);
+                            ulong tkt = PlaceNextEntryLimit(NewShallowest, sym, computed);
+                            if (tkt > 0) {
+                                Print("INFO: Phase 3 add-next resubmitted for new shallowest layer. ",
+                                      "ticket=", tkt, " instrument=", NewShallowest.instrument,
+                                      " price=", computed);
+                            } else {
+                                Print("WARNING: add_next resubmission failed (tkt=0). Possible ",
+                                      "sub-minimum lot size or API rejection. Grid deepening is halted. ",
+                                      "instrument=", NewShallowest.instrument, " computed_price=", computed);
+                            }
                         }
                     }
                 }

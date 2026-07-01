@@ -46,6 +46,7 @@ input double MaxPodDrawdown     = 0.03;    // 2% per pod
 input double GlobalDrawdown     = 0.03;   // 4.5% global — front-runs FTMO 5% daily limit
 input double InpSoftDrawdownLimit = 3.0; // Tier 2 Soft Warning (% of daily start balance)
 input double InpHardDrawdownLimit = 4.0; // Tier 3 Hard Kill Switch (% of daily start balance)
+input double InpLDAKDrawdownHealthyThreshold = 0.80; // ADR-061: size_mult above this = drawdown brake not engaged
 
 //--- Carry adjustment (ADR-003)
 input string CarryRecalcTime    = "17:00"; // broker server time
