@@ -109,6 +109,72 @@ string LdakGateToString(int gate) {
 }
 
 //------------------------------------------------------------------
+// BuildExitOrdersJSON — ADR-067
+// All layers × all exit_tickets[] for one slot; live broker prices.
+//------------------------------------------------------------------
+string BuildExitOrdersJSON(int slot) {
+    string exit_json = "[";
+    bool   first     = true;
+
+    int inv_size = (slot == 0) ? ArraySize(g_inventory_0)
+                 : (slot == 1) ? ArraySize(g_inventory_1)
+                 : ArraySize(g_inventory_2);
+
+    for (int i = 0; i < inv_size; i++) {
+        int n_exits = (slot == 0) ? ArraySize(g_inventory_0[i].exit_tickets)
+                    : (slot == 1) ? ArraySize(g_inventory_1[i].exit_tickets)
+                    : ArraySize(g_inventory_2[i].exit_tickets);
+
+        for (int j = 0; j < n_exits; j++) {
+            ulong tkt = (slot == 0) ? g_inventory_0[i].exit_tickets[j]
+                      : (slot == 1) ? g_inventory_1[i].exit_tickets[j]
+                      : g_inventory_2[i].exit_tickets[j];
+
+            if (!first) exit_json += ",";
+            exit_json += StringFormat(
+                "{\"ticket\":%llu,\"price\":%s}",
+                tkt,
+                TelPriceOrNull(tkt > 0 ? GetPendingOrderPrice(tkt) : -1.0)
+            );
+            first = false;
+        }
+    }
+
+    exit_json += "]";
+    return exit_json;
+}
+
+//------------------------------------------------------------------
+// SerializeWorkingOrdersJSON — ADR-067
+// Full resting order book per slot: Layer 0 entry, add_next, exits.
+//------------------------------------------------------------------
+string SerializeWorkingOrdersJSON(int slot) {
+    ulong bid_tkt   = g_pending_bid[slot];
+    ulong offer_tkt = g_pending_offer[slot];
+    ulong add_tkt   = g_add_next[slot];
+    string exit_orders = BuildExitOrdersJSON(slot);
+
+    return StringFormat(
+        "{"
+        "\"layer0_bid_ticket\":%llu,"
+        "\"layer0_bid_price\":%s,"
+        "\"layer0_offer_ticket\":%llu,"
+        "\"layer0_offer_price\":%s,"
+        "\"add_next_ticket\":%llu,"
+        "\"add_next_price\":%s,"
+        "\"exit_orders\":%s"
+        "}",
+        bid_tkt,
+        TelPriceOrNull(bid_tkt > 0 ? GetPendingOrderPrice(bid_tkt) : -1.0),
+        offer_tkt,
+        TelPriceOrNull(offer_tkt > 0 ? GetPendingOrderPrice(offer_tkt) : -1.0),
+        add_tkt,
+        TelPriceOrNull(add_tkt > 0 ? GetPendingOrderPrice(add_tkt) : -1.0),
+        exit_orders
+    );
+}
+
+//------------------------------------------------------------------
 // SerializePodJSON
 // Returns a JSON object string for one instrument pod (slot-indexed).
 //------------------------------------------------------------------
@@ -227,24 +293,16 @@ string BuildTelemetryPayload() {
         g_symbols[SLOT_BC], pod1,
         g_symbols[SLOT_AB], pod2);
 
+    // ADR-067: full resting book — Layer 0 entry, add_next, all exit limits
+    string orders_ac = SerializeWorkingOrdersJSON(SLOT_AC);
+    string orders_bc = SerializeWorkingOrdersJSON(SLOT_BC);
+    string orders_ab = SerializeWorkingOrdersJSON(SLOT_AB);
+
     string orders_json = StringFormat(
-        "{"
-        "\"%s\":{\"bid_ticket\":%llu,\"bid_price\":%s,\"offer_ticket\":%llu,\"offer_price\":%s},"
-        "\"%s\":{\"bid_ticket\":%llu,\"bid_price\":%s,\"offer_ticket\":%llu,\"offer_price\":%s},"
-        "\"%s\":{\"bid_ticket\":%llu,\"bid_price\":%s,\"offer_ticket\":%llu,\"offer_price\":%s}"
-        "}",
-        g_symbols[SLOT_AC], g_pending_bid[SLOT_AC],
-        TelPriceOrNull(g_pending_bid[SLOT_AC] > 0 ? GetPendingOrderPrice(g_pending_bid[SLOT_AC]) : -1.0),
-        g_pending_offer[SLOT_AC],
-        TelPriceOrNull(g_pending_offer[SLOT_AC] > 0 ? GetPendingOrderPrice(g_pending_offer[SLOT_AC]) : -1.0),
-        g_symbols[SLOT_BC], g_pending_bid[SLOT_BC],
-        TelPriceOrNull(g_pending_bid[SLOT_BC] > 0 ? GetPendingOrderPrice(g_pending_bid[SLOT_BC]) : -1.0),
-        g_pending_offer[SLOT_BC],
-        TelPriceOrNull(g_pending_offer[SLOT_BC] > 0 ? GetPendingOrderPrice(g_pending_offer[SLOT_BC]) : -1.0),
-        g_symbols[SLOT_AB], g_pending_bid[SLOT_AB],
-        TelPriceOrNull(g_pending_bid[SLOT_AB] > 0 ? GetPendingOrderPrice(g_pending_bid[SLOT_AB]) : -1.0),
-        g_pending_offer[SLOT_AB],
-        TelPriceOrNull(g_pending_offer[SLOT_AB] > 0 ? GetPendingOrderPrice(g_pending_offer[SLOT_AB]) : -1.0)
+        "{\"%s\":%s,\"%s\":%s,\"%s\":%s}",
+        g_symbols[SLOT_AC], orders_ac,
+        g_symbols[SLOT_BC], orders_bc,
+        g_symbols[SLOT_AB], orders_ab
     );
 
     string market_json = StringFormat(
