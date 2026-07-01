@@ -1720,6 +1720,86 @@ bias_permits_bid(BIAS_BOTH) and bias_permits_offer(BIAS_BOTH) == True
 
 ---
 
+## TEST 46 — ADR-061 Part A Partial-Unwind Resubmit Outcome
+
+**Purpose:** Verify `HandleExitFill`'s partial-unwind block outcome branching: `computed <= 0` skips placement entirely; `computed > 0` with `tkt > 0` is success; `computed > 0` with `tkt == 0` is warning (live 2026-06-30 15:02:05 case).
+
+### 46a–46b — ComputeNextLayerPrice gate not entered
+
+```
+computed <= 0.0  -> "skip" (no PlaceNextEntryLimit call)
+computed = -1.0  -> "skip"
+```
+
+### 46c — Successful resubmit
+
+```
+computed = 1.14385, tkt = 485308319  -> "success"
+```
+
+### 46d — Failed resubmit (sub-minimum lot / API rejection)
+
+```
+computed = 1.14373, tkt = 0  -> "warning"
+```
+
+---
+
+## TEST 47 — ADR-061 Part B Split LDAK Volume Gate
+
+**Purpose:** Verify `ComputeLDAKLotSize` post-ADR-061 split gate: drawdown brake (`size_mult < InpLDAKDrawdownHealthyThreshold`) refuses outright; correlation-only suppression (`size_mult >= threshold`, `raw_vol < min_vol * 0.70`) floor-clamps to `min_vol` instead of returning 0.0.
+
+**Formula:**
+```
+raw_vol = BaseLotSize * size_mult * w
+if raw_vol < min_vol * 0.70:
+    if size_mult < threshold: return 0.0, "refuse"
+    else: return min_vol, "clamp"
+else: return max(raw_vol, min_vol), "pass"
+```
+
+**Constants:** `threshold = 0.80`, `min_vol = 0.01` unless noted
+
+### 47a — Deep drawdown refuses
+
+```
+sm=0.5, w=1.0, base=0.01  -> raw=0.005, sm < 0.80  -> "refuse"
+```
+
+### 47b–47c — Correlation-only clamp
+
+```
+sm=1.0, w=0.6, base=0.01  -> raw=0.006, sm >= 0.80  -> "clamp", lot=0.01
+```
+
+### 47d — Threshold boundary (sm exactly at 0.80)
+
+```
+sm=0.80, w=0.6  -> treated as healthy  -> "clamp"
+```
+
+### 47e — 70% gate boundary (strict less-than)
+
+```
+sm=1.0, w=0.70, base=0.01  -> raw=0.007 == min_vol*0.70  -> "pass"
+```
+
+### 47f–47g — Healthy pass-through
+
+```
+sm=1.0, w=1.0, base=0.02  -> raw=0.02  -> "pass", lot=0.02
+```
+
+### 47h — Low sm but volume already sufficient
+
+```
+sm=0.5, w=1.0, base=0.05  -> raw=0.025 > min_vol*0.70  -> "pass"
+```
+
+**Total subtest count (Tests 0–47):** 250/250 PASS
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

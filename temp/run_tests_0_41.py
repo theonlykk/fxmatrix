@@ -211,6 +211,16 @@ run_test("24", [("num", "24a", a24 / e24, 1.618, TOL_RATIO), ("bool", "24b", a24
 ex25 = max(1.13 + 0.001 * PHI - 0.000005, 1.13002)
 run_test("25", [("num", "25a", ex25, 1.130613, TOL), ("bool", "25b", ex25 != -1.0, True), ("bool", "25c", True, True)])
 
+# ---------------------------------------------------------------------------
+# Tests 26-28 -- PRE-ADR-061 LDAK gate (single-path refuse-only). Superseded
+# by Test 47's split gate for any case where size_mult would now clamp
+# instead of refuse (notably 28d: sm=0.85 >= InpLDAKDrawdownHealthyThreshold
+# would now clamp under current code, not refuse as asserted here). Kept
+# as regression coverage for the OLD ldak() helper's own internal
+# consistency, not as a claim about current MQL5 behavior. See Test 47
+# for current split-gate coverage.
+# ---------------------------------------------------------------------------
+
 c26 = []
 for tag, w, ret, gate in [("26a", 0.68, 0.0, True), ("26b", 0.71, 0.01, False), ("26c", 0.70, 0.01, False)]:
     r, _, g = ldak(w)
@@ -636,8 +646,71 @@ run_test("45", [
              bias_permits_bid(BIAS_BOTH) and bias_permits_offer(BIAS_BOTH), True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-45)")
+# ---------------------------------------------------------------------------
+# Test 46 -- ADR-061 Part A Partial-Unwind Resubmit Outcome
+# Verifies: HandleExitFill partial-unwind block outcome branching on
+# PlaceNextEntryLimit return value (success vs warning vs skip).
+# Pure Python simulation -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+def partial_unwind_resubmit(computed, tkt):
+    """Mirrors ADR-061 Part A: HandleExitFill partial-unwind block.
+    computed <= 0.0 means ComputeNextLayerPrice itself never
+    produced a valid price (gate never entered, no placement
+    attempted). computed > 0.0 means PlaceNextEntryLimit was
+    called; tkt is its return value."""
+    if computed <= 0.0:
+        return "skip"
+    return "success" if tkt > 0 else "warning"
+
+run_test("46", [
+    ("bool", "46a computed<=0 skips placement entirely",
+             partial_unwind_resubmit(0.0, 0), "skip"),
+    ("bool", "46b negative computed also skips",
+             partial_unwind_resubmit(-1.0, 0), "skip"),
+    ("bool", "46c valid computed + tkt>0 = success",
+             partial_unwind_resubmit(1.14385, 485308319), "success"),
+    ("bool", "46d valid computed + tkt==0 = warning (live 2026-06-30 15:02:05 case)",
+             partial_unwind_resubmit(1.14373, 0), "warning"),
+])
+
+# ---------------------------------------------------------------------------
+# Test 47 -- ADR-061 Part B Split LDAK Volume Gate
+# Verifies: ComputeLDAKLotSize post-ADR-061 split gate -- drawdown brake
+# refuses outright; correlation-only suppression floor-clamps to min_vol.
+# Pure Python simulation -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+def ldak_split_gate(w, sm, base=0.01, min_vol=0.01, threshold=0.80):
+    raw_vol = base * sm * w
+    if raw_vol < min_vol * 0.70:
+        if sm < threshold:
+            return 0.0, "refuse"
+        else:
+            return min_vol, "clamp"
+    return max(raw_vol, min_vol), "pass"
+
+run_test("47", [
+    ("bool", "47a deep drawdown refuses outright (sm=0.5,w=1.0)",
+             ldak_split_gate(w=1.0, sm=0.5)[1], "refuse"),
+    ("bool", "47b healthy sm + poor correlation clamps, not refuses (sm=1.0,w=0.6)",
+             ldak_split_gate(w=0.6, sm=1.0)[1], "clamp"),
+    ("num",  "47c clamp path returns exactly min_vol",
+             ldak_split_gate(w=0.6, sm=1.0)[0], 0.01, 1e-9),
+    ("bool", "47d boundary: sm exactly at threshold treated as healthy (sm=0.80,w=0.6)",
+             ldak_split_gate(w=0.6, sm=0.80)[1], "clamp"),
+    ("bool", "47e boundary: raw_vol exactly at 70pct cutoff never gates (sm=1.0,w=0.70)",
+             ldak_split_gate(w=0.70, sm=1.0)[1], "pass"),
+    ("bool", "47f fully healthy volume passes through ungated (sm=1.0,w=1.0,base=0.02)",
+             ldak_split_gate(w=1.0, sm=1.0, base=0.02)[1], "pass"),
+    ("num",  "47g pass path preserves raw_vol above min_vol (sm=1.0,w=1.0,base=0.02)",
+             ldak_split_gate(w=1.0, sm=1.0, base=0.02)[0], 0.02, 1e-9),
+    ("bool", "47h low sm alone doesn't gate if volume already sufficient (sm=0.5,w=1.0,base=0.05)",
+             ldak_split_gate(w=1.0, sm=0.5, base=0.05)[1], "pass"),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-47)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 
