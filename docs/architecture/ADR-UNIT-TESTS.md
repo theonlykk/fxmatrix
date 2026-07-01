@@ -1800,6 +1800,48 @@ sm=0.5, w=1.0, base=0.05  -> raw=0.025 > min_vol*0.70  -> "pass"
 
 ---
 
+## TEST 48 — ADR-062 DirectionalBias Perimeter Seal
+
+**Purpose:** Verify Ruling 1 SNIPER signal suppression (`active_dir` vs bias), Ruling 3 execution-layer backstop (direction vs bias contradiction), and that `BIAS_BOTH` never blocks regardless of direction.
+
+**Constants:** `DIRECTION_BUY=1`, `DIRECTION_SELL=-1`, `BIAS_BOTH=0`, `BIAS_LONG_ONLY=1`, `BIAS_SHORT_ONLY=2`
+
+### Ruling 1 — SNIPER placement suppression
+
+```
+sniper_placement_permitted(active_dir, bias):
+  BUY + SHORT_ONLY  -> False (suppress)
+  SELL + LONG_ONLY  -> False (suppress)
+  all other pairs   -> True
+```
+
+### Ruling 3 — Execution backstop
+
+```
+execution_backstop_blocks(direction, bias):
+  BUY + SHORT_ONLY  -> True (return 0)
+  SELL + LONG_ONLY  -> True (return 0)
+  all other pairs   -> False
+```
+
+### 48a–48f — SNIPER suppression matrix
+
+Both contradictory pairs blocked; compliant pairs and `BIAS_BOTH` permitted.
+
+### 48g–48l — Backstop matrix
+
+Both contradictory pairs blocked; compliant pairs and `BIAS_BOTH` permitted.
+
+### 48m — BOTH never blocks
+
+```
+not blocks(BUY, BOTH) and not blocks(SELL, BOTH)  -> True
+```
+
+**Total subtest count (Tests 0–48):** 263/263 PASS
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

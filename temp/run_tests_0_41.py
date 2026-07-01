@@ -709,8 +709,65 @@ run_test("47", [
              ldak_split_gate(w=1.0, sm=0.5, base=0.05)[1], "pass"),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-47)")
+# ---------------------------------------------------------------------------
+# Test 48 -- ADR-062 DirectionalBias Perimeter Seal
+# Verifies: (a) SNIPER signal suppression (active_dir vs bias),
+# (b) execution-layer backstop for all contradictory direction/bias pairs,
+# (c) BIAS_BOTH always permits regardless of direction.
+# Pure Python simulation -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+DIRECTION_BUY  = 1
+DIRECTION_SELL = -1
+
+def sniper_placement_permitted(active_dir, bias):
+    """Ruling 1: suppress PlaceEntryLimit when direction contradicts bias."""
+    if active_dir == DIRECTION_BUY and bias == BIAS_SHORT_ONLY:
+        return False
+    if active_dir == DIRECTION_SELL and bias == BIAS_LONG_ONLY:
+        return False
+    return True
+
+def execution_backstop_blocks(direction, bias):
+    """Ruling 3: PlaceEntryLimit / PlaceNextEntryLimit top-of-function guard."""
+    if direction == DIRECTION_BUY and bias == BIAS_SHORT_ONLY:
+        return True
+    if direction == DIRECTION_SELL and bias == BIAS_LONG_ONLY:
+        return True
+    return False
+
+run_test("48", [
+    ("bool", "48a SNIPER BUY suppressed under SHORT_ONLY",
+             sniper_placement_permitted(DIRECTION_BUY, BIAS_SHORT_ONLY), False),
+    ("bool", "48b SNIPER SELL suppressed under LONG_ONLY",
+             sniper_placement_permitted(DIRECTION_SELL, BIAS_LONG_ONLY), False),
+    ("bool", "48c SNIPER BUY permitted under LONG_ONLY",
+             sniper_placement_permitted(DIRECTION_BUY, BIAS_LONG_ONLY), True),
+    ("bool", "48d SNIPER SELL permitted under SHORT_ONLY",
+             sniper_placement_permitted(DIRECTION_SELL, BIAS_SHORT_ONLY), True),
+    ("bool", "48e SNIPER BUY permitted under BOTH",
+             sniper_placement_permitted(DIRECTION_BUY, BIAS_BOTH), True),
+    ("bool", "48f SNIPER SELL permitted under BOTH",
+             sniper_placement_permitted(DIRECTION_SELL, BIAS_BOTH), True),
+    ("bool", "48g backstop blocks BUY under SHORT_ONLY",
+             execution_backstop_blocks(DIRECTION_BUY, BIAS_SHORT_ONLY), True),
+    ("bool", "48h backstop blocks SELL under LONG_ONLY",
+             execution_backstop_blocks(DIRECTION_SELL, BIAS_LONG_ONLY), True),
+    ("bool", "48i backstop permits BUY under LONG_ONLY",
+             not execution_backstop_blocks(DIRECTION_BUY, BIAS_LONG_ONLY), True),
+    ("bool", "48j backstop permits SELL under SHORT_ONLY",
+             not execution_backstop_blocks(DIRECTION_SELL, BIAS_SHORT_ONLY), True),
+    ("bool", "48k backstop permits BUY under BOTH",
+             not execution_backstop_blocks(DIRECTION_BUY, BIAS_BOTH), True),
+    ("bool", "48l backstop permits SELL under BOTH",
+             not execution_backstop_blocks(DIRECTION_SELL, BIAS_BOTH), True),
+    ("bool", "48m BOTH never blocks either direction",
+             not execution_backstop_blocks(DIRECTION_BUY, BIAS_BOTH)
+             and not execution_backstop_blocks(DIRECTION_SELL, BIAS_BOTH), True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-48)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

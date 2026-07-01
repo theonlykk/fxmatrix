@@ -641,22 +641,30 @@ void OnTick() {
 
                             // Place single-sided limit
                             if (!IsRolloverWindow(TimeCurrent()) && active_price > 0) {
-                                ulong tkt = PlaceEntryLimit(active_price, active_dir, inst_symbol, inst);
-                                if (tkt > 0) {
-                                    g_daily_api_count++;
-                                    if (g_daily_api_count >= 900) {
-                                        g_api_halt = true;
-                                        Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
-                                              g_daily_api_count);
+                                if ((active_dir == DIRECTION_BUY && DirectionalBias == BIAS_SHORT_ONLY) ||
+                                    (active_dir == DIRECTION_SELL && DirectionalBias == BIAS_LONG_ONLY)) {
+                                    Print("INFO: Valid signal suppressed by DirectionalBias.",
+                                          " instrument=", inst_symbol,
+                                          " direction=", active_dir,
+                                          " bias=", DirectionalBias);
+                                } else {
+                                    ulong tkt = PlaceEntryLimit(active_price, active_dir, inst_symbol, inst);
+                                    if (tkt > 0) {
+                                        g_daily_api_count++;
+                                        if (g_daily_api_count >= 900) {
+                                            g_api_halt = true;
+                                            Print("WARNING: ADR-017 API halt tripped. g_daily_api_count=",
+                                                  g_daily_api_count);
+                                        }
+                                        if (signal_is_bid)
+                                            g_pending_bid[inst] = tkt;
+                                        else
+                                            g_pending_offer[inst] = tkt;
+                                        Print("INFO: ADR-019 Sniper order placed. symbol=", inst_symbol,
+                                              " direction=", (signal_is_bid ? "BID" : "OFFER"),
+                                              " price=", DoubleToString(active_price, 5),
+                                              " signal_mag=", DoubleToString(signal_mag, 6));
                                     }
-                                    if (signal_is_bid)
-                                        g_pending_bid[inst] = tkt;
-                                    else
-                                        g_pending_offer[inst] = tkt;
-                                    Print("INFO: ADR-019 Sniper order placed. symbol=", inst_symbol,
-                                          " direction=", (signal_is_bid ? "BID" : "OFFER"),
-                                          " price=", DoubleToString(active_price, 5),
-                                          " signal_mag=", DoubleToString(signal_mag, 6));
                                 }
                             } else {
                                 Print("INFO: ADR-018 rollover window active. Sniper placement suspended. ",

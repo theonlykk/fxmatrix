@@ -236,6 +236,14 @@ bool SameDirectionInventoryExists(int instrument, int direction) {
 }
 
 ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument) {
+    if ((direction == DIRECTION_BUY && DirectionalBias == BIAS_SHORT_ONLY) ||
+        (direction == DIRECTION_SELL && DirectionalBias == BIAS_LONG_ONLY)) {
+        Print("CRITICAL: Orthogonal exposure leak blocked at execution layer. ",
+              "direction=", direction, " bias=", DirectionalBias,
+              " instrument=", symbol);
+        return 0;
+    }
+
     double entry_price = price;
 
     // --- ADR-013: Gap-Aware Entry Price Clamp ---
@@ -379,6 +387,14 @@ ulong PlaceExitLimit(double exit_price, double volume,
 
 ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
                           double price_override = -1.0) {
+    if ((prev_layer.direction == DIRECTION_BUY && DirectionalBias == BIAS_SHORT_ONLY) ||
+        (prev_layer.direction == DIRECTION_SELL && DirectionalBias == BIAS_LONG_ONLY)) {
+        Print("CRITICAL: Orthogonal exposure leak blocked at execution layer. ",
+              "direction=", prev_layer.direction, " bias=", DirectionalBias,
+              " instrument=", symbol);
+        return 0;
+    }
+
     // Gap-aware passive pricing (Gemini Phase 3 ruling Q4/Q5).
     // Always passive — never cross the spread regardless of gaps.
     // Applied universally to all add_next placements.
@@ -1186,7 +1202,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             offer_spread, offer_strongest, offer_weakest,
                             false, false);
 
-                        if (bid_price > 0) {
+                        if (bid_price > 0 && DirectionalBias != BIAS_SHORT_ONLY) {
                             if (!SameDirectionInventoryExists(inst, bid_direction)) {
                                 ulong bid_tkt = PlaceEntryLimit(bid_price, bid_direction, resume_symbol, inst);
                                 if (bid_tkt > 0) g_pending_bid[inst] = bid_tkt;
@@ -1196,7 +1212,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                           " instrument=", resume_symbol, " direction=BUY");
                             }
                         }
-                        if (offer_price > 0) {
+                        if (offer_price > 0 && DirectionalBias != BIAS_LONG_ONLY) {
                             if (!SameDirectionInventoryExists(inst, offer_direction)) {
                                 ulong offer_tkt = PlaceEntryLimit(offer_price, offer_direction, resume_symbol, inst);
                                 if (offer_tkt > 0) g_pending_offer[inst] = offer_tkt;
