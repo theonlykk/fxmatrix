@@ -146,6 +146,11 @@ double ComputeLDAKLotSize(int instrument) {
     // ADR-042: 70% binary volume gate
     double raw_vol = BaseLotSize * size_mult * w;
 
+    g_ldak_last_size_mult[instrument] = size_mult;
+    g_ldak_last_S_eff[instrument]     = S_eff;
+    g_ldak_last_w[instrument]         = w;
+    g_ldak_last_raw_vol[instrument]   = raw_vol;
+
     // ADR-061: unconditional diagnostic -- fires on EVERY call, before
     // the gate, regardless of outcome (refuse, clamp, or pass normally)
     if (EnableVerboseLog)
@@ -163,6 +168,7 @@ double ComputeLDAKLotSize(int instrument) {
         // instead, so the grid's structural geometry isn't sacrificed
         // to a temporary correlation spike.
         if (size_mult < InpLDAKDrawdownHealthyThreshold) {
+            g_ldak_last_gate[instrument] = LDAK_GATE_REFUSE;
             if (EnableVerboseLog)
                 Print("INFO [LDAK] Size scaled below broker minimum -- drawdown brake engaged. Quote pulled.",
                       " raw_vol=", DoubleToString(raw_vol, 6),
@@ -171,6 +177,7 @@ double ComputeLDAKLotSize(int instrument) {
                       " instrument=", symbol);
             return 0.0;
         } else {
+            g_ldak_last_gate[instrument] = LDAK_GATE_CLAMP;
             if (EnableVerboseLog)
                 Print("INFO [ADR-061] Size below broker minimum from correlation brake only -- floor-clamped, not skipped.",
                       " raw_vol=", DoubleToString(raw_vol, 6),
@@ -180,6 +187,8 @@ double ComputeLDAKLotSize(int instrument) {
                       " instrument=", symbol);
             raw_vol = min_vol;
         }
+    } else {
+        g_ldak_last_gate[instrument] = LDAK_GATE_PASS;
     }
     double lot_size = MathMax(raw_vol, min_vol);
 
@@ -241,6 +250,16 @@ ulong PlaceEntryLimit(double price, int direction, string symbol, int instrument
         Print("CRITICAL: Orthogonal exposure leak blocked at execution layer. ",
               "direction=", direction, " bias=", DirectionalBias,
               " instrument=", symbol);
+        g_bias_backstop_count++;
+        MqlDateTime dt_alert;
+        TimeToStruct(TimeGMT(), dt_alert);
+        string alert_msg = StringFormat(
+            "%04d-%02d-%02d %02d:%02d:%02d UTC | Orthogonal exposure leak blocked (PlaceEntryLimit). direction=%d bias=%d instrument=%s",
+            dt_alert.year, dt_alert.mon, dt_alert.day,
+            dt_alert.hour, dt_alert.min, dt_alert.sec,
+            direction, DirectionalBias, symbol);
+        g_critical_alerts[g_critical_alert_write_idx] = alert_msg;
+        g_critical_alert_write_idx = (g_critical_alert_write_idx + 1) % CRITICAL_ALERT_BUFFER_SIZE;
         return 0;
     }
 
@@ -392,6 +411,16 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
         Print("CRITICAL: Orthogonal exposure leak blocked at execution layer. ",
               "direction=", prev_layer.direction, " bias=", DirectionalBias,
               " instrument=", symbol);
+        g_bias_backstop_count++;
+        MqlDateTime dt_alert;
+        TimeToStruct(TimeGMT(), dt_alert);
+        string alert_msg = StringFormat(
+            "%04d-%02d-%02d %02d:%02d:%02d UTC | Orthogonal exposure leak blocked (PlaceNextEntryLimit). direction=%d bias=%d instrument=%s",
+            dt_alert.year, dt_alert.mon, dt_alert.day,
+            dt_alert.hour, dt_alert.min, dt_alert.sec,
+            prev_layer.direction, DirectionalBias, symbol);
+        g_critical_alerts[g_critical_alert_write_idx] = alert_msg;
+        g_critical_alert_write_idx = (g_critical_alert_write_idx + 1) % CRITICAL_ALERT_BUFFER_SIZE;
         return 0;
     }
 

@@ -1842,6 +1842,51 @@ not blocks(BUY, BOTH) and not blocks(SELL, BOTH)  -> True
 
 ---
 
+## TEST 49 — ADR-063 Ruling 5 Circular Alert Buffer Index
+
+**Purpose:** Verify modulo wrap logic for `g_critical_alert_write_idx` advancement in the persistent CRITICAL alert message ring buffer.
+
+**Helper:**
+
+```
+circular_buffer_next_index(current_idx, buffer_size):
+  return (current_idx + 1) % buffer_size
+```
+
+### 49a — Normal increment
+
+```
+circular_buffer_next_index(3, 10)  -> 4
+```
+
+### 49b — Wrap at buffer end
+
+```
+circular_buffer_next_index(9, 10)  -> 0
+```
+
+### 49c — Wrap from zero forward
+
+```
+circular_buffer_next_index(0, 10)  -> 1
+```
+
+### 49d — Buffer size 1 always wraps to self
+
+```
+circular_buffer_next_index(0, 1)  -> 0
+```
+
+### 49e — Second-to-last index
+
+```
+circular_buffer_next_index(8, 10)  -> 9
+```
+
+**Total subtest count (Tests 0–49):** 268/268 PASS
+
+---
+
 ## PROTOCOL
 
 Before any code change to MathEngine.mqh, ExecutionEngine.mqh, or

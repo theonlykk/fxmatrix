@@ -766,8 +766,25 @@ run_test("48", [
              and not execution_backstop_blocks(DIRECTION_SELL, BIAS_BOTH), True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-48)")
+# ---------------------------------------------------------------------------
+# Test 49 -- ADR-063 Ruling 5 Circular Alert Buffer Index
+# Verifies: modulo wrap logic for g_critical_alert_write_idx advancement.
+# Pure Python simulation -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+def circular_buffer_next_index(current_idx, buffer_size):
+    return (current_idx + 1) % buffer_size
+
+run_test("49", [
+    ("num", "49a normal increment", circular_buffer_next_index(3, 10), 4, 0),
+    ("num", "49b wraps at buffer end", circular_buffer_next_index(9, 10), 0, 0),
+    ("num", "49c wraps from zero forward", circular_buffer_next_index(0, 10), 1, 0),
+    ("num", "49d buffer size 1 always wraps to self", circular_buffer_next_index(0, 1), 0, 0),
+    ("num", "49e second-to-last index", circular_buffer_next_index(8, 10), 9, 0),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-49)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

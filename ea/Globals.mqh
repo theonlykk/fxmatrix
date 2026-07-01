@@ -128,6 +128,30 @@ double g_vratio[3] = {1.0, 1.0, 1.0};
 // ADR-046: viscous LDAK high-water mark per slot — decays toward 1.0 at CooldownDecayRate per bar
 double g_cooldown_LDAK[3] = {1.0, 1.0, 1.0};
 
+enum ENUM_LDAK_GATE_OUTCOME {
+    LDAK_GATE_PASS   = 0,
+    LDAK_GATE_CLAMP  = 1,
+    LDAK_GATE_REFUSE = 2
+};
+
+// ADR-061 telemetry capture: last ComputeLDAKLotSize() snapshot per slot [0, 1, 2]
+double g_ldak_last_size_mult[3] = {0.0, 0.0, 0.0};
+double g_ldak_last_S_eff[3]     = {0.0, 0.0, 0.0};
+double g_ldak_last_w[3]         = {0.0, 0.0, 0.0};
+double g_ldak_last_raw_vol[3]   = {0.0, 0.0, 0.0};
+int    g_ldak_last_gate[3]      = {LDAK_GATE_PASS, LDAK_GATE_PASS, LDAK_GATE_PASS};
+
+// ADR-062 telemetry capture: execution-layer DirectionalBias backstop fire count
+int g_bias_backstop_count = 0;
+
+// ADR-063 Ruling 5 (Gemini): persistent circular buffer of critical
+// alert messages. NEVER cleared on read -- clear-on-read risks
+// losing a real alert if a telemetry HTTP push fails to reach
+// Pipshed. Oldest entries silently overwritten once full.
+#define CRITICAL_ALERT_BUFFER_SIZE 10
+string g_critical_alerts[CRITICAL_ALERT_BUFFER_SIZE];
+int    g_critical_alert_write_idx = 0;
+
 // ADR-052 Step B: Multi-timeframe term structure outputs
 double g_fv_combined[2]  = {0.0, 0.0};  // [SLOT_AC, SLOT_BC] weighted blended anchor
 double g_sigma_fv[2]     = {0.0, 0.0};  // [SLOT_AC, SLOT_BC] dispersion in price units
