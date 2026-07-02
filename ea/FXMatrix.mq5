@@ -865,38 +865,7 @@ void CheckCircuitBreakers() {
               " daily_start=",   DoubleToString(g_daily_start_balance, 2),
               " tier3_floor=",   DoubleToString(tier3_floor, 2),
               " instance=",      InstanceID);
-
-        // Full institutional sweep
-        CloseAllPositions();
-        CancelAllPendingEntries();
-
-        // Cancel ALL order types across all magic variants
-        // (exit limits EA_MAGIC+2 and add_next EA_MAGIC+1 not caught
-        // by CancelAllPendingEntries — must cancel explicitly)
-        for (int _i = OrdersTotal() - 1; _i >= 0; _i--) {
-            ulong _tkt = OrderGetTicket(_i);
-            if (_tkt == 0) continue;
-            long _m = OrderGetInteger(ORDER_MAGIC);
-            if (_m != (long)EA_MAGIC &&
-                _m != (long)(EA_MAGIC + 1) &&
-                _m != (long)(EA_MAGIC + 2)) continue;
-            MqlTradeRequest _req = {};
-            MqlTradeResult  _res = {};
-            _req.action = TRADE_ACTION_REMOVE;
-            _req.order  = _tkt;
-            if (!OrderSend(_req, _res))
-                Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt,
-                      " retcode=", _res.retcode);
-        }
-
-        // Clear inventory and persist clean state
-        ArrayResize(g_inventory_0, 0);
-        ArrayResize(g_inventory_1, 0);
-        ArrayResize(g_inventory_2, 0);
-        SaveAllInventoryState();
-
-        g_halted = true;
-        ExpertRemove();  // forcibly detach EA — requires manual reattach
+        ExecuteEmergencySystemSweep();
         return;
     }
 
@@ -906,29 +875,7 @@ void CheckCircuitBreakers() {
         Print("CRITICAL [Phase3A] Absolute equity floor breached. ",
               "equity=",         DoubleToString(current_equity, 2),
               " absolute_floor=", DoubleToString(absolute_floor, 2));
-        CloseAllPositions();
-        CancelAllPendingEntries();
-        for (int _j = OrdersTotal() - 1; _j >= 0; _j--) {
-            ulong _tkt2 = OrderGetTicket(_j);
-            if (_tkt2 == 0) continue;
-            long _m2 = OrderGetInteger(ORDER_MAGIC);
-            if (_m2 != (long)EA_MAGIC &&
-                _m2 != (long)(EA_MAGIC + 1) &&
-                _m2 != (long)(EA_MAGIC + 2)) continue;
-            MqlTradeRequest _req2 = {};
-            MqlTradeResult  _res2 = {};
-            _req2.action = TRADE_ACTION_REMOVE;
-            _req2.order  = _tkt2;
-            if (!OrderSend(_req2, _res2))
-                Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt2,
-                      " retcode=", _res2.retcode);
-        }
-        ArrayResize(g_inventory_0, 0);
-        ArrayResize(g_inventory_1, 0);
-        ArrayResize(g_inventory_2, 0);
-        SaveAllInventoryState();
-        g_halted = true;
-        ExpertRemove();
+        ExecuteEmergencySystemSweep();
         return;
     }
     // ── End Tier 3 ───────────────────────────────────────────────────────

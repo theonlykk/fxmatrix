@@ -811,8 +811,47 @@ run_test("50", [
              closeby_exhaustion_outcome(False, -1, False, -1) == "skip_unselectable", True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-50)")
+# ---------------------------------------------------------------------------
+# Test 51 -- ADR-074 Emergency Sweep Batched Verification Poll
+# Pure Python mirror of ExecuteEmergencySystemSweep() poll loop.
+# ---------------------------------------------------------------------------
+
+def emergency_verify_poll(is_open_fns, max_polls=5):
+    """Returns (still_open_flags, rounds_used). is_open_fns[t]() True = position still open."""
+    n = len(is_open_fns)
+    if n == 0:
+        return [], 0
+    still_open = [True] * n
+    rounds_used = 0
+    for poll in range(max_polls):
+        rounds_used = poll + 1
+        any_still_open = False
+        for t in range(n):
+            if not still_open[t]:
+                continue
+            if not is_open_fns[t]():
+                still_open[t] = False
+            else:
+                any_still_open = True
+        if not any_still_open:
+            break
+    return still_open, rounds_used
+
+run_test("51", [
+    ("bool", "51a all closed round 1 -- early break",
+             emergency_verify_poll([lambda: False, lambda: False])[1] == 1, True),
+    ("bool", "51a all closed -- none stranded",
+             sum(emergency_verify_poll([lambda: False, lambda: False])[0]) == 0, True),
+    ("bool", "51b one never closes -- poll exhausts 5 rounds",
+             emergency_verify_poll([lambda: False, lambda: True])[1] == 5, True),
+    ("bool", "51b one never closes -- flagged stranded",
+             emergency_verify_poll([lambda: False, lambda: True])[0][1] == True, True),
+    ("bool", "51c empty close_attempted -- no-op",
+             emergency_verify_poll([]) == ([], 0), True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-51)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

@@ -3,6 +3,8 @@
 
 #include "Globals.mqh"
 
+void CancelAllPendingEntries();  // defined in FXMatrix.mq5
+
 //------------------------------------------------------------------
 // GetStateFilename (parameterised — Phase 2)
 // Returns the correct JSON filename for a given instrument.
@@ -431,6 +433,137 @@ bool LoadInventoryState(int instrument) {
     Print("INFO: LoadInventoryState(", instrument, ") — loaded ",
           loaded, " layers from ", filename);
     return true;
+}
+
+//------------------------------------------------------------------
+// PurgeClosedLayers — ADR-074 Tier 3 selective inventory purge
+// Removes only layers whose position_ticket is confirmed closed.
+// Stranded (still-open) layers remain for ADR-040 OnInit reconciliation.
+// Layer &inv[] reference: mutates caller's global array in place via
+// ArrayRemove() — standard MQL5 dynamic-array reference semantics.
+//------------------------------------------------------------------
+void PurgeClosedLayers(Layer &inv[], ulong &attempted[], bool &still_open_flags[]) {
+    for (int i = ArraySize(inv) - 1; i >= 0; i--) {
+        ulong pos_tkt = inv[i].position_ticket;
+        bool purge = true;
+
+        if (pos_tkt == 0) {
+            purge = true;
+        } else {
+            bool found = false;
+            for (int t = 0; t < ArraySize(attempted); t++) {
+                if (attempted[t] == pos_tkt) {
+                    found = true;
+                    purge = !still_open_flags[t];
+                    break;
+                }
+            }
+            if (!found) {
+                purge = !PositionSelectByTicket(pos_tkt);
+            }
+        }
+
+        if (purge) ArrayRemove(inv, i, 1);
+    }
+}
+
+//------------------------------------------------------------------
+// ExecuteEmergencySystemSweep — ADR-074
+// Consolidated Tier 3 / absolute-floor institutional sweep.
+// Closes all EA_MAGIC / +1 / +2 triad positions, cancels orders,
+// batched verification poll, selective inventory purge, halt, detach.
+//------------------------------------------------------------------
+void ExecuteEmergencySystemSweep() {
+    ulong close_attempted[];
+    int total_pos = PositionsTotal();
+    for (int i = total_pos - 1; i >= 0; i--) {
+        ulong ticket = PositionGetTicket(i);
+        if (ticket == 0) continue;
+        string pos_sym = PositionGetString(POSITION_SYMBOL);
+        if (pos_sym != g_symbols[SLOT_AC] &&
+            pos_sym != g_symbols[SLOT_BC] &&
+            pos_sym != g_symbols[SLOT_AB]) continue;
+        long pos_magic = PositionGetInteger(POSITION_MAGIC);
+        if (pos_magic != (long)EA_MAGIC &&
+            pos_magic != (long)(EA_MAGIC + 1) &&
+            pos_magic != (long)(EA_MAGIC + 2)) continue;
+
+        MqlTradeRequest req = {};
+        MqlTradeResult  res = {};
+        req.action   = TRADE_ACTION_DEAL;
+        req.position = ticket;
+        req.symbol   = pos_sym;
+        req.volume   = PositionGetDouble(POSITION_VOLUME);
+        req.type     = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+                       ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+        req.price    = (req.type == ORDER_TYPE_SELL)
+                       ? SymbolInfoDouble(pos_sym, SYMBOL_BID)
+                       : SymbolInfoDouble(pos_sym, SYMBOL_ASK);
+        req.type_filling = ORDER_FILLING_IOC;
+        req.comment  = "FXMatrix_CircuitBreaker";
+
+        if (!OrderSend(req, res))
+            Print("WARNING [Phase3A] Emergency close send failed. ",
+                  "ticket=", ticket, " magic=", pos_magic,
+                  " retcode=", res.retcode);
+
+        int idx = ArraySize(close_attempted);
+        ArrayResize(close_attempted, idx + 1);
+        close_attempted[idx] = ticket;
+    }
+
+    CancelAllPendingEntries();
+
+    for (int _i = OrdersTotal() - 1; _i >= 0; _i--) {
+        ulong _tkt = OrderGetTicket(_i);
+        if (_tkt == 0) continue;
+        long _m = OrderGetInteger(ORDER_MAGIC);
+        if (_m != (long)EA_MAGIC &&
+            _m != (long)(EA_MAGIC + 1) &&
+            _m != (long)(EA_MAGIC + 2)) continue;
+        MqlTradeRequest _req = {};
+        MqlTradeResult  _res = {};
+        _req.action = TRADE_ACTION_REMOVE;
+        _req.order  = _tkt;
+        if (!OrderSend(_req, _res))
+            Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt,
+                  " retcode=", _res.retcode);
+    }
+
+    bool still_open[];
+    ArrayResize(still_open, ArraySize(close_attempted));
+    for (int k = 0; k < ArraySize(still_open); k++) still_open[k] = true;
+
+    for (int poll = 0; poll < 5; poll++) {
+        bool any_still_open = false;
+        for (int t = 0; t < ArraySize(close_attempted); t++) {
+            if (!still_open[t]) continue;
+            if (!PositionSelectByTicket(close_attempted[t]))
+                still_open[t] = false;
+            else
+                any_still_open = true;
+        }
+        if (!any_still_open) break;
+        Sleep(50);
+    }
+
+    for (int t = 0; t < ArraySize(close_attempted); t++) {
+        if (!still_open[t]) continue;
+        string alert_msg = StringFormat(
+            "CRITICAL: Tier 3 Sweep Failure. Stranded position ticket=%I64u",
+            close_attempted[t]);
+        Print(alert_msg);
+        g_critical_alerts[g_critical_alert_write_idx] = alert_msg;
+        g_critical_alert_write_idx = (g_critical_alert_write_idx + 1) % CRITICAL_ALERT_BUFFER_SIZE;
+    }
+
+    PurgeClosedLayers(g_inventory_0, close_attempted, still_open);
+    PurgeClosedLayers(g_inventory_1, close_attempted, still_open);
+    PurgeClosedLayers(g_inventory_2, close_attempted, still_open);
+
+    SaveAllInventoryState();
+    g_halted = true;
+    ExpertRemove();
 }
 
 void CheckForOrphans() {
