@@ -66,6 +66,11 @@ input ENUM_DIRECTIONAL_BIAS DirectionalBias = BIAS_BOTH;      // ADR-058: BIAS_B
 input string  InstanceID  = "MM";     // ADR-021: Instance identifier for JSON state segregation
 input double SniperThreshold = 0.0014; // ADR-019: Decoupled entry gate for SNIPER mode
 input int    SniperExpiryBars = 1;     // ADR-051: Cancel unfilled SNIPER limit after N M5 bars (default 1)
+input bool   DebugAddNextBarCloseOnly = false;
+// TEMPORARY TEST TOGGLE -- isolates ADR-028's cadence change for backtest comparison only.
+// false (default) = current live behavior, Option B evaluated every tick.
+// true = pre-ADR-028 behavior, Option B evaluated only on new M5 bar close.
+// DO NOT set true in any live/demo deployment -- backtest isolation only.
 
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";

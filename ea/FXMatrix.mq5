@@ -229,7 +229,7 @@ void OnTick() {
     bool new_bar = (current_bar != g_last_bar_time);
 
     // ── Option B: add_next grid layering (every tick) ──────────────────
-    {
+    if (!DebugAddNextBarCloseOnly || new_bar) {
         int target_instruments[3] = {SLOT_AC, SLOT_BC, SLOT_AB};
         for (int k = 0; k < 3; k++) {
             int inst        = target_instruments[k];
