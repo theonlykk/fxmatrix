@@ -783,8 +783,36 @@ run_test("49", [
     ("num", "49e second-to-last index", circular_buffer_next_index(8, 10), 9, 0),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-49)")
+# ---------------------------------------------------------------------------
+# Test 50 -- ADR-072 CloseBy Exhaustion Three-Way Branch
+# Verifies: conditional exhaustion outcome by POSITION_TYPE pairing.
+# Pure Python mirror -- no MQL5 dependency.
+# ---------------------------------------------------------------------------
+
+def closeby_exhaustion_outcome(sel1, type1, sel2, type2):
+    if not sel1 or not sel2:
+        return "skip_unselectable"
+    if type1 != type2:
+        return "discard_delta_neutral"
+    return "halt_same_direction"
+
+run_test("50", [
+    ("bool", "50a opposite types -> delta neutral discard",
+             closeby_exhaustion_outcome(True, 0, True, 1) == "discard_delta_neutral", True),
+    ("bool", "50b same types (both buy) -> halt",
+             closeby_exhaustion_outcome(True, 0, True, 0) == "halt_same_direction", True),
+    ("bool", "50c same types (both sell) -> halt",
+             closeby_exhaustion_outcome(True, 1, True, 1) == "halt_same_direction", True),
+    ("bool", "50d ticket1 unselectable -> skip",
+             closeby_exhaustion_outcome(False, -1, True, 1) == "skip_unselectable", True),
+    ("bool", "50e ticket2 unselectable -> skip",
+             closeby_exhaustion_outcome(True, 0, False, -1) == "skip_unselectable", True),
+    ("bool", "50f both unselectable -> skip",
+             closeby_exhaustion_outcome(False, -1, False, -1) == "skip_unselectable", True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-50)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

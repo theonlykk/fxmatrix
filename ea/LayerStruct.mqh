@@ -70,6 +70,7 @@ struct CloseByTask {
     ulong ticket1;   // original position ticket
     ulong ticket2;   // new hedge position ticket
     int   retries;   // OnTick attempt counter (max 10)
+    int   last_retcode; // ADR-072: last OrderSend failure retcode, for exhaustion diagnostics
 };
 
 //--- IMMUTABILITY CONTRACT (DO NOT MODIFY IN ANY OTHER FILE) ---

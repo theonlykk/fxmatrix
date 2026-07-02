@@ -1143,18 +1143,60 @@ void ProcessCloseByQueue() {
         g_closeby_queue[i].retries++;
 
         if (g_closeby_queue[i].retries >= 10) {
-            // ADR: Downgrade from SEV-1 halt to WARNING.
-            // Two offsetting positions on the same instrument are delta-neutral.
-            // They pose zero directional risk — LIFO exit machinery will sweep
-            // them when the exit limit fills on mean reversion.
-            // Halting the entire EA for a cosmetic execution inefficiency
-            // is disproportionate. Log and discard the task.
-            Print("WARNING: CloseBy queue exhausted after 10 retries. ",
-                  "Positions are delta-neutral — LIFO exit machinery will handle. ",
-                  "position=", g_closeby_queue[i].ticket1,
-                  " position_by=", g_closeby_queue[i].ticket2);
+            // ADR-072: Conditional exhaustion handling. The original
+            // "delta-neutral" assumption (see prior comment, now
+            // superseded) only holds if the two legs are genuinely
+            // opposite-direction on the broker. An ADR-014-style
+            // direction corruption can produce SAME-direction legs
+            // here -- real, unmanaged, compounding directional risk,
+            // not delta-neutral at all. Verify before trusting it.
+            bool sel1  = PositionSelectByTicket(g_closeby_queue[i].ticket1);
+            long type1 = sel1 ? PositionGetInteger(POSITION_TYPE) : -1;
+            bool sel2  = PositionSelectByTicket(g_closeby_queue[i].ticket2);
+            long type2 = sel2 ? PositionGetInteger(POSITION_TYPE) : -1;
+
+            if (sel1 && sel2) {
+                if (type1 != type2) {
+                    // Genuinely opposite -- original delta-neutral
+                    // assumption holds. Matches prior behavior exactly.
+                    Print("WARNING: CloseBy queue exhausted after 10 retries. ",
+                          "Positions confirmed opposite-direction (delta-neutral) — ",
+                          "LIFO exit machinery will handle. ",
+                          "position=", g_closeby_queue[i].ticket1,
+                          " position_by=", g_closeby_queue[i].ticket2,
+                          " last_retcode=", g_closeby_queue[i].last_retcode);
+                } else {
+                    // Same direction -- delta-neutral assumption is FALSE.
+                    // Real, unmanaged, compounding directional exposure.
+                    string alert_msg = StringFormat(
+                        "CRITICAL: ADR-072 CloseBy exhaustion — SAME-DIRECTION legs detected (NOT delta-neutral). "
+                        "position=%I64u position_by=%I64u type=%d last_retcode=%d",
+                        g_closeby_queue[i].ticket1, g_closeby_queue[i].ticket2,
+                        type1, g_closeby_queue[i].last_retcode);
+                    Print(alert_msg);
+                    g_critical_alerts[g_critical_alert_write_idx] = alert_msg;
+                    g_critical_alert_write_idx = (g_critical_alert_write_idx + 1) % CRITICAL_ALERT_BUFFER_SIZE;
+                    g_halted = true;
+                    // No ExpertRemove() -- soft-halt only, per severity ruling.
+                }
+            } else {
+                // One or both legs already closed/unselectable by the
+                // time exhaustion fired -- cannot verify the directional
+                // relationship. Per ADR-071 precedent (a closed/stale
+                // ticket is a clean skip, not a mismatch): if both are
+                // closed, there is nothing left to manage; if one
+                // remains open, it becomes an ordinary untracked
+                // position, which CheckForOrphans() will catch at the
+                // next OnInit -- same category as any other untracked
+                // position. No halt.
+                Print("INFO: CloseBy queue exhausted after 10 retries — one or both ",
+                      "legs already closed/unselectable. Skipping directional check. ",
+                      "position=", g_closeby_queue[i].ticket1,
+                      " position_by=", g_closeby_queue[i].ticket2,
+                      " last_retcode=", g_closeby_queue[i].last_retcode);
+            }
+
             ArrayRemove(g_closeby_queue, i, 1);
-            // Do NOT set g_halted = true
             continue;
         }
 
@@ -1208,6 +1250,7 @@ void ProcessCloseByQueue() {
                   " position_by=", g_closeby_queue[i].ticket2);
             ArrayRemove(g_closeby_queue, i, 1);
         } else {
+            g_closeby_queue[i].last_retcode = (int)res.retcode;
             Print("WARNING: CloseBy queue retry ", g_closeby_queue[i].retries,
                   "/10 failed. retcode=", res.retcode,
                   " position=", g_closeby_queue[i].ticket1,

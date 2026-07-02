@@ -1065,6 +1065,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         g_closeby_queue[q_idx].ticket1 = CurL.position_ticket;
                         g_closeby_queue[q_idx].ticket2 = hedge_position_ticket;
                         g_closeby_queue[q_idx].retries = 0;
+                        g_closeby_queue[q_idx].last_retcode = 0;
                         Print("INFO: CloseBy queued for next tick. ",
                               "position=", CurL.position_ticket,
                               " position_by=", hedge_position_ticket);
