@@ -468,21 +468,27 @@ void PurgeClosedLayers(Layer &inv[], ulong &attempted[], bool &still_open_flags[
 }
 
 //------------------------------------------------------------------
-// ExecuteEmergencySystemSweep — ADR-074
-// Consolidated Tier 3 / absolute-floor institutional sweep.
-// Closes all EA_MAGIC / +1 / +2 triad positions, cancels orders,
-// batched verification poll, selective inventory purge, halt, detach.
+// ExecuteSystemSweep — ADR-074 / ADR-075
+// Parameterized institutional sweep. target_instrument = -1: full
+// Tier 3 sweep (all symbols, halt, detach). 0/1/2: scoped Tier 1
+// pod amputation (single symbol, no detach).
 //------------------------------------------------------------------
-void ExecuteEmergencySystemSweep() {
+void ExecuteSystemSweep(int target_instrument = -1) {
+    bool full_sweep = (target_instrument == -1);
+
     ulong close_attempted[];
     int total_pos = PositionsTotal();
     for (int i = total_pos - 1; i >= 0; i--) {
         ulong ticket = PositionGetTicket(i);
         if (ticket == 0) continue;
         string pos_sym = PositionGetString(POSITION_SYMBOL);
-        if (pos_sym != g_symbols[SLOT_AC] &&
-            pos_sym != g_symbols[SLOT_BC] &&
-            pos_sym != g_symbols[SLOT_AB]) continue;
+        if (full_sweep) {
+            if (pos_sym != g_symbols[SLOT_AC] &&
+                pos_sym != g_symbols[SLOT_BC] &&
+                pos_sym != g_symbols[SLOT_AB]) continue;
+        } else {
+            if (pos_sym != GetInstrumentSymbol(target_instrument)) continue;
+        }
         long pos_magic = PositionGetInteger(POSITION_MAGIC);
         if (pos_magic != (long)EA_MAGIC &&
             pos_magic != (long)(EA_MAGIC + 1) &&
@@ -500,7 +506,8 @@ void ExecuteEmergencySystemSweep() {
                        ? SymbolInfoDouble(pos_sym, SYMBOL_BID)
                        : SymbolInfoDouble(pos_sym, SYMBOL_ASK);
         req.type_filling = ORDER_FILLING_IOC;
-        req.comment  = "FXMatrix_CircuitBreaker";
+        req.comment  = full_sweep ? "FXMatrix_CircuitBreaker"
+                                  : "FXMatrix_PodAmputation";
 
         if (!OrderSend(req, res))
             Print("WARNING [Phase3A] Emergency close send failed. ",
@@ -512,22 +519,42 @@ void ExecuteEmergencySystemSweep() {
         close_attempted[idx] = ticket;
     }
 
-    CancelAllPendingEntries();
+    if (full_sweep) {
+        CancelAllPendingEntries();
 
-    for (int _i = OrdersTotal() - 1; _i >= 0; _i--) {
-        ulong _tkt = OrderGetTicket(_i);
-        if (_tkt == 0) continue;
-        long _m = OrderGetInteger(ORDER_MAGIC);
-        if (_m != (long)EA_MAGIC &&
-            _m != (long)(EA_MAGIC + 1) &&
-            _m != (long)(EA_MAGIC + 2)) continue;
-        MqlTradeRequest _req = {};
-        MqlTradeResult  _res = {};
-        _req.action = TRADE_ACTION_REMOVE;
-        _req.order  = _tkt;
-        if (!OrderSend(_req, _res))
-            Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt,
-                  " retcode=", _res.retcode);
+        for (int _i = OrdersTotal() - 1; _i >= 0; _i--) {
+            ulong _tkt = OrderGetTicket(_i);
+            if (_tkt == 0) continue;
+            long _m = OrderGetInteger(ORDER_MAGIC);
+            if (_m != (long)EA_MAGIC &&
+                _m != (long)(EA_MAGIC + 1) &&
+                _m != (long)(EA_MAGIC + 2)) continue;
+            MqlTradeRequest _req = {};
+            MqlTradeResult  _res = {};
+            _req.action = TRADE_ACTION_REMOVE;
+            _req.order  = _tkt;
+            if (!OrderSend(_req, _res))
+                Print("WARNING [Phase3A] Cancel failed. ticket=", _tkt,
+                      " retcode=", _res.retcode);
+        }
+    } else {
+        for (int i = OrdersTotal() - 1; i >= 0; i--) {
+            ulong ticket = OrderGetTicket(i);
+            if (ticket == 0) continue;
+            if (OrderGetString(ORDER_SYMBOL) != GetInstrumentSymbol(target_instrument)) continue;
+            long order_magic = OrderGetInteger(ORDER_MAGIC);
+            if (order_magic != (long)EA_MAGIC &&
+                order_magic != (long)(EA_MAGIC + 1) &&
+                order_magic != (long)(EA_MAGIC + 2)) continue;
+
+            MqlTradeRequest req = {};
+            MqlTradeResult  res = {};
+            req.action = TRADE_ACTION_REMOVE;
+            req.order  = ticket;
+            if (!OrderSend(req, res))
+                Print("WARNING [Tier1] Scoped cancel failed. ticket=", ticket,
+                      " retcode=", res.retcode);
+        }
     }
 
     bool still_open[];
@@ -557,13 +584,28 @@ void ExecuteEmergencySystemSweep() {
         g_critical_alert_write_idx = (g_critical_alert_write_idx + 1) % CRITICAL_ALERT_BUFFER_SIZE;
     }
 
-    PurgeClosedLayers(g_inventory_0, close_attempted, still_open);
-    PurgeClosedLayers(g_inventory_1, close_attempted, still_open);
-    PurgeClosedLayers(g_inventory_2, close_attempted, still_open);
+    if (!full_sweep) {
+        g_pending_bid[target_instrument]   = 0;
+        g_pending_offer[target_instrument] = 0;
+        g_add_next[target_instrument]      = 0;
+    }
+
+    if (full_sweep) {
+        PurgeClosedLayers(g_inventory_0, close_attempted, still_open);
+        PurgeClosedLayers(g_inventory_1, close_attempted, still_open);
+        PurgeClosedLayers(g_inventory_2, close_attempted, still_open);
+    } else {
+        if (target_instrument == 0)      PurgeClosedLayers(g_inventory_0, close_attempted, still_open);
+        else if (target_instrument == 1) PurgeClosedLayers(g_inventory_1, close_attempted, still_open);
+        else                             PurgeClosedLayers(g_inventory_2, close_attempted, still_open);
+    }
 
     SaveAllInventoryState();
-    g_halted = true;
-    ExpertRemove();
+
+    if (full_sweep) {
+        g_halted = true;
+        ExpertRemove();
+    }
 }
 
 void CheckForOrphans() {

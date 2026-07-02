@@ -724,65 +724,8 @@ double GetPodUnrealizedPnL(int instrument) {
 //------------------------------------------------------------------
 void ClosePodPositions(int instrument) {
     string symbol = g_symbols[instrument];
-
     Print("INFO: ClosePodPositions — amputating ", symbol, " pod.");
-
-    int inv_size = (instrument == 0) ? ArraySize(g_inventory_0)
-                 : (instrument == 1) ? ArraySize(g_inventory_1)
-                 : ArraySize(g_inventory_2);
-
-    for (int i = inv_size - 1; i >= 0; i--) {
-        ulong ticket = (instrument == 0) ? g_inventory_0[i].position_ticket
-                     : (instrument == 1) ? g_inventory_1[i].position_ticket
-                     : g_inventory_2[i].position_ticket;
-
-        if (!PositionSelectByTicket(ticket)) continue;
-
-        MqlTradeRequest req = {};
-        MqlTradeResult  res = {};
-        req.action    = TRADE_ACTION_DEAL;
-        req.symbol    = symbol;
-        req.volume    = PositionGetDouble(POSITION_VOLUME);
-        req.magic     = EA_MAGIC;
-        req.type      = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
-                        ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
-        req.price     = (req.type == ORDER_TYPE_SELL)
-                        ? SymbolInfoDouble(symbol, SYMBOL_BID)
-                        : SymbolInfoDouble(symbol, SYMBOL_ASK);
-        req.type_filling = ORDER_FILLING_IOC;
-        req.deviation = 10;
-        req.comment   = "FXMatrix_PodAmputation";
-
-        if (!OrderSend(req, res))
-            Print("WARNING: ClosePodPositions — close failed. ",
-                  "ticket=", ticket, " retcode=", res.retcode);
-    }
-
-    // Cancel all pending orders for this instrument
-    for (int i = OrdersTotal() - 1; i >= 0; i--) {
-        ulong ticket = OrderGetTicket(i);
-        if (ticket == 0) continue;
-        if (OrderGetInteger(ORDER_MAGIC) != (long)EA_MAGIC) continue;
-        if (OrderGetString(ORDER_SYMBOL) != symbol) continue;
-
-        MqlTradeRequest req = {};
-        MqlTradeResult  res = {};
-        req.action = TRADE_ACTION_REMOVE;
-        req.order  = ticket;
-        if (!OrderSend(req, res))
-            Print("WARNING: ClosePodPositions cancel failed. ticket=", ticket,
-                  " retcode=", res.retcode);
-    }
-
-    // Clear slot globals
-    g_pending_bid[instrument]   = 0;
-    g_pending_offer[instrument] = 0;
-    g_add_next[instrument]      = 0;
-    if (instrument == 0)      ArrayResize(g_inventory_0, 0);
-    else if (instrument == 1) ArrayResize(g_inventory_1, 0);
-    else                      ArrayResize(g_inventory_2, 0);
-
-    SaveAllInventoryState();
+    ExecuteSystemSweep(instrument);
     Print("INFO: ClosePodPositions — ", symbol, " pod amputated.");
 }
 
@@ -865,7 +808,7 @@ void CheckCircuitBreakers() {
               " daily_start=",   DoubleToString(g_daily_start_balance, 2),
               " tier3_floor=",   DoubleToString(tier3_floor, 2),
               " instance=",      InstanceID);
-        ExecuteEmergencySystemSweep();
+        ExecuteSystemSweep();
         return;
     }
 
@@ -875,7 +818,7 @@ void CheckCircuitBreakers() {
         Print("CRITICAL [Phase3A] Absolute equity floor breached. ",
               "equity=",         DoubleToString(current_equity, 2),
               " absolute_floor=", DoubleToString(absolute_floor, 2));
-        ExecuteEmergencySystemSweep();
+        ExecuteSystemSweep();
         return;
     }
     // ── End Tier 3 ───────────────────────────────────────────────────────

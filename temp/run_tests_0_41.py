@@ -850,8 +850,38 @@ run_test("51", [
              emergency_verify_poll([]) == ([], 0), True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-51)")
+# ---------------------------------------------------------------------------
+# Test 52 -- ADR-075 ExecuteSystemSweep mode dispatch
+# Pure Python mirror of full_sweep vs scoped decision logic.
+# ---------------------------------------------------------------------------
+
+def sweep_mode(target_instrument):
+    full_sweep = (target_instrument == -1)
+    return {
+        "full_sweep": full_sweep,
+        "should_detach": full_sweep,
+        "scan_scope": "all_three" if full_sweep else "single",
+        "purge_scope": "all_three" if full_sweep else "single",
+        "clears_pending_globals": not full_sweep,
+    }
+
+run_test("52", [
+    ("bool", "52a target=-1 -> full sweep + detach",
+             sweep_mode(-1)["should_detach"] == True, True),
+    ("bool", "52b target=-1 -> scans all three",
+             sweep_mode(-1)["scan_scope"] == "all_three", True),
+    ("bool", "52c target=0 -> no detach",
+             sweep_mode(0)["should_detach"] == False, True),
+    ("bool", "52d target=0 -> scoped scan",
+             sweep_mode(0)["scan_scope"] == "single", True),
+    ("bool", "52e target=0 -> clears pending globals",
+             sweep_mode(0)["clears_pending_globals"] == True, True),
+    ("bool", "52f target=-1 -> does NOT clear pending globals",
+             sweep_mode(-1)["clears_pending_globals"] == False, True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-52)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

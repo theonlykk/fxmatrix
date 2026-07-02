@@ -42,7 +42,7 @@ input ulong   EA_MAGIC    = 20260000; // ADR-021: Instance base magic (MM=202600
 input double NudgePips          = 0.5;     // pips; converted to points per symbol
 
 //--- Risk controls
-input double MaxPodDrawdown     = 0.03;    // 2% per pod
+input double MaxPodDrawdown     = 0.03;    // 3% per pod
 input double GlobalDrawdown     = 0.03;   // 4.5% global — front-runs FTMO 5% daily limit
 input double InpSoftDrawdownLimit = 3.0; // Tier 2 Soft Warning (% of daily start balance)
 input double InpHardDrawdownLimit = 4.0; // Tier 3 Hard Kill Switch (% of daily start balance)
