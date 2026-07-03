@@ -880,8 +880,104 @@ run_test("52", [
              sweep_mode(-1)["clears_pending_globals"] == False, True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-52)")
+# ---------------------------------------------------------------------------
+# Test 53 -- ADR-077 ComputeGridInterval four-mechanism decomposition
+# Pure Python mirror of MathEngine.mqh ComputeGridInterval().
+# Verifies: all toggles off reproduces QuoteSpread*(layer_idx+1) exactly;
+# each mechanism independently; all four stacked at layers 0, 5, 10.
+# ---------------------------------------------------------------------------
+
+def compute_grid_interval(layer_idx, instrument_active,
+                          enable_gridmode, enable_layer_stress,
+                          enable_pnl_stress, enable_ldak_dilation,
+                          quote_spread=0.0004, grid_mode=2,
+                          grid_base=0.0008, grid_linear_step=0.0002,
+                          grid_inflection=2, grid_exp_base=1.5,
+                          layer_stress_base=1.5, pnl_stress_input=1.0,
+                          dilation_input=1.0):
+    if enable_gridmode:
+        if grid_mode == 0:
+            base_interval = grid_base
+        elif grid_mode == 1:
+            base_interval = grid_base + layer_idx * grid_linear_step
+        else:
+            if layer_idx <= grid_inflection:
+                base_interval = grid_base + layer_idx * grid_linear_step
+            else:
+                s_at_inflection = grid_base + grid_inflection * grid_linear_step
+                base_interval = s_at_inflection * (grid_exp_base **
+                                                   (layer_idx - grid_inflection))
+    else:
+        base_interval = quote_spread * (layer_idx + 1)
+
+    layer_stress = (layer_stress_base ** layer_idx) if enable_layer_stress else 1.0
+    pnl_stress = pnl_stress_input if (enable_pnl_stress and instrument_active) else 1.0
+    dilation = dilation_input if (enable_ldak_dilation and instrument_active) else 1.0
+
+    return base_interval * layer_stress * pnl_stress * dilation
+
+
+def grid_interval_baseline(layer_idx, quote_spread=0.0004):
+    return quote_spread * (layer_idx + 1)
+
+
+def grid_interval_hybrid_base(layer_idx, grid_base=0.0008, grid_linear_step=0.0002,
+                              grid_inflection=2, grid_exp_base=1.5):
+    if layer_idx <= grid_inflection:
+        return grid_base + layer_idx * grid_linear_step
+    s_at = grid_base + grid_inflection * grid_linear_step
+    return s_at * (grid_exp_base ** (layer_idx - grid_inflection))
+
+
+QS53 = 0.0004
+LSB53 = 1.5
+PNL53 = 2.0
+DIL53 = 2.0
+
+for _li in (0, 5, 10):
+    _tag = f"li{_li}"
+    _base = grid_interval_baseline(_li, QS53)
+    _hyb = grid_interval_hybrid_base(_li)
+
+    run_test("53", [
+        ("num", f"53a-{_tag} all off = baseline",
+         compute_grid_interval(_li, False, False, False, False, False),
+         _base, TOL),
+        ("num", f"53b-{_tag} gridmode hybrid only",
+         compute_grid_interval(_li, False, True, False, False, False, grid_mode=2),
+         _hyb, TOL),
+        ("num", f"53c-{_tag} layer stress only",
+         compute_grid_interval(_li, False, False, True, False, False,
+                               layer_stress_base=LSB53),
+         _base * (LSB53 ** _li), TOL),
+        ("num", f"53d-{_tag} pnl stress only",
+         compute_grid_interval(_li, True, False, False, True, False,
+                               pnl_stress_input=PNL53),
+         _base * PNL53, TOL),
+        ("num", f"53e-{_tag} ldak dilation only",
+         compute_grid_interval(_li, True, False, False, False, True,
+                               dilation_input=DIL53),
+         _base * DIL53, TOL),
+        ("num", f"53f-{_tag} all four stacked",
+         compute_grid_interval(_li, True, True, True, True, True,
+                               grid_mode=2, layer_stress_base=LSB53,
+                               pnl_stress_input=PNL53, dilation_input=DIL53),
+         _hyb * (LSB53 ** _li) * PNL53 * DIL53, TOL),
+    ])
+
+# 53g: toggles-off bit-for-bit at layer 10 -- explicit neutral-product proof
+_g53_off = compute_grid_interval(10, False, False, False, False, False)
+_g53_base = QS53 * 11
+run_test("53", [
+    ("num", "53g layer10 toggles-off exact", _g53_off, _g53_base, TOL),
+    ("bool", "53g product all 1.0x",
+     compute_grid_interval(10, True, False, False, False, False,
+                           pnl_stress_input=99.0, dilation_input=99.0) == _g53_base,
+     True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-53)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

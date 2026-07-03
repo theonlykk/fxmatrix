@@ -665,68 +665,63 @@ double ComputeSigmoidLotMultiplier(int slot) {
 
 //------------------------------------------------------------------
 // ComputeGridInterval
-// Returns the grid spacing S for a given layer index.
-// GridMode 0: constant S = GridBase
-// GridMode 1: linear S = GridBase + layer_idx * GridLinearStep
-// GridMode 2: hybrid — linear up to GridInflection, then exponential
+// ADR-077: four independently toggleable spacing mechanisms.
+// All toggles false (default) = QuoteSpread * (layer_idx + 1) exactly.
 //------------------------------------------------------------------
 double ComputeGridInterval(int layer_idx, int instrument = -1) {
-    // Base interval from existing grid mode logic
-    double base_interval = 0.0;
+    double base_interval;
 
-    if (GridMode == 0) {
-        base_interval = GridBase;
-    }
-    else if (GridMode == 1) {
-        base_interval = GridBase + layer_idx * GridLinearStep;
-    }
-    else { // GridMode == 2: hybrid
-        if (layer_idx <= GridInflection) {
+    if (DebugEnableGridMode) {
+        if (GridMode == 0) {
+            base_interval = GridBase;
+        }
+        else if (GridMode == 1) {
             base_interval = GridBase + layer_idx * GridLinearStep;
         }
         else {
-            double S_at_inflection = GridBase + GridInflection * GridLinearStep;
-            base_interval = S_at_inflection * MathPow(GridExpBase,
-                                                       layer_idx - GridInflection);
+            if (layer_idx <= GridInflection) {
+                base_interval = GridBase + layer_idx * GridLinearStep;
+            } else {
+                double S_at_inflection = GridBase + GridInflection * GridLinearStep;
+                base_interval = S_at_inflection * MathPow(GridExpBase,
+                                                           layer_idx - GridInflection);
+            }
         }
+    } else {
+        // Today's exact live formula -- unchanged when toggle is off.
+        // NOT GridMode's own constant-mode branch (GridBase alone) --
+        // that would silently differ from current production behavior.
+        base_interval = QuoteSpread * (layer_idx + 1);
     }
 
-    // Phase 3: dual stress multiplier
-    // Layer count stress (leading indicator) — fires immediately on each fill
-    double layer_stress = MathPow(LayerStressBase, layer_idx);
+    double layer_stress = DebugEnableLayerStress
+                          ? MathPow(LayerStressBase, layer_idx)
+                          : 1.0;
 
-    // PnL stress (lagging amplifier) — grows as pod bleeds
     double pnl_stress = 1.0;
-    if (instrument >= 0) {
-        double balance  = AccountInfoDouble(ACCOUNT_BALANCE);
-        double pod_pnl  = GetPodUnrealizedPnL(instrument);
+    if (DebugEnablePnLStress && instrument >= 0) {
+        double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+        double pod_pnl = GetPodUnrealizedPnL(instrument);
         if (balance > 0.0 && MaxPodDrawdown > 0.0)
             pnl_stress = 1.0 + K_spread *
                          (MathAbs(pod_pnl) / (balance * MaxPodDrawdown));
     }
 
-    // LDAK: volatility-gated grid dilation
-    if (instrument >= 0) {
-        // ADR-046: use viscous cooldown LDAK instead of live dilation
-        // g_cooldown_LDAK snaps up instantly on shock, decays slowly on calm
-        double dilation = g_cooldown_LDAK[instrument];
-        base_interval  *= layer_stress * pnl_stress * dilation;
-        if (EnableVerboseLog) Print("DIAG GridInterval: layer=", layer_idx,
-              " base=", DoubleToString(base_interval / (layer_stress * pnl_stress * dilation), 6),
+    double dilation = (DebugEnableLDAKDilation && instrument >= 0)
+                      ? g_cooldown_LDAK[instrument]
+                      : 1.0;
+
+    double result = base_interval * layer_stress * pnl_stress * dilation;
+
+    if (EnableVerboseLog)
+        Print("DIAG GridInterval: layer=", layer_idx,
+              " gridmode=", DebugEnableGridMode,
+              " base=", DoubleToString(base_interval, 6),
               " layer_stress=", DoubleToString(layer_stress, 6),
               " pnl_stress=", DoubleToString(pnl_stress, 6),
               " dilation=", DoubleToString(dilation, 6),
-              " result=", DoubleToString(base_interval, 6));
-        return base_interval;
-    }
-
-    if (EnableVerboseLog) Print("DIAG GridInterval: layer=", layer_idx,
-          " base=", DoubleToString(base_interval / (layer_stress * pnl_stress), 6),
-          " layer_stress=", DoubleToString(layer_stress, 6),
-          " pnl_stress=", DoubleToString(pnl_stress, 6),
-          " dilation=N/A",
-          " result=", DoubleToString(base_interval * layer_stress * pnl_stress, 6));
-    return base_interval * layer_stress * pnl_stress;
+              " result=", DoubleToString(result, 6));
+    return result;
 }
 
 //------------------------------------------------------------------

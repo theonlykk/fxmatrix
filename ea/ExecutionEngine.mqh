@@ -614,7 +614,7 @@ double ComputeNextLayerPrice(int    next_layer_idx,
     double pt       = SymbolInfoDouble(g_symbols[instrument], SYMBOL_POINT);
     double E_n           = MathAbs(prev.entry_spread_raw)
                            * MathPow(0.618, prev.layer_index + 1);
-    double base_add      = QuoteSpread * (prev.layer_index + 1);
+    double base_add      = ComputeGridInterval(prev.layer_index, instrument);
     // ADR-057 Component 1: kinetic distance stretches with sigma_pts
     double kinetic_dist  = ComputeKineticDistance(instrument);
     double A_n           = MathMax(base_add, MathMax(E_n + 10.0 * pt, kinetic_dist));
@@ -870,7 +870,7 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
 
         double E_n_add     = MathAbs(L.entry_spread_raw)
                              * MathPow(0.618, L.layer_index + 1);
-        double base_add    = QuoteSpread * (L.layer_index + 1);
+        double base_add    = ComputeGridInterval(L.layer_index, instrument);
         double A_golden    = E_n_add * 1.618;
         double A_n         = MathMax(base_add, A_golden);
         double computed_next = (L.direction == DIRECTION_BUY)

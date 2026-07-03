@@ -72,6 +72,28 @@ input bool   DebugAddNextBarCloseOnly = false;
 // true = pre-ADR-028 behavior, Option B evaluated only on new M5 bar close.
 // DO NOT set true in any live/demo deployment -- backtest isolation only.
 
+input bool DebugEnableGridMode     = false;
+// TEMPORARY TEST TOGGLE -- ADR-077. false = today's live formula
+// (QuoteSpread * (layer_idx+1)), unchanged. true = real GridMode
+// branch (0=constant/1=linear/2=hybrid) via GridBase/GridLinearStep/
+// GridInflection/GridExpBase. DO NOT enable in live/demo deployment
+// without explicit backtest validation first.
+
+input bool DebugEnableLayerStress  = false;
+// TEMPORARY TEST TOGGLE -- ADR-077. false = neutral (1.0x). true =
+// LayerStressBase^layer_idx multiplier (previously fully dormant,
+// never applied to live spacing).
+
+input bool DebugEnablePnLStress    = false;
+// TEMPORARY TEST TOGGLE -- ADR-077. false = neutral (1.0x). true =
+// live-drawdown-linked multiplier via GetPodUnrealizedPnL() and
+// K_spread (previously fully dormant).
+
+input bool DebugEnableLDAKDilation = false;
+// TEMPORARY TEST TOGGLE -- ADR-077. false = neutral (1.0x). true =
+// g_cooldown_LDAK[instrument] multiplier (previously fully dormant
+// in this specific spacing context).
+
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "G_o9MVJgWSGVS0CuTX7_1LiR76qbtwJMMwBjb_ncT7A";
