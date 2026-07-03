@@ -1082,8 +1082,90 @@ run_test("54", [
              _ok_i_norm == False, True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-54)")
+# ---------------------------------------------------------------------------
+# Test 55 -- ADR-079 Dynamic re-anchor intercept (PlaceNextEntryLimit)
+# Pure Python mirror of the NEW intercept only -- existing clamp unchanged.
+# Verifies: toggle off = static unchanged; toggle on no violation = static;
+# toggle on with violation = market -/+ distance, exact distance preserved.
+# ---------------------------------------------------------------------------
+
+DIR_BUY55 = 1
+DIR_SELL55 = -1
+
+
+def dynamic_reanchor_price(debug_enable, static_price, entry_price, direction,
+                           current_bid, current_ask, stops_level=0, point=0.00001):
+    """Mirror ADR-079 intercept before the unchanged passivity clamp."""
+    price = static_price
+    if not debug_enable:
+        return price
+    distance = abs(price - entry_price)
+    min_dist = max(stops_level * point, point)
+    if direction == DIR_BUY55:
+        if current_bid > 0.0 and price > current_bid - min_dist:
+            price = current_bid - distance
+    else:
+        if current_ask > 0.0 and price < current_ask + min_dist:
+            price = current_ask + distance
+    return price
+
+
+PT55 = 0.00001
+SL55 = 0
+MD55 = PT55
+
+# 55a: toggle off always returns static price
+_static55 = 1.09500
+_entry55 = 1.10000
+_bid55 = 1.09800
+_ask55 = 1.09820
+run_test("55", [
+    ("num", "55a toggle off BUY returns static",
+     dynamic_reanchor_price(False, _static55, _entry55, DIR_BUY55, _bid55, _ask55, SL55, PT55),
+     _static55, TOL),
+    ("num", "55a toggle off SELL returns static",
+     dynamic_reanchor_price(False, 1.10500, _entry55, DIR_SELL55, _bid55, 1.10510, SL55, PT55),
+     1.10500, TOL),
+])
+
+# 55b: toggle on, no passivity violation -- static unchanged
+_passive_buy = 1.09400   # below bid - min_dist (1.09799)
+_passive_sell = 1.10650  # above ask + min_dist (1.10511)
+run_test("55", [
+    ("num", "55b toggle on BUY no violation = static",
+     dynamic_reanchor_price(True, _passive_buy, _entry55, DIR_BUY55, _bid55, _ask55, SL55, PT55),
+     _passive_buy, TOL),
+    ("num", "55b toggle on SELL no violation = static",
+     dynamic_reanchor_price(True, _passive_sell, _entry55, DIR_SELL55, _bid55, 1.10510, SL55, PT55),
+     _passive_sell, TOL),
+])
+
+# 55c: toggle on WITH violation -- reanchor preserving exact distance
+_viol_buy_static = 1.09900
+_viol_buy_dist = abs(_viol_buy_static - _entry55)
+_viol_buy_bid = 1.09800
+_viol_buy_result = dynamic_reanchor_price(
+    True, _viol_buy_static, _entry55, DIR_BUY55, _viol_buy_bid, _ask55, SL55, PT55)
+
+_viol_sell_static = 1.10500
+_viol_sell_dist = abs(_viol_sell_static - _entry55)
+_viol_sell_ask = 1.10600
+_viol_sell_result = dynamic_reanchor_price(
+    True, _viol_sell_static, _entry55, DIR_SELL55, _bid55, _viol_sell_ask, SL55, PT55)
+
+run_test("55", [
+    ("num", "55c BUY violation = bid - distance",
+     _viol_buy_result, _viol_buy_bid - _viol_buy_dist, TOL),
+    ("num", "55c BUY preserved distance exact",
+     abs(_viol_buy_dist - abs(_viol_buy_static - _entry55)), 0.0, TOL),
+    ("num", "55c SELL violation = ask + distance",
+     _viol_sell_result, _viol_sell_ask + _viol_sell_dist, TOL),
+    ("num", "55c SELL preserved distance exact",
+     abs(_viol_sell_dist - abs(_viol_sell_static - _entry55)), 0.0, TOL),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-55)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

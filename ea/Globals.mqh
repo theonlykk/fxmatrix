@@ -108,6 +108,18 @@ input int ExitResetDelaySeconds = 30;
 // separate from MinLayerIntervalSeconds (deepening pace) --
 // this governs re-engagement pace, a different decision.
 
+input bool DebugEnableDynamicReanchor = false;
+// TEMPORARY TEST TOGGLE -- ADR-079. false (default) = today's exact
+// behavior: static-anchor theoretical price passed directly to the
+// existing passivity clamp, accepting compression if the market has
+// overrun the level. true = if the static-anchor price would violate
+// passivity, discard it and recompute a new price from CURRENT
+// market, preserving the theoretical DISTANCE (grid width) rather
+// than the theoretical absolute level. The existing clamp (lines
+// ~432-451) is NOT modified in any way -- it remains the final,
+// unconditional safety check either way. DO NOT enable in live/demo
+// deployment without explicit backtest validation.
+
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "G_o9MVJgWSGVS0CuTX7_1LiR76qbtwJMMwBjb_ncT7A";

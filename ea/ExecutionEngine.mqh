@@ -429,6 +429,44 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     // Applied universally to all add_next placements.
     double price = (price_override > 0.0) ? price_override : prev_layer.add_next;
 
+    // ADR-079: Dynamic re-anchor. If the static-anchor theoretical price
+    // would already violate passivity (i.e. the clamp below would need
+    // to modify it), discard it and recompute from CURRENT market,
+    // preserving the theoretical distance rather than the stale level.
+    // This does NOT alter the clamp itself -- it only changes what price
+    // is HANDED TO the clamp, which still runs unconditionally afterward
+    // as the final check either way.
+    if (DebugEnableDynamicReanchor) {
+        double distance = MathAbs(price - prev_layer.entry_price);
+        if (prev_layer.direction == DIRECTION_BUY) {
+            double current_bid_ra = SymbolInfoDouble(symbol, SYMBOL_BID);
+            int    stops_level_ra = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
+            double point_ra       = SymbolInfoDouble(symbol, SYMBOL_POINT);
+            double min_dist_ra    = MathMax(stops_level_ra * point_ra, point_ra);
+            if (current_bid_ra > 0.0 && price > current_bid_ra - min_dist_ra) {
+                double new_price = current_bid_ra - distance;
+                Print("INFO [ADR-079] Dynamic re-anchor (BUY). static_price=",
+                      DoubleToString(price, 5), " overran market -- reanchored to ",
+                      DoubleToString(new_price, 5), " preserving distance=",
+                      DoubleToString(distance, 5));
+                price = new_price;
+            }
+        } else {
+            double current_ask_ra = SymbolInfoDouble(symbol, SYMBOL_ASK);
+            int    stops_level_ra = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
+            double point_ra       = SymbolInfoDouble(symbol, SYMBOL_POINT);
+            double min_dist_ra    = MathMax(stops_level_ra * point_ra, point_ra);
+            if (current_ask_ra > 0.0 && price < current_ask_ra + min_dist_ra) {
+                double new_price = current_ask_ra + distance;
+                Print("INFO [ADR-079] Dynamic re-anchor (SELL). static_price=",
+                      DoubleToString(price, 5), " overran market -- reanchored to ",
+                      DoubleToString(new_price, 5), " preserving distance=",
+                      DoubleToString(distance, 5));
+                price = new_price;
+            }
+        }
+    }
+
     if (prev_layer.direction == DIRECTION_BUY) {
         // BUY limit: use minimum of computed level and current bid - min_dist
         // If market gapped below computed level, join top of book passively
