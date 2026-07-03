@@ -1273,26 +1273,33 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         // Zero regardless -- PlaceNextEntryLimit will resubmit
                         g_add_next[inst] = 0;
 
-                        // Resubmit add-next for new shallowest layer (index 0)
-                        Layer NewShallowest = (inst == 0) ? g_inventory_0[0]
-                                            : (inst == 1) ? g_inventory_1[0]
-                                            : g_inventory_2[0];
-                        string sym = g_symbols[inst];
-
-                        // remaining is the new inventory size after LIFO removal
-                        double computed = ComputeNextLayerPrice(remaining, NewShallowest.instrument,
-                                                                NewShallowest.direction,
-                                                                NewShallowest.entry_price);
-                        if (computed > 0.0) {
-                            ulong tkt = PlaceNextEntryLimit(NewShallowest, sym, computed);
-                            if (tkt > 0) {
-                                Print("INFO: Phase 3 add-next resubmitted for new shallowest layer. ",
-                                      "ticket=", tkt, " instrument=", NewShallowest.instrument,
-                                      " price=", computed);
-                            } else {
-                                Print("WARNING: add_next resubmission failed (tkt=0). Possible ",
-                                      "sub-minimum lot size or API rejection. Grid deepening is halted. ",
-                                      "instrument=", NewShallowest.instrument, " computed_price=", computed);
+                        if (DebugEnableExitResetDelay) {
+                            // Defer resubmit -- OnTick Option B will pick this up once
+                            // ExitResetDelaySeconds has elapsed. Do NOT compute or place
+                            // anything here.
+                            g_last_exit_reset_time[inst] = TimeCurrent();
+                            Print("INFO [ADR-078] Exit-reset delay armed. instrument=",
+                                  g_symbols[inst], " delay=", ExitResetDelaySeconds, "s");
+                        } else {
+                            // Today's exact existing behavior -- unchanged, byte-for-byte.
+                            Layer NewShallowest = (inst == 0) ? g_inventory_0[0]
+                                                : (inst == 1) ? g_inventory_1[0]
+                                                : g_inventory_2[0];
+                            string sym = g_symbols[inst];
+                            double computed = ComputeNextLayerPrice(remaining, NewShallowest.instrument,
+                                                                    NewShallowest.direction,
+                                                                    NewShallowest.entry_price);
+                            if (computed > 0.0) {
+                                ulong tkt = PlaceNextEntryLimit(NewShallowest, sym, computed);
+                                if (tkt > 0) {
+                                    Print("INFO: Phase 3 add-next resubmitted for new shallowest layer. ",
+                                          "ticket=", tkt, " instrument=", NewShallowest.instrument,
+                                          " price=", computed);
+                                } else {
+                                    Print("WARNING: add_next resubmission failed (tkt=0). Possible ",
+                                          "sub-minimum lot size or API rejection. Grid deepening is halted. ",
+                                          "instrument=", NewShallowest.instrument, " computed_price=", computed);
+                                }
                             }
                         }
                     }

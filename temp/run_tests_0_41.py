@@ -976,8 +976,114 @@ run_test("53", [
      True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-53)")
+# ---------------------------------------------------------------------------
+# Test 54 -- ADR-078 ExitResetDelaySeconds LIFO defer + Option B timing fork
+# Pure Python mirror of LIFO resubmit block and OnTick Option B gating.
+# Verifies: toggle off = immediate resubmit; toggle on = defer;
+# exit-reset uses ExitResetDelaySeconds; normal empty uses
+# MinLayerIntervalSeconds; KineticGateOpen applies to both paths.
+# ---------------------------------------------------------------------------
+
+def lifo_resubmit_action(debug_enable_exit_reset_delay, inst, now,
+                         g_last_exit_reset_time):
+    """Mirror LIFO resubmit block after cancel (no placement when deferring)."""
+    if debug_enable_exit_reset_delay:
+        g_last_exit_reset_time[inst] = now
+        return "defer", g_last_exit_reset_time
+    return "immediate", g_last_exit_reset_time
+
+
+def option_b_should_place(inst, now, g_last_exit_reset_time, g_last_layer_time,
+                          min_layer_interval, exit_reset_delay, kinetic_open):
+    """Mirror Option B timing gate (preconditions: inv>0, add_next==0)."""
+    exit_reset_pending = g_last_exit_reset_time[inst] > 0
+    if exit_reset_pending:
+        timing_ok = (now - g_last_exit_reset_time[inst] >= exit_reset_delay)
+    else:
+        timing_ok = (now - g_last_layer_time[inst] >= min_layer_interval)
+    return timing_ok and kinetic_open, exit_reset_pending
+
+
+MIN54 = 300
+DEL54 = 30
+T0_54 = 1000
+
+# 54a/54b: LIFO resubmit path
+_g54 = [0, 0, 0]
+_act_off, _g54_off = lifo_resubmit_action(False, 0, T0_54, _g54[:])
+_g54_on = [0, 0, 0]
+_act_on, _g54_on = lifo_resubmit_action(True, 0, T0_54, _g54_on[:])
+
+run_test("54", [
+    ("bool", "54a toggle off -> immediate resubmit",
+             _act_off == "immediate", True),
+    ("bool", "54a toggle off -> exit_reset timer untouched",
+             _g54_off[0] == 0, True),
+    ("bool", "54b toggle on -> defer (no inline place)",
+             _act_on == "defer", True),
+    ("bool", "54b toggle on -> arms exit_reset timer",
+             _g54_on[0] == T0_54, True),
+])
+
+# 54c/54d: exit-reset Option B gating
+_g54c = [T0_54, 0, 0]
+_ok_c, _pend_c = option_b_should_place(0, T0_54 + 15, _g54c, [0, 0, 0],
+                                       MIN54, DEL54, True)
+_ok_d, _pend_d = option_b_should_place(0, T0_54 + DEL54, _g54c, [0, 0, 0],
+                                       MIN54, DEL54, True)
+
+run_test("54", [
+    ("bool", "54c exit-reset elapsed < delay -> blocked",
+             _ok_c == False and _pend_c == True, True),
+    ("bool", "54d exit-reset elapsed >= delay + kinetic -> allowed",
+             _ok_d == True and _pend_d == True, True),
+])
+
+# 54e/54f: normal deepen-cycle Option B gating
+_ok_e, _pend_e = option_b_should_place(0, T0_54 + 15, [0, 0, 0],
+                                       [T0_54, 0, 0], MIN54, DEL54, True)
+_ok_f, _pend_f = option_b_should_place(0, T0_54 + MIN54, [0, 0, 0],
+                                       [T0_54, 0, 0], MIN54, DEL54, True)
+
+run_test("54", [
+    ("bool", "54e normal empty elapsed < MinLayer -> blocked",
+             _ok_e == False and _pend_e == False, True),
+    ("bool", "54f normal empty elapsed >= MinLayer + kinetic -> allowed",
+             _ok_f == True and _pend_f == False, True),
+])
+
+# 54g: exit-reset uses ExitResetDelaySeconds, NOT MinLayerIntervalSeconds
+# MinLayer satisfied (500s since last add) but exit delay not (15s since arm)
+_ok_g, _ = option_b_should_place(0, T0_54 + 15, [T0_54, 0, 0],
+                                 [T0_54 - 500, 0, 0], MIN54, DEL54, True)
+
+# 54h: normal path uses MinLayerIntervalSeconds, NOT ExitResetDelaySeconds
+# Exit delay would pass (35s) but MinLayer not (15s since last add)
+_ok_h, _ = option_b_should_place(0, T0_54 + 15, [0, 0, 0],
+                                 [T0_54, 0, 0], MIN54, DEL54, True)
+
+run_test("54", [
+    ("bool", "54g exit-reset ignores MinLayer (still blocked)",
+             _ok_g == False, True),
+    ("bool", "54h normal ignores ExitResetDelay (still blocked)",
+             _ok_h == False, True),
+])
+
+# 54i: KineticGateOpen required on both paths
+_ok_i_exit, _ = option_b_should_place(0, T0_54 + DEL54, [T0_54, 0, 0],
+                                      [0, 0, 0], MIN54, DEL54, False)
+_ok_i_norm, _ = option_b_should_place(0, T0_54 + MIN54, [0, 0, 0],
+                                      [T0_54, 0, 0], MIN54, DEL54, False)
+
+run_test("54", [
+    ("bool", "54i exit-reset blocked when kinetic closed",
+             _ok_i_exit == False, True),
+    ("bool", "54i normal deepen blocked when kinetic closed",
+             _ok_i_norm == False, True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-54)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

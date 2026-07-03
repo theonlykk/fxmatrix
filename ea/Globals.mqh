@@ -94,6 +94,20 @@ input bool DebugEnableLDAKDilation = false;
 // g_cooldown_LDAK[instrument] multiplier (previously fully dormant
 // in this specific spacing context).
 
+input bool DebugEnableExitResetDelay = false;
+// TEMPORARY TEST TOGGLE -- ADR-078. false (default) = today's exact
+// behavior: LIFO exit cancels stale add_next and resubmits
+// IMMEDIATELY, inline, zero delay. true = defer resubmit via
+// ExitResetDelaySeconds, letting the market show whether the
+// scratched level still holds before re-committing. DO NOT enable
+// in live/demo deployment without explicit backtest validation.
+
+input int ExitResetDelaySeconds = 30;
+// ADR-078: delay before re-arming add_next after a LIFO exit
+// scratch, when DebugEnableExitResetDelay=true. Deliberately
+// separate from MinLayerIntervalSeconds (deepening pace) --
+// this governs re-engagement pace, a different decision.
+
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "G_o9MVJgWSGVS0CuTX7_1LiR76qbtwJMMwBjb_ncT7A";
@@ -218,6 +232,10 @@ ulong    g_add_next[3]      = {0, 0, 0};
 
 // ADR-024: V3 slot-indexed last layer timestamps
 datetime g_last_layer_time[3] = {0, 0, 0};
+// ADR-078: non-zero = exit-triggered reset pending resubmit via
+// OnTick Option B, gated by ExitResetDelaySeconds. Zero = no
+// pending exit-reset (normal deepen-cycle path, unaffected).
+datetime g_last_exit_reset_time[3] = {0, 0, 0};
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 

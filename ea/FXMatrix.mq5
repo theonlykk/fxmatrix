@@ -259,9 +259,23 @@ void OnTick() {
             }
 
             if (inst_inv_size > 0 && inst_add_next == 0) {
-                datetime last_layer = g_last_layer_time[inst];
-                if (TimeCurrent() - last_layer >= MinLayerIntervalSeconds
-                    && KineticGateOpen(inst, inst_inv_size)) {
+                bool exit_reset_pending = (g_last_exit_reset_time[inst] > 0);
+                bool timing_ok;
+
+                if (exit_reset_pending) {
+                    // ADR-078: this zero add_next is specifically from a LIFO
+                    // exit reset -- gate on ExitResetDelaySeconds, NOT
+                    // MinLayerIntervalSeconds. These are deliberately separate.
+                    timing_ok = (TimeCurrent() - g_last_exit_reset_time[inst]
+                                 >= ExitResetDelaySeconds);
+                } else {
+                    // Existing behavior -- normal deepen-cycle empty state
+                    // (fill, broker-drop, etc), unaffected by ADR-078.
+                    datetime last_layer = g_last_layer_time[inst];
+                    timing_ok = (TimeCurrent() - last_layer >= MinLayerIntervalSeconds);
+                }
+
+                if (timing_ok && KineticGateOpen(inst, inst_inv_size)) {
                     int inv_size = inst_inv_size;
                     Layer deepest = (inst == 0) ? g_inventory_0[inv_size - 1]
                                   : (inst == 1) ? g_inventory_1[inv_size - 1]
@@ -279,10 +293,18 @@ void OnTick() {
                                       "g_daily_api_count=", g_daily_api_count);
                             }
                             g_last_layer_time[inst] = TimeCurrent();
-                            Print("INFO: add_next re-armed after sleep. ",
-                                  "instrument=", inst_symbol,
-                                  " layer=", inv_size,
-                                  " computed=", DoubleToString(computed, 5));
+                            if (exit_reset_pending) {
+                                g_last_exit_reset_time[inst] = 0;  // clear -- handled
+                                Print("INFO [ADR-078] Exit-reset add_next placed after delay. ",
+                                      "instrument=", inst_symbol,
+                                      " layer=", inv_size,
+                                      " computed=", DoubleToString(computed, 5));
+                            } else {
+                                Print("INFO: add_next re-armed after sleep. ",
+                                      "instrument=", inst_symbol,
+                                      " layer=", inv_size,
+                                      " computed=", DoubleToString(computed, 5));
+                            }
                         } else {
                             Print("INFO: API halt active. Add-next re-arm blocked. ",
                                   "instrument=", inst_symbol);
