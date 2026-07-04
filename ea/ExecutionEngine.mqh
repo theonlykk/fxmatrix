@@ -661,11 +661,18 @@ double ComputeNextLayerPrice(int    next_layer_idx,
                             ? prev.entry_price - A_n
                             : prev.entry_price + A_n;
 
-    if (EnableVerboseLog)
+    if (EnableVerboseLog) {
+        string winner = (A_n == base_add) ? "LINEAR/HYBRID(base_add)"
+                      : (A_n == (E_n + 10.0*pt)) ? "DECAY(E_n+10pt)"
+                      : "KINETIC(kinetic_dist)";
         Print("DIAG ComputeNextLayerPrice: layer=", prev.layer_index,
-              " E_n=", DoubleToString(E_n, 6),
+              " base_add=", DoubleToString(base_add, 6),
+              " E_n_plus_pt=", DoubleToString(E_n + 10.0*pt, 6),
+              " kinetic_dist=", DoubleToString(kinetic_dist, 6),
               " A_n=", DoubleToString(A_n, 6),
+              " WINNER=", winner,
               " price=", DoubleToString(price_add_next, 5));
+    }
 
     return price_add_next;
 }
@@ -914,6 +921,17 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
         double computed_next = (L.direction == DIRECTION_BUY)
                                ? L.entry_price - A_n
                                : L.entry_price + A_n;
+
+        if (EnableVerboseLog) {
+            string winner_hf = (A_n == base_add) ? "LINEAR/HYBRID(base_add)"
+                             : "DECAY(A_golden)";
+            Print("DIAG HandleEntryFill add_next: layer=", L.layer_index,
+                  " base_add=", DoubleToString(base_add, 6),
+                  " A_golden=", DoubleToString(A_golden, 6),
+                  " A_n=", DoubleToString(A_n, 6),
+                  " WINNER=", winner_hf,
+                  " price=", DoubleToString(computed_next, 5));
+        }
 
         if (computed_next <= 0.0) {
             Print("SEV-2: HandleEntryFill — add_next sentinel (-1.0). ",
