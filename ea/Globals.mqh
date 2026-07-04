@@ -120,6 +120,17 @@ input bool DebugEnableDynamicReanchor = false;
 // unconditional safety check either way. DO NOT enable in live/demo
 // deployment without explicit backtest validation.
 
+input bool DebugUseUnifiedAddNextSpacing = false;
+// TEMPORARY TEST TOGGLE -- ADR-080. false (default) = HandleEntryFill
+// retains its legacy A_golden = E_n * 1.618 formula (2-way max,
+// no kinetic) -- UNCHANGED from today's production behavior. true =
+// HandleEntryFill delegates entirely to ComputeNextLayerPrice(),
+// injecting full kinetic awareness into the fill-time add_next
+// calculation for the first time. DO NOT enable in live/demo
+// deployment without explicit backtest validation -- this changes
+// stored add_next values at layer creation, not just downstream
+// placement.
+
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "G_o9MVJgWSGVS0CuTX7_1LiR76qbtwJMMwBjb_ncT7A";

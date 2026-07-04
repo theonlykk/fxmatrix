@@ -1164,8 +1164,96 @@ run_test("55", [
      abs(_viol_sell_dist - abs(_viol_sell_static - _entry55)), 0.0, TOL),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-55)")
+# ---------------------------------------------------------------------------
+# Test 56 -- ADR-080 HandleEntryFill unified vs legacy add_next spacing
+# Pure Python mirror. Reuses compute_grid_interval (Test 53) and
+# compute_kinetic_distance (Test 44). Verifies: toggle off = legacy
+# A_golden with L.layer_index; toggle on = ComputeNextLayerPrice via
+# layer_idx+1; counterexample that legacy must NOT shift index +1.
+# ---------------------------------------------------------------------------
+
+DIR_BUY56 = 1
+DIR_SELL56 = -1
+PT56 = 0.00001
+QS56 = 0.0004
+
+
+def compute_next_layer_price(next_layer_idx, prev_layer_index, entry_spread_raw,
+                             entry_price, direction, sigma_pts=0.0, pt=PT56,
+                             quote_spread=QS56):
+    """Mirror ExecutionEngine.mqh ComputeNextLayerPrice() core math."""
+    if next_layer_idx - 1 < 0:
+        return -1.0
+    e_n = abs(entry_spread_raw) * (PHI ** (prev_layer_index + 1))
+    base_add = compute_grid_interval(prev_layer_index, False, False, False, False,
+                                     False, quote_spread=quote_spread)
+    kinetic_dist = compute_kinetic_distance(sigma_pts)
+    a_n = max(base_add, max(e_n + 10.0 * pt, kinetic_dist))
+    if direction == DIR_BUY56:
+        return entry_price - a_n
+    return entry_price + a_n
+
+
+def legacy_hf_add_next(layer_index, entry_spread_raw, entry_price, direction,
+                       quote_spread=QS56):
+    """Mirror HandleEntryFill legacy branch (DebugUseUnifiedAddNextSpacing=false)."""
+    e_n_add = abs(entry_spread_raw) * (PHI ** (layer_index + 1))
+    base_add = compute_grid_interval(layer_index, False, False, False, False, False,
+                                     quote_spread=quote_spread)
+    a_golden = e_n_add * 1.618
+    a_n = max(base_add, a_golden)
+    if direction == DIR_BUY56:
+        return entry_price - a_n
+    return entry_price + a_n
+
+
+def legacy_hf_add_next_wrong_shift(layer_index, entry_spread_raw, entry_price,
+                                   direction, quote_spread=QS56):
+    """Counterexample: legacy formula with layer_index+1 wrongly in exponent/grid."""
+    wrong_idx = layer_index + 1
+    e_n_add = abs(entry_spread_raw) * (PHI ** (wrong_idx + 1))
+    base_add = compute_grid_interval(wrong_idx, False, False, False, False, False,
+                                     quote_spread=quote_spread)
+    a_golden = e_n_add * 1.618
+    a_n = max(base_add, a_golden)
+    if direction == DIR_BUY56:
+        return entry_price - a_n
+    return entry_price + a_n
+
+
+def handle_entry_fill_add_next(unified, layer_idx, layer_index, entry_spread_raw,
+                               entry_price, direction, sigma_pts=0.0):
+    if unified:
+        return compute_next_layer_price(layer_idx + 1, layer_index, entry_spread_raw,
+                                        entry_price, direction, sigma_pts)
+    return legacy_hf_add_next(layer_index, entry_spread_raw, entry_price, direction)
+
+
+_LI56 = 2
+_LIDX56 = 2
+_SPR56 = 0.0010
+_ENT56 = 1.10000
+_SIG56 = 50.0
+
+_legacy56 = legacy_hf_add_next(_LI56, _SPR56, _ENT56, DIR_BUY56)
+_off56 = handle_entry_fill_add_next(False, _LIDX56, _LI56, _SPR56, _ENT56, DIR_BUY56)
+_unified56 = compute_next_layer_price(_LIDX56 + 1, _LI56, _SPR56, _ENT56, DIR_BUY56, _SIG56)
+_on56 = handle_entry_fill_add_next(True, _LIDX56, _LI56, _SPR56, _ENT56, DIR_BUY56, _SIG56)
+_wrong56 = legacy_hf_add_next_wrong_shift(_LI56, _SPR56, _ENT56, DIR_BUY56)
+
+run_test("56", [
+    ("num", "56a toggle off = legacy A_golden formula",
+     _off56, _legacy56, TOL),
+    ("num", "56b toggle on = ComputeNextLayerPrice(layer_idx+1)",
+     _on56, _unified56, TOL),
+    ("bool", "56c wrong layer_index+1 shift differs from legacy",
+             _wrong56 != _legacy56, True),
+    ("bool", "56c wrong shift delta non-zero",
+             abs(_wrong56 - _legacy56) > TOL, True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-56)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

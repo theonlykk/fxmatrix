@@ -913,24 +913,49 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             g_inventory_2[layer_idx] = L;
         }
 
-        double E_n_add     = MathAbs(L.entry_spread_raw)
-                             * MathPow(0.618, L.layer_index + 1);
-        double base_add    = ComputeGridInterval(L.layer_index, instrument);
-        double A_golden    = E_n_add * 1.618;
-        double A_n         = MathMax(base_add, A_golden);
-        double computed_next = (L.direction == DIRECTION_BUY)
-                               ? L.entry_price - A_n
-                               : L.entry_price + A_n;
+        double computed_next;
+        double base_add_hf;
+        double A_n_hf;
+        string winner_hf;
 
-        if (EnableVerboseLog) {
-            string winner_hf = (A_n == base_add) ? "LINEAR/HYBRID(base_add)"
-                             : "DECAY(A_golden)";
-            Print("DIAG HandleEntryFill add_next: layer=", L.layer_index,
-                  " base_add=", DoubleToString(base_add, 6),
-                  " A_golden=", DoubleToString(A_golden, 6),
-                  " A_n=", DoubleToString(A_n, 6),
-                  " WINNER=", winner_hf,
-                  " price=", DoubleToString(computed_next, 5));
+        if (DebugUseUnifiedAddNextSpacing) {
+            // ADR-080: unified path -- full kinetic awareness at fill time,
+            // matching Option B / LIFO resubmit exactly. Correct index:
+            // layer_idx + 1 (the layer ABOUT TO BE CREATED) -- confirmed via
+            // anchor that ComputeNextLayerPrice resolves prev_idx =
+            // next_layer_idx - 1 internally, so passing layer_idx+1 here
+            // correctly resolves to L itself as the anchor.
+            computed_next = ComputeNextLayerPrice(layer_idx + 1, instrument,
+                                                  L.direction, deal_price);
+            // ComputeNextLayerPrice's own EnableVerboseLog print already
+            // reports base_add/kinetic_dist/WINNER internally -- this path
+            // relies on that existing print rather than duplicating it.
+        } else {
+            // Legacy path -- UNCHANGED from today's production formula.
+            // L.layer_index here is already the correct anchor index --
+            // confirmed equivalent to what the true branch resolves to
+            // internally via prev.layer_index. Do NOT apply layer_idx+1
+            // here -- this branch performs no array lookup, unlike
+            // ComputeNextLayerPrice's internal prev_idx resolution.
+            double E_n_add  = MathAbs(L.entry_spread_raw)
+                              * MathPow(0.618, L.layer_index + 1);
+            base_add_hf     = ComputeGridInterval(L.layer_index, instrument);
+            double A_golden = E_n_add * 1.618;
+            A_n_hf          = MathMax(base_add_hf, A_golden);
+            computed_next   = (L.direction == DIRECTION_BUY)
+                              ? L.entry_price - A_n_hf
+                              : L.entry_price + A_n_hf;
+
+            if (EnableVerboseLog) {
+                winner_hf = (A_n_hf == base_add_hf) ? "LINEAR/HYBRID(base_add)"
+                                                    : "DECAY(A_golden)";
+                Print("DIAG HandleEntryFill add_next: layer=", L.layer_index,
+                      " base_add=", DoubleToString(base_add_hf, 6),
+                      " A_golden=", DoubleToString(A_golden, 6),
+                      " A_n=", DoubleToString(A_n_hf, 6),
+                      " WINNER=", winner_hf,
+                      " price=", DoubleToString(computed_next, 5));
+            }
         }
 
         if (computed_next <= 0.0) {
