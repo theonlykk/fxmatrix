@@ -1008,18 +1008,34 @@ void AuditExitLimits() {
             // Skip if exit volume not armed yet
             if (L.remaining_exit_volume <= VOLUME_EPSILON) continue;
 
-            // Layer is fully filled but missing exit — attempt placement
-            // ADR-040: read deterministic exit price locked at fill time.
             string symbol    = g_symbols[slot];
             double exit_price = L.exit_price_fixed;
 
             if (exit_price < 0.0) {
-                // Sentinel — retry next tick after reconciliation or fill
                 continue;
             }
 
-            // Silently attempt placement — no pre-placement log to avoid
-            // flooding journal at 100x/second during freeze level conditions
+            // ADR-081: interval gate (read from global inventory, not L copy)
+            datetime last_retry = (slot == 0) ? g_inventory_0[i].last_exit_retry_time
+                                : (slot == 1) ? g_inventory_1[i].last_exit_retry_time
+                                : g_inventory_2[i].last_exit_retry_time;
+            if (TimeCurrent() - last_retry < ExitRetryIntervalSeconds) {
+                continue;
+            }
+
+            datetime first_retry = (slot == 0) ? g_inventory_0[i].first_exit_retry_time
+                                 : (slot == 1) ? g_inventory_1[i].first_exit_retry_time
+                                 : g_inventory_2[i].first_exit_retry_time;
+            if (first_retry == 0) {
+                if (slot == 0)      g_inventory_0[i].first_exit_retry_time = TimeCurrent();
+                else if (slot == 1) g_inventory_1[i].first_exit_retry_time = TimeCurrent();
+                else                g_inventory_2[i].first_exit_retry_time = TimeCurrent();
+            }
+
+            if (slot == 0)      g_inventory_0[i].last_exit_retry_time = TimeCurrent();
+            else if (slot == 1) g_inventory_1[i].last_exit_retry_time = TimeCurrent();
+            else                g_inventory_2[i].last_exit_retry_time = TimeCurrent();
+
             ulong exit_tkt = PlaceExitLimit(exit_price,
                                             L.remaining_exit_volume,
                                             L.direction,
@@ -1036,13 +1052,46 @@ void AuditExitLimits() {
                     ArrayResize(g_inventory_2[i].exit_tickets, n + 1);
                     g_inventory_2[i].exit_tickets[n] = exit_tkt;
                 }
+                if (slot == 0) {
+                    g_inventory_0[i].last_exit_retry_time  = 0;
+                    g_inventory_0[i].first_exit_retry_time = 0;
+                    g_inventory_0[i].exit_escalated        = false;
+                } else if (slot == 1) {
+                    g_inventory_1[i].last_exit_retry_time  = 0;
+                    g_inventory_1[i].first_exit_retry_time = 0;
+                    g_inventory_1[i].exit_escalated        = false;
+                } else {
+                    g_inventory_2[i].last_exit_retry_time  = 0;
+                    g_inventory_2[i].first_exit_retry_time = 0;
+                    g_inventory_2[i].exit_escalated        = false;
+                }
                 SaveAllInventoryState();
                 Print("INFO: AuditExitLimits — successfully recovered orphaned exit. ",
                       "slot=", slot, " layer=", i,
                       " ticket=", exit_tkt,
                       " price=", DoubleToString(exit_price, 5));
+            } else {
+                bool escalated = (slot == 0) ? g_inventory_0[i].exit_escalated
+                               : (slot == 1) ? g_inventory_1[i].exit_escalated
+                               : g_inventory_2[i].exit_escalated;
+                first_retry = (slot == 0) ? g_inventory_0[i].first_exit_retry_time
+                            : (slot == 1) ? g_inventory_1[i].first_exit_retry_time
+                            : g_inventory_2[i].first_exit_retry_time;
+                if (!escalated &&
+                    (TimeCurrent() - first_retry >= ExitRetryMaxSeconds)) {
+                    string alert_msg = StringFormat(
+                        "CRITICAL [ADR-081]: Exit placement stuck %d+ seconds. "
+                        "slot=%d layer=%d exit_price=%.5f",
+                        ExitRetryMaxSeconds, slot, i, exit_price);
+                    Print(alert_msg);
+                    g_critical_alerts[g_critical_alert_write_idx] = alert_msg;
+                    g_critical_alert_write_idx = (g_critical_alert_write_idx + 1)
+                                                 % CRITICAL_ALERT_BUFFER_SIZE;
+                    if (slot == 0)      g_inventory_0[i].exit_escalated = true;
+                    else if (slot == 1) g_inventory_1[i].exit_escalated = true;
+                    else                g_inventory_2[i].exit_escalated = true;
+                }
             }
-            // If placement fails again, no action — retry next tick
         }
     }
 }

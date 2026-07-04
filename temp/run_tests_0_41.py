@@ -1252,8 +1252,89 @@ run_test("56", [
              abs(_wrong56 - _legacy56) > TOL, True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-56)")
+# ---------------------------------------------------------------------------
+# Test 57 -- ADR-081 AuditExitLimits retry throttle + load bounds
+# Pure Python mirror. Verifies interval gate, escalation latch, field
+# clear, symmetric bounds on both datetime fields.
+# ---------------------------------------------------------------------------
+
+INTERVAL57 = 15
+MAX57 = 300
+T57 = 1000000
+ENTRY57 = T57 - 3600
+
+
+def adr081_bounds_check(value, entry_time, now):
+    """Mirror LoadInventoryState symmetric bounds (both fields identical)."""
+    if value > now or value < entry_time:
+        return 0
+    return value
+
+
+def adr081_interval_allows(last_retry, now, interval=INTERVAL57):
+    return (now - last_retry) >= interval
+
+
+def adr081_escalation_fire(escalated, first_retry, now, max_sec=MAX57):
+    if escalated:
+        return False, escalated
+    if first_retry == 0:
+        return False, escalated
+    if (now - first_retry) >= max_sec:
+        return True, True
+    return False, escalated
+
+
+def adr081_on_success():
+    return {"last_exit_retry_time": 0, "first_exit_retry_time": 0, "exit_escalated": False}
+
+
+run_test("57", [
+    ("bool", "57a first attempt never interval-gated (last_retry=0)",
+             adr081_interval_allows(0, T57), True),
+    ("bool", "57b within interval blocked",
+             adr081_interval_allows(T57 - 5, T57) is False, True),
+    ("bool", "57c at interval allowed",
+             adr081_interval_allows(T57 - INTERVAL57, T57), True),
+])
+
+_st57 = {"last_exit_retry_time": 0, "first_exit_retry_time": T57 - MAX57 - 1,
+         "exit_escalated": False}
+_f1, _st57["exit_escalated"] = adr081_escalation_fire(
+    _st57["exit_escalated"], _st57["first_exit_retry_time"], T57)
+_f2, _st57["exit_escalated"] = adr081_escalation_fire(
+    _st57["exit_escalated"], _st57["first_exit_retry_time"], T57 + 1)
+
+run_test("57", [
+    ("bool", "57d escalation fires once when past max",
+             _f1 is True, True),
+    ("bool", "57e escalation does not repeat",
+             _f2 is False, True),
+])
+
+_clr57 = adr081_on_success()
+run_test("57", [
+    ("bool", "57f success clears last_retry",
+             _clr57["last_exit_retry_time"] == 0, True),
+    ("bool", "57f success clears first_retry",
+             _clr57["first_exit_retry_time"] == 0, True),
+    ("bool", "57f success clears escalated",
+             _clr57["exit_escalated"] is False, True),
+])
+
+for _field, _val in (("first_exit_retry_time", ENTRY57 + 100),
+                     ("last_exit_retry_time", ENTRY57 + 100)):
+    run_test("57", [
+        ("num", f"57g {_field} valid passes",
+         adr081_bounds_check(_val, ENTRY57, T57), _val, TOL),
+        ("num", f"57h {_field} before entry resets",
+         adr081_bounds_check(ENTRY57 - 100, ENTRY57, T57), 0, TOL),
+        ("num", f"57i {_field} after now resets",
+         adr081_bounds_check(T57 + 100, ENTRY57, T57), 0, TOL),
+    ])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-57)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

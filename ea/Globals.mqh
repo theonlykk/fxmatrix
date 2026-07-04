@@ -131,6 +131,17 @@ input bool DebugUseUnifiedAddNextSpacing = false;
 // stored add_next values at layer creation, not just downstream
 // placement.
 
+input int ExitRetryIntervalSeconds = 15;
+// ADR-081: minimum seconds between PlaceExitLimit retry attempts
+// for an orphaned exit. Throttles the tick-rate retry storm that
+// caused unconditional passivity-fail logging on every tick.
+// Does NOT change the eventual exit price or outcome.
+
+input int ExitRetryMaxSeconds = 300;
+// ADR-081: wall-clock ceiling. If an orphaned exit has failed
+// placement continuously for this long, fire a ONE-SHOT critical
+// alert. Defense against a permanently-stuck layer.
+
 //--- Pipshed Telemetry
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "G_o9MVJgWSGVS0CuTX7_1LiR76qbtwJMMwBjb_ncT7A";
@@ -267,6 +278,9 @@ int  g_daily_api_count = 0;    // resets at broker midnight with g_daily_start_b
 bool g_api_halt        = false; // true when g_daily_api_count >= 1800
 
 bool g_reconciliation_pending = false;
+
+// ADR-081: schema version loaded from global state file (0 = absent/legacy)
+int g_loaded_schema_version = 0;
 
 int InitGlobals() {
     g_NudgeThreshold = NudgePips

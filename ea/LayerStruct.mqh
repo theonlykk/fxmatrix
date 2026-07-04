@@ -62,6 +62,11 @@ struct Layer {
     ulong    entry_ticket;
     ulong    position_ticket;
     ulong    exit_tickets[];
+
+    // --- ADR-081: orphaned exit retry throttle ---
+    datetime last_exit_retry_time;  // last placement attempt
+    datetime first_exit_retry_time; // first failure in this orphan episode
+    bool     exit_escalated;        // one-shot alert latch
 };
 
 // CloseBy async queue task — used when MT5 ledger desync prevents
@@ -137,6 +142,9 @@ Layer InitLayer() {
     L.entry_ticket                 = 0;
     L.position_ticket              = 0;
     ArrayResize(L.exit_tickets, 0);
+    L.last_exit_retry_time         = 0;
+    L.first_exit_retry_time        = 0;
+    L.exit_escalated               = false;
     return L;
 }
 

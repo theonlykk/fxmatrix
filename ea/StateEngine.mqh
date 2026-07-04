@@ -48,6 +48,7 @@ void SaveGlobalState() {
               + DoubleToString(g_daily_start_balance, 8) + ",");
     FileWrite(fh, "  \"daily_start_date\": \""
               + g_daily_start_date + "\",");
+    FileWrite(fh, "  \"schema_version\": 1,");
     FileWrite(fh, "  \"warning_sent\": "
               + (g_warning_sent ? "true" : "false"));
     FileWrite(fh, "}");
@@ -102,6 +103,8 @@ bool LoadGlobalState() {
             g_daily_start_date = val;
         else if (key == "warning_sent")
             g_warning_sent = (val == "true");
+        else if (key == "schema_version")
+            g_loaded_schema_version = (int)StringToInteger(val);
     }
     FileClose(fh);
     Print("INFO [ADR-045] LoadGlobalState — loaded. ",
@@ -300,6 +303,20 @@ bool LoadInventoryState(int instrument) {
         }
 
         if (in_layer && (line == "}" || line == "},")) {
+            // ADR-081: symmetric defensive bounds -- protects against
+            // uninitialized/garbage values from a schema-mismatched or
+            // corrupted state file. Garbage can land arbitrarily in either
+            // temporal direction, so both fields get the same two-sided check.
+            // exit_escalated intentionally omitted (no meaningful temporal range).
+            if (L.first_exit_retry_time > TimeCurrent() ||
+                L.first_exit_retry_time < L.entry_time) {
+                L.first_exit_retry_time = 0;
+            }
+            if (L.last_exit_retry_time > TimeCurrent() ||
+                L.last_exit_retry_time < L.entry_time) {
+                L.last_exit_retry_time = 0;
+            }
+
             // Append to correct slot array
             if (instrument == 0) {
                 int idx = ArraySize(g_inventory_0);
