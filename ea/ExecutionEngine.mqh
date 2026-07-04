@@ -533,6 +533,51 @@ ulong PlaceNextEntryLimit(const Layer &prev_layer, string symbol,
     g_add_next[instrument] = res.order;
 
     SaveAllInventoryState();
+
+    if (EnableVerboseLog) {
+        double signed_held = 0.0;
+        int _pos_slot = instrument;
+        int _pos_inv_size = (_pos_slot == 0) ? ArraySize(g_inventory_0)
+                           : (_pos_slot == 1) ? ArraySize(g_inventory_1)
+                           : ArraySize(g_inventory_2);
+        for (int _pi = 0; _pi < _pos_inv_size; _pi++) {
+            Layer _PL = (_pos_slot == 0) ? g_inventory_0[_pi]
+                      : (_pos_slot == 1) ? g_inventory_1[_pi]
+                      : g_inventory_2[_pi];
+            double _vol = (_PL.remaining_exit_volume > VOLUME_EPSILON)
+                         ? _PL.remaining_exit_volume
+                         : (_PL.lot_size - _PL.remaining_entry_volume);
+            signed_held += _vol * (_PL.direction == DIRECTION_BUY ? 1.0 : -1.0);
+        }
+
+        string _exits_str = "";
+        for (int _pi = 0; _pi < _pos_inv_size; _pi++) {
+            Layer _PL = (_pos_slot == 0) ? g_inventory_0[_pi]
+                      : (_pos_slot == 1) ? g_inventory_1[_pi]
+                      : g_inventory_2[_pi];
+            if (ArraySize(_PL.exit_tickets) == 0) continue;
+            double _live_price = _PL.exit_price_fixed;
+            if (OrderSelect(_PL.exit_tickets[0]))
+                _live_price = OrderGetDouble(ORDER_PRICE_OPEN);
+            if (_exits_str != "") _exits_str += ",";
+            _exits_str += IntegerToString(_PL.layer_index) + ":" +
+                         DoubleToString(_live_price, 5);
+        }
+        if (_exits_str == "") _exits_str = "none";
+
+        Print("DIAG TRADE | event=add_next | sym=", symbol,
+              " | slot=", instrument,
+              " | anchor_L=", prev_layer.layer_index,
+              " | dir=", (prev_layer.direction == DIRECTION_BUY ? "BUY" : "SELL"),
+              " | anchor_entry=", DoubleToString(prev_layer.entry_price, 5),
+              " | anchor_exit=", DoubleToString(prev_layer.exit_price_fixed, 5),
+              " | add_next=", DoubleToString(price, 5),
+              " | ticket=", res.order,
+              " | vol=", DoubleToString(req.volume, 4),
+              " | held=", DoubleToString(signed_held, 4),
+              " | exits_resting=", _exits_str);
+    }
+
     Print("INFO: Next entry limit placed (add_next). ticket=", res.order,
           " symbol=", symbol,
           " add_next=", DoubleToString(price, 5));
@@ -900,6 +945,15 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                     L.exit_price_fixed, L.entry_price,
                     MathAbs(L.entry_spread_raw) * MathPow(0.618, L.layer_index + 1),
                     L.layer_index, L.direction);
+
+        if (EnableVerboseLog) {
+            Print("DIAG TRADE | event=exit_locked | sym=", g_symbols[L.instrument],
+                  " | slot=", L.instrument,
+                  " | layer=", L.layer_index,
+                  " | dir=", (L.direction == DIRECTION_BUY ? "BUY" : "SELL"),
+                  " | entry_price=", DoubleToString(L.entry_price, 5),
+                  " | exit_price_fixed=", DoubleToString(L.exit_price_fixed, 5));
+        }
 
         // Append to correct per-instrument array
         if (instrument == 0) {
