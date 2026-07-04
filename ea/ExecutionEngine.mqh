@@ -1245,7 +1245,33 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                   : (inst == 1) ? ArraySize(g_inventory_1)
                                   : ArraySize(g_inventory_2);
 
+                    double _signed_held = 0.0;
+                    int _inv_size_after = remaining;
+                    for (int _pi = 0; _pi < _inv_size_after; _pi++) {
+                        Layer _PL = (inst == 0) ? g_inventory_0[_pi]
+                                  : (inst == 1) ? g_inventory_1[_pi]
+                                  : g_inventory_2[_pi];
+                        double _vol = (_PL.remaining_exit_volume > VOLUME_EPSILON)
+                                     ? _PL.remaining_exit_volume
+                                     : (_PL.lot_size - _PL.remaining_entry_volume);
+                        _signed_held += _vol * (_PL.direction == DIRECTION_BUY ? 1.0 : -1.0);
+                    }
+
                     if (remaining == 0) {
+                        string _trigger = "POD_FLAT";
+                        string _trigger_detail = "";
+                        if (EnableVerboseLog) {
+                            Print("DIAG TRADE | event=exit_filled | sym=", g_symbols[inst],
+                                  " | slot=", inst,
+                                  " | layer=", i,
+                                  " | dir=", (CurL.direction == DIRECTION_BUY ? "BUY" : "SELL"),
+                                  " | exit_price=", DoubleToString(deal_price, 5),
+                                  " | remaining_layers=", remaining,
+                                  " | position_held=", DoubleToString(_signed_held, 4),
+                                  " | trigger=", _trigger,
+                                  " | trigger_detail=", _trigger_detail);
+                        }
+
                         // Phase 3: capture add-next ticket BEFORE zeroing globals
                         ulong add_next_ticket = g_add_next[inst];
                         if (add_next_ticket > 0) {
@@ -1415,6 +1441,21 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             g_last_exit_reset_time[inst] = TimeCurrent();
                             Print("INFO [ADR-078] Exit-reset delay armed. instrument=",
                                   g_symbols[inst], " delay=", ExitResetDelaySeconds, "s");
+
+                            string _trigger = "EXIT_RESET_ARMED";
+                            string _trigger_detail = "delay=" +
+                                IntegerToString(ExitResetDelaySeconds) + "s";
+                            if (EnableVerboseLog) {
+                                Print("DIAG TRADE | event=exit_filled | sym=", g_symbols[inst],
+                                      " | slot=", inst,
+                                      " | layer=", i,
+                                      " | dir=", (CurL.direction == DIRECTION_BUY ? "BUY" : "SELL"),
+                                      " | exit_price=", DoubleToString(deal_price, 5),
+                                      " | remaining_layers=", remaining,
+                                      " | position_held=", DoubleToString(_signed_held, 4),
+                                      " | trigger=", _trigger,
+                                      " | trigger_detail=", _trigger_detail);
+                            }
                         } else {
                             // Today's exact existing behavior -- unchanged, byte-for-byte.
                             Layer NewShallowest = (inst == 0) ? g_inventory_0[0]
@@ -1424,8 +1465,9 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             double computed = ComputeNextLayerPrice(remaining, NewShallowest.instrument,
                                                                     NewShallowest.direction,
                                                                     NewShallowest.entry_price);
+                            ulong tkt = 0;
                             if (computed > 0.0) {
-                                ulong tkt = PlaceNextEntryLimit(NewShallowest, sym, computed);
+                                tkt = PlaceNextEntryLimit(NewShallowest, sym, computed);
                                 if (tkt > 0) {
                                     Print("INFO: Phase 3 add-next resubmitted for new shallowest layer. ",
                                           "ticket=", tkt, " instrument=", NewShallowest.instrument,
@@ -1435,6 +1477,21 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                                           "sub-minimum lot size or API rejection. Grid deepening is halted. ",
                                           "instrument=", NewShallowest.instrument, " computed_price=", computed);
                                 }
+                            }
+
+                            string _trigger = "LIFO_RESUBMIT";
+                            string _trigger_detail = "new_add=" + DoubleToString(computed, 5) +
+                                " ticket=" + IntegerToString(tkt);
+                            if (EnableVerboseLog) {
+                                Print("DIAG TRADE | event=exit_filled | sym=", g_symbols[inst],
+                                      " | slot=", inst,
+                                      " | layer=", i,
+                                      " | dir=", (CurL.direction == DIRECTION_BUY ? "BUY" : "SELL"),
+                                      " | exit_price=", DoubleToString(deal_price, 5),
+                                      " | remaining_layers=", remaining,
+                                      " | position_held=", DoubleToString(_signed_held, 4),
+                                      " | trigger=", _trigger,
+                                      " | trigger_detail=", _trigger_detail);
                             }
                         }
                     }
