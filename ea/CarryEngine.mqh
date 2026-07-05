@@ -297,67 +297,6 @@ void RunDailyRolloverReconciliation() {
         double swap_short = SymbolInfoDouble(symbol, SYMBOL_SWAP_SHORT);
 
         //--------------------------------------------------------------
-        // PRE-FILL: adjust pending entry limits (EA_MAGIC, EA_MAGIC+1)
-        // Loop backwards — safe MQL5 pattern for OrderModify loops
-        //--------------------------------------------------------------
-        for (int i = OrdersTotal() - 1; i >= 0; i--) {
-            ulong ticket = OrderGetTicket(i);
-            if (ticket == 0) continue;
-            if (OrderGetString(ORDER_SYMBOL) != symbol) continue;
-
-            ulong magic = OrderGetInteger(ORDER_MAGIC);
-            if (magic != EA_MAGIC && magic != EA_MAGIC + 1) continue;
-
-            ENUM_ORDER_TYPE otype = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
-            double current_price  = OrderGetDouble(ORDER_PRICE_OPEN);
-            double swap, new_price;
-
-            if (otype == ORDER_TYPE_BUY_LIMIT) {
-                swap = swap_long;
-                if (swap >= 0.0) continue;  // positive carry — no adjustment
-                double shift = MathAbs(swap) * multiplier * point;
-                new_price = current_price + shift;  // long side drifts UP
-            } else if (otype == ORDER_TYPE_SELL_LIMIT) {
-                swap = swap_short;
-                if (swap >= 0.0) continue;  // positive carry — no adjustment
-                double shift = MathAbs(swap) * multiplier * point;
-                new_price = current_price - shift;  // short side drifts DOWN
-            } else {
-                continue;  // not a limit order we manage
-            }
-
-            // Freeze level check before OrderModify
-            int direction = (otype == ORDER_TYPE_BUY_LIMIT) ? DIRECTION_BUY : DIRECTION_SELL;
-            if (!IsClearOfFreezeLevel(new_price, direction, symbol)) {
-                Print("INFO [ADR-045] Entry modify skipped — freeze level.",
-                      " ticket=", ticket, " symbol=", symbol);
-                continue;
-            }
-
-            MqlTradeRequest req = {};
-            MqlTradeResult  res = {};
-            req.action     = TRADE_ACTION_MODIFY;
-            req.order      = ticket;
-            req.price      = new_price;
-            req.sl         = OrderGetDouble(ORDER_SL);
-            req.tp         = OrderGetDouble(ORDER_TP);
-            req.type_time  = (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
-            req.expiration = (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
-
-            if (OrderSend(req, res)) {
-                Print("INFO [ADR-045] Entry adjusted.",
-                      " symbol=", symbol, " ticket=", ticket,
-                      " old=", DoubleToString(current_price, 5),
-                      " new=", DoubleToString(new_price, 5),
-                      " shift=", DoubleToString(MathAbs(swap) * multiplier * point, 5),
-                      " multiplier=", multiplier);
-            } else {
-                Print("ERROR [ADR-045] Entry OrderModify failed.",
-                      " ticket=", ticket, " retcode=", res.retcode);
-            }
-        }
-
-        //--------------------------------------------------------------
         // POST-FILL: adjust pending exit limits via inventory struct
         // Use g_inventory_X — never blindly loop OrdersTotal for exits
         //--------------------------------------------------------------
