@@ -1333,8 +1333,160 @@ for _field, _val in (("first_exit_retry_time", ENTRY57 + 100),
          adr081_bounds_check(T57 + 100, ENTRY57, T57), 0, TOL),
     ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-57)")
+# ---------------------------------------------------------------------------
+# Test 58 -- ADR-082 Kinetic-derived exit sizing (8-parameter overload)
+# Pure Python mirror. Toggle-off delegates to legacy 7-parameter formula;
+# toggle-on applies floor/scale/cap in pip space with NudgePips-pattern
+# conversion. Overload resolution (OnInit/CarryEngine/ADR-056) is F7-only.
+# ---------------------------------------------------------------------------
+
+BASE_THRESHOLD58 = 0.0004
+MIN_EXIT_PTS58 = 30
+PT58 = 0.00001
+EXIT_KINETIC_DIVISOR58 = 3.0
+EXIT_KINETIC_CAP_PIPS58 = 8.0
+DIR_BUY58 = 1
+DIR_SELL58 = -1
+
+
+def exit_det_legacy7(entry, spread_raw, layer_index, direction,
+                     half_spread, min_layer_exit_points, point_value,
+                     base_threshold=BASE_THRESHOLD58):
+    """Mirror untouched 7-parameter ComputeExitPriceDeterministic()."""
+    effective_spread = min(abs(spread_raw), abs(base_threshold))
+    e_n = effective_spread * (PHI ** (layer_index + 1))
+    if direction == DIR_BUY58:
+        raw_target = entry + e_n - half_spread
+    else:
+        raw_target = entry - e_n + half_spread
+    floor_dist = min_layer_exit_points * point_value
+    if direction == DIR_BUY58:
+        return max(raw_target, entry + floor_dist)
+    return min(raw_target, entry - floor_dist)
+
+
+def exit_det_overload8(entry, spread_raw, layer_index, direction,
+                       half_spread, min_layer_exit_points, point_value,
+                       kinetic_dist_raw, debug_unified=False,
+                       exit_kinetic_divisor=EXIT_KINETIC_DIVISOR58,
+                       exit_kinetic_cap_pips=EXIT_KINETIC_CAP_PIPS58):
+    """Mirror 8-parameter overload: toggle-off delegates to legacy7."""
+    if not debug_unified:
+        return exit_det_legacy7(
+            entry, spread_raw, layer_index, direction,
+            half_spread, min_layer_exit_points, point_value)
+    kinetic_dist_pips = kinetic_dist_raw / (point_value * 10.0)
+    min_exit_pips = min_layer_exit_points / 10.0
+    exit_pips = max(
+        min_exit_pips,
+        min(kinetic_dist_pips / exit_kinetic_divisor, exit_kinetic_cap_pips))
+    exit_dist_price = exit_pips * point_value * 10.0
+    if direction == DIR_BUY58:
+        return entry + exit_dist_price - half_spread
+    return entry - exit_dist_price + half_spread
+
+
+def pips_to_kinetic_raw(pips, point_value=PT58):
+    return pips * point_value * 10.0
+
+
+_ENTRY58 = 1.13800
+_SPREAD58 = -0.0004
+_LAYER58 = 0
+_HALF58 = 0.000005
+
+# 58a: toggle off delegates to legacy7 (not a re-implementation copy)
+_legacy58 = exit_det_legacy7(
+    _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+    _HALF58, MIN_EXIT_PTS58, PT58)
+_off58 = exit_det_overload8(
+    _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+    _HALF58, MIN_EXIT_PTS58, PT58,
+    pips_to_kinetic_raw(14.8), debug_unified=False)
+
+run_test("58", [
+    ("num", "58a toggle off = legacy7 delegation",
+     _off58, _legacy58, TOL),
+])
+
+# 58b: floor / scale / cap across real observed kinetic_dist range (pips)
+_KINETIC_PIPS58 = [3.0, 9.0, 14.8, 24.0, 39.4, 57.1, 79.9]
+_EXPECTED_EXIT_PIPS58 = [
+    max(MIN_EXIT_PTS58 / 10.0,
+        min(p / EXIT_KINETIC_DIVISOR58, EXIT_KINETIC_CAP_PIPS58))
+    for p in _KINETIC_PIPS58
+]
+
+for _pips, _exp_pips in zip(_KINETIC_PIPS58, _EXPECTED_EXIT_PIPS58):
+    _raw = pips_to_kinetic_raw(_pips)
+    _got = exit_det_overload8(
+        _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+        _HALF58, MIN_EXIT_PTS58, PT58, _raw, debug_unified=True)
+    _exp_price = _ENTRY58 + (_exp_pips * PT58 * 10.0) - _HALF58
+    run_test("58", [
+        ("num", f"58b kinetic { _pips } pips -> exit price",
+         _got, _exp_price, TOL),
+    ])
+
+# 58c: boundary -- kinetic_dist exactly at 3-pip floor: exit == add distance
+_BOUNDARY_RAW58 = pips_to_kinetic_raw(3.0)
+_exit_boundary58 = exit_det_overload8(
+    _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+    _HALF58, MIN_EXIT_PTS58, PT58, _BOUNDARY_RAW58, debug_unified=True)
+_add_boundary58 = _BOUNDARY_RAW58
+_exit_dist58 = (_exit_boundary58 + _HALF58) - _ENTRY58
+
+run_test("58", [
+    ("num", "58c boundary exit distance equals add distance (3 pips)",
+     _exit_dist58, _add_boundary58, TOL),
+    ("num", "58c boundary exit pips equals floor",
+     _exit_dist58 / (PT58 * 10.0), MIN_EXIT_PTS58 / 10.0, TOL),
+])
+
+# 58d: half_spread sign convention matches legacy raw_target step
+_HALF_DELTA58 = 0.000012
+
+
+def legacy_raw_target58(entry, spread_raw, layer_index, direction,
+                          half_spread):
+    effective_spread = min(abs(spread_raw), abs(BASE_THRESHOLD58))
+    e_n = effective_spread * (PHI ** (layer_index + 1))
+    if direction == DIR_BUY58:
+        return entry + e_n - half_spread
+    return entry - e_n + half_spread
+
+
+def kinetic_exit_only58(kinetic_dist_raw, half_spread, direction=DIR_BUY58):
+    exit_pips = max(
+        MIN_EXIT_PTS58 / 10.0,
+        min((kinetic_dist_raw / (PT58 * 10.0)) / EXIT_KINETIC_DIVISOR58,
+            EXIT_KINETIC_CAP_PIPS58))
+    exit_dist_price = exit_pips * PT58 * 10.0
+    if direction == DIR_BUY58:
+        return _ENTRY58 + exit_dist_price - half_spread
+    return _ENTRY58 - exit_dist_price + half_spread
+
+
+_KRAW58 = pips_to_kinetic_raw(14.8)
+for _dir, _label in ((DIR_BUY58, "buy"), (DIR_SELL58, "sell")):
+    _k0 = kinetic_exit_only58(_KRAW58, 0.0, _dir)
+    _kd = kinetic_exit_only58(_KRAW58, _HALF_DELTA58, _dir)
+    _l0 = legacy_raw_target58(_ENTRY58, _SPREAD58, _LAYER58, _dir, 0.0)
+    _ld = legacy_raw_target58(_ENTRY58, _SPREAD58, _LAYER58, _dir, _HALF_DELTA58)
+    _k_delta = _kd - _k0
+    _l_delta = _ld - _l0
+    _exp_delta = (-_HALF_DELTA58 if _dir == DIR_BUY58 else _HALF_DELTA58)
+    run_test("58", [
+        ("num", f"58d {_label} kinetic half_spread delta",
+         _k_delta, _exp_delta, TOL),
+        ("num", f"58d {_label} legacy raw half_spread delta",
+         _l_delta, _exp_delta, TOL),
+        ("num", f"58d {_label} kinetic delta matches legacy",
+         _k_delta, _l_delta, TOL),
+    ])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-58)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

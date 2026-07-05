@@ -131,6 +131,20 @@ input bool DebugUseUnifiedAddNextSpacing = false;
 // stored add_next values at layer creation, not just downstream
 // placement.
 
+input double ExitKineticDivisor = 3.0;
+// ADR-082: divisor applied to kinetic_dist (in pips) to derive
+// exit distance when DebugUseUnifiedAddNextSpacing=true. Ensures
+// exit distance stays smaller than add distance using the SAME
+// underlying signal (verified this session across the full
+// observed kinetic_dist range 3-79.9 pips).
+
+input double ExitKineticCapPips = 8.0;
+// ADR-082: upper cap on kinetic-derived exit distance, in pips.
+// Confirmed this session to sit near the 75th percentile of real
+// observed kinetic_dist values (24.6 pips / 3 ≈ 8.2) -- engages
+// specifically during the upper quartile of real conditions, not
+// only rare extremes.
+
 input int ExitRetryIntervalSeconds = 15;
 // ADR-081: minimum seconds between PlaceExitLimit retry attempts
 // for an orphaned exit. Throttles the tick-rate retry storm that

@@ -7,6 +7,10 @@
 // Required for Phase 3 stress multiplier in ComputeGridInterval()
 double GetPodUnrealizedPnL(int instrument);
 
+// Forward declaration — ComputeKineticDistance() is defined in ExecutionEngine.mqh
+// Required for ADR-082 8-parameter ComputeExitPriceDeterministic() overload
+double ComputeKineticDistance(int inst);
+
 //------------------------------------------------------------------
 // StdDev
 // Returns population standard deviation of log-return array
@@ -804,6 +808,66 @@ double ComputeExitPriceDeterministic(
         exit_price = MathMin(raw_target, entry_price - floor_dist);
 
     return exit_price;
+}
+
+// NEW OVERLOAD -- called ONLY by HandleEntryFill
+double ComputeExitPriceDeterministic(
+    double entry_price,
+    double entry_spread_raw,
+    int    layer_index,
+    int    direction,
+    double half_spread,
+    int    min_layer_exit_points,
+    double point_value,
+    int    instrument)
+{
+    if (DebugUseUnifiedAddNextSpacing) {
+        // ADR-082: kinetic-derived exit sizing.
+        // Independent call to ComputeKineticDistance() -- per
+        // Staff Architect Ruling 1, relies on the MT5
+        // single-threaded execution invariant: g_sigma_fv_pts
+        // cannot update mid-function, so this call and
+        // ComputeNextLayerPrice()'s own internal call return
+        // identical values within one HandleEntryFill() execution.
+        double kinetic_dist_raw = ComputeKineticDistance(instrument);
+
+        // Convert to pips using the CONFIRMED NudgePips-pattern
+        // conversion (pips * point_value * 10.0) -- NOT the
+        // broker-points-direct pattern the legacy function uses
+        // internally. These are two different, non-interchangeable
+        // conversions confirmed via Part 1, Point B.
+        double kinetic_dist_pips = kinetic_dist_raw / (point_value * 10.0);
+
+        // min_layer_exit_points is in BROKER POINTS (confirmed:
+        // 30 points = 3.0 pips per Globals.mqh comment) -- convert
+        // to pips on the same basis as kinetic_dist_pips above.
+        double min_layer_exit_points_in_pips = min_layer_exit_points / 10.0;
+
+        double exit_pips = MathMax(
+            min_layer_exit_points_in_pips,
+            MathMin(kinetic_dist_pips / ExitKineticDivisor,
+                    ExitKineticCapPips));
+
+        double exit_dist_price = exit_pips * point_value * 10.0;
+
+        // Per Staff Architect ruling: preserve spread compensation
+        // identically to the legacy branch -- half_spread is a
+        // live-tick correction at the interval-to-price step,
+        // independent of which formula computed the interval.
+        if (direction == DIRECTION_BUY)
+            return entry_price + exit_dist_price - half_spread;
+        else
+            return entry_price - exit_dist_price + half_spread;
+    }
+
+    // Toggle off: delegate straight to the untouched legacy
+    // function. This is a direct call, not a re-implementation --
+    // guarantees byte-for-byte identical behavior to today with
+    // zero risk of transcription drift between two copies of the
+    // same logic.
+    return ComputeExitPriceDeterministic(
+        entry_price, entry_spread_raw, layer_index, direction,
+        half_spread, min_layer_exit_points, point_value);
 }
 
 bool IsClearOfFreezeLevel(double price, int direction, string symbol) {

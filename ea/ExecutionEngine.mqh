@@ -936,7 +936,8 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
             L.direction,
             half_spread,
             MinLayerExitPoints,
-            SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT));
+            SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT),
+            L.instrument);
 
         L.exit_target        = L.exit_price_fixed;
 
