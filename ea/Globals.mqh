@@ -284,6 +284,13 @@ datetime g_last_layer_time[3] = {0, 0, 0};
 // OnTick Option B, gated by ExitResetDelaySeconds. Zero = no
 // pending exit-reset (normal deepen-cycle path, unaffected).
 datetime g_last_exit_reset_time[3] = {0, 0, 0};
+double   g_last_exit_reset_closing_add_next[3] = {0.0, 0.0, 0.0};
+// ADR-084 (Finding 1): caches the closing layer's add_next at the
+// moment an exit-reset delay is armed, since the closing layer is
+// removed from inventory before OnTick Option B's deferred
+// recomputation runs. Mirrors g_last_exit_reset_time[3]'s exact
+// lifecycle: set together at arm time, cleared together after the
+// deferred recomputation places successfully.
 int      g_carry_hour           = 17;  // parsed from CarryRecalcTime in OnInit
 int      g_carry_minute         = 0;   // parsed from CarryRecalcTime in OnInit
 

@@ -280,9 +280,17 @@ void OnTick() {
                     Layer deepest = (inst == 0) ? g_inventory_0[inv_size - 1]
                                   : (inst == 1) ? g_inventory_1[inv_size - 1]
                                   : g_inventory_2[inv_size - 1];
-                    double computed = ComputeNextLayerPrice(
-                        inv_size, deepest.instrument,
-                        deepest.direction, deepest.entry_price);
+                    double computed;
+                    if (exit_reset_pending) {
+                        double midpoint = 0.5 * (deepest.add_next +
+                                               g_last_exit_reset_closing_add_next[inst]);
+                        int digits = (int)SymbolInfoInteger(inst_symbol, SYMBOL_DIGITS);
+                        computed = NormalizeDouble(midpoint, digits);
+                    } else {
+                        computed = ComputeNextLayerPrice(
+                            inv_size, deepest.instrument,
+                            deepest.direction, deepest.entry_price);
+                    }
                     if (computed > 0.0) {
                         if (!g_api_halt) {
                             PlaceNextEntryLimit(deepest, inst_symbol, computed);
@@ -295,6 +303,7 @@ void OnTick() {
                             g_last_layer_time[inst] = TimeCurrent();
                             if (exit_reset_pending) {
                                 g_last_exit_reset_time[inst] = 0;  // clear -- handled
+                                g_last_exit_reset_closing_add_next[inst] = 0.0;
                                 Print("INFO [ADR-078] Exit-reset add_next placed after delay. ",
                                       "instrument=", inst_symbol,
                                       " layer=", inv_size,

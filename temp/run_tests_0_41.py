@@ -1485,8 +1485,68 @@ for _dir, _label in ((DIR_BUY58, "buy"), (DIR_SELL58, "sell")):
          _k_delta, _l_delta, TOL),
     ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-58)")
+# ---------------------------------------------------------------------------
+# Test 59 -- ADR-084 Midpoint exit-reset recomputation (OnTick Option B)
+# Pure Python mirror. exit_reset_pending=true uses midpoint + normalize;
+# exit_reset_pending=false delegates to compute_next_layer_price (Test 56).
+# ---------------------------------------------------------------------------
+
+from decimal import Decimal, ROUND_HALF_UP
+
+
+def normalize_price(price, digits):
+    """Mirror MQL5 NormalizeDouble(price, digits) -- half away from zero."""
+    quant = Decimal(10) ** -digits
+    return float(Decimal(str(price)).quantize(quant, rounding=ROUND_HALF_UP))
+
+
+def option_b_computed(exit_reset_pending, deepest_add_next, closing_add_next_cached,
+                      inv_size, prev_layer_index, entry_spread_raw, entry_price,
+                      direction, digits=5, sigma_pts=0.0):
+    """Mirror OnTick Option B computed-price branch."""
+    if exit_reset_pending:
+        midpoint = 0.5 * (deepest_add_next + closing_add_next_cached)
+        return normalize_price(midpoint, digits)
+    return compute_next_layer_price(
+        inv_size, prev_layer_index, entry_spread_raw,
+        entry_price, direction, sigma_pts)
+
+
+# 59a: findings doc worked example -- 0.5 * (1.16176 + 1.16355) -> 1.16266 at 5 digits
+_M59A = normalize_price(0.5 * (1.16176 + 1.16355), 5)
+run_test("59", [
+    ("num", "59a findings midpoint normalized to 5 digits",
+     _M59A, 1.16266, TOL),
+])
+
+# 59b: exit_reset_pending false delegates to kinetic mirror (unchanged path)
+_DEEP59 = 1.13800
+_INV59 = 3
+_LIDX59 = 2
+_SPR59 = -0.0004
+_DIR59 = DIR_BUY56
+_kinetic59 = compute_next_layer_price(
+    _INV59, _LIDX59, _SPR59, _DEEP59, _DIR59, sigma_pts=50.0)
+_off59 = option_b_computed(
+    False, 1.16000, 0.0,
+    _INV59, _LIDX59, _SPR59, _DEEP59, _DIR59, sigma_pts=50.0)
+run_test("59", [
+    ("num", "59b normal path = compute_next_layer_price delegation",
+     _off59, _kinetic59, TOL),
+])
+
+# 59c: exact tick-step midpoint -- normalization is a no-op
+_M59C_RAW = 0.5 * (1.16000 + 1.16200)
+_M59C = normalize_price(_M59C_RAW, 5)
+run_test("59", [
+    ("num", "59c exact midpoint unchanged by normalization",
+     _M59C, 1.16100, TOL),
+    ("num", "59c raw equals normalized (no-op check)",
+     _M59C, _M59C_RAW, TOL),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-59)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

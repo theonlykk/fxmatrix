@@ -1442,6 +1442,7 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                             // ExitResetDelaySeconds has elapsed. Do NOT compute or place
                             // anything here.
                             g_last_exit_reset_time[inst] = TimeCurrent();
+                            g_last_exit_reset_closing_add_next[inst] = CurL.add_next;
                             Print("INFO [ADR-078] Exit-reset delay armed. instrument=",
                                   g_symbols[inst], " delay=", ExitResetDelaySeconds, "s");
 
