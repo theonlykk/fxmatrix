@@ -92,6 +92,20 @@ defaulting to either pacing -- "this could silently corrupt X" or
 reasoned per prompt, not applied as a blanket rule.
 ---
 
+---
+## ADR Content Must Be Included in Full
+
+Stating an ADR file's name and line count is not sufficient -- the
+complete verbatim content must be included directly in the response,
+the same way a full diff is required rather than a description of one.
+"See repo for full content" is not acceptable; it defeats the purpose
+of the review step, since the whole point is confirming what was
+actually written before trusting it, not what Cursor says it wrote.
+
+This applies to every response that creates or modifies an ADR file,
+with no exception for length.
+---
+
 Guiding Principles
 Cognitive Partition: Never blend critique and execution. DeepSeek tears it down, Claude builds the blueprint, Gemini rules, Cursor types.
 
