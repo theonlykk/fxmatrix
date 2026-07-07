@@ -82,7 +82,6 @@ int OnInit() {
                 entry_spread_raw,
                 layer_index,
                 direction,
-                0.0,
                 MinLayerExitPoints,
                 pt);
 

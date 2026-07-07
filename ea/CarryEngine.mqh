@@ -138,20 +138,11 @@ void RunCarryRecalculation() {
             // ADR-040: Recompute deterministic exit after carry adjustment
             // new_spread is the carry-adjusted entry_spread_raw equivalent
             // Use original fill price (L.entry_price), not live prices
-            double half_spread = 0.0;
-            {
-                string sym = g_symbols[L.instrument];
-                double _bid = SymbolInfoDouble(sym, SYMBOL_BID);
-                double _ask = SymbolInfoDouble(sym, SYMBOL_ASK);
-                if (_bid > 0.0 && _ask > 0.0)
-                    half_spread = (_ask - _bid) / 2.0;
-            }
             L.exit_price_fixed = ComputeExitPriceDeterministic(
                 L.entry_price,
                 new_spread,
                 L.layer_index,
                 L.direction,
-                half_spread,
                 MinLayerExitPoints,
                 SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT));
 

@@ -48,11 +48,11 @@ def ldak(w, sm=1.0, base=0.01, min_vol=0.01):
     return max(raw, min_vol), raw, False
 
 
-def exit_det(entry, spread_raw, layer, direction, half=0.000005, min_pts=2, pt=0.00001):
+def exit_det(entry, spread_raw, layer, direction, min_pts=2, pt=0.00001):
     e = abs(spread_raw) * (PHI ** (layer + 1))
     if direction == 1:
-        return max(entry + e - half, entry + min_pts * pt)
-    return min(entry - e + half, entry - min_pts * pt)
+        return max(entry + e, entry + min_pts * pt)
+    return min(entry - e, entry - min_pts * pt)
 
 
 def math_median_centered(arr, center_index, width):
@@ -99,9 +99,9 @@ a, qs, hs, b = 1.14600, 0.0004, 0.000005, 1.32500
 
 run_test("0", [("num", "BUY", a * math.exp(-qs), 1.14554, TOL), ("num", "SELL", a * math.exp(qs), 1.14646, TOL)])
 ab = 1.14600 / 1.32500
-run_test("0b", [("num", "BUY", a * math.exp(-qs) - hs, 1.14554, TOL), ("num", "SELL", a * math.exp(qs) + hs, 1.14646, TOL)])
-run_test("0c", [("num", "BUY", b * math.exp(-qs) - hs, 1.32447, TOL), ("num", "SELL", b * math.exp(qs) + hs, 1.32554, TOL)])
-run_test("0d", [("num", "BUY", ab * math.exp(-qs) - hs, 0.86455, TOL), ("num", "SELL", 0.86491 * math.exp(qs) + hs, 0.86526, TOL)])
+run_test("0b", [("num", "BUY", a * math.exp(-qs), 1.1455417, TOL), ("num", "SELL", a * math.exp(qs), 1.1464585, TOL)])
+run_test("0c", [("num", "BUY", b * math.exp(-qs), 1.3244701, TOL), ("num", "SELL", b * math.exp(qs), 1.3255301, TOL)])
+run_test("0d", [("num", "BUY", ab * math.exp(-qs), 0.8645598, TOL), ("num", "SELL", 0.86491 * math.exp(qs), 0.8652517, TOL)])
 
 bid, off = a * math.exp(-qs), a * math.exp(qs)
 run_test("1", [
@@ -149,12 +149,12 @@ run_test("9", [("bool", "9a", 1.14600 > 1.14600, False), ("bool", "9b", 1.14600 
 run_test("10", [("note", "all", "SUPERSEDED")])
 run_test("11", [("note", "11a", "SUPERSEDED"), ("bool", "11b", True, True), ("bool", "11c", True, True)])
 
-anchor12, hs12 = 1.32441, 0.000030
-bid12 = anchor12 * math.exp(-qs) - hs12
-off12 = anchor12 * math.exp(qs) + hs12
+anchor12 = 1.32441
+bid12 = anchor12 * math.exp(-qs)
+off12 = anchor12 * math.exp(qs)
 run_test("12", [
-    ("bool", "12a", abs(0.000151) <= 0.0002, True), ("num", "12b", bid12, 1.32385, TOL),
-    ("num", "12c", off12, 1.32497, TOL), ("num", "12d", off12 - bid12, 0.00112, TOL),
+    ("bool", "12a", abs(0.000151) <= 0.0002, True), ("num", "12b", bid12, 1.3238803, TOL),
+    ("num", "12c", off12, 1.3249399, TOL), ("num", "12d", off12 - bid12, 0.0010595, TOL),
 ])
 
 floor_n = max(0.0002, 0.00002)
@@ -169,22 +169,22 @@ run_test("14", [("bool", "14a", exit_det(1.13, 0.001, 0, 1) == exit_det(1.13, 0.
 run_test("15", [("num", "15a", max(1.13, 1.13002), 1.13002, TOL), ("bool", "15b", -1.0 < 0.0, True), ("bool", "15c", 1.13002 > 1.13, True)])
 
 ex16 = exit_det(1.13554, -0.0004, 0, 1)
-run_test("16", [("num", "16a", ex16, 1.1357822, TOL), ("bool", "16b", True, True), ("bool", "16c", ex16 > 1.13554, True)])
+run_test("16", [("num", "16a", ex16, 1.1357872, TOL), ("bool", "16b", True, True), ("bool", "16c", ex16 > 1.13554, True)])
 ex17 = exit_det(1.13646, 0.0004, 0, -1)
-run_test("17", [("num", "17a", ex17, 1.1362178, TOL), ("bool", "17b", True, True), ("bool", "17c", ex17 < 1.13646, True)])
+run_test("17", [("num", "17a", ex17, 1.1362128, TOL), ("bool", "17b", True, True), ("bool", "17c", ex17 < 1.13646, True)])
 
 c18 = []
 for tag, en, sp, d, exp, gt in [
-    ("18a", 1.13554, -0.0004, 1, 1.1357822, True), ("18b", 1.13646, 0.0004, -1, 1.1362178, False),
-    ("18c", 1.32447, -0.0004, 1, 1.3247122, True), ("18d", 1.32553, 0.0004, -1, 1.3252878, False),
-    ("18e", 0.86455, -0.0004, 1, 0.8647922, True), ("18f", 0.86526, 0.0004, -1, 0.8650178, False),
+    ("18a", 1.13554, -0.0004, 1, 1.1357872, True), ("18b", 1.13646, 0.0004, -1, 1.1362128, False),
+    ("18c", 1.32447, -0.0004, 1, 1.3247172, True), ("18d", 1.32553, 0.0004, -1, 1.3252828, False),
+    ("18e", 0.86455, -0.0004, 1, 0.8647972, True), ("18f", 0.86526, 0.0004, -1, 0.8650128, False),
 ]:
     ex = exit_det(en, sp, 0, d)
     c18 += [("num", tag, ex, exp, TOL), ("bool", tag + " side", (ex > en) if gt else (ex < en), True)]
 run_test("18", c18)
 
-ex19 = max(1.13 + 0.001 * PHI - 0.000005, 1.13002)
-run_test("19", [("num", "19a", ex19, 1.130613, TOL), ("bool", "19b", True, True)])
+ex19 = max(1.13 + 0.001 * PHI, 1.13002)
+run_test("19", [("num", "19a", ex19, 1.130618, TOL), ("bool", "19b", True, True)])
 
 c20 = []
 spread20 = 0.0010
@@ -1350,15 +1350,15 @@ DIR_SELL58 = -1
 
 
 def exit_det_legacy7(entry, spread_raw, layer_index, direction,
-                     half_spread, min_layer_exit_points, point_value,
+                     min_layer_exit_points, point_value,
                      base_threshold=BASE_THRESHOLD58):
     """Mirror untouched 7-parameter ComputeExitPriceDeterministic()."""
     effective_spread = min(abs(spread_raw), abs(base_threshold))
     e_n = effective_spread * (PHI ** (layer_index + 1))
     if direction == DIR_BUY58:
-        raw_target = entry + e_n - half_spread
+        raw_target = entry + e_n
     else:
-        raw_target = entry - e_n + half_spread
+        raw_target = entry - e_n
     floor_dist = min_layer_exit_points * point_value
     if direction == DIR_BUY58:
         return max(raw_target, entry + floor_dist)
@@ -1366,7 +1366,7 @@ def exit_det_legacy7(entry, spread_raw, layer_index, direction,
 
 
 def exit_det_overload8(entry, spread_raw, layer_index, direction,
-                       half_spread, min_layer_exit_points, point_value,
+                       min_layer_exit_points, point_value,
                        kinetic_dist_raw, debug_unified=False,
                        exit_kinetic_divisor=EXIT_KINETIC_DIVISOR58,
                        exit_kinetic_cap_pips=EXIT_KINETIC_CAP_PIPS58):
@@ -1374,7 +1374,7 @@ def exit_det_overload8(entry, spread_raw, layer_index, direction,
     if not debug_unified:
         return exit_det_legacy7(
             entry, spread_raw, layer_index, direction,
-            half_spread, min_layer_exit_points, point_value)
+            min_layer_exit_points, point_value)
     kinetic_dist_pips = kinetic_dist_raw / (point_value * 10.0)
     min_exit_pips = min_layer_exit_points / 10.0
     exit_pips = max(
@@ -1382,8 +1382,8 @@ def exit_det_overload8(entry, spread_raw, layer_index, direction,
         min(kinetic_dist_pips / exit_kinetic_divisor, exit_kinetic_cap_pips))
     exit_dist_price = exit_pips * point_value * 10.0
     if direction == DIR_BUY58:
-        return entry + exit_dist_price - half_spread
-    return entry - exit_dist_price + half_spread
+        return entry + exit_dist_price
+    return entry - exit_dist_price
 
 
 def pips_to_kinetic_raw(pips, point_value=PT58):
@@ -1393,15 +1393,14 @@ def pips_to_kinetic_raw(pips, point_value=PT58):
 _ENTRY58 = 1.13800
 _SPREAD58 = -0.0004
 _LAYER58 = 0
-_HALF58 = 0.000005
 
 # 58a: toggle off delegates to legacy7 (not a re-implementation copy)
 _legacy58 = exit_det_legacy7(
     _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-    _HALF58, MIN_EXIT_PTS58, PT58)
+    MIN_EXIT_PTS58, PT58)
 _off58 = exit_det_overload8(
     _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-    _HALF58, MIN_EXIT_PTS58, PT58,
+    MIN_EXIT_PTS58, PT58,
     pips_to_kinetic_raw(14.8), debug_unified=False)
 
 run_test("58", [
@@ -1421,8 +1420,8 @@ for _pips, _exp_pips in zip(_KINETIC_PIPS58, _EXPECTED_EXIT_PIPS58):
     _raw = pips_to_kinetic_raw(_pips)
     _got = exit_det_overload8(
         _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-        _HALF58, MIN_EXIT_PTS58, PT58, _raw, debug_unified=True)
-    _exp_price = _ENTRY58 + (_exp_pips * PT58 * 10.0) - _HALF58
+        MIN_EXIT_PTS58, PT58, _raw, debug_unified=True)
+    _exp_price = _ENTRY58 + (_exp_pips * PT58 * 10.0)
     run_test("58", [
         ("num", f"58b kinetic { _pips } pips -> exit price",
          _got, _exp_price, TOL),
@@ -1432,9 +1431,9 @@ for _pips, _exp_pips in zip(_KINETIC_PIPS58, _EXPECTED_EXIT_PIPS58):
 _BOUNDARY_RAW58 = pips_to_kinetic_raw(3.0)
 _exit_boundary58 = exit_det_overload8(
     _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-    _HALF58, MIN_EXIT_PTS58, PT58, _BOUNDARY_RAW58, debug_unified=True)
+    MIN_EXIT_PTS58, PT58, _BOUNDARY_RAW58, debug_unified=True)
 _add_boundary58 = _BOUNDARY_RAW58
-_exit_dist58 = (_exit_boundary58 + _HALF58) - _ENTRY58
+_exit_dist58 = _exit_boundary58 - _ENTRY58
 
 run_test("58", [
     ("num", "58c boundary exit distance equals add distance (3 pips)",
@@ -1442,48 +1441,6 @@ run_test("58", [
     ("num", "58c boundary exit pips equals floor",
      _exit_dist58 / (PT58 * 10.0), MIN_EXIT_PTS58 / 10.0, TOL),
 ])
-
-# 58d: half_spread sign convention matches legacy raw_target step
-_HALF_DELTA58 = 0.000012
-
-
-def legacy_raw_target58(entry, spread_raw, layer_index, direction,
-                          half_spread):
-    effective_spread = min(abs(spread_raw), abs(BASE_THRESHOLD58))
-    e_n = effective_spread * (PHI ** (layer_index + 1))
-    if direction == DIR_BUY58:
-        return entry + e_n - half_spread
-    return entry - e_n + half_spread
-
-
-def kinetic_exit_only58(kinetic_dist_raw, half_spread, direction=DIR_BUY58):
-    exit_pips = max(
-        MIN_EXIT_PTS58 / 10.0,
-        min((kinetic_dist_raw / (PT58 * 10.0)) / EXIT_KINETIC_DIVISOR58,
-            EXIT_KINETIC_CAP_PIPS58))
-    exit_dist_price = exit_pips * PT58 * 10.0
-    if direction == DIR_BUY58:
-        return _ENTRY58 + exit_dist_price - half_spread
-    return _ENTRY58 - exit_dist_price + half_spread
-
-
-_KRAW58 = pips_to_kinetic_raw(14.8)
-for _dir, _label in ((DIR_BUY58, "buy"), (DIR_SELL58, "sell")):
-    _k0 = kinetic_exit_only58(_KRAW58, 0.0, _dir)
-    _kd = kinetic_exit_only58(_KRAW58, _HALF_DELTA58, _dir)
-    _l0 = legacy_raw_target58(_ENTRY58, _SPREAD58, _LAYER58, _dir, 0.0)
-    _ld = legacy_raw_target58(_ENTRY58, _SPREAD58, _LAYER58, _dir, _HALF_DELTA58)
-    _k_delta = _kd - _k0
-    _l_delta = _ld - _l0
-    _exp_delta = (-_HALF_DELTA58 if _dir == DIR_BUY58 else _HALF_DELTA58)
-    run_test("58", [
-        ("num", f"58d {_label} kinetic half_spread delta",
-         _k_delta, _exp_delta, TOL),
-        ("num", f"58d {_label} legacy raw half_spread delta",
-         _l_delta, _exp_delta, TOL),
-        ("num", f"58d {_label} kinetic delta matches legacy",
-         _k_delta, _l_delta, TOL),
-    ])
 
 # ---------------------------------------------------------------------------
 # Test 59 -- ADR-084 Midpoint exit-reset recomputation (OnTick Option B)
@@ -1552,7 +1509,7 @@ run_test("59", [
 
 
 def exit_det_overload8_gate086(entry, spread_raw, layer_index, direction,
-                               half_spread, min_layer_exit_points, point_value,
+                               min_layer_exit_points, point_value,
                                kinetic_dist_raw, debug_unified=False,
                                debug_kinetic_exits=False,
                                exit_kinetic_divisor=EXIT_KINETIC_DIVISOR58,
@@ -1561,13 +1518,13 @@ def exit_det_overload8_gate086(entry, spread_raw, layer_index, direction,
     if debug_unified and debug_kinetic_exits:
         return exit_det_overload8(
             entry, spread_raw, layer_index, direction,
-            half_spread, min_layer_exit_points, point_value,
+            min_layer_exit_points, point_value,
             kinetic_dist_raw, debug_unified=True,
             exit_kinetic_divisor=exit_kinetic_divisor,
             exit_kinetic_cap_pips=exit_kinetic_cap_pips)
     return exit_det_legacy7(
         entry, spread_raw, layer_index, direction,
-        half_spread, min_layer_exit_points, point_value)
+        min_layer_exit_points, point_value)
 
 
 _KRAW60 = pips_to_kinetic_raw(14.8)
@@ -1576,7 +1533,7 @@ _KRAW60 = pips_to_kinetic_raw(14.8)
 for _kinetic_flag, _label in ((False, "kinetic_exits_off"), (True, "kinetic_exits_on")):
     _got60a = exit_det_overload8_gate086(
         _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-        _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60,
+        MIN_EXIT_PTS58, PT58, _KRAW60,
         debug_unified=False, debug_kinetic_exits=_kinetic_flag)
     run_test("60", [
         ("num", f"60a unified_off {_label} = legacy7",
@@ -1586,7 +1543,7 @@ for _kinetic_flag, _label in ((False, "kinetic_exits_off"), (True, "kinetic_exit
 # 60b: unified on, kinetic exits off -> legacy (decoupling case)
 _got60b = exit_det_overload8_gate086(
     _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-    _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60,
+    MIN_EXIT_PTS58, PT58, _KRAW60,
     debug_unified=True, debug_kinetic_exits=False)
 run_test("60", [
     ("num", "60b unified_on kinetic_exits_off = legacy7",
@@ -1596,10 +1553,10 @@ run_test("60", [
 # 60c: both on -> kinetic (unchanged from Test 58b at 14.8 pips)
 _exp60c = exit_det_overload8(
     _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-    _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60, debug_unified=True)
+    MIN_EXIT_PTS58, PT58, _KRAW60, debug_unified=True)
 _got60c = exit_det_overload8_gate086(
     _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
-    _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60,
+    MIN_EXIT_PTS58, PT58, _KRAW60,
     debug_unified=True, debug_kinetic_exits=True)
 run_test("60", [
     ("num", "60c both_on = kinetic exit (58b parity)",

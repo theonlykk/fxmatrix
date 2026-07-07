@@ -389,10 +389,6 @@ double InvertSpreadToPrice(
     int    direction = 0;
     double price     = -1.0;
 
-    double ac_bid = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_BID);
-    double ac_ask = SymbolInfoDouble(g_symbols[SLOT_AC], SYMBOL_ASK);
-    double bc_bid = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_BID);
-    double bc_ask = SymbolInfoDouble(g_symbols[SLOT_BC], SYMBOL_ASK);
     double ab_bid = SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_BID);
     double ab_ask = SymbolInfoDouble(g_symbols[SLOT_AB], SYMBOL_ASK);
 
@@ -401,10 +397,6 @@ double InvertSpreadToPrice(
         if (EnableVerboseLog) Print("DIAG Invert: LIQUIDITY GUARD fired symbol=", g_symbols[SLOT_AB]);
         return -1.0;
     }
-
-    double ac_half_spread = (ac_ask - ac_bid) / 2.0;
-    double bc_half_spread = (bc_ask - bc_bid) / 2.0;
-    double ab_half_spread = (ab_ask - ab_bid) / 2.0;
 
     if (EnableVerboseLog) Print("DIAG Invert: T=", DoubleToString(T, 6),
           " strongest=", strongest, " weakest=", weakest,
@@ -459,19 +451,8 @@ double InvertSpreadToPrice(
                     ? DIRECTION_SELL : DIRECTION_BUY;
     }
 
-    double half_spread = 0.0;
-    if      (symbol == g_symbols[SLOT_AB]) half_spread = ab_half_spread;
-    else if (symbol == g_symbols[SLOT_AC]) half_spread = ac_half_spread;
-    else                                   half_spread = bc_half_spread;
-
     if (EnableVerboseLog) Print("DIAG Invert: price_raw=", DoubleToString(price, 5),
-          " half_spread=", DoubleToString(half_spread, 6),
           " direction=", direction);
-
-    if (direction == DIRECTION_SELL)
-        price = price + half_spread;
-    else
-        price = price - half_spread;
 
     if (EnableVerboseLog) Print("DIAG Invert: final_price=", DoubleToString(price, 5),
           " symbol=", symbol);
@@ -782,7 +763,6 @@ double ComputeExitPriceDeterministic(
     double entry_spread_raw,
     int    layer_index,
     int    direction,
-    double half_spread,
     int    min_layer_exit_points,
     double point_value)
 {
@@ -795,9 +775,9 @@ double ComputeExitPriceDeterministic(
 
     double raw_target;
     if (direction == DIRECTION_BUY)
-        raw_target = entry_price + E_n - half_spread;
+        raw_target = entry_price + E_n;
     else
-        raw_target = entry_price - E_n + half_spread;
+        raw_target = entry_price - E_n;
 
     double floor_dist = min_layer_exit_points * point_value;
 
@@ -816,7 +796,6 @@ double ComputeExitPriceDeterministic(
     double entry_spread_raw,
     int    layer_index,
     int    direction,
-    double half_spread,
     int    min_layer_exit_points,
     double point_value,
     int    instrument)
@@ -850,24 +829,16 @@ double ComputeExitPriceDeterministic(
 
         double exit_dist_price = exit_pips * point_value * 10.0;
 
-        // Per Staff Architect ruling: preserve spread compensation
-        // identically to the legacy branch -- half_spread is a
-        // live-tick correction at the interval-to-price step,
-        // independent of which formula computed the interval.
         if (direction == DIRECTION_BUY)
-            return entry_price + exit_dist_price - half_spread;
+            return entry_price + exit_dist_price;
         else
-            return entry_price - exit_dist_price + half_spread;
+            return entry_price - exit_dist_price;
     }
 
-    // Toggle off: delegate straight to the untouched legacy
-    // function. This is a direct call, not a re-implementation --
-    // guarantees byte-for-byte identical behavior to today with
-    // zero risk of transcription drift between two copies of the
-    // same logic.
+    // Toggle off: delegate straight to the legacy 7-parameter function.
     return ComputeExitPriceDeterministic(
         entry_price, entry_spread_raw, layer_index, direction,
-        half_spread, min_layer_exit_points, point_value);
+        min_layer_exit_points, point_value);
 }
 
 bool IsClearOfFreezeLevel(double price, int direction, string symbol) {

@@ -918,23 +918,12 @@ void HandleEntryFill(ulong deal_ticket, ulong order_ticket,
                         L.entry_spread_raw, SkewFloor0);
         }
 
-        // ADR-040: Compute half_spread inline (no helper function exists)
-        double half_spread = 0.0;
-        {
-            string sym = g_symbols[L.instrument];
-            double _bid = SymbolInfoDouble(sym, SYMBOL_BID);
-            double _ask = SymbolInfoDouble(sym, SYMBOL_ASK);
-            if (_bid > 0.0 && _ask > 0.0)
-                half_spread = (_ask - _bid) / 2.0;
-        }
-
         // ADR-040: Compute deterministic exit price
         L.exit_price_fixed = ComputeExitPriceDeterministic(
             L.entry_price,
             L.entry_spread_raw,
             L.layer_index,
             L.direction,
-            half_spread,
             MinLayerExitPoints,
             SymbolInfoDouble(g_symbols[L.instrument], SYMBOL_POINT),
             L.instrument);
@@ -1522,19 +1511,11 @@ void HandleExitFill(ulong deal_ticket, ulong order_ticket,
                         double rest_point = SymbolInfoDouble(rest_sym, SYMBOL_POINT);
 
                         // Recompute correct exit target for this layer.
-                        // Mirror HandleEntryFill spread calculation exactly:
-                        // half_spread = (ask - bid) / 2.0 from live market.
-                        double _rest_bid = SymbolInfoDouble(rest_sym, SYMBOL_BID);
-                        double _rest_ask = SymbolInfoDouble(rest_sym, SYMBOL_ASK);
-                        double rest_half_spread = 0.0;
-                        if (_rest_bid > 0.0 && _rest_ask > 0.0)
-                            rest_half_spread = (_rest_ask - _rest_bid) / 2.0;
                         double new_exit_price   = ComputeExitPriceDeterministic(
                             RestLayer.entry_price,
                             RestLayer.entry_spread_raw,
                             RestLayer.layer_index,
                             RestLayer.direction,
-                            rest_half_spread,
                             MinLayerExitPoints,
                             rest_point
                         );
