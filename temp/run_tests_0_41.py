@@ -1545,8 +1545,90 @@ run_test("59", [
      _M59C, _M59C_RAW, TOL),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-59)")
+# ---------------------------------------------------------------------------
+# Test 60 -- ADR-086 Decouple exit-sizing from add-spacing
+# Pure Python mirror of dual-gate in 8-parameter overload.
+# ---------------------------------------------------------------------------
+
+
+def exit_det_overload8_gate086(entry, spread_raw, layer_index, direction,
+                               half_spread, min_layer_exit_points, point_value,
+                               kinetic_dist_raw, debug_unified=False,
+                               debug_kinetic_exits=False,
+                               exit_kinetic_divisor=EXIT_KINETIC_DIVISOR58,
+                               exit_kinetic_cap_pips=EXIT_KINETIC_CAP_PIPS58):
+    """Mirror ADR-086: kinetic branch only when BOTH toggles true."""
+    if debug_unified and debug_kinetic_exits:
+        return exit_det_overload8(
+            entry, spread_raw, layer_index, direction,
+            half_spread, min_layer_exit_points, point_value,
+            kinetic_dist_raw, debug_unified=True,
+            exit_kinetic_divisor=exit_kinetic_divisor,
+            exit_kinetic_cap_pips=exit_kinetic_cap_pips)
+    return exit_det_legacy7(
+        entry, spread_raw, layer_index, direction,
+        half_spread, min_layer_exit_points, point_value)
+
+
+_KRAW60 = pips_to_kinetic_raw(14.8)
+
+# 60a: unified off -> legacy regardless of DebugEnableKineticExits
+for _kinetic_flag, _label in ((False, "kinetic_exits_off"), (True, "kinetic_exits_on")):
+    _got60a = exit_det_overload8_gate086(
+        _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+        _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60,
+        debug_unified=False, debug_kinetic_exits=_kinetic_flag)
+    run_test("60", [
+        ("num", f"60a unified_off {_label} = legacy7",
+         _got60a, _legacy58, TOL),
+    ])
+
+# 60b: unified on, kinetic exits off -> legacy (decoupling case)
+_got60b = exit_det_overload8_gate086(
+    _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+    _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60,
+    debug_unified=True, debug_kinetic_exits=False)
+run_test("60", [
+    ("num", "60b unified_on kinetic_exits_off = legacy7",
+     _got60b, _legacy58, TOL),
+])
+
+# 60c: both on -> kinetic (unchanged from Test 58b at 14.8 pips)
+_exp60c = exit_det_overload8(
+    _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+    _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60, debug_unified=True)
+_got60c = exit_det_overload8_gate086(
+    _ENTRY58, _SPREAD58, _LAYER58, DIR_BUY58,
+    _HALF58, MIN_EXIT_PTS58, PT58, _KRAW60,
+    debug_unified=True, debug_kinetic_exits=True)
+run_test("60", [
+    ("num", "60c both_on = kinetic exit (58b parity)",
+     _got60c, _exp60c, TOL),
+])
+
+# ---------------------------------------------------------------------------
+# Test 61 -- ADR-087 Flatten sigmoid lot multiplier (SigmoidMaxScale=1.0)
+# Pure Python mirror of ComputeSigmoidLotMultiplier().
+# Test 41 (unchanged) still covers old max_scale=3.0 behavior.
+# ---------------------------------------------------------------------------
+
+_SIGMA61 = [0, 25, 50, 75, 150]
+
+for _s in _SIGMA61:
+    run_test("61", [
+        ("num", f"61a max_scale=1.0 sigma={_s} -> flat 1.0",
+         sigmoid_mult(_s, max_scale=1.0), 1.0, TOL),
+    ])
+
+run_test("61", [
+    ("num", "61b max_scale=3.0 sigma=0 -> upside (~2.999)",
+     sigmoid_mult(0, max_scale=3.0), 2.999, TOL41CE),
+    ("bool", "61b new default differs from old at sigma=0",
+             sigmoid_mult(0, max_scale=1.0) != sigmoid_mult(0, max_scale=3.0), True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-61)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

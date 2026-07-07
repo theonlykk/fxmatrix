@@ -181,7 +181,26 @@ input double CooldownDecayRate = 0.025; // ADR-046: fractional decay per M5 bar 
 
 //--- ADR-052 Step C: Dynamic Spread & Confidence Sizing
 input double SpreadMultiplier  = 0.500; // ADR-052: adds (sigma_FV * multiplier) to base half-spread
-input double SigmoidMaxScale   = 3.000; // ADR-052: maximum lot multiplier when timeframes agree (σ≈0)
+input double SigmoidMaxScale   = 1.000;
+// ADR-087: changed from 3.0. At 1.0, ComputeSigmoidLotMultiplier()
+// always returns exactly 1.0 regardless of sigma_pts (the
+// multiplier formula's variable term becomes zero when
+// SigmoidMaxScale=1.0 -- confirmed mathematically, not just by
+// the existing MathMax(1.0,...) floor). Eliminates upside lot-size
+// scaling during low-dispersion conditions, which Staff Architect
+// ruling identified as backwards relative to volatility clustering
+// (calm periods statistically precede elevated volatility, not
+// continued calm) and which contributed directly to a confirmed
+// backtest account blowup. SigmoidMidpoint and SigmoidSteepness
+// remain unchanged and are now inert at this default (no effect
+// when SigmoidMaxScale=1.0) -- kept as adjustable inputs for
+// future research, not removed.
+//
+// Note: this flattens ONLY the sigmoid/dispersion component of lot
+// sizing. ComputeLDAKLotSize() still applies independent LDAK
+// drawdown scaling and correlation-penalty reduction upstream of
+// this step -- those are downside-only risk reduction mechanisms,
+// unrelated to and unaffected by this change.
 input double SigmoidMidpoint   = 50.0;  // ADR-052: dispersion in points where lot multiplier halves
 input double SigmoidSteepness  = 0.150; // ADR-052: rate of lot size decay with dispersion (k)
 
