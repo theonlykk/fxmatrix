@@ -821,7 +821,7 @@ double ComputeExitPriceDeterministic(
     double point_value,
     int    instrument)
 {
-    if (DebugUseUnifiedAddNextSpacing) {
+    if (DebugUseUnifiedAddNextSpacing && DebugEnableKineticExits) {
         // ADR-082: kinetic-derived exit sizing.
         // Independent call to ComputeKineticDistance() -- per
         // Staff Architect Ruling 1, relies on the MT5

@@ -131,6 +131,16 @@ input bool DebugUseUnifiedAddNextSpacing = false;
 // stored add_next values at layer creation, not just downstream
 // placement.
 
+input bool DebugEnableKineticExits = false;
+// ADR-086: decouples exit-sizing from add-spacing for isolated
+// testing. When false, the 8-parameter ComputeExitPriceDeterministic()
+// overload always delegates to the legacy 7-parameter (0.618 decay
+// + 3-pip floor) exit formula, regardless of
+// DebugUseUnifiedAddNextSpacing's value -- the add side is
+// completely unaffected by this flag either way. When true,
+// behavior is unchanged from ADR-082 (kinetic exits active
+// whenever DebugUseUnifiedAddNextSpacing is also true).
+
 input double ExitKineticDivisor = 3.0;
 // ADR-082: divisor applied to kinetic_dist (in pips) to derive
 // exit distance when DebugUseUnifiedAddNextSpacing=true. Ensures
