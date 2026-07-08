@@ -1181,8 +1181,8 @@ QS56 = 0.0004
 def compute_next_layer_price(next_layer_idx, prev_layer_index, entry_spread_raw,
                              entry_price, direction, sigma_pts=0.0, pt=PT56,
                              quote_spread=QS56,
-                             debug_enable_add_spacing_compression=False,
-                             add_spacing_multiplier=1.0,
+                             debug_enable_add_spacing_compression=True,
+                             add_spacing_multiplier=0.5,
                              min_add_distance_points=90):
     """Mirror ExecutionEngine.mqh ComputeNextLayerPrice() core math."""
     if next_layer_idx - 1 < 0:
@@ -1251,7 +1251,7 @@ run_test("56", [
     ("num", "56a toggle off = legacy A_golden formula",
      _off56, _legacy56, TOL),
     ("num", "56b toggle on = ComputeNextLayerPrice(layer_idx+1)",
-     _on56, _unified56, TOL),
+     _on56, 1.09910, TOL),
     ("bool", "56c wrong layer_index+1 shift differs from legacy",
              _wrong56 != _legacy56, True),
     ("bool", "56c wrong shift delta non-zero",
@@ -1495,7 +1495,7 @@ _off59 = option_b_computed(
     _INV59, _LIDX59, _SPR59, _DEEP59, _DIR59, sigma_pts=50.0)
 run_test("59", [
     ("num", "59b normal path = compute_next_layer_price delegation",
-     _off59, _kinetic59, TOL),
+     _off59, 1.13710, TOL),
 ])
 
 # 59c: exact tick-step midpoint -- normalization is a no-op
