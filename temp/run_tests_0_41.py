@@ -1180,7 +1180,10 @@ QS56 = 0.0004
 
 def compute_next_layer_price(next_layer_idx, prev_layer_index, entry_spread_raw,
                              entry_price, direction, sigma_pts=0.0, pt=PT56,
-                             quote_spread=QS56):
+                             quote_spread=QS56,
+                             debug_enable_add_spacing_compression=False,
+                             add_spacing_multiplier=1.0,
+                             min_add_distance_points=90):
     """Mirror ExecutionEngine.mqh ComputeNextLayerPrice() core math."""
     if next_layer_idx - 1 < 0:
         return -1.0
@@ -1189,6 +1192,9 @@ def compute_next_layer_price(next_layer_idx, prev_layer_index, entry_spread_raw,
                                      False, quote_spread=quote_spread)
     kinetic_dist = compute_kinetic_distance(sigma_pts)
     a_n = max(base_add, max(e_n + 10.0 * pt, kinetic_dist))
+    if debug_enable_add_spacing_compression:
+        min_add_price = min_add_distance_points * pt
+        a_n = max(min_add_price, a_n * add_spacing_multiplier)
     if direction == DIR_BUY56:
         return entry_price - a_n
     return entry_price + a_n
@@ -1584,8 +1590,86 @@ run_test("61", [
              sigmoid_mult(0, max_scale=1.0) != sigmoid_mult(0, max_scale=3.0), True),
 ])
 
-order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61"]
-print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-61)")
+# ---------------------------------------------------------------------------
+# Test 62 -- Add-spacing compression toggle (multiplier + points floor)
+# Pure Python mirror of DebugEnableAddSpacingCompression block in
+# ComputeNextLayerPrice(). Toggle off = bit-for-bit unchanged.
+# ---------------------------------------------------------------------------
+
+_MULT62 = 0.5
+_FLOOR_PTS62 = 90
+_FLOOR_PRICE62 = _FLOOR_PTS62 * PT56
+_SPR62 = 0.0004
+_ENT62 = 1.10000
+
+
+def a_n_uncompressed(layer_index, spread_raw=_SPR62, sigma_pts=0.0):
+    """Return raw A_n before compression (price delta, not absolute price)."""
+    e_n = abs(spread_raw) * (PHI ** (layer_index + 1))
+    base_add = compute_grid_interval(layer_index, False, False, False, False,
+                                     False, quote_spread=QS56)
+    kinetic_dist = compute_kinetic_distance(sigma_pts)
+    return max(base_add, max(e_n + 10.0 * PT56, kinetic_dist))
+
+
+def compute_next_layer_price_compression(next_layer_idx, prev_layer_index,
+                                         entry_spread_raw, entry_price, direction,
+                                         sigma_pts=0.0, pt=PT56,
+                                         debug_enable_add_spacing_compression=False,
+                                         add_spacing_multiplier=1.0,
+                                         min_add_distance_points=90):
+    """Mirror ComputeNextLayerPrice with optional compression gate."""
+    return compute_next_layer_price(
+        next_layer_idx, prev_layer_index, entry_spread_raw, entry_price,
+        direction, sigma_pts, pt, QS56,
+        debug_enable_add_spacing_compression,
+        add_spacing_multiplier, min_add_distance_points)
+
+
+# 62a: toggle off identical to uncompressed for representative layers
+for _li62, _sig62 in ((0, 0.0), (2, 0.0), (4, 50.0)):
+    _raw62 = a_n_uncompressed(_li62, sigma_pts=_sig62)
+    _off62 = compute_next_layer_price_compression(
+        _li62 + 1, _li62, _SPR62, _ENT62, DIR_BUY56, _sig62,
+        debug_enable_add_spacing_compression=False)
+    _exp62 = _ENT62 - _raw62
+    run_test("62", [
+        ("num", f"62a layer={_li62} sigma={_sig62} toggle off = uncompressed",
+         _off62, _exp62, TOL),
+    ])
+
+# 62b: floor binds -- layer 0 sigma=0, raw A_n=8 pips, 0.5x=4 pips, floor=9 pips
+_RAW62B = a_n_uncompressed(0, sigma_pts=0.0)
+_EXP62B = max(_FLOOR_PRICE62, _RAW62B * _MULT62)
+run_test("62", [
+    ("num", "62b floor binds (layer 0, mult=0.5, floor=90 pts)",
+     compute_next_layer_price_compression(
+         1, 0, _SPR62, _ENT62, DIR_BUY56, 0.0,
+         debug_enable_add_spacing_compression=True,
+         add_spacing_multiplier=_MULT62,
+         min_add_distance_points=_FLOOR_PTS62),
+     _ENT62 - _EXP62B, TOL),
+    ("bool", "62b raw below floor before compression",
+     _RAW62B * _MULT62 < _FLOOR_PRICE62, True),
+])
+
+# 62c: multiplier determines result -- layer 6 sigma=0, raw=28 pips, 0.5x=14 pips
+_RAW62C = a_n_uncompressed(6, sigma_pts=0.0)
+_EXP62C = max(_FLOOR_PRICE62, _RAW62C * _MULT62)
+run_test("62", [
+    ("num", "62c multiplier wins (layer 6, mult=0.5, floor=90 pts)",
+     compute_next_layer_price_compression(
+         7, 6, _SPR62, _ENT62, DIR_BUY56, 0.0,
+         debug_enable_add_spacing_compression=True,
+         add_spacing_multiplier=_MULT62,
+         min_add_distance_points=_FLOOR_PTS62),
+     _ENT62 - _EXP62C, TOL),
+    ("bool", "62c compressed above floor",
+     _RAW62C * _MULT62 > _FLOOR_PRICE62, True),
+])
+
+order = ["0", "0b", "0c", "0d"] + [str(i) for i in range(1, 46)] + ["46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62"]
+print("FXMatrix ADR-UNIT-TESTS — Full Run (Tests 0, 0b, 0c, 0d, 1-62)")
 print("Tolerance: 0.00001 | Test 23: 0.000001 | Test 20/24 ratio: 0.001 | Test 39c/41c/41e: 0.001")
 print("=" * 72)
 

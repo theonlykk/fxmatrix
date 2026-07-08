@@ -12,6 +12,9 @@ input int    GridMode           = 2;       // 0=constant 1=linear 2=hybrid
 input double GridLinearStep     = 0.0002;  // interval increment per layer (linear/hybrid)
 input int    GridInflection     = 2;       // layer where linear switches to exponential
 input double GridExpBase        = 1.500;   // exponential multiplier (hybrid mode)
+input bool   DebugEnableAddSpacingCompression = false; // toggle gate - preserves existing behavior when false
+input double AddSpacingMultiplier = 1.0;               // scalar applied to final A_n when toggle is true
+input double MinAddDistancePoints = 90;                // floor in POINTS (matches MinLayerExitPoints convention) - 90 points = 9 pips at 5-digit precision
 input int    SkewMode           = 2;       // 0=constant 1=linear decrease 2=geometric decay (0.618^n+1)
 input double SkewStart          = 0.618;   // starting capture fraction (Fibonacci golden ratio)
 input double SkewStep           = 0.000;   // reduction per layer (0=disabled)

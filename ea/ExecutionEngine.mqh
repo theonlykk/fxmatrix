@@ -702,6 +702,17 @@ double ComputeNextLayerPrice(int    next_layer_idx,
     double kinetic_dist  = ComputeKineticDistance(instrument);
     double A_n           = MathMax(base_add, MathMax(E_n + 10.0 * pt, kinetic_dist));
 
+    if (DebugEnableAddSpacingCompression) {
+        double min_add_price = MinAddDistancePoints * pt;
+        double compressed_A_n = MathMax(min_add_price, A_n * AddSpacingMultiplier);
+        if (EnableVerboseLog)
+            Print("DIAG AddSpacingCompression: original_A_n=", DoubleToString(A_n, 6),
+                  " multiplier=", DoubleToString(AddSpacingMultiplier, 3),
+                  " floor_price=", DoubleToString(min_add_price, 6),
+                  " compressed_A_n=", DoubleToString(compressed_A_n, 6));
+        A_n = compressed_A_n;
+    }
+
     double price_add_next = (prev.direction == DIRECTION_BUY)
                             ? prev.entry_price - A_n
                             : prev.entry_price + A_n;
