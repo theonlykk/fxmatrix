@@ -1,14 +1,15 @@
 //+------------------------------------------------------------------+
 //| fxmatrix_v2.mq5 — Production V2 dual instance (MM_LONG + MM_SHORT)|
 //| Magic: MM_LONG_V2=20260901, MM_SHORT_V2=20260902                 |
-//| reload_flat, TRADE_ACTION_SLTP LIFO exits, running-state widen    |
+//| reload_flat, resting exit limits + CloseBy, running-state widen   |
 //| Does NOT modify FXMatrix.mq5 or live account.                      |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "2.11"
+#property version   "2.20"
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
 
 input double InpQuoteSpread       = 0.0004;
@@ -32,6 +33,9 @@ struct LongV2Layer {
    ulong  entry_ticket;
    ulong  position_ticket;
    ulong  exit_ticket;
+   datetime last_exit_retry_time;
+   datetime first_exit_retry_time;
+   bool     exit_escalated;
 };
 
 LongV2Layer  g_long_layers[];
@@ -41,6 +45,10 @@ double   g_long_current_add_pips;
 ulong    g_long_l0_ticket;
 ulong    g_long_add_ticket;
 datetime g_long_last_bar_time;
+bool     g_long_halted = false;
+
+V2CloseByTask g_long_closeby_queue[];
+string        g_long_system_alerts[];
 
 int g_long_stat_l0_entries;
 int g_long_stat_add_entries;
@@ -196,37 +204,41 @@ bool Long_SetExitTakeProfit(const int layer_idx) {
    if (position_ticket == 0)
       return false;
 
-   double tp = Long_NormalizeSym(g_long_layers[layer_idx].exit_target);
-   MqlTradeRequest req = {};
-   MqlTradeResult  res = {};
-   if(!V2_BuildExitSltpRequest(_Symbol, position_ticket, tp, req))
-      return false;
-   if (!OrderSend(req, res)) {
+   double target = Long_NormalizeSym(g_long_layers[layer_idx].exit_target);
+   ulong existing = g_long_layers[layer_idx].exit_ticket;
+   if(existing != 0 && V2_ExitOrderLiveOrFilled(existing))
+      return true;
+
+   if(existing != 0) {
+      V2_CancelExitOrder(existing);
+      g_long_layers[layer_idx].exit_ticket = 0;
+   }
+
+   ulong exit_order = V2_SendExitLimit(_Symbol, target, InpLotSize, 1,
+                                       MM_LONG_V2_EXIT, target);
+   if(exit_order == 0) {
       if (InpVerboseLog)
-         Print("WARN V2_LONG | tp set failed pos=", position_ticket,
-               " tp=", DoubleToString(tp, 5),
-               " retcode=", res.retcode);
+         Print("WARN V2_LONG | exit limit placement failed layer=", layer_idx,
+               " target=", DoubleToString(target, 5));
       return false;
    }
-   g_long_layers[layer_idx].exit_ticket = position_ticket;
+
+   g_long_layers[layer_idx].exit_ticket = exit_order;
+   g_long_layers[layer_idx].last_exit_retry_time  = 0;
+   g_long_layers[layer_idx].first_exit_retry_time = 0;
+   g_long_layers[layer_idx].exit_escalated        = false;
    return true;
 }
 
 void Long_ClearExitTakeProfit(const ulong position_ref) {
-   ulong position_ticket = Long_ResolvePositionTicket(position_ref);
-   if (position_ticket == 0 || !PositionSelectByTicket(position_ticket))
+   int n = ArraySize(g_long_layers);
+   for(int i = 0; i < n; i++) {
+      if(g_long_layers[i].position_ticket != position_ref)
+         continue;
+      V2_CancelExitOrder(g_long_layers[i].exit_ticket);
+      g_long_layers[i].exit_ticket = 0;
       return;
-   if (PositionGetDouble(POSITION_TP) == 0.0)
-      return;
-
-   MqlTradeRequest req = {};
-   MqlTradeResult  res = {};
-   req.action   = TRADE_ACTION_SLTP;
-   req.symbol   = _Symbol;
-   req.position = position_ticket;
-   req.sl       = PositionGetDouble(POSITION_SL);
-   req.tp       = 0.0;
-   OrderSend(req, res);
+   }
 }
 
 double Long_ComputeAddTarget() {
@@ -257,17 +269,16 @@ void Long_PlaceExitForLayer(const int layer_idx, const bool immediate) {
       return;
 
    double target = g_long_layers[layer_idx].exit_target;
-   Long_ClearExitTakeProfit(g_long_layers[layer_idx].position_ticket);
    if (Long_SetExitTakeProfit(layer_idx)) {
       g_long_stat_exit_limit_placed++;
       if (InpVerboseLog && immediate)
          Print("DIAG V2_LONG | event=exit_placed | layer=", layer_idx,
-               " target=", DoubleToString(target, 5));
+               " target=", DoubleToString(target, 5),
+               " ticket=", g_long_layers[layer_idx].exit_ticket);
       return;
    }
 
    g_long_stat_exit_place_fail++;
-   g_long_layers[layer_idx].exit_ticket = 0;
    if (InpVerboseLog) {
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       Print("WARN V2_LONG | exit placement failed layer=", layer_idx,
@@ -277,23 +288,56 @@ void Long_PlaceExitForLayer(const int layer_idx, const bool immediate) {
    }
 }
 
-void Long_EnsureTopExit() {
+void Long_AuditExitLimits() {
+   if(g_long_halted)
+      return;
+
+   datetime now = TimeCurrent();
    int n = ArraySize(g_long_layers);
-   if (n <= 0)
-      return;
+   for(int i = 0; i < n; i++) {
+      ulong position_ticket = Long_ResolvePositionTicket(g_long_layers[i].position_ticket);
+      bool position_live = (position_ticket != 0 &&
+                            PositionSelectByTicket(position_ticket));
+      bool exit_live = V2_ExitOrderLiveOrFilled(g_long_layers[i].exit_ticket);
 
-   int top = n - 1;
-   ulong position_ticket = Long_ResolvePositionTicket(g_long_layers[top].position_ticket);
-   if (position_ticket == 0 || !PositionSelectByTicket(position_ticket))
-      return;
+      if(g_long_layers[i].exit_ticket != 0 && !exit_live) {
+         if(InpVerboseLog)
+            Print("WARNING V2_LONG | stale exit ticket cleared layer=", i,
+                  " ticket=", g_long_layers[i].exit_ticket);
+         g_long_layers[i].exit_ticket = 0;
+         exit_live = false;
+      }
 
-   double tp = PositionGetDouble(POSITION_TP);
-   if (MathAbs(tp - g_long_layers[top].exit_target) <= _Point) {
-      g_long_layers[top].exit_ticket = position_ticket;
-      return;
+      V2ExitAuditAction action = V2_EvaluateExitAudit(
+         position_live,
+         exit_live,
+         g_long_layers[i].last_exit_retry_time,
+         g_long_layers[i].first_exit_retry_time,
+         g_long_layers[i].exit_escalated,
+         now);
+
+      if(action == V2_EXIT_AUDIT_OK || action == V2_EXIT_AUDIT_THROTTLED)
+         continue;
+
+      if(action == V2_EXIT_AUDIT_ESCALATE) {
+         V2_EscalateExitAlert(g_long_system_alerts, V2_TEL_INSTANCE_LONG, i,
+                              g_long_layers[i].exit_target,
+                              g_long_layers[i].exit_escalated);
+      }
+
+      if(g_long_layers[i].first_exit_retry_time == 0)
+         g_long_layers[i].first_exit_retry_time = now;
+      g_long_layers[i].last_exit_retry_time = now;
+
+      if(Long_SetExitTakeProfit(i)) {
+         g_long_stat_exit_limit_placed++;
+         if(InpVerboseLog)
+            Print("INFO V2_LONG | AuditExitLimits recovered layer=", i,
+                  " ticket=", g_long_layers[i].exit_ticket);
+      } else {
+         g_long_stat_exit_place_fail++;
+      }
    }
-
-   Long_PlaceExitForLayer(top, false);
 }
 
 void Long_EnsureAddNext() {
@@ -331,7 +375,6 @@ void Long_OnNewBar() {
                " bid_lvl=", DoubleToString(bid_lvl, 5));
    }
 
-   Long_EnsureTopExit();
    Long_EnsureAddNext();
 }
 
@@ -344,6 +387,9 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    g_long_layers[n].position_ticket  = position_ticket;
    g_long_layers[n].exit_ticket      = 0;
    g_long_layers[n].exit_target      = Long_NormalizeSym(entry_price + Long_PipsToPrice(InpExitPips));
+   g_long_layers[n].last_exit_retry_time  = 0;
+   g_long_layers[n].first_exit_retry_time = 0;
+   g_long_layers[n].exit_escalated        = false;
 
    if (n == 0)
       g_long_stat_l0_entries++;
@@ -369,36 +415,41 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    Long_CancelTicket(g_long_add_ticket);
    g_long_add_ticket = 0;
 
-   if (n > 0)
-      Long_ClearExitTakeProfit(g_long_layers[n - 1].position_ticket);
-
    Long_PlaceExitForLayer(n, true);
    Long_EnsureAddNext();
 }
 
-void Long_PopTopLayer() {
+void Long_RemoveLayerAt(const int layer_idx) {
    int n = ArraySize(g_long_layers);
-   if (n <= 0)
+   if(layer_idx < 0 || layer_idx >= n)
       return;
 
-   g_long_last_exit_price = g_long_layers[n - 1].entry_price;
-   g_long_last_exit_valid = true;
+   bool was_top = (layer_idx == n - 1);
+   if(was_top) {
+      g_long_last_exit_price = g_long_layers[layer_idx].entry_price;
+      g_long_last_exit_valid = true;
+   }
 
-   Long_ClearExitTakeProfit(g_long_layers[n - 1].position_ticket);
-   Long_CancelTicket(g_long_add_ticket);
-   g_long_add_ticket = 0;
+   V2_CancelExitOrder(g_long_layers[layer_idx].exit_ticket);
+   if(was_top) {
+      Long_CancelTicket(g_long_add_ticket);
+      g_long_add_ticket = 0;
+   }
 
+   for(int i = layer_idx; i < n - 1; i++)
+      g_long_layers[i] = g_long_layers[i + 1];
    ArrayResize(g_long_layers, n - 1);
    g_long_stat_exits++;
 
-   // Instance-scoped flat reset: own g_long_layers only — never PositionsTotal().
    V2_OnOwnStackFlat(g_long_last_exit_valid, ArraySize(g_long_layers));
    if(ArraySize(g_long_layers) == 0)
       g_long_current_add_pips = InpAddPipsFloor;
-   if(ArraySize(g_long_layers) > 0) {
-      Long_EnsureTopExit();
+   else if(was_top)
       Long_EnsureAddNext();
-   }
+}
+
+void Long_PopTopLayer() {
+   Long_RemoveLayerAt(ArraySize(g_long_layers) - 1);
 }
 
 bool Long_DealWasProcessed(const ulong deal_ticket) {
@@ -453,41 +504,63 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       return;
    }
 
-   if (entry_type == DEAL_ENTRY_OUT && deal_type == DEAL_TYPE_SELL &&
-       ArraySize(g_long_layers) > 0) {
-      int top = ArraySize(g_long_layers) - 1;
-      ulong deal_pos = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
-      if (deal_pos == g_long_layers[top].position_ticket) {
-         double real_profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT)
-                              + HistoryDealGetDouble(deal_ticket, DEAL_SWAP)
-                              + HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
-         datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
-         V2PodAccumulateExit(g_long_pod, real_profit);
-         Long_PopTopLayer();
-         if(ArraySize(g_long_layers) == 0 && g_long_pod.layers_closed > 0) {
-            double hold_mins = (double)(deal_time - g_long_pod.start_time) / 60.0;
-            string payload = V2BuildPodClosePayload(
-               V2_TEL_INSTANCE_LONG,
-               _Symbol,
-               "LONG",
-               g_long_pod.layers_closed,
-               g_long_pod.layer0_entry,
-               deal_price,
-               hold_mins,
-               g_long_pod.gross_pnl,
-               TimeGMT(),
-               deal_time
-            );
-            if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
-               V2TelemetryWebPost(V2DerivePodClosedUrl(TelemetryURL),
-                                  TelemetryAPIKey, payload, InpVerboseLog);
-            V2PodReset(g_long_pod);
+   if (entry_type == DEAL_ENTRY_IN &&
+       deal_magic == (long)MM_LONG_V2_EXIT) {
+      int layer_idx = -1;
+      for(int i = 0; i < ArraySize(g_long_layers); i++) {
+         if(g_long_layers[i].exit_ticket == order_ticket) {
+            layer_idx = i;
+            break;
          }
-         if (InpVerboseLog)
-            Print("DIAG V2_LONG | event=exit_filled | deal=", deal_ticket,
-                  " entry_type=", entry_type, " layers=", ArraySize(g_long_layers),
-                  " last_exit_valid=", g_long_last_exit_valid);
       }
+      if(layer_idx < 0) {
+         if(InpVerboseLog)
+            Print("WARN V2_LONG | exit fill with no matching layer order=", order_ticket);
+         return;
+      }
+
+      ulong orig_pos = Long_ResolvePositionTicket(g_long_layers[layer_idx].position_ticket);
+      double real_profit = 0.0;
+      if(orig_pos > 0 && PositionSelectByTicket(orig_pos))
+         real_profit = PositionGetDouble(POSITION_PROFIT) +
+                       PositionGetDouble(POSITION_SWAP);
+
+      if(orig_pos > 0 && position_id > 0) {
+         V2_QueueCloseBy(g_long_closeby_queue, orig_pos, position_id);
+         if(InpVerboseLog)
+            Print("INFO V2_LONG | CloseBy queued position=", orig_pos,
+                  " hedge=", position_id, " layer=", layer_idx);
+      }
+
+      datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
+      V2PodAccumulateExit(g_long_pod, real_profit);
+      Long_RemoveLayerAt(layer_idx);
+
+      if(ArraySize(g_long_layers) == 0 && g_long_pod.layers_closed > 0) {
+         double hold_mins = (double)(deal_time - g_long_pod.start_time) / 60.0;
+         string payload = V2BuildPodClosePayload(
+            V2_TEL_INSTANCE_LONG,
+            _Symbol,
+            "LONG",
+            g_long_pod.layers_closed,
+            g_long_pod.layer0_entry,
+            deal_price,
+            hold_mins,
+            g_long_pod.gross_pnl,
+            TimeGMT(),
+            deal_time
+         );
+         if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+            V2TelemetryWebPost(V2DerivePodClosedUrl(TelemetryURL),
+                               TelemetryAPIKey, payload, InpVerboseLog);
+         V2PodReset(g_long_pod);
+      }
+
+      if (InpVerboseLog)
+         Print("DIAG V2_LONG | event=exit_filled | deal=", deal_ticket,
+               " layer=", layer_idx, " layers=", ArraySize(g_long_layers),
+               " last_exit_valid=", g_long_last_exit_valid);
+      return;
    }
 }
 
@@ -514,7 +587,12 @@ void Long_OnDeinit(const int reason) {
 }
 
 void Long_OnTick() {
+   if(g_long_halted)
+      return;
    Long_OnNewBar();
+   Long_AuditExitLimits();
+   V2_ProcessCloseByQueue(g_long_closeby_queue, V2_TEL_INSTANCE_LONG,
+                          MM_LONG_V2, g_long_halted, InpVerboseLog);
 }
 struct ShortV2Layer {
    double entry_price;
@@ -522,6 +600,9 @@ struct ShortV2Layer {
    ulong  entry_ticket;
    ulong  position_ticket;
    ulong  exit_ticket;
+   datetime last_exit_retry_time;
+   datetime first_exit_retry_time;
+   bool     exit_escalated;
 };
 
 ShortV2Layer  g_short_layers[];
@@ -531,6 +612,10 @@ double   g_short_current_add_pips;
 ulong    g_short_l0_ticket;
 ulong    g_short_add_ticket;
 datetime g_short_last_bar_time;
+bool     g_short_halted = false;
+
+V2CloseByTask g_short_closeby_queue[];
+string        g_short_system_alerts[];
 
 int g_short_stat_l0_entries;
 int g_short_stat_add_entries;
@@ -682,37 +767,41 @@ bool Short_SetExitTakeProfit(const int layer_idx) {
    if (position_ticket == 0)
       return false;
 
-   double tp = Short_NormalizeSym(g_short_layers[layer_idx].exit_target);
-   MqlTradeRequest req = {};
-   MqlTradeResult  res = {};
-   if(!V2_BuildExitSltpRequest(_Symbol, position_ticket, tp, req))
-      return false;
-   if (!OrderSend(req, res)) {
+   double target = Short_NormalizeSym(g_short_layers[layer_idx].exit_target);
+   ulong existing = g_short_layers[layer_idx].exit_ticket;
+   if(existing != 0 && V2_ExitOrderLiveOrFilled(existing))
+      return true;
+
+   if(existing != 0) {
+      V2_CancelExitOrder(existing);
+      g_short_layers[layer_idx].exit_ticket = 0;
+   }
+
+   ulong exit_order = V2_SendExitLimit(_Symbol, target, InpLotSize, -1,
+                                       MM_SHORT_V2_EXIT, target);
+   if(exit_order == 0) {
       if (InpVerboseLog)
-         Print("WARN V2_SHORT | tp set failed pos=", position_ticket,
-               " tp=", DoubleToString(tp, 5),
-               " retcode=", res.retcode);
+         Print("WARN V2_SHORT | exit limit placement failed layer=", layer_idx,
+               " target=", DoubleToString(target, 5));
       return false;
    }
-   g_short_layers[layer_idx].exit_ticket = position_ticket;
+
+   g_short_layers[layer_idx].exit_ticket = exit_order;
+   g_short_layers[layer_idx].last_exit_retry_time  = 0;
+   g_short_layers[layer_idx].first_exit_retry_time = 0;
+   g_short_layers[layer_idx].exit_escalated        = false;
    return true;
 }
 
 void Short_ClearExitTakeProfit(const ulong position_ref) {
-   ulong position_ticket = Short_ResolvePositionTicket(position_ref);
-   if (position_ticket == 0 || !PositionSelectByTicket(position_ticket))
+   int n = ArraySize(g_short_layers);
+   for(int i = 0; i < n; i++) {
+      if(g_short_layers[i].position_ticket != position_ref)
+         continue;
+      V2_CancelExitOrder(g_short_layers[i].exit_ticket);
+      g_short_layers[i].exit_ticket = 0;
       return;
-   if (PositionGetDouble(POSITION_TP) == 0.0)
-      return;
-
-   MqlTradeRequest req = {};
-   MqlTradeResult  res = {};
-   req.action   = TRADE_ACTION_SLTP;
-   req.symbol   = _Symbol;
-   req.position = position_ticket;
-   req.sl       = PositionGetDouble(POSITION_SL);
-   req.tp       = 0.0;
-   OrderSend(req, res);
+   }
 }
 
 double Short_ComputeAddTarget() {
@@ -743,17 +832,16 @@ void Short_PlaceExitForLayer(const int layer_idx, const bool immediate) {
       return;
 
    double target = g_short_layers[layer_idx].exit_target;
-   Short_ClearExitTakeProfit(g_short_layers[layer_idx].position_ticket);
    if (Short_SetExitTakeProfit(layer_idx)) {
       g_short_stat_exit_limit_placed++;
       if (InpVerboseLog && immediate)
          Print("DIAG V2_SHORT | event=exit_placed | layer=", layer_idx,
-               " target=", DoubleToString(target, 5));
+               " target=", DoubleToString(target, 5),
+               " ticket=", g_short_layers[layer_idx].exit_ticket);
       return;
    }
 
    g_short_stat_exit_place_fail++;
-   g_short_layers[layer_idx].exit_ticket = 0;
    if (InpVerboseLog) {
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       Print("WARN V2_SHORT | exit placement failed layer=", layer_idx,
@@ -763,23 +851,56 @@ void Short_PlaceExitForLayer(const int layer_idx, const bool immediate) {
    }
 }
 
-void Short_EnsureTopExit() {
+void Short_AuditExitLimits() {
+   if(g_short_halted)
+      return;
+
+   datetime now = TimeCurrent();
    int n = ArraySize(g_short_layers);
-   if (n <= 0)
-      return;
+   for(int i = 0; i < n; i++) {
+      ulong position_ticket = Short_ResolvePositionTicket(g_short_layers[i].position_ticket);
+      bool position_live = (position_ticket != 0 &&
+                            PositionSelectByTicket(position_ticket));
+      bool exit_live = V2_ExitOrderLiveOrFilled(g_short_layers[i].exit_ticket);
 
-   int top = n - 1;
-   ulong position_ticket = Short_ResolvePositionTicket(g_short_layers[top].position_ticket);
-   if (position_ticket == 0 || !PositionSelectByTicket(position_ticket))
-      return;
+      if(g_short_layers[i].exit_ticket != 0 && !exit_live) {
+         if(InpVerboseLog)
+            Print("WARNING V2_SHORT | stale exit ticket cleared layer=", i,
+                  " ticket=", g_short_layers[i].exit_ticket);
+         g_short_layers[i].exit_ticket = 0;
+         exit_live = false;
+      }
 
-   double tp = PositionGetDouble(POSITION_TP);
-   if (MathAbs(tp - g_short_layers[top].exit_target) <= _Point) {
-      g_short_layers[top].exit_ticket = position_ticket;
-      return;
+      V2ExitAuditAction action = V2_EvaluateExitAudit(
+         position_live,
+         exit_live,
+         g_short_layers[i].last_exit_retry_time,
+         g_short_layers[i].first_exit_retry_time,
+         g_short_layers[i].exit_escalated,
+         now);
+
+      if(action == V2_EXIT_AUDIT_OK || action == V2_EXIT_AUDIT_THROTTLED)
+         continue;
+
+      if(action == V2_EXIT_AUDIT_ESCALATE) {
+         V2_EscalateExitAlert(g_short_system_alerts, V2_TEL_INSTANCE_SHORT, i,
+                              g_short_layers[i].exit_target,
+                              g_short_layers[i].exit_escalated);
+      }
+
+      if(g_short_layers[i].first_exit_retry_time == 0)
+         g_short_layers[i].first_exit_retry_time = now;
+      g_short_layers[i].last_exit_retry_time = now;
+
+      if(Short_SetExitTakeProfit(i)) {
+         g_short_stat_exit_limit_placed++;
+         if(InpVerboseLog)
+            Print("INFO V2_SHORT | AuditExitLimits recovered layer=", i,
+                  " ticket=", g_short_layers[i].exit_ticket);
+      } else {
+         g_short_stat_exit_place_fail++;
+      }
    }
-
-   Short_PlaceExitForLayer(top, false);
 }
 
 void Short_EnsureAddNext() {
@@ -817,7 +938,6 @@ void Short_OnNewBar() {
                " offer_lvl=", DoubleToString(offer_lvl, 5));
    }
 
-   Short_EnsureTopExit();
    Short_EnsureAddNext();
 }
 
@@ -830,6 +950,9 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    g_short_layers[n].position_ticket  = position_ticket;
    g_short_layers[n].exit_ticket      = 0;
    g_short_layers[n].exit_target      = Short_NormalizeSym(entry_price - Short_PipsToPrice(InpExitPips));
+   g_short_layers[n].last_exit_retry_time  = 0;
+   g_short_layers[n].first_exit_retry_time = 0;
+   g_short_layers[n].exit_escalated        = false;
 
    if (n == 0)
       g_short_stat_l0_entries++;
@@ -855,36 +978,41 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    Short_CancelTicket(g_short_add_ticket);
    g_short_add_ticket = 0;
 
-   if (n > 0)
-      Short_ClearExitTakeProfit(g_short_layers[n - 1].position_ticket);
-
    Short_PlaceExitForLayer(n, true);
    Short_EnsureAddNext();
 }
 
-void Short_PopTopLayer() {
+void Short_RemoveLayerAt(const int layer_idx) {
    int n = ArraySize(g_short_layers);
-   if (n <= 0)
+   if(layer_idx < 0 || layer_idx >= n)
       return;
 
-   g_short_last_exit_price = g_short_layers[n - 1].entry_price;
-   g_short_last_exit_valid = true;
+   bool was_top = (layer_idx == n - 1);
+   if(was_top) {
+      g_short_last_exit_price = g_short_layers[layer_idx].entry_price;
+      g_short_last_exit_valid = true;
+   }
 
-   Short_ClearExitTakeProfit(g_short_layers[n - 1].position_ticket);
-   Short_CancelTicket(g_short_add_ticket);
-   g_short_add_ticket = 0;
+   V2_CancelExitOrder(g_short_layers[layer_idx].exit_ticket);
+   if(was_top) {
+      Short_CancelTicket(g_short_add_ticket);
+      g_short_add_ticket = 0;
+   }
 
+   for(int i = layer_idx; i < n - 1; i++)
+      g_short_layers[i] = g_short_layers[i + 1];
    ArrayResize(g_short_layers, n - 1);
    g_short_stat_exits++;
 
-   // Instance-scoped flat reset: own g_short_layers only — never PositionsTotal().
    V2_OnOwnStackFlat(g_short_last_exit_valid, ArraySize(g_short_layers));
    if(ArraySize(g_short_layers) == 0)
       g_short_current_add_pips = InpAddPipsFloor;
-   if(ArraySize(g_short_layers) > 0) {
-      Short_EnsureTopExit();
+   else if(was_top)
       Short_EnsureAddNext();
-   }
+}
+
+void Short_PopTopLayer() {
+   Short_RemoveLayerAt(ArraySize(g_short_layers) - 1);
 }
 
 bool Short_DealWasProcessed(const ulong deal_ticket) {
@@ -939,41 +1067,63 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       return;
    }
 
-   if (entry_type == DEAL_ENTRY_OUT && deal_type == DEAL_TYPE_BUY &&
-       ArraySize(g_short_layers) > 0) {
-      int top = ArraySize(g_short_layers) - 1;
-      ulong deal_pos = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
-      if (deal_pos == g_short_layers[top].position_ticket) {
-         double real_profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT)
-                              + HistoryDealGetDouble(deal_ticket, DEAL_SWAP)
-                              + HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
-         datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
-         V2PodAccumulateExit(g_short_pod, real_profit);
-         Short_PopTopLayer();
-         if(ArraySize(g_short_layers) == 0 && g_short_pod.layers_closed > 0) {
-            double hold_mins = (double)(deal_time - g_short_pod.start_time) / 60.0;
-            string payload = V2BuildPodClosePayload(
-               V2_TEL_INSTANCE_SHORT,
-               _Symbol,
-               "SHORT",
-               g_short_pod.layers_closed,
-               g_short_pod.layer0_entry,
-               deal_price,
-               hold_mins,
-               g_short_pod.gross_pnl,
-               TimeGMT(),
-               deal_time
-            );
-            if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
-               V2TelemetryWebPost(V2DerivePodClosedUrl(TelemetryURL),
-                                  TelemetryAPIKey, payload, InpVerboseLog);
-            V2PodReset(g_short_pod);
+   if (entry_type == DEAL_ENTRY_IN &&
+       deal_magic == (long)MM_SHORT_V2_EXIT) {
+      int layer_idx = -1;
+      for(int i = 0; i < ArraySize(g_short_layers); i++) {
+         if(g_short_layers[i].exit_ticket == order_ticket) {
+            layer_idx = i;
+            break;
          }
-         if (InpVerboseLog)
-            Print("DIAG V2_SHORT | event=exit_filled | deal=", deal_ticket,
-                  " entry_type=", entry_type, " layers=", ArraySize(g_short_layers),
-                  " last_exit_valid=", g_short_last_exit_valid);
       }
+      if(layer_idx < 0) {
+         if(InpVerboseLog)
+            Print("WARN V2_SHORT | exit fill with no matching layer order=", order_ticket);
+         return;
+      }
+
+      ulong orig_pos = Short_ResolvePositionTicket(g_short_layers[layer_idx].position_ticket);
+      double real_profit = 0.0;
+      if(orig_pos > 0 && PositionSelectByTicket(orig_pos))
+         real_profit = PositionGetDouble(POSITION_PROFIT) +
+                       PositionGetDouble(POSITION_SWAP);
+
+      if(orig_pos > 0 && position_id > 0) {
+         V2_QueueCloseBy(g_short_closeby_queue, orig_pos, position_id);
+         if(InpVerboseLog)
+            Print("INFO V2_SHORT | CloseBy queued position=", orig_pos,
+                  " hedge=", position_id, " layer=", layer_idx);
+      }
+
+      datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
+      V2PodAccumulateExit(g_short_pod, real_profit);
+      Short_RemoveLayerAt(layer_idx);
+
+      if(ArraySize(g_short_layers) == 0 && g_short_pod.layers_closed > 0) {
+         double hold_mins = (double)(deal_time - g_short_pod.start_time) / 60.0;
+         string payload = V2BuildPodClosePayload(
+            V2_TEL_INSTANCE_SHORT,
+            _Symbol,
+            "SHORT",
+            g_short_pod.layers_closed,
+            g_short_pod.layer0_entry,
+            deal_price,
+            hold_mins,
+            g_short_pod.gross_pnl,
+            TimeGMT(),
+            deal_time
+         );
+         if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+            V2TelemetryWebPost(V2DerivePodClosedUrl(TelemetryURL),
+                               TelemetryAPIKey, payload, InpVerboseLog);
+         V2PodReset(g_short_pod);
+      }
+
+      if (InpVerboseLog)
+         Print("DIAG V2_SHORT | event=exit_filled | deal=", deal_ticket,
+               " layer=", layer_idx, " layers=", ArraySize(g_short_layers),
+               " last_exit_valid=", g_short_last_exit_valid);
+      return;
    }
 }
 
@@ -1000,7 +1150,12 @@ void Short_OnDeinit(const int reason) {
 }
 
 void Short_OnTick() {
+   if(g_short_halted)
+      return;
    Short_OnNewBar();
+   Short_AuditExitLimits();
+   V2_ProcessCloseByQueue(g_short_closeby_queue, V2_TEL_INSTANCE_SHORT,
+                          MM_SHORT_V2, g_short_halted, InpVerboseLog);
 }
 
 //+------------------------------------------------------------------+
@@ -1014,6 +1169,7 @@ void V2FillLongTelLayers(V2TelLayerSnapshot &out_layers[])
       out_layers[i].lot_size         = InpLotSize;
       out_layers[i].direction        = 1;
       out_layers[i].position_ticket  = g_long_layers[i].position_ticket;
+      out_layers[i].exit_ticket      = g_long_layers[i].exit_ticket;
    }
 }
 
@@ -1027,6 +1183,7 @@ void V2FillShortTelLayers(V2TelLayerSnapshot &out_layers[])
       out_layers[i].lot_size         = InpLotSize;
       out_layers[i].direction        = -1;
       out_layers[i].position_ticket  = g_short_layers[i].position_ticket;
+      out_layers[i].exit_ticket      = g_short_layers[i].exit_ticket;
    }
 }
 
@@ -1056,7 +1213,8 @@ void V2EmitTelemetry(const bool force = false)
       ArraySize(long_layers),
       1,
       InpQuoteSpread,
-      ts_utc
+      ts_utc,
+      g_long_system_alerts
    );
    string payload_short = V2BuildInstanceTelemetryPayload(
       V2_TEL_INSTANCE_SHORT,
@@ -1065,7 +1223,8 @@ void V2EmitTelemetry(const bool force = false)
       ArraySize(short_layers),
       -1,
       InpQuoteSpread,
-      ts_utc
+      ts_utc,
+      g_short_system_alerts
    );
 
    V2TelemetryWebPost(TelemetryURL, TelemetryAPIKey, payload_long, InpVerboseLog);
@@ -1076,7 +1235,10 @@ int OnInit() {
    V2PodReset(g_long_pod);
    V2PodReset(g_short_pod);
    g_last_telemetry_emit = 0;
-   Print("INFO: fxmatrix_v2 init MM_LONG_V2=", MM_LONG_V2, " MM_SHORT_V2=", MM_SHORT_V2, " reload_flat=1 running_state_widen=1 telemetry=", (EnableTelemetry ? "1" : "0"));
+   Print("INFO: fxmatrix_v2 init MM_LONG_V2=", MM_LONG_V2,
+         " MM_SHORT_V2=", MM_SHORT_V2,
+         " exit_limits=1 closeby=1 audit_tick=1 reload_flat=1 telemetry=",
+         (EnableTelemetry ? "1" : "0"));
    Long_OnInit();
    Short_OnInit();
    return INIT_SUCCEEDED;

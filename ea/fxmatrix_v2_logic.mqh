@@ -7,11 +7,46 @@
 
 #define MM_LONG_V2   20260901
 #define MM_SHORT_V2  20260902
+#define V2_EXIT_MAGIC_OFFSET 2
+#define MM_LONG_V2_EXIT   (MM_LONG_V2 + V2_EXIT_MAGIC_OFFSET)
+#define MM_SHORT_V2_EXIT  (MM_SHORT_V2 + V2_EXIT_MAGIC_OFFSET)
 
 #define V2_ADD_PIPS_FLOOR    9.0
 #define V2_WIDEN_RATIO       1.304
 #define V2_ADD_PIPS_CEILING  1000.0
 #define V2_EXIT_PIPS         3.0
+
+// Exit orphan retry: 15s throttle (broker-friendly, matches V1 ADR-081 interval).
+// Escalate after 90s (~6 attempts) — well under old 5-minute bar retry gap.
+// Harness may define overrides before include; production defaults unchanged.
+#ifndef V2_EXIT_RETRY_INTERVAL_SEC
+#define V2_EXIT_RETRY_INTERVAL_SEC 15
+#endif
+#ifndef V2_EXIT_ESCALATE_AFTER_SEC
+#define V2_EXIT_ESCALATE_AFTER_SEC   90
+#endif
+#ifndef V2_CLOSEBY_MAX_RETRIES
+#define V2_CLOSEBY_MAX_RETRIES       10
+#endif
+
+//+------------------------------------------------------------------+
+struct V2CloseByTask
+{
+   ulong ticket1;
+   ulong ticket2;
+   int   retries;
+   int   last_retcode;
+};
+
+//+------------------------------------------------------------------+
+enum V2ExitAuditAction
+{
+   V2_EXIT_AUDIT_OK           = 0,
+   V2_EXIT_AUDIT_NEEDS_PLACE  = 1,
+   V2_EXIT_AUDIT_STALE_CLEAR  = 2,
+   V2_EXIT_AUDIT_THROTTLED    = 3,
+   V2_EXIT_AUDIT_ESCALATE     = 4
+};
 
 //+------------------------------------------------------------------+
 //| Positional closed-form (NOT used in production — reference only). |
@@ -26,7 +61,6 @@ double V2_SpacingPipsDn_Positional(const int n)
 
 //+------------------------------------------------------------------+
 //| Validated running-state add spacing (depth_before = stack size).  |
-//| Floor 9 pips while depth_before < 3; else accumulated state.      |
 //+------------------------------------------------------------------+
 double V2_AddStepPipsForDepth(const int depth_before, const double current_add_pips)
 {
@@ -36,17 +70,12 @@ double V2_AddStepPipsForDepth(const int depth_before, const double current_add_p
 }
 
 //+------------------------------------------------------------------+
-//| Advance widen state after append when resulting depth >= 3.         |
-//| Matches validated test-stage: any append (add or reload).         |
-//+------------------------------------------------------------------+
 void V2_AdvanceAddPipsOnAppend(double &current_add_pips, const int depth_after)
 {
    if(depth_after >= 3)
       current_add_pips = MathMin(V2_ADD_PIPS_CEILING, current_add_pips * V2_WIDEN_RATIO);
 }
 
-//+------------------------------------------------------------------+
-//| Reset widen state when instance stack returns fully flat.         |
 //+------------------------------------------------------------------+
 void V2_ResetAddPipsOnFlat(double &current_add_pips, const int layer_count)
 {
@@ -55,9 +84,6 @@ void V2_ResetAddPipsOnFlat(double &current_add_pips, const int layer_count)
 }
 
 //+------------------------------------------------------------------+
-//| After PopTopLayer: reset reload gate only when THIS instance's     |
-//| internal stack is empty. Never consult account PositionsTotal().  |
-//+------------------------------------------------------------------+
 void V2_OnOwnStackFlat(bool &last_exit_valid, const int layer_count)
 {
    if(layer_count == 0)
@@ -65,23 +91,86 @@ void V2_OnOwnStackFlat(bool &last_exit_valid, const int layer_count)
 }
 
 //+------------------------------------------------------------------+
-//| Build ticket-targeted SLTP modify for LIFO exit (position close).  |
+//| Resting exit limit request (opposite-direction, exit magic).      |
 //+------------------------------------------------------------------+
-bool V2_BuildExitSltpRequest(const string symbol,
-                               const ulong position_ticket,
-                               const double tp_price,
-                               MqlTradeRequest &req)
+bool V2_BuildExitLimitRequest(const string symbol,
+                              const double exit_price,
+                              const double volume,
+                              const int entry_direction,
+                              const ulong exit_magic,
+                              MqlTradeRequest &req)
 {
-   if(position_ticket == 0)
+   if(exit_price <= 0.0 || volume <= 0.0)
       return false;
 
+   int exit_dir = -entry_direction;
    ZeroMemory(req);
-   req.action   = TRADE_ACTION_SLTP;
-   req.symbol   = symbol;
-   req.position = position_ticket;
-   req.sl       = 0.0;
-   req.tp       = tp_price;
+   req.action       = TRADE_ACTION_PENDING;
+   req.symbol       = symbol;
+   req.volume       = volume;
+   req.price        = exit_price;
+   req.magic        = exit_magic;
+   req.type         = (exit_dir > 0) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+   req.type_filling = ORDER_FILLING_RETURN;
+   req.type_time    = ORDER_TIME_GTC;
+   req.comment      = "V2_Exit";
    return true;
+}
+
+//+------------------------------------------------------------------+
+bool V2_ExitPassivityOkPure(const int entry_direction,
+                           const double exit_price,
+                           const double bid,
+                           const double ask,
+                           const double freeze)
+{
+   if(entry_direction > 0)
+      return (exit_price > ask + freeze);
+   return (exit_price < bid - freeze);
+}
+
+//+------------------------------------------------------------------+
+string V2_FormatExitEscalationAlert(const string instance_tag,
+                                    const int layer_idx,
+                                    const double exit_price)
+{
+   return StringFormat(
+      "ALERT V2_EXIT_UNPROTECTED | instance=%s layer=%d exit_price=%.5f "
+      "stuck>%ds signature=V2_EXIT_UNPROTECTED",
+      instance_tag, layer_idx, exit_price, V2_EXIT_ESCALATE_AFTER_SEC);
+}
+
+//+------------------------------------------------------------------+
+//| Pure audit state machine (tests + production throttle logic).     |
+//+------------------------------------------------------------------+
+V2ExitAuditAction V2_EvaluateExitAudit(const bool position_live,
+                                       const bool exit_ticket_live_or_filled,
+                                       const datetime last_retry_time,
+                                       const datetime first_retry_time,
+                                       const bool escalated,
+                                       const datetime now)
+{
+   if(!position_live)
+      return V2_EXIT_AUDIT_OK;
+
+   if(exit_ticket_live_or_filled)
+      return V2_EXIT_AUDIT_OK;
+
+   if(last_retry_time > 0 &&
+      (now - last_retry_time) < V2_EXIT_RETRY_INTERVAL_SEC)
+      return V2_EXIT_AUDIT_THROTTLED;
+
+   datetime first = first_retry_time;
+   if(first == 0)
+      first = now;
+
+   if(!escalated && (now - first) >= V2_EXIT_ESCALATE_AFTER_SEC)
+      return V2_EXIT_AUDIT_ESCALATE;
+
+   if(!exit_ticket_live_or_filled)
+      return V2_EXIT_AUDIT_NEEDS_PLACE;
+
+   return V2_EXIT_AUDIT_OK;
 }
 
 //+------------------------------------------------------------------+
@@ -134,6 +223,26 @@ double V2MockComputeAddStepPips(const V2MockStack &s)
    if(depth_before <= 0)
       return 0.0;
    return V2_AddStepPipsForDepth(depth_before, s.current_add_pips);
+}
+
+//+------------------------------------------------------------------+
+//| CloseBy queue test helpers (no OrderSend).                        |
+//+------------------------------------------------------------------+
+void V2TestQueueCloseBy(V2CloseByTask &queue[],
+                        const ulong ticket1,
+                        const ulong ticket2)
+{
+   int idx = ArraySize(queue);
+   ArrayResize(queue, idx + 1);
+   queue[idx].ticket1      = ticket1;
+   queue[idx].ticket2      = ticket2;
+   queue[idx].retries      = 0;
+   queue[idx].last_retcode = 0;
+}
+
+int V2TestCloseByQueueSize(const V2CloseByTask &queue[])
+{
+   return ArraySize(queue);
 }
 
 #endif // FXMATRIX_V2_LOGIC_MQH

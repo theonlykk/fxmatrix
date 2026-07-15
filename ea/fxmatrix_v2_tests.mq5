@@ -3,7 +3,7 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.02"
+#property version   "1.03"
 #property script_show_inputs
 #property strict
 
@@ -175,23 +175,106 @@ void Test_CrossInstanceIsolation()
 }
 
 //+------------------------------------------------------------------+
-// (c) Exit path uses ticket-targeted TRADE_ACTION_SLTP (genuine position close)
-void Test_ExitSltpRequestShape()
+// (c) Exit path uses resting TRADE_ACTION_PENDING limit (opposite direction)
+void Test_ExitLimitRequestShape()
 {
    MqlTradeRequest req;
-   const ulong pos_ticket = 123456789;
-   const double tp = 1.25300;
+   const double exit_price = 1.25300;
+   const double volume = 0.01;
 
-   AssertTrue("build sltp ok",
-              V2_BuildExitSltpRequest("GBPUSD", pos_ticket, tp, req));
-   AssertTrue("action is TRADE_ACTION_SLTP", req.action == TRADE_ACTION_SLTP);
-   AssertTrue("position ticket targeted", req.position == pos_ticket);
-   AssertTrue("tp set", MathAbs(req.tp - tp) < 1e-9);
-   AssertTrue("no sl on exit-only modify", req.sl == 0.0);
-   AssertTrue("symbol set", req.symbol == "GBPUSD");
+   AssertTrue("build long exit limit ok",
+              V2_BuildExitLimitRequest("GBPUSD", exit_price, volume, 1,
+                                         MM_LONG_V2_EXIT, req));
+   AssertTrue("action is TRADE_ACTION_PENDING", req.action == TRADE_ACTION_PENDING);
+   AssertTrue("long exit is SELL_LIMIT", req.type == ORDER_TYPE_SELL_LIMIT);
+   AssertTrue("long exit magic routed", req.magic == MM_LONG_V2_EXIT);
+   AssertNear("price set", req.price, exit_price, 1e-9);
+   AssertTrue("GTC", req.type_time == ORDER_TIME_GTC);
+
+   MqlTradeRequest short_req;
+   AssertTrue("build short exit limit ok",
+              V2_BuildExitLimitRequest("GBPUSD", 1.24700, volume, -1,
+                                         MM_SHORT_V2_EXIT, short_req));
+   AssertTrue("short exit is BUY_LIMIT", short_req.type == ORDER_TYPE_BUY_LIMIT);
+   AssertTrue("short exit magic routed", short_req.magic == MM_SHORT_V2_EXIT);
 
    MqlTradeRequest bad;
-   AssertTrue("zero ticket rejected", !V2_BuildExitSltpRequest("GBPUSD", 0, tp, bad));
+   AssertTrue("zero price rejected",
+              !V2_BuildExitLimitRequest("GBPUSD", 0.0, volume, 1, MM_LONG_V2_EXIT, bad));
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitPassivityPure()
+{
+   AssertTrue("long exit above ask+freeze",
+              V2_ExitPassivityOkPure(1, 1.25500, 1.25000, 1.25020, 0.00010));
+   AssertTrue("long exit fails when inside spread",
+              !V2_ExitPassivityOkPure(1, 1.25015, 1.25000, 1.25020, 0.00010));
+   AssertTrue("short exit below bid-freeze",
+              V2_ExitPassivityOkPure(-1, 1.24500, 1.25000, 1.25020, 0.00010));
+}
+
+//+------------------------------------------------------------------+
+void Test_CloseByQueueing()
+{
+   V2CloseByTask queue[];
+   V2TestQueueCloseBy(queue, 1001, 2002);
+   AssertTrue("closeby queue size 1", V2TestCloseByQueueSize(queue) == 1);
+   AssertTrue("ticket1 stored", queue[0].ticket1 == 1001);
+   AssertTrue("ticket2 stored", queue[0].ticket2 == 2002);
+   AssertTrue("retries zeroed", queue[0].retries == 0);
+}
+
+//+------------------------------------------------------------------+
+void Test_TickAuditMissingExit()
+{
+   datetime t0 = D'2026.06.05 12:00:00';
+   V2ExitAuditAction a = V2_EvaluateExitAudit(
+      true, false, 0, 0, false, t0);
+   AssertTrue("missing exit needs place", a == V2_EXIT_AUDIT_NEEDS_PLACE);
+
+   datetime t1 = t0 + 5;
+   V2ExitAuditAction throttled = V2_EvaluateExitAudit(
+      true, false, t0, t0, false, t1);
+   AssertTrue("retry throttled inside interval",
+              throttled == V2_EXIT_AUDIT_THROTTLED);
+
+   datetime t2 = t0 + V2_EXIT_ESCALATE_AFTER_SEC;
+   V2ExitAuditAction esc = V2_EvaluateExitAudit(
+      true, false, t0, t0, false, t2);
+   AssertTrue("orphan escalates after threshold", esc == V2_EXIT_AUDIT_ESCALATE);
+
+   V2ExitAuditAction ok = V2_EvaluateExitAudit(
+      true, true, t0, t0, false, t2);
+   AssertTrue("live exit ticket ok", ok == V2_EXIT_AUDIT_OK);
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitEscalationAlertSignature()
+{
+   string alert = V2_FormatExitEscalationAlert(V2_TEL_INSTANCE_LONG, 2, 1.33380);
+   AssertContains("searchable signature", alert, "V2_EXIT_UNPROTECTED");
+   AssertContains("instance tag", alert, "MM_LONG_V2");
+   AssertContains("layer index", alert, "layer=2");
+}
+
+void Test_TelemetrySystemAlertsField()
+{
+   V2TelLayerSnapshot rows[1];
+   rows[0].entry_price = 1.25000;
+   rows[0].exit_target = 1.25030;
+   rows[0].lot_size = 0.01;
+   rows[0].direction = 1;
+   rows[0].position_ticket = 111;
+   rows[0].exit_ticket = 555;
+
+   string alerts[1];
+   alerts[0] = V2_FormatExitEscalationAlert(V2_TEL_INSTANCE_LONG, 0, 1.25030);
+   string payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", rows, 1, 1, 0.0004,
+      D'2026.06.05 12:00:00', alerts);
+   AssertContains("system_alerts populated", payload, "V2_EXIT_UNPROTECTED");
+   AssertNotContains("system_alerts not empty array", payload, "\"system_alerts\":[]");
 }
 
 //+------------------------------------------------------------------+
@@ -218,10 +301,11 @@ void Test_TelemetryDualInstancePayloads()
    short_layers[0].position_ticket = 333;
 
    datetime ts = D'2026.06.05 12:00:00';
+   string empty_alerts[];
    string long_payload = V2BuildInstanceTelemetryPayload(
-      V2_TEL_INSTANCE_LONG, "GBPUSD", long_layers, 2, 1, 0.0004, ts);
+      V2_TEL_INSTANCE_LONG, "GBPUSD", long_layers, 2, 1, 0.0004, ts, empty_alerts);
    string short_payload = V2BuildInstanceTelemetryPayload(
-      V2_TEL_INSTANCE_SHORT, "GBPUSD", short_layers, 1, -1, 0.0004, ts);
+      V2_TEL_INSTANCE_SHORT, "GBPUSD", short_layers, 1, -1, 0.0004, ts, empty_alerts);
 
    AssertContains("long payload instance_id", long_payload, "\"instance_id\":\"MM_LONG_V2\"");
    AssertContains("short payload instance_id", short_payload, "\"instance_id\":\"MM_SHORT_V2\"");
@@ -316,7 +400,12 @@ void OnStart()
    Test_PostReloadExtensionUsesAccumulatedState();
    Test_OwnFlatClearsLastExit();
    Test_CrossInstanceIsolation();
-   Test_ExitSltpRequestShape();
+   Test_ExitLimitRequestShape();
+   Test_ExitPassivityPure();
+   Test_CloseByQueueing();
+   Test_TickAuditMissingExit();
+   Test_ExitEscalationAlertSignature();
+   Test_TelemetrySystemAlertsField();
    Test_TelemetryDualInstancePayloads();
    Test_TelemetryPodCloseAccounting();
    Test_TelemetryPodSessionIsolation();

@@ -16,6 +16,7 @@ struct V2TelLayerSnapshot
    double lot_size;
    int    direction;          // 1=BUY/LONG, -1=SELL/SHORT
    ulong  position_ticket;
+   ulong  exit_ticket;
 };
 
 //+------------------------------------------------------------------+
@@ -112,7 +113,7 @@ string V2BuildLayerDetailJSON(const V2TelLayerSnapshot &layers[],
          layers[i].exit_target,
          layers[i].lot_size,
          layers[i].position_ticket,
-         (layers[i].position_ticket > 0 ? "true" : "false")
+         (layers[i].exit_ticket > 0 ? "true" : "false")
       );
    }
    json += "]";
@@ -185,13 +186,28 @@ string V2BuildPodJSON(const string symbol,
 }
 
 //+------------------------------------------------------------------+
+string V2BuildSystemAlertsJSON(string& alerts[])
+{
+   string json = "[";
+   int n = ArraySize(alerts);
+   for(int i = 0; i < n; i++) {
+      if(i > 0)
+         json += ",";
+      json += StringFormat("\"%s\"", alerts[i]);
+   }
+   json += "]";
+   return json;
+}
+
+//+------------------------------------------------------------------+
 string V2BuildInstanceTelemetryPayload(const string instance_id,
                                        const string symbol,
                                        const V2TelLayerSnapshot &layers[],
                                        const int layer_count,
                                        const int direction,
                                        const double quote_spread,
-                                       const datetime timestamp_utc)
+                                       const datetime timestamp_utc,
+                                       string& system_alerts[])
 {
    string ts = V2TelIsoUtc(timestamp_utc);
 
@@ -209,6 +225,8 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       SymbolInfoDouble(symbol, SYMBOL_BID),
       SymbolInfoDouble(symbol, SYMBOL_ASK)
    );
+
+   string alerts_json = V2BuildSystemAlertsJSON(system_alerts);
 
    return StringFormat(
       "{"
@@ -232,7 +250,7 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       "\"market_prices\":%s,"
       "\"cooldown_ldak\":{},"
       "\"bias_backstop_count\":0,"
-      "\"system_alerts\":[]"
+      "\"system_alerts\":%s"
       "}",
       ts,
       instance_id,
@@ -241,7 +259,8 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       margin_lvl,
       quote_spread,
       pods_json,
-      market_json
+      market_json,
+      alerts_json
    );
 }
 
