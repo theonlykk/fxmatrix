@@ -3,11 +3,12 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.01"
+#property version   "1.02"
 #property script_show_inputs
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_telemetry.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -27,6 +28,16 @@ void AssertTrue(const string name, const bool condition)
 void AssertNear(const string name, const double got, const double expected, const double tol)
 {
    AssertTrue(name, MathAbs(got - expected) <= tol);
+}
+
+void AssertContains(const string name, const string haystack, const string needle)
+{
+   AssertTrue(name, StringFind(haystack, needle) >= 0);
+}
+
+void AssertNotContains(const string name, const string haystack, const string needle)
+{
+   AssertTrue(name, StringFind(haystack, needle) < 0);
 }
 
 //+------------------------------------------------------------------+
@@ -184,6 +195,120 @@ void Test_ExitSltpRequestShape()
 }
 
 //+------------------------------------------------------------------+
+// Telemetry: dual instance_id payloads, no cross-instance field leakage
+void Test_TelemetryDualInstancePayloads()
+{
+   V2TelLayerSnapshot long_layers[2];
+   long_layers[0].entry_price = 1.25000;
+   long_layers[0].exit_target = 1.25030;
+   long_layers[0].lot_size    = 0.01;
+   long_layers[0].direction   = 1;
+   long_layers[0].position_ticket = 111;
+   long_layers[1].entry_price = 1.24900;
+   long_layers[1].exit_target = 1.24930;
+   long_layers[1].lot_size    = 0.01;
+   long_layers[1].direction   = 1;
+   long_layers[1].position_ticket = 222;
+
+   V2TelLayerSnapshot short_layers[1];
+   short_layers[0].entry_price = 1.26000;
+   short_layers[0].exit_target = 1.25970;
+   short_layers[0].lot_size    = 0.01;
+   short_layers[0].direction   = -1;
+   short_layers[0].position_ticket = 333;
+
+   datetime ts = D'2026.06.05 12:00:00';
+   string long_payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", long_layers, 2, 1, 0.0004, ts);
+   string short_payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_SHORT, "GBPUSD", short_layers, 1, -1, 0.0004, ts);
+
+   AssertContains("long payload instance_id", long_payload, "\"instance_id\":\"MM_LONG_V2\"");
+   AssertContains("short payload instance_id", short_payload, "\"instance_id\":\"MM_SHORT_V2\"");
+   AssertNotContains("long payload no short id", long_payload, "MM_SHORT_V2");
+   AssertNotContains("short payload no long id", short_payload, "MM_LONG_V2");
+   AssertContains("long layer_detail has L0 entry", long_payload, "\"entry_price\":1.25000");
+   AssertNotContains("long payload no short entry leak", long_payload, "1.26000");
+   AssertContains("short layer_detail has short entry", short_payload, "\"entry_price\":1.26000");
+   AssertContains("long direction BUY", long_payload, "\"direction\":1");
+   AssertContains("short direction SELL", short_payload, "\"direction\":-1");
+   AssertContains("system_alerts empty array", long_payload, "\"system_alerts\":[]");
+   AssertContains("engine_state V2 stub", long_payload, "\"execution_mode\":\"V2_PASSIVE_GRID\"");
+}
+
+//+------------------------------------------------------------------+
+// ADR-053/059: pod close trade_date, layers_closed count, gross_pnl sum
+void Test_TelemetryPodCloseAccounting()
+{
+   V2PodSession pod;
+   V2PodReset(pod);
+   V2PodOnFirstLayer(pod, 1.34500, D'2026.06.05 10:00:00');
+   V2PodAccumulateExit(pod, 1.25);
+   V2PodAccumulateExit(pod, -0.50);
+   V2PodAccumulateExit(pod, 0.75);
+
+   AssertTrue("pod layers_closed count", pod.layers_closed == 3);
+   AssertNear("pod gross_pnl sum", pod.gross_pnl, 1.50, 1e-9);
+
+   string payload = V2BuildPodClosePayload(
+      V2_TEL_INSTANCE_LONG,
+      "GBPUSD",
+      "LONG",
+      pod.layers_closed,
+      pod.layer0_entry,
+      1.34800,
+      45.0,
+      pod.gross_pnl,
+      D'2026.06.05 10:45:00',
+      D'2026.06.05 10:45:00'
+   );
+
+   AssertContains("pod close trade_date populated", payload, "\"trade_date\":\"2026-06-05\"");
+   AssertContains("pod close layers_closed=3", payload, "\"layers_closed\":3");
+   AssertContains("pod close gross_pnl=1.50", payload, "\"gross_pnl\":1.50");
+   AssertContains("pod close instrument field", payload, "\"instrument\":\"GBPUSD\"");
+   AssertContains("pod close instance_id long", payload, "\"instance_id\":\"MM_LONG_V2\"");
+   AssertNotContains("pod close not hardcoded layer 1", payload, "\"layers_closed\":1");
+}
+
+//+------------------------------------------------------------------+
+// Pod session isolation between long/short telemetry accumulators
+void Test_TelemetryPodSessionIsolation()
+{
+   V2PodSession long_pod;
+   V2PodSession short_pod;
+   V2PodReset(long_pod);
+   V2PodReset(short_pod);
+
+   V2PodOnFirstLayer(long_pod, 1.25000, D'2026.06.01 09:00:00');
+   V2PodOnFirstLayer(short_pod, 1.26000, D'2026.06.01 09:05:00');
+   V2PodAccumulateExit(long_pod, 2.00);
+   V2PodAccumulateExit(short_pod, -1.00);
+
+   AssertTrue("long pod layers closed", long_pod.layers_closed == 1);
+   AssertTrue("short pod layers closed", short_pod.layers_closed == 1);
+   AssertNear("long pod pnl isolated", long_pod.gross_pnl, 2.00, 1e-9);
+   AssertNear("short pod pnl isolated", short_pod.gross_pnl, -1.00, 1e-9);
+   AssertNear("long layer0 entry preserved", long_pod.layer0_entry, 1.25000, 1e-9);
+   AssertNear("short layer0 entry preserved", short_pod.layer0_entry, 1.26000, 1e-9);
+}
+
+//+------------------------------------------------------------------+
+void Test_TelemetryLayerDetailJSON()
+{
+   V2TelLayerSnapshot rows[1];
+   rows[0].entry_price = 1.33350;
+   rows[0].exit_target = 1.33380;
+   rows[0].lot_size = 0.01;
+   rows[0].direction = -1;
+   rows[0].position_ticket = 999;
+
+   string json = V2BuildLayerDetailJSON(rows, 1);
+   AssertContains("layer_detail exit_price_fixed key", json, "\"exit_price_fixed\":1.33380");
+   AssertContains("layer_detail direction -1", json, "\"direction\":-1");
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -192,6 +317,10 @@ void OnStart()
    Test_OwnFlatClearsLastExit();
    Test_CrossInstanceIsolation();
    Test_ExitSltpRequestShape();
+   Test_TelemetryDualInstancePayloads();
+   Test_TelemetryPodCloseAccounting();
+   Test_TelemetryPodSessionIsolation();
+   Test_TelemetryLayerDetailJSON();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

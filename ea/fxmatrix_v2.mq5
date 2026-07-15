@@ -5,10 +5,11 @@
 //| Does NOT modify FXMatrix.mq5 or live account.                      |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "2.10"
+#property version   "2.11"
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_telemetry.mqh"
 
 input double InpQuoteSpread       = 0.0004;
 input double InpSpreadMultiplier  = 0.500;
@@ -19,6 +20,11 @@ input double InpAddPipsCeiling    = 1000.0;
 input double InpLotSize           = 0.01;
 input int    InpMaxLayers         = 20;
 input bool   InpVerboseLog        = true;
+
+input bool   EnableTelemetry      = false;
+input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
+input string TelemetryAPIKey      = "";
+input int    TelemetryIntervalSec = 60;
 
 struct LongV2Layer {
    double entry_price;
@@ -46,6 +52,10 @@ int g_long_stat_exit_limit_placed;
 
 ulong g_long_processed_deals[];
 int   g_long_processed_count;
+
+V2PodSession g_long_pod;
+V2PodSession g_short_pod;
+datetime     g_last_telemetry_emit = 0;
 
 //+------------------------------------------------------------------+
 double Long_PipsToPrice(const double pips) {
@@ -342,6 +352,11 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    else
       g_long_stat_add_entries++;
 
+   if(n == 0) {
+      datetime entry_time = TimeCurrent();
+      V2PodOnFirstLayer(g_long_pod, Long_NormalizeSym(entry_price), entry_time);
+   }
+
    if (ArraySize(g_long_layers) > g_long_stat_max_layers)
       g_long_stat_max_layers = ArraySize(g_long_layers);
 
@@ -443,7 +458,31 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       int top = ArraySize(g_long_layers) - 1;
       ulong deal_pos = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
       if (deal_pos == g_long_layers[top].position_ticket) {
+         double real_profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT)
+                              + HistoryDealGetDouble(deal_ticket, DEAL_SWAP)
+                              + HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
+         datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
+         V2PodAccumulateExit(g_long_pod, real_profit);
          Long_PopTopLayer();
+         if(ArraySize(g_long_layers) == 0 && g_long_pod.layers_closed > 0) {
+            double hold_mins = (double)(deal_time - g_long_pod.start_time) / 60.0;
+            string payload = V2BuildPodClosePayload(
+               V2_TEL_INSTANCE_LONG,
+               _Symbol,
+               "LONG",
+               g_long_pod.layers_closed,
+               g_long_pod.layer0_entry,
+               deal_price,
+               hold_mins,
+               g_long_pod.gross_pnl,
+               TimeGMT(),
+               deal_time
+            );
+            if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+               V2TelemetryWebPost(V2DerivePodClosedUrl(TelemetryURL),
+                                  TelemetryAPIKey, payload, InpVerboseLog);
+            V2PodReset(g_long_pod);
+         }
          if (InpVerboseLog)
             Print("DIAG V2_LONG | event=exit_filled | deal=", deal_ticket,
                   " entry_type=", entry_type, " layers=", ArraySize(g_long_layers),
@@ -799,6 +838,11 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    else
       g_short_stat_add_entries++;
 
+   if(n == 0) {
+      datetime entry_time = TimeCurrent();
+      V2PodOnFirstLayer(g_short_pod, Short_NormalizeSym(entry_price), entry_time);
+   }
+
    if (ArraySize(g_short_layers) > g_short_stat_max_layers)
       g_short_stat_max_layers = ArraySize(g_short_layers);
 
@@ -900,7 +944,31 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       int top = ArraySize(g_short_layers) - 1;
       ulong deal_pos = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
       if (deal_pos == g_short_layers[top].position_ticket) {
+         double real_profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT)
+                              + HistoryDealGetDouble(deal_ticket, DEAL_SWAP)
+                              + HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
+         datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
+         V2PodAccumulateExit(g_short_pod, real_profit);
          Short_PopTopLayer();
+         if(ArraySize(g_short_layers) == 0 && g_short_pod.layers_closed > 0) {
+            double hold_mins = (double)(deal_time - g_short_pod.start_time) / 60.0;
+            string payload = V2BuildPodClosePayload(
+               V2_TEL_INSTANCE_SHORT,
+               _Symbol,
+               "SHORT",
+               g_short_pod.layers_closed,
+               g_short_pod.layer0_entry,
+               deal_price,
+               hold_mins,
+               g_short_pod.gross_pnl,
+               TimeGMT(),
+               deal_time
+            );
+            if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+               V2TelemetryWebPost(V2DerivePodClosedUrl(TelemetryURL),
+                                  TelemetryAPIKey, payload, InpVerboseLog);
+            V2PodReset(g_short_pod);
+         }
          if (InpVerboseLog)
             Print("DIAG V2_SHORT | event=exit_filled | deal=", deal_ticket,
                   " entry_type=", entry_type, " layers=", ArraySize(g_short_layers),
@@ -935,8 +1003,80 @@ void Short_OnTick() {
    Short_OnNewBar();
 }
 
+//+------------------------------------------------------------------+
+void V2FillLongTelLayers(V2TelLayerSnapshot &out_layers[])
+{
+   int n = ArraySize(g_long_layers);
+   ArrayResize(out_layers, n);
+   for(int i = 0; i < n; i++) {
+      out_layers[i].entry_price      = g_long_layers[i].entry_price;
+      out_layers[i].exit_target      = g_long_layers[i].exit_target;
+      out_layers[i].lot_size         = InpLotSize;
+      out_layers[i].direction        = 1;
+      out_layers[i].position_ticket  = g_long_layers[i].position_ticket;
+   }
+}
+
+void V2FillShortTelLayers(V2TelLayerSnapshot &out_layers[])
+{
+   int n = ArraySize(g_short_layers);
+   ArrayResize(out_layers, n);
+   for(int i = 0; i < n; i++) {
+      out_layers[i].entry_price      = g_short_layers[i].entry_price;
+      out_layers[i].exit_target      = g_short_layers[i].exit_target;
+      out_layers[i].lot_size         = InpLotSize;
+      out_layers[i].direction        = -1;
+      out_layers[i].position_ticket  = g_short_layers[i].position_ticket;
+   }
+}
+
+void V2EmitTelemetry(const bool force = false)
+{
+   if(!EnableTelemetry)
+      return;
+   if(TelemetryURL == "" || TelemetryAPIKey == "")
+      return;
+
+   datetime now = TimeCurrent();
+   if(!force && (now - g_last_telemetry_emit) < TelemetryIntervalSec)
+      return;
+
+   g_last_telemetry_emit = now;
+
+   V2TelLayerSnapshot long_layers[];
+   V2TelLayerSnapshot short_layers[];
+   V2FillLongTelLayers(long_layers);
+   V2FillShortTelLayers(short_layers);
+
+   datetime ts_utc = TimeGMT();
+   string payload_long = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG,
+      _Symbol,
+      long_layers,
+      ArraySize(long_layers),
+      1,
+      InpQuoteSpread,
+      ts_utc
+   );
+   string payload_short = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_SHORT,
+      _Symbol,
+      short_layers,
+      ArraySize(short_layers),
+      -1,
+      InpQuoteSpread,
+      ts_utc
+   );
+
+   V2TelemetryWebPost(TelemetryURL, TelemetryAPIKey, payload_long, InpVerboseLog);
+   V2TelemetryWebPost(TelemetryURL, TelemetryAPIKey, payload_short, InpVerboseLog);
+}
+
 int OnInit() {
-   Print("INFO: fxmatrix_v2 init MM_LONG_V2=", MM_LONG_V2, " MM_SHORT_V2=", MM_SHORT_V2, " reload_flat=1 running_state_widen=1");
+   V2PodReset(g_long_pod);
+   V2PodReset(g_short_pod);
+   g_last_telemetry_emit = 0;
+   Print("INFO: fxmatrix_v2 init MM_LONG_V2=", MM_LONG_V2, " MM_SHORT_V2=", MM_SHORT_V2, " reload_flat=1 running_state_widen=1 telemetry=", (EnableTelemetry ? "1" : "0"));
    Long_OnInit();
    Short_OnInit();
    return INIT_SUCCEEDED;
@@ -950,6 +1090,7 @@ void OnDeinit(const int reason) {
 void OnTick() {
    Long_OnTick();
    Short_OnTick();
+   V2EmitTelemetry(false);
 }
 
 void OnTradeTransaction(const MqlTradeTransaction &trans,
