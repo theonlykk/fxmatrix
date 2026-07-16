@@ -5,7 +5,7 @@
 //| Does NOT modify FXMatrix.mq5 or live account.                      |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "2.22"
+#property version   "2.23"
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
@@ -520,10 +520,14 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       }
 
       ulong orig_pos = Long_ResolvePositionTicket(g_long_layers[layer_idx].position_ticket);
-      double real_profit = 0.0;
+      int stack_depth = ArraySize(g_long_layers);
+      int layer_depth = layer_idx + 1;
+      double layer_entry = g_long_layers[layer_idx].entry_price;
+      datetime layer_entry_time = 0;
       if(orig_pos > 0 && PositionSelectByTicket(orig_pos))
-         real_profit = PositionGetDouble(POSITION_PROFIT) +
-                       PositionGetDouble(POSITION_SWAP);
+         layer_entry_time = (datetime)PositionGetInteger(POSITION_TIME);
+
+      double real_profit = V2_ComputeExitRealizedPnl(deal_ticket, orig_pos);
 
       if(orig_pos > 0 && position_id > 0) {
          V2_QueueCloseBy(g_long_closeby_queue, orig_pos, position_id);
@@ -534,6 +538,14 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
       datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
       V2PodAccumulateExit(g_long_pod, real_profit);
+
+      if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+         V2EmitScalpClosed(EnableTelemetry, TelemetryURL, TelemetryAPIKey, InpVerboseLog,
+                           V2_TEL_INSTANCE_LONG, _Symbol, "LONG",
+                           layer_entry, deal_price, real_profit,
+                           layer_entry_time, deal_time,
+                           layer_depth, stack_depth);
+
       Long_RemoveLayerAt(layer_idx);
 
       if(ArraySize(g_long_layers) == 0 && g_long_pod.layers_closed > 0) {
@@ -1083,10 +1095,14 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       }
 
       ulong orig_pos = Short_ResolvePositionTicket(g_short_layers[layer_idx].position_ticket);
-      double real_profit = 0.0;
+      int stack_depth = ArraySize(g_short_layers);
+      int layer_depth = layer_idx + 1;
+      double layer_entry = g_short_layers[layer_idx].entry_price;
+      datetime layer_entry_time = 0;
       if(orig_pos > 0 && PositionSelectByTicket(orig_pos))
-         real_profit = PositionGetDouble(POSITION_PROFIT) +
-                       PositionGetDouble(POSITION_SWAP);
+         layer_entry_time = (datetime)PositionGetInteger(POSITION_TIME);
+
+      double real_profit = V2_ComputeExitRealizedPnl(deal_ticket, orig_pos);
 
       if(orig_pos > 0 && position_id > 0) {
          V2_QueueCloseBy(g_short_closeby_queue, orig_pos, position_id);
@@ -1097,6 +1113,14 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
       datetime deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
       V2PodAccumulateExit(g_short_pod, real_profit);
+
+      if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+         V2EmitScalpClosed(EnableTelemetry, TelemetryURL, TelemetryAPIKey, InpVerboseLog,
+                           V2_TEL_INSTANCE_SHORT, _Symbol, "SHORT",
+                           layer_entry, deal_price, real_profit,
+                           layer_entry_time, deal_time,
+                           layer_depth, stack_depth);
+
       Short_RemoveLayerAt(layer_idx);
 
       if(ArraySize(g_short_layers) == 0 && g_short_pod.layers_closed > 0) {

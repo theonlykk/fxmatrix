@@ -351,4 +351,58 @@ string V2DerivePodClosedUrl(const string telemetry_url)
    return telemetry_url + "/pod_closed";
 }
 
+//+------------------------------------------------------------------+
+string V2BuildScalpClosedPayload(const string instance_id,
+                                 const string instrument,
+                                 const string direction,
+                                 const double entry_price,
+                                 const double exit_price,
+                                 const double hold_time_minutes,
+                                 const double gross_pnl,
+                                 const int layer_depth,
+                                 const int stack_depth,
+                                 const datetime close_time_utc,
+                                 const datetime close_time_local)
+{
+   string ts         = V2TelIsoUtc(close_time_utc);
+   string trade_date = V2TelBrokerTradeDate(close_time_local);
+
+   return StringFormat(
+      "{"
+      "\"event_type\":\"scalp_closed\","
+      "\"close_time\":\"%s\","
+      "\"trade_date\":\"%s\","
+      "\"instrument\":\"%s\","
+      "\"direction\":\"%s\","
+      "\"entry_price\":%.5f,"
+      "\"exit_price\":%.5f,"
+      "\"hold_time_minutes\":%.1f,"
+      "\"gross_pnl\":%.2f,"
+      "\"layer_depth\":%d,"
+      "\"stack_depth\":%d,"
+      "\"instance_id\":\"%s\""
+      "}",
+      ts,
+      trade_date,
+      instrument,
+      direction,
+      entry_price,
+      exit_price,
+      hold_time_minutes,
+      gross_pnl,
+      layer_depth,
+      stack_depth,
+      instance_id
+   );
+}
+
+//+------------------------------------------------------------------+
+string V2DeriveScalpClosedUrl(const string telemetry_url)
+{
+   int push_pos = StringFind(telemetry_url, "/push");
+   if(push_pos >= 0)
+      return StringSubstr(telemetry_url, 0, push_pos) + "/scalp_closed";
+   return telemetry_url + "/scalp_closed";
+}
+
 #endif // FXMATRIX_V2_TELEMETRY_MQH

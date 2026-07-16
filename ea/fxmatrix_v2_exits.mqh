@@ -6,6 +6,7 @@
 #define FXMATRIX_V2_EXITS_MQH
 
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_telemetry.mqh"
 
 //+------------------------------------------------------------------+
 //| Broker-facing helpers (live book / history).                      |
@@ -297,6 +298,67 @@ bool V2_ProcessOrphanStartupCheck(string &system_alerts[],
          "Close or reconcile manually, then reattach flat. Instance halted.");
    V2_PushSystemAlert(system_alerts, alert);
    return true;
+}
+
+//+------------------------------------------------------------------+
+//| Per-exit P&L: deal fields first, position fallback (ADR-050).     |
+//+------------------------------------------------------------------+
+double V2_ComputeExitRealizedPnl(const ulong deal_ticket,
+                                 const ulong position_ticket)
+{
+   double pnl = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT)
+              + HistoryDealGetDouble(deal_ticket, DEAL_SWAP)
+              + HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
+
+   if(MathAbs(pnl) < 1e-10 && position_ticket > 0 &&
+      PositionSelectByTicket(position_ticket))
+      pnl = PositionGetDouble(POSITION_PROFIT) +
+            PositionGetDouble(POSITION_SWAP);
+
+   return pnl;
+}
+
+//+------------------------------------------------------------------+
+//| EmitScalpClosed — one POST per LIFO layer exit (not pod-close).   |
+//+------------------------------------------------------------------+
+void V2EmitScalpClosed(const bool enable_telemetry,
+                       const string telemetry_url,
+                       const string api_key,
+                       const bool verbose_log,
+                       const string instance_id,
+                       const string instrument,
+                       const string direction,
+                       const double entry_price,
+                       const double exit_price,
+                       const double gross_pnl,
+                       const datetime entry_time,
+                       const datetime exit_time,
+                       const int layer_depth,
+                       const int stack_depth)
+{
+   if(!enable_telemetry || telemetry_url == "" || api_key == "")
+      return;
+
+   double hold_mins = 0.0;
+   if(entry_time > 0 && exit_time >= entry_time)
+      hold_mins = (double)(exit_time - entry_time) / 60.0;
+
+   string payload = V2BuildScalpClosedPayload(
+      instance_id,
+      instrument,
+      direction,
+      entry_price,
+      exit_price,
+      hold_mins,
+      gross_pnl,
+      layer_depth,
+      stack_depth,
+      TimeGMT(),
+      exit_time
+   );
+
+   V2TelemetryWebPost(V2DeriveScalpClosedUrl(telemetry_url),
+                      api_key, payload, verbose_log);
 }
 
 #endif // FXMATRIX_V2_EXITS_MQH

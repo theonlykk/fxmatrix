@@ -3,7 +3,7 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.05"
+#property version   "1.06"
 #property script_show_inputs
 #property strict
 
@@ -465,6 +465,90 @@ void Test_OrphanStartupGuard()
 }
 
 //+------------------------------------------------------------------+
+// Per-layer scalp_closed telemetry (distinct from pod_closed)
+void Test_TelemetryScalpClosedPayload()
+{
+   string payload = V2BuildScalpClosedPayload(
+      V2_TEL_INSTANCE_SHORT,
+      "GBPUSD",
+      "SHORT",
+      1.34550,
+      1.34520,
+      12.5,
+      0.85,
+      3,
+      5,
+      D'2026.06.05 14:30:00',
+      D'2026.06.05 14:30:00'
+   );
+
+   AssertContains("scalp event_type", payload, "\"event_type\":\"scalp_closed\"");
+   AssertContains("scalp trade_date", payload, "\"trade_date\":\"2026-06-05\"");
+   AssertContains("scalp instance_id", payload, "\"instance_id\":\"MM_SHORT_V2\"");
+   AssertContains("scalp instrument", payload, "\"instrument\":\"GBPUSD\"");
+   AssertContains("scalp direction", payload, "\"direction\":\"SHORT\"");
+   AssertContains("scalp layer entry", payload, "\"entry_price\":1.34550");
+   AssertContains("scalp exit price", payload, "\"exit_price\":1.34520");
+   AssertContains("scalp hold mins", payload, "\"hold_time_minutes\":12.5");
+   AssertContains("scalp gross_pnl", payload, "\"gross_pnl\":0.85");
+   AssertContains("scalp layer_depth", payload, "\"layer_depth\":3");
+   AssertContains("scalp stack_depth", payload, "\"stack_depth\":5");
+   AssertNotContains("scalp not pod layers_closed", payload, "\"layers_closed\"");
+   AssertNotContains("scalp not pod avg_entry", payload, "\"avg_entry_price\"");
+}
+
+//+------------------------------------------------------------------+
+void Test_TelemetryScalpClosedUrl()
+{
+   string base = "https://pipshed.com/api/telemetry/push";
+   AssertContains("scalp url derived", V2DeriveScalpClosedUrl(base),
+                  "https://pipshed.com/api/telemetry/scalp_closed");
+   AssertContains("pod url unchanged",
+                  V2DerivePodClosedUrl(base),
+                  "https://pipshed.com/api/telemetry/pod_closed");
+}
+
+//+------------------------------------------------------------------+
+// Scalp fires per exit; pod-close payload/conditions stay independent
+void Test_TelemetryScalpVsPodCloseIndependence()
+{
+   // Partial stack exit: scalp only (layers remain)
+   string scalp_partial = V2BuildScalpClosedPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", "LONG",
+      1.25000, 1.25030, 5.0, 1.10,
+      2, 4,
+      D'2026.06.05 11:00:00', D'2026.06.05 11:00:00');
+   AssertContains("partial scalp layer_depth", scalp_partial, "\"layer_depth\":2");
+   AssertContains("partial scalp stack_depth", scalp_partial, "\"stack_depth\":4");
+   AssertNotContains("partial scalp no pod field", scalp_partial, "layers_closed");
+
+   // Full pod flat: scalp for last layer + separate pod-close aggregate
+   V2PodSession pod;
+   V2PodReset(pod);
+   V2PodOnFirstLayer(pod, 1.25000, D'2026.06.05 10:00:00');
+   V2PodAccumulateExit(pod, 0.50);
+   V2PodAccumulateExit(pod, 0.60);
+
+   string scalp_final = V2BuildScalpClosedPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", "LONG",
+      1.25200, 1.25230, 8.0, 0.60,
+      2, 2,
+      D'2026.06.05 10:08:00', D'2026.06.05 10:08:00');
+   AssertContains("final scalp single-exit pnl", scalp_final, "\"gross_pnl\":0.60");
+
+   string pod_payload = V2BuildPodClosePayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", "LONG",
+      pod.layers_closed, pod.layer0_entry,
+      1.25230, 8.0, pod.gross_pnl,
+      D'2026.06.05 10:08:00', D'2026.06.05 10:08:00');
+   AssertContains("pod close still uses layers_closed", pod_payload, "\"layers_closed\":2");
+   AssertContains("pod close still uses avg_entry", pod_payload, "\"avg_entry_price\":1.25000");
+   AssertContains("pod close aggregate pnl", pod_payload, "\"gross_pnl\":1.10");
+   AssertNotContains("pod close no scalp event_type", pod_payload, "scalp_closed");
+   AssertNotContains("pod close no layer_depth", pod_payload, "layer_depth");
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -482,6 +566,9 @@ void OnStart()
    Test_TelemetryPodCloseAccounting();
    Test_TelemetryPodSessionIsolation();
    Test_TelemetryLayerDetailJSON();
+   Test_TelemetryScalpClosedPayload();
+   Test_TelemetryScalpClosedUrl();
+   Test_TelemetryScalpVsPodCloseIndependence();
    Test_OrphanStartupGuard();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
