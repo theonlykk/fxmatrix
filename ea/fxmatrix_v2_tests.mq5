@@ -3,11 +3,12 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.03"
+#property version   "1.05"
 #property script_show_inputs
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
 
 int g_tests_run = 0;
@@ -393,6 +394,77 @@ void Test_TelemetryLayerDetailJSON()
 }
 
 //+------------------------------------------------------------------+
+// Startup orphan guard: empty in-memory stack + live broker positions
+void Test_OrphanStartupGuard()
+{
+   AssertTrue("empty layers + positions = orphan",
+              V2_IsOrphanedStartupState(0, 5));
+   AssertTrue("genuinely flat startup ok",
+              !V2_IsOrphanedStartupState(0, 0));
+   AssertTrue("nonempty layers skip orphan guard",
+              !V2_IsOrphanedStartupState(3, 5));
+
+   ulong tickets[5];
+   tickets[0] = 700001;
+   tickets[1] = 700002;
+   tickets[2] = 700003;
+   tickets[3] = 700004;
+   tickets[4] = 700005;
+
+   string alert = V2_FormatOrphanStartupAlert(V2_TEL_INSTANCE_SHORT, 5, "entry", tickets);
+   AssertContains("orphan alert signature", alert, "V2_ORPHANED_POSITIONS_DETECTED");
+   AssertContains("orphan alert instance", alert, "instance=MM_SHORT_V2");
+   AssertContains("orphan alert magic_type entry", alert, "magic_type=entry");
+   AssertContains("orphan alert count", alert, "count=5");
+   AssertContains("orphan alert tickets", alert, "700001,700002,700003,700004,700005");
+
+   string short_alerts[];
+   bool short_halt = V2_ProcessOrphanStartupCheck(
+      short_alerts, V2_TEL_INSTANCE_SHORT, 0, 5, "entry", tickets);
+   AssertTrue("orphan check triggers halt", short_halt);
+   AssertTrue("orphan alert pushed once", ArraySize(short_alerts) == 1);
+   AssertContains("orphan alert in system_alerts", short_alerts[0],
+                  "V2_ORPHANED_POSITIONS_DETECTED");
+
+   string flat_alerts[];
+   ulong empty_tickets[];
+   AssertTrue("flat instance passes orphan check",
+              !V2_ProcessOrphanStartupCheck(flat_alerts, V2_TEL_INSTANCE_LONG, 0, 0, "", empty_tickets));
+   AssertTrue("flat instance no alerts", ArraySize(flat_alerts) == 0);
+
+   AssertTrue("magic_type entry only", V2_OrphanMagicTypeLabel(3, 0) == "entry");
+   AssertTrue("magic_type exit only", V2_OrphanMagicTypeLabel(0, 1) == "exit");
+   AssertTrue("magic_type both", V2_OrphanMagicTypeLabel(2, 1) == "both");
+   AssertTrue("magic_type none", V2_OrphanMagicTypeLabel(0, 0) == "");
+
+   ulong exit_only_tickets[1];
+   exit_only_tickets[0] = 800001;
+   string exit_only_alerts[];
+   bool exit_only_halt = V2_ProcessOrphanStartupCheck(
+      exit_only_alerts, V2_TEL_INSTANCE_SHORT, 0, 1, "exit", exit_only_tickets);
+   AssertTrue("exit-only hedge triggers orphan halt", exit_only_halt);
+   AssertTrue("exit-only alert pushed once", ArraySize(exit_only_alerts) == 1);
+   AssertContains("exit-only alert magic_type", exit_only_alerts[0], "magic_type=exit");
+   AssertContains("exit-only alert ticket", exit_only_alerts[0], "800001");
+
+   AssertTrue("both orphan -> INIT_FAILED",
+              V2_OnInitResultFromOrphanFlags(true, true) == INIT_FAILED);
+   AssertTrue("short orphan only -> INIT_SUCCEEDED (long continues)",
+              V2_OnInitResultFromOrphanFlags(false, true) == INIT_SUCCEEDED);
+   AssertTrue("long orphan only -> INIT_SUCCEEDED (short continues)",
+              V2_OnInitResultFromOrphanFlags(true, false) == INIT_SUCCEEDED);
+   AssertTrue("both flat -> INIT_SUCCEEDED",
+              V2_OnInitResultFromOrphanFlags(false, false) == INIT_SUCCEEDED);
+
+   V2TelLayerSnapshot empty_layers[];
+   string payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_SHORT, "GBPUSD", empty_layers, 0, -1, 0.0004,
+      D'2026.06.05 12:00:00', short_alerts);
+   AssertContains("telemetry carries orphan alert", payload, "V2_ORPHANED_POSITIONS_DETECTED");
+   AssertContains("telemetry orphan instance", payload, "MM_SHORT_V2");
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -410,6 +482,7 @@ void OnStart()
    Test_TelemetryPodCloseAccounting();
    Test_TelemetryPodSessionIsolation();
    Test_TelemetryLayerDetailJSON();
+   Test_OrphanStartupGuard();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

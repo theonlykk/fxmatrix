@@ -174,6 +174,47 @@ V2ExitAuditAction V2_EvaluateExitAudit(const bool position_live,
 }
 
 //+------------------------------------------------------------------+
+//| Startup orphan guard — layers are never rebuilt from broker scan. |
+//+------------------------------------------------------------------+
+bool V2_IsOrphanedStartupState(const int layer_count, const int broker_position_count)
+{
+   return (layer_count == 0 && broker_position_count > 0);
+}
+
+string V2_FormatOrphanStartupAlert(const string instance_tag,
+                                   const int count,
+                                   const string magic_type,
+                                   const ulong &tickets[])
+{
+   string ticket_str = "";
+   for(int i = 0; i < ArraySize(tickets); i++) {
+      if(i > 0)
+         ticket_str += ",";
+      ticket_str += IntegerToString((long)tickets[i]);
+   }
+   return StringFormat("ALERT V2_ORPHANED_POSITIONS_DETECTED | instance=%s magic_type=%s count=%d tickets=%s",
+                       instance_tag, magic_type, count, ticket_str);
+}
+
+string V2_OrphanMagicTypeLabel(const int entry_count, const int exit_count)
+{
+   if(entry_count > 0 && exit_count > 0)
+      return "both";
+   if(exit_count > 0)
+      return "exit";
+   if(entry_count > 0)
+      return "entry";
+   return "";
+}
+
+int V2_OnInitResultFromOrphanFlags(const bool long_orphan, const bool short_orphan)
+{
+   if(long_orphan && short_orphan)
+      return INIT_FAILED;
+   return INIT_SUCCEEDED;
+}
+
+//+------------------------------------------------------------------+
 //| Test helpers — lightweight mock stacks (no PositionsTotal).       |
 //+------------------------------------------------------------------+
 struct V2MockStack

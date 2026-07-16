@@ -231,4 +231,72 @@ void V2_EscalateExitAlert(string &alerts[],
    escalated = true;
 }
 
+//+------------------------------------------------------------------+
+int V2_ScanOpenPositionsByMagic(const string symbol,
+                                const long magic,
+                                ulong &out_tickets[])
+{
+   ArrayResize(out_tickets, 0);
+   for(int i = PositionsTotal() - 1; i >= 0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      if(!PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != symbol)
+         continue;
+      if(PositionGetInteger(POSITION_MAGIC) != magic)
+         continue;
+      int n = ArraySize(out_tickets);
+      ArrayResize(out_tickets, n + 1);
+      out_tickets[n] = ticket;
+   }
+   return ArraySize(out_tickets);
+}
+
+//+------------------------------------------------------------------+
+int V2_ScanInstanceOrphanPositions(const string symbol,
+                                   const long entry_magic,
+                                   const long exit_magic,
+                                   ulong &out_tickets[],
+                                   string &out_magic_type)
+{
+   ulong entry_tickets[];
+   ulong exit_tickets[];
+   int entry_count = V2_ScanOpenPositionsByMagic(symbol, entry_magic, entry_tickets);
+   int exit_count  = V2_ScanOpenPositionsByMagic(symbol, exit_magic, exit_tickets);
+   out_magic_type  = V2_OrphanMagicTypeLabel(entry_count, exit_count);
+
+   ArrayResize(out_tickets, 0);
+   for(int i = 0; i < entry_count; i++) {
+      int n = ArraySize(out_tickets);
+      ArrayResize(out_tickets, n + 1);
+      out_tickets[n] = entry_tickets[i];
+   }
+   for(int i = 0; i < exit_count; i++) {
+      int n = ArraySize(out_tickets);
+      ArrayResize(out_tickets, n + 1);
+      out_tickets[n] = exit_tickets[i];
+   }
+   return ArraySize(out_tickets);
+}
+
+//+------------------------------------------------------------------+
+bool V2_ProcessOrphanStartupCheck(string &system_alerts[],
+                                  const string instance_tag,
+                                  const int layer_count,
+                                  const int position_count,
+                                  const string magic_type,
+                                  const ulong &tickets[])
+{
+   if(!V2_IsOrphanedStartupState(layer_count, position_count))
+      return false;
+
+   string alert = V2_FormatOrphanStartupAlert(instance_tag, position_count, magic_type, tickets);
+   Print(alert);
+   Print("ERROR: fxmatrix_v2 ", instance_tag,
+         " startup aborted — orphan positions from prior session detected. ",
+         "Close or reconcile manually, then reattach flat. Instance halted.");
+   V2_PushSystemAlert(system_alerts, alert);
+   return true;
+}
+
 #endif // FXMATRIX_V2_EXITS_MQH

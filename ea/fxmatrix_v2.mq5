@@ -5,7 +5,7 @@
 //| Does NOT modify FXMatrix.mq5 or live account.                      |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "2.20"
+#property version   "2.22"
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
@@ -1237,11 +1237,55 @@ int OnInit() {
    g_last_telemetry_emit = 0;
    Print("INFO: fxmatrix_v2 init MM_LONG_V2=", MM_LONG_V2,
          " MM_SHORT_V2=", MM_SHORT_V2,
-         " exit_limits=1 closeby=1 audit_tick=1 reload_flat=1 telemetry=",
+         " exit_limits=1 closeby=1 audit_tick=1 reload_flat=1 orphan_guard=1 telemetry=",
          (EnableTelemetry ? "1" : "0"));
    Long_OnInit();
    Short_OnInit();
-   return INIT_SUCCEEDED;
+
+   bool long_orphan  = false;
+   bool short_orphan = false;
+
+   ulong long_tickets[];
+   string long_magic_type = "";
+   int long_pos = V2_ScanInstanceOrphanPositions(_Symbol, (long)MM_LONG_V2,
+                                                 (long)MM_LONG_V2_EXIT,
+                                                 long_tickets, long_magic_type);
+   if(V2_ProcessOrphanStartupCheck(g_long_system_alerts, V2_TEL_INSTANCE_LONG,
+                                   ArraySize(g_long_layers), long_pos,
+                                   long_magic_type, long_tickets)) {
+      g_long_halted = true;
+      long_orphan = true;
+   }
+
+   ulong short_tickets[];
+   string short_magic_type = "";
+   int short_pos = V2_ScanInstanceOrphanPositions(_Symbol, (long)MM_SHORT_V2,
+                                                  (long)MM_SHORT_V2_EXIT,
+                                                  short_tickets, short_magic_type);
+   if(V2_ProcessOrphanStartupCheck(g_short_system_alerts, V2_TEL_INSTANCE_SHORT,
+                                   ArraySize(g_short_layers), short_pos,
+                                   short_magic_type, short_tickets)) {
+      g_short_halted = true;
+      short_orphan = true;
+   }
+
+   if(long_orphan || short_orphan) {
+      if(EnableTelemetry)
+         V2EmitTelemetry(true);
+   }
+
+   if(long_orphan && short_orphan) {
+      Print("ERROR: fxmatrix_v2 OnInit FAILED — both instances have orphaned positions. ",
+            "EA will not attach. Resolve all orphans manually before reattaching.");
+      return INIT_FAILED;
+   }
+
+   if(long_orphan || short_orphan) {
+      Print("WARNING: fxmatrix_v2 partial startup — halted instance(s) will not trade; ",
+            "clean instance(s) continue. Reattach flat after resolving orphans.");
+   }
+
+   return V2_OnInitResultFromOrphanFlags(long_orphan, short_orphan);
 }
 
 void OnDeinit(const int reason) {
