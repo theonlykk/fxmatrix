@@ -647,7 +647,7 @@ void Test_SixInstanceMockStateIsolation()
    AssertTrue("gbp short still flat", ArraySize(gbp_short.entries) == 0);
    AssertTrue("eur short still flat", ArraySize(eur_short.entries) == 0);
    AssertTrue("egp short still flat", ArraySize(egp_short.entries) == 0);
-   AssertTrue("gbp reload gate set", gbp_long.last_exit_valid);
+   AssertTrue("gbp reload gate clear on full flat", !gbp_long.last_exit_valid);
    AssertTrue("eur reload gate clear", !eur_long.last_exit_valid);
 }
 

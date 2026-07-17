@@ -6,7 +6,15 @@
 #property version   "1.00"
 #property strict
 
-#include "fxmatrix_v2_eurusd_config.mqh"
+// Pair isolation (inlined — config .mqh not required at compile/deploy time)
+#define MM_LONG_V2              20260911
+#define MM_SHORT_V2             20260912
+#define V2_TEL_INSTANCE_LONG    "MM_LONG_EURUSD"
+#define V2_TEL_INSTANCE_SHORT   "MM_SHORT_EURUSD"
+#define V2_EA_NAME              "fxmatrix_v2_eurusd"
+#define V2_PAIR_LABEL           "EURUSD"
+#define V2_PAIR_SPREAD_PIPS_REF 0.18
+
 #include "fxmatrix_v2_logic.mqh"
 #include "fxmatrix_v2_signal.mqh"
 #include "fxmatrix_v2_exits.mqh"
@@ -25,14 +33,6 @@ input bool   EnableTelemetry      = false;
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "";
 input int    TelemetryIntervalSec = 60;
-
-bool Long_ComputeBidSignal(double &bid_theoretical) {
-   return V2_ComputeBcBid(_Symbol, InpQuoteSpread, InpSpreadMultiplier, bid_theoretical);
-}
-
-bool Short_ComputeOfferSignal(double &offer_theoretical) {
-   return V2_ComputeBcOffer(_Symbol, InpQuoteSpread, InpSpreadMultiplier, offer_theoretical);
-}
 
 struct LongV2Layer {
    double entry_price;
@@ -617,6 +617,14 @@ int g_short_stat_exit_limit_placed;
 
 ulong g_short_processed_deals[];
 int   g_short_processed_count;
+
+bool Long_ComputeBidSignal(double &bid_theoretical) {
+   return V2_ComputeBcBid(_Symbol, InpQuoteSpread, InpSpreadMultiplier, bid_theoretical);
+}
+
+bool Short_ComputeOfferSignal(double &offer_theoretical) {
+   return V2_ComputeBcOffer(_Symbol, InpQuoteSpread, InpSpreadMultiplier, offer_theoretical);
+}
 
 //+------------------------------------------------------------------+
 double Short_PipsToPrice(const double pips) {
