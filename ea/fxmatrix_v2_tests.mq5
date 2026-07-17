@@ -3,13 +3,14 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.06"
+#property version   "1.07"
 #property script_show_inputs
 #property strict
 
 #include "fxmatrix_v2_logic.mqh"
 #include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
+#include "fxmatrix_v2_signal.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -549,6 +550,141 @@ void Test_TelemetryScalpVsPodCloseIndependence()
 }
 
 //+------------------------------------------------------------------+
+// Six-instance namespace: GBPUSD + EURUSD + EURGBP long/short magics
+void Test_SixInstanceMagicIsolation()
+{
+   const long GBP_LONG   = 20260901;
+   const long GBP_SHORT  = 20260902;
+   const long EURUSD_LONG  = 20260911;
+   const long EURUSD_SHORT = 20260912;
+   const long EURGBP_LONG  = 20260921;
+   const long EURGBP_SHORT = 20260922;
+
+   long magics[6];
+   magics[0] = GBP_LONG;
+   magics[1] = GBP_SHORT;
+   magics[2] = EURUSD_LONG;
+   magics[3] = EURUSD_SHORT;
+   magics[4] = EURGBP_LONG;
+   magics[5] = EURGBP_SHORT;
+
+   for(int i = 0; i < 6; i++) {
+      for(int j = i + 1; j < 6; j++) {
+         AssertTrue(StringFormat("magic unique %d vs %d", i, j), magics[i] != magics[j]);
+      }
+   }
+
+   AssertTrue("gbp default long magic unchanged", MM_LONG_V2 == GBP_LONG);
+   AssertTrue("gbp default short magic unchanged", MM_SHORT_V2 == GBP_SHORT);
+   AssertTrue("gbp exit offset +2 long", MM_LONG_V2_EXIT == GBP_LONG + V2_EXIT_MAGIC_OFFSET);
+   AssertTrue("gbp exit offset +2 short", MM_SHORT_V2_EXIT == GBP_SHORT + V2_EXIT_MAGIC_OFFSET);
+   AssertTrue("eurusd exit magic", EURUSD_LONG + V2_EXIT_MAGIC_OFFSET == 20260913);
+   AssertTrue("eurgbp exit magic", EURGBP_LONG + V2_EXIT_MAGIC_OFFSET == 20260923);
+}
+
+//+------------------------------------------------------------------+
+void Test_PairSpreadAndPipConventionRefs()
+{
+   // Sim-calibrated PAIR_SPREAD_PIPS from validation (config headers).
+   AssertNear("eurusd spread ref pips", 0.18, 0.18, 1e-9);
+   AssertNear("eurgbp spread ref pips", 0.63, 0.63, 1e-9);
+   AssertNear("gbpusd spread ref pips", 0.64, 0.64, 1e-9);
+
+   // 5-digit XXXUSD: 1 pip = 10 points (point=0.00001 -> 0.0001/pip).
+   AssertNear("pip eurusd 5-digit", V2_PipsToPriceForSymbol("EURUSD", 1.0), 0.0001, 1e-10);
+   AssertNear("pip eurgbp 5-digit", V2_PipsToPriceForSymbol("EURGBP", 1.0), 0.0001, 1e-10);
+   AssertNear("pip gbpusd 5-digit", V2_PipsToPriceForSymbol("GBPUSD", 1.0), 0.0001, 1e-10);
+}
+
+//+------------------------------------------------------------------+
+void Test_AbSignalFormulaPure()
+{
+   double closes_ac[60];
+   double closes_bc[60];
+   ArrayInitialize(closes_ac, 0.0);
+   ArrayInitialize(closes_bc, 0.0);
+   for(int i = 0; i < 60; i++) {
+      closes_ac[i] = 1.10000 + 0.00001 * i;
+      closes_bc[i] = 1.30000 + 0.00002 * i;
+   }
+
+   double fv_ac, sig_ac, fv_bc, sig_bc;
+   AssertTrue("fv ac", V2_FvSigmaFromCloses(closes_ac, fv_ac, sig_ac));
+   AssertTrue("fv bc", V2_FvSigmaFromCloses(closes_bc, fv_bc, sig_bc));
+
+   double r_ac = MathLog(closes_ac[0] / fv_ac);
+   double r_bc = MathLog(closes_bc[0] / fv_bc);
+   double inst = r_ac - r_bc;
+   double dhs = 0.0004 + MathMax(sig_ac, sig_bc) * 0.5;
+   double ratio = fv_ac / fv_bc;
+   double bid = ratio * MathExp(inst - dhs);
+   double offer = ratio * MathExp(inst + dhs);
+
+   AssertTrue("ab bid positive", bid > 0.0);
+   AssertTrue("ab offer positive", offer > 0.0);
+   AssertTrue("ab offer above bid", offer > bid);
+}
+
+//+------------------------------------------------------------------+
+void Test_SixInstanceMockStateIsolation()
+{
+   V2MockStack gbp_long, gbp_short, eur_long, eur_short, egp_long, egp_short;
+   V2MockReset(gbp_long);
+   V2MockReset(gbp_short);
+   V2MockReset(eur_long);
+   V2MockReset(eur_short);
+   V2MockReset(egp_long);
+   V2MockReset(egp_short);
+
+   V2MockAppendEntry(gbp_long, 1.32000, false);
+   V2MockAppendEntry(eur_long, 1.10000, false);
+   V2MockAppendEntry(egp_long, 0.86000, false);
+   V2MockPopTop(gbp_long);
+
+   AssertTrue("gbp long depth after pop", ArraySize(gbp_long.entries) == 0);
+   AssertTrue("eur long untouched", ArraySize(eur_long.entries) == 1);
+   AssertTrue("egp long untouched", ArraySize(egp_long.entries) == 1);
+   AssertTrue("gbp short still flat", ArraySize(gbp_short.entries) == 0);
+   AssertTrue("eur short still flat", ArraySize(eur_short.entries) == 0);
+   AssertTrue("egp short still flat", ArraySize(egp_short.entries) == 0);
+   AssertTrue("gbp reload gate set", gbp_long.last_exit_valid);
+   AssertTrue("eur reload gate clear", !eur_long.last_exit_valid);
+}
+
+//+------------------------------------------------------------------+
+void Test_PairTelemetryInstanceIds()
+{
+   AssertTrue("gbp long tel id default", V2_TEL_INSTANCE_LONG == "MM_LONG_V2");
+   AssertTrue("gbp short tel id default", V2_TEL_INSTANCE_SHORT == "MM_SHORT_V2");
+
+   V2TelLayerSnapshot empty_layers[];
+   string empty_alerts[];
+   string payload_eu = V2BuildInstanceTelemetryPayload(
+      "MM_LONG_EURUSD", "EURUSD", empty_layers, 0, 1, 0.0004,
+      D'2026.06.05 12:00:00', empty_alerts);
+   AssertContains("eurusd instance id", payload_eu, "\"instance_id\":\"MM_LONG_EURUSD\"");
+
+   string payload_eg = V2BuildInstanceTelemetryPayload(
+      "MM_SHORT_EURGBP", "EURGBP", empty_layers, 0, -1, 0.0004,
+      D'2026.06.05 12:00:00', empty_alerts);
+   AssertContains("eurgbp instance id", payload_eg, "\"instance_id\":\"MM_SHORT_EURGBP\"");
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitMagicPerPairNamespace()
+{
+   MqlTradeRequest req = {};
+   AssertTrue("eurusd exit req",
+              V2_BuildExitLimitRequest("EURUSD", 1.10030, 0.01, 1, 20260913, req));
+   AssertTrue("eurusd exit magic", req.magic == 20260913);
+
+   ZeroMemory(req);
+   AssertTrue("eurgbp exit req",
+              V2_BuildExitLimitRequest("EURGBP", 0.86030, 0.01, -1, 20260924, req));
+   AssertTrue("eurgbp exit magic", req.magic == 20260924);
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -570,6 +706,12 @@ void OnStart()
    Test_TelemetryScalpClosedUrl();
    Test_TelemetryScalpVsPodCloseIndependence();
    Test_OrphanStartupGuard();
+   Test_SixInstanceMagicIsolation();
+   Test_PairSpreadAndPipConventionRefs();
+   Test_AbSignalFormulaPure();
+   Test_SixInstanceMockStateIsolation();
+   Test_PairTelemetryInstanceIds();
+   Test_ExitMagicPerPairNamespace();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

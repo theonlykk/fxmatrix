@@ -5,8 +5,12 @@
 #ifndef FXMATRIX_V2_TELEMETRY_MQH
 #define FXMATRIX_V2_TELEMETRY_MQH
 
+#ifndef V2_TEL_INSTANCE_LONG
 #define V2_TEL_INSTANCE_LONG  "MM_LONG_V2"
+#endif
+#ifndef V2_TEL_INSTANCE_SHORT
 #define V2_TEL_INSTANCE_SHORT "MM_SHORT_V2"
+#endif
 
 //+------------------------------------------------------------------+
 struct V2TelLayerSnapshot

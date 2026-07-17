@@ -1,14 +1,14 @@
 //+------------------------------------------------------------------+
-//| fxmatrix_v2.mq5 — Production V2 dual instance (MM_LONG + MM_SHORT)|
-//| Magic: MM_LONG_V2=20260901, MM_SHORT_V2=20260902                 |
-//| reload_flat, resting exit limits + CloseBy, running-state widen   |
-//| Does NOT modify FXMatrix.mq5 or live account.                      |
+//| fxmatrix_v2_eurgbp.mq5 — V2 dual instance EURGBP (MM_LONG_EURGBP + MM_SHORT_EURGBP)
+//| Generated from fxmatrix_v2.mq5 — GBPUSD production file untouched. |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "2.23"
+#property version   "1.00"
 #property strict
 
+#include "fxmatrix_v2_eurgbp_config.mqh"
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_signal.mqh"
 #include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
 #include "fxmatrix_v2_gbp_cap.mqh"
@@ -23,11 +23,22 @@ input double InpLotSize           = 0.01;
 input int    InpMaxLayers         = 20;
 input int    InpGbpCapThreshold   = 0;    // 0=off; block widening adds when |net|>N
 input bool   InpVerboseLog        = true;
-
+input string InpLegAC = "EURUSD";  // Triad leg A vs USD (AC)
+input string InpLegBC = "GBPUSD";  // Triad leg B vs USD (BC)
 input bool   EnableTelemetry      = false;
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "";
 input int    TelemetryIntervalSec = 60;
+
+bool Long_ComputeBidSignal(double &bid_theoretical) {
+   return V2_ComputeAbBid(_Symbol, InpLegAC, InpLegBC,
+                          InpQuoteSpread, InpSpreadMultiplier, bid_theoretical);
+}
+
+bool Short_ComputeOfferSignal(double &offer_theoretical) {
+   return V2_ComputeAbOffer(_Symbol, InpLegAC, InpLegBC,
+                            InpQuoteSpread, InpSpreadMultiplier, offer_theoretical);
+}
 
 struct LongV2Layer {
    double entry_price;
@@ -86,36 +97,7 @@ bool Long_Adr013ClampBuy(const double theoretical, double &out_price) {
    return (MathAbs(out_price - theoretical) > _Point * 0.1);
 }
 
-bool Long_ComputeBidSignal(double &bid_theoretical) {
-   double closes[];
-   if (CopyClose(_Symbol, PERIOD_M5, 1, 60, closes) < 49)
-      return false;
-   ArraySetAsSeries(closes, true);
 
-   double c6  = closes[6];
-   double c12 = closes[12];
-   double c48 = closes[48];
-   if (c6 <= 0.0 || c12 <= 0.0 || c48 <= 0.0)
-      return false;
-
-   double fv = 0.50 * c6 + 0.30 * c12 + 0.20 * c48;
-   double mean = (c6 + c12 + c48) / 3.0;
-   double sigma = MathSqrt(((c6 - mean) * (c6 - mean) +
-                            (c12 - mean) * (c12 - mean) +
-                            (c48 - mean) * (c48 - mean)) / 3.0);
-
-   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double half = (ask - bid) / 2.0;
-   double bc_now = closes[0] + half;
-   if (fv <= 0.0 || bc_now <= 0.0)
-      return false;
-
-   double r_bc = MathLog(bc_now / fv);
-   double dynamic_hs = InpQuoteSpread + sigma * InpSpreadMultiplier;
-   bid_theoretical = fv * MathExp(r_bc - dynamic_hs);
-   return true;
-}
 
 bool Long_IsOurOrderTicket(const ulong ticket, const ulong magic) {
    if (ticket == 0)
@@ -353,14 +335,14 @@ void Long_EnsureAddNext() {
    if (add_price <= 0.0)
       return;
    if(!g_long_last_exit_valid &&
-      V2_GbpCapBlocksNewAdd("GBPUSD", true, InpGbpCapThreshold)) {
+      V2_GbpCapBlocksNewAdd(V2_PAIR_LABEL, true, InpGbpCapThreshold)) {
       V2_GbpCapRecordBlock();
       if(InpVerboseLog)
          Print("INFO V2_LONG | GBP cap blocked new add net=", V2_GbpNetExposure(),
                " threshold=", InpGbpCapThreshold);
       return;
    }
-   g_long_add_ticket = Long_PlaceBuyLimit(add_price, 20260901, g_long_last_exit_valid ? "V2_Reload" : "V2_Add");
+   g_long_add_ticket = Long_PlaceBuyLimit(add_price, MM_LONG_V2, g_long_last_exit_valid ? "V2_Reload" : "V2_Add");
 }
 
 void Long_OnNewBar() {
@@ -379,7 +361,7 @@ void Long_OnNewBar() {
    int n = ArraySize(g_long_layers);
    if (n == 0) {
       g_long_last_exit_valid = false;
-      Long_ReplacePendingBuy(g_long_l0_ticket, bid_lvl, 20260901, "V2_L0");
+      Long_ReplacePendingBuy(g_long_l0_ticket, bid_lvl, MM_LONG_V2, "V2_L0");
       if (InpVerboseLog)
          Print("DIAG V2_LONG | event=l0_quote | bid_theo=", DoubleToString(bid_theoretical, 5),
                " bid_lvl=", DoubleToString(bid_lvl, 5));
@@ -425,7 +407,7 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    Long_CancelTicket(g_long_add_ticket);
    g_long_add_ticket = 0;
 
-   V2_GbpCapSyncInstance("GBPUSD", true, ArraySize(g_long_layers));
+   V2_GbpCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
    Long_PlaceExitForLayer(n, true);
    Long_EnsureAddNext();
 }
@@ -453,7 +435,7 @@ void Long_RemoveLayerAt(const int layer_idx) {
    g_long_stat_exits++;
 
    V2_OnOwnStackFlat(g_long_last_exit_valid, ArraySize(g_long_layers));
-   V2_GbpCapSyncInstance("GBPUSD", true, ArraySize(g_long_layers));
+   V2_GbpCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
    if(ArraySize(g_long_layers) == 0)
       g_long_current_add_pips = InpAddPipsFloor;
    else if(was_top)
@@ -501,7 +483,7 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    if (entry_type == DEAL_ENTRY_IN &&
        deal_type == DEAL_TYPE_BUY &&
-       deal_magic == (long)20260901) {
+       deal_magic == (long)MM_LONG_V2) {
       bool is_reload = g_long_last_exit_valid;
       if (order_ticket == g_long_l0_ticket)
          g_long_l0_ticket = 0;
@@ -594,7 +576,7 @@ int Long_OnInit() {
    g_long_last_bar_time    = 0;
    g_long_processed_count  = 0;
    ArrayResize(g_long_processed_deals, 0);
-   Print("INFO: fxmatrix_v2_long init magic=20260901",
+   Print("INFO: fxmatrix_v2_eurgbp_long init magic=", MM_LONG_V2,
          " WIDEN=", InpWidenRatio, " reload_flat=1");
    return INIT_SUCCEEDED;
 }
@@ -671,36 +653,7 @@ bool Short_Adr013ClampSell(const double theoretical, double &out_price) {
    return (MathAbs(out_price - theoretical) > _Point * 0.1);
 }
 
-bool Short_ComputeOfferSignal(double &offer_theoretical) {
-   double closes[];
-   if (CopyClose(_Symbol, PERIOD_M5, 1, 60, closes) < 49)
-      return false;
-   ArraySetAsSeries(closes, true);
 
-   double c6  = closes[6];
-   double c12 = closes[12];
-   double c48 = closes[48];
-   if (c6 <= 0.0 || c12 <= 0.0 || c48 <= 0.0)
-      return false;
-
-   double fv = 0.50 * c6 + 0.30 * c12 + 0.20 * c48;
-   double mean = (c6 + c12 + c48) / 3.0;
-   double sigma = MathSqrt(((c6 - mean) * (c6 - mean) +
-                            (c12 - mean) * (c12 - mean) +
-                            (c48 - mean) * (c48 - mean)) / 3.0);
-
-   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double half = (ask - bid) / 2.0;
-   double bc_now = closes[0] + half;
-   if (fv <= 0.0 || bc_now <= 0.0)
-      return false;
-
-   double r_bc = MathLog(bc_now / fv);
-   double dynamic_hs = InpQuoteSpread + sigma * InpSpreadMultiplier;
-   offer_theoretical = fv * MathExp(r_bc + dynamic_hs);
-   return true;
-}
 
 bool Short_IsOurOrderTicket(const ulong ticket, const ulong magic) {
    if (ticket == 0)
@@ -938,14 +891,14 @@ void Short_EnsureAddNext() {
    if (add_price <= 0.0)
       return;
    if(!g_short_last_exit_valid &&
-      V2_GbpCapBlocksNewAdd("GBPUSD", false, InpGbpCapThreshold)) {
+      V2_GbpCapBlocksNewAdd(V2_PAIR_LABEL, false, InpGbpCapThreshold)) {
       V2_GbpCapRecordBlock();
       if(InpVerboseLog)
          Print("INFO V2_SHORT | GBP cap blocked new add net=", V2_GbpNetExposure(),
                " threshold=", InpGbpCapThreshold);
       return;
    }
-   g_short_add_ticket = Short_PlaceSellLimit(add_price, 20260902, g_short_last_exit_valid ? "V2_Reload" : "V2_Add");
+   g_short_add_ticket = Short_PlaceSellLimit(add_price, MM_SHORT_V2, g_short_last_exit_valid ? "V2_Reload" : "V2_Add");
 }
 
 void Short_OnNewBar() {
@@ -964,7 +917,7 @@ void Short_OnNewBar() {
    int n = ArraySize(g_short_layers);
    if (n == 0) {
       g_short_last_exit_valid = false;
-      Short_ReplacePendingSell(g_short_l0_ticket, offer_lvl, 20260902, "V2_L0");
+      Short_ReplacePendingSell(g_short_l0_ticket, offer_lvl, MM_SHORT_V2, "V2_L0");
       if (InpVerboseLog)
          Print("DIAG V2_SHORT | event=l0_quote | offer_theo=", DoubleToString(offer_theoretical, 5),
                " offer_lvl=", DoubleToString(offer_lvl, 5));
@@ -1010,7 +963,7 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    Short_CancelTicket(g_short_add_ticket);
    g_short_add_ticket = 0;
 
-   V2_GbpCapSyncInstance("GBPUSD", false, ArraySize(g_short_layers));
+   V2_GbpCapSyncInstance(V2_PAIR_LABEL, false, ArraySize(g_short_layers));
    Short_PlaceExitForLayer(n, true);
    Short_EnsureAddNext();
 }
@@ -1038,7 +991,7 @@ void Short_RemoveLayerAt(const int layer_idx) {
    g_short_stat_exits++;
 
    V2_OnOwnStackFlat(g_short_last_exit_valid, ArraySize(g_short_layers));
-   V2_GbpCapSyncInstance("GBPUSD", false, ArraySize(g_short_layers));
+   V2_GbpCapSyncInstance(V2_PAIR_LABEL, false, ArraySize(g_short_layers));
    if(ArraySize(g_short_layers) == 0)
       g_short_current_add_pips = InpAddPipsFloor;
    else if(was_top)
@@ -1086,7 +1039,7 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    if (entry_type == DEAL_ENTRY_IN &&
        deal_type == DEAL_TYPE_SELL &&
-       deal_magic == (long)20260902) {
+       deal_magic == (long)MM_SHORT_V2) {
       bool is_reload = g_short_last_exit_valid;
       if (order_ticket == g_short_l0_ticket)
          g_short_l0_ticket = 0;
@@ -1179,7 +1132,7 @@ int Short_OnInit() {
    g_short_last_bar_time    = 0;
    g_short_processed_count  = 0;
    ArrayResize(g_short_processed_deals, 0);
-   Print("INFO: fxmatrix_v2_short init magic=20260902",
+   Print("INFO: fxmatrix_v2_eurgbp_short init magic=", MM_SHORT_V2,
          " WIDEN=", InpWidenRatio, " reload_flat=1");
    return INIT_SUCCEEDED;
 }
@@ -1281,14 +1234,14 @@ int OnInit() {
    V2PodReset(g_long_pod);
    V2PodReset(g_short_pod);
    g_last_telemetry_emit = 0;
-   Print("INFO: fxmatrix_v2 init MM_LONG_V2=", MM_LONG_V2,
+   Print("INFO: fxmatrix_v2_eurgbp init AB-signal MM_LONG_V2=", MM_LONG_V2,
          " MM_SHORT_V2=", MM_SHORT_V2,
          " exit_limits=1 closeby=1 audit_tick=1 reload_flat=1 orphan_guard=1 telemetry=",
          (EnableTelemetry ? "1" : "0"));
    Long_OnInit();
    Short_OnInit();
-   V2_GbpCapSyncInstance("GBPUSD", true, ArraySize(g_long_layers));
-   V2_GbpCapSyncInstance("GBPUSD", false, ArraySize(g_short_layers));
+   V2_GbpCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
+   V2_GbpCapSyncInstance(V2_PAIR_LABEL, false, ArraySize(g_short_layers));
    GlobalVariableSet("V2GBP_CAP_TRIGGERS", 0.0);
 
    bool long_orphan  = false;
@@ -1324,13 +1277,13 @@ int OnInit() {
    }
 
    if(long_orphan && short_orphan) {
-      Print("ERROR: fxmatrix_v2 OnInit FAILED — both instances have orphaned positions. ",
+      Print("ERROR: fxmatrix_v2_eurgbp OnInit FAILED — both instances have orphaned positions. ",
             "EA will not attach. Resolve all orphans manually before reattaching.");
       return INIT_FAILED;
    }
 
    if(long_orphan || short_orphan) {
-      Print("WARNING: fxmatrix_v2 partial startup — halted instance(s) will not trade; ",
+      Print("WARNING: fxmatrix_v2_eurgbp partial startup — halted instance(s) will not trade; ",
             "clean instance(s) continue. Reattach flat after resolving orphans.");
    }
 
