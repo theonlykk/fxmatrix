@@ -55,24 +55,27 @@ WINDOWS = {
     "q1_2024_chop": "q1_2024_chop_oos",
 }
 
-# ADR-091 published n=500 reference (reload_anchor unless noted) for GBPUSD sanity check
+# ADR-091 published n=500 reference (reload_anchor unless noted) for GBPUSD sanity check.
+# Section 5 "Mean P&L" is total P&L (mean_pnl), not realised-only. Omitted fields = no ADR ref.
 ADR091_REF = {
     ("full_quarter", "reload_anchor", "MM_LONG"): {
-        "mean_realised": 179.70, "dd3_count": 0, "dd4_count": 0, "max_max_layers": 7
+        "mean_pnl": 179.70, "dd3_count": 0, "dd4_count": 0, "max_max_layers": 7
     },
     ("full_quarter", "reload_anchor", "MM_SHORT"): {
-        "mean_realised": 31.23, "dd3_count": 0, "dd4_count": 0, "max_max_layers": 7
+        "mean_pnl": 31.23, "dd3_count": 0, "dd4_count": 0, "max_max_layers": 7
     },
     ("full_quarter", "reload_anchor", "MM_BOTH"): {
-        "mean_realised": 285.05, "dd3_count": 0, "dd4_count": 0, "max_max_layers": 7
+        "mean_pnl": 285.05, "dd3_count": 0, "dd4_count": 0, "max_max_layers": 7
     },
     ("june_blowup", "reload_anchor", "MM_SHORT"): {
-        "mean_realised": -3.0, "dd3_count": 0, "dd4_count": 0, "note": "~small loss post bug-fix"
+        "mean_pnl": -3.0, "dd3_count": 0, "dd4_count": 0, "note": "~small loss post bug-fix"
     },
     ("truss_crisis", "reload_anchor", "MM_LONG"): {
         "dd3_count": 5, "dd3_rate": 1.0, "dd4_count": 0, "max_max_layers": 9
     },
 }
+
+ADR091_MEAN_PNL_TOLERANCE = 25.0
 
 PRODUCTION_CONSTANTS = {
     "GBPUSD": {
@@ -258,11 +261,75 @@ def geometry_patch(geo: Geometry, pair_spread_pips: float, symbol: str):
     simv7.WIDEN_RATIO, simv7.ADD_PIPS_FLOOR, simv7.EXIT_PIPS, simv7.ADD_PIPS_CEILING = old
 
 
-def precompute_signal(closes, spread_pts, slot: dict, merged=None):
+def merge_ab_window(primary_df, slot: dict, window_key: str):
+    """Inner-join AB legs (AC, BC) with primary cross pair on datetime — same as verify_v2_six_instance_parity."""
+    leg_ac, leg_bc = slot["legs"]
+    df_ac = simv6.load_mt5_csv(str(window_csv(leg_ac, window_key)))
+    df_bc = simv6.load_mt5_csv(str(window_csv(leg_bc, window_key)))
+    return df_ac.merge(df_bc, on="datetime", suffixes=("_ac", "_bc")).merge(primary_df, on="datetime")
+
+
+def fv_sigma(closes, i: int) -> tuple[float, float]:
+    c6, c12, c48 = closes[i - 6], closes[i - 12], closes[i - 48]
+    fv = 0.5 * c6 + 0.3 * c12 + 0.2 * c48
+    m = (c6 + c12 + c48) / 3.0
+    sig = float(((c6 - m) ** 2 + (c12 - m) ** 2 + (c48 - m) ** 2) / 3.0) ** 0.5
+    return fv, sig
+
+
+def ab_bid_offer(eu_cl, gu_cl, eu_sp, gu_sp, i: int, qs: float, sm: float, point: float = 0.0001):
+    """AB-slot bid/offer — r_ac − r_bc in log space; DHS from max leg sigma (verify script parity)."""
+    fv_ac, sig_ac = fv_sigma(eu_cl, i)
+    fv_bc, sig_bc = fv_sigma(gu_cl, i)
+    ac_now = eu_cl[i] + (eu_sp[i] / 10.0 / 2.0) * point
+    bc_now = gu_cl[i] + (gu_sp[i] / 10.0 / 2.0) * point
+    r_ac = math.log(ac_now / fv_ac)
+    r_bc = math.log(bc_now / fv_bc)
+    inst = r_ac - r_bc
+    dhs = qs + max(sig_ac, sig_bc) * sm
+    ratio = fv_ac / fv_bc
+    bid = ratio * math.exp(inst - dhs)
+    offer = ratio * math.exp(inst + dhs)
+    return bid, offer
+
+
+def window_signal_arrays(symbol: str, window_key: str, primary_df) -> tuple[np.ndarray, ...]:
+    """Return aligned closes, spread_pts, times, bid_arr, offer_arr for BC or AB slots."""
+    slot = classify_slot(symbol)
+    if slot["slot"] == "BC":
+        closes = primary_df["CLOSE"].values.astype(float)
+        spread_pts = primary_df["SPREAD"].values.astype(float)
+        times = primary_df["datetime"].values
+        bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, POINT)
+        return closes, spread_pts, times, bid_arr, offer_arr
+
+    merged = merge_ab_window(primary_df, slot, window_key)
+    closes = merged["CLOSE"].values.astype(float)
+    spread_pts = merged["SPREAD"].values.astype(float)
+    times = merged["datetime"].values
+    ac_cl = merged["CLOSE_ac"].values.astype(float)
+    bc_cl = merged["CLOSE_bc"].values.astype(float)
+    ac_sp = merged["SPREAD_ac"].values.astype(float)
+    bc_sp = merged["SPREAD_bc"].values.astype(float)
+    n = len(merged)
+    bid_arr = np.full(n, np.nan)
+    offer_arr = np.full(n, np.nan)
+    for i in range(48, n):
+        b, o = ab_bid_offer(
+            ac_cl, bc_cl, ac_sp, bc_sp, i, simv7.QUOTE_SPREAD, simv7.SPREAD_MULTIPLIER, POINT,
+        )
+        bid_arr[i] = b
+        offer_arr[i] = o
+    return closes, spread_pts, times, bid_arr, offer_arr
+
+
+def precompute_signal(closes, spread_pts, slot: dict, window_key: str | None = None, primary_df=None):
     if slot["slot"] == "BC":
         return simv7.precompute_gbpusd_signal(closes, spread_pts, POINT)
-    # AB — not used in GBPUSD first run; placeholder for EURGBP later
-    raise NotImplementedError("AB signal precompute wired for EURGBP in a follow-on run")
+    if primary_df is None or window_key is None:
+        raise ValueError("AB slot requires primary_df and window_key")
+    _, _, _, bid_arr, offer_arr = window_signal_arrays(slot["symbol"], window_key, primary_df)
+    return bid_arr, offer_arr
 
 
 def _worker_simulate_batch(payload: dict) -> list[dict]:
@@ -337,10 +404,10 @@ def parallel_seed_runs(
     return results
 
 
-def aggregate_run(closes, spread_pts, times, symbol, pair_spread, geo, n_seeds,
+def aggregate_run(primary_df, window_key, symbol, pair_spread, geo, n_seeds,
                   spacing="reload_anchor", mode=simv7.BiasMode.BOTH, workers: int = 6) -> dict:
     """Run n_seeds; return risk-adjusted aggregate score inputs."""
-    bid_arr, offer_arr = precompute_signal(closes, spread_pts, classify_slot(symbol))
+    closes, spread_pts, times, bid_arr, offer_arr = window_signal_arrays(symbol, window_key, primary_df)
     runs = parallel_seed_runs(
         closes, bid_arr, offer_arr, times, symbol, pair_spread, geo,
         n_seeds, spacing, mode, workers=workers,
@@ -392,21 +459,14 @@ def build_geometry_grid(reference_sigma_pips: float, gbp_reference_pips: float =
     }
 
 
-def _run_combo(closes, sp, times, pair, pair_spread, widen, floor, exit_p, n_seeds, workers=6) -> dict:
+def _run_combo(primary_df, window_key, pair, pair_spread, widen, floor, exit_p, n_seeds, workers=6) -> dict:
     geo = Geometry(widen, floor, exit_p)
-    return aggregate_run(closes, sp, times, pair, pair_spread, geo, n_seeds, workers=workers)
+    return aggregate_run(primary_df, window_key, pair, pair_spread, geo, n_seeds, workers=workers)
 
 
 def geometry_sweep(pair: str, df_fq, df_jb, pair_spread: float, ref_sigma_pips: float,
                      gbp_sigma_pips: float, n_seeds: int = 30, top_k: int = 5,
                      workers: int = 6) -> dict:
-    closes_fq = df_fq["CLOSE"].values.astype(float)
-    sp_fq = df_fq["SPREAD"].values.astype(float)
-    times_fq = df_fq["datetime"].values
-    closes_jb = df_jb["CLOSE"].values.astype(float)
-    sp_jb = df_jb["SPREAD"].values.astype(float)
-    times_jb = df_jb["datetime"].values
-
     axes = build_geometry_grid(ref_sigma_pips, gbp_sigma_pips)
     base_floor = axes["base_floor"]
     base_exit = axes["base_exit"]
@@ -418,8 +478,8 @@ def geometry_sweep(pair: str, df_fq, df_jb, pair_spread: float, ref_sigma_pips: 
     t0 = time.time()
     for w in axes["widen_ratio"]:
         geo = Geometry(w, base_floor, base_exit)
-        fq = _run_combo(closes_fq, sp_fq, times_fq, pair, pair_spread, w, base_floor, base_exit, n_seeds, workers)
-        jb = _run_combo(closes_jb, sp_jb, times_jb, pair, pair_spread, w, base_floor, base_exit, n_seeds, workers)
+        fq = _run_combo(df_fq, "full_quarter", pair, pair_spread, w, base_floor, base_exit, n_seeds, workers)
+        jb = _run_combo(df_jb, "june_blowup", pair, pair_spread, w, base_floor, base_exit, n_seeds, workers)
         comb = {
             "dd3_count": fq["dd3_count"] + jb["dd3_count"],
             "dd4_count": fq["dd4_count"] + jb["dd4_count"],
@@ -443,8 +503,8 @@ def geometry_sweep(pair: str, df_fq, df_jb, pair_spread: float, ref_sigma_pips: 
     t1 = time.time()
     for f in axes["add_pips_floor"]:
         for e in axes["exit_pips"]:
-            fq = _run_combo(closes_fq, sp_fq, times_fq, pair, pair_spread, best_w, f, e, n_seeds, workers)
-            jb = _run_combo(closes_jb, sp_jb, times_jb, pair, pair_spread, best_w, f, e, n_seeds, workers)
+            fq = _run_combo(df_fq, "full_quarter", pair, pair_spread, best_w, f, e, n_seeds, workers)
+            jb = _run_combo(df_jb, "june_blowup", pair, pair_spread, best_w, f, e, n_seeds, workers)
             geo = Geometry(best_w, f, e)
             comb = {
                 "dd3_count": fq["dd3_count"] + jb["dd3_count"],
@@ -464,9 +524,9 @@ def geometry_sweep(pair: str, df_fq, df_jb, pair_spread: float, ref_sigma_pips: 
 
     prod = PRODUCTION_CONSTANTS[pair.upper()]
     prod_geo = Geometry(prod["WIDEN_RATIO"], prod["ADD_PIPS_FLOOR"], prod["EXIT_PIPS"], prod["ADD_PIPS_CEILING"])
-    prod_fq = _run_combo(closes_fq, sp_fq, times_fq, pair, pair_spread, prod_geo.widen_ratio,
+    prod_fq = _run_combo(df_fq, "full_quarter", pair, pair_spread, prod_geo.widen_ratio,
                          prod_geo.add_pips_floor, prod_geo.exit_pips, n_seeds, workers)
-    prod_jb = _run_combo(closes_jb, sp_jb, times_jb, pair, pair_spread, prod_geo.widen_ratio,
+    prod_jb = _run_combo(df_jb, "june_blowup", pair, pair_spread, prod_geo.widen_ratio,
                          prod_geo.add_pips_floor, prod_geo.exit_pips, n_seeds, workers)
     prod_comb = {
         "dd3_count": prod_fq["dd3_count"] + prod_jb["dd3_count"],
@@ -501,9 +561,164 @@ def geometry_sweep(pair: str, df_fq, df_jb, pair_spread: float, ref_sigma_pips: 
     }
 
 
+def summarize_mc_by_window(results: dict) -> dict:
+    """Roll up MC cells by window (all spacing × bias modes)."""
+    by_window: dict[str, dict] = {}
+    for wkey in WINDOWS:
+        cells = [v for k, v in results.items() if k[1] == wkey]
+        if not cells:
+            continue
+        realised = [c["mean_realised"] for c in cells]
+        by_window[wkey] = {
+            "mean_realised_avg": float(np.mean(realised)),
+            "mean_realised_min": float(np.min(realised)),
+            "mean_realised_max": float(np.max(realised)),
+            "dd3_total": int(sum(c["dd3_count"] for c in cells)),
+            "dd4_total": int(sum(c["dd4_count"] for c in cells)),
+            "max_max_layers": int(max(c["max_max_layers"] for c in cells)),
+            "n_cells": len(cells),
+        }
+    return by_window
+
+
+def per_scalp_edges_all_windows(pair: str, geo: Geometry, pair_spread: float) -> dict:
+    return {wkey: per_scalp_edge_check(pair, geo, pair_spread, wkey) for wkey in WINDOWS}
+
+
+def geometry_key(geo: Geometry) -> tuple[float, float, float]:
+    return (geo.widen_ratio, geo.add_pips_floor, geo.exit_pips)
+
+
+def build_geometry_comparison(prod_mc: dict, derived_mc: dict) -> dict:
+    """Side-by-side production vs sweep-derived at full n=500 scale."""
+    prod_ws = prod_mc.get("window_summary", {})
+    derived_ws = derived_mc.get("window_summary", {})
+    prod_edges = prod_mc.get("per_scalp_by_window", {})
+    derived_edges = derived_mc.get("per_scalp_by_window", {})
+    windows: dict[str, dict] = {}
+    pct_deltas: list[float] = []
+    for wkey in WINDOWS:
+        p = prod_ws.get(wkey, {})
+        d = derived_ws.get(wkey, {})
+        p_real = p.get("mean_realised_avg")
+        d_real = d.get("mean_realised_avg")
+        pct = None
+        if p_real and abs(p_real) > 1e-6:
+            pct = (d_real - p_real) / abs(p_real) * 100.0
+            pct_deltas.append(pct)
+        windows[wkey] = {
+            "production": {
+                "mean_realised_avg": p_real,
+                "dd3_total": p.get("dd3_total"),
+                "dd4_total": p.get("dd4_total"),
+                "max_max_layers": p.get("max_max_layers"),
+                "per_scalp_usd": prod_edges.get(wkey, {}).get("per_scalp_usd"),
+                "per_scalp_exits": prod_edges.get(wkey, {}).get("exits"),
+            },
+            "derived": {
+                "mean_realised_avg": d_real,
+                "dd3_total": d.get("dd3_total"),
+                "dd4_total": d.get("dd4_total"),
+                "max_max_layers": d.get("max_max_layers"),
+                "per_scalp_usd": derived_edges.get(wkey, {}).get("per_scalp_usd"),
+                "per_scalp_exits": derived_edges.get(wkey, {}).get("exits"),
+            },
+            "derived_vs_production_pct": pct,
+        }
+    avg_pct = float(np.mean(pct_deltas)) if pct_deltas else None
+    sweep_n30_pct = None  # filled by caller if available
+    if avg_pct is None:
+        edge_verdict = "insufficient data"
+    elif avg_pct >= 15.0:
+        edge_verdict = "holds_up — derived edge ≥15% at n=500 (sweep ~20-25% not a small-sample artifact)"
+    elif avg_pct >= 8.0:
+        edge_verdict = "partial — derived edge shrinks but remains meaningful (~8-15%) at n=500"
+    elif avg_pct >= 3.0:
+        edge_verdict = "marginal — derived edge largely noise at n=500 (~3-8%)"
+    else:
+        edge_verdict = "gone — derived edge within noise at n=500 (<3%)"
+    return {
+        "production_geometry": prod_mc.get("geometry"),
+        "derived_geometry": derived_mc.get("geometry"),
+        "n_seeds": prod_mc.get("n_seeds"),
+        "windows": windows,
+        "aggregate": {
+            "production_mean_realised_sum": sum(
+                v.get("mean_realised_avg") or 0 for v in prod_ws.values()
+            ),
+            "derived_mean_realised_sum": sum(
+                v.get("mean_realised_avg") or 0 for v in derived_ws.values()
+            ),
+            "production_dd3_total": prod_mc.get("aggregate_dd3"),
+            "production_dd4_total": prod_mc.get("aggregate_dd4"),
+            "derived_dd3_total": derived_mc.get("aggregate_dd3"),
+            "derived_dd4_total": derived_mc.get("aggregate_dd4"),
+            "avg_derived_vs_production_pct": avg_pct,
+        },
+        "edge_verdict": edge_verdict,
+    }
+
+
+def print_geometry_comparison(comp: dict) -> None:
+    print("\n" + "=" * 72, flush=True)
+    print("GEOMETRY COMPARISON — production vs sweep-derived (n=500, all windows)", flush=True)
+    pg = comp["production_geometry"]
+    dg = comp["derived_geometry"]
+    print(
+        f"  Production: W={pg['widen_ratio']} F={pg['add_pips_floor']} E={pg['exit_pips']}",
+        flush=True,
+    )
+    print(
+        f"  Derived:    W={dg['widen_ratio']} F={dg['add_pips_floor']} E={dg['exit_pips']}",
+        flush=True,
+    )
+    print(
+        f"{'Window':<16} {'Prod $real':>10} {'Deriv $real':>11} {'Δ%':>7} "
+        f"{'P-DD3':>6} {'D-DD3':>6} {'P-maxL':>7} {'D-maxL':>7} "
+        f"{'P$/scalp':>9} {'D$/scalp':>9}",
+        flush=True,
+    )
+    print("-" * 72, flush=True)
+    for wkey, row in comp["windows"].items():
+        p, d = row["production"], row["derived"]
+        pct = row.get("derived_vs_production_pct")
+        pct_s = f"{pct:+.1f}" if pct is not None else "N/A"
+        print(
+            f"{wkey:<16} "
+            f"{(p.get('mean_realised_avg') or 0):>10.2f} "
+            f"{(d.get('mean_realised_avg') or 0):>11.2f} "
+            f"{pct_s:>7} "
+            f"{(p.get('dd3_total') or 0):>6} "
+            f"{(d.get('dd3_total') or 0):>6} "
+            f"{(p.get('max_max_layers') or 0):>7} "
+            f"{(d.get('max_max_layers') or 0):>7} "
+            f"{(p.get('per_scalp_usd') or 0):>9.3f} "
+            f"{(d.get('per_scalp_usd') or 0):>9.3f}",
+            flush=True,
+        )
+    agg = comp["aggregate"]
+    print("-" * 72, flush=True)
+    print(
+        f"Aggregate DD3: prod={agg['production_dd3_total']} derived={agg['derived_dd3_total']} | "
+        f"DD4: prod={agg['production_dd4_total']} derived={agg['derived_dd4_total']}",
+        flush=True,
+    )
+    avg_pct = agg.get("avg_derived_vs_production_pct")
+    if avg_pct is not None:
+        print(f"Avg derived vs production (mean realised, by window): {avg_pct:+.1f}%", flush=True)
+    print(f"Edge verdict: {comp['edge_verdict']}", flush=True)
+    print("=" * 72 + "\n", flush=True)
+
+
 def run_monte_carlo(pair: str, geo: Geometry, pair_spread: float, n_seeds: int = 500,
-                    workers: int = 6) -> dict:
+                    workers: int = 6, label: str = "") -> dict:
     """Full 5-window × 2-spacing × 3-bias matrix at derived geometry."""
+    tag = f" [{label}]" if label else ""
+    print(
+        f"  MC{tag}: W={geo.widen_ratio} F={geo.add_pips_floor} E={geo.exit_pips} "
+        f"n={n_seeds} seeds...",
+        flush=True,
+    )
     windows = {}
     for wkey in WINDOWS:
         p = window_csv(pair, wkey)
@@ -517,10 +732,7 @@ def run_monte_carlo(pair: str, geo: Geometry, pair_spread: float, n_seeds: int =
     for spacing in SPACING_MODES:
         for wname, path in windows.items():
             df = simv6.load_mt5_csv(path)
-            closes = df["CLOSE"].values.astype(float)
-            spread_pts = df["SPREAD"].values.astype(float)
-            times = df["datetime"].values
-            bid_arr, offer_arr = precompute_signal(closes, spread_pts, classify_slot(pair))
+            closes, spread_pts, times, bid_arr, offer_arr = window_signal_arrays(pair, wname, df)
             for mode_name, mode in BIAS_MODES:
                 cell_idx += 1
                 print(f"    MC cell {cell_idx}/{total_cells}: {spacing}/{wname}/{mode_name}...", flush=True)
@@ -548,18 +760,22 @@ def run_monte_carlo(pair: str, geo: Geometry, pair_spread: float, n_seeds: int =
                     "dd4_rate": dd4 / n_seeds * 100.0,
                 }
                 print(
-                    f"      done in {time.time()-t0:.0f}s cumulative | "
+                    f"      done{tag} in {time.time()-t0:.0f}s cumulative | "
                     f"realised=${results[key]['mean_realised']:.2f} DD3={dd3} DD4={dd4}",
                     flush=True,
                 )
-    # per-scalp edge check on MM_BOTH reload_anchor full_quarter seed-0
     edge = per_scalp_edge_check(pair, geo, pair_spread, "full_quarter")
-    adr_compare = compare_adr091(results)
+    per_scalp_all = per_scalp_edges_all_windows(pair, geo, pair_spread)
+    window_summary = summarize_mc_by_window(results)
+    adr_compare = compare_adr091(results, pair)
     return {
         "n_seeds": n_seeds,
         "geometry": geo.as_dict(),
         "geometry_selection": None,
+        "label": label or None,
         "results": {f"{k[0]}|{k[1]}|{k[2]}": v for k, v in results.items()},
+        "window_summary": window_summary,
+        "per_scalp_by_window": per_scalp_all,
         "aggregate_dd4": sum(r["dd4_count"] for r in results.values()),
         "aggregate_dd3": sum(r["dd3_count"] for r in results.values()),
         "per_scalp_edge": edge,
@@ -571,11 +787,8 @@ def run_monte_carlo(pair: str, geo: Geometry, pair_spread: float, n_seeds: int =
 def per_scalp_edge_check(pair, geo, pair_spread, window) -> dict:
     path = window_csv(pair, window)
     df = simv6.load_mt5_csv(str(path))
-    closes = df["CLOSE"].values.astype(float)
-    spread_pts = df["SPREAD"].values.astype(float)
-    times = df["datetime"].values
+    closes, spread_pts, times, bid_arr, offer_arr = window_signal_arrays(pair, window, df)
     with geometry_patch(geo, pair_spread, pair):
-        bid_arr, offer_arr = precompute_signal(closes, spread_pts, classify_slot(pair))
         r = eurgbp_val.simulate_instrumented(
             closes, bid_arr, offer_arr, times, simv7.BiasMode.BOTH, "reload_anchor", 0, pair_spread,
         )
@@ -622,7 +835,10 @@ def mc_results_from_report_payload(monte_carlo: dict) -> dict:
     return out
 
 
-def compare_adr091(results: dict) -> list[dict]:
+def compare_adr091(results: dict, pair: str = "GBPUSD") -> list[dict]:
+    """Compare MC cells against ADR-091 reference — GBPUSD pipeline calibration only."""
+    if pair.upper() != "GBPUSD":
+        return []
     rows = []
     for key, ref in ADR091_REF.items():
         wname, spacing, mode = key
@@ -630,17 +846,55 @@ def compare_adr091(results: dict) -> list[dict]:
         if rkey not in results:
             continue
         got = results[rkey]
+        ref_fields = {
+            "mean_pnl": "mean_pnl" in ref,
+            "dd3_count": "dd3_count" in ref,
+            "dd4_count": "dd4_count" in ref,
+        }
         row = {
             "key": "|".join(key),
             "ref": ref,
-            "got": {k: got[k] for k in got if k in ref or k.startswith("dd") or k.startswith("mean")},
+            "ref_fields": ref_fields,
+            "got": {
+                k: got[k]
+                for k in ("mean_pnl", "mean_realised", "dd3_count", "dd4_count", "max_max_layers")
+                if k in got
+            },
+            "delta_mean_pnl": (
+                got["mean_pnl"] - ref["mean_pnl"] if ref_fields["mean_pnl"] else None
+            ),
+            "delta_dd3": got["dd3_count"] - ref["dd3_count"] if ref_fields["dd3_count"] else None,
+            "delta_dd4": got["dd4_count"] - ref["dd4_count"] if ref_fields["dd4_count"] else None,
         }
-        if "mean_realised" in ref:
-            row["delta_realised"] = got["mean_realised"] - ref["mean_realised"]
-        if "dd3_count" in ref:
-            row["delta_dd3"] = got["dd3_count"] - ref["dd3_count"]
         rows.append(row)
     return rows
+
+
+def evaluate_adr091_ok(comparison_rows: list[dict], mean_pnl_tolerance: float = ADR091_MEAN_PNL_TOLERANCE) -> bool:
+    """Return True when every referenced ADR-091 metric is within tolerance."""
+    for row in comparison_rows:
+        ref_fields = row.get("ref_fields") or {}
+        if ref_fields.get("mean_pnl"):
+            delta = row.get("delta_mean_pnl")
+            if delta is None or abs(delta) >= mean_pnl_tolerance:
+                return False
+        if ref_fields.get("dd3_count"):
+            if row.get("delta_dd3") not in (None, 0):
+                return False
+        if ref_fields.get("dd4_count"):
+            if row.get("delta_dd4") not in (None, 0):
+                return False
+    return True
+
+
+def format_adr_delta(value: float | None) -> str:
+    if value is None:
+        return "N/A"
+    if isinstance(value, float) and value.is_integer():
+        return f"{int(value):+d}" if abs(value - int(value)) < 1e-9 else f"{value:+.2f}"
+    if isinstance(value, int):
+        return f"{value:+d}"
+    return f"{value:+.2f}"
 
 
 def passivity_check(df, pair_spread: float) -> dict:
@@ -665,23 +919,21 @@ def passivity_check(df, pair_spread: float) -> dict:
 
 def gap_stress(pair: str, geo: Geometry, pair_spread: float, gap_pips: float = 500.0) -> dict:
     """Gap splice on full_quarter — pair-scaled gap by sigma ratio vs GBPUSD reference."""
-    df = simv6.load_mt5_csv(str(window_csv(pair, "full_quarter")))
-    closes = df["CLOSE"].values.astype(float).copy()
-    spread_pts = df["SPREAD"].values.astype(float)
+    df = simv6.load_mt5_csv(str(window_csv(pair, "full_quarter"))).copy()
+    closes = df["CLOSE"].values.astype(float)
     gbp_df = simv6.load_mt5_csv(str(window_csv("GBPUSD", "full_quarter")))
     sig_pair = sigma_fv_stats(closes, pair)["sigma_fv_mean"]
     sig_gbp = sigma_fv_stats(gbp_df["CLOSE"].values.astype(float), "GBPUSD")["sigma_fv_mean"]
     scaled_gap = gap_pips * (sig_pair / sig_gbp if sig_gbp > 0 else 1.0)
     gap_bar = min(400, len(closes) - 5)
-    adverse = -1  # long-adverse gap
-    closes[gap_bar + 1] = closes[gap_bar] - scaled_gap * PIP
+    df.loc[gap_bar + 1, "CLOSE"] = closes[gap_bar] - scaled_gap * PIP
 
     out = {}
+    closes, spread_pts, times, bid_arr, offer_arr = window_signal_arrays(pair, "full_quarter", df)
     with geometry_patch(geo, pair_spread, pair):
-        bid_arr, offer_arr = precompute_signal(closes, spread_pts, classify_slot(pair))
         for mode_name, mode in [("MM_LONG", simv7.BiasMode.LONG_ONLY), ("MM_SHORT", simv7.BiasMode.SHORT_ONLY)]:
             tr = eurgbp_val.simulate_instrumented(
-                closes, bid_arr, offer_arr, df["datetime"].values, mode, "reload_flat", 0, pair_spread,
+                closes, bid_arr, offer_arr, times, mode, "reload_flat", 0, pair_spread,
             )
             out[mode_name] = {
                 "gap_pips_scaled": round(scaled_gap, 1),
@@ -704,12 +956,9 @@ def live_tick_reference(pair: str, geo: Geometry, pair_spread: float) -> dict:
     sub = df.loc[mask].reset_index(drop=True)
     if len(sub) < 100:
         sub = df.iloc[:500].reset_index(drop=True)
-    closes = sub["CLOSE"].values.astype(float)
-    spread_pts = sub["SPREAD"].values.astype(float)
-    times = sub["datetime"].values
+    closes, spread_pts, times, bid_arr, offer_arr = window_signal_arrays(pair, "full_quarter", sub)
     rows = {}
     with geometry_patch(geo, pair_spread, pair):
-        bid_arr, offer_arr = precompute_signal(closes, spread_pts, classify_slot(pair))
         for mode_name, mode in [("MM_LONG", simv7.BiasMode.LONG_ONLY), ("MM_SHORT", simv7.BiasMode.SHORT_ONLY)]:
             r = eurgbp_val.simulate_instrumented(
                 closes, bid_arr, offer_arr, times, mode, "reload_anchor", 0, pair_spread,
@@ -724,8 +973,49 @@ def live_tick_reference(pair: str, geo: Geometry, pair_spread: float) -> dict:
     return rows
 
 
+def evaluate_pair_mc_ok(report: PipelineReport) -> tuple[bool, dict]:
+    """Pair-aware MC pass criteria: GBPUSD vs ADR-091; others vs own risk/economics."""
+    mc = report.monte_carlo
+    pair = report.pair.upper()
+    edge = mc.get("per_scalp_edge", {})
+    passivity_ok = report.passivity.get("passes_margin", False)
+
+    if mc.get("skipped"):
+        if pair == "GBPUSD":
+            ok = geometry_close(report.derived_geometry, report.production_geometry) and passivity_ok
+        else:
+            ok = passivity_ok
+        return ok, {"mode": "sweep_only", "passivity_ok": passivity_ok}
+
+    economics_ok = edge.get("positive_per_scalp", False)
+
+    if pair == "GBPUSD":
+        risk_ok = mc.get("aggregate_dd4", 999) == 0
+        adr_ok = evaluate_adr091_ok(mc.get("adr091_comparison", []))
+        pipeline_ok = risk_ok and adr_ok
+        return pipeline_ok, {
+            "mode": "gbpusd_calibration",
+            "risk_ok": risk_ok,
+            "adr_ok": adr_ok,
+            "economics_ok": economics_ok,
+            "passivity_ok": passivity_ok,
+        }
+
+    risk_ok = mc.get("aggregate_dd4", 999) == 0 and mc.get("aggregate_dd3", 999) == 0
+    pipeline_ok = risk_ok and economics_ok and passivity_ok
+    return pipeline_ok, {
+        "mode": "pair_validation",
+        "risk_ok": risk_ok,
+        "adr_ok": None,
+        "economics_ok": economics_ok,
+        "passivity_ok": passivity_ok,
+        "per_scalp_usd": edge.get("per_scalp_usd"),
+    }
+
+
 def go_no_go(report: PipelineReport) -> dict:
     mc = report.monte_carlo
+    pair = report.pair.upper()
     derived = report.derived_geometry
     prod = report.production_geometry
     param_delta = {
@@ -733,32 +1023,33 @@ def go_no_go(report: PipelineReport) -> dict:
         for k in ("widen_ratio", "add_pips_floor", "exit_pips")
     }
     derived_matches_production = geometry_close(derived, prod)
-    if mc.get("skipped"):
-        pipeline_ok = derived_matches_production and report.passivity.get("passes_margin", False)
+    pipeline_ok, criteria = evaluate_pair_mc_ok(report)
+    adr_ok = criteria.get("adr_ok")
+    if adr_ok is None:
         adr_ok = True
-    else:
-        pipeline_ok = mc.get("aggregate_dd4", 999) == 0
-        adr_ok = all(
-            abs(row.get("delta_realised", 0)) < 25.0
-            for row in mc.get("adr091_comparison", [])
-            if "delta_realised" in row
-        ) and all(
-            row.get("delta_dd3", 0) == 0
-            for row in mc.get("adr091_comparison", [])
-            if "delta_dd3" in row
+
+    if pair == "GBPUSD":
+        recommendation = (
+            "GO — pipeline reproduces known-good GBPUSD geometry and ADR-091 risk profile; "
+            "safe to run EURUSD/EURGBP next."
+            if pipeline_ok and derived_matches_production
+            else "NO-GO — investigate pipeline divergence before running other pairs."
         )
-        pipeline_ok = pipeline_ok and adr_ok
+    else:
+        recommendation = (
+            f"GO — {pair} selected geometry passes n=500 risk (DD3/DD4 clean), "
+            f"positive per-scalp edge, and passivity headroom."
+            if pipeline_ok
+            else f"NO-GO — {pair} failed pair validation criteria: {criteria}."
+        )
+
     return {
-        "pipeline_trustworthy": pipeline_ok and adr_ok,
+        "pipeline_trustworthy": pipeline_ok,
         "derived_matches_production": derived_matches_production,
         "mc_geometry_selection": mc.get("geometry_selection"),
         "param_delta_derived_vs_production": param_delta,
-        "recommendation": (
-            "GO — pipeline reproduces known-good GBPUSD geometry and ADR-091 risk profile; "
-            "safe to run EURUSD/EURGBP next."
-            if pipeline_ok and adr_ok and derived_matches_production
-            else "NO-GO — investigate pipeline divergence before running other pairs."
-        ),
+        "pass_criteria": criteria,
+        "recommendation": recommendation,
         "mc_dd4_total": mc.get("aggregate_dd4"),
         "mc_dd3_total": mc.get("aggregate_dd3"),
     }
@@ -805,21 +1096,39 @@ def render_markdown(report: PipelineReport) -> str:
     ])
     for row in report.monte_carlo.get("adr091_comparison", []):
         parts = [f"`{row['key']}`"]
-        if "delta_realised" in row:
-            parts.append(f"delta_realised={row['delta_realised']:+.2f}")
-        if "delta_dd3" in row:
-            parts.append(f"delta_dd3={row['delta_dd3']:+d}")
+        parts.append(f"delta_mean_pnl={format_adr_delta(row.get('delta_mean_pnl'))}")
+        parts.append(f"delta_dd3={format_adr_delta(row.get('delta_dd3'))}")
+        parts.append(f"delta_dd4={format_adr_delta(row.get('delta_dd4'))}")
         lines.append("- " + ", ".join(parts))
     lines.append("")
     lines.append("## Per-scalp edge (full_quarter, MM_BOTH, seed 0)")
     edge = report.monte_carlo.get("per_scalp_edge", {})
     lines.append(f"- exits={edge.get('exits')} per_scalp=${edge.get('per_scalp_usd', 0):.3f} "
                  f"positive={edge.get('positive_per_scalp')}")
+    comp = report.meta.get("geometry_comparison")
+    if comp:
+        lines.extend(["", "## Geometry comparison (production vs sweep-derived, n=500)", ""])
+        lines.append(f"- Edge verdict: **{comp.get('edge_verdict')}**")
+        avg = comp.get("aggregate", {}).get("avg_derived_vs_production_pct")
+        if avg is not None:
+            lines.append(f"- Avg derived vs production (by window): {avg:+.1f}%")
+        lines.extend(["", "| Window | Prod $real | Deriv $real | Δ% | P-DD3 | D-DD3 | P-maxL | D-maxL | P$/scalp | D$/scalp |",
+                      "|--------|------------|-------------|-----|-------|-------|--------|--------|----------|----------|"])
+        for wkey, row in comp.get("windows", {}).items():
+            p, d = row["production"], row["derived"]
+            pct = row.get("derived_vs_production_pct")
+            pct_s = f"{pct:+.1f}" if pct is not None else "N/A"
+            lines.append(
+                f"| {wkey} | {(p.get('mean_realised_avg') or 0):.2f} | {(d.get('mean_realised_avg') or 0):.2f} | "
+                f"{pct_s} | {p.get('dd3_total', 0)} | {d.get('dd3_total', 0)} | "
+                f"{p.get('max_max_layers', 0)} | {d.get('max_max_layers', 0)} | "
+                f"{(p.get('per_scalp_usd') or 0):.3f} | {(d.get('per_scalp_usd') or 0):.3f} |"
+            )
     return "\n".join(lines)
 
 
 def run_pipeline(pair: str, n_sweep: int = 30, n_mc: int = 500, workers: int = 6,
-                 skip_mc: bool = False) -> PipelineReport:
+                 skip_mc: bool = False, dual_geometry_mc: bool = False) -> PipelineReport:
     pair = pair.upper()
     t0 = time.time()
     print(f"\n{'='*72}\nPair validation pipeline — {pair}\n{'='*72}", flush=True)
@@ -868,14 +1177,59 @@ def run_pipeline(pair: str, n_sweep: int = 30, n_mc: int = 500, workers: int = 6
         flush=True,
     )
 
-    print(f"[6] Monte Carlo n={n_mc} (5 windows × 2 spacing × 3 bias)...", flush=True)
     if skip_mc:
-        mc = {"skipped": True, "note": "use without --skip-mc for full n=500 matrix"}
-        edge = per_scalp_edge_check(pair, mc_geo, pair_spread, "full_quarter")
-        mc["per_scalp_edge"] = edge
-    else:
-        mc = run_monte_carlo(pair, mc_geo, pair_spread, n_seeds=n_mc, workers=workers)
+        print("[6-9] Skipped (--skip-mc: stages 1-5 only)", flush=True)
+        report = PipelineReport(
+            pair=pair,
+            slot=slot,
+            data=data,
+            sigma={"full_quarter": sig_fq, "june_blowup": sig_jb, "gbpusd_ref": gbp_sig},
+            spread=spread,
+            geometry_sweep=sweep,
+            derived_geometry=derived,
+            production_geometry=prod_geo,
+            mc_geometry=mc_geo,
+            monte_carlo={"skipped": True, "note": "stages 1-5 only (--skip-mc)"},
+            passivity={},
+            gap_stress={},
+            live_tick={},
+            verdict={},
+            elapsed_sec=time.time() - t0,
+        )
+        report.verdict = go_no_go(report)
+        return report
+
+    print(f"[6] Monte Carlo n={n_mc} (5 windows × 2 spacing × 3 bias)...", flush=True)
+    geometry_comparison = None
+    mc_runs: dict[str, dict] = {}
+
+    if dual_geometry_mc and not geometry_close(derived, prod_geo):
+        for label, geo in [("production", prod_geo), ("derived", derived)]:
+            mc_runs[label] = run_monte_carlo(
+                pair, geo, pair_spread, n_seeds=n_mc, workers=workers, label=label,
+            )
+        geometry_comparison = build_geometry_comparison(mc_runs["production"], mc_runs["derived"])
+        # n=30 sweep reference for context
+        sweep_prod = sweep.get("production_scored", {})
+        sweep_best = sweep.get("best", {})
+        if sweep_prod.get("combined") and sweep_best.get("combined"):
+            sp = sweep_prod["combined"]["mean_realised"]
+            sb = sweep_best["combined"]["mean_realised"]
+            if sp and abs(sp) > 1e-6:
+                geometry_comparison["sweep_n30_derived_vs_production_pct"] = (sb - sp) / abs(sp) * 100.0
+        print_geometry_comparison(geometry_comparison)
+        derived_key = geometry_key(derived)
+        mc = mc_runs["derived"] if geometry_key(mc_geo) == derived_key else mc_runs["production"]
         mc["geometry_selection"] = mc_selection
+        mc["alternate_geometry_mc"] = {
+            k: v for k, v in mc_runs.items()
+            if geometry_key(Geometry(**v["geometry"])) != geometry_key(mc_geo)
+        }
+        meta = {"geometry_comparison": geometry_comparison, "monte_carlo_by_geometry": mc_runs}
+    else:
+        mc = run_monte_carlo(pair, mc_geo, pair_spread, n_seeds=n_mc, workers=workers, label="primary")
+        mc["geometry_selection"] = mc_selection
+        meta = {}
 
     print("[7] Passivity headroom...", flush=True)
     passivity = passivity_check(df_fq, pair_spread)
@@ -902,6 +1256,7 @@ def run_pipeline(pair: str, n_sweep: int = 30, n_mc: int = 500, workers: int = 6
         live_tick=live,
         verdict={},
         elapsed_sec=time.time() - t0,
+        meta=meta,
     )
     report.verdict = go_no_go(report)
     return report
@@ -910,7 +1265,42 @@ def run_pipeline(pair: str, n_sweep: int = 30, n_mc: int = 500, workers: int = 6
 def compare_adr091_from_report(json_path: str) -> list[dict]:
     payload = json.loads(Path(json_path).read_text(encoding="utf-8"))
     results = mc_results_from_report_payload(payload["monte_carlo"])
-    return compare_adr091(results)
+    return compare_adr091(results, payload.get("pair", "GBPUSD"))
+
+
+def verify_report_verdict(json_path: str) -> dict:
+    """Re-run ADR-091 comparison and go_no_go on a saved report (no MC re-run)."""
+    payload = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    mc = dict(payload["monte_carlo"])
+    mc["adr091_comparison"] = compare_adr091(mc_results_from_report_payload(mc), payload["pair"])
+    report = PipelineReport(
+        pair=payload["pair"],
+        slot=payload["slot"],
+        data=payload["data"],
+        sigma=payload["sigma"],
+        spread=payload["spread"],
+        geometry_sweep=payload["geometry_sweep"],
+        derived_geometry=Geometry(**payload["derived_geometry"]),
+        production_geometry=Geometry(**payload["production_geometry"]),
+        mc_geometry=Geometry(**payload["mc_geometry"]),
+        monte_carlo=mc,
+        passivity=payload["passivity"],
+        gap_stress=payload["gap_stress"],
+        live_tick=payload["live_tick"],
+        verdict={},
+        elapsed_sec=payload.get("elapsed_sec", 0.0),
+        meta=payload.get("meta", {}),
+    )
+    verdict = go_no_go(report)
+    return {
+        "verdict": verdict,
+        "adr091_comparison": mc["adr091_comparison"],
+        "adr_ok": (
+            evaluate_adr091_ok(mc["adr091_comparison"])
+            if payload["pair"].upper() == "GBPUSD"
+            else None
+        ),
+    }
 
 
 def main() -> int:
@@ -920,10 +1310,19 @@ def main() -> int:
     ap.add_argument("--n-mc", type=int, default=500, help="seeds for full Monte Carlo matrix")
     ap.add_argument("--workers", type=int, default=6, help="parallel worker processes for seed batches")
     ap.add_argument("--skip-mc", action="store_true", help="stop after geometry sweep (stages 1-5)")
+    ap.add_argument("--dual-geometry-mc", action="store_true",
+                    help="run full n=500 MC at both production and sweep-derived geometries")
     ap.add_argument("--compare-adr091-only", metavar="REPORT.json",
                     help="run compare_adr091 against saved report JSON and exit")
+    ap.add_argument("--verify-report", metavar="REPORT.json",
+                    help="recompute ADR-091 comparison and go_no_go verdict from saved report")
     ap.add_argument("--out-prefix", default=None)
     args = ap.parse_args()
+
+    if args.verify_report:
+        result = verify_report_verdict(args.verify_report)
+        print(json.dumps(result, indent=2))
+        return 0 if result["verdict"]["pipeline_trustworthy"] else 1
 
     if args.compare_adr091_only:
         rows = compare_adr091_from_report(args.compare_adr091_only)
@@ -932,7 +1331,7 @@ def main() -> int:
 
     report = run_pipeline(
         args.pair.upper(), n_sweep=args.n_sweep, n_mc=args.n_mc, workers=args.workers,
-        skip_mc=args.skip_mc,
+        skip_mc=args.skip_mc, dual_geometry_mc=args.dual_geometry_mc,
     )
     prefix = args.out_prefix or str(TEMP / f"pair_validation_{args.pair.upper()}")
     json_path = f"{prefix}_report.json"
