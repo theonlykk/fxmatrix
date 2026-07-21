@@ -8,6 +8,9 @@ Exit/add geometry unchanged (fixed InpExitPips / InpAddPipsFloor grid).
 Usage (full sweep, production baseline):
   python scripts/run_spread_multiplier_sweep.py --spread-multiplier 0.5
 
+Usage (parallel seeds, 6 workers):
+  python scripts/run_spread_multiplier_sweep.py --spread-multiplier 0.5 --workers 6
+
 Usage (vol term removed):
   python scripts/run_spread_multiplier_sweep.py --spread-multiplier 0.0
 
@@ -22,11 +25,14 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import os
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -276,6 +282,117 @@ def simulate_instrumented(
     }
 
 
+def _worker_simulate_batch(payload: dict) -> list[tuple[int, dict]]:
+    """Process-pool worker: run a batch of seeds (Windows spawn-safe)."""
+    import importlib.util as _ilu
+
+    root = Path(payload["root"])
+    spec7 = _ilu.spec_from_file_location(
+        "simv7", root / "scripts" / "grid_sim_v7_real_signal.py"
+    )
+    sim7 = _ilu.module_from_spec(spec7)
+    spec7.loader.exec_module(sim7)
+    spec6 = _ilu.spec_from_file_location(
+        "simv6", root / "scripts" / "grid_sim_v6_dynamic_spacing.py"
+    )
+    sim6 = _ilu.module_from_spec(spec6)
+    spec6.loader.exec_module(sim6)
+    sys.modules["grid_sim_v6_dynamic_spacing"] = sim6
+
+    patched = dict(sim6.PAIR_SPREAD_PIPS)
+    patched[payload["symbol"].upper()] = payload["pair_spread"]
+
+    closes = np.asarray(payload["closes"], dtype=float)
+    bid = np.asarray(payload["bid"], dtype=float)
+    offer = np.asarray(payload["offer"], dtype=float)
+    times = np.asarray(payload["times"])
+    out: list[tuple[int, dict]] = []
+    with patch.dict(sim6.PAIR_SPREAD_PIPS, patched, clear=False):
+        for seed in payload["seeds"]:
+            r = sim7.simulate_one_path(
+                closes,
+                bid,
+                offer,
+                times=times,
+                symbol=payload["symbol"].upper(),
+                bias_mode=payload["bias_mode"],
+                spacing_mode=payload["spacing"],
+                seed=int(seed),
+                sub_steps=100,
+            )
+            out.append((int(seed), r))
+    return out
+
+
+def parallel_seed_runs(
+    closes,
+    bid,
+    offer,
+    times,
+    n_seeds: int,
+    spacing_mode: str,
+    bias_mode,
+    workers: int = 1,
+    symbol: str = "GBPUSD",
+    pair_spread: float = PAIR_SPREAD_PIPS,
+) -> list[dict]:
+    """Run n_seeds independent paths; return results in seed order (0..n-1)."""
+    workers = max(1, min(workers, n_seeds))
+    chunk = max(1, math.ceil(n_seeds / (workers * 2)))
+    batches = []
+    for start in range(0, n_seeds, chunk):
+        batches.append(list(range(start, min(n_seeds, start + chunk))))
+    payload_base = {
+        "root": str(ROOT),
+        "symbol": symbol.upper(),
+        "pair_spread": pair_spread,
+        "closes": closes,
+        "bid": bid,
+        "offer": offer,
+        "times": times,
+        "spacing": spacing_mode,
+        "bias_mode": int(bias_mode),
+    }
+    results_by_seed: dict[int, dict] = {}
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        futs = []
+        for seeds in batches:
+            p = dict(payload_base)
+            p["seeds"] = seeds
+            futs.append(pool.submit(_worker_simulate_batch, p))
+        for fut in as_completed(futs):
+            for seed, result in fut.result():
+                results_by_seed[seed] = result
+    return [results_by_seed[s] for s in range(n_seeds)]
+
+
+def _aggregate_seed_results(seed_results: list[dict], n_seeds: int) -> dict:
+    pnls = [r["pnl_total_usd"] for r in seed_results]
+    realised = [r["pnl_realised_usd"] for r in seed_results]
+    unrealised = [r["pnl_unrealised_usd"] for r in seed_results]
+    total_trades_list = [r.get("total_trades", 0) for r in seed_results]
+    max_layers_list = [r["max_layers"] for r in seed_results]
+    nonflat_count = sum(1 for r in seed_results if abs(r["pnl_unrealised_usd"]) > 1e-12)
+    dd3_count = sum(1 for r in seed_results if r["drawdown_exceeded_3pct"])
+    dd4_count = sum(1 for r in seed_results if r["drawdown_exceeded_4pct"])
+    return {
+        "mean_pnl": float(np.mean(pnls)),
+        "std_pnl": float(np.std(pnls)),
+        "worst_pnl": float(np.min(pnls)),
+        "best_pnl": float(np.max(pnls)),
+        "mean_realised": float(np.mean(realised)),
+        "mean_unrealised": float(np.mean(unrealised)),
+        "nonflat_pct": nonflat_count / n_seeds * 100.0,
+        "mean_max_layers": float(np.mean(max_layers_list)),
+        "max_max_layers": int(np.max(max_layers_list)),
+        "mean_total_trades": float(np.mean(total_trades_list)),
+        "dd3_count": dd3_count,
+        "dd4_count": dd4_count,
+        "dd3_rate": dd3_count / n_seeds * 100.0,
+        "dd4_rate": dd4_count / n_seeds * 100.0,
+    }
+
+
 def run_sweep(
     spread_multiplier: float,
     n_seeds: int = 500,
@@ -283,6 +400,7 @@ def run_sweep(
     spacing_modes: list | None = None,
     verbose: bool = True,
     call_log: list | None = None,
+    workers: int = 1,
 ) -> dict:
     windows = windows or ALL_WINDOWS
     spacing_modes = spacing_modes or SPACING_MODES
@@ -304,58 +422,56 @@ def run_sweep(
                 )
 
             for mode_name, mode in BIAS_MODES:
-                pnls, realised, unrealised, max_layers_list, total_trades_list = [], [], [], [], []
-                nonflat_count = 0
-                dd3_count = dd4_count = 0
-                for s in range(n_seeds):
-                    if call_log is not None:
+                if call_log is not None:
+                    for s in range(n_seeds):
                         call_log.append((spacing_mode, window_name, mode_name, s))
-                    result = simv7.simulate_one_path(
+
+                if workers == 1:
+                    seed_results = []
+                    for s in range(n_seeds):
+                        seed_results.append(
+                            simv7.simulate_one_path(
+                                closes,
+                                bid_arr,
+                                offer_arr,
+                                times=times,
+                                symbol="GBPUSD",
+                                bias_mode=mode,
+                                spacing_mode=spacing_mode,
+                                seed=s,
+                                sub_steps=100,
+                            )
+                        )
+                        if verbose and (s + 1) % 100 == 0:
+                            elapsed = time.time() - start_time
+                            print(
+                                f"    sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name}: "
+                                f"{s + 1}/{n_seeds} seeds ({elapsed:.0f}s elapsed)",
+                                flush=True,
+                            )
+                else:
+                    if verbose:
+                        print(
+                            f"    sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name}: "
+                            f"running {n_seeds} seeds with {workers} workers...",
+                            flush=True,
+                        )
+                    seed_results = parallel_seed_runs(
                         closes,
                         bid_arr,
                         offer_arr,
-                        times=times,
-                        symbol="GBPUSD",
-                        bias_mode=mode,
-                        spacing_mode=spacing_mode,
-                        seed=s,
-                        sub_steps=100,
+                        times,
+                        n_seeds,
+                        spacing_mode,
+                        mode,
+                        workers=workers,
                     )
-                    pnls.append(result["pnl_total_usd"])
-                    realised.append(result["pnl_realised_usd"])
-                    unrealised.append(result["pnl_unrealised_usd"])
-                    total_trades_list.append(result.get("total_trades", 0))
-                    if abs(result["pnl_unrealised_usd"]) > 1e-12:
-                        nonflat_count += 1
-                    max_layers_list.append(result["max_layers"])
-                    if result["drawdown_exceeded_3pct"]:
-                        dd3_count += 1
-                    if result["drawdown_exceeded_4pct"]:
-                        dd4_count += 1
-                    if verbose and (s + 1) % 100 == 0:
-                        elapsed = time.time() - start_time
-                        print(
-                            f"    sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name}: "
-                            f"{s + 1}/{n_seeds} seeds ({elapsed:.0f}s elapsed)"
-                        )
 
                 key = (spacing_mode, window_name, mode_name)
-                results[key] = {
-                    "mean_pnl": float(np.mean(pnls)),
-                    "std_pnl": float(np.std(pnls)),
-                    "worst_pnl": float(np.min(pnls)),
-                    "best_pnl": float(np.max(pnls)),
-                    "mean_realised": float(np.mean(realised)),
-                    "mean_unrealised": float(np.mean(unrealised)),
-                    "nonflat_pct": nonflat_count / n_seeds * 100.0,
-                    "mean_max_layers": float(np.mean(max_layers_list)),
-                    "max_max_layers": int(np.max(max_layers_list)),
-                    "mean_total_trades": float(np.mean(total_trades_list)),
-                    "dd3_count": dd3_count,
-                    "dd4_count": dd4_count,
-                    "dd3_rate": dd3_count / n_seeds * 100.0,
-                    "dd4_rate": dd4_count / n_seeds * 100.0,
-                }
+                cell = _aggregate_seed_results(seed_results, n_seeds)
+                results[key] = cell
+                dd3_count = cell["dd3_count"]
+                dd4_count = cell["dd4_count"]
 
                 fill_ref[key] = simulate_instrumented(
                     closes,
@@ -373,7 +489,8 @@ def run_sweep(
                     print(
                         f"  DONE: sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name} "
                         f"realised=${r['mean_realised']:.2f} DD3={dd3_count} DD4={dd4_count} "
-                        f"maxL={r['max_max_layers']} L0(ref)={f['l0']} ({elapsed:.0f}s)\n"
+                        f"maxL={r['max_max_layers']} L0(ref)={f['l0']} ({elapsed:.0f}s)\n",
+                        flush=True,
                     )
 
     return {"monte_carlo": results, "fill_reference_seed0": fill_ref, "elapsed_sec": time.time() - start_time}
@@ -451,6 +568,59 @@ def test_spread_multiplier_affects_signal():
     assert np.mean(bid0[valid]) >= np.mean(bid5[valid])
 
 
+def test_workers_parity(n_seeds: int = 20, workers_a: int = 1, workers_b: int = 4) -> None:
+    """Per-seed outcomes must match regardless of worker count."""
+    path = ALL_WINDOWS["full_quarter"]
+    df = simv6.load_mt5_csv(path)
+    closes = df["CLOSE"].values
+    spread_points = df["SPREAD"].values
+    times = df["datetime"].values
+    bid_arr, offer_arr = precompute_signal(closes, spread_points, 0.5)
+    spacing_mode = "reload_anchor"
+    _, mode = BIAS_MODES[0]  # MM_LONG
+
+    runs_a = parallel_seed_runs(
+        closes, bid_arr, offer_arr, times, n_seeds, spacing_mode, mode, workers=workers_a
+    )
+    runs_b = parallel_seed_runs(
+        closes, bid_arr, offer_arr, times, n_seeds, spacing_mode, mode, workers=workers_b
+    )
+    assert len(runs_a) == n_seeds and len(runs_b) == n_seeds
+    keys = (
+        "pnl_total_usd",
+        "pnl_realised_usd",
+        "pnl_unrealised_usd",
+        "max_layers",
+        "total_trades",
+        "drawdown_exceeded_3pct",
+        "drawdown_exceeded_4pct",
+    )
+    for s in range(n_seeds):
+        for k in keys:
+            va = runs_a[s].get(k)
+            vb = runs_b[s].get(k)
+            assert va == vb, f"seed {s} key {k}: workers={workers_a} got {va!r}, workers={workers_b} got {vb!r}"
+
+    sweep_a = run_sweep(
+        0.5,
+        n_seeds=n_seeds,
+        windows={"full_quarter": path},
+        spacing_modes=["reload_anchor"],
+        verbose=False,
+        workers=workers_a,
+    )
+    sweep_b = run_sweep(
+        0.5,
+        n_seeds=n_seeds,
+        windows={"full_quarter": path},
+        spacing_modes=["reload_anchor"],
+        verbose=False,
+        workers=workers_b,
+    )
+    assert sweep_a["monte_carlo"] == sweep_b["monte_carlo"]
+    assert sweep_a["fill_reference_seed0"] == sweep_b["fill_reference_seed0"]
+
+
 def test_wiring():
     call_log = []
 
@@ -510,10 +680,18 @@ def main():
         default=None,
         help="Optional subset of window keys (default: all five)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel worker processes for seed batches (default 1 = sequential)",
+    )
     args = parser.parse_args()
 
     print(f"Config: WIDEN_RATIO={simv7.WIDEN_RATIO} ADD_PIPS_CEILING={simv7.ADD_PIPS_CEILING}")
     print(f"QUOTE_SPREAD={simv7.QUOTE_SPREAD} SPREAD_MULTIPLIER(run)={args.spread_multiplier}")
+    if args.workers > 1:
+        print(f"Workers: {args.workers} (seed-level multiprocessing)")
     assert simv7.WIDEN_RATIO == 1.304
     assert simv7.ADD_PIPS_CEILING == 1000.0
 
@@ -541,7 +719,12 @@ def main():
         print(f"ERROR: missing CSV(s): {missing}")
         sys.exit(1)
 
-    payload = run_sweep(args.spread_multiplier, n_seeds=n_seeds, windows=windows)
+    payload = run_sweep(
+        args.spread_multiplier,
+        n_seeds=n_seeds,
+        windows=windows,
+        workers=args.workers,
+    )
     print_results(payload, args.spread_multiplier, n_seeds)
 
     out_path = args.output_json or os.path.join(
@@ -553,6 +736,7 @@ def main():
     serializable = {
         "spread_multiplier": args.spread_multiplier,
         "n_seeds": n_seeds,
+        "workers": args.workers,
         "windows": list(windows.keys()),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "elapsed_sec": payload["elapsed_sec"],
@@ -574,5 +758,8 @@ if __name__ == "__main__":
         test_wiring()
         test_spread_multiplier_affects_signal()
         print("All wiring tests: PASS")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--test-workers-parity":
+        test_workers_parity(n_seeds=20, workers_a=1, workers_b=4)
+        print("Workers parity test (n=20, workers 1 vs 4): PASS")
     else:
         main()
