@@ -21,6 +21,8 @@
 #include "fxmatrix_v2_telemetry.mqh"
 
 input double InpQuoteSpread       = 0.0004;
+input double InpL0DeadbandMult    = 1.0;   // ADR-017: 1.0=V1 parity; 2.0/3.0=wider L0 skip band
+input bool   InpL0DeadbandVolScale = true;  // scale band by V2_PAIR_SPREAD_PIPS_REF vs GBPUSD (0.64)
 input double InpSpreadMultiplier  = 0.500;
 input double InpAddPipsFloor      = 9.0;
 input double InpExitPips          = 3.0;
@@ -58,6 +60,8 @@ V2CloseByTask g_long_closeby_queue[];
 string        g_long_system_alerts[];
 
 int g_long_stat_l0_entries;
+int g_long_stat_l0_requote;
+int g_long_stat_l0_deadband_skip;
 int g_long_stat_add_entries;
 int g_long_stat_reload_entries;
 int g_long_stat_exits;
@@ -79,6 +83,10 @@ double Long_PipsToPrice(const double pips) {
 
 double Long_NormalizeSym(const double price) {
    return NormalizeDouble(price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+}
+
+double EurUsd_L0DeadbandSpreadRef() {
+   return InpL0DeadbandVolScale ? V2_PAIR_SPREAD_PIPS_REF : 0.0;
 }
 
 bool Long_Adr013ClampBuy(const double theoretical, double &out_price) {
@@ -237,9 +245,18 @@ double Long_ComputeAddTarget() {
    return Long_NormalizeSym(anchor - Long_PipsToPrice(step_pips));
 }
 
-void Long_ReplacePendingBuy(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
+bool Long_ReplacePendingBuy(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
+   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, EurUsd_L0DeadbandSpreadRef())) {
+      g_long_stat_l0_deadband_skip++;
+      return false;
+   }
    Long_CancelTicket(ticket_ref);
    ticket_ref = Long_PlaceBuyLimit(price, magic, comment);
+   if(ticket_ref > 0) {
+      g_long_stat_l0_requote++;
+      return true;
+   }
+   return false;
 }
 
 void Long_PlaceExitForLayer(const int layer_idx, const bool immediate) {
@@ -347,8 +364,7 @@ void Long_OnNewBar() {
    int n = ArraySize(g_long_layers);
    if (n == 0) {
       g_long_last_exit_valid = false;
-      Long_ReplacePendingBuy(g_long_l0_ticket, bid_lvl, MM_LONG_V2, "V2_L0");
-      if (InpVerboseLog)
+      if(Long_ReplacePendingBuy(g_long_l0_ticket, bid_lvl, MM_LONG_V2, "V2_L0") && InpVerboseLog)
          Print("DIAG V2_LONG | event=l0_quote | bid_theo=", DoubleToString(bid_theoretical, 5),
                " bid_lvl=", DoubleToString(bid_lvl, 5));
    }
@@ -567,6 +583,8 @@ int Long_OnInit() {
 
 void Long_OnDeinit(const int reason) {
    Print("V2_STATS_LONG | l0=", g_long_stat_l0_entries,
+         " l0_requote=", g_long_stat_l0_requote,
+         " l0_deadband_skip=", g_long_stat_l0_deadband_skip,
          " add=", g_long_stat_add_entries,
          " reload=", g_long_stat_reload_entries,
          " exits=", g_long_stat_exits,
@@ -608,6 +626,8 @@ V2CloseByTask g_short_closeby_queue[];
 string        g_short_system_alerts[];
 
 int g_short_stat_l0_entries;
+int g_short_stat_l0_requote;
+int g_short_stat_l0_deadband_skip;
 int g_short_stat_add_entries;
 int g_short_stat_reload_entries;
 int g_short_stat_exits;
@@ -791,9 +811,18 @@ double Short_ComputeAddTarget() {
    return Short_NormalizeSym(anchor + Short_PipsToPrice(step_pips));
 }
 
-void Short_ReplacePendingSell(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
+bool Short_ReplacePendingSell(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
+   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, EurUsd_L0DeadbandSpreadRef())) {
+      g_short_stat_l0_deadband_skip++;
+      return false;
+   }
    Short_CancelTicket(ticket_ref);
    ticket_ref = Short_PlaceSellLimit(price, magic, comment);
+   if(ticket_ref > 0) {
+      g_short_stat_l0_requote++;
+      return true;
+   }
+   return false;
 }
 
 void Short_PlaceExitForLayer(const int layer_idx, const bool immediate) {
@@ -901,8 +930,7 @@ void Short_OnNewBar() {
    int n = ArraySize(g_short_layers);
    if (n == 0) {
       g_short_last_exit_valid = false;
-      Short_ReplacePendingSell(g_short_l0_ticket, offer_lvl, MM_SHORT_V2, "V2_L0");
-      if (InpVerboseLog)
+      if(Short_ReplacePendingSell(g_short_l0_ticket, offer_lvl, MM_SHORT_V2, "V2_L0") && InpVerboseLog)
          Print("DIAG V2_SHORT | event=l0_quote | offer_theo=", DoubleToString(offer_theoretical, 5),
                " offer_lvl=", DoubleToString(offer_lvl, 5));
    }
@@ -1121,6 +1149,8 @@ int Short_OnInit() {
 
 void Short_OnDeinit(const int reason) {
    Print("V2_STATS_SHORT | l0=", g_short_stat_l0_entries,
+         " l0_requote=", g_short_stat_l0_requote,
+         " l0_deadband_skip=", g_short_stat_l0_deadband_skip,
          " add=", g_short_stat_add_entries,
          " reload=", g_short_stat_reload_entries,
          " exits=", g_short_stat_exits,

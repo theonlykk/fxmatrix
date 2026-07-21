@@ -290,4 +290,43 @@ int V2TestCloseByQueueSize(const V2CloseByTask &queue[])
    return ArraySize(queue);
 }
 
+//+------------------------------------------------------------------+
+//| ADR-017 flat L0 spatial deadband (V1 FXMatrix.mq5 parity).        |
+//| QuoteSpread * 0.25 - 0.5 * _Point — L0 requote only, not add/reload.|
+//| Optional pair_spread_pips_ref scales width vs GBPUSD anchor (0.64). |
+//+------------------------------------------------------------------+
+#define V2_L0_DEADBAND_VOL_REF_PIPS 0.64
+
+double V2_L0RequoteDeadband(const double quote_spread,
+                            const double multiplier = 1.0,
+                            const double pair_spread_pips_ref = 0.0)
+{
+   double db = multiplier * (quote_spread * 0.25 - 0.5 * _Point);
+   if(pair_spread_pips_ref > 0.0)
+      db *= (pair_spread_pips_ref / V2_L0_DEADBAND_VOL_REF_PIPS);
+   return db;
+}
+
+double V2_GetPendingOrderPrice(const ulong ticket)
+{
+   if(ticket == 0 || !OrderSelect(ticket))
+      return -1.0;
+   return OrderGetDouble(ORDER_PRICE_OPEN);
+}
+
+bool V2_L0RestingWithinDeadband(const ulong resting_ticket,
+                                const double new_price,
+                                const double quote_spread,
+                                const double multiplier = 1.0,
+                                const double pair_spread_pips_ref = 0.0)
+{
+   if(resting_ticket == 0)
+      return false;
+   const double current = V2_GetPendingOrderPrice(resting_ticket);
+   if(current <= 0.0)
+      return false;
+   const double deadband = V2_L0RequoteDeadband(quote_spread, multiplier, pair_spread_pips_ref);
+   return (MathAbs(new_price - current) < deadband);
+}
+
 #endif // FXMATRIX_V2_LOGIC_MQH
