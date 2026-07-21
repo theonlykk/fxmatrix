@@ -517,12 +517,6 @@ def main():
     assert simv7.WIDEN_RATIO == 1.304
     assert simv7.ADD_PIPS_CEILING == 1000.0
 
-    if not args.smoke_test:
-        missing = [p for p in windows.values() if not os.path.isfile(p)]
-        if missing:
-            print(f"ERROR: missing CSV(s): {missing}")
-            sys.exit(1)
-
     if args.smoke_test:
         windows = {"full_quarter": ALL_WINDOWS["full_quarter"]}
         n_seeds = 2
@@ -541,6 +535,11 @@ def main():
             f"Full sweep: {len(windows)} windows × 2 spacing × 3 bias = {n_cells} cells × {n_seeds} seeds"
         )
         print("WARNING: Both reload_anchor and reload_flat — expect multi-hour runtime.\n")
+
+    missing = [p for p in windows.values() if not os.path.isfile(p)]
+    if missing:
+        print(f"ERROR: missing CSV(s): {missing}")
+        sys.exit(1)
 
     payload = run_sweep(args.spread_multiplier, n_seeds=n_seeds, windows=windows)
     print_results(payload, args.spread_multiplier, n_seeds)
