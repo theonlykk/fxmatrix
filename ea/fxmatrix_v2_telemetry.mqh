@@ -5,6 +5,8 @@
 #ifndef FXMATRIX_V2_TELEMETRY_MQH
 #define FXMATRIX_V2_TELEMETRY_MQH
 
+#include "fxmatrix_v2_api_counter.mqh"
+
 #ifndef V2_TEL_INSTANCE_LONG
 #define V2_TEL_INSTANCE_LONG  "MM_LONG_V2"
 #endif
@@ -231,6 +233,8 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
    );
 
    string alerts_json = V2BuildSystemAlertsJSON(system_alerts);
+   int account_daily_api_count = V2_ApiCounterRead();
+   bool account_daily_api_warning = V2_ApiCounterSoftWarnActive();
 
    return StringFormat(
       "{"
@@ -246,6 +250,10 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
          "\"execution_mode\":\"V2_PASSIVE_GRID\","
          "\"quote_spread\":%.6f,"
          "\"daily_api_count\":0,"
+         "\"account_daily_api_count\":%d,"
+         "\"account_daily_api_limit\":%d,"
+         "\"account_daily_api_soft_warn\":%d,"
+         "\"account_daily_api_warning\":%s,"
          "\"ldak_vratios\":{},"
          "\"rollover_active\":false"
       "},"
@@ -262,6 +270,10 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       equity,
       margin_lvl,
       quote_spread,
+      account_daily_api_count,
+      V2_DAILY_API_LIMIT,
+      V2_DAILY_API_SOFT_WARN,
+      (account_daily_api_warning ? "true" : "false"),
       pods_json,
       market_json,
       alerts_json

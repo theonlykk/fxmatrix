@@ -61,7 +61,7 @@ ulong V2_SendExitLimit(const string symbol,
                                 entry_direction, exit_magic, req))
       return 0;
 
-   if(!OrderSend(req, res))
+   if(!V2_OrderSendCounted(req, res))
       return 0;
 
    return res.order;
@@ -79,7 +79,7 @@ void V2_CancelExitOrder(const ulong order_ticket)
    MqlTradeResult  res = {};
    req.action = TRADE_ACTION_REMOVE;
    req.order  = order_ticket;
-   OrderSend(req, res);
+   V2_OrderSendCounted(req, res);
 }
 
 //+------------------------------------------------------------------+
@@ -186,7 +186,7 @@ void V2_ProcessCloseByQueue(V2CloseByTask &queue[],
       req.symbol      = sym;
       req.magic       = closeby_magic;
 
-      if(OrderSend(req, res)) {
+      if(V2_OrderSendCounted(req, res)) {
          if(verbose)
             Print("INFO V2_CLOSEBY | instance=", instance_tag,
                   " success on retry ", queue[i].retries,

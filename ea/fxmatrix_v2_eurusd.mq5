@@ -120,7 +120,7 @@ void Long_CancelTicket(const ulong ticket) {
    MqlTradeResult  res = {};
    req.action = TRADE_ACTION_REMOVE;
    req.order  = ticket;
-   OrderSend(req, res);
+   V2_OrderSendCounted(req, res);
 }
 
 ulong Long_PlaceBuyLimit(const double price, const ulong magic, const string comment) {
@@ -140,7 +140,7 @@ ulong Long_PlaceBuyLimit(const double price, const ulong magic, const string com
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
-   if (!OrderSend(req, res))
+   if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
 }
@@ -162,7 +162,7 @@ ulong Long_PlaceSellLimit(const double price, const ulong magic, const string co
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
-   if (!OrderSend(req, res))
+   if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
 }
@@ -686,7 +686,7 @@ void Short_CancelTicket(const ulong ticket) {
    MqlTradeResult  res = {};
    req.action = TRADE_ACTION_REMOVE;
    req.order  = ticket;
-   OrderSend(req, res);
+   V2_OrderSendCounted(req, res);
 }
 
 ulong Short_PlaceSellLimit(const double price, const ulong magic, const string comment) {
@@ -706,7 +706,7 @@ ulong Short_PlaceSellLimit(const double price, const ulong magic, const string c
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
-   if (!OrderSend(req, res))
+   if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
 }
@@ -728,7 +728,7 @@ ulong Short_PlaceBuyLimit(const double price, const ulong magic, const string co
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
-   if (!OrderSend(req, res))
+   if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
 }
@@ -1243,6 +1243,7 @@ void V2EmitTelemetry(const bool force = false)
 }
 
 int OnInit() {
+   V2_ApiCounterMaybeReset();
    V2PodReset(g_long_pod);
    V2PodReset(g_short_pod);
    g_last_telemetry_emit = 0;
@@ -1305,6 +1306,7 @@ void OnDeinit(const int reason) {
 }
 
 void OnTick() {
+   V2_ApiCounterMaybeReset();
    Long_OnTick();
    Short_OnTick();
    V2EmitTelemetry(false);

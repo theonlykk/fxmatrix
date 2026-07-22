@@ -320,6 +320,7 @@ void Test_TelemetryDualInstancePayloads()
    AssertContains("short direction SELL", short_payload, "\"direction\":-1");
    AssertContains("system_alerts empty array", long_payload, "\"system_alerts\":[]");
    AssertContains("engine_state V2 stub", long_payload, "\"execution_mode\":\"V2_PASSIVE_GRID\"");
+   AssertContains("engine_state account api count", long_payload, "\"account_daily_api_count\":");
 }
 
 //+------------------------------------------------------------------+
@@ -652,6 +653,72 @@ void Test_SixInstanceMockStateIsolation()
 }
 
 //+------------------------------------------------------------------+
+void Test_ApiCounterIncrementAndRollover()
+{
+   if(GlobalVariableCheck(V2_DAILY_API_COUNT_GV))
+      GlobalVariableDel(V2_DAILY_API_COUNT_GV);
+   if(GlobalVariableCheck(V2_DAILY_API_DATE_GV))
+      GlobalVariableDel(V2_DAILY_API_DATE_GV);
+
+   V2_ApiCounterMaybeReset();
+   AssertTrue("fresh counter zero", V2_ApiCounterRead() == 0);
+
+   V2_ApiCounterIncrement();
+   V2_ApiCounterIncrement();
+   V2_ApiCounterIncrement();
+   AssertTrue("three increments", V2_ApiCounterRead() == 3);
+
+   MqlDateTime ydt;
+   TimeToStruct(TimeCurrent() - 86400, ydt);
+   string ystr = StringFormat("%04d%02d%02d", ydt.year, ydt.mon, ydt.day);
+   GlobalVariableSet(V2_DAILY_API_DATE_GV, (double)StringToInteger(ystr));
+   GlobalVariableSet(V2_DAILY_API_COUNT_GV, 999.0);
+
+   V2_ApiCounterMaybeReset();
+   AssertTrue("rollover clears stale count", V2_ApiCounterRead() == 0);
+   AssertTrue("rollover stamps today ymd",
+              (long)GlobalVariableGet(V2_DAILY_API_DATE_GV) == (long)V2_ApiCounterTodayYmd());
+
+   GlobalVariableSet(V2_DAILY_API_COUNT_GV, (double)(V2_DAILY_API_SOFT_WARN - 1));
+   AssertTrue("below soft warn inactive", !V2_ApiCounterSoftWarnActive());
+   GlobalVariableSet(V2_DAILY_API_COUNT_GV, (double)V2_DAILY_API_SOFT_WARN);
+   AssertTrue("at soft warn active", V2_ApiCounterSoftWarnActive());
+   GlobalVariableSet(V2_DAILY_API_COUNT_GV, (double)(V2_DAILY_API_LIMIT - 1));
+   AssertTrue("below hard limit still warns", V2_ApiCounterSoftWarnActive());
+}
+
+//+------------------------------------------------------------------+
+void Test_ApiCounterTelemetryFields()
+{
+   if(GlobalVariableCheck(V2_DAILY_API_COUNT_GV))
+      GlobalVariableDel(V2_DAILY_API_COUNT_GV);
+   if(GlobalVariableCheck(V2_DAILY_API_DATE_GV))
+      GlobalVariableDel(V2_DAILY_API_DATE_GV);
+
+   V2_ApiCounterMaybeReset();
+   GlobalVariableSet(V2_DAILY_API_COUNT_GV, (double)V2_DAILY_API_SOFT_WARN);
+
+   V2TelLayerSnapshot empty_layers[];
+   string empty_alerts[];
+   string payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", empty_layers, 0, 1, 0.0004,
+      D'2026.06.05 12:00:00', empty_alerts);
+
+   AssertContains("telemetry account api count",
+                  payload,
+                  StringFormat("\"account_daily_api_count\":%d", V2_DAILY_API_SOFT_WARN));
+   AssertContains("telemetry account api limit",
+                  payload,
+                  StringFormat("\"account_daily_api_limit\":%d", V2_DAILY_API_LIMIT));
+   AssertContains("telemetry account api soft warn",
+                  payload,
+                  StringFormat("\"account_daily_api_soft_warn\":%d", V2_DAILY_API_SOFT_WARN));
+   AssertContains("telemetry account api warning true",
+                  payload,
+                  "\"account_daily_api_warning\":true");
+}
+
+//+------------------------------------------------------------------+
 void Test_PairTelemetryInstanceIds()
 {
    AssertTrue("gbp long tel id default", V2_TEL_INSTANCE_LONG == "MM_LONG_V2");
@@ -710,6 +777,8 @@ void OnStart()
    Test_PairSpreadAndPipConventionRefs();
    Test_AbSignalFormulaPure();
    Test_SixInstanceMockStateIsolation();
+   Test_ApiCounterIncrementAndRollover();
+   Test_ApiCounterTelemetryFields();
    Test_PairTelemetryInstanceIds();
    Test_ExitMagicPerPairNamespace();
 
