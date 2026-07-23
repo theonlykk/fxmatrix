@@ -368,15 +368,30 @@ string V2DerivePodClosedUrl(const string telemetry_url)
 }
 
 //+------------------------------------------------------------------+
+//| M5 bar hold from open→close (Python layer-depth TTR parity).      |
+//+------------------------------------------------------------------+
+double V2HoldTimeBarsM5(const datetime entry_time, const datetime exit_time)
+{
+   if(entry_time <= 0 || exit_time < entry_time)
+      return 0.0;
+   int bar_sec = PeriodSeconds(PERIOD_M5);
+   if(bar_sec <= 0)
+      bar_sec = 300;
+   return (double)(exit_time - entry_time) / (double)bar_sec;
+}
+
+//+------------------------------------------------------------------+
 string V2BuildScalpClosedPayload(const string instance_id,
                                  const string instrument,
                                  const string direction,
                                  const double entry_price,
                                  const double exit_price,
                                  const double hold_time_minutes,
+                                 const double hold_time_bars,
                                  const double gross_pnl,
                                  const int layer_depth,
                                  const int stack_depth,
+                                 const int open_depth,
                                  const datetime close_time_utc,
                                  const datetime close_time_local)
 {
@@ -393,9 +408,11 @@ string V2BuildScalpClosedPayload(const string instance_id,
       "\"entry_price\":%.5f,"
       "\"exit_price\":%.5f,"
       "\"hold_time_minutes\":%.1f,"
+      "\"hold_time_bars\":%.2f,"
       "\"gross_pnl\":%.2f,"
       "\"layer_depth\":%d,"
       "\"stack_depth\":%d,"
+      "\"open_depth\":%d,"
       "\"instance_id\":\"%s\""
       "}",
       ts,
@@ -405,9 +422,11 @@ string V2BuildScalpClosedPayload(const string instance_id,
       entry_price,
       exit_price,
       hold_time_minutes,
+      hold_time_bars,
       gross_pnl,
       layer_depth,
       stack_depth,
+      open_depth,
       instance_id
    );
 }

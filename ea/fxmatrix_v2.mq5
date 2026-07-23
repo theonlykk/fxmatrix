@@ -39,6 +39,8 @@ struct LongV2Layer {
    datetime last_exit_retry_time;
    datetime first_exit_retry_time;
    bool     exit_escalated;
+   int      open_depth;   // 0=L0 at fill (Python sim parity; stable after compaction)
+   datetime entry_time;   // layer open time for resolution metrics
 };
 
 LongV2Layer  g_long_layers[];
@@ -411,6 +413,8 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    g_long_layers[n].last_exit_retry_time  = 0;
    g_long_layers[n].first_exit_retry_time = 0;
    g_long_layers[n].exit_escalated        = false;
+   g_long_layers[n].open_depth            = n;
+   g_long_layers[n].entry_time            = TimeCurrent();
 
    if (n == 0)
       g_long_stat_l0_entries++;
@@ -546,9 +550,10 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       int stack_depth = ArraySize(g_long_layers);
       int layer_depth = layer_idx + 1;
       double layer_entry = g_long_layers[layer_idx].entry_price;
-      datetime layer_entry_time = 0;
-      if(orig_pos > 0 && PositionSelectByTicket(orig_pos))
+      datetime layer_entry_time = g_long_layers[layer_idx].entry_time;
+      if(layer_entry_time <= 0 && orig_pos > 0 && PositionSelectByTicket(orig_pos))
          layer_entry_time = (datetime)PositionGetInteger(POSITION_TIME);
+      int open_depth = g_long_layers[layer_idx].open_depth;
 
       double real_profit = V2_ComputeExitRealizedPnl(deal_ticket, orig_pos);
 
@@ -567,7 +572,7 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
                            V2_TEL_INSTANCE_LONG, _Symbol, "LONG",
                            layer_entry, deal_price, real_profit,
                            layer_entry_time, deal_time,
-                           layer_depth, stack_depth);
+                           layer_depth, stack_depth, open_depth);
 
       Long_RemoveLayerAt(layer_idx);
 
@@ -640,6 +645,8 @@ struct ShortV2Layer {
    datetime last_exit_retry_time;
    datetime first_exit_retry_time;
    bool     exit_escalated;
+   int      open_depth;
+   datetime entry_time;
 };
 
 ShortV2Layer  g_short_layers[];
@@ -1008,6 +1015,8 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    g_short_layers[n].last_exit_retry_time  = 0;
    g_short_layers[n].first_exit_retry_time = 0;
    g_short_layers[n].exit_escalated        = false;
+   g_short_layers[n].open_depth            = n;
+   g_short_layers[n].entry_time            = TimeCurrent();
 
    if (n == 0)
       g_short_stat_l0_entries++;
@@ -1143,9 +1152,10 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       int stack_depth = ArraySize(g_short_layers);
       int layer_depth = layer_idx + 1;
       double layer_entry = g_short_layers[layer_idx].entry_price;
-      datetime layer_entry_time = 0;
-      if(orig_pos > 0 && PositionSelectByTicket(orig_pos))
+      datetime layer_entry_time = g_short_layers[layer_idx].entry_time;
+      if(layer_entry_time <= 0 && orig_pos > 0 && PositionSelectByTicket(orig_pos))
          layer_entry_time = (datetime)PositionGetInteger(POSITION_TIME);
+      int open_depth = g_short_layers[layer_idx].open_depth;
 
       double real_profit = V2_ComputeExitRealizedPnl(deal_ticket, orig_pos);
 
@@ -1164,7 +1174,7 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
                            V2_TEL_INSTANCE_SHORT, _Symbol, "SHORT",
                            layer_entry, deal_price, real_profit,
                            layer_entry_time, deal_time,
-                           layer_depth, stack_depth);
+                           layer_depth, stack_depth, open_depth);
 
       Short_RemoveLayerAt(layer_idx);
 

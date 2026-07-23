@@ -334,7 +334,8 @@ void V2EmitScalpClosed(const bool enable_telemetry,
                        const datetime entry_time,
                        const datetime exit_time,
                        const int layer_depth,
-                       const int stack_depth)
+                       const int stack_depth,
+                       const int open_depth)
 {
    if(!enable_telemetry || telemetry_url == "" || api_key == "")
       return;
@@ -342,6 +343,7 @@ void V2EmitScalpClosed(const bool enable_telemetry,
    double hold_mins = 0.0;
    if(entry_time > 0 && exit_time >= entry_time)
       hold_mins = (double)(exit_time - entry_time) / 60.0;
+   double hold_bars = V2HoldTimeBarsM5(entry_time, exit_time);
 
    string payload = V2BuildScalpClosedPayload(
       instance_id,
@@ -350,9 +352,11 @@ void V2EmitScalpClosed(const bool enable_telemetry,
       entry_price,
       exit_price,
       hold_mins,
+      hold_bars,
       gross_pnl,
       layer_depth,
       stack_depth,
+      open_depth,
       TimeGMT(),
       exit_time
    );

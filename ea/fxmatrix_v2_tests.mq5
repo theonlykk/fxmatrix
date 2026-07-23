@@ -477,9 +477,11 @@ void Test_TelemetryScalpClosedPayload()
       1.34550,
       1.34520,
       12.5,
+      2.50,
       0.85,
       3,
       5,
+      1,
       D'2026.06.05 14:30:00',
       D'2026.06.05 14:30:00'
    );
@@ -492,11 +494,35 @@ void Test_TelemetryScalpClosedPayload()
    AssertContains("scalp layer entry", payload, "\"entry_price\":1.34550");
    AssertContains("scalp exit price", payload, "\"exit_price\":1.34520");
    AssertContains("scalp hold mins", payload, "\"hold_time_minutes\":12.5");
+   AssertContains("scalp hold bars", payload, "\"hold_time_bars\":2.50");
    AssertContains("scalp gross_pnl", payload, "\"gross_pnl\":0.85");
    AssertContains("scalp layer_depth", payload, "\"layer_depth\":3");
    AssertContains("scalp stack_depth", payload, "\"stack_depth\":5");
+   AssertContains("scalp open_depth", payload, "\"open_depth\":1");
    AssertNotContains("scalp not pod layers_closed", payload, "\"layers_closed\"");
    AssertNotContains("scalp not pod avg_entry", payload, "\"avg_entry_price\"");
+}
+
+//+------------------------------------------------------------------+
+void Test_TelemetryScalpClosedOpenDepthAndBars()
+{
+   datetime t0 = D'2026.06.05 10:00:00';
+   datetime t1 = t0 + 300;   // 1 M5 bar
+   datetime t2 = t0 + 750;   // 2.5 M5 bars
+
+   AssertNear("hold bars one bar", V2HoldTimeBarsM5(t0, t1), 1.0, 1e-9);
+   AssertNear("hold bars two half", V2HoldTimeBarsM5(t0, t2), 2.5, 1e-9);
+   AssertNear("hold bars zero bad entry", V2HoldTimeBarsM5(0, t1), 0.0, 1e-9);
+
+   // open_depth=2 (L2+) vs layer_depth=1 after lower layers closed
+   string payload = V2BuildScalpClosedPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", "LONG",
+      1.25000, 1.25030, 12.5, 33.8, 1.10,
+      1, 2, 2,
+      t2, t2);
+   AssertContains("open_depth distinct from layer_depth", payload, "\"open_depth\":2");
+   AssertContains("layer_depth at exit", payload, "\"layer_depth\":1");
+   AssertContains("hold bars sim parity field", payload, "\"hold_time_bars\":33.80");
 }
 
 //+------------------------------------------------------------------+
@@ -517,8 +543,8 @@ void Test_TelemetryScalpVsPodCloseIndependence()
    // Partial stack exit: scalp only (layers remain)
    string scalp_partial = V2BuildScalpClosedPayload(
       V2_TEL_INSTANCE_LONG, "GBPUSD", "LONG",
-      1.25000, 1.25030, 5.0, 1.10,
-      2, 4,
+      1.25000, 1.25030, 5.0, 1.0, 1.10,
+      2, 4, 1,
       D'2026.06.05 11:00:00', D'2026.06.05 11:00:00');
    AssertContains("partial scalp layer_depth", scalp_partial, "\"layer_depth\":2");
    AssertContains("partial scalp stack_depth", scalp_partial, "\"stack_depth\":4");
@@ -533,8 +559,8 @@ void Test_TelemetryScalpVsPodCloseIndependence()
 
    string scalp_final = V2BuildScalpClosedPayload(
       V2_TEL_INSTANCE_LONG, "GBPUSD", "LONG",
-      1.25200, 1.25230, 8.0, 0.60,
-      2, 2,
+      1.25200, 1.25230, 8.0, 1.6, 0.60,
+      2, 2, 1,
       D'2026.06.05 10:08:00', D'2026.06.05 10:08:00');
    AssertContains("final scalp single-exit pnl", scalp_final, "\"gross_pnl\":0.60");
 
@@ -770,6 +796,7 @@ void OnStart()
    Test_TelemetryPodSessionIsolation();
    Test_TelemetryLayerDetailJSON();
    Test_TelemetryScalpClosedPayload();
+   Test_TelemetryScalpClosedOpenDepthAndBars();
    Test_TelemetryScalpClosedUrl();
    Test_TelemetryScalpVsPodCloseIndependence();
    Test_OrphanStartupGuard();
