@@ -19,6 +19,7 @@
 #include "fxmatrix_v2_signal.mqh"
 #include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
+#include "fxmatrix_v2_carry.mqh"
 
 input double InpQuoteSpread       = 0.0004;
 input double InpL0DeadbandMult    = 1.0;   // ADR-017: 1.0=V1 parity; 2.0/3.0=wider L0 skip band
@@ -77,6 +78,7 @@ int   g_long_processed_count;
 V2PodSession g_long_pod;
 V2PodSession g_short_pod;
 datetime     g_last_telemetry_emit = 0;
+int          g_v2_last_rollover_day_of_year = 0;
 
 //+------------------------------------------------------------------+
 double Long_PipsToPrice(const double pips) {
@@ -606,6 +608,38 @@ void Long_OnTick() {
    Long_AuditExitLimits();
    V2_ProcessCloseByQueue(g_long_closeby_queue, V2_TEL_INSTANCE_LONG,
                           MM_LONG_V2, g_long_halted, InpVerboseLog);
+}
+
+//+------------------------------------------------------------------+
+void V2_RunDailyRolloverReconciliation() {
+   if(!V2_RolloverTryConsumeDailyGate(g_v2_last_rollover_day_of_year, TimeCurrent()))
+      return;
+
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   int mult = V2_RolloverWednesdayMultiplier(dt.day_of_week);
+
+   if(InpVerboseLog)
+      Print("INFO [V2-ADR-045] RunDailyRolloverReconciliation firing. multiplier=", mult,
+            " symbol=", _Symbol);
+
+   for(int i = 0; i < ArraySize(g_long_layers); i++) {
+      if(V2_ResolvePositionTicket(g_long_layers[i].position_ticket) == 0)
+         continue;
+      V2_RolloverAdjustOneLayer(_Symbol, 1, mult, InpVerboseLog,
+                                g_long_layers[i].entry_price,
+                                g_long_layers[i].exit_target,
+                                g_long_layers[i].exit_ticket);
+   }
+
+   for(int i = 0; i < ArraySize(g_short_layers); i++) {
+      if(V2_ResolvePositionTicket(g_short_layers[i].position_ticket) == 0)
+         continue;
+      V2_RolloverAdjustOneLayer(_Symbol, -1, mult, InpVerboseLog,
+                                g_short_layers[i].entry_price,
+                                g_short_layers[i].exit_target,
+                                g_short_layers[i].exit_ticket);
+   }
 }
 struct ShortV2Layer {
    double entry_price;
@@ -1317,6 +1351,7 @@ void OnDeinit(const int reason) {
 
 void OnTick() {
    V2_ApiCounterMaybeReset();
+   V2_RunDailyRolloverReconciliation();
    Long_OnTick();
    Short_OnTick();
    V2EmitTelemetry(false);

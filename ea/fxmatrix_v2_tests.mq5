@@ -3,7 +3,7 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.07"
+#property version   "1.08"
 #property script_show_inputs
 #property strict
 
@@ -11,6 +11,7 @@
 #include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
 #include "fxmatrix_v2_signal.mqh"
+#include "fxmatrix_v2_carry.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -764,6 +765,67 @@ void Test_PairTelemetryInstanceIds()
 }
 
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+void Test_RolloverAdr045ShiftMath()
+{
+   const double point = 0.00001;
+
+   AssertNear("tuesday shift price",
+              V2_RolloverShiftPrice(-4.0, 1, point), 0.00004, 1e-12);
+   AssertNear("wednesday triple shift price",
+              V2_RolloverShiftPrice(-4.0, 3, point), 0.00012, 1e-12);
+   AssertNear("positive carry zero shift",
+              V2_RolloverShiftPrice(2.0, 1, point), 0.0, 1e-12);
+
+   AssertNear("long exit drifts up",
+              V2_RolloverShiftedExitPrice(1.30800, 0.00004, 1), 1.30804, 1e-12);
+   AssertNear("short exit drifts down",
+              V2_RolloverShiftedExitPrice(1.29800, 0.00006, -1), 1.29794, 1e-12);
+
+   AssertTrue("wednesday multiplier", V2_RolloverWednesdayMultiplier(3) == 3);
+   AssertTrue("tuesday multiplier", V2_RolloverWednesdayMultiplier(2) == 1);
+}
+
+//+------------------------------------------------------------------+
+void Test_RolloverDailyGate()
+{
+   int last_day = 0;
+
+   AssertTrue("broker window hour 0",
+              V2_RolloverBrokerWindowOpen(D'2026.03.11 00:15:00'));
+   AssertTrue("not broker window hour 1",
+              !V2_RolloverBrokerWindowOpen(D'2026.03.11 01:00:00'));
+
+   AssertTrue("first consume at midnight",
+              V2_RolloverTryConsumeDailyGate(last_day, D'2026.03.10 00:05:00'));
+   AssertTrue("same day blocked", !V2_RolloverTryConsumeDailyGate(last_day, D'2026.03.10 00:30:00'));
+   AssertTrue("non-midnight blocked", !V2_RolloverTryConsumeDailyGate(last_day, D'2026.03.10 12:00:00'));
+   AssertTrue("next day consumes",
+              V2_RolloverTryConsumeDailyGate(last_day, D'2026.03.11 00:05:00'));
+}
+
+//+------------------------------------------------------------------+
+void Test_RolloverMultiNightAccumulation()
+{
+   const double point = 0.00001;
+   double exit = 1.30800;
+   const double shift_night = V2_RolloverShiftPrice(-4.0, 1, point);
+
+   exit = V2_RolloverShiftedExitPrice(exit, shift_night, 1);
+   AssertNear("night 1 exit", exit, 1.30804, 1e-12);
+
+   exit = V2_RolloverShiftedExitPrice(exit, shift_night, 1);
+   AssertNear("night 2 cumulative exit", exit, 1.30808, 1e-12);
+
+   double one_step_from_origin = V2_RolloverShiftedExitPrice(1.30800, shift_night, 1);
+   double two_step_incremental = exit;
+   AssertNear("incremental equals chained shifts",
+              two_step_incremental - 1.30800,
+              (one_step_from_origin - 1.30800) * 2.0,
+              1e-12);
+}
+
+//+------------------------------------------------------------------+
 void Test_ExitMagicPerPairNamespace()
 {
    MqlTradeRequest req = {};
@@ -807,6 +869,9 @@ void OnStart()
    Test_ApiCounterIncrementAndRollover();
    Test_ApiCounterTelemetryFields();
    Test_PairTelemetryInstanceIds();
+   Test_RolloverAdr045ShiftMath();
+   Test_RolloverDailyGate();
+   Test_RolloverMultiNightAccumulation();
    Test_ExitMagicPerPairNamespace();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");

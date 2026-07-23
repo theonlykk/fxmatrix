@@ -83,6 +83,79 @@ void V2_CancelExitOrder(const ulong order_ticket)
 }
 
 //+------------------------------------------------------------------+
+ulong V2_ResolvePositionTicket(const ulong position_ref)
+{
+   if(position_ref == 0)
+      return 0;
+   if(PositionSelectByTicket(position_ref))
+      return position_ref;
+   for(int i = PositionsTotal() - 1; i >= 0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      if(!PositionSelectByTicket(ticket))
+         continue;
+      if((ulong)PositionGetInteger(POSITION_IDENTIFIER) == position_ref)
+         return ticket;
+   }
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+bool V2_ModifyExitLimitPrice(const ulong order_ticket,
+                             const double new_price,
+                             const string symbol,
+                             const int entry_direction,
+                             const bool verbose_log)
+{
+   if(order_ticket == 0 || !OrderSelect(order_ticket))
+      return false;
+
+   double norm = NormalizeDouble(new_price, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS));
+   if(!V2_ExitPassivityOk(symbol, entry_direction, norm)) {
+      if(verbose_log)
+         Print("INFO [V2-ADR-045] Exit modify skipped — passivity/freeze. symbol=", symbol,
+               " new_exit=", DoubleToString(norm, 5));
+      return false;
+   }
+
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   double stops_pts = (double)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
+   if(stops_pts > 0.0) {
+      double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+      double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+      double ref_price = (entry_direction > 0) ? ask : bid;
+      if(MathAbs(norm - ref_price) < stops_pts) {
+         if(verbose_log)
+            Print("INFO [V2-ADR-045] Exit modify skipped — stops level. symbol=", symbol,
+                  " new_exit=", DoubleToString(norm, 5),
+                  " stops_pts=", DoubleToString(stops_pts, 5));
+         return false;
+      }
+   }
+
+   MqlTradeRequest req = {};
+   MqlTradeResult  res = {};
+   req.action     = TRADE_ACTION_MODIFY;
+   req.order      = order_ticket;
+   req.price      = norm;
+   req.sl         = OrderGetDouble(ORDER_SL);
+   req.tp         = OrderGetDouble(ORDER_TP);
+   req.type_time  = (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
+   req.expiration = (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
+
+   if(!V2_OrderSendCounted(req, res))
+      return false;
+   if(res.retcode == TRADE_RETCODE_NO_CHANGES)
+      return true;
+   if(res.retcode != TRADE_RETCODE_DONE) {
+      if(verbose_log)
+         Print("WARNING [V2-ADR-045] Exit OrderModify failed. symbol=", symbol,
+               " retcode=", res.retcode);
+      return false;
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
 void V2_QueueCloseBy(V2CloseByTask &queue[],
                      const ulong ticket1,
                      const ulong ticket2)
