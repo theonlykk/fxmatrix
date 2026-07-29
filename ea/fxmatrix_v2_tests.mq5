@@ -1046,7 +1046,7 @@ void Test_EurgbpEaseDepthOnInitGuard()
    AssertTrue("guard full<start invalid", !EurgbpEaseDepthInputsValid(3, 2));
    AssertTrue("guard negative start invalid", !EurgbpEaseDepthInputsValid(-1, 5));
    AssertTrue("guard negative full invalid", !EurgbpEaseDepthInputsValid(2, -1));
-   AssertTrue("guard valid 2/5 placeholder", EurgbpEaseDepthInputsValid(2, 5));
+   AssertTrue("guard valid 1/3 production", EurgbpEaseDepthInputsValid(1, 3));
 }
 
 //+------------------------------------------------------------------+
