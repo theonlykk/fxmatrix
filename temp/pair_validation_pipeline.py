@@ -673,7 +673,7 @@ def print_geometry_comparison(comp: dict) -> None:
         flush=True,
     )
     print(
-        f"{'Window':<16} {'Prod $real':>10} {'Deriv $real':>11} {'Δ%':>7} "
+        f"{'Window':<16} {'Prod $real':>10} {'Deriv $real':>11} {'Pct%':>7} "
         f"{'P-DD3':>6} {'D-DD3':>6} {'P-maxL':>7} {'D-maxL':>7} "
         f"{'P$/scalp':>9} {'D$/scalp':>9}",
         flush=True,
@@ -1112,7 +1112,7 @@ def render_markdown(report: PipelineReport) -> str:
         avg = comp.get("aggregate", {}).get("avg_derived_vs_production_pct")
         if avg is not None:
             lines.append(f"- Avg derived vs production (by window): {avg:+.1f}%")
-        lines.extend(["", "| Window | Prod $real | Deriv $real | Δ% | P-DD3 | D-DD3 | P-maxL | D-maxL | P$/scalp | D$/scalp |",
+        lines.extend(["", "| Window | Prod $real | Deriv $real | Pct% | P-DD3 | D-DD3 | P-maxL | D-maxL | P$/scalp | D$/scalp |",
                       "|--------|------------|-------------|-----|-------|-------|--------|--------|----------|----------|"])
         for wkey, row in comp.get("windows", {}).items():
             p, d = row["production"], row["derived"]
@@ -1304,6 +1304,12 @@ def verify_report_verdict(json_path: str) -> dict:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     ap = argparse.ArgumentParser(description="Pair validation pipeline (temp analysis)")
     ap.add_argument("--pair", default="GBPUSD")
     ap.add_argument("--n-sweep", type=int, default=30, help="seeds per geometry combo in sweep")
