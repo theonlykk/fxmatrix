@@ -840,6 +840,101 @@ void Test_ExitMagicPerPairNamespace()
 }
 
 //+------------------------------------------------------------------+
+// ADR-097: L0 spread easing — multiplier ramp + dynamic_hs floor
+// ADR-097/098: ramp, floor, fallback — shared fxmatrix_v2_signal.mqh helpers (GBPUSD + EURUSD).
+void Test_L0SpreadEaseMultiplierRamp()
+{
+   const int start = 2;
+   const int full = 5;
+   const double mult = 0.5;
+   const double eased = 0.0;
+
+   AssertNear("below start depth 0", V2_EffectiveSpreadMultiplier(0, start, full, mult, eased), mult, 1e-12);
+   AssertNear("below start depth 1", V2_EffectiveSpreadMultiplier(1, start, full, mult, eased), mult, 1e-12);
+   AssertNear("at start depth 2", V2_EffectiveSpreadMultiplier(2, start, full, mult, eased), mult, 1e-12);
+   AssertNear("mid-ramp depth 3",
+              V2_EffectiveSpreadMultiplier(3, start, full, mult, eased),
+              mult - (1.0 / 3.0) * mult, 1e-12);
+   AssertNear("mid-ramp depth 4",
+              V2_EffectiveSpreadMultiplier(4, start, full, mult, eased),
+              mult - (2.0 / 3.0) * mult, 1e-12);
+   AssertNear("at full depth 5", V2_EffectiveSpreadMultiplier(5, start, full, mult, eased), eased, 1e-12);
+   AssertNear("above full depth 6", V2_EffectiveSpreadMultiplier(6, start, full, mult, eased), eased, 1e-12);
+
+   const double mid = V2_EffectiveSpreadMultiplier(3, start, full, mult, eased);
+   AssertTrue("mid-ramp differs from un-eased multiplier", MathAbs(mid - mult) > 1e-9);
+}
+
+//+------------------------------------------------------------------+
+// ADR-097 production calibration: GBPUSD locked thresholds 1/3 (not discovery 2/5).
+void Test_L0SpreadEaseMultiplierRamp_Production13()
+{
+   const int start = 1;
+   const int full = 3;
+   const double mult = 0.5;
+   const double eased = 0.0;
+
+   AssertNear("prod13 depth 0", V2_EffectiveSpreadMultiplier(0, start, full, mult, eased), mult, 1e-12);
+   AssertNear("prod13 depth 1 at start", V2_EffectiveSpreadMultiplier(1, start, full, mult, eased), mult, 1e-12);
+   AssertNear("prod13 depth 2 midpoint",
+              V2_EffectiveSpreadMultiplier(2, start, full, mult, eased),
+              mult - 0.5 * (mult - eased), 1e-12);
+   AssertNear("prod13 depth 3 at full", V2_EffectiveSpreadMultiplier(3, start, full, mult, eased), eased, 1e-12);
+   AssertNear("prod13 depth 4 above full", V2_EffectiveSpreadMultiplier(4, start, full, mult, eased), eased, 1e-12);
+
+   const double mid = V2_EffectiveSpreadMultiplier(2, start, full, mult, eased);
+   AssertTrue("prod13 mid-ramp differs from un-eased multiplier", MathAbs(mid - mult) > 1e-9);
+   AssertTrue("prod13 mid-ramp differs from eased multiplier", MathAbs(mid - eased) > 1e-9);
+}
+
+//+------------------------------------------------------------------+
+void Test_L0DynamicHalfSpreadFloor()
+{
+   const double quote = 0.0004;
+   const double sigma = 0.0010;
+   const double mult = 0.5;
+   const double sigma_hs = quote + sigma * mult;
+   const double live = 0.0008;
+   const double buf = 0.00005;
+
+   AssertNear("floor binds when live+buffer higher",
+              V2_L0DynamicHalfSpread(quote, 0.0008, mult, live, buf),
+              live + buf, 1e-12);
+   AssertNear("sigma path when higher than floor",
+              V2_L0DynamicHalfSpread(quote, sigma * 3.0, mult, live, buf),
+              quote + sigma * 3.0 * mult, 1e-12);
+   AssertTrue("sigma path exceeds floor case",
+              sigma_hs > live + buf);
+}
+
+//+------------------------------------------------------------------+
+void Test_L0LiveSpreadFallback()
+{
+   const double quote = 0.0004;
+   const double point = 0.00001;
+   double last_valid = -1.0;
+
+   AssertNear("cold start uses InpQuoteSpread fallback",
+              V2_ResolveLiveSpreadPriceFromRaw(0, point, quote, last_valid),
+              quote, 1e-12);
+
+   last_valid = -1.0;
+   AssertNear("valid spread stored and returned",
+              V2_ResolveLiveSpreadPriceFromRaw(80, point, quote, last_valid),
+              80.0 * point, 1e-12);
+   AssertNear("last_valid retained", last_valid, 80.0 * point, 1e-12);
+
+   AssertNear("zero spread keeps prior valid",
+              V2_ResolveLiveSpreadPriceFromRaw(0, point, quote, last_valid),
+              80.0 * point, 1e-12);
+
+   last_valid = -1.0;
+   AssertNear("zero spread with no prior falls back to quote",
+              V2_ResolveLiveSpreadPriceFromRaw(0, point, quote, last_valid),
+              quote, 1e-12);
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -873,6 +968,10 @@ void OnStart()
    Test_RolloverDailyGate();
    Test_RolloverMultiNightAccumulation();
    Test_ExitMagicPerPairNamespace();
+   Test_L0SpreadEaseMultiplierRamp();
+   Test_L0SpreadEaseMultiplierRamp_Production13();
+   Test_L0DynamicHalfSpreadFloor();
+   Test_L0LiveSpreadFallback();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

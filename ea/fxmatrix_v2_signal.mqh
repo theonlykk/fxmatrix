@@ -179,6 +179,61 @@ bool V2_ComputeAbOffer(const string ab_symbol,
 }
 
 //+------------------------------------------------------------------+
+//| ADR-097: L0 spread easing — opposite-depth multiplier ramp.      |
+//+------------------------------------------------------------------+
+double V2_EffectiveSpreadMultiplier(const int opposite_depth,
+                                    const int ease_depth_start,
+                                    const int ease_depth_full,
+                                    const double spread_multiplier,
+                                    const double spread_multiplier_eased)
+{
+   if(opposite_depth <= ease_depth_start)
+      return spread_multiplier;
+   if(opposite_depth >= ease_depth_full)
+      return spread_multiplier_eased;
+   double frac = (double)(opposite_depth - ease_depth_start) / (double)(ease_depth_full - ease_depth_start);
+   return spread_multiplier - frac * (spread_multiplier - spread_multiplier_eased);
+}
+
+//+------------------------------------------------------------------+
+//| Runtime spread fallback (testable via V2_ResolveLiveSpreadPriceFromRaw). |
+//+------------------------------------------------------------------+
+double V2_ResolveLiveSpreadPriceFromRaw(const long raw_spread_points,
+                                        const double point,
+                                        const double quote_spread_fallback,
+                                        double &io_last_valid_spread_price)
+{
+   if(raw_spread_points > 0)
+      io_last_valid_spread_price = raw_spread_points * point;
+   return (io_last_valid_spread_price > 0.0)
+          ? io_last_valid_spread_price
+          : quote_spread_fallback;
+}
+
+//+------------------------------------------------------------------+
+double V2_L0ResolveLiveSpreadPrice(const double quote_spread_fallback)
+{
+   static double g_last_valid_spread_price = -1.0;
+   long raw_spread_points = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   return V2_ResolveLiveSpreadPriceFromRaw(raw_spread_points, _Point,
+                                           quote_spread_fallback,
+                                           g_last_valid_spread_price);
+}
+
+//+------------------------------------------------------------------+
+//| Bar-cadence floor: max(sigma-weighted hs, live_spread + buffer).  |
+//+------------------------------------------------------------------+
+double V2_L0DynamicHalfSpread(const double quote_spread,
+                              const double sigma,
+                              const double effective_multiplier,
+                              const double live_spread_price,
+                              const double passivity_buffer_price)
+{
+   return MathMax(quote_spread + sigma * effective_multiplier,
+                  live_spread_price + passivity_buffer_price);
+}
+
+//+------------------------------------------------------------------+
 //| Pip conversion: 5-digit XXXUSD / EURGBP use point*10 per pip.     |
 //+------------------------------------------------------------------+
 double V2_PipsToPriceForSymbol(const string symbol, const double pips)
