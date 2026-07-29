@@ -888,6 +888,35 @@ void Test_L0SpreadEaseMultiplierRamp_Production13()
 }
 
 //+------------------------------------------------------------------+
+// ADR-098 production calibration: EURUSD locked thresholds 1/4 (not discovery 2/5).
+void Test_L0SpreadEaseMultiplierRamp_Production14()
+{
+   const int start = 1;
+   const int full = 4;
+   const double mult = 0.5;
+   const double eased = 0.0;
+
+   AssertNear("prod14 depth 0", V2_EffectiveSpreadMultiplier(0, start, full, mult, eased), mult, 1e-12);
+   AssertNear("prod14 depth 1 at start", V2_EffectiveSpreadMultiplier(1, start, full, mult, eased), mult, 1e-12);
+   AssertNear("prod14 depth 2 one-third",
+              V2_EffectiveSpreadMultiplier(2, start, full, mult, eased),
+              mult - (1.0 / 3.0) * (mult - eased), 1e-12);
+   AssertNear("prod14 depth 3 two-thirds",
+              V2_EffectiveSpreadMultiplier(3, start, full, mult, eased),
+              mult - (2.0 / 3.0) * (mult - eased), 1e-12);
+   AssertNear("prod14 depth 4 at full", V2_EffectiveSpreadMultiplier(4, start, full, mult, eased), eased, 1e-12);
+   AssertNear("prod14 depth 5 above full", V2_EffectiveSpreadMultiplier(5, start, full, mult, eased), eased, 1e-12);
+
+   const double mid2 = V2_EffectiveSpreadMultiplier(2, start, full, mult, eased);
+   AssertTrue("prod14 depth-2 mid-ramp differs from un-eased multiplier", MathAbs(mid2 - mult) > 1e-9);
+   AssertTrue("prod14 depth-2 mid-ramp differs from eased multiplier", MathAbs(mid2 - eased) > 1e-9);
+
+   const double mid3 = V2_EffectiveSpreadMultiplier(3, start, full, mult, eased);
+   AssertTrue("prod14 depth-3 mid-ramp differs from un-eased multiplier", MathAbs(mid3 - mult) > 1e-9);
+   AssertTrue("prod14 depth-3 mid-ramp differs from eased multiplier", MathAbs(mid3 - eased) > 1e-9);
+}
+
+//+------------------------------------------------------------------+
 void Test_L0DynamicHalfSpreadFloor()
 {
    const double quote = 0.0004;
@@ -935,6 +964,139 @@ void Test_L0LiveSpreadFallback()
 }
 
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+// ADR-099: EURGBP AB-slot dual-sigma easing — swap-independence matrix.
+void Test_EurgbpAbDualSigmaSwapIndependence()
+{
+   const double quote = 0.0004;
+   const double live = 0.0001;
+   const double buf = 0.00001;
+   const double mult_full = 0.5;
+   const double mult_mid = 0.25;
+   const double mult_eased = 0.0;
+
+   struct Case {
+      string label;
+      double sig_ac;
+      double sig_bc;
+      double effective_mult;
+   };
+
+   Case cases[] = {
+      {"ac_gt_bc full",   0.0030, 0.0010, mult_full},
+      {"ac_gt_bc mid",    0.0030, 0.0010, mult_mid},
+      {"ac_gt_bc eased",  0.0030, 0.0010, mult_eased},
+      {"ac_lt_bc full",   0.0010, 0.0030, mult_full},
+      {"ac_lt_bc mid",    0.0010, 0.0030, mult_mid},
+      {"ac_lt_bc eased",  0.0010, 0.0030, mult_eased},
+      {"ac_eq_bc full",   0.0020, 0.0020, mult_full},
+      {"ac_eq_bc mid",    0.0020, 0.0020, mult_mid},
+      {"ac_eq_bc eased",  0.0020, 0.0020, mult_eased},
+   };
+
+   for(int i = 0; i < ArraySize(cases); i++) {
+      const double sigma_max = MathMax(cases[i].sig_ac, cases[i].sig_bc);
+      const double got = V2_L0DynamicHalfSpread(
+         quote, sigma_max, cases[i].effective_mult, live, buf);
+      const double expected = MathMax(
+         quote + sigma_max * cases[i].effective_mult,
+         live + buf);
+      AssertNear("eurgbp swap " + cases[i].label, got, expected, 1e-12);
+      AssertTrue("eurgbp swap uses max sigma " + cases[i].label,
+                 MathAbs(sigma_max - MathMax(cases[i].sig_ac, cases[i].sig_bc)) < 1e-15);
+   }
+}
+
+//+------------------------------------------------------------------+
+// ADR-099: floor-rescue — fully eased + zero sigma must not collapse to bare quote_spread.
+void Test_EurgbpAbFloorRescue()
+{
+   const double quote = 0.0004;
+   const double sigma = 0.0;
+   const double mult_eased = 0.0;
+   const double live = 0.0008;   // 8 pips
+   const double buf = 0.00005;   // 0.5 pips
+   const double expected = live + buf;
+
+   const double got = V2_L0DynamicHalfSpread(quote, sigma, mult_eased, live, buf);
+   const bool pass = (MathAbs(got - expected) < 1e-12) && (got > quote + 1e-12);
+
+   if(pass)
+      Print("PASS | ADR-099 floor-rescue: dynamic_hs=", DoubleToString(got, 8),
+            " equals live+buffer=", DoubleToString(expected, 8),
+            " (NOT bare quote_spread=", DoubleToString(quote, 8), ")");
+   else
+      Print("FAIL | ADR-099 floor-rescue: dynamic_hs=", DoubleToString(got, 8),
+            " expected live+buffer=", DoubleToString(expected, 8),
+            " quote_spread=", DoubleToString(quote, 8));
+
+   AssertTrue("eurgbp floor-rescue binds to live+buffer", pass);
+   AssertTrue("eurgbp floor-rescue exceeds bare quote", got > quote);
+}
+
+//+------------------------------------------------------------------+
+bool EurgbpEaseDepthInputsValid(const int ease_start, const int ease_full)
+{
+   return !(ease_full <= ease_start || ease_start < 0 || ease_full < 0);
+}
+
+void Test_EurgbpEaseDepthOnInitGuard()
+{
+   AssertTrue("guard full<=start invalid", !EurgbpEaseDepthInputsValid(2, 2));
+   AssertTrue("guard full<start invalid", !EurgbpEaseDepthInputsValid(3, 2));
+   AssertTrue("guard negative start invalid", !EurgbpEaseDepthInputsValid(-1, 5));
+   AssertTrue("guard negative full invalid", !EurgbpEaseDepthInputsValid(2, -1));
+   AssertTrue("guard valid 2/5 placeholder", EurgbpEaseDepthInputsValid(2, 5));
+}
+
+//+------------------------------------------------------------------+
+void Test_EurgbpAbLiveSpreadFallbackWiring()
+{
+   const double quote = 0.0004;
+   const double point = 0.00001;
+   double last_valid = -1.0;
+
+   const double cold = V2_ResolveLiveSpreadPriceFromRaw(0, point, quote, last_valid);
+   AssertNear("eurgbp cold-start live spread", cold, quote, 1e-12);
+
+   last_valid = -1.0;
+   const double wide = V2_ResolveLiveSpreadPriceFromRaw(80, point, quote, last_valid);
+   AssertNear("eurgbp wide spread resolved", wide, 80.0 * point, 1e-12);
+
+   const double sigma = 0.0010;
+   const double mult = 0.5;
+   const double dhs = V2_L0DynamicHalfSpread(quote, sigma, mult, wide, 0.00005);
+   AssertNear("eurgbp path uses resolved live in floor",
+              dhs,
+              MathMax(quote + sigma * mult, wide + 0.00005),
+              1e-12);
+   AssertTrue("eurgbp wiring calls floor with live not quote-only",
+              dhs >= wide + 0.00005 - 1e-12);
+}
+
+//+------------------------------------------------------------------+
+void Test_EurgbpAbFlatMultiplierNoRamp()
+{
+   const double quote = 0.0004;
+   const double sig_ac = 0.0015;
+   const double sig_bc = 0.0025;
+   const double mult = 0.5;
+   const double live = 0.0001;
+   const double buf = 0.00001;
+
+   const double sigma_max = MathMax(sig_ac, sig_bc);
+   const double legacy_hs = quote + sigma_max * mult;
+   const double eased_hs = V2_L0DynamicHalfSpread(quote, sigma_max, mult, live, buf);
+
+   AssertNear("eurgbp flat mult matches legacy sigma path when floor below",
+              eased_hs, legacy_hs, 1e-12);
+
+   const double ramped = V2_EffectiveSpreadMultiplier(4, 2, 5, mult, 0.0);
+   AssertTrue("eurgbp mid-ramp differs from flat mult", MathAbs(ramped - mult) > 1e-9);
+   AssertNear("eurgbp mid-ramp value", ramped, mult - (2.0 / 3.0) * mult, 1e-12);
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -970,8 +1132,14 @@ void OnStart()
    Test_ExitMagicPerPairNamespace();
    Test_L0SpreadEaseMultiplierRamp();
    Test_L0SpreadEaseMultiplierRamp_Production13();
+   Test_L0SpreadEaseMultiplierRamp_Production14();
    Test_L0DynamicHalfSpreadFloor();
    Test_L0LiveSpreadFallback();
+   Test_EurgbpAbDualSigmaSwapIndependence();
+   Test_EurgbpAbFloorRescue();
+   Test_EurgbpEaseDepthOnInitGuard();
+   Test_EurgbpAbLiveSpreadFallbackWiring();
+   Test_EurgbpAbFlatMultiplierNoRamp();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

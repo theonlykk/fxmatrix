@@ -3,7 +3,7 @@
 //| Generated from fxmatrix_v2.mq5 — GBPUSD production file untouched. |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.00"
+#property version   "1.01"
 #property strict
 
 // Pair isolation (inlined — config .mqh not required at compile/deploy time)
@@ -25,6 +25,10 @@ input double InpQuoteSpread       = 0.0004;
 input double InpL0DeadbandMult    = 1.0;   // ADR-017: 1.0=V1 parity; 2.0/3.0=wider L0 skip band
 input bool   InpL0DeadbandVolScale = true;  // scale band by V2_PAIR_SPREAD_PIPS_REF vs GBPUSD (0.64)
 input double InpSpreadMultiplier  = 0.500;
+input int    InpEaseDepthStart      = 1;
+input int    InpEaseDepthFull       = 4;
+input double InpSpreadMultiplierEased = 0.0;
+input double InpPassivityBuffer     = 0.5;
 input double InpAddPipsFloor      = 9.0;
 input double InpExitPips          = 3.0;
 input double InpWidenRatio        = 1.304;
@@ -368,6 +372,19 @@ void Long_OnNewBar() {
    int n = ArraySize(g_long_layers);
    if (n == 0) {
       g_long_last_exit_valid = false;
+      if(InpVerboseLog && ArraySize(g_short_layers) > InpEaseDepthStart) {
+         const double resting_price = V2_GetPendingOrderPrice(g_long_l0_ticket);
+         const bool deadband_skip = V2_L0RestingWithinDeadband(g_long_l0_ticket, bid_lvl,
+                                                               InpQuoteSpread, InpL0DeadbandMult,
+                                                               EurUsd_L0DeadbandSpreadRef());
+         const double gap_pips = (resting_price > 0.0)
+            ? MathAbs(bid_theoretical - resting_price) / (_Point * 10.0)
+            : 0.0;
+         Print("DIAG V2_LONG | event=l0_lag | resting_price=", DoubleToString(resting_price, 5),
+               " theo_price=", DoubleToString(bid_theoretical, 5),
+               " gap_pips=", DoubleToString(gap_pips, 2),
+               " deadband_skip=", (deadband_skip ? "true" : "false"));
+      }
       if(Long_ReplacePendingBuy(g_long_l0_ticket, bid_lvl, MM_LONG_V2, "V2_L0") && InpVerboseLog)
          Print("DIAG V2_LONG | event=l0_quote | bid_theo=", DoubleToString(bid_theoretical, 5),
                " bid_lvl=", DoubleToString(bid_lvl, 5));
@@ -680,16 +697,108 @@ ulong g_short_processed_deals[];
 int   g_short_processed_count;
 
 bool Long_ComputeBidSignal(double &bid_theoretical) {
-   return V2_ComputeBcBid(_Symbol, InpQuoteSpread, InpSpreadMultiplier, bid_theoretical);
-}
+   double closes[];
+   if (CopyClose(_Symbol, PERIOD_M5, 1, 60, closes) < 49)
+      return false;
+   ArraySetAsSeries(closes, true);
 
-bool Short_ComputeOfferSignal(double &offer_theoretical) {
-   return V2_ComputeBcOffer(_Symbol, InpQuoteSpread, InpSpreadMultiplier, offer_theoretical);
+   double c6  = closes[6];
+   double c12 = closes[12];
+   double c48 = closes[48];
+   if (c6 <= 0.0 || c12 <= 0.0 || c48 <= 0.0)
+      return false;
+
+   double fv = 0.50 * c6 + 0.30 * c12 + 0.20 * c48;
+   double mean = (c6 + c12 + c48) / 3.0;
+   double sigma = MathSqrt(((c6 - mean) * (c6 - mean) +
+                            (c12 - mean) * (c12 - mean) +
+                            (c48 - mean) * (c48 - mean)) / 3.0);
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double half = (ask - bid) / 2.0;
+   double bc_now = closes[0] + half;
+   if (fv <= 0.0 || bc_now <= 0.0)
+      return false;
+
+   double r_bc = MathLog(bc_now / fv);
+   double effective_multiplier = InpSpreadMultiplier;
+   if(ArraySize(g_long_layers) == 0) {
+      effective_multiplier = V2_EffectiveSpreadMultiplier(
+         ArraySize(g_short_layers),
+         InpEaseDepthStart,
+         InpEaseDepthFull,
+         InpSpreadMultiplier,
+         InpSpreadMultiplierEased);
+   }
+   double live_spread_price = V2_L0ResolveLiveSpreadPrice(InpQuoteSpread);
+   double dynamic_hs = V2_L0DynamicHalfSpread(
+      InpQuoteSpread,
+      sigma,
+      effective_multiplier,
+      live_spread_price,
+      Long_PipsToPrice(InpPassivityBuffer));
+   if(InpVerboseLog && ArraySize(g_long_layers) == 0 && ArraySize(g_short_layers) > InpEaseDepthStart)
+      Print("DIAG V2_LONG | event=l0_ease | opposite_depth=", ArraySize(g_short_layers),
+            " effective_multiplier=", DoubleToString(effective_multiplier, 6),
+            " dynamic_hs=", DoubleToString(dynamic_hs, 6));
+   bid_theoretical = fv * MathExp(r_bc - dynamic_hs);
+   return true;
 }
 
 //+------------------------------------------------------------------+
 double Short_PipsToPrice(const double pips) {
    return pips * _Point * 10.0;
+}
+
+bool Short_ComputeOfferSignal(double &offer_theoretical) {
+   double closes[];
+   if (CopyClose(_Symbol, PERIOD_M5, 1, 60, closes) < 49)
+      return false;
+   ArraySetAsSeries(closes, true);
+
+   double c6  = closes[6];
+   double c12 = closes[12];
+   double c48 = closes[48];
+   if (c6 <= 0.0 || c12 <= 0.0 || c48 <= 0.0)
+      return false;
+
+   double fv = 0.50 * c6 + 0.30 * c12 + 0.20 * c48;
+   double mean = (c6 + c12 + c48) / 3.0;
+   double sigma = MathSqrt(((c6 - mean) * (c6 - mean) +
+                            (c12 - mean) * (c12 - mean) +
+                            (c48 - mean) * (c48 - mean)) / 3.0);
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double half = (ask - bid) / 2.0;
+   double bc_now = closes[0] + half;
+   if (fv <= 0.0 || bc_now <= 0.0)
+      return false;
+
+   double r_bc = MathLog(bc_now / fv);
+   double effective_multiplier = InpSpreadMultiplier;
+   if(ArraySize(g_short_layers) == 0) {
+      effective_multiplier = V2_EffectiveSpreadMultiplier(
+         ArraySize(g_long_layers),
+         InpEaseDepthStart,
+         InpEaseDepthFull,
+         InpSpreadMultiplier,
+         InpSpreadMultiplierEased);
+   }
+   double live_spread_price = V2_L0ResolveLiveSpreadPrice(InpQuoteSpread);
+   double dynamic_hs = V2_L0DynamicHalfSpread(
+      InpQuoteSpread,
+      sigma,
+      effective_multiplier,
+      live_spread_price,
+      Short_PipsToPrice(InpPassivityBuffer));
+   if(InpVerboseLog && ArraySize(g_short_layers) == 0 && ArraySize(g_long_layers) > InpEaseDepthStart)
+      Print("DIAG V2_SHORT | event=l0_ease | opposite_depth=", ArraySize(g_long_layers),
+            " effective_multiplier=", DoubleToString(effective_multiplier, 6),
+            " dynamic_hs=", DoubleToString(dynamic_hs, 6));
+   offer_theoretical = fv * MathExp(r_bc + dynamic_hs);
+   return true;
 }
 
 double Short_NormalizeSym(const double price) {
@@ -971,6 +1080,19 @@ void Short_OnNewBar() {
    int n = ArraySize(g_short_layers);
    if (n == 0) {
       g_short_last_exit_valid = false;
+      if(InpVerboseLog && ArraySize(g_long_layers) > InpEaseDepthStart) {
+         const double resting_price = V2_GetPendingOrderPrice(g_short_l0_ticket);
+         const bool deadband_skip = V2_L0RestingWithinDeadband(g_short_l0_ticket, offer_lvl,
+                                                               InpQuoteSpread, InpL0DeadbandMult,
+                                                               EurUsd_L0DeadbandSpreadRef());
+         const double gap_pips = (resting_price > 0.0)
+            ? MathAbs(offer_theoretical - resting_price) / (_Point * 10.0)
+            : 0.0;
+         Print("DIAG V2_SHORT | event=l0_lag | resting_price=", DoubleToString(resting_price, 5),
+               " theo_price=", DoubleToString(offer_theoretical, 5),
+               " gap_pips=", DoubleToString(gap_pips, 2),
+               " deadband_skip=", (deadband_skip ? "true" : "false"));
+      }
       if(Short_ReplacePendingSell(g_short_l0_ticket, offer_lvl, MM_SHORT_V2, "V2_L0") && InpVerboseLog)
          Print("DIAG V2_SHORT | event=l0_quote | offer_theo=", DoubleToString(offer_theoretical, 5),
                " offer_lvl=", DoubleToString(offer_lvl, 5));
@@ -1287,6 +1409,12 @@ void V2EmitTelemetry(const bool force = false)
 }
 
 int OnInit() {
+   if(InpEaseDepthFull <= InpEaseDepthStart || InpEaseDepthStart < 0 || InpEaseDepthFull < 0) {
+      Print("ERROR: fxmatrix_v2_eurusd invalid ease depth inputs — InpEaseDepthStart=",
+            InpEaseDepthStart, " InpEaseDepthFull=", InpEaseDepthFull,
+            " (require InpEaseDepthFull > InpEaseDepthStart and both non-negative)");
+      return INIT_FAILED;
+   }
    V2_ApiCounterMaybeReset();
    V2PodReset(g_long_pod);
    V2PodReset(g_short_pod);
