@@ -39,6 +39,8 @@ input double InpLotSize           = 0.01;
 input int    InpMaxLayers         = 20;
 input int    InpGbpCapThreshold   = 0;    // 0=off; block widening adds when |net|>N
 input int    InpEurCapThreshold   = 0;    // 0=off; block widening adds when |net|>N
+input int    InpRolloverRetryMinutes = 10; // ADR-101: minutes between rollover exit-modify retries
+input int    InpRolloverMaxRetries   = 15; // ADR-101: max same-day retry passes per side
 input bool   InpVerboseLog        = true;
 input string InpLegAC = "EURUSD";  // Triad leg A vs USD (AC)
 input string InpLegBC = "GBPUSD";  // Triad leg B vs USD (BC)
@@ -89,6 +91,8 @@ V2PodSession g_long_pod;
 V2PodSession g_short_pod;
 datetime     g_last_telemetry_emit = 0;
 int          g_v2_last_rollover_day_of_year = 0;
+V2RolloverSideRetryState g_long_rollover_retry;
+V2RolloverSideRetryState g_short_rollover_retry;
 
 //+------------------------------------------------------------------+
 double Long_PipsToPrice(const double pips) {
@@ -634,9 +638,79 @@ void Long_OnTick() {
 }
 
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+void V2_BuildLongRolloverSlots(V2RolloverLayerSlot &slots[])
+{
+   const int n = ArraySize(g_long_layers);
+   ArrayResize(slots, n);
+   for(int i = 0; i < n; i++) {
+      slots[i].position_ticket = g_long_layers[i].position_ticket;
+      slots[i].entry_price     = g_long_layers[i].entry_price;
+      slots[i].exit_target     = g_long_layers[i].exit_target;
+      slots[i].exit_ticket     = g_long_layers[i].exit_ticket;
+      slots[i].position_live   = (V2_ResolvePositionTicket(g_long_layers[i].position_ticket) != 0);
+   }
+}
+
+void V2_ApplyLongRolloverSlots(const V2RolloverLayerSlot &slots[])
+{
+   const int n = MathMin(ArraySize(g_long_layers), ArraySize(slots));
+   for(int i = 0; i < n; i++) {
+      g_long_layers[i].exit_target = slots[i].exit_target;
+      g_long_layers[i].exit_ticket = slots[i].exit_ticket;
+   }
+}
+
+void V2_BuildShortRolloverSlots(V2RolloverLayerSlot &slots[])
+{
+   const int n = ArraySize(g_short_layers);
+   ArrayResize(slots, n);
+   for(int i = 0; i < n; i++) {
+      slots[i].position_ticket = g_short_layers[i].position_ticket;
+      slots[i].entry_price     = g_short_layers[i].entry_price;
+      slots[i].exit_target     = g_short_layers[i].exit_target;
+      slots[i].exit_ticket     = g_short_layers[i].exit_ticket;
+      slots[i].position_live   = (V2_ResolvePositionTicket(g_short_layers[i].position_ticket) != 0);
+   }
+}
+
+void V2_ApplyShortRolloverSlots(const V2RolloverLayerSlot &slots[])
+{
+   const int n = MathMin(ArraySize(g_short_layers), ArraySize(slots));
+   for(int i = 0; i < n; i++) {
+      g_short_layers[i].exit_target = slots[i].exit_target;
+      g_short_layers[i].exit_ticket = slots[i].exit_ticket;
+   }
+}
+
+void V2_RunRolloverRetryPasses()
+{
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   const int mult = V2_RolloverWednesdayMultiplier(dt.day_of_week);
+
+   V2RolloverLayerSlot slots[];
+
+   V2_BuildLongRolloverSlots(slots);
+   V2_RunRolloverRetryPass(_Symbol, 1, mult, InpVerboseLog,
+                           InpRolloverRetryMinutes, InpRolloverMaxRetries,
+                           g_long_rollover_retry, slots);
+   V2_ApplyLongRolloverSlots(slots);
+
+   V2_BuildShortRolloverSlots(slots);
+   V2_RunRolloverRetryPass(_Symbol, -1, mult, InpVerboseLog,
+                           InpRolloverRetryMinutes, InpRolloverMaxRetries,
+                           g_short_rollover_retry, slots);
+   V2_ApplyShortRolloverSlots(slots);
+}
+
+//+------------------------------------------------------------------+
 void V2_RunDailyRolloverReconciliation() {
    if(!V2_RolloverTryConsumeDailyGate(g_v2_last_rollover_day_of_year, TimeCurrent()))
       return;
+
+   V2_RolloverRetryResetState(g_long_rollover_retry);
+   V2_RolloverRetryResetState(g_short_rollover_retry);
 
    MqlDateTime dt;
    TimeToStruct(TimeCurrent(), dt);
@@ -646,23 +720,17 @@ void V2_RunDailyRolloverReconciliation() {
       Print("INFO [V2-ADR-045] RunDailyRolloverReconciliation firing. multiplier=", mult,
             " symbol=", _Symbol);
 
-   for(int i = 0; i < ArraySize(g_long_layers); i++) {
-      if(V2_ResolvePositionTicket(g_long_layers[i].position_ticket) == 0)
-         continue;
-      V2_RolloverAdjustOneLayer(_Symbol, 1, mult, InpVerboseLog,
-                                g_long_layers[i].entry_price,
-                                g_long_layers[i].exit_target,
-                                g_long_layers[i].exit_ticket);
-   }
+   V2RolloverLayerSlot slots[];
 
-   for(int i = 0; i < ArraySize(g_short_layers); i++) {
-      if(V2_ResolvePositionTicket(g_short_layers[i].position_ticket) == 0)
-         continue;
-      V2_RolloverAdjustOneLayer(_Symbol, -1, mult, InpVerboseLog,
-                                g_short_layers[i].entry_price,
-                                g_short_layers[i].exit_target,
-                                g_short_layers[i].exit_ticket);
-   }
+   V2_BuildLongRolloverSlots(slots);
+   V2_RunDailyRolloverSidePass(_Symbol, 1, mult, InpVerboseLog,
+                               InpRolloverRetryMinutes, g_long_rollover_retry, slots);
+   V2_ApplyLongRolloverSlots(slots);
+
+   V2_BuildShortRolloverSlots(slots);
+   V2_RunDailyRolloverSidePass(_Symbol, -1, mult, InpVerboseLog,
+                               InpRolloverRetryMinutes, g_short_rollover_retry, slots);
+   V2_ApplyShortRolloverSlots(slots);
 }
 struct ShortV2Layer {
    double entry_price;
@@ -1498,6 +1566,7 @@ void OnDeinit(const int reason) {
 void OnTick() {
    V2_ApiCounterMaybeReset();
    V2_RunDailyRolloverReconciliation();
+   V2_RunRolloverRetryPasses();
    Long_OnTick();
    Short_OnTick();
    V2EmitTelemetry(false);

@@ -147,9 +147,8 @@ bool V2_ModifyExitLimitPrice(const ulong order_ticket,
    if(res.retcode == TRADE_RETCODE_NO_CHANGES)
       return true;
    if(res.retcode != TRADE_RETCODE_DONE) {
-      if(verbose_log)
-         Print("WARNING [V2-ADR-045] Exit OrderModify failed. symbol=", symbol,
-               " retcode=", res.retcode);
+      Print("WARNING [V2-ADR-045] Exit OrderModify failed. symbol=", symbol,
+            " retcode=", res.retcode);
       return false;
    }
    return true;

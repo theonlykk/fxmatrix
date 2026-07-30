@@ -3,7 +3,7 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.08"
+#property version   "1.09"
 #property script_show_inputs
 #property strict
 
@@ -829,6 +829,200 @@ void Test_RolloverMultiNightAccumulation()
 }
 
 //+------------------------------------------------------------------+
+void Test_RolloverRetrySetupLayer(V2RolloverLayerSlot &layers[],
+                                  const ulong position_ticket,
+                                  const double exit_target)
+{
+   const int n = ArraySize(layers);
+   ArrayResize(layers, n + 1);
+   layers[n].position_ticket = position_ticket;
+   layers[n].entry_price     = 1.30000;
+   layers[n].exit_target     = exit_target;
+   layers[n].exit_ticket     = 1000 + position_ticket;
+   layers[n].position_live   = true;
+}
+
+bool Test_RolloverRetryCallsContain(const ulong position_ticket)
+{
+   for(int i = 0; i < ArraySize(g_v2_rollover_test_adjust_calls); i++) {
+      if(g_v2_rollover_test_adjust_calls[i] == position_ticket)
+         return true;
+   }
+   return false;
+}
+
+void Test_RolloverRetrySetSuccessTickets(const ulong ticket_a, const ulong ticket_b = 0)
+{
+   ArrayResize(g_v2_rollover_test_success_tickets, (ticket_b > 0 ? 2 : 1));
+   g_v2_rollover_test_success_tickets[0] = ticket_a;
+   if(ticket_b > 0)
+      g_v2_rollover_test_success_tickets[1] = ticket_b;
+}
+
+// ADR-101: bounded same-day rollover exit-modify retry
+void Test_RolloverRetryDoubleShiftGuard()
+{
+   V2_RolloverTestAdjustReset();
+   g_v2_rollover_use_test_adjust = true;
+   g_v2_rollover_test_shift_price = 0.00004;
+   Test_RolloverRetrySetSuccessTickets(100);
+
+   V2RolloverSideRetryState state;
+   V2_RolloverRetryResetState(state);
+
+   V2RolloverLayerSlot layers[];
+   Test_RolloverRetrySetupLayer(layers, 100, 1.30800);
+   Test_RolloverRetrySetupLayer(layers, 200, 1.30700);
+
+   V2_RunDailyRolloverSidePass("GBPUSD", 1, 1, false, 10, state, layers);
+
+   AssertTrue("6a success ticket not pending", !V2_RolloverRetryPendingContains(state, 100));
+   AssertTrue("6a failure ticket pending", V2_RolloverRetryPendingContains(state, 200));
+   AssertNear("6a success shifted once on daily pass", layers[0].exit_target, 1.30804, 1e-12);
+
+   const double success_target_after_daily = layers[0].exit_target;
+   state.next_retry_due = 0;
+
+   ArrayResize(g_v2_rollover_test_adjust_calls, 0);
+   Test_RolloverRetrySetSuccessTickets(200);
+
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+
+   AssertTrue("6a retry pass never re-adjusts success ticket",
+              !Test_RolloverRetryCallsContain(100));
+   AssertNear("6a success exit_target unchanged after retry pass",
+              layers[0].exit_target, success_target_after_daily, 1e-12);
+   AssertTrue("6a failure cleared after successful retry",
+              !V2_RolloverRetryPendingContains(state, 200));
+
+   V2_RolloverTestAdjustReset();
+}
+
+void Test_RolloverRetryPendingAndSingleLayerRetry()
+{
+   V2_RolloverTestAdjustReset();
+   g_v2_rollover_use_test_adjust = true;
+   g_v2_rollover_test_shift_price = 0.00004;
+   ArrayResize(g_v2_rollover_test_success_tickets, 0);
+
+   V2RolloverSideRetryState state;
+   V2_RolloverRetryResetState(state);
+
+   V2RolloverLayerSlot layers[];
+   Test_RolloverRetrySetupLayer(layers, 300, 1.30600);
+
+   V2_RunDailyRolloverSidePass("GBPUSD", 1, 1, false, 10, state, layers);
+
+   AssertTrue("6b failed layer added to pending", V2_RolloverRetryPendingContains(state, 300));
+   AssertNear("6b exit_target unchanged on failed daily pass", layers[0].exit_target, 1.30600, 1e-12);
+
+   state.next_retry_due = 0;
+   ArrayResize(g_v2_rollover_test_adjust_calls, 0);
+   Test_RolloverRetrySetSuccessTickets(300);
+
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+
+   AssertTrue("6b retry pass called adjust for pending ticket only",
+              ArraySize(g_v2_rollover_test_adjust_calls) == 1 &&
+              g_v2_rollover_test_adjust_calls[0] == 300);
+   AssertNear("6b exit_target shifted on retry success", layers[0].exit_target, 1.30604, 1e-12);
+   AssertTrue("6b pending cleared", !V2_RolloverRetryPendingContains(state, 300));
+
+   V2_RolloverTestAdjustReset();
+}
+
+void Test_RolloverRetryCounterOncePerPass()
+{
+   V2_RolloverTestAdjustReset();
+   g_v2_rollover_use_test_adjust = true;
+   g_v2_rollover_test_shift_price = 0.00004;
+   ArrayResize(g_v2_rollover_test_success_tickets, 0);
+
+   V2RolloverSideRetryState state;
+   V2_RolloverRetryResetState(state);
+   V2_RolloverRetryRecordFailure(state, 401, D'2026.07.30 00:05:00', 10);
+   V2_RolloverRetryRecordFailure(state, 402, D'2026.07.30 00:05:00', 10);
+   state.next_retry_due = 0;
+   state.retry_attempt_count = 0;
+
+   V2RolloverLayerSlot layers[];
+   Test_RolloverRetrySetupLayer(layers, 401, 1.30500);
+   Test_RolloverRetrySetupLayer(layers, 402, 1.30400);
+
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+
+   AssertTrue("6c counter increments once per pass", state.retry_attempt_count == 1);
+   AssertTrue("6c both tickets still pending after failed retry",
+              V2_RolloverRetryPendingContains(state, 401) &&
+              V2_RolloverRetryPendingContains(state, 402));
+
+   V2_RolloverTestAdjustReset();
+}
+
+void Test_RolloverRetryStopsAtMaxRetries()
+{
+   V2_RolloverTestAdjustReset();
+   g_v2_rollover_use_test_adjust = true;
+   ArrayResize(g_v2_rollover_test_success_tickets, 0);
+
+   V2RolloverSideRetryState state;
+   V2_RolloverRetryResetState(state);
+   V2_RolloverRetryRecordFailure(state, 501, D'2026.07.30 00:05:00', 10);
+   state.next_retry_due = 0;
+   state.retry_attempt_count = 15;
+
+   V2RolloverLayerSlot layers[];
+   Test_RolloverRetrySetupLayer(layers, 501, 1.30300);
+
+   const int calls_before = ArraySize(g_v2_rollover_test_adjust_calls);
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+
+   AssertTrue("6d no retry when max already reached",
+              state.retry_attempt_count == 15);
+   AssertTrue("6d pending ticket remains",
+              V2_RolloverRetryPendingContains(state, 501));
+   AssertTrue("6d no adjust calls at max",
+              ArraySize(g_v2_rollover_test_adjust_calls) == calls_before);
+
+   V2_RolloverTestAdjustReset();
+}
+
+void Test_RolloverRetryRespectsNextDue()
+{
+   V2_RolloverTestAdjustReset();
+   g_v2_rollover_use_test_adjust = true;
+   ArrayResize(g_v2_rollover_test_success_tickets, 0);
+
+   V2RolloverSideRetryState state;
+   V2_RolloverRetryResetState(state);
+   V2_RolloverRetryRecordFailure(state, 601, D'2026.07.30 00:05:00', 10);
+   state.next_retry_due = TimeCurrent() + 3600;
+   state.retry_attempt_count = 0;
+
+   V2RolloverLayerSlot layers[];
+   Test_RolloverRetrySetupLayer(layers, 601, 1.30200);
+
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+
+   AssertTrue("6e counter unchanged before due", state.retry_attempt_count == 0);
+   AssertTrue("6e pending unchanged before due", V2_RolloverRetryPendingContains(state, 601));
+   AssertTrue("6e no adjust calls before due", ArraySize(g_v2_rollover_test_adjust_calls) == 0);
+
+   V2_RolloverTestAdjustReset();
+}
+
+void Test_RolloverAdr101WednesdayMultiplierFrozen()
+{
+   AssertTrue("6f wednesday multiplier unchanged", V2_RolloverWednesdayMultiplier(3) == 3);
+   AssertTrue("6f tuesday multiplier unchanged", V2_RolloverWednesdayMultiplier(2) == 1);
+   const double point = 0.00001;
+   AssertNear("6f swap shift path unchanged",
+              V2_RolloverShiftPrice(-4.0, 1, point), 0.00004, 1e-12);
+   AssertNear("6f positive swap still zero shift",
+              V2_RolloverShiftPrice(2.0, 1, point), 0.0, 1e-12);
+}
+
+//+------------------------------------------------------------------+
 void Test_ExitMagicPerPairNamespace()
 {
    MqlTradeRequest req = {};
@@ -1281,6 +1475,12 @@ void OnStart()
    Test_RolloverAdr045ShiftMath();
    Test_RolloverDailyGate();
    Test_RolloverMultiNightAccumulation();
+   Test_RolloverRetryDoubleShiftGuard();
+   Test_RolloverRetryPendingAndSingleLayerRetry();
+   Test_RolloverRetryCounterOncePerPass();
+   Test_RolloverRetryStopsAtMaxRetries();
+   Test_RolloverRetryRespectsNextDue();
+   Test_RolloverAdr101WednesdayMultiplierFrozen();
    Test_ExitMagicPerPairNamespace();
    Test_L0SpreadEaseMultiplierRamp();
    Test_L0SpreadEaseMultiplierRamp_Production13();
