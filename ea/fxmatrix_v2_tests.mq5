@@ -12,6 +12,9 @@
 #include "fxmatrix_v2_telemetry.mqh"
 #include "fxmatrix_v2_signal.mqh"
 #include "fxmatrix_v2_carry.mqh"
+#include "fxmatrix_v2_gbp_cap.mqh"
+#include "fxmatrix_v2_eur_cap.mqh"
+#include "fxmatrix_v2_eurgbp_dual_cap.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -1097,6 +1100,155 @@ void Test_EurgbpAbFlatMultiplierNoRamp()
 }
 
 //+------------------------------------------------------------------+
+void Test_ClearCapGvs()
+{
+   string keys[];
+   ArrayResize(keys, 10);
+   keys[0] = V2_GBP_CAP_GV_GBP_LONG;
+   keys[1] = V2_GBP_CAP_GV_GBP_SHORT;
+   keys[2] = V2_GBP_CAP_GV_EGP_LONG;
+   keys[3] = V2_GBP_CAP_GV_EGP_SHORT;
+   keys[4] = V2_EUR_CAP_GV_EUR_LONG;
+   keys[5] = V2_EUR_CAP_GV_EUR_SHORT;
+   keys[6] = V2_EUR_CAP_GV_EGP_LONG;
+   keys[7] = V2_EUR_CAP_GV_EGP_SHORT;
+   keys[8] = "V2GBP_CAP_TRIGGERS";
+   keys[9] = "V2EUR_CAP_TRIGGERS";
+   for(int i = 0; i < ArraySize(keys); i++) {
+      if(GlobalVariableCheck(keys[i]))
+         GlobalVariableDel(keys[i]);
+   }
+}
+
+// ADR-100: EUR-side cross-instance exposure cap (EURUSD + EURGBP).
+void Test_EurCapNetExposureAddition()
+{
+   Test_ClearCapGvs();
+
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_LONG, 4);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_SHORT, 1);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_LONG, 3);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_SHORT, 2);
+   AssertNear("eur net uses addition across pairs",
+              V2_EurNetExposure(), (4.0 - 1.0) + (3.0 - 2.0), 1e-9);
+   AssertTrue("eur net differs from subtraction form",
+              MathAbs(V2_EurNetExposure() - ((4.0 - 1.0) - (3.0 - 2.0))) > 1e-9);
+
+   Test_ClearCapGvs();
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_LONG, 2);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_LONG, 5);
+   AssertNear("long-only eur legs sum", V2_EurNetExposure(), 7.0, 1e-9);
+
+   Test_ClearCapGvs();
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_SHORT, 3);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_SHORT, 1);
+   AssertNear("short-only eur legs sum", V2_EurNetExposure(), -4.0, 1e-9);
+
+   Test_ClearCapGvs();
+}
+
+void Test_EurCapDeltaSymmetric()
+{
+   AssertNear("eurusd long delta", V2_EurCapDeltaForAdd("EURUSD", true), 1.0, 1e-9);
+   AssertNear("eurusd short delta", V2_EurCapDeltaForAdd("EURUSD", false), -1.0, 1e-9);
+   AssertNear("eurgbp long delta", V2_EurCapDeltaForAdd("EURGBP", true), 1.0, 1e-9);
+   AssertNear("eurgbp short delta", V2_EurCapDeltaForAdd("EURGBP", false), -1.0, 1e-9);
+   AssertNear("gbpusd eur delta zero", V2_EurCapDeltaForAdd("GBPUSD", true), 0.0, 1e-9);
+}
+
+void Test_EurCapBlocksNewAddThreshold()
+{
+   Test_ClearCapGvs();
+   GlobalVariableSet("V2EUR_CAP_TRIGGERS", 0.0);
+
+   AssertTrue("threshold 0 never blocks", !V2_EurCapBlocksNewAdd("EURUSD", true, 0));
+
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_LONG, 2);
+   AssertTrue("exact threshold landing allowed",
+              !V2_EurCapBlocksNewAdd("EURUSD", true, 3));
+
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_LONG, 3);
+   AssertTrue("widening above threshold blocks",
+              V2_EurCapBlocksNewAdd("EURUSD", true, 3));
+
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EUR_LONG, 0);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_LONG, 3);
+   AssertTrue("eurgbp long add widens eur net",
+              V2_EurCapBlocksNewAdd("EURGBP", true, 3));
+
+   Test_ClearCapGvs();
+}
+
+void Test_AnyCapBlocksNewAddNoMasking()
+{
+   Test_ClearCapGvs();
+   GlobalVariableSet("V2GBP_CAP_TRIGGERS", 0.0);
+   GlobalVariableSet("V2EUR_CAP_TRIGGERS", 0.0);
+
+   V2_GbpCapPublishLayers(V2_GBP_CAP_GV_EGP_LONG, 3);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_LONG, 3);
+
+   bool gbp_blocked = false;
+   bool eur_blocked = false;
+   string eval_log = "";
+   V2_EvalBothCaps(true, 3, 10, gbp_blocked, eur_blocked, eval_log);
+
+   AssertTrue("gbp-only block case blocks aggregate", gbp_blocked);
+   AssertTrue("gbp-only block case eur does not block", !eur_blocked);
+   AssertContains("gbp-only log mentions GBP cap", eval_log, "GBP cap:");
+   AssertContains("gbp-only log mentions EUR cap", eval_log, "EUR cap:");
+   AssertContains("gbp-only log gbp blocked true", eval_log, "GBP cap: blocked=true");
+   AssertContains("gbp-only log eur blocked false", eval_log, "EUR cap: blocked=false");
+   AssertTrue("anycap gbp-only aggregate", V2_AnyCapBlocksNewAdd(true, 3, 10));
+
+   Test_ClearCapGvs();
+   GlobalVariableSet("V2GBP_CAP_TRIGGERS", 0.0);
+   GlobalVariableSet("V2EUR_CAP_TRIGGERS", 0.0);
+
+   V2_GbpCapPublishLayers(V2_GBP_CAP_GV_EGP_LONG, 3);
+   V2_EurCapPublishLayers(V2_EUR_CAP_GV_EGP_LONG, 3);
+
+   gbp_blocked = false;
+   eur_blocked = false;
+   eval_log = "";
+   V2_EvalBothCaps(true, 10, 3, gbp_blocked, eur_blocked, eval_log);
+
+   AssertTrue("eur-only block case eur blocks", eur_blocked);
+   AssertTrue("eur-only block case gbp does not block", !gbp_blocked);
+   AssertContains("eur-only log mentions GBP cap", eval_log, "GBP cap:");
+   AssertContains("eur-only log mentions EUR cap", eval_log, "EUR cap:");
+   AssertContains("eur-only log gbp blocked false", eval_log, "GBP cap: blocked=false");
+   AssertContains("eur-only log eur blocked true", eval_log, "EUR cap: blocked=true");
+   AssertTrue("anycap eur-only aggregate", V2_AnyCapBlocksNewAdd(true, 10, 3));
+
+   Test_ClearCapGvs();
+}
+
+void Test_SyncAllCapsPublishesBothGvSets()
+{
+   Test_ClearCapGvs();
+
+   V2_SyncAllCaps(true, 7);
+
+   AssertTrue("sync all caps publishes gbp long gv",
+              GlobalVariableCheck(V2_GBP_CAP_GV_EGP_LONG));
+   AssertTrue("sync all caps publishes eur long gv",
+              GlobalVariableCheck(V2_EUR_CAP_GV_EGP_LONG));
+   AssertNear("sync all caps gbp long value",
+              GlobalVariableGet(V2_GBP_CAP_GV_EGP_LONG), 7.0, 1e-9);
+   AssertNear("sync all caps eur long value",
+              GlobalVariableGet(V2_EUR_CAP_GV_EGP_LONG), 7.0, 1e-9);
+
+   V2_SyncAllCaps(false, 2);
+   AssertNear("sync all caps gbp short value",
+              GlobalVariableGet(V2_GBP_CAP_GV_EGP_SHORT), 2.0, 1e-9);
+   AssertNear("sync all caps eur short value",
+              GlobalVariableGet(V2_EUR_CAP_GV_EGP_SHORT), 2.0, 1e-9);
+
+   Test_ClearCapGvs();
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -1140,6 +1292,11 @@ void OnStart()
    Test_EurgbpEaseDepthOnInitGuard();
    Test_EurgbpAbLiveSpreadFallbackWiring();
    Test_EurgbpAbFlatMultiplierNoRamp();
+   Test_EurCapNetExposureAddition();
+   Test_EurCapDeltaSymmetric();
+   Test_EurCapBlocksNewAddThreshold();
+   Test_AnyCapBlocksNewAddNoMasking();
+   Test_SyncAllCapsPublishesBothGvSets();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

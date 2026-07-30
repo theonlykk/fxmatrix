@@ -19,6 +19,7 @@
 #include "fxmatrix_v2_signal.mqh"
 #include "fxmatrix_v2_exits.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
+#include "fxmatrix_v2_eur_cap.mqh"
 #include "fxmatrix_v2_carry.mqh"
 
 input double InpQuoteSpread       = 0.0004;
@@ -35,6 +36,7 @@ input double InpWidenRatio        = 1.304;
 input double InpAddPipsCeiling    = 1000.0;
 input double InpLotSize           = 0.01;
 input int    InpMaxLayers         = 20;
+input int    InpEurCapThreshold   = 0;    // 0=off; block widening adds when |net|>N
 input bool   InpVerboseLog        = true;
 input bool   EnableTelemetry      = false;
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
@@ -353,6 +355,14 @@ void Long_EnsureAddNext() {
    double add_price = Long_ComputeAddTarget();
    if (add_price <= 0.0)
       return;
+   if(!g_long_last_exit_valid &&
+      V2_EurCapBlocksNewAdd(V2_PAIR_LABEL, true, InpEurCapThreshold)) {
+      V2_EurCapRecordBlock();
+      if(InpVerboseLog)
+         Print("INFO V2_LONG | EUR cap blocked new add net=", V2_EurNetExposure(),
+               " threshold=", InpEurCapThreshold);
+      return;
+   }
    g_long_add_ticket = Long_PlaceBuyLimit(add_price, MM_LONG_V2, g_long_last_exit_valid ? "V2_Reload" : "V2_Add");
 }
 
@@ -432,6 +442,7 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    Long_CancelTicket(g_long_add_ticket);
    g_long_add_ticket = 0;
 
+   V2_EurCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
    Long_PlaceExitForLayer(n, true);
    Long_EnsureAddNext();
 }
@@ -459,6 +470,7 @@ void Long_RemoveLayerAt(const int layer_idx) {
    g_long_stat_exits++;
 
    V2_OnOwnStackFlat(g_long_last_exit_valid, ArraySize(g_long_layers));
+   V2_EurCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
    if(ArraySize(g_long_layers) == 0)
       g_long_current_add_pips = InpAddPipsFloor;
    else if(was_top)
@@ -1061,6 +1073,14 @@ void Short_EnsureAddNext() {
    double add_price = Short_ComputeAddTarget();
    if (add_price <= 0.0)
       return;
+   if(!g_short_last_exit_valid &&
+      V2_EurCapBlocksNewAdd(V2_PAIR_LABEL, false, InpEurCapThreshold)) {
+      V2_EurCapRecordBlock();
+      if(InpVerboseLog)
+         Print("INFO V2_SHORT | EUR cap blocked new add net=", V2_EurNetExposure(),
+               " threshold=", InpEurCapThreshold);
+      return;
+   }
    g_short_add_ticket = Short_PlaceSellLimit(add_price, MM_SHORT_V2, g_short_last_exit_valid ? "V2_Reload" : "V2_Add");
 }
 
@@ -1140,6 +1160,7 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    Short_CancelTicket(g_short_add_ticket);
    g_short_add_ticket = 0;
 
+   V2_EurCapSyncInstance(V2_PAIR_LABEL, false, ArraySize(g_short_layers));
    Short_PlaceExitForLayer(n, true);
    Short_EnsureAddNext();
 }
@@ -1167,6 +1188,7 @@ void Short_RemoveLayerAt(const int layer_idx) {
    g_short_stat_exits++;
 
    V2_OnOwnStackFlat(g_short_last_exit_valid, ArraySize(g_short_layers));
+   V2_EurCapSyncInstance(V2_PAIR_LABEL, false, ArraySize(g_short_layers));
    if(ArraySize(g_short_layers) == 0)
       g_short_current_add_pips = InpAddPipsFloor;
    else if(was_top)
@@ -1425,6 +1447,9 @@ int OnInit() {
          (EnableTelemetry ? "1" : "0"));
    Long_OnInit();
    Short_OnInit();
+   V2_EurCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
+   V2_EurCapSyncInstance(V2_PAIR_LABEL, false, ArraySize(g_short_layers));
+   GlobalVariableSet("V2EUR_CAP_TRIGGERS", 0.0);
 
    bool long_orphan  = false;
    bool short_orphan = false;
