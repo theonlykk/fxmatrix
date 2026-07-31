@@ -272,7 +272,9 @@ bool V2_RolloverAdjustOneLayer(const string symbol,
                " drift_pips=", DoubleToString(drift_pips, 2));
    }
 
-   if(verbose_log)
+   if(verbose_log) {
+      MqlDateTime rollover_dt;
+      TimeToStruct(TimeCurrent(), rollover_dt);
       Print("INFO [V2-ADR-045] Exit adjusted.",
             " symbol=", symbol,
             " dir=", entry_direction,
@@ -280,7 +282,13 @@ bool V2_RolloverAdjustOneLayer(const string symbol,
             " old=", DoubleToString(current_exit, 5),
             " new=", DoubleToString(new_exit, 5),
             " shift=", DoubleToString(shift, 5),
-            " multiplier=", multiplier);
+            " multiplier=", multiplier,
+            " swap_long=", DoubleToString(swap_long, 2),
+            " swap_short=", DoubleToString(swap_short, 2),
+            " swap_used=", DoubleToString(swap, 2),
+            " day_of_week=", rollover_dt.day_of_week,
+            " server_time=", TimeToString(TimeCurrent(), TIME_DATE | TIME_MINUTES | TIME_SECONDS));
+   }
 
    return true;
 }
