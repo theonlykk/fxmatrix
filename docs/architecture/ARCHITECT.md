@@ -109,6 +109,71 @@ with no exception for length.
 ---
 ## Operational Safety Rules
 
+### Machine Topology
+
+Three machines, three distinct roles. Do not assume capabilities or
+safety rules transfer between them without checking this section.
+
+#### Desktop
+Repo lives at `d:\fxmatrix`, edited directly by Khalid or Cursor — this
+IS the working copy, not a clone that needs pulling. The MT5 terminal
+here is used for compiling and Strategy Tester only; it is never
+attached to a live or demo trading chart. Because nothing here is ever
+live, **the flat-chart rule does not apply to desktop compiles** — they
+are safe to run at any time regardless of what the VPS account is
+doing.
+
+#### VPS
+Separate git clone at `C:\fxmatrix` (see Infrastructure Constants for
+host details). Runs the actual live/demo trading instances. Cursor does
+not have execution access to the VPS — deliberately, to keep the one
+machine with real trading consequences off the automated-agent surface.
+Code reaches the VPS only via `deploy.ps1` pulling from git; the VPS
+never pushes.
+
+#### Surface
+Separate machine, used for longer-running Python compute. No MT5
+installed currently — Python only. Connected via a mounted network
+share (`S:\`, readable from desktop). Cursor does not currently have
+execution access to the Surface; pulling results via `S:\` is a
+desired capability, not yet built. Installing MT5 there has been
+discussed as a future option, not current practice.
+
+### Sync Scripts
+
+#### `deploy.ps1` (VPS)
+`git pull origin main`, then `xcopy` into `MQL5\Experts\fxmatrix\`,
+then a post-copy SHA256 verification confirming every copied file
+matches the just-pulled repo content — added after identifying the
+xcopy step could silently fail or partially fail on a locked file with
+no error surfaced. Only destination: Experts, since only the three
+production EAs run on the VPS.
+
+#### `desktop_sync.ps1` (desktop)
+No git pull — the desktop repo is already the working copy. Copies the
+three production `.mq5` files plus 9 shared `.mqh` headers into
+`MQL5\Experts\` (flat, no subfolder), and `fxmatrix_v2_tests.mq5` plus
+that *same* 9-header set into `MQL5\Scripts\`. Both destinations are
+independently SHA256-verified against the repo after copying.
+
+Two destinations are required, not optional: MQL5 resolves a quoted
+`#include` relative to the compiling file's own folder, so Scripts
+needs its own physical copy of every header the test file depends on —
+there is no way to share one copy across both folders via a normal
+relative include.
+
+The 9-header shared set was derived from the actual `#include`
+dependency graph of all four source files (direct + transitive
+includes), not assumed. If any of the four files' includes change in
+the future, re-derive this list from source rather than hand-editing it
+from memory — a stale assumed list is exactly what caused a 58-error
+compile failure the first time this was attempted without it.
+
+#### Desktop/VPS folder structure is NOT symmetric
+See **Content-Level Verification Before Every Compile** below for the
+full desktop vs VPS path layout (flat `Experts`/`Scripts` on desktop
+vs `Experts\fxmatrix\` on VPS).
+
 ### Content-Level Verification Before Every Compile
 
 The repo (`d:\fxmatrix\ea`) and the MT5 terminal's compile folder are
@@ -120,9 +185,12 @@ is still syntactically valid; it simply doesn't reflect the intended
 change.
 
 **Desktop vs VPS paths are not symmetric.** The desktop terminal uses
-a flat `MQL5\Experts\` folder (no `fxmatrix\` subfolder). The VPS
-uses `MQL5\Experts\fxmatrix\` as the deploy target (see `deploy.ps1`).
-Unit tests live in `MQL5\Scripts\` on desktop, not in Experts.
+a flat layout — all fxmatrix files sit directly in `MQL5\Experts\` and
+`MQL5\Scripts\` root (no `fxmatrix\` subfolder), alongside many
+unrelated files from other projects. The VPS uses
+`MQL5\Experts\fxmatrix\` as the deploy target (see `deploy.ps1`).
+Unit tests live in `MQL5\Scripts\` on desktop, not in Experts. Do not
+assume one layout when reasoning about the other.
 
 **Note:** A prior example in this section referenced
 `D:\MT5Data\81A933A9AFC5DE3C23B15CAB19C63850\MQL5\Experts`. That path
@@ -191,31 +259,100 @@ the flat-chart precondition is the operative safeguard and should not
 be skipped even under time pressure or for changes believed to be
 low-risk.
 
+### VPS Live Deployment Sequence
+
+1. Confirm the account is 100% flat — zero open positions, zero
+   pending orders, across all three instances.
+2. Turn AlgoTrading off.
+3. Delete any resting limit orders manually if present.
+4. Detach the EA(s) from their chart(s).
+5. Run `deploy.ps1`.
+6. Compile in MetaEditor.
+7. Turn AlgoTrading back on.
+8. Reattach the EA(s).
+
+This sequence, and the flat-chart precondition specifically, governs
+VPS/live-demo instances only — see Machine Topology above for why
+desktop compiling is exempt.
+
 ### Cap-Enablement Gate: Cross-Instance Global Variable Reset
 
-**Finding:** `fxmatrix_v2_eurgbp.mq5`'s `OnInit` unconditionally
-resets the shared cross-instance global variables
-`V2GBP_CAP_TRIGGERS` and `V2EUR_CAP_TRIGGERS` to zero. GBPUSD and
-EURUSD run on the same terminal and depend on this state for the
-cross-pair exposure caps (ADR-092 GBP cap, ADR-100 EUR cap). An
-EURGBP restart while the caps are active would silently erase the
-other two EAs' cap-trigger history — corrupting the exact risk
-control the caps exist to provide.
+The original finding (EURGBP's `OnInit` unconditionally resetting
+shared cross-instance trigger GVs) was fixed by ADR-103, which removes
+that reset entirely rather than conditionally gating it.
 
-**Rule:** `InpGbpCapThreshold` and `InpEurCapThreshold` must remain
-at 0 (disabled) in every production and dry-run environment until
-`OnInit` is refactored to remove the destructive reset of shared
-cross-pair global variables. Raising either threshold above 0 before
-that fix ships would silently defeat the cap the moment any EURGBP
-restart occurs.
+However, DeepSeek's Phase 1 audit of that fix surfaced a **separate,
+still-open reason** the gate must remain in place: when a halted
+instance skips its own GV publish, the resulting value can be either
+stale in direction/magnitude (positions changed while the instance was
+down) or, if no prior value ever existed, a genuinely missing key —
+which the cap modules currently read as a permissive zero. Both are
+unsafe for an active exposure cap.
 
-**Status:** Currently non-blocking — both thresholds already sit at
-0 for unrelated calibration reasons. This rule exists so that stays
-true on purpose once the caps are ready to be enabled, not by
-coincidence.
+**Rule stands unchanged** — `InpGbpCapThreshold` and
+`InpEurCapThreshold` must remain at 0 — but for an updated reason: the
+destructive-reset defect is fixed; the stale/missing-GV-reads-as-zero
+problem is not.
 
-**Ruling reference:** Gemini, architectural ruling on audit Finding
-#4, 2026-07-31.
+**Traceability:** Original gate ruling — Gemini, architectural ruling
+on audit Finding #4, 2026-07-31. Destructive trigger-reset fix —
+ADR-103 (2026-08-02). Remaining stale/missing-GV limitation — ADR-103
+§Known deferred limitations; DeepSeek Phase 1 mechanical audit of the
+ADR-102/103 halt-gate and cap-GV fixes, 2026-08-02 (see ADR-102).
+
+### Testing and Verification
+
+#### Running `fxmatrix_v2_tests.mq5`
+
+This is a genuine MT5 **Script** (`#property script_show_inputs`,
+`OnStart()`), not an Expert Advisor. **Do not attempt to run it through
+Strategy Tester** — the tester only tests EAs; Scripts have no
+`OnInit`/`OnTick` handlers for it to call. To run it: drag or
+double-click it onto any open chart (a chart window must be focused
+first), confirm the Script Properties popup that appears, and check
+the Toolbox's **Experts tab** (not the tester) for PASS/FAIL lines per
+test plus a final summary count.
+
+#### `analyze_mt5_report()` — what it actually is
+
+A Python helper that parses an MT5 Strategy Tester HTML export and
+prints a structured summary: in-test vs. full P&L (excluding forced
+end-of-test closures), trade counts by side (correctly handling the
+V2_Exit direction inversion — a sell-tagged V2_Exit closes a LONG, a
+buy-tagged one closes a SHORT), net exposure tracking, and a settings
+sanity-check extraction. **It is a summarizer/comparison tool, not an
+automated pass/fail gate** — a human reads and judges the printed
+output. Do not describe backtest verification as automated because
+this tool exists.
+
+#### Push / Commit Workflow
+
+The desktop repo's working tree accumulates a large volume of
+experimental/temp files over time — `git status` can run into the
+thousands of lines. Standing practice: before staging anything broad,
+produce a categorized status report — group (a) files clearly part of
+the specific work being pushed, group (b) everything else, explicitly
+enumerated rather than summarized away — and get explicit scope
+confirmation before staging anything. **Never `git add .` or blind
+`git add -u`.** Stage only the confirmed file list, by exact name.
+
+Either Khalid or Cursor may perform the push — no fixed rule on who; in
+practice Cursor does it more often, given how large `git status`
+typically runs. The VPS never pushes; it only pulls via `deploy.ps1`.
+
+#### Cursor-Driven Backtesting
+
+Cursor can run Strategy Tester backtests headlessly and this is
+generally reliable. One resolved historical gotcha: headless runs
+could fail or misbehave if the MT5 terminal was also open on the
+desktop at the same time — keep the terminal closed during a
+Cursor-headless run. One open minor wrinkle: very old backtest date
+ranges occasionally have data availability issues.
+
+Two-tier verification model: Cursor's headless runs are trusted for
+exploratory/preliminary work. Khalid's own hands-on desktop compile
+and Strategy Tester run remains the final personal verification gate
+before anything is treated as ready to push or deploy.
 
 ---
 
