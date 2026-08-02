@@ -289,6 +289,13 @@ void V2_PushSystemAlert(string &alerts[], const string alert_msg)
 }
 
 //+------------------------------------------------------------------+
+void V2_EmitHaltedFillAlert(string &system_alerts[], const string alert_msg)
+{
+   Print(alert_msg);
+   V2_PushSystemAlert(system_alerts, alert_msg);
+}
+
+//+------------------------------------------------------------------+
 void V2_EscalateExitAlert(string &alerts[],
                           const string instance_tag,
                           const int layer_idx,

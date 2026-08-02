@@ -556,9 +556,20 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    Long_MarkDealProcessed(deal_ticket);
 
-   if (entry_type == DEAL_ENTRY_IN &&
-       deal_type == DEAL_TYPE_BUY &&
-       deal_magic == (long)20260901) {
+   const bool is_long_entry = V2_IsManagedLongEntryDeal(entry_type, deal_type, deal_magic,
+                                                      (long)20260901);
+   const bool is_long_exit  = V2_IsManagedExitDeal(entry_type, deal_magic,
+                                                   (long)MM_LONG_V2_EXIT);
+
+   if((is_long_entry || is_long_exit) && g_long_halted) {
+      const string fill_kind = is_long_entry ? "entry" : "exit";
+      string alert = V2_FormatHaltedFillAlert(V2_TEL_INSTANCE_LONG, "LONG",
+         deal_ticket, order_ticket, position_id, _Symbol, deal_magic, deal_price, fill_kind);
+      V2_EmitHaltedFillAlert(g_long_system_alerts, alert);
+      return;
+   }
+
+   if (is_long_entry) {
       bool is_reload = g_long_last_exit_valid;
       if (order_ticket == g_long_l0_ticket)
          g_long_l0_ticket = 0;
@@ -573,8 +584,7 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       return;
    }
 
-   if (entry_type == DEAL_ENTRY_IN &&
-       deal_magic == (long)MM_LONG_V2_EXIT) {
+   if (is_long_exit) {
       int layer_idx = -1;
       for(int i = 0; i < ArraySize(g_long_layers); i++) {
          if(g_long_layers[i].exit_ticket == order_ticket) {
@@ -1285,9 +1295,20 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    Short_MarkDealProcessed(deal_ticket);
 
-   if (entry_type == DEAL_ENTRY_IN &&
-       deal_type == DEAL_TYPE_SELL &&
-       deal_magic == (long)20260902) {
+   const bool is_short_entry = V2_IsManagedShortEntryDeal(entry_type, deal_type, deal_magic,
+                                                         (long)20260902);
+   const bool is_short_exit  = V2_IsManagedExitDeal(entry_type, deal_magic,
+                                                    (long)MM_SHORT_V2_EXIT);
+
+   if((is_short_entry || is_short_exit) && g_short_halted) {
+      const string fill_kind = is_short_entry ? "entry" : "exit";
+      string alert = V2_FormatHaltedFillAlert(V2_TEL_INSTANCE_SHORT, "SHORT",
+         deal_ticket, order_ticket, position_id, _Symbol, deal_magic, deal_price, fill_kind);
+      V2_EmitHaltedFillAlert(g_short_system_alerts, alert);
+      return;
+   }
+
+   if (is_short_entry) {
       bool is_reload = g_short_last_exit_valid;
       if (order_ticket == g_short_l0_ticket)
          g_short_l0_ticket = 0;
@@ -1302,8 +1323,7 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       return;
    }
 
-   if (entry_type == DEAL_ENTRY_IN &&
-       deal_magic == (long)MM_SHORT_V2_EXIT) {
+   if (is_short_exit) {
       int layer_idx = -1;
       for(int i = 0; i < ArraySize(g_short_layers); i++) {
          if(g_short_layers[i].exit_ticket == order_ticket) {
@@ -1499,9 +1519,6 @@ int OnInit() {
          (EnableTelemetry ? "1" : "0"));
    Long_OnInit();
    Short_OnInit();
-   V2_GbpCapSyncInstance("GBPUSD", true, ArraySize(g_long_layers));
-   V2_GbpCapSyncInstance("GBPUSD", false, ArraySize(g_short_layers));
-   GlobalVariableSet("V2GBP_CAP_TRIGGERS", 0.0);
 
    bool long_orphan  = false;
    bool short_orphan = false;
@@ -1529,6 +1546,11 @@ int OnInit() {
       g_short_halted = true;
       short_orphan = true;
    }
+
+   if(V2_ShouldPublishCapSyncOnInit(long_orphan))
+      V2_GbpCapSyncInstance("GBPUSD", true, ArraySize(g_long_layers));
+   if(V2_ShouldPublishCapSyncOnInit(short_orphan))
+      V2_GbpCapSyncInstance("GBPUSD", false, ArraySize(g_short_layers));
 
    if(long_orphan || short_orphan) {
       if(EnableTelemetry)

@@ -219,6 +219,62 @@ int V2_OnInitResultFromOrphanFlags(const bool long_orphan, const bool short_orph
 }
 
 //+------------------------------------------------------------------+
+//| ADR-102/103: halt-gate + OnInit cap-publish helpers (testable). |
+//+------------------------------------------------------------------+
+bool V2_IsManagedLongEntryDeal(const long entry_type,
+                               const long deal_type,
+                               const long deal_magic,
+                               const long entry_magic)
+{
+   return (entry_type == DEAL_ENTRY_IN &&
+           deal_type == DEAL_TYPE_BUY &&
+           deal_magic == entry_magic);
+}
+
+bool V2_IsManagedShortEntryDeal(const long entry_type,
+                                const long deal_type,
+                                const long deal_magic,
+                                const long entry_magic)
+{
+   return (entry_type == DEAL_ENTRY_IN &&
+           deal_type == DEAL_TYPE_SELL &&
+           deal_magic == entry_magic);
+}
+
+bool V2_IsManagedExitDeal(const long entry_type,
+                          const long deal_magic,
+                          const long exit_magic)
+{
+   return (entry_type == DEAL_ENTRY_IN && deal_magic == exit_magic);
+}
+
+bool V2_ShouldPublishCapSyncOnInit(const bool side_orphan)
+{
+   return !side_orphan;
+}
+
+string V2_FormatHaltedFillAlert(const string instance_tag,
+                                const string side_label,
+                                const ulong deal_ticket,
+                                const ulong order_ticket,
+                                const ulong position_id,
+                                const string symbol,
+                                const long deal_magic,
+                                const double deal_price,
+                                const string fill_kind)
+{
+   return StringFormat(
+      "ERROR V2_HALTED_FILL_IGNORED | instance=%s side=%s fill_kind=%s "
+      "deal=%s order=%s position=%s symbol=%s magic=%d price=%.5f | "
+      "Manual reconciliation required before reattach.",
+      instance_tag, side_label, fill_kind,
+      IntegerToString((long)deal_ticket),
+      IntegerToString((long)order_ticket),
+      IntegerToString((long)position_id),
+      symbol, (int)deal_magic, deal_price);
+}
+
+//+------------------------------------------------------------------+
 //| Test helpers — lightweight mock stacks (no PositionsTotal).       |
 //+------------------------------------------------------------------+
 struct V2MockStack

@@ -471,6 +471,91 @@ void Test_OrphanStartupGuard()
 }
 
 //+------------------------------------------------------------------+
+// ADR-102: halted-side fill gate helpers
+void Test_HaltedFillGateHelpers()
+{
+   AssertTrue("long entry ours",
+              V2_IsManagedLongEntryDeal(DEAL_ENTRY_IN, DEAL_TYPE_BUY, MM_LONG_V2, MM_LONG_V2));
+   AssertTrue("long entry foreign magic",
+              !V2_IsManagedLongEntryDeal(DEAL_ENTRY_IN, DEAL_TYPE_BUY, 99999, MM_LONG_V2));
+   AssertTrue("short entry ours",
+              V2_IsManagedShortEntryDeal(DEAL_ENTRY_IN, DEAL_TYPE_SELL, MM_SHORT_V2, MM_SHORT_V2));
+   AssertTrue("exit ours",
+              V2_IsManagedExitDeal(DEAL_ENTRY_IN, MM_LONG_V2_EXIT, MM_LONG_V2_EXIT));
+
+   string alert = V2_FormatHaltedFillAlert(V2_TEL_INSTANCE_LONG, "LONG",
+      1001, 2002, 3003, "GBPUSD", MM_LONG_V2, 1.25000, "entry");
+   AssertContains("halt alert prefix", alert, "ERROR V2_HALTED_FILL_IGNORED");
+   AssertContains("halt alert deal", alert, "1001");
+   AssertContains("halt alert order", alert, "2002");
+   AssertContains("halt alert position", alert, "3003");
+   AssertContains("halt alert reconciliation", alert,
+                  "Manual reconciliation required before reattach.");
+
+   string exit_alert = V2_FormatHaltedFillAlert(V2_TEL_INSTANCE_SHORT, "SHORT",
+      4001, 5002, 6003, "EURUSD", MM_SHORT_V2_EXIT, 1.10000, "exit");
+   AssertContains("halt exit fill_kind", exit_alert, "fill_kind=exit");
+
+   string alerts[];
+   V2_EmitHaltedFillAlert(alerts, alert);
+   AssertTrue("halt alert pushed once", ArraySize(alerts) == 1);
+   AssertContains("halt alert in system_alerts", alerts[0], "V2_HALTED_FILL_IGNORED");
+}
+
+//+------------------------------------------------------------------+
+// ADR-103: per-side OnInit cap publish policy
+void Test_OnInitCapPublishPolicy()
+{
+   AssertTrue("flat side publishes", V2_ShouldPublishCapSyncOnInit(false));
+   AssertTrue("orphan side skips publish", !V2_ShouldPublishCapSyncOnInit(true));
+
+   Test_ClearCapGvs();
+   V2_GbpCapPublishLayers(V2_GBP_CAP_GV_GBP_LONG, 5);
+   AssertNear("prior gv seeded", GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 5.0, 1e-9);
+
+   if(V2_ShouldPublishCapSyncOnInit(true))
+      V2_GbpCapPublishLayers(V2_GBP_CAP_GV_GBP_LONG, 0);
+   AssertNear("orphan skip leaves prior gv",
+              GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 5.0, 1e-9);
+
+   if(V2_ShouldPublishCapSyncOnInit(false))
+      V2_GbpCapPublishLayers(V2_GBP_CAP_GV_GBP_LONG, 0);
+   AssertNear("flat side publishes zero",
+              GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 0.0, 1e-9);
+
+   Test_ClearCapGvs();
+}
+
+//+------------------------------------------------------------------+
+void Test_CapTriggerRecordWithoutPriorGv()
+{
+   Test_ClearCapGvs();
+   AssertTrue("gbp trigger gv absent", !GlobalVariableCheck("V2GBP_CAP_TRIGGERS"));
+   V2_GbpCapRecordBlock();
+   AssertTrue("gbp trigger gv created", GlobalVariableCheck("V2GBP_CAP_TRIGGERS"));
+   AssertNear("gbp trigger gv starts at 1", GlobalVariableGet("V2GBP_CAP_TRIGGERS"), 1.0, 1e-9);
+
+   if(GlobalVariableCheck("V2EUR_CAP_TRIGGERS"))
+      GlobalVariableDel("V2EUR_CAP_TRIGGERS");
+   V2_EurCapRecordBlock();
+   AssertNear("eur trigger gv starts at 1", GlobalVariableGet("V2EUR_CAP_TRIGGERS"), 1.0, 1e-9);
+
+   Test_ClearCapGvs();
+}
+
+//+------------------------------------------------------------------+
+void Test_FlatOnInitPreservesTriggerGvs()
+{
+   Test_ClearCapGvs();
+   GlobalVariableSet("V2GBP_CAP_TRIGGERS", 3.0);
+   GlobalVariableSet("V2EUR_CAP_TRIGGERS", 4.0);
+   // ADR-103: OnInit no longer resets trigger GVs; flat restart must preserve them.
+   AssertNear("gbp triggers preserved", GlobalVariableGet("V2GBP_CAP_TRIGGERS"), 3.0, 1e-9);
+   AssertNear("eur triggers preserved", GlobalVariableGet("V2EUR_CAP_TRIGGERS"), 4.0, 1e-9);
+   Test_ClearCapGvs();
+}
+
+//+------------------------------------------------------------------+
 // Per-layer scalp_closed telemetry (distinct from pod_closed)
 void Test_TelemetryScalpClosedPayload()
 {
@@ -1465,6 +1550,10 @@ void OnStart()
    Test_TelemetryScalpClosedUrl();
    Test_TelemetryScalpVsPodCloseIndependence();
    Test_OrphanStartupGuard();
+   Test_HaltedFillGateHelpers();
+   Test_OnInitCapPublishPolicy();
+   Test_CapTriggerRecordWithoutPriorGv();
+   Test_FlatOnInitPreservesTriggerGvs();
    Test_SixInstanceMagicIsolation();
    Test_PairSpreadAndPipConventionRefs();
    Test_AbSignalFormulaPure();
