@@ -351,6 +351,41 @@ exploratory/preliminary work. Khalid's own hands-on desktop compile
 and Strategy Tester run remains the final personal verification gate
 before anything is treated as ready to push or deploy.
 
+#### CLI/Headless Compile Reliability
+
+**Finding:** A real compile failure (24 errors, from an invalid
+pointer-based parameter pattern in MQL5, which does not support
+pointers to plain struct types) was silently missed by headless CLI
+compile checks and only caught by Khalid's personal GUI compile.
+Root causes, all confirmed directly:
+- If MetaEditor's GUI is already open, a CLI `/compile:` invocation
+  silently no-ops — exit code 0, no log written, no `.ex5` change —
+  indistinguishable from success without checking further.
+- MetaEditor's CLI exit codes are unreliable and can be inverted: a
+  successful compile has been observed returning exit code 1, while a
+  failed no-op returned exit code 0.
+- A stale log file from an earlier successful run can be misread as
+  the result of a current run if a fresh, uniquely-named log path
+  isn't used each invocation.
+- Unquoted paths containing spaces (e.g. a Windows user directory)
+  can fail silently in process-invocation argument lists.
+
+**Rule:** Any CLI/headless compile check must:
+- Ensure no MetaEditor GUI instance is already running before
+  invoking `/compile:` (kill the process first if needed).
+- Use a fresh, uniquely-named log file per invocation, never reuse or
+  assume a previous log path is current.
+- Quote all paths containing spaces.
+- Verify success by confirming the `.ex5` file's modification
+  timestamp is newer than the newest included source file — never by
+  trusting the exit code alone, and never by parsing a log without
+  first confirming its own timestamp is current.
+
+**Status:** Adopted following the 2026-08-03 incident. Khalid's
+personal GUI compile remains the authoritative verification gate
+regardless of any CLI/headless result — this finding does not change
+that, it explains why it must stay that way.
+
 #### Mandatory Calibration / Holdout Discipline
 
 **Finding:** ADR-099's threshold lock-in selected a winning
