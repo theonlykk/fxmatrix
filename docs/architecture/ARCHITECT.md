@@ -379,6 +379,30 @@ Applies to future calibration work going forward — not retroactive.
 ADR-097/098/099's already-locked thresholds are not reopened by this
 rule alone.
 
+#### Mandatory Refactoring Parity Gate
+
+**Finding:** Bare "exact equality" as a refactor-verification bar is
+unreliable — IEEE 754 floating-point differences can arise from a
+purely mechanical refactor (different call structure, identical math)
+without representing any real behavioral change. DeepSeek's audit of
+the Unified V2 Engine specification defined a dual-tolerance framework
+to distinguish real regressions from harmless floating-point noise.
+
+**Rule:** Any refactor claiming behavioral equivalence to existing
+production code must pass a dual-tolerance real-tick backtest:
+- Exact match required: order counts, exit counts, max layers, peak
+  net lots, and normalized order prices (tick-rounded).
+- Tolerance match allowed (~1e-9 relative): internal unrounded
+  floating-point state (e.g. raw sigma, log returns) that can shift by
+  a bit across a refactor without being a real bug.
+- P&L match: exact if the underlying deal sequence is identical;
+  bounded by explicit broker-currency-rounding tolerance otherwise —
+  the tolerance must be stated, not left implicit.
+
+**Status:** Adopted as a standing rule per Gemini's ruling, 2026-08-02.
+Applies to the Unified V2 Engine parity gate and to any future refactor
+claiming behavioral equivalence, not just this one.
+
 ---
 
 ## Parked Backlog
