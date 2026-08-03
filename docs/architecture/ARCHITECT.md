@@ -251,13 +251,10 @@ time of the action. This applies regardless of how small or
 "logic-free" the change being deployed is (a pure logging addition is
 not exempt).
 
-**Backlog reference:** A "State Reconstruction Engine" — replacing the
-current halt-on-orphan behavior with genuine state rebuild from live
-broker data on restart — has been identified as the eventual proper
-fix for the underlying gap this rule works around. Until that exists,
-the flat-chart precondition is the operative safeguard and should not
-be skipped even under time pressure or for changes believed to be
-low-risk.
+**Backlog reference:** see **Parked Backlog → State Reconstruction
+Engine** below. Until that initiative exists, the flat-chart
+precondition is the operative safeguard and should not be skipped even
+under time pressure or for changes believed to be low-risk.
 
 ### VPS Live Deployment Sequence
 
@@ -353,6 +350,82 @@ Two-tier verification model: Cursor's headless runs are trusted for
 exploratory/preliminary work. Khalid's own hands-on desktop compile
 and Strategy Tester run remains the final personal verification gate
 before anything is treated as ready to push or deploy.
+
+#### Mandatory Calibration / Holdout Discipline
+
+**Finding:** ADR-099's threshold lock-in selected a winning
+configuration (1/3) across four stress windows and then treated
+performance on those same four windows as verification — a classic
+in-sample selection pattern. DeepSeek's audit of the EURGBP
+native-sigma proposal identified this explicitly: with already-thin
+margins (+1.7% exits, +0.7% aggregate P&L), in-sample selection risks
+optimizing for window-specific noise rather than genuine structural
+edge.
+
+**Rule:** Any future parameter derivation, grid-spacing calibration, or
+threshold selection must pre-register an explicit calibration/holdout
+split before running the sweep:
+
+- **In-sample calibration set:** at most half of the target stress
+  windows, used to select candidate parameters.
+- **Out-of-sample holdout set:** the remaining windows, evaluated strictly
+  after the parameter is locked — never used to influence selection.
+- **Acceptance gate:** if performance or ranking degrades materially on
+  the holdout set, the parameter change is rejected, not re-tuned to
+  fit.
+
+**Status:** Adopted as a standing rule per Gemini's ruling, 2026-08-02.
+Applies to future calibration work going forward — not retroactive.
+ADR-097/098/099's already-locked thresholds are not reopened by this
+rule alone.
+
+---
+
+## Parked Backlog
+
+Items intentionally deferred after real investigation, not simply
+undone or forgotten. Each entry states why it's parked and what would
+need to be true to reopen it.
+
+### State Reconstruction Engine
+
+Would replace the current halt-on-orphan behavior with genuine state
+rebuild from live broker data on restart, removing the need for the
+flat-chart precondition. Rejected in its narrow form (Gemini's ruling,
+2026-08-02) because proving the "safe" narrow envelope requires nearly
+the same deal-history-replay complexity as the full engine — no real
+shortcut exists. Parked indefinitely. The flat-chart rule (see
+Operational Safety Rules) remains the operative safeguard. Reopen only
+if willing to commit to full deal-history replay as its own dedicated
+initiative.
+
+### EURGBP Native Sigma Migration + Easing Recalibration
+
+Would replace EURGBP's `MathMax(sig_ac, sig_bc)` half-spread sigma with
+a native, EURGBP-return-based sigma, and recalibrate ADR-099's easing
+thresholds under it. Parked (Gemini's ruling, 2026-08-02) due to: a
+dimensional/unit mismatch in the native sigma implementation
+(log-return sigma fed directly into a price-unit formula slot, ~19%
+scale distortion for EURGBP); floor-dominance nonlinearity that can
+make the easing ramp inert in more states than under the old sigma;
+and an already-thin original calibration margin that a full
+recalibration sweep isn't worth committing to before the above is
+resolved.
+
+**Reopen sequence, if ever revisited (Gate 0 per Gemini's ruling):**
+
+1. Fix the unit conversion (native sigma must be price-consistent, not
+   raw log-return dispersion).
+2. Run a single minimal sanity check against `june_blowup` and
+   `full_quarter` only, to check whether floor dominance consumes the
+   native signal before committing further.
+3. If the floor renders easing inert, stop — do not run the full
+   recalibration sweep.
+
+The underlying economic rationale (EURUSD/GBPUSD's shared USD-leg
+correlation means `MathMax` overstates true EURGBP cross volatility)
+was independently confirmed sound by DeepSeek; only the implementation
+and verification are unresolved.
 
 ---
 
