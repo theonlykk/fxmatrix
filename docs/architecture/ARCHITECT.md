@@ -551,6 +551,26 @@ eliminates the flat-chart deployment precondition for the majority of
 real restarts — any stack that hasn't had a position cycle through a
 CloseBy exit since it was last flat.
 
+**Superseded 2026-08-04:** reopened via direct architectural ruling,
+not the telemetry-based reopen condition specified above — that
+condition never triggered. Round 3 of the Phase 1 audit sequence
+found Option B's actual coverage excluded any side with even a single
+exit since it was last fully flat, since every managed exit in this
+system opens a hedge position, which is exactly the deal type Option
+B's halt condition triggers on. Given this system's design intent is
+frequent small scalp exits, that meant Option B eliminated the
+flat-chart precondition only for a side that had never closed a
+single layer since last flat — a narrow, likely uncommon case, not
+"most restarts" as originally framed when this was approved. Gemini
+ruled to abandon Option B and pursue full CloseBy-history mapping
+(Option A) instead, empirically verified feasible via this account's
+real deal history (129 CloseBy events, zero exceptions to the
+DEAL_ORDER pairing assumption the mapping strategy depends on). See
+the State Reconstruction Engine design (v5 and later) for current
+status — this entry is retained as the record of Option B's
+evaluation and rejection, not as an accurate description of current
+scope.
+
 ---
 
 Guiding Principles
