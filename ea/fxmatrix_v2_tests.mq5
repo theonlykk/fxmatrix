@@ -3,7 +3,7 @@
 //| Run in Strategy Tester or as script (OnStart). No live trading.   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.09"
+#property version   "1.10"
 #property script_show_inputs
 #property strict
 
@@ -15,6 +15,7 @@
 #include "fxmatrix_v2_gbp_cap.mqh"
 #include "fxmatrix_v2_eur_cap.mqh"
 #include "fxmatrix_v2_eurgbp_dual_cap.mqh"
+#include "fxmatrix_v2_l0_signal.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -1528,6 +1529,268 @@ void Test_SyncAllCapsPublishesBothGvSets()
 }
 
 //+------------------------------------------------------------------+
+string Test_ReadEngineMqhContent()
+{
+   const string rel = "fxmatrix_v2_engine.mqh";
+   int h = FileOpen(rel, FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(h == INVALID_HANDLE)
+      h = FileOpen(rel, FILE_READ | FILE_TXT | FILE_ANSI);
+   if(h == INVALID_HANDLE) {
+      const string abs_path = TerminalInfoString(TERMINAL_DATA_PATH)
+         + "\\MQL5\\Experts\\" + rel;
+      h = FileOpen(abs_path, FILE_READ | FILE_TXT | FILE_ANSI);
+   }
+   if(h == INVALID_HANDLE)
+      return "";
+   string content = "";
+   while(!FileIsEnding(h))
+      content += FileReadString(h) + "\n";
+   FileClose(h);
+   return content;
+}
+
+void Test_UnifiedEnginePairLabelLinter()
+{
+   const string content = Test_ReadEngineMqhContent();
+   AssertTrue("engine file readable for pair-label linter", StringLen(content) > 1000);
+   AssertNotContains("engine no GBPUSD literal", content, "\"GBPUSD\"");
+   AssertNotContains("engine no EURUSD literal", content, "\"EURUSD\"");
+   AssertNotContains("engine no EURGBP literal", content, "\"EURGBP\"");
+}
+
+void Test_UnifiedEngineMagicLiteralGrep()
+{
+   const string content = Test_ReadEngineMqhContent();
+   AssertTrue("engine file readable for magic grep", StringLen(content) > 1000);
+   const string forbidden[] = {
+      "20260901", "20260902", "20260903", "20260904",
+      "20260911", "20260912", "20260913", "20260914",
+      "20260921", "20260922", "20260923", "20260924"
+   };
+   for(int i = 0; i < ArraySize(forbidden); i++)
+      AssertNotContains("engine no magic " + forbidden[i], content, forbidden[i]);
+}
+
+void V2Test_FillMonotoneCloses(double &closes[], const double base)
+{
+   ArrayResize(closes, 60);
+   for(int i = 0; i < 60; i++)
+      closes[i] = base + 0.00001 * (59 - i);
+   ArraySetAsSeries(closes, true);
+}
+
+void V2Test_FillDefaultBcInputs(V2L0BcInputs &in, double &closes[])
+{
+   V2Test_FillMonotoneCloses(closes, 1.30000);
+   ArrayCopy(in.closes, closes);
+   in.quote_spread = 0.0004;
+   in.spread_multiplier = 0.5;
+   in.spread_multiplier_eased = 0.0;
+   in.ease_depth_start = 1;
+   in.ease_depth_full = 3;
+   in.live_spread_price = 0.0004;
+   in.passivity_buffer_price = 0.00005;
+   in.quoting_side_flat = true;
+   in.opposite_depth = 0;
+   in.compute_bid = true;
+}
+
+void Test_V2L0CoreComputeBc_ColdStart()
+{
+   V2L0BcInputs in;
+   double closes[];
+   ArrayResize(closes, 10);
+   ArrayCopy(in.closes, closes);
+   double out = 1.0;
+   V2L0CoreDiagnostics diag;
+   AssertTrue("bc cold-start rejects short buffer", !V2_L0CoreComputeBc(in, out, diag));
+}
+
+void Test_V2L0CoreComputeBc_EaseRampAffectsOutput()
+{
+   double closes[];
+   V2L0BcInputs in;
+   V2Test_FillDefaultBcInputs(in, closes);
+   in.bid = 1.30010;
+   in.ask = 1.30030;
+   in.quoting_side_flat = true;
+   in.opposite_depth = 0;
+   double flat_out = 0.0;
+   V2L0CoreDiagnostics diag;
+   AssertTrue("bc flat ramp baseline", V2_L0CoreComputeBc(in, flat_out, diag));
+
+   in.opposite_depth = 2;
+   double eased_out = 0.0;
+   V2L0CoreDiagnostics diag2;
+   AssertTrue("bc eased ramp", V2_L0CoreComputeBc(in, eased_out, diag2));
+   AssertTrue("bc ease ramp changes bid", MathAbs(flat_out - eased_out) > 1e-9);
+}
+
+void Test_V2L0CoreComputeBc_DynamicHalfSpreadFloor()
+{
+   double closes[];
+   V2L0BcInputs in;
+   V2Test_FillDefaultBcInputs(in, closes);
+   in.bid = 1.30010;
+   in.ask = 1.30030;
+   in.spread_multiplier = 0.0;
+   double out = 0.0;
+   V2L0CoreDiagnostics diag;
+   AssertTrue("bc floor path computes", V2_L0CoreComputeBc(in, out, diag));
+   AssertTrue("bc floor bid positive", out > 0.0);
+}
+
+void Test_V2L0CoreComputeBc_UnguardedHalfSpreadProductionParity()
+{
+   double closes[];
+   V2L0BcInputs in;
+   V2Test_FillDefaultBcInputs(in, closes);
+   V2L0CoreDiagnostics diag;
+
+   in.bid = 1.30010;
+   in.ask = 0.0;
+   double partial = 0.0;
+   AssertTrue("bc bid>0 ask==0 computes", V2_L0CoreComputeBc(in, partial, diag));
+
+   in.bid = 0.0;
+   in.ask = 0.0;
+   double zero = 0.0;
+   V2L0CoreDiagnostics diag_zero;
+   AssertTrue("bc zero bid ask computes", V2_L0CoreComputeBc(in, zero, diag_zero));
+   AssertTrue("bc partial ask differs from zero bid ask", MathAbs(partial - zero) > 1e-9);
+
+   in.bid = 1.30010;
+   in.ask = 1.30030;
+   double full = 0.0;
+   V2L0CoreDiagnostics diag_full;
+   AssertTrue("bc valid bid ask computes", V2_L0CoreComputeBc(in, full, diag_full));
+   AssertTrue("bc partial ask must not match half-spread path", MathAbs(partial - full) > 1e-9);
+}
+
+void Test_V2L0CoreComputeBc_DiagnosticsMatchCore()
+{
+   double closes[];
+   V2L0BcInputs in;
+   V2Test_FillDefaultBcInputs(in, closes);
+   in.bid = 1.30010;
+   in.ask = 1.30030;
+   in.opposite_depth = 2;
+   double theoretical = 0.0;
+   V2L0CoreDiagnostics diag;
+   AssertTrue("bc diagnostics path computes", V2_L0CoreComputeBc(in, theoretical, diag));
+   double expected_em = V2_EffectiveSpreadMultiplier(
+      in.opposite_depth, in.ease_depth_start, in.ease_depth_full,
+      in.spread_multiplier, in.spread_multiplier_eased);
+   AssertNear("bc diag effective_multiplier", diag.effective_multiplier, expected_em, 1e-12);
+   double fv, sigma;
+   AssertTrue("bc diag sigma source", V2_FvSigmaFromCloses(in.closes, fv, sigma));
+   AssertNear("bc diag sigma", diag.sigma, sigma, 1e-12);
+   double expected_hs = V2_L0DynamicHalfSpread(
+      in.quote_spread, sigma, expected_em, in.live_spread_price, in.passivity_buffer_price);
+   AssertNear("bc diag dynamic_hs", diag.dynamic_hs, expected_hs, 1e-12);
+   double theoretical_repeat = 0.0;
+   V2L0CoreDiagnostics diag_repeat;
+   AssertTrue("bc repeat path computes", V2_L0CoreComputeBc(in, theoretical_repeat, diag_repeat));
+   AssertNear("bc diag does not change theoretical", theoretical, theoretical_repeat, 1e-12);
+}
+
+void V2Test_FillDefaultAbInputs(V2L0AbInputs &in, double &ac[], double &bc[])
+{
+   V2Test_FillMonotoneCloses(ac, 1.10000);
+   V2Test_FillMonotoneCloses(bc, 1.30000);
+   ArrayCopy(in.ac_closes, ac);
+   ArrayCopy(in.bc_closes, bc);
+   in.quote_spread = 0.0004;
+   in.spread_multiplier = 0.5;
+   in.spread_multiplier_eased = 0.0;
+   in.ease_depth_start = 1;
+   in.ease_depth_full = 3;
+   in.live_spread_price = 0.0004;
+   in.passivity_buffer_price = 0.00005;
+   in.quoting_side_flat = true;
+   in.opposite_depth = 0;
+   in.compute_bid = true;
+}
+
+void Test_V2L0CoreComputeAb_ColdStart()
+{
+   V2L0AbInputs in;
+   double ac[], bc[];
+   ArrayResize(ac, 10);
+   ArrayResize(bc, 10);
+   ArrayCopy(in.ac_closes, ac);
+   ArrayCopy(in.bc_closes, bc);
+   double out = 1.0;
+   V2L0CoreDiagnostics diag;
+   AssertTrue("ab cold-start rejects short buffer", !V2_L0CoreComputeAb(in, out, diag));
+}
+
+void Test_V2L0CoreComputeAb_EaseRampAffectsOutput()
+{
+   double ac[], bc[];
+   V2L0AbInputs in;
+   V2Test_FillDefaultAbInputs(in, ac, bc);
+   in.ac_bid = 1.10010;
+   in.ac_ask = 1.10030;
+   in.bc_bid = 1.30010;
+   in.bc_ask = 1.30030;
+   in.opposite_depth = 0;
+   double flat_out = 0.0;
+   V2L0CoreDiagnostics diag;
+   AssertTrue("ab flat ramp baseline", V2_L0CoreComputeAb(in, flat_out, diag));
+
+   in.opposite_depth = 2;
+   double eased_out = 0.0;
+   V2L0CoreDiagnostics diag2;
+   AssertTrue("ab eased ramp", V2_L0CoreComputeAb(in, eased_out, diag2));
+   AssertTrue("ab ease ramp changes bid", MathAbs(flat_out - eased_out) > 1e-9);
+}
+
+void Test_V2L0CoreComputeAb_InvalidBidAskFallback()
+{
+   double ac[], bc[];
+   V2L0AbInputs in;
+   V2Test_FillDefaultAbInputs(in, ac, bc);
+   V2L0CoreDiagnostics diag;
+
+   in.ac_bid = 1.10010;
+   in.ac_ask = 0.0;
+   in.bc_bid = 1.30010;
+   in.bc_ask = 1.30030;
+   double ac_bid_only = 0.0;
+   AssertTrue("ab ac bid-only computes", V2_L0CoreComputeAb(in, ac_bid_only, diag));
+
+   in.ac_bid = 1.10010;
+   in.ac_ask = 1.10030;
+   in.bc_bid = 1.30010;
+   in.bc_ask = 0.0;
+   double bc_bid_only = 0.0;
+   V2L0CoreDiagnostics diag_bc;
+   AssertTrue("ab bc bid-only computes", V2_L0CoreComputeAb(in, bc_bid_only, diag_bc));
+
+   in.ac_bid = 0.0;
+   in.ac_ask = 0.0;
+   in.bc_bid = 0.0;
+   in.bc_ask = 0.0;
+   double cold = 0.0;
+   V2L0CoreDiagnostics diag_cold;
+   AssertTrue("ab zero bid ask computes", V2_L0CoreComputeAb(in, cold, diag_cold));
+   AssertNear("ab ac bid-only equals ac close fallback", ac_bid_only, cold, 1e-6);
+
+   in.ac_bid = 1.10010;
+   in.ac_ask = 1.10030;
+   in.bc_bid = 1.30010;
+   in.bc_ask = 1.30030;
+   double full = 0.0;
+   V2L0CoreDiagnostics diag_full;
+   AssertTrue("ab valid bid ask computes", V2_L0CoreComputeAb(in, full, diag_full));
+   AssertTrue("ab ac bid-only differs from full spread path",
+              MathAbs(ac_bid_only - full) > 1e-9);
+   AssertTrue("ab bc bid-only differs from full spread path",
+              MathAbs(bc_bid_only - full) > 1e-9);
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -1586,6 +1849,16 @@ void OnStart()
    Test_EurCapBlocksNewAddThreshold();
    Test_AnyCapBlocksNewAddNoMasking();
    Test_SyncAllCapsPublishesBothGvSets();
+   Test_UnifiedEnginePairLabelLinter();
+   Test_UnifiedEngineMagicLiteralGrep();
+   Test_V2L0CoreComputeBc_ColdStart();
+   Test_V2L0CoreComputeBc_EaseRampAffectsOutput();
+   Test_V2L0CoreComputeBc_DynamicHalfSpreadFloor();
+   Test_V2L0CoreComputeBc_UnguardedHalfSpreadProductionParity();
+   Test_V2L0CoreComputeBc_DiagnosticsMatchCore();
+   Test_V2L0CoreComputeAb_ColdStart();
+   Test_V2L0CoreComputeAb_EaseRampAffectsOutput();
+   Test_V2L0CoreComputeAb_InvalidBidAskFallback();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)
