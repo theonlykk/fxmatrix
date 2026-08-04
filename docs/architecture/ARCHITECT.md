@@ -520,6 +520,37 @@ established, unlike the other two entries in this section — revisit
 only if a materially different geometry candidate or a genuine
 slippage-mitigation mechanism changes the underlying tradeoff.
 
+### CloseBy-History Layer State Replay
+
+Parked as an explicit scope boundary of the State Reconstruction
+Engine (Gemini's ruling, 2026-08-04, Option B): the engine reconstructs
+layer state with confidence only on CloseBy-free history since the
+anchor. The moment any CloseBy-related deal (an exit-magic position
+open, or a `DEAL_ENTRY_OUT_BY`) is found in that window, the engine
+halts via the existing, already-safe orphan-guard behavior rather than
+attempting to reconstruct through it — it does not guess.
+
+Scope Boundary: CloseBy-History Layer State Replay is parked. The
+State Reconstruction Engine operates strictly on CloseBy-free history
+windows.
+
+Reopen Condition: Reopen full CloseBy-History Replay only if
+post-deployment telemetry proves that mid-session restarts on
+post-CloseBy stacks occur frequently enough to justify the engineering
+complexity of historical deal-pairing.
+
+Rationale (Gemini's ruling): building a full historical CloseBy
+deal-pairing engine was assessed as a structural failure-surface risk
+disproportionate to its value — MT5 hedging-mode exit fills open a new
+hedge position whose own opening deal carries no reference back to the
+original layer, so the mapping can only be recovered via correct
+CloseBy pairing across deal history, which introduces significant edge
+cases (missing/unpopulated position IDs, near-simultaneous CloseBys,
+a hedge leg closed by something other than CloseBy). Option B still
+eliminates the flat-chart deployment precondition for the majority of
+real restarts — any stack that hasn't had a position cycle through a
+CloseBy exit since it was last flat.
+
 ---
 
 Guiding Principles
