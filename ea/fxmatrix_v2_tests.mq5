@@ -1994,6 +1994,143 @@ void Test_SRE_UnmatchedExitOrderHalts()
    AssertTrue("unmatched exit halts", match.halt == V2_SRE_HALT_21_UNMATCHED_EXIT_ORDER);
 }
 
+const datetime SRE_AUDIT_NOW = D'2026.08.06 10:48:00';
+
+void SRE_Tier2AuditResetSwapOverride()
+{
+   g_v2_sre_test_swap_override = false;
+   g_v2_sre_test_swap_long       = 0.0;
+   g_v2_sre_test_swap_short      = 0.0;
+}
+
+void SRE_Tier2AuditSetSwapOverride(const double swap_long, const double swap_short)
+{
+   g_v2_sre_test_swap_override = true;
+   g_v2_sre_test_swap_long     = swap_long;
+   g_v2_sre_test_swap_short    = swap_short;
+}
+
+bool SRE_Tier2OldFixedToleranceAccepts(const V2SREPositionInput &pos,
+                                       const V2SREExitOrderInput &ord,
+                                       const datetime now,
+                                       const double exit_pips,
+                                       const double point,
+                                       const double expected_volume)
+{
+   if(!V2_SRE_Tier1BaseEligible(pos, ord, now, expected_volume))
+      return false;
+   if(V2_SRE_ExitPriceMatchesFormula(ord.price, pos.entry_price,
+                                     pos.direction, exit_pips, point))
+      return false;
+   const double expected = V2_SRE_ExpectedExitPrice(pos.entry_price, pos.direction,
+                                                     exit_pips, point);
+   return V2_SRE_PricesNear(ord.price, expected, V2_SRE_RolloverPriceTolerance(point));
+}
+
+void Test_SRE_Tier2RolloverBoundedRange_GbpusdLong_Audit509990725()
+{
+   SRE_Tier2AuditSetSwapOverride(-4.62, -6.18);
+
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].ticket = 509990725; pos[0].position_id = 509990725;
+   pos[0].open_time = D'2026.08.02 23:47:16';
+   pos[0].entry_price = 1.34959; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 1);
+   ord[0].ticket = 509992283; ord[0].placement_time = D'2026.08.02 23:47:16';
+   ord[0].price = 1.35015; ord[0].volume = SRE_LOT; ord[0].direction = 1;
+   ord[0].symbol = "GBPUSD";
+
+   const double expected = V2_SRE_ExpectedExitPrice(1.34959, 1, SRE_EXIT_PIPS, SRE_POINT);
+   AssertTrue("audit gbpusd long old fixed tolerance rejects",
+              !SRE_Tier2OldFixedToleranceAccepts(pos[0], ord[0], SRE_AUDIT_NOW,
+                                                 SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+   AssertTrue("audit gbpusd long bounded range accepts",
+              V2_SRE_Tier2Eligible(pos[0], ord[0], pos, SRE_AUDIT_NOW,
+                                   SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+   AssertTrue("audit gbpusd long price above naive target",
+              ord[0].price > expected);
+
+   SRE_Tier2AuditResetSwapOverride();
+}
+
+void Test_SRE_Tier2RolloverBoundedRange_GbpusdShort_FourLayers_Audit()
+{
+   SRE_Tier2AuditSetSwapOverride(-4.62, -6.18);
+
+   const datetime opens[4] = {
+      D'2026.07.30 07:03:26',
+      D'2026.07.30 07:28:02',
+      D'2026.07.30 08:08:32',
+      D'2026.07.30 12:42:21'
+   };
+   const double entries[4] = {1.33456, 1.33546, 1.33640, 1.34032};
+   const double exits[4]   = {1.33391, 1.33481, 1.33575, 1.33967};
+   const ulong tickets[4]  = {508010816, 508017768, 508045564, 508167500};
+
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 4);
+   for(int i = 0; i < 4; i++) {
+      pos[i].ticket = tickets[i]; pos[i].position_id = tickets[i];
+      pos[i].open_time = opens[i]; pos[i].entry_price = entries[i];
+      pos[i].volume = SRE_LOT; pos[i].direction = -1;
+      pos[i].symbol = "GBPUSD"; pos[i].position_type = POSITION_TYPE_SELL;
+   }
+
+   for(int i = 0; i < 4; i++) {
+      V2SREExitOrderInput ord[];
+      ArrayResize(ord, 1);
+      ord[0].ticket = tickets[i] + 1000; ord[0].placement_time = opens[i];
+      ord[0].price = exits[i]; ord[0].volume = SRE_LOT; ord[0].direction = -1;
+      ord[0].symbol = "GBPUSD";
+
+      const double expected = V2_SRE_ExpectedExitPrice(entries[i], -1, SRE_EXIT_PIPS, SRE_POINT);
+      AssertTrue("audit gbpusd short L" + IntegerToString(i) + " old fixed tolerance rejects",
+                 !SRE_Tier2OldFixedToleranceAccepts(pos[i], ord[0], SRE_AUDIT_NOW,
+                                                    SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+      AssertTrue("audit gbpusd short L" + IntegerToString(i) + " bounded range accepts",
+                 V2_SRE_Tier2Eligible(pos[i], ord[0], pos, SRE_AUDIT_NOW,
+                                      SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+      AssertTrue("audit gbpusd short L" + IntegerToString(i) + " price below naive target",
+                 ord[0].price < expected);
+   }
+
+   SRE_Tier2AuditResetSwapOverride();
+}
+
+void Test_SRE_Tier2RolloverBoundedRange_EurgbpLong_Audit508403686()
+{
+   SRE_Tier2AuditSetSwapOverride(-8.51, 0.15);
+
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].ticket = 508403686; pos[0].position_id = 508403686;
+   pos[0].open_time = D'2026.07.30 13:00:47';
+   pos[0].entry_price = 0.85803; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "EURGBP"; pos[0].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 1);
+   ord[0].ticket = 508408610; ord[0].placement_time = D'2026.07.30 13:00:47';
+   ord[0].price = 0.85881; ord[0].volume = SRE_LOT; ord[0].direction = 1;
+   ord[0].symbol = "EURGBP";
+
+   const double expected = V2_SRE_ExpectedExitPrice(0.85803, 1, SRE_EXIT_PIPS, SRE_POINT);
+   AssertTrue("audit eurgbp long old fixed tolerance rejects",
+              !SRE_Tier2OldFixedToleranceAccepts(pos[0], ord[0], SRE_AUDIT_NOW,
+                                                 SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+   AssertTrue("audit eurgbp long bounded range accepts",
+              V2_SRE_Tier2Eligible(pos[0], ord[0], pos, SRE_AUDIT_NOW,
+                                   SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+   AssertTrue("audit eurgbp long price above naive target",
+              ord[0].price > expected);
+
+   SRE_Tier2AuditResetSwapOverride();
+}
+
 void Test_SRE_PendingMultipleL0OnEmpty()
 {
    V2SREPendingEntryInput p[];
@@ -2864,6 +3001,9 @@ void OnStart()
    Test_SRE_WrongDirectionOpenPositionHalts();
    Test_SRE_WrongDirectionPendingHalts();
    Test_SRE_UnmatchedExitOrderHalts();
+   Test_SRE_Tier2RolloverBoundedRange_GbpusdLong_Audit509990725();
+   Test_SRE_Tier2RolloverBoundedRange_GbpusdShort_FourLayers_Audit();
+   Test_SRE_Tier2RolloverBoundedRange_EurgbpLong_Audit508403686();
    Test_SRE_PendingMultipleL0OnEmpty();
    Test_SRE_PendingMultipleAddReloadOnNonempty();
    Test_SRE_PendingL0WhileNonempty();

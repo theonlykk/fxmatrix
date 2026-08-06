@@ -6,6 +6,8 @@
 #define FXMATRIX_V2_STATE_RECONSTRUCTION_MQH
 
 #include "fxmatrix_v2_logic.mqh"
+#include "fxmatrix_v2_exits.mqh"
+#include "fxmatrix_v2_carry.mqh"
 
 #define V2_SRE_COMMENT_L0     "V2_L0"
 #define V2_SRE_COMMENT_ADD    "V2_Add"
@@ -352,6 +354,73 @@ double V2_SRE_RolloverPriceTolerance(const double point)
    return V2_SRE_PipsToPrice(1.0, point) + V2_SRE_ExitPriceTolerance(point);
 }
 
+// Unit-test hook — disabled in production (g_v2_sre_test_swap_override=false).
+bool   g_v2_sre_test_swap_override = false;
+double g_v2_sre_test_swap_long     = 0.0;
+double g_v2_sre_test_swap_short    = 0.0;
+
+datetime V2_SRE_MidnightAtDayStart(const datetime t)
+{
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   dt.hour = 0;
+   dt.min  = 0;
+   dt.sec  = 0;
+   return StructToTime(dt);
+}
+
+int V2_SRE_CountRolloverMultiplierUnits(const datetime open_time, const datetime now)
+{
+   datetime first_midnight = V2_SRE_MidnightAtDayStart(open_time);
+   if(open_time >= first_midnight)
+      first_midnight += 86400;
+
+   const datetime last_midnight = V2_SRE_MidnightAtDayStart(now);
+   if(first_midnight > last_midnight)
+      return 0;
+
+   int total_units = 0;
+   for(datetime cur = first_midnight; cur <= last_midnight; cur += 86400) {
+      MqlDateTime cur_dt;
+      TimeToStruct(cur, cur_dt);
+      total_units += V2_RolloverWednesdayMultiplier(cur_dt.day_of_week);
+   }
+   return total_units;
+}
+
+double V2_SRE_QuerySwapForDirection(const string symbol, const int direction)
+{
+   if(g_v2_sre_test_swap_override)
+      return (direction > 0) ? g_v2_sre_test_swap_long : g_v2_sre_test_swap_short;
+   return (direction > 0) ? SymbolInfoDouble(symbol, SYMBOL_SWAP_LONG)
+                          : SymbolInfoDouble(symbol, SYMBOL_SWAP_SHORT);
+}
+
+double V2_SRE_MaxPossibleRolloverShift(const datetime open_time,
+                                       const datetime now,
+                                       const string symbol,
+                                       const int direction,
+                                       const double point)
+{
+   const int units = V2_SRE_CountRolloverMultiplierUnits(open_time, now);
+   if(units <= 0)
+      return 0.0;
+   const double swap = V2_SRE_QuerySwapForDirection(symbol, direction);
+   return V2_RolloverShiftPrice(swap, units, point);
+}
+
+bool V2_SRE_Tier2RolloverPriceInRange(const double order_price,
+                                      const double expected,
+                                      const double max_shift,
+                                      const int direction)
+{
+   if(max_shift <= 0.0)
+      return false;
+   if(direction > 0)
+      return (order_price >= expected && order_price <= expected + max_shift);
+   return (order_price <= expected && order_price >= expected - max_shift);
+}
+
 bool V2_SRE_Tier2Eligible(const V2SREPositionInput &pos,
                           const V2SREExitOrderInput &ord,
                           const V2SREPositionInput &positions[],
@@ -374,7 +443,11 @@ bool V2_SRE_Tier2Eligible(const V2SREPositionInput &pos,
    }
    const double expected = V2_SRE_ExpectedExitPrice(pos.entry_price, pos.direction,
                                                      exit_pips, point);
-   return V2_SRE_PricesNear(ord.price, expected, V2_SRE_RolloverPriceTolerance(point));
+   const double max_shift = V2_SRE_MaxPossibleRolloverShift(pos.open_time, now,
+                                                            pos.symbol, pos.direction,
+                                                            point);
+   return V2_SRE_Tier2RolloverPriceInRange(ord.price, expected, max_shift,
+                                             pos.direction);
 }
 
 bool V2_SRE_AssignmentsEqual(const ulong &a[], const ulong &b[])
