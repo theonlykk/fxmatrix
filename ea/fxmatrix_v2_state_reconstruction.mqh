@@ -1124,13 +1124,6 @@ V2SREPathState V2_SRE_ReplayPathDependentState(const V2SREReplayEvent &events[],
    return state;
 }
 
-bool V2_SRE_CommentMatchesStackState(const string comment, const int stack_depth)
-{
-   if(stack_depth == 0)
-      return (comment == V2_SRE_COMMENT_L0);
-   return (comment == V2_SRE_COMMENT_ADD || comment == V2_SRE_COMMENT_RELOAD);
-}
-
 V2SREHaltReason V2_SRE_CheckPendingEntryConsistency(const V2SREPendingEntryInput &pending[],
                                                       const int stack_depth,
                                                       const int side_direction)
