@@ -571,6 +571,26 @@ status — this entry is retained as the record of Option B's
 evaluation and rejection, not as an accurate description of current
 scope.
 
+### Rollover/Carry Missed-Night Investigation
+
+The live audit that surfaced the SRE Tier 2 tolerance gap also found
+that naively counting every calendar midnight since a position's open
+date, at the current swap rate, over-predicts actual accumulated
+rollover drift by 2-3 pips on positions opened 2026-07-30. This implies
+`fxmatrix_v2_carry.mqh`'s daily rollover mechanism did not successfully
+apply a shift on every eligible night that week — the mechanism only
+fires if the EA is attached and the modify succeeds at that exact
+broker midnight, with no cross-day catch-up (ADR-101's known
+limitation). Root cause not yet investigated — candidates include EA
+downtime, a recompile/reattach window coinciding with a midnight, or
+`OrderModify` failures beyond ADR-101's same-day retry window.
+
+Reopen Condition: Investigate via Pipshed/telemetry review once
+sufficient rollover-cycle data has accumulated to distinguish these
+candidates — not urgent, decoupled from the State Reconstruction
+Engine work that surfaced it. Per Gemini's ruling (2026-08-06): log
+and defer, do not block on this.
+
 ---
 
 Guiding Principles
