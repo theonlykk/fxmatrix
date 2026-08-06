@@ -16,6 +16,7 @@
 #include "fxmatrix_v2_eur_cap.mqh"
 #include "fxmatrix_v2_eurgbp_dual_cap.mqh"
 #include "fxmatrix_v2_l0_signal.mqh"
+#include "fxmatrix_v2_state_reconstruction.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -1552,6 +1553,7 @@ string Test_ReadEngineMqhContent()
 void Test_UnifiedEnginePairLabelLinter()
 {
    const string content = Test_ReadEngineMqhContent();
+   Print("DIAG engine linter content chars=", StringLen(content));
    AssertTrue("engine file readable for pair-label linter", StringLen(content) > 1000);
    AssertNotContains("engine no GBPUSD literal", content, "\"GBPUSD\"");
    AssertNotContains("engine no EURUSD literal", content, "\"EURUSD\"");
@@ -1561,6 +1563,7 @@ void Test_UnifiedEnginePairLabelLinter()
 void Test_UnifiedEngineMagicLiteralGrep()
 {
    const string content = Test_ReadEngineMqhContent();
+   Print("DIAG engine grep content chars=", StringLen(content));
    AssertTrue("engine file readable for magic grep", StringLen(content) > 1000);
    const string forbidden[] = {
       "20260901", "20260902", "20260903", "20260904",
@@ -1791,6 +1794,304 @@ void Test_V2L0CoreComputeAb_InvalidBidAskFallback()
 }
 
 //+------------------------------------------------------------------+
+// State Reconstruction Engine — Phase A unit tests (spec v8)
+//+------------------------------------------------------------------+
+const double SRE_POINT = 0.00001;
+const double SRE_EXIT_PIPS = 3.0;
+const double SRE_LOT = 0.01;
+const datetime SRE_T0 = D'2026.06.01 10:00:00';
+const datetime SRE_T1 = D'2026.06.01 11:00:00';
+const datetime SRE_T2 = D'2026.06.01 12:00:00';
+const datetime SRE_T3 = D'2026.06.01 13:00:00';
+const datetime SRE_NOW = D'2026.06.01 14:00:00';
+
+void Test_SRE_BaselineMultiLayerNoCloseBy()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 2);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = SRE_T0;
+   pos[0].entry_price = 1.30000; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+   pos[1].ticket = 102; pos[1].position_id = 1002; pos[1].open_time = SRE_T1;
+   pos[1].entry_price = 1.29910; pos[1].volume = SRE_LOT; pos[1].direction = 1;
+   pos[1].symbol = "GBPUSD"; pos[1].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 2);
+   ord[0].ticket = 201; ord[0].placement_time = SRE_T0 + 60;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+   ord[1].ticket = 202; ord[1].placement_time = SRE_T1 + 60;
+   ord[1].price = V2_SRE_ExpectedExitPrice(1.29910, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[1].volume = SRE_LOT; ord[1].direction = 1; ord[1].symbol = "GBPUSD";
+
+   V2SREMatchResult match = V2_SRE_MatchExitOrders(pos, ord, SRE_NOW,
+                                                   SRE_EXIT_PIPS, SRE_POINT, SRE_LOT);
+   AssertTrue("baseline match ok", match.halt == V2_SRE_OK);
+   AssertTrue("layer0 exit ticket", match.exit_tickets[0] == 201);
+   AssertTrue("layer1 exit ticket", match.exit_tickets[1] == 202);
+
+   V2SRELayerSnapshot recon[];
+   V2SRELayerSnapshot broker[];
+   V2_SRE_BuildLayerSnapshotsFromPositions(pos, match, recon);
+   ArrayResize(broker, 2);
+   broker[0].position_ticket = 1001; broker[0].entry_ticket = 101; broker[0].entry_price = 1.30000;
+   broker[1].position_ticket = 1002; broker[1].entry_ticket = 102; broker[1].entry_price = 1.29910;
+   AssertTrue("baseline validation", V2_SRE_ValidateReconstruction(recon, broker) == V2_SRE_OK);
+}
+
+void Test_SRE_AnchorWalkCloseByNoMiscount()
+{
+   V2SREDealInput deals[];
+   ArrayResize(deals, 5);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = 5001; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2; deals[0].volume = SRE_LOT; deals[0].price = 1.30000;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = 5002; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = MM_LONG_V2_EXIT; deals[1].volume = SRE_LOT; deals[1].price = 1.30030;
+   deals[2].deal_time = SRE_T1 + 30; deals[2].position_id = 5001; deals[2].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[2].deal_magic = MM_LONG_V2; deals[2].volume = SRE_LOT; deals[2].order_id = 9001;
+   deals[3].deal_time = SRE_T1 + 30; deals[3].position_id = 5002; deals[3].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[3].deal_magic = MM_LONG_V2; deals[3].volume = SRE_LOT; deals[3].order_id = 9001;
+   deals[4].deal_time = SRE_T2; deals[4].position_id = 5003; deals[4].entry_type = DEAL_ENTRY_IN;
+   deals[4].deal_magic = MM_LONG_V2; deals[4].volume = SRE_LOT; deals[4].price = 1.29910;
+
+   const double vol_after_close = V2_SRE_EntryVolumeAtAnchorWalk(deals, 3, MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertTrue("closeby decrements entry by position_id", vol_after_close <= 1e-12);
+
+   V2SREAnchorResult anchor = V2_SRE_FindAnchor(deals, SRE_NOW, V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                                MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertTrue("anchor found after closeby", anchor.halt == V2_SRE_OK);
+}
+
+void Test_SRE_ReloadResetsLastExitValid()
+{
+   V2SREReplayEvent ev[];
+   ArrayResize(ev, 3);
+   ev[0].event_time = SRE_T0; ev[0].is_removal = false; ev[0].is_reload = false;
+   ev[0].entry_price = 1.30000; ev[0].entry_position_id = 1;
+   ev[1].event_time = SRE_T1; ev[1].is_removal = true; ev[1].is_reload = false;
+   ev[1].entry_price = 1.30000; ev[1].entry_position_id = 1;
+   ev[2].event_time = SRE_T2; ev[2].is_removal = false; ev[2].is_reload = true;
+   ev[2].entry_price = 1.30000; ev[2].entry_position_id = 2;
+
+   V2SREPathState st = V2_SRE_ReplayPathDependentState(ev, V2_ADD_PIPS_FLOOR,
+                                                       V2_WIDEN_RATIO, V2_ADD_PIPS_CEILING);
+   AssertTrue("reload clears last_exit_valid", !st.last_exit_valid);
+}
+
+void Test_SRE_StaleExitOrderNotAssignable()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = SRE_T2;
+   pos[0].entry_price = 1.29910; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 1);
+   ord[0].ticket = 201; ord[0].placement_time = SRE_T0;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+
+   V2SREMatchResult match = V2_SRE_MatchExitOrders(pos, ord, SRE_NOW,
+                                                   SRE_EXIT_PIPS, SRE_POINT, SRE_LOT);
+   AssertTrue("stale order unmatched halts", match.halt == V2_SRE_HALT_21_UNMATCHED_EXIT_ORDER);
+}
+
+void Test_SRE_LateExitStillMatchesOlderLayer()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 2);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = SRE_T0;
+   pos[0].entry_price = 1.30000; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+   pos[1].ticket = 102; pos[1].position_id = 1002; pos[1].open_time = SRE_T1;
+   pos[1].entry_price = 1.29910; pos[1].volume = SRE_LOT; pos[1].direction = 1;
+   pos[1].symbol = "GBPUSD"; pos[1].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 2);
+   ord[0].ticket = 201; ord[0].placement_time = SRE_T2;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+   ord[1].ticket = 202; ord[1].placement_time = SRE_T1 + 60;
+   ord[1].price = V2_SRE_ExpectedExitPrice(1.29910, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[1].volume = SRE_LOT; ord[1].direction = 1; ord[1].symbol = "GBPUSD";
+
+   V2SREMatchResult match = V2_SRE_MatchExitOrders(pos, ord, SRE_NOW,
+                                                   SRE_EXIT_PIPS, SRE_POINT, SRE_LOT);
+   AssertTrue("late placement match ok", match.halt == V2_SRE_OK);
+   AssertTrue("older layer keeps its exit", match.exit_tickets[0] == 201);
+   AssertTrue("newer layer keeps its exit", match.exit_tickets[1] == 202);
+}
+
+void Test_SRE_CrossPairPriceConsistencyHalts()
+{
+   V2SREDealInput deals[];
+   ArrayResize(deals, 4);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = 6001; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2; deals[0].volume = SRE_LOT; deals[0].price = 1.30000;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = 7001; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = MM_LONG_V2_EXIT; deals[1].volume = SRE_LOT;
+   deals[1].price = V2_SRE_ExpectedExitPrice(1.29910, 1, SRE_EXIT_PIPS, SRE_POINT);
+   deals[2].deal_time = SRE_T2; deals[2].position_id = 6001; deals[2].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[2].deal_magic = MM_LONG_V2; deals[2].volume = SRE_LOT; deals[2].order_id = 9100;
+   deals[3].deal_time = SRE_T2; deals[3].position_id = 7001; deals[3].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[3].deal_magic = MM_LONG_V2; deals[3].volume = SRE_LOT; deals[3].order_id = 9100;
+
+   V2SREMapResult map = V2_SRE_MapHedgeToEntry(deals, SRE_T0 - 1, MM_LONG_V2, MM_LONG_V2_EXIT,
+                                               1, SRE_EXIT_PIPS, SRE_POINT);
+   AssertTrue("cross-pair price halt", map.halt == V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT);
+}
+
+void Test_SRE_ExitMagicOpenHaltsPrecheck()
+{
+   V2SREPositionInput exit_pos[];
+   ArrayResize(exit_pos, 1);
+   exit_pos[0].ticket = 301; exit_pos[0].position_id = 9001; exit_pos[0].open_time = SRE_T1;
+   exit_pos[0].entry_price = 1.30030; exit_pos[0].volume = SRE_LOT; exit_pos[0].direction = 1;
+   exit_pos[0].symbol = "GBPUSD"; exit_pos[0].position_type = POSITION_TYPE_SELL;
+   AssertTrue("exit magic open halts", V2_SRE_PreCheckExitMagicOpen(exit_pos) ==
+              V2_SRE_HALT_01_EXIT_MAGIC_POSITION_OPEN);
+}
+
+void Test_SRE_WrongDirectionOpenPositionHalts()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].direction = 1; pos[0].position_type = POSITION_TYPE_SELL;
+   AssertTrue("wrong open position type",
+              !V2_SRE_CheckOpenPositionTypes(pos, 1));
+}
+
+void Test_SRE_WrongDirectionPendingHalts()
+{
+   V2SREPendingEntryInput pending[];
+   ArrayResize(pending, 1);
+   pending[0].comment = V2_SRE_COMMENT_ADD; pending[0].direction = -1;
+   AssertTrue("wrong pending direction",
+              V2_SRE_CheckPendingEntryConsistency(pending, 1, 1) ==
+              V2_SRE_HALT_20_PENDING_ENTRY_WRONG_DIRECTION);
+}
+
+void Test_SRE_UnmatchedExitOrderHalts()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = SRE_T1;
+   pos[0].entry_price = 1.29910; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 1);
+   ord[0].ticket = 201; ord[0].placement_time = SRE_T1 + 60;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+
+   V2SREMatchResult match = V2_SRE_MatchExitOrders(pos, ord, SRE_NOW,
+                                                   SRE_EXIT_PIPS, SRE_POINT, SRE_LOT);
+   AssertTrue("unmatched exit halts", match.halt == V2_SRE_HALT_21_UNMATCHED_EXIT_ORDER);
+}
+
+void Test_SRE_PendingMultipleL0OnEmpty()
+{
+   V2SREPendingEntryInput p[];
+   ArrayResize(p, 2);
+   p[0].comment = V2_SRE_COMMENT_L0; p[0].direction = 1;
+   p[1].comment = V2_SRE_COMMENT_L0; p[1].direction = 1;
+   AssertTrue("multiple L0", V2_SRE_CheckPendingEntryConsistency(p, 0, 1) ==
+              V2_SRE_HALT_13_MULTIPLE_L0_PENDING);
+}
+
+void Test_SRE_PendingMultipleAddReloadOnNonempty()
+{
+   V2SREPendingEntryInput p[];
+   ArrayResize(p, 2);
+   p[0].comment = V2_SRE_COMMENT_ADD; p[0].direction = 1;
+   p[1].comment = V2_SRE_COMMENT_RELOAD; p[1].direction = 1;
+   AssertTrue("multiple add/reload", V2_SRE_CheckPendingEntryConsistency(p, 2, 1) ==
+              V2_SRE_HALT_05_MULTIPLE_ADD_RELOAD_PENDING);
+}
+
+void Test_SRE_PendingL0WhileNonempty()
+{
+   V2SREPendingEntryInput p[];
+   ArrayResize(p, 1);
+   p[0].comment = V2_SRE_COMMENT_L0; p[0].direction = 1;
+   AssertTrue("L0 while nonempty", V2_SRE_CheckPendingEntryConsistency(p, 2, 1) ==
+              V2_SRE_HALT_06_PENDING_ENTRY_STACK_MISMATCH);
+}
+
+void Test_SRE_PendingAddWhileEmpty()
+{
+   V2SREPendingEntryInput p[];
+   ArrayResize(p, 1);
+   p[0].comment = V2_SRE_COMMENT_ADD; p[0].direction = 1;
+   AssertTrue("add while empty", V2_SRE_CheckPendingEntryConsistency(p, 0, 1) ==
+              V2_SRE_HALT_06_PENDING_ENTRY_STACK_MISMATCH);
+}
+
+void Test_SRE_PendingUnresolvableComment()
+{
+   V2SREPendingEntryInput p[];
+   ArrayResize(p, 1);
+   p[0].comment = "V2_Bogus"; p[0].direction = 1;
+   AssertTrue("bad comment", V2_SRE_CheckPendingEntryConsistency(p, 1, 1) ==
+              V2_SRE_HALT_11_PENDING_COMMENT_INCONSISTENT);
+}
+
+void Test_SRE_MultipleEntryInOnePositionHalts()
+{
+   V2SREDealInput deals[];
+   ArrayResize(deals, 2);
+   deals[0].position_id = 8001; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2; deals[0].volume = 0.005;
+   deals[1].position_id = 8001; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = MM_LONG_V2; deals[1].volume = 0.005;
+   AssertTrue("multi entry-in halt", V2_SRE_CheckMultipleEntryInDeals(deals, MM_LONG_V2) ==
+              V2_SRE_HALT_15_MULTIPLE_ENTRY_IN_ONE_POSITION);
+}
+
+void Test_SRE_NonStandardClosureBeforeAnchorHalts()
+{
+   V2SREDealInput deals[];
+   ArrayResize(deals, 3);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = 8101; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2; deals[0].volume = SRE_LOT;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = 8101; deals[1].entry_type = DEAL_ENTRY_OUT;
+   deals[1].deal_magic = MM_LONG_V2; deals[1].volume = SRE_LOT;
+   deals[2].deal_time = SRE_T2; deals[2].position_id = 8102; deals[2].entry_type = DEAL_ENTRY_IN;
+   deals[2].deal_magic = MM_LONG_V2; deals[2].volume = SRE_LOT;
+
+   V2SRECloseByPair pairs[];
+   ArrayResize(pairs, 0);
+   AssertTrue("ordinary close halts", V2_SRE_CheckNonStandardClosures(deals, SRE_NOW,
+              V2_SRE_DEFAULT_LOOKBACK_SEC, MM_LONG_V2) ==
+              V2_SRE_HALT_23_NON_STANDARD_ENTRY_CLOSE);
+}
+
+void Test_SRE_SentinelBlocksCapNetExposure()
+{
+   bool present[] = { true, true, false, true };
+   double values[] = { 2.0, -1.0, 0.0, V2_SRE_CAP_GV_SENTINEL };
+   double net = 0.0;
+   AssertTrue("sentinel blocks net calc", V2_SRE_CapNetExposureBlocked(present, values, 4, net));
+   AssertTrue("absent gv blocks", V2_SRE_CapNetExposureBlocked(present, values, 3, net));
+}
+
+void Test_SRE_ValidationMismatchHalts()
+{
+   V2SRELayerSnapshot recon[];
+   V2SRELayerSnapshot broker[];
+   ArrayResize(recon, 1);
+   ArrayResize(broker, 1);
+   recon[0].position_ticket = 1001; recon[0].entry_ticket = 101; recon[0].entry_price = 1.30000;
+   broker[0].position_ticket = 1001; broker[0].entry_ticket = 101; broker[0].entry_price = 1.30010;
+   AssertTrue("validation mismatch", V2_SRE_ValidateReconstruction(recon, broker) ==
+              V2_SRE_HALT_VALIDATION_MISMATCH);
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -1859,6 +2160,26 @@ void OnStart()
    Test_V2L0CoreComputeAb_ColdStart();
    Test_V2L0CoreComputeAb_EaseRampAffectsOutput();
    Test_V2L0CoreComputeAb_InvalidBidAskFallback();
+
+   Test_SRE_BaselineMultiLayerNoCloseBy();
+   Test_SRE_AnchorWalkCloseByNoMiscount();
+   Test_SRE_ReloadResetsLastExitValid();
+   Test_SRE_StaleExitOrderNotAssignable();
+   Test_SRE_LateExitStillMatchesOlderLayer();
+   Test_SRE_CrossPairPriceConsistencyHalts();
+   Test_SRE_ExitMagicOpenHaltsPrecheck();
+   Test_SRE_WrongDirectionOpenPositionHalts();
+   Test_SRE_WrongDirectionPendingHalts();
+   Test_SRE_UnmatchedExitOrderHalts();
+   Test_SRE_PendingMultipleL0OnEmpty();
+   Test_SRE_PendingMultipleAddReloadOnNonempty();
+   Test_SRE_PendingL0WhileNonempty();
+   Test_SRE_PendingAddWhileEmpty();
+   Test_SRE_PendingUnresolvableComment();
+   Test_SRE_MultipleEntryInOnePositionHalts();
+   Test_SRE_NonStandardClosureBeforeAnchorHalts();
+   Test_SRE_SentinelBlocksCapNetExposure();
+   Test_SRE_ValidationMismatchHalts();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)
