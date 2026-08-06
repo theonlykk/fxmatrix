@@ -17,6 +17,7 @@
 #include "fxmatrix_v2_eurgbp_dual_cap.mqh"
 #include "fxmatrix_v2_l0_signal.mqh"
 #include "fxmatrix_v2_state_reconstruction.mqh"
+#include "fxmatrix_v2_sre_oninit.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -2092,6 +2093,310 @@ void Test_SRE_ValidationMismatchHalts()
 }
 
 //+------------------------------------------------------------------+
+// Phase B — OnInit SRE orchestration tests
+void SRE_OnInitResetOverride()
+{
+   g_v2_sre_oninit_broker_override.active = false;
+   g_v2_sre_oninit_broker_override.test_corrupt_broker_read = false;
+   g_v2_sre_oninit_broker_override.test_corrupt_entry_price = 0.0;
+   ArrayResize(g_v2_sre_oninit_broker_override.entry_positions, 0);
+   ArrayResize(g_v2_sre_oninit_broker_override.exit_positions, 0);
+   ArrayResize(g_v2_sre_oninit_broker_override.exit_orders, 0);
+   ArrayResize(g_v2_sre_oninit_broker_override.pending_entries, 0);
+   ArrayResize(g_v2_sre_oninit_broker_override.deals, 0);
+}
+
+V2SREOnInitSideConfig SRE_OnInitTestConfig()
+{
+   V2SREOnInitSideConfig cfg;
+   cfg.instance_tag = V2_TEL_INSTANCE_LONG;
+   cfg.symbol = "GBPUSD";
+   cfg.side_direction = 1;
+   cfg.entry_magic = MM_LONG_V2;
+   cfg.exit_magic = MM_LONG_V2_EXIT;
+   cfg.expected_volume = SRE_LOT;
+   cfg.exit_pips = SRE_EXIT_PIPS;
+   cfg.point = SRE_POINT;
+   cfg.add_pips_floor = V2_ADD_PIPS_FLOOR;
+   cfg.widen_ratio = V2_WIDEN_RATIO;
+   cfg.add_pips_ceiling = V2_ADD_PIPS_CEILING;
+   cfg.layer_count = 0;
+   cfg.now = SRE_NOW;
+   cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
+   cfg.is_long = true;
+   cfg.cap_bridge = V2_SRE_CAP_BRIDGE_GBPUSD;
+   return cfg;
+}
+
+void SRE_OnInitFillBaselineTwoLayer(V2SREPositionInput &pos[],
+                                    V2SREExitOrderInput &ord[],
+                                    V2SREDealInput &deals[])
+{
+   ArrayResize(pos, 2);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = SRE_T2;
+   pos[0].entry_price = 1.30000; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+   pos[1].ticket = 102; pos[1].position_id = 1002; pos[1].open_time = SRE_T3;
+   pos[1].entry_price = 1.29910; pos[1].volume = SRE_LOT; pos[1].direction = 1;
+   pos[1].symbol = "GBPUSD"; pos[1].position_type = POSITION_TYPE_BUY;
+
+   ArrayResize(ord, 2);
+   ord[0].ticket = 201; ord[0].placement_time = SRE_T2 + 60;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+   ord[1].ticket = 202; ord[1].placement_time = SRE_T3 + 60;
+   ord[1].price = V2_SRE_ExpectedExitPrice(1.29910, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[1].volume = SRE_LOT; ord[1].direction = 1; ord[1].symbol = "GBPUSD";
+
+   ArrayResize(deals, 6);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = 5001; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2; deals[0].volume = SRE_LOT; deals[0].price = 1.30000;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = 5002; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = MM_LONG_V2_EXIT; deals[1].volume = SRE_LOT; deals[1].price = 1.30030;
+   deals[2].deal_time = SRE_T1 + 30; deals[2].position_id = 5001; deals[2].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[2].deal_magic = MM_LONG_V2; deals[2].volume = SRE_LOT; deals[2].order_id = 9001;
+   deals[3].deal_time = SRE_T1 + 30; deals[3].position_id = 5002; deals[3].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[3].deal_magic = MM_LONG_V2; deals[3].volume = SRE_LOT; deals[3].order_id = 9001;
+   deals[4].deal_time = SRE_T2; deals[4].position_id = 1001; deals[4].entry_type = DEAL_ENTRY_IN;
+   deals[4].deal_magic = MM_LONG_V2; deals[4].volume = SRE_LOT; deals[4].price = 1.30000;
+   deals[5].deal_time = SRE_T3; deals[5].position_id = 1002; deals[5].entry_type = DEAL_ENTRY_IN;
+   deals[5].deal_magic = MM_LONG_V2; deals[5].volume = SRE_LOT; deals[5].price = 1.29910;
+}
+
+void Test_SRE_OnInit_EndToEndReconstruction()
+{
+   Test_ClearCapGvs();
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit e2e ok", hr == V2_SRE_OK);
+   AssertTrue("oninit e2e committed", res.committed);
+   AssertTrue("oninit e2e two layers", res.layer_count_after == 2);
+   AssertTrue("oninit e2e exit ticket L0", res.layers[0].exit_ticket == 201);
+   AssertTrue("oninit e2e cap published", res.cap_published_on_commit);
+   AssertNear("oninit e2e cap gv", GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 2.0, 1e-9);
+
+   Test_ClearCapGvs();
+}
+
+void Test_SRE_OnInit_HaltStep3()
+{
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+   pos[0].position_type = POSITION_TYPE_SELL;
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit halt step3", hr == V2_SRE_HALT_12_POSITION_TYPE_MISMATCH);
+   AssertTrue("oninit step3 not committed", !res.committed);
+}
+
+void Test_SRE_OnInit_HaltStep4()
+{
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[1].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit halt step4", hr == V2_SRE_HALT_21_UNMATCHED_EXIT_ORDER);
+   AssertTrue("oninit step4 not committed", !res.committed);
+}
+
+void Test_SRE_OnInit_HaltStep5()
+{
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = SRE_T1;
+   pos[0].entry_price = 1.30000; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit halt step5", hr == V2_SRE_HALT_09_ANCHOR_NOT_FOUND);
+   AssertTrue("oninit step5 not committed", !res.committed);
+}
+
+void Test_SRE_OnInit_HaltStep6_ReplayPathState()
+{
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+
+   ArrayResize(deals, 8);
+   deals[6].deal_time = SRE_T2 + 120; deals[6].position_id = 1001; deals[6].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[6].deal_magic = MM_LONG_V2; deals[6].volume = SRE_LOT; deals[6].order_id = 9100;
+   deals[7].deal_time = SRE_T2 + 180; deals[7].position_id = 1003; deals[7].entry_type = DEAL_ENTRY_IN;
+   deals[7].deal_magic = MM_LONG_V2; deals[7].volume = SRE_LOT; deals[7].price = 1.30000;
+   deals[7].comment = V2_SRE_COMMENT_RELOAD;
+
+   ArrayResize(pos, 1);
+   pos[0].ticket = 103; pos[0].position_id = 1003; pos[0].open_time = SRE_T2 + 180;
+   pos[0].entry_price = 1.30000; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+
+   ArrayResize(ord, 1);
+   ord[0].ticket = 203; ord[0].placement_time = SRE_T2 + 240;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit step6 replay ok", hr == V2_SRE_OK);
+   AssertTrue("oninit step6 reload clears last_exit", !res.path_state.last_exit_valid);
+}
+
+void Test_SRE_OnInit_SentinelBeforeHistory()
+{
+   Test_ClearCapGvs();
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+   pos[0].position_type = POSITION_TYPE_SELL;
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit sentinel halt path", hr == V2_SRE_HALT_12_POSITION_TYPE_MISMATCH);
+   AssertTrue("oninit sentinel written", res.sentinel_written);
+   AssertTrue("oninit history read", res.history_read);
+   AssertTrue("oninit sentinel before history", res.sentinel_before_history);
+   AssertNear("oninit sentinel gv during halt path",
+              GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), V2_SRE_CAP_GV_SENTINEL, 1e-9);
+   AssertTrue("oninit sentinel halt not committed", !res.committed);
+
+   Test_ClearCapGvs();
+}
+
+void Test_SRE_OnInit_ValidationBackstopHalts()
+{
+   Test_ClearCapGvs();
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+
+   g_v2_sre_oninit_broker_override.active = true;
+   g_v2_sre_oninit_broker_override.test_corrupt_broker_read = true;
+   g_v2_sre_oninit_broker_override.test_corrupt_entry_price = 1.30010;
+   ArrayResize(g_v2_sre_oninit_broker_override.entry_positions, 2);
+   g_v2_sre_oninit_broker_override.entry_positions[0] = pos[0];
+   g_v2_sre_oninit_broker_override.entry_positions[1] = pos[1];
+   ArrayResize(g_v2_sre_oninit_broker_override.exit_orders, 2);
+   g_v2_sre_oninit_broker_override.exit_orders[0] = ord[0];
+   g_v2_sre_oninit_broker_override.exit_orders[1] = ord[1];
+   ArrayResize(g_v2_sre_oninit_broker_override.deals, 6);
+   for(int i = 0; i < 6; i++)
+      g_v2_sre_oninit_broker_override.deals[i] = deals[i];
+
+   string alerts[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const bool halted = V2_SRE_RunSideOnInit(alerts, cfg, res);
+   AssertTrue("oninit validation backstop halts", halted);
+   AssertTrue("oninit validation halt reason", res.halt_reason == V2_SRE_HALT_VALIDATION_MISMATCH);
+   AssertTrue("oninit validation not committed", !res.committed);
+   AssertNear("oninit validation sentinel stays",
+              GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), V2_SRE_CAP_GV_SENTINEL, 1e-9);
+
+   SRE_OnInitResetOverride();
+   Test_ClearCapGvs();
+}
+
+void Test_SRE_OnInit_CapPublishOnlyAfterCommit()
+{
+   Test_ClearCapGvs();
+   SRE_OnInitResetOverride();
+
+   V2_GbpCapPublishLayers(V2_GBP_CAP_GV_GBP_LONG, 9);
+   AssertNear("oninit cap seed", GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 9.0, 1e-9);
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+   pos[0].position_type = POSITION_TYPE_SELL;
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertNear("oninit halt leaves sentinel not seed",
+              GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), V2_SRE_CAP_GV_SENTINEL, 1e-9);
+   AssertTrue("oninit halt no cap commit", !res.cap_published_on_commit);
+
+   SRE_OnInitResetOverride();
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+   V2_SRE_ResetOnInitSideResult(res);
+   V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("oninit success publishes layers", res.cap_published_on_commit);
+   AssertNear("oninit success cap gv", GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 2.0, 1e-9);
+
+   Test_ClearCapGvs();
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -2180,6 +2485,14 @@ void OnStart()
    Test_SRE_NonStandardClosureBeforeAnchorHalts();
    Test_SRE_SentinelBlocksCapNetExposure();
    Test_SRE_ValidationMismatchHalts();
+   Test_SRE_OnInit_EndToEndReconstruction();
+   Test_SRE_OnInit_HaltStep3();
+   Test_SRE_OnInit_HaltStep4();
+   Test_SRE_OnInit_HaltStep5();
+   Test_SRE_OnInit_HaltStep6_ReplayPathState();
+   Test_SRE_OnInit_SentinelBeforeHistory();
+   Test_SRE_OnInit_ValidationBackstopHalts();
+   Test_SRE_OnInit_CapPublishOnlyAfterCommit();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)
