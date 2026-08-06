@@ -1592,12 +1592,6 @@ int OnInit() {
    long_cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
    long_cfg.is_long = true;
    long_cfg.cap_bridge = V2_SRE_CAP_BRIDGE_EURGBP_DUAL;
-   if(V2_SRE_RunSideOnInit(g_long_system_alerts, long_cfg, long_sre)) {
-      g_long_halted = true;
-      long_orphan = true;
-   } else if(long_sre.committed) {
-      V2_ApplyLongSRECommit(long_sre);
-   }
 
    V2SREOnInitSideResult short_sre;
    V2SREOnInitSideConfig short_cfg;
@@ -1617,12 +1611,20 @@ int OnInit() {
    short_cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
    short_cfg.is_long = false;
    short_cfg.cap_bridge = V2_SRE_CAP_BRIDGE_EURGBP_DUAL;
-   if(V2_SRE_RunSideOnInit(g_short_system_alerts, short_cfg, short_sre)) {
+
+   V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+      g_long_system_alerts, g_short_system_alerts, long_cfg, short_cfg, long_sre, short_sre);
+   long_orphan = agg.long_halted;
+   short_orphan = agg.short_halted;
+   if(long_orphan)
+      g_long_halted = true;
+   else if(agg.long_committed)
+      V2_ApplyLongSRECommit(long_sre);
+
+   if(short_orphan)
       g_short_halted = true;
-      short_orphan = true;
-   } else if(short_sre.committed) {
+   else if(agg.short_committed)
       V2_ApplyShortSRECommit(short_sre);
-   }
 
    if(V2_ShouldPublishCapSyncOnInit(long_orphan))
       V2_SyncAllCaps(true, ArraySize(g_long_layers));
@@ -1645,7 +1647,7 @@ int OnInit() {
             "clean instance(s) continue. Reattach flat after resolving orphans.");
    }
 
-   return V2_OnInitResultFromOrphanFlags(long_orphan, short_orphan);
+   return agg.init_result;
 }
 
 void OnDeinit(const int reason) {

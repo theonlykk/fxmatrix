@@ -2104,16 +2104,76 @@ void SRE_OnInitResetOverride()
    ArrayResize(g_v2_sre_oninit_broker_override.exit_orders, 0);
    ArrayResize(g_v2_sre_oninit_broker_override.pending_entries, 0);
    ArrayResize(g_v2_sre_oninit_broker_override.deals, 0);
+
+   g_v2_sre_oninit_dual_override.active = false;
+   g_v2_sre_oninit_dual_override.long_side.active = false;
+   g_v2_sre_oninit_dual_override.long_side.test_corrupt_broker_read = false;
+   g_v2_sre_oninit_dual_override.long_side.test_corrupt_entry_price = 0.0;
+   ArrayResize(g_v2_sre_oninit_dual_override.long_side.entry_positions, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.long_side.exit_positions, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.long_side.exit_orders, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.long_side.pending_entries, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.long_side.deals, 0);
+   g_v2_sre_oninit_dual_override.short_side.active = false;
+   g_v2_sre_oninit_dual_override.short_side.test_corrupt_broker_read = false;
+   g_v2_sre_oninit_dual_override.short_side.test_corrupt_entry_price = 0.0;
+   ArrayResize(g_v2_sre_oninit_dual_override.short_side.entry_positions, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.short_side.exit_positions, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.short_side.exit_orders, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.short_side.pending_entries, 0);
+   ArrayResize(g_v2_sre_oninit_dual_override.short_side.deals, 0);
 }
 
-V2SREOnInitSideConfig SRE_OnInitTestConfig()
+#define SRE_ONINIT_PAIR_GBPUSD 0
+#define SRE_ONINIT_PAIR_EURUSD 1
+#define SRE_ONINIT_PAIR_EURGBP 2
+#define SRE_ONINIT_PAIR_COUNT  3
+
+void SRE_OnInitPairKeys(const int pair,
+                        long &long_entry,
+                        long &long_exit,
+                        long &short_entry,
+                        long &short_exit,
+                        string &symbol,
+                        V2SRECapBridgeKind &bridge)
 {
+   if(pair == SRE_ONINIT_PAIR_EURUSD) {
+      long_entry = 20260911;
+      long_exit = 20260913;
+      short_entry = 20260912;
+      short_exit = 20260914;
+      symbol = "EURUSD";
+      bridge = V2_SRE_CAP_BRIDGE_EURUSD;
+   } else if(pair == SRE_ONINIT_PAIR_EURGBP) {
+      long_entry = 20260921;
+      long_exit = 20260923;
+      short_entry = 20260922;
+      short_exit = 20260924;
+      symbol = "EURGBP";
+      bridge = V2_SRE_CAP_BRIDGE_EURGBP_DUAL;
+   } else {
+      long_entry = MM_LONG_V2;
+      long_exit = MM_LONG_V2_EXIT;
+      short_entry = MM_SHORT_V2;
+      short_exit = MM_SHORT_V2_EXIT;
+      symbol = "GBPUSD";
+      bridge = V2_SRE_CAP_BRIDGE_GBPUSD;
+   }
+}
+
+V2SREOnInitSideConfig SRE_OnInitTestConfigForPair(const int pair, const bool is_long)
+{
+   long long_entry, long_exit, short_entry, short_exit;
+   string symbol;
+   V2SRECapBridgeKind bridge;
+   SRE_OnInitPairKeys(pair, long_entry, long_exit, short_entry, short_exit, symbol, bridge);
+
    V2SREOnInitSideConfig cfg;
-   cfg.instance_tag = V2_TEL_INSTANCE_LONG;
-   cfg.symbol = "GBPUSD";
-   cfg.side_direction = 1;
-   cfg.entry_magic = MM_LONG_V2;
-   cfg.exit_magic = MM_LONG_V2_EXIT;
+   cfg.instance_tag = is_long ? V2_TEL_INSTANCE_LONG : V2_TEL_INSTANCE_SHORT;
+   cfg.symbol = symbol;
+   cfg.side_direction = is_long ? 1 : -1;
+   cfg.entry_magic = is_long ? long_entry : short_entry;
+   cfg.exit_magic = is_long ? long_exit : short_exit;
    cfg.expected_volume = SRE_LOT;
    cfg.exit_pips = SRE_EXIT_PIPS;
    cfg.point = SRE_POINT;
@@ -2123,9 +2183,187 @@ V2SREOnInitSideConfig SRE_OnInitTestConfig()
    cfg.layer_count = 0;
    cfg.now = SRE_NOW;
    cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
-   cfg.is_long = true;
-   cfg.cap_bridge = V2_SRE_CAP_BRIDGE_GBPUSD;
+   cfg.is_long = is_long;
+   cfg.cap_bridge = bridge;
    return cfg;
+}
+
+V2SREOnInitSideConfig SRE_OnInitTestConfig()
+{
+   return SRE_OnInitTestConfigForPair(SRE_ONINIT_PAIR_GBPUSD, true);
+}
+
+V2SREOnInitSideConfig SRE_OnInitTestConfigShort()
+{
+   return SRE_OnInitTestConfigForPair(SRE_ONINIT_PAIR_GBPUSD, false);
+}
+
+void SRE_OnInitCopyFixtureFromArrays(V2SREOnInitBrokerOverride &fixture,
+                                     const V2SREPositionInput &pos[],
+                                     const V2SREExitOrderInput &ord[],
+                                     const V2SREDealInput &deals[])
+{
+   fixture.active = true;
+   fixture.test_corrupt_broker_read = false;
+   fixture.test_corrupt_entry_price = 0.0;
+   ArrayResize(fixture.entry_positions, ArraySize(pos));
+   for(int i = 0; i < ArraySize(pos); i++)
+      fixture.entry_positions[i] = pos[i];
+   ArrayResize(fixture.exit_positions, 0);
+   ArrayResize(fixture.exit_orders, ArraySize(ord));
+   for(int i = 0; i < ArraySize(ord); i++)
+      fixture.exit_orders[i] = ord[i];
+   ArrayResize(fixture.pending_entries, 0);
+   ArrayResize(fixture.deals, ArraySize(deals));
+   for(int i = 0; i < ArraySize(deals); i++)
+      fixture.deals[i] = deals[i];
+}
+
+void SRE_OnInitFillBaselineTwoLayerSide(V2SREPositionInput &pos[],
+                                        V2SREExitOrderInput &ord[],
+                                        V2SREDealInput &deals[],
+                                        const int pair,
+                                        const bool is_long)
+{
+   long long_entry, long_exit, short_entry, short_exit;
+   string symbol;
+   V2SRECapBridgeKind bridge;
+   SRE_OnInitPairKeys(pair, long_entry, long_exit, short_entry, short_exit, symbol, bridge);
+
+   const long entry_magic = is_long ? long_entry : short_entry;
+   const long exit_magic = is_long ? long_exit : short_exit;
+   const int direction = is_long ? 1 : -1;
+   const ENUM_POSITION_TYPE ptype = is_long ? POSITION_TYPE_BUY : POSITION_TYPE_SELL;
+
+   int ticket_base, pos_id_base, ord_base, hist_pos_base, closeby_order_id;
+   if(pair == SRE_ONINIT_PAIR_GBPUSD) {
+      ticket_base = is_long ? 101 : 301;
+      pos_id_base = is_long ? 1001 : 2001;
+      ord_base = is_long ? 201 : 401;
+      hist_pos_base = is_long ? 5001 : 6001;
+      closeby_order_id = is_long ? 9001 : 9101;
+   } else {
+      ticket_base = 100 + pair * 100 + (is_long ? 0 : 200);
+      pos_id_base = 1000 + pair * 1000 + (is_long ? 0 : 1000);
+      ord_base = 200 + pair * 100 + (is_long ? 0 : 200);
+      hist_pos_base = 5000 + pair * 1000 + (is_long ? 0 : 1000);
+      closeby_order_id = 9000 + pair * 100 + (is_long ? 1 : 2);
+   }
+
+   const double entry0 = 1.30000;
+   const double entry1 = is_long ? 1.29910 : 1.30090;
+   const double exit_anchor_price = is_long ? 1.30030 : 1.29970;
+
+   ArrayResize(pos, 2);
+   pos[0].ticket = ticket_base; pos[0].position_id = pos_id_base; pos[0].open_time = SRE_T2;
+   pos[0].entry_price = entry0; pos[0].volume = SRE_LOT; pos[0].direction = direction;
+   pos[0].symbol = symbol; pos[0].position_type = ptype;
+   pos[1].ticket = ticket_base + 1; pos[1].position_id = pos_id_base + 1; pos[1].open_time = SRE_T3;
+   pos[1].entry_price = entry1; pos[1].volume = SRE_LOT; pos[1].direction = direction;
+   pos[1].symbol = symbol; pos[1].position_type = ptype;
+
+   ArrayResize(ord, 2);
+   ord[0].ticket = ord_base; ord[0].placement_time = SRE_T2 + 60;
+   ord[0].price = V2_SRE_ExpectedExitPrice(entry0, direction, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = direction; ord[0].symbol = symbol;
+   ord[1].ticket = ord_base + 1; ord[1].placement_time = SRE_T3 + 60;
+   ord[1].price = V2_SRE_ExpectedExitPrice(entry1, direction, SRE_EXIT_PIPS, SRE_POINT);
+   ord[1].volume = SRE_LOT; ord[1].direction = direction; ord[1].symbol = symbol;
+
+   ArrayResize(deals, 6);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = hist_pos_base; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = entry_magic; deals[0].volume = SRE_LOT; deals[0].price = entry0;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = hist_pos_base + 1; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = exit_magic; deals[1].volume = SRE_LOT; deals[1].price = exit_anchor_price;
+   deals[2].deal_time = SRE_T1 + 30; deals[2].position_id = hist_pos_base; deals[2].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[2].deal_magic = entry_magic; deals[2].volume = SRE_LOT; deals[2].order_id = closeby_order_id;
+   deals[3].deal_time = SRE_T1 + 30; deals[3].position_id = hist_pos_base + 1; deals[3].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[3].deal_magic = entry_magic; deals[3].volume = SRE_LOT; deals[3].order_id = closeby_order_id;
+   deals[4].deal_time = SRE_T2; deals[4].position_id = pos_id_base; deals[4].entry_type = DEAL_ENTRY_IN;
+   deals[4].deal_magic = entry_magic; deals[4].volume = SRE_LOT; deals[4].price = entry0;
+   deals[5].deal_time = SRE_T3; deals[5].position_id = pos_id_base + 1; deals[5].entry_type = DEAL_ENTRY_IN;
+   deals[5].deal_magic = entry_magic; deals[5].volume = SRE_LOT; deals[5].price = entry1;
+}
+
+void SRE_OnInitFillBaselineTwoLayerShort(V2SREPositionInput &pos[],
+                                         V2SREExitOrderInput &ord[],
+                                         V2SREDealInput &deals[])
+{
+   ArrayResize(pos, 2);
+   pos[0].ticket = 301; pos[0].position_id = 2001; pos[0].open_time = SRE_T2;
+   pos[0].entry_price = 1.30000; pos[0].volume = SRE_LOT; pos[0].direction = -1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_SELL;
+   pos[1].ticket = 302; pos[1].position_id = 2002; pos[1].open_time = SRE_T3;
+   pos[1].entry_price = 1.30090; pos[1].volume = SRE_LOT; pos[1].direction = -1;
+   pos[1].symbol = "GBPUSD"; pos[1].position_type = POSITION_TYPE_SELL;
+
+   ArrayResize(ord, 2);
+   ord[0].ticket = 401; ord[0].placement_time = SRE_T2 + 60;
+   ord[0].price = V2_SRE_ExpectedExitPrice(1.30000, -1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[0].volume = SRE_LOT; ord[0].direction = -1; ord[0].symbol = "GBPUSD";
+   ord[1].ticket = 402; ord[1].placement_time = SRE_T3 + 60;
+   ord[1].price = V2_SRE_ExpectedExitPrice(1.30090, -1, SRE_EXIT_PIPS, SRE_POINT);
+   ord[1].volume = SRE_LOT; ord[1].direction = -1; ord[1].symbol = "GBPUSD";
+
+   ArrayResize(deals, 6);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = 6001; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_SHORT_V2; deals[0].volume = SRE_LOT; deals[0].price = 1.30000;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = 6002; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = MM_SHORT_V2_EXIT; deals[1].volume = SRE_LOT; deals[1].price = 1.29970;
+   deals[2].deal_time = SRE_T1 + 30; deals[2].position_id = 6001; deals[2].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[2].deal_magic = MM_SHORT_V2; deals[2].volume = SRE_LOT; deals[2].order_id = 9101;
+   deals[3].deal_time = SRE_T1 + 30; deals[3].position_id = 6002; deals[3].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[3].deal_magic = MM_SHORT_V2; deals[3].volume = SRE_LOT; deals[3].order_id = 9101;
+   deals[4].deal_time = SRE_T2; deals[4].position_id = 2001; deals[4].entry_type = DEAL_ENTRY_IN;
+   deals[4].deal_magic = MM_SHORT_V2; deals[4].volume = SRE_LOT; deals[4].price = 1.30000;
+   deals[5].deal_time = SRE_T3; deals[5].position_id = 2002; deals[5].entry_type = DEAL_ENTRY_IN;
+   deals[5].deal_magic = MM_SHORT_V2; deals[5].volume = SRE_LOT; deals[5].price = 1.30090;
+}
+
+void SRE_OnInitFillHaltFixture(V2SREOnInitBrokerOverride &fixture,
+                               const bool is_long,
+                               const int pair)
+{
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   if(pair == SRE_ONINIT_PAIR_GBPUSD) {
+      if(is_long)
+         SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+      else
+         SRE_OnInitFillBaselineTwoLayerShort(pos, ord, deals);
+   } else {
+      SRE_OnInitFillBaselineTwoLayerSide(pos, ord, deals, pair, is_long);
+   }
+   if(is_long)
+      pos[0].position_type = POSITION_TYPE_SELL;
+   else
+      pos[0].position_type = POSITION_TYPE_BUY;
+   SRE_OnInitCopyFixtureFromArrays(fixture, pos, ord, deals);
+}
+
+void SRE_OnInitFillSuccessFixture(V2SREOnInitBrokerOverride &fixture,
+                                  const bool is_long,
+                                  const int pair)
+{
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   if(pair == SRE_ONINIT_PAIR_GBPUSD) {
+      if(is_long)
+         SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+      else
+         SRE_OnInitFillBaselineTwoLayerShort(pos, ord, deals);
+   } else {
+      SRE_OnInitFillBaselineTwoLayerSide(pos, ord, deals, pair, is_long);
+   }
+   SRE_OnInitCopyFixtureFromArrays(fixture, pos, ord, deals);
+}
+
+void SRE_OnInitActivateDualOverride()
+{
+   SRE_OnInitResetOverride();
+   g_v2_sre_oninit_dual_override.active = true;
 }
 
 void SRE_OnInitFillBaselineTwoLayer(V2SREPositionInput &pos[],
@@ -2396,6 +2634,156 @@ void Test_SRE_OnInit_CapPublishOnlyAfterCommit()
    Test_ClearCapGvs();
 }
 
+void Test_SRE_OnInitPairBothHaltInitFailed()
+{
+   const string tags[3] = {"gbpusd", "eurusd", "eurgbp"};
+   for(int p = 0; p < SRE_ONINIT_PAIR_COUNT; p++) {
+      Test_ClearCapGvs();
+      SRE_OnInitActivateDualOverride();
+      SRE_OnInitFillHaltFixture(g_v2_sre_oninit_dual_override.long_side, true, p);
+      SRE_OnInitFillHaltFixture(g_v2_sre_oninit_dual_override.short_side, false, p);
+
+      string long_alerts[];
+      string short_alerts[];
+      V2SREOnInitSideConfig long_cfg = SRE_OnInitTestConfigForPair(p, true);
+      V2SREOnInitSideConfig short_cfg = SRE_OnInitTestConfigForPair(p, false);
+      V2SREOnInitSideResult long_sre;
+      V2SREOnInitSideResult short_sre;
+
+      const V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+         long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
+
+      AssertTrue(tags[p] + " pair both halt init failed", agg.init_result == INIT_FAILED);
+      AssertTrue(tags[p] + " pair both halt long halted", agg.long_halted);
+      AssertTrue(tags[p] + " pair both halt short halted", agg.short_halted);
+      AssertTrue(tags[p] + " pair both halt long not committed", !agg.long_committed);
+      AssertTrue(tags[p] + " pair both halt short not committed", !agg.short_committed);
+
+      SRE_OnInitResetOverride();
+      Test_ClearCapGvs();
+   }
+}
+
+void Test_SRE_OnInitPairLongHaltOnlyInitSucceeded()
+{
+   const string tags[3] = {"gbpusd", "eurusd", "eurgbp"};
+   for(int p = 0; p < SRE_ONINIT_PAIR_COUNT; p++) {
+      Test_ClearCapGvs();
+      SRE_OnInitActivateDualOverride();
+      SRE_OnInitFillHaltFixture(g_v2_sre_oninit_dual_override.long_side, true, p);
+
+      string long_alerts[];
+      string short_alerts[];
+      V2SREOnInitSideConfig long_cfg = SRE_OnInitTestConfigForPair(p, true);
+      V2SREOnInitSideConfig short_cfg = SRE_OnInitTestConfigForPair(p, false);
+      V2SREOnInitSideResult long_sre;
+      V2SREOnInitSideResult short_sre;
+
+      const V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+         long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
+
+      AssertTrue(tags[p] + " pair long halt only init succeeded", agg.init_result == INIT_SUCCEEDED);
+      AssertTrue(tags[p] + " pair long halt only long halted", agg.long_halted);
+      AssertTrue(tags[p] + " pair long halt only short continues", !agg.short_halted);
+      AssertTrue(tags[p] + " pair long halt only long not committed", !agg.long_committed);
+      AssertTrue(tags[p] + " pair long halt only short not committed", !agg.short_committed);
+
+      SRE_OnInitResetOverride();
+      Test_ClearCapGvs();
+   }
+}
+
+void Test_SRE_OnInitPairShortHaltOnlyInitSucceeded()
+{
+   const string tags[3] = {"gbpusd", "eurusd", "eurgbp"};
+   for(int p = 0; p < SRE_ONINIT_PAIR_COUNT; p++) {
+      Test_ClearCapGvs();
+      SRE_OnInitActivateDualOverride();
+      SRE_OnInitFillHaltFixture(g_v2_sre_oninit_dual_override.short_side, false, p);
+
+      string long_alerts[];
+      string short_alerts[];
+      V2SREOnInitSideConfig long_cfg = SRE_OnInitTestConfigForPair(p, true);
+      V2SREOnInitSideConfig short_cfg = SRE_OnInitTestConfigForPair(p, false);
+      V2SREOnInitSideResult long_sre;
+      V2SREOnInitSideResult short_sre;
+
+      const V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+         long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
+
+      AssertTrue(tags[p] + " pair short halt only init succeeded", agg.init_result == INIT_SUCCEEDED);
+      AssertTrue(tags[p] + " pair short halt only short halted", agg.short_halted);
+      AssertTrue(tags[p] + " pair short halt only long continues", !agg.long_halted);
+      AssertTrue(tags[p] + " pair short halt only long not committed", !agg.long_committed);
+      AssertTrue(tags[p] + " pair short halt only short not committed", !agg.short_committed);
+
+      SRE_OnInitResetOverride();
+      Test_ClearCapGvs();
+   }
+}
+
+void Test_SRE_OnInitPairBothFlatInitSucceeded()
+{
+   const string tags[3] = {"gbpusd", "eurusd", "eurgbp"};
+   for(int p = 0; p < SRE_ONINIT_PAIR_COUNT; p++) {
+      Test_ClearCapGvs();
+      SRE_OnInitActivateDualOverride();
+
+      string long_alerts[];
+      string short_alerts[];
+      V2SREOnInitSideConfig long_cfg = SRE_OnInitTestConfigForPair(p, true);
+      V2SREOnInitSideConfig short_cfg = SRE_OnInitTestConfigForPair(p, false);
+      V2SREOnInitSideResult long_sre;
+      V2SREOnInitSideResult short_sre;
+
+      const V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+         long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
+
+      AssertTrue(tags[p] + " pair both flat init succeeded", agg.init_result == INIT_SUCCEEDED);
+      AssertTrue(tags[p] + " pair both flat long not halted", !agg.long_halted);
+      AssertTrue(tags[p] + " pair both flat short not halted", !agg.short_halted);
+      AssertTrue(tags[p] + " pair both flat long not committed", !agg.long_committed);
+      AssertTrue(tags[p] + " pair both flat short not committed", !agg.short_committed);
+      AssertTrue(tags[p] + " pair both flat no long alerts", ArraySize(long_alerts) == 0);
+      AssertTrue(tags[p] + " pair both flat no short alerts", ArraySize(short_alerts) == 0);
+
+      SRE_OnInitResetOverride();
+      Test_ClearCapGvs();
+   }
+}
+
+void Test_SRE_OnInitPairBothCommitInitSucceeded()
+{
+   const string tags[3] = {"gbpusd", "eurusd", "eurgbp"};
+   for(int p = 0; p < SRE_ONINIT_PAIR_COUNT; p++) {
+      Test_ClearCapGvs();
+      SRE_OnInitActivateDualOverride();
+      SRE_OnInitFillSuccessFixture(g_v2_sre_oninit_dual_override.long_side, true, p);
+      SRE_OnInitFillSuccessFixture(g_v2_sre_oninit_dual_override.short_side, false, p);
+
+      string long_alerts[];
+      string short_alerts[];
+      V2SREOnInitSideConfig long_cfg = SRE_OnInitTestConfigForPair(p, true);
+      V2SREOnInitSideConfig short_cfg = SRE_OnInitTestConfigForPair(p, false);
+      V2SREOnInitSideResult long_sre;
+      V2SREOnInitSideResult short_sre;
+
+      const V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+         long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
+
+      AssertTrue(tags[p] + " pair both commit init succeeded", agg.init_result == INIT_SUCCEEDED);
+      AssertTrue(tags[p] + " pair both commit long not halted", !agg.long_halted);
+      AssertTrue(tags[p] + " pair both commit short not halted", !agg.short_halted);
+      AssertTrue(tags[p] + " pair both commit long committed", agg.long_committed);
+      AssertTrue(tags[p] + " pair both commit short committed", agg.short_committed);
+      AssertTrue(tags[p] + " pair both commit long layers", long_sre.layer_count_after == 2);
+      AssertTrue(tags[p] + " pair both commit short layers", short_sre.layer_count_after == 2);
+
+      SRE_OnInitResetOverride();
+      Test_ClearCapGvs();
+   }
+}
+
 //+------------------------------------------------------------------+
 void OnStart()
 {
@@ -2493,6 +2881,11 @@ void OnStart()
    Test_SRE_OnInit_SentinelBeforeHistory();
    Test_SRE_OnInit_ValidationBackstopHalts();
    Test_SRE_OnInit_CapPublishOnlyAfterCommit();
+   Test_SRE_OnInitPairBothHaltInitFailed();
+   Test_SRE_OnInitPairLongHaltOnlyInitSucceeded();
+   Test_SRE_OnInitPairShortHaltOnlyInitSucceeded();
+   Test_SRE_OnInitPairBothFlatInitSucceeded();
+   Test_SRE_OnInitPairBothCommitInitSucceeded();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

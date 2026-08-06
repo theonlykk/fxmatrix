@@ -68,6 +68,24 @@ struct V2SREOnInitBrokerOverride
 
 V2SREOnInitBrokerOverride g_v2_sre_oninit_broker_override;
 
+struct V2SREOnInitDualBrokerOverride
+{
+   bool                      active;
+   V2SREOnInitBrokerOverride   long_side;
+   V2SREOnInitBrokerOverride   short_side;
+};
+
+V2SREOnInitDualBrokerOverride g_v2_sre_oninit_dual_override;
+
+struct V2SREOnInitAggregateOutcome
+{
+   bool long_halted;
+   bool short_halted;
+   bool long_committed;
+   bool short_committed;
+   int  init_result;
+};
+
 //+------------------------------------------------------------------+
 string V2_SRE_HaltReasonLabel(const V2SREHaltReason reason)
 {
@@ -501,6 +519,58 @@ V2SREHaltReason V2_SRE_RunOnInitSequencePure(const V2SREOnInitSideConfig &cfg,
 }
 
 //+------------------------------------------------------------------+
+// Fixture-driven side path (unit tests). Returns true if side should halt.
+bool V2_SRE_RunSideOnInitFromFixture(string &system_alerts[],
+                                     const V2SREOnInitSideConfig &cfg,
+                                     const V2SREOnInitBrokerOverride &fixture,
+                                     V2SREOnInitSideResult &result)
+{
+   V2_SRE_ResetOnInitSideResult(result);
+
+   const bool saved_corrupt = g_v2_sre_oninit_broker_override.test_corrupt_broker_read;
+   const double saved_corrupt_price = g_v2_sre_oninit_broker_override.test_corrupt_entry_price;
+   g_v2_sre_oninit_broker_override.test_corrupt_broker_read = fixture.test_corrupt_broker_read;
+   g_v2_sre_oninit_broker_override.test_corrupt_entry_price = fixture.test_corrupt_entry_price;
+
+   const V2SREHaltReason seq = V2_SRE_RunOnInitSequencePure(cfg,
+      fixture.entry_positions,
+      fixture.exit_positions,
+      fixture.exit_orders,
+      fixture.pending_entries,
+      fixture.deals,
+      result);
+
+   g_v2_sre_oninit_broker_override.test_corrupt_broker_read = saved_corrupt;
+   g_v2_sre_oninit_broker_override.test_corrupt_entry_price = saved_corrupt_price;
+
+   if(seq != V2_SRE_OK) {
+      result.side_halted = true;
+      return V2_SRE_ProcessSideHalt(system_alerts, cfg.instance_tag, seq,
+                                      fixture.entry_positions, fixture.exit_positions);
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+// Both-side OnInit SRE block: run long then short, aggregate halt/commit/init result.
+// Mirrors production OnInit wiring (fxmatrix_v2.mq5) without EA-specific apply/cap/telemetry.
+V2SREOnInitAggregateOutcome V2_SRE_RunOnInitSidePair(string &long_alerts[],
+                                                     string &short_alerts[],
+                                                     const V2SREOnInitSideConfig &long_cfg,
+                                                     const V2SREOnInitSideConfig &short_cfg,
+                                                     V2SREOnInitSideResult &long_sre,
+                                                     V2SREOnInitSideResult &short_sre)
+{
+   V2SREOnInitAggregateOutcome agg;
+   agg.long_halted = V2_SRE_RunSideOnInit(long_alerts, long_cfg, long_sre);
+   agg.short_halted = V2_SRE_RunSideOnInit(short_alerts, short_cfg, short_sre);
+   agg.long_committed = long_sre.committed;
+   agg.short_committed = short_sre.committed;
+   agg.init_result = V2_OnInitResultFromOrphanFlags(agg.long_halted, agg.short_halted);
+   return agg;
+}
+
+//+------------------------------------------------------------------+
 // Production entry: gather live broker state, run sequence, push alerts on halt.
 // Returns true if this side should halt (same contract as V2_ProcessOrphanStartupCheck).
 bool V2_SRE_RunSideOnInit(string &system_alerts[],
@@ -515,27 +585,17 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
    V2SREPendingEntryInput pending_entries[];
    V2SREDealInput deals[];
 
+   if(g_v2_sre_oninit_dual_override.active) {
+      const V2SREOnInitBrokerOverride fixture = cfg.is_long ?
+         g_v2_sre_oninit_dual_override.long_side : g_v2_sre_oninit_dual_override.short_side;
+      if(!fixture.active)
+         return false;
+      return V2_SRE_RunSideOnInitFromFixture(system_alerts, cfg, fixture, result);
+   }
+
    if(g_v2_sre_oninit_broker_override.active) {
-      const V2SREHaltReason seq = V2_SRE_RunOnInitSequencePure(cfg,
-         g_v2_sre_oninit_broker_override.entry_positions,
-         g_v2_sre_oninit_broker_override.exit_positions,
-         g_v2_sre_oninit_broker_override.exit_orders,
-         g_v2_sre_oninit_broker_override.pending_entries,
-         g_v2_sre_oninit_broker_override.deals,
-         result);
-      if(seq != V2_SRE_OK) {
-         result.side_halted = true;
-         V2SREPositionInput ep[];
-         V2SREPositionInput xp[];
-         const int en = ArraySize(g_v2_sre_oninit_broker_override.entry_positions);
-         const int xn = ArraySize(g_v2_sre_oninit_broker_override.exit_positions);
-         ArrayResize(ep, en);
-         ArrayResize(xp, xn);
-         for(int i = 0; i < en; i++) ep[i] = g_v2_sre_oninit_broker_override.entry_positions[i];
-         for(int i = 0; i < xn; i++) xp[i] = g_v2_sre_oninit_broker_override.exit_positions[i];
-         return V2_SRE_ProcessSideHalt(system_alerts, cfg.instance_tag, seq, ep, xp);
-      }
-      return false;
+      return V2_SRE_RunSideOnInitFromFixture(system_alerts, cfg,
+                                             g_v2_sre_oninit_broker_override, result);
    }
 
    V2_SRE_GatherOpenPositionsByMagic(cfg.symbol, cfg.entry_magic, cfg.side_direction, entry_positions);
