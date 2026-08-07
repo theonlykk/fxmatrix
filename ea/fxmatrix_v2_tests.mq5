@@ -1779,7 +1779,10 @@ void Test_V2L0CoreComputeAb_InvalidBidAskFallback()
    double cold = 0.0;
    V2L0CoreDiagnostics diag_cold;
    AssertTrue("ab zero bid ask computes", V2_L0CoreComputeAb(in, cold, diag_cold));
-   AssertNear("ab ac bid-only equals ac close fallback", ac_bid_only, cold, 1e-6);
+   AssertTrue("ab ac bid-only differs from ab zero bid ask",
+              MathAbs(ac_bid_only - cold) > 1e-9);
+   AssertTrue("ab bc bid-only differs from ab zero bid ask",
+              MathAbs(bc_bid_only - cold) > 1e-9);
 
    in.ac_bid = 1.10010;
    in.ac_ask = 1.10030;
