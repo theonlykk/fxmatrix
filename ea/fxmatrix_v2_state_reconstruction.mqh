@@ -241,14 +241,17 @@ bool V2_SRE_HedgePriceIndicatesCrossPair(const double hedge_open_price,
                                          const double paired_entry_price,
                                          const int entry_direction,
                                          const double exit_pips,
-                                         const double point)
+                                         const double point,
+                                         const datetime entry_open_time,
+                                         const datetime hedge_open_time,
+                                         const string symbol)
 {
-   if(V2_SRE_HedgePriceConsistentWithEntry(hedge_open_price, paired_entry_price,
-                                          entry_direction, exit_pips, point))
-      return false;
    const double expected = V2_SRE_ExpectedExitPrice(paired_entry_price, entry_direction,
                                                     exit_pips, point);
-   return (MathAbs(hedge_open_price - expected) > V2_SRE_ExitPriceTolerance(point) * 4.0);
+   const double max_shift = V2_SRE_MaxPossibleRolloverShift(entry_open_time, hedge_open_time,
+                                                             symbol, entry_direction, point);
+   const double expected_adj = V2_RolloverShiftedExitPrice(expected, max_shift, entry_direction);
+   return (MathAbs(hedge_open_price - expected_adj) > V2_SRE_ExitPriceTolerance(point) * 4.0);
 }
 
 bool V2_SRE_CapGvIsBlocking(const bool gv_present, const double gv_value)
@@ -853,7 +856,8 @@ V2SREMapResult V2_SRE_MapHedgeToEntry(const V2SREDealInput &deals[],
                                       const long exit_magic,
                                       const int entry_direction,
                                       const double exit_pips,
-                                      const double point)
+                                      const double point,
+                                      const string symbol)
 {
    V2SREMapResult result;
    result.halt = V2_SRE_OK;
@@ -933,7 +937,10 @@ V2SREMapResult V2_SRE_MapHedgeToEntry(const V2SREDealInput &deals[],
       const int ht = V2_SRE_FindTableIndexByPositionId(hedge_table, pids[hedge_idx]);
       if(V2_SRE_HedgePriceIndicatesCrossPair(hedge_table[ht].open_price,
                                              entry_table[et].open_price,
-                                             entry_direction, exit_pips, point)) {
+                                             entry_direction, exit_pips, point,
+                                             entry_table[et].open_time,
+                                             hedge_table[ht].open_time,
+                                             symbol)) {
          result.halt = V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT;
          return result;
       }

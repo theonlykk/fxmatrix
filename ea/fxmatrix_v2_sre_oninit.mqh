@@ -394,7 +394,8 @@ V2SREHaltReason V2_SRE_RunOnInitSteps3To10(const V2SREOnInitSideConfig &cfg,
    V2SREMapResult map_result = V2_SRE_MapHedgeToEntry(deals,
                                                       (anchor.halt == V2_SRE_OK ? anchor.anchor_time : 0),
                                                       cfg.entry_magic, cfg.exit_magic,
-                                                      cfg.side_direction, cfg.exit_pips, cfg.point);
+                                                      cfg.side_direction, cfg.exit_pips, cfg.point,
+                                                      cfg.symbol);
    const V2SREHaltReason nonstd_halt = V2_SRE_CheckNonStandardClosures(deals, cfg.now,
                                                                        cfg.lookback_sec,
                                                                        cfg.entry_magic);
