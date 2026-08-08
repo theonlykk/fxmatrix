@@ -591,6 +591,38 @@ candidates — not urgent, decoupled from the State Reconstruction
 Engine work that surfaced it. Per Gemini's ruling (2026-08-06): log
 and defer, do not block on this.
 
+### Problem 3 — HALT_30 Overnight Fill-Noise Availability Constraint
+
+**Finding (DeepSeek R2 + Tier 1 verification, 2026-08-07):** ADR-108's
+zero-rollover spread gate fixes Problem 2 (0-midnight execution-noise
+false positives — Case 2 cleared) but deliberately excludes overnight
+and long-hold pairs where `rollover_units > 0`. Those pairs retain
+the strict 2pt HALT_30 band. Tier 1 Cases 3 (GBPUSD LONG) and 5
+(EURGBP LONG) remain fail-closed on historical CloseBy pairs with
+genuine 2–7pt execution-noise residuals that span at least one broker
+midnight — not tampering, not a security issue, an availability
+constraint.
+
+**Examples (authorized red, post-ADR-108):**
+- Case 3: order `510003492`, 1-midnight, 5.6pt residual
+- Case 5: order `509107430`, 1-midnight, 8.5pt residual; long-hold
+  outlier `512823324` (508408618/508481504), 8-midnight, 29pt — model
+  overshoot, correctly still halts
+
+**Why not widen the band for overnight pairs:** DeepSeek R2 proved
+unconditional spread allowance compounds with ADR-107 rollover drift
+to reopen the grid-cancellation vector (`rollover(82) + spread(8) =
+90pt = one grid step`). The zero-rollover gate is the mandated safe
+form; overnight fill-noise requires a separate Problem 3 design.
+
+**Status:** Blocked-on-Problem-3, fail-closed, documented. Cases 3/5
+long Tier 1 assertions remain red until Problem 3 is ruled and
+implemented. Not a deployment blocker for sides that pass Tier 1.
+
+**Reopen condition:** Gemini rules on a Problem 3 fix approach (e.g.
+actual-vs-max rollover shift, separate halt reason, or other constraint
+that does not compound spread + rollover near grid boundaries).
+
 ---
 
 Guiding Principles
@@ -617,3 +649,5 @@ Cursor (Implementation Agent): The hands on the keyboard. Executes only after th
 
 What Gemini Must Always Receive
 Full system context. Never a partial summary. If the proposal references existing architecture, explain it. Provide the raw DeepSeek audit logs. Gemini cannot find poison pills in a problem it doesn't fully understand.
+
+This document has a line count of 653 lines at the bottom.

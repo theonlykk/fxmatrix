@@ -237,6 +237,21 @@ bool V2_SRE_HedgePriceConsistentWithEntry(const double hedge_open_price,
                                        entry_direction, exit_pips, point);
 }
 
+// Fixed per-instrument nominal spread (points, not pips) for HALT_30 fill-noise allowance.
+// Compile-time constants only — NOT live/historical market data (ADR-108 / DeepSeek R2).
+// Basis: typical FTMO demo spreads measured at Tier 1 fill times (Aug 2026 diagnostic);
+// must cover observed 2–7pt execution-noise residuals on 0-midnight pairs.
+double V2_SRE_NominalSpreadPoints(const string symbol)
+{
+   if(symbol == "EURUSD")
+      return 10.0;   // ~1.0 pip typical
+   if(symbol == "GBPUSD")
+      return 15.0;   // ~1.5 pips typical
+   if(symbol == "EURGBP")
+      return 15.0;   // ~1.5 pips typical (wider cross)
+   return 10.0;      // conservative default for unknown symbols
+}
+
 bool V2_SRE_HedgePriceIndicatesCrossPair(const double hedge_open_price,
                                          const double paired_entry_price,
                                          const int entry_direction,
@@ -244,14 +259,28 @@ bool V2_SRE_HedgePriceIndicatesCrossPair(const double hedge_open_price,
                                          const double point,
                                          const datetime entry_open_time,
                                          const datetime hedge_open_time,
-                                         const string symbol)
+                                         const string symbol,
+                                         const double add_pips_floor)
 {
    const double expected = V2_SRE_ExpectedExitPrice(paired_entry_price, entry_direction,
                                                     exit_pips, point);
    const double max_shift = V2_SRE_MaxPossibleRolloverShift(entry_open_time, hedge_open_time,
                                                              symbol, entry_direction, point);
    const double expected_adj = V2_RolloverShiftedExitPrice(expected, max_shift, entry_direction);
-   return (MathAbs(hedge_open_price - expected_adj) > V2_SRE_ExitPriceTolerance(point) * 4.0);
+
+   const double base_tol = V2_SRE_ExitPriceTolerance(point) * 4.0;
+   const double grid_step = V2_SRE_PipsToPrice(add_pips_floor, point);
+   const double margin = point;
+
+   if(max_shift >= grid_step - base_tol - margin)
+      return true;
+
+   const int rollover_units = V2_SRE_CountRolloverMultiplierUnits(entry_open_time, hedge_open_time);
+   const double noise_allowance = (rollover_units == 0)
+                                  ? V2_SRE_NominalSpreadPoints(symbol) * point
+                                  : 0.0;
+
+   return (MathAbs(hedge_open_price - expected_adj) > base_tol + noise_allowance);
 }
 
 bool V2_SRE_CapGvIsBlocking(const bool gv_present, const double gv_value)
@@ -857,7 +886,8 @@ V2SREMapResult V2_SRE_MapHedgeToEntry(const V2SREDealInput &deals[],
                                       const int entry_direction,
                                       const double exit_pips,
                                       const double point,
-                                      const string symbol)
+                                      const string symbol,
+                                      const double add_pips_floor)
 {
    V2SREMapResult result;
    result.halt = V2_SRE_OK;
@@ -940,7 +970,8 @@ V2SREMapResult V2_SRE_MapHedgeToEntry(const V2SREDealInput &deals[],
                                              entry_direction, exit_pips, point,
                                              entry_table[et].open_time,
                                              hedge_table[ht].open_time,
-                                             symbol)) {
+                                             symbol,
+                                             add_pips_floor)) {
          result.halt = V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT;
          return result;
       }

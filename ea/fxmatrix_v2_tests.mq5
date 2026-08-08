@@ -1944,7 +1944,8 @@ void Test_SRE_CrossPairPriceConsistencyHalts()
    deals[3].deal_magic = MM_LONG_V2; deals[3].volume = SRE_LOT; deals[3].order_id = 9100;
 
    V2SREMapResult map = V2_SRE_MapHedgeToEntry(deals, SRE_T0 - 1, MM_LONG_V2, MM_LONG_V2_EXIT,
-                                               1, SRE_EXIT_PIPS, SRE_POINT, "GBPUSD");
+                                               1, SRE_EXIT_PIPS, SRE_POINT, "GBPUSD",
+                                               V2_ADD_PIPS_FLOOR);
    AssertTrue("cross-pair price halt", map.halt == V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT);
 }
 
@@ -3548,14 +3549,16 @@ void Test_SRE_Tier1RealData_StandaloneD_EurusdCloseBy()
 
    V2SREMapResult map_result = V2_SRE_MapHedgeToEntry(deals,
       (anchor.halt == V2_SRE_OK ? anchor.anchor_time : 0),
-      cfg.entry_magic, cfg.exit_magic, cfg.side_direction, cfg.exit_pips, cfg.point, cfg.symbol);
+      cfg.entry_magic, cfg.exit_magic, cfg.side_direction, cfg.exit_pips, cfg.point, cfg.symbol,
+      cfg.add_pips_floor);
    AssertTrue("tier1 case7 map halt ok", map_result.halt == V2_SRE_OK);
    AssertTrue("tier1 case7 flat-at-anchor yields no post-anchor pairs",
               ArraySize(map_result.pairs) == 0);
 
    V2SREMapResult map_preclose = V2_SRE_MapHedgeToEntry(deals,
       D'2026.08.02 21:00:50',
-      cfg.entry_magic, cfg.exit_magic, cfg.side_direction, cfg.exit_pips, cfg.point, cfg.symbol);
+      cfg.entry_magic, cfg.exit_magic, cfg.side_direction, cfg.exit_pips, cfg.point, cfg.symbol,
+      cfg.add_pips_floor);
    AssertTrue("tier1 case7 pre-close map halt ok", map_preclose.halt == V2_SRE_OK);
    AssertTrue("tier1 case7 hedge maps entry 509882167 when pre-close anchor",
               SRE_Tier1FindCloseByPair(map_preclose.pairs, 509882167, 509888020, 509908119));
