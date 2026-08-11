@@ -2263,6 +2263,24 @@ void SRE_OnInitResetOverride()
    ArrayResize(g_v2_sre_oninit_dual_override.short_side.exit_orders, 0);
    ArrayResize(g_v2_sre_oninit_dual_override.short_side.pending_entries, 0);
    ArrayResize(g_v2_sre_oninit_dual_override.short_side.deals, 0);
+
+   g_v2_sre_sweep_test_active = false;
+   ArrayResize(g_v2_sre_sweep_test_orders, 0);
+}
+
+void SRE_SweepTestAddOrder(const ulong ticket,
+                           const string symbol,
+                           const long magic,
+                           const long order_type,
+                           const long order_state)
+{
+   const int n = ArraySize(g_v2_sre_sweep_test_orders);
+   ArrayResize(g_v2_sre_sweep_test_orders, n + 1);
+   g_v2_sre_sweep_test_orders[n].ticket = ticket;
+   g_v2_sre_sweep_test_orders[n].symbol = symbol;
+   g_v2_sre_sweep_test_orders[n].magic = magic;
+   g_v2_sre_sweep_test_orders[n].order_type = order_type;
+   g_v2_sre_sweep_test_orders[n].order_state = order_state;
 }
 
 #define SRE_ONINIT_PAIR_GBPUSD 0
@@ -2772,6 +2790,87 @@ void Test_SRE_OnInit_CapPublishOnlyAfterCommit()
    AssertTrue("oninit success publishes layers", res.cap_published_on_commit);
    AssertNear("oninit success cap gv", GlobalVariableGet(V2_GBP_CAP_GV_GBP_LONG), 2.0, 1e-9);
 
+   Test_ClearCapGvs();
+}
+
+void Test_SRE_EntryPendingSweep_CountsEntrySkipsExit()
+{
+   SRE_OnInitResetOverride();
+   g_v2_sre_sweep_test_active = true;
+   ArrayResize(g_v2_sre_sweep_test_orders, 0);
+
+   const V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   SRE_SweepTestAddOrder(900001, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(900002, cfg.symbol, cfg.entry_magic, ORDER_TYPE_SELL_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(900003, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(910001, cfg.symbol, cfg.exit_magic, ORDER_TYPE_SELL_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(910002, "EURUSD", cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(910003, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_STOP, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(910004, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_FILLED);
+
+   const int swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic);
+   AssertTrue("entry pending sweep counts entry limits only", swept == 3);
+
+   SRE_OnInitResetOverride();
+}
+
+void Test_SRE_OnInit_ResetDefaultsEntryPendingsSweptZero()
+{
+   V2SREOnInitSideResult res;
+   res.entry_pendings_swept = 99;
+   V2_SRE_ResetOnInitSideResult(res);
+   AssertTrue("reset entry_pendings_swept zero", res.entry_pendings_swept == 0);
+}
+
+void Test_SRE_OnInit_PureSequenceDoesNotSweep()
+{
+   Test_ClearCapGvs();
+   SRE_OnInitResetOverride();
+
+   V2SREPositionInput pos[];
+   V2SREExitOrderInput ord[];
+   V2SREDealInput deals[];
+   SRE_OnInitFillBaselineTwoLayer(pos, ord, deals);
+
+   V2SREPositionInput exit_pos[];
+   V2SREPendingEntryInput pending[];
+   V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   V2SREOnInitSideResult res;
+   V2_SRE_ResetOnInitSideResult(res);
+
+   const V2SREHaltReason hr = V2_SRE_RunOnInitSequencePure(cfg, pos, exit_pos, ord, pending, deals, res);
+   AssertTrue("pure oninit success", hr == V2_SRE_OK);
+   AssertTrue("pure oninit committed", res.committed);
+   AssertTrue("pure sequence leaves entry_pendings_swept zero", res.entry_pendings_swept == 0);
+
+   string alerts[];
+   g_v2_sre_oninit_broker_override.active = true;
+   g_v2_sre_oninit_broker_override.test_corrupt_broker_read = true;
+   g_v2_sre_oninit_broker_override.test_corrupt_entry_price = 1.30010;
+   ArrayResize(g_v2_sre_oninit_broker_override.entry_positions, 2);
+   g_v2_sre_oninit_broker_override.entry_positions[0] = pos[0];
+   g_v2_sre_oninit_broker_override.entry_positions[1] = pos[1];
+   ArrayResize(g_v2_sre_oninit_broker_override.exit_orders, 2);
+   g_v2_sre_oninit_broker_override.exit_orders[0] = ord[0];
+   g_v2_sre_oninit_broker_override.exit_orders[1] = ord[1];
+   ArrayResize(g_v2_sre_oninit_broker_override.deals, 6);
+   for(int i = 0; i < 6; i++)
+      g_v2_sre_oninit_broker_override.deals[i] = deals[i];
+
+   V2_SRE_ResetOnInitSideResult(res);
+   const bool halted = V2_SRE_RunSideOnInit(alerts, cfg, res);
+   AssertTrue("fixture halt path halts", halted);
+   AssertTrue("halt path leaves entry_pendings_swept zero", res.entry_pendings_swept == 0);
+
+   SRE_OnInitResetOverride();
+   SRE_OnInitActivateDualOverride();
+   SRE_OnInitFillSuccessFixture(g_v2_sre_oninit_dual_override.long_side, true, SRE_ONINIT_PAIR_GBPUSD);
+   V2_SRE_ResetOnInitSideResult(res);
+   const bool fixture_ok = V2_SRE_RunSideOnInit(alerts, cfg, res);
+   AssertTrue("fixture success path does not halt", !fixture_ok);
+   AssertTrue("fixture path leaves entry_pendings_swept zero", res.entry_pendings_swept == 0);
+
+   SRE_OnInitResetOverride();
    Test_ClearCapGvs();
 }
 
@@ -3825,6 +3924,9 @@ void OnStart()
    Test_SRE_OnInit_SentinelBeforeHistory();
    Test_SRE_OnInit_ValidationBackstopHalts();
    Test_SRE_OnInit_CapPublishOnlyAfterCommit();
+   Test_SRE_EntryPendingSweep_CountsEntrySkipsExit();
+   Test_SRE_OnInit_ResetDefaultsEntryPendingsSweptZero();
+   Test_SRE_OnInit_PureSequenceDoesNotSweep();
    Test_SRE_OnInitPairBothHaltInitFailed();
    Test_SRE_OnInitPairLongHaltOnlyInitSucceeded();
    Test_SRE_OnInitPairShortHaltOnlyInitSucceeded();

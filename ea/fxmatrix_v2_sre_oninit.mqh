@@ -52,6 +52,7 @@ struct V2SREOnInitSideResult
    bool             sentinel_before_history;
    bool             cap_published_on_commit;
    int              cap_published_layers;
+   int              entry_pendings_swept;
 };
 
 struct V2SREOnInitBrokerOverride
@@ -76,6 +77,18 @@ struct V2SREOnInitDualBrokerOverride
 };
 
 V2SREOnInitDualBrokerOverride g_v2_sre_oninit_dual_override;
+
+struct V2SRESweepTestOrderInput
+{
+   ulong  ticket;
+   string symbol;
+   long   magic;
+   long   order_type;
+   long   order_state;
+};
+
+bool g_v2_sre_sweep_test_active = false;
+V2SRESweepTestOrderInput g_v2_sre_sweep_test_orders[];
 
 struct V2SREOnInitAggregateOutcome
 {
@@ -364,6 +377,7 @@ void V2_SRE_ResetOnInitSideResult(V2SREOnInitSideResult &result)
    result.sentinel_before_history = false;
    result.cap_published_on_commit = false;
    result.cap_published_layers = 0;
+   result.entry_pendings_swept = 0;
 }
 
 //+------------------------------------------------------------------+
@@ -451,6 +465,63 @@ V2SREHaltReason V2_SRE_RunOnInitSteps3To10(const V2SREOnInitSideConfig &cfg,
    result.cap_published_layers = layer_count;
 
    return V2_SRE_OK;
+}
+
+// MQL5 has no ORDER_STATE_PENDING; resting pool limits use ORDER_STATE_PLACED.
+bool V2_SRE_OrderStateIsRestingPending(const long state)
+{
+   return (state == ORDER_STATE_PLACED || state == ORDER_STATE_STARTED);
+}
+
+//+------------------------------------------------------------------+
+int V2_SRE_SweepEntryPendingOrders(const string symbol, const long entry_magic)
+{
+   int swept = 0;
+
+   if(g_v2_sre_sweep_test_active) {
+      for(int i = ArraySize(g_v2_sre_sweep_test_orders) - 1; i >= 0; i--) {
+         const V2SRESweepTestOrderInput o = g_v2_sre_sweep_test_orders[i];
+         if(o.ticket == 0)
+            continue;
+         if(o.symbol != symbol)
+            continue;
+         if(o.magic != entry_magic)
+            continue;
+         if(o.order_type != ORDER_TYPE_BUY_LIMIT && o.order_type != ORDER_TYPE_SELL_LIMIT)
+            continue;
+         if(!V2_SRE_OrderStateIsRestingPending(o.order_state))
+            continue;
+         swept++;
+      }
+      return swept;
+   }
+
+   for(int i = OrdersTotal() - 1; i >= 0; i--) {
+      ulong ticket = OrderGetTicket(i);
+      if(ticket == 0)
+         continue;
+      if(!OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) != symbol)
+         continue;
+      if(OrderGetInteger(ORDER_MAGIC) != entry_magic)
+         continue;
+      long otype = OrderGetInteger(ORDER_TYPE);
+      if(otype != ORDER_TYPE_BUY_LIMIT && otype != ORDER_TYPE_SELL_LIMIT)
+         continue;
+      if(!OrderSelect(ticket))
+         continue;
+      if(!V2_SRE_OrderStateIsRestingPending(OrderGetInteger(ORDER_STATE)))
+         continue;
+
+      MqlTradeRequest req = {};
+      MqlTradeResult res = {};
+      req.action = TRADE_ACTION_REMOVE;
+      req.order = ticket;
+      if(V2_OrderSendCounted(req, res))
+         swept++;
+   }
+   return swept;
 }
 
 //+------------------------------------------------------------------+
@@ -641,6 +712,7 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
                                     entry_positions, exit_positions);
    }
 
+   result.entry_pendings_swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic);
    return false;
 }
 
