@@ -2266,6 +2266,8 @@ void SRE_OnInitResetOverride()
 
    g_v2_sre_sweep_test_active = false;
    ArrayResize(g_v2_sre_sweep_test_orders, 0);
+   g_v2_sre_flatsweep_test_active = false;
+   g_v2_sre_flatsweep_test_position_count = 0;
 }
 
 void SRE_SweepTestAddOrder(const ulong ticket,
@@ -2872,6 +2874,44 @@ void Test_SRE_OnInit_PureSequenceDoesNotSweep()
 
    SRE_OnInitResetOverride();
    Test_ClearCapGvs();
+}
+
+void Test_SRE_FlatSideSweep_FlatSweepsEntries()
+{
+   SRE_OnInitResetOverride();
+   g_v2_sre_flatsweep_test_active = true;
+   g_v2_sre_flatsweep_test_position_count = 0;      // flat side
+   g_v2_sre_sweep_test_active = true;
+   ArrayResize(g_v2_sre_sweep_test_orders, 0);
+
+   const V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   SRE_SweepTestAddOrder(920001, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(920002, cfg.symbol, cfg.entry_magic, ORDER_TYPE_SELL_LIMIT, ORDER_STATE_PLACED);
+   SRE_SweepTestAddOrder(920003, cfg.symbol, cfg.exit_magic,  ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
+
+   const int swept = V2_SweepFlatSideEntryPendings(cfg.symbol, cfg.entry_magic,
+                                                   cfg.exit_magic, cfg.side_direction);
+   AssertTrue("flat side sweeps entry pendings only", swept == 2);
+
+   SRE_OnInitResetOverride();
+}
+
+void Test_SRE_FlatSideSweep_NonFlatSkips()
+{
+   SRE_OnInitResetOverride();
+   g_v2_sre_flatsweep_test_active = true;
+   g_v2_sre_flatsweep_test_position_count = 1;      // side holds a position -> not flat
+   g_v2_sre_sweep_test_active = true;
+   ArrayResize(g_v2_sre_sweep_test_orders, 0);
+
+   const V2SREOnInitSideConfig cfg = SRE_OnInitTestConfig();
+   SRE_SweepTestAddOrder(920101, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
+
+   const int swept = V2_SweepFlatSideEntryPendings(cfg.symbol, cfg.entry_magic,
+                                                   cfg.exit_magic, cfg.side_direction);
+   AssertTrue("non-flat side does not sweep", swept == 0);
+
+   SRE_OnInitResetOverride();
 }
 
 
@@ -3927,6 +3967,8 @@ void OnStart()
    Test_SRE_EntryPendingSweep_CountsEntrySkipsExit();
    Test_SRE_OnInit_ResetDefaultsEntryPendingsSweptZero();
    Test_SRE_OnInit_PureSequenceDoesNotSweep();
+   Test_SRE_FlatSideSweep_FlatSweepsEntries();
+   Test_SRE_FlatSideSweep_NonFlatSkips();
    Test_SRE_OnInitPairBothHaltInitFailed();
    Test_SRE_OnInitPairLongHaltOnlyInitSucceeded();
    Test_SRE_OnInitPairShortHaltOnlyInitSucceeded();

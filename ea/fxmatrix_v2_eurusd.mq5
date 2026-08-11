@@ -1634,6 +1634,16 @@ int OnInit() {
    else if(agg.short_committed)
       V2_ApplyShortSRECommit(short_sre);
 
+   // --- ADR-110: baseline flat-side entry-pending sweep (quote-lifecycle) ------
+   // Flat sides never enter reconstruction; clear their stale pre-crash entry
+   // limits here so the tick loop does not create duplicates. Orphaned sides are
+   // handled by SRE and are excluded by the zero-position gate in the helper.
+   V2_SweepFlatSideEntryPendings(long_cfg.symbol, long_cfg.entry_magic,
+                                 long_cfg.exit_magic, long_cfg.side_direction);
+   V2_SweepFlatSideEntryPendings(short_cfg.symbol, short_cfg.entry_magic,
+                                 short_cfg.exit_magic, short_cfg.side_direction);
+   // --- end ADR-110 -----------------------------------------------------------
+
    if(V2_ShouldPublishCapSyncOnInit(long_orphan))
       V2_EurCapSyncInstance(V2_PAIR_LABEL, true, ArraySize(g_long_layers));
    if(V2_ShouldPublishCapSyncOnInit(short_orphan))

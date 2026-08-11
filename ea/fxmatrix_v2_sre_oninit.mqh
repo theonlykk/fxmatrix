@@ -524,6 +524,35 @@ int V2_SRE_SweepEntryPendingOrders(const string symbol, const long entry_magic)
    return swept;
 }
 
+// --- ADR-110: baseline flat-side sweep --------------------------------------
+// Test seam for the flat-side gate (mirrors g_v2_sre_sweep_test_active).
+bool g_v2_sre_flatsweep_test_active = false;
+int  g_v2_sre_flatsweep_test_position_count = 0;
+
+// Baseline quote-lifecycle sweep for a FLAT side (zero open positions). Orphaned
+// sides are handled by SRE (reconstruct+sweep on success; frozen on halt); a flat
+// side never enters reconstruction, so its stale pre-crash entry-magic limits are
+// cleared here before the tick loop re-quotes. Gating on zero positions
+// structurally excludes reconstructed and halted sides (both hold positions).
+// Returns the count of entry pendings swept (0 if the side is not flat).
+int V2_SweepFlatSideEntryPendings(const string symbol, const long entry_magic,
+                                  const long exit_magic, const int side_direction)
+{
+   int pos_count;
+   if(g_v2_sre_flatsweep_test_active) {
+      pos_count = g_v2_sre_flatsweep_test_position_count;
+   } else {
+      V2SREPositionInput fs_entry[];
+      V2SREPositionInput fs_exit[];
+      V2_SRE_GatherOpenPositionsByMagic(symbol, entry_magic, side_direction, fs_entry);
+      V2_SRE_GatherOpenPositionsByMagic(symbol, exit_magic, side_direction, fs_exit);
+      pos_count = ArraySize(fs_entry) + ArraySize(fs_exit);
+   }
+   if(pos_count > 0)
+      return 0;
+   return V2_SRE_SweepEntryPendingOrders(symbol, entry_magic);
+}
+
 //+------------------------------------------------------------------+
 // Pure approved sequence (Steps 0-10) on supplied broker inputs (unit tests).
 // Returns halt reason; V2_SRE_OK means success (committed or not applicable).
