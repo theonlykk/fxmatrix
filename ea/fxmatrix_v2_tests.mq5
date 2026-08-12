@@ -2822,6 +2822,105 @@ void Test_SRE_OnInit_ResetDefaultsEntryPendingsSweptZero()
    res.entry_pendings_swept = 99;
    V2_SRE_ResetOnInitSideResult(res);
    AssertTrue("reset entry_pendings_swept zero", res.entry_pendings_swept == 0);
+   AssertTrue("oninit reset readiness ok", res.readiness_result == V2_SRE_OK);
+   AssertTrue("oninit reset history select ok false", !res.history_select_ok);
+   AssertTrue("oninit reset anchor index", res.anchor_deal_index == -1);
+}
+
+void Test_SRE_Readiness_Halt31HistorySelectFailed()
+{
+   V2SREDealInput deals[];
+   V2SREPositionInput pos[];
+   const V2SREHaltReason r = V2_SRE_EvaluateReadiness(deals, pos, SRE_NOW,
+                                                       V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                                       MM_LONG_V2, false);
+   AssertTrue("readiness halt31", r == V2_SRE_HALT_31_HISTORY_UNAVAILABLE);
+}
+
+void Test_SRE_Readiness_OkEntryDealPresent()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].position_id = 1001;
+   pos[0].open_time = SRE_T2;
+
+   V2SREDealInput deals[];
+   ArrayResize(deals, 1);
+   deals[0].position_id = 1001;
+   deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2;
+   deals[0].deal_time = SRE_T2;
+
+   const V2SREHaltReason r = V2_SRE_EvaluateReadiness(deals, pos, SRE_NOW,
+                                                       V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                                       MM_LONG_V2, true);
+   AssertTrue("readiness ok entry present", r == V2_SRE_OK);
+}
+
+void Test_SRE_Readiness_Halt32EntryDealAbsent()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].position_id = 1001;
+   pos[0].open_time = SRE_T2;
+
+   V2SREDealInput deals[];
+   const V2SREHaltReason r = V2_SRE_EvaluateReadiness(deals, pos, SRE_NOW,
+                                                       V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                                       MM_LONG_V2, true);
+   AssertTrue("readiness halt32 absent entry", r == V2_SRE_HALT_32_HISTORY_INCOMPLETE);
+}
+
+void Test_SRE_Readiness_Halt32PositionOlderThanLookback()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].position_id = 1001;
+   pos[0].open_time = D'2025.01.01 00:00:00';
+
+   V2SREDealInput deals[];
+   ArrayResize(deals, 1);
+   deals[0].position_id = 1001;
+   deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2;
+   deals[0].deal_time = D'2025.01.01 00:00:00';
+
+   const V2SREHaltReason r = V2_SRE_EvaluateReadiness(deals, pos, SRE_NOW,
+                                                       V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                                       MM_LONG_V2, true);
+   AssertTrue("readiness halt32 old position", r == V2_SRE_HALT_32_HISTORY_INCOMPLETE);
+}
+
+void Test_SRE_Readiness_Gate2FirstPositionNotRejected()
+{
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 1);
+   pos[0].ticket = 517307012;
+   pos[0].position_id = 900001;
+   pos[0].open_time = D'2026.08.12 09:55:29';
+   pos[0].entry_price = 1.27000;
+   pos[0].volume = SRE_LOT;
+   pos[0].direction = -1;
+   pos[0].symbol = "GBPUSD";
+   pos[0].position_type = POSITION_TYPE_SELL;
+
+   V2SREDealInput deals[];
+   ArrayResize(deals, 1);
+   deals[0].deal_ticket = 517307012;
+   deals[0].position_id = 900001;
+   deals[0].order_id = 517307012;
+   deals[0].deal_time = D'2026.08.12 09:55:29';
+   deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_type = DEAL_TYPE_SELL;
+   deals[0].deal_magic = MM_SHORT_V2;
+   deals[0].volume = SRE_LOT;
+   deals[0].price = 1.27000;
+
+   const datetime lookback_from = D'2026.08.12 13:28:13';
+   const V2SREHaltReason r = V2_SRE_EvaluateReadiness(deals, pos, lookback_from,
+                                                       V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                                       MM_SHORT_V2, true);
+   AssertTrue("readiness gate2 first position ok", r == V2_SRE_OK);
 }
 
 void Test_SRE_OnInit_PureSequenceDoesNotSweep()
@@ -3966,6 +4065,11 @@ void OnStart()
    Test_SRE_OnInit_CapPublishOnlyAfterCommit();
    Test_SRE_EntryPendingSweep_CountsEntrySkipsExit();
    Test_SRE_OnInit_ResetDefaultsEntryPendingsSweptZero();
+   Test_SRE_Readiness_Halt31HistorySelectFailed();
+   Test_SRE_Readiness_OkEntryDealPresent();
+   Test_SRE_Readiness_Halt32EntryDealAbsent();
+   Test_SRE_Readiness_Halt32PositionOlderThanLookback();
+   Test_SRE_Readiness_Gate2FirstPositionNotRejected();
    Test_SRE_OnInit_PureSequenceDoesNotSweep();
    Test_SRE_FlatSideSweep_FlatSweepsEntries();
    Test_SRE_FlatSideSweep_NonFlatSkips();

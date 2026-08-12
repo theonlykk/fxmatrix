@@ -51,6 +51,8 @@ enum V2SREHaltReason
    V2_SRE_HALT_28_TIER1_NOT_UNIQUE,
    V2_SRE_HALT_29_TIER2_NOT_UNIQUE,
    V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT,
+   V2_SRE_HALT_31_HISTORY_UNAVAILABLE,
+   V2_SRE_HALT_32_HISTORY_INCOMPLETE,
    V2_SRE_HALT_VALIDATION_MISMATCH
 };
 
@@ -770,6 +772,44 @@ double V2_SRE_TotalManagedVolume(const V2SREDealInput &deals[],
    for(int i = 0; i < ArraySize(ids); i++)
       total += V2_SRE_PositionNetVolume(ids[i], deals, deal_index, entry_magic, exit_magic);
    return total;
+}
+
+bool V2_SRE_OpenPositionEntryDealPresent(const V2SREDealInput &deals[],
+                                         const ulong position_id,
+                                         const long entry_magic)
+{
+   for(int i = 0; i < ArraySize(deals); i++) {
+      if(deals[i].position_id != position_id)
+         continue;
+      if(deals[i].entry_type != DEAL_ENTRY_IN)
+         continue;
+      if(deals[i].deal_magic != entry_magic)
+         continue;
+      return true;
+   }
+   return false;
+}
+
+V2SREHaltReason V2_SRE_EvaluateReadiness(const V2SREDealInput &deals[],
+                                         const V2SREPositionInput &open_entry_positions[],
+                                         const datetime lookback_from,
+                                         const int lookback_sec,
+                                         const long entry_magic,
+                                         const bool history_select_ok)
+{
+   if(!history_select_ok)
+      return V2_SRE_HALT_31_HISTORY_UNAVAILABLE;
+
+   const datetime lookback_start = lookback_from - lookback_sec;
+   for(int p = 0; p < ArraySize(open_entry_positions); p++) {
+      if(open_entry_positions[p].open_time < lookback_start)
+         return V2_SRE_HALT_32_HISTORY_INCOMPLETE;
+      if(!V2_SRE_OpenPositionEntryDealPresent(deals,
+                                              open_entry_positions[p].position_id,
+                                              entry_magic))
+         return V2_SRE_HALT_32_HISTORY_INCOMPLETE;
+   }
+   return V2_SRE_OK;
 }
 
 V2SREAnchorResult V2_SRE_FindAnchor(V2SREDealInput &deals[],

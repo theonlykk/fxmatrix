@@ -53,6 +53,9 @@ struct V2SREOnInitSideResult
    bool             cap_published_on_commit;
    int              cap_published_layers;
    int              entry_pendings_swept;
+   V2SREHaltReason  readiness_result;
+   bool             history_select_ok;
+   int              anchor_deal_index;
 };
 
 struct V2SREOnInitBrokerOverride
@@ -131,6 +134,8 @@ string V2_SRE_HaltReasonLabel(const V2SREHaltReason reason)
       case V2_SRE_HALT_28_TIER1_NOT_UNIQUE: return "HALT_28_TIER1_NOT_UNIQUE";
       case V2_SRE_HALT_29_TIER2_NOT_UNIQUE: return "HALT_29_TIER2_NOT_UNIQUE";
       case V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT: return "HALT_30_CLOSEBY_PRICE_INCONSISTENT";
+      case V2_SRE_HALT_31_HISTORY_UNAVAILABLE: return "HALT_31_HISTORY_UNAVAILABLE";
+      case V2_SRE_HALT_32_HISTORY_INCOMPLETE: return "HALT_32_HISTORY_INCOMPLETE";
       case V2_SRE_HALT_VALIDATION_MISMATCH: return "HALT_VALIDATION_MISMATCH";
       default: return "HALT_UNKNOWN";
    }
@@ -279,13 +284,16 @@ void V2_SRE_GatherDealHistory(const string symbol,
                               const long exit_magic,
                               const datetime lookback_from,
                               const int lookback_sec,
-                              V2SREDealInput &deals[])
+                              V2SREDealInput &deals[],
+                              bool &history_select_ok)
 {
    ArrayResize(deals, 0);
+   history_select_ok = false;
    datetime from = lookback_from - lookback_sec;
    if(!HistorySelect(from, lookback_from + 86400))
       return;
 
+   history_select_ok = true;
    const int total = HistoryDealsTotal();
    for(int i = 0; i < total; i++) {
       ulong deal_ticket = HistoryDealGetTicket(i);
@@ -378,6 +386,127 @@ void V2_SRE_ResetOnInitSideResult(V2SREOnInitSideResult &result)
    result.cap_published_on_commit = false;
    result.cap_published_layers = 0;
    result.entry_pendings_swept = 0;
+   result.readiness_result = V2_SRE_OK;
+   result.history_select_ok = false;
+   result.anchor_deal_index = -1;
+}
+
+//+------------------------------------------------------------------+
+void V2_SRE_CountOpenEntryDealsFound(const V2SREDealInput &deals[],
+                                     const V2SREPositionInput &open_entry_positions[],
+                                     const long entry_magic,
+                                     int &found_count)
+{
+   found_count = 0;
+   for(int p = 0; p < ArraySize(open_entry_positions); p++) {
+      if(V2_SRE_OpenPositionEntryDealPresent(deals,
+                                            open_entry_positions[p].position_id,
+                                            entry_magic))
+         found_count++;
+   }
+}
+
+//+------------------------------------------------------------------+
+void V2_SRE_DealTimeBounds(const V2SREDealInput &deals[],
+                           datetime &earliest,
+                           datetime &latest)
+{
+   earliest = 0;
+   latest = 0;
+   if(ArraySize(deals) == 0)
+      return;
+   earliest = deals[0].deal_time;
+   latest = deals[0].deal_time;
+   for(int i = 1; i < ArraySize(deals); i++) {
+      if(deals[i].deal_time < earliest)
+         earliest = deals[i].deal_time;
+      if(deals[i].deal_time > latest)
+         latest = deals[i].deal_time;
+   }
+}
+
+//+------------------------------------------------------------------+
+bool V2_SRE_AnchorLookbackWindowEmpty(const V2SREDealInput &deals[],
+                                      const datetime lookback_from,
+                                      const int lookback_sec)
+{
+   const datetime window_start = lookback_from - lookback_sec;
+   for(int i = 0; i < ArraySize(deals); i++) {
+      if(deals[i].deal_time < window_start)
+         continue;
+      if(deals[i].deal_time > lookback_from)
+         continue;
+      return false;
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+string V2_SRE_ReadinessObservabilityLabel(const V2SREHaltReason readiness)
+{
+   if(readiness == V2_SRE_HALT_31_HISTORY_UNAVAILABLE)
+      return "HALT_31";
+   if(readiness == V2_SRE_HALT_32_HISTORY_INCOMPLETE)
+      return "HALT_32";
+   return "OK";
+}
+
+//+------------------------------------------------------------------+
+string V2_SRE_OnInitHaltSiteLabel(const V2SREHaltReason readiness,
+                                  const V2SREHaltReason report_halt_reason,
+                                  const V2SREDealInput &deals[],
+                                  const datetime lookback_from,
+                                  const int lookback_sec)
+{
+   if(readiness == V2_SRE_HALT_31_HISTORY_UNAVAILABLE)
+      return "SYNC_UNAVAILABLE";
+   if(readiness == V2_SRE_HALT_32_HISTORY_INCOMPLETE)
+      return "HISTORY_INCOMPLETE";
+   if(report_halt_reason == V2_SRE_HALT_09_ANCHOR_NOT_FOUND) {
+      if(V2_SRE_AnchorLookbackWindowEmpty(deals, lookback_from, lookback_sec))
+         return "SITE1_EMPTY_WINDOW";
+      return "SITE2_NO_DUAL_FLAT";
+   }
+   if(report_halt_reason == V2_SRE_OK)
+      return "NONE";
+   return "OTHER_STEP3_10";
+}
+
+//+------------------------------------------------------------------+
+void V2_SRE_EmitOnInitObservability(const V2SREOnInitSideConfig &cfg,
+                                    const V2SREOnInitSideResult &result,
+                                    const V2SREDealInput &deals[],
+                                    const V2SREPositionInput &entry_positions[],
+                                    const V2SREHaltReason report_halt_reason)
+{
+   const string side_prefix = cfg.is_long ? "DIAG V2_LONG" : "DIAG V2_SHORT";
+   const int open_managed = ArraySize(entry_positions);
+   int entry_found = 0;
+   V2_SRE_CountOpenEntryDealsFound(deals, entry_positions, cfg.entry_magic, entry_found);
+
+   datetime earliest = 0;
+   datetime latest = 0;
+   V2_SRE_DealTimeBounds(deals, earliest, latest);
+
+   Print(side_prefix, " | event=sre_oninit",
+         " | instance=", cfg.instance_tag,
+         " | is_long=", (cfg.is_long ? "1" : "0"),
+         " | readiness=", V2_SRE_ReadinessObservabilityLabel(result.readiness_result),
+         " | halt_site=", V2_SRE_OnInitHaltSiteLabel(result.readiness_result,
+                                                     report_halt_reason,
+                                                     deals,
+                                                     cfg.now,
+                                                     cfg.lookback_sec),
+         " | history_select_ok=", (result.history_select_ok ? "1" : "0"),
+         " | gathered_deals=", ArraySize(deals),
+         " | lookback_sec=", cfg.lookback_sec,
+         " | lookback_from=", (long)cfg.now,
+         " | open_managed_pos=", open_managed,
+         " | open_pos_entry_found=", entry_found, "/", open_managed,
+         " | earliest_deal_time=", (long)earliest,
+         " | latest_deal_time=", (long)latest,
+         " | anchor_index=", result.anchor_deal_index,
+         " | halt_reason_label=", V2_SRE_HaltReasonLabel(report_halt_reason));
 }
 
 //+------------------------------------------------------------------+
@@ -405,6 +534,7 @@ V2SREHaltReason V2_SRE_RunOnInitSteps3To10(const V2SREOnInitSideConfig &cfg,
    // Step 5
    V2SREAnchorResult anchor = V2_SRE_FindAnchor(deals, cfg.now, cfg.lookback_sec,
                                                 cfg.entry_magic, cfg.exit_magic);
+   result.anchor_deal_index = anchor.anchor_deal_index;
    V2SREMapResult map_result = V2_SRE_MapHedgeToEntry(deals,
                                                       (anchor.halt == V2_SRE_OK ? anchor.anchor_time : 0),
                                                       cfg.entry_magic, cfg.exit_magic,
@@ -712,6 +842,7 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
    if(precheck != V2_SRE_OK) {
       result.halt_reason = precheck;
       result.side_halted = true;
+      V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, precheck);
       return V2_SRE_ProcessSideHalt(system_alerts, cfg.instance_tag, precheck,
                                     entry_positions, exit_positions);
    }
@@ -719,6 +850,7 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
    if(ArraySize(entry_positions) == 0) {
       result.halt_reason = V2_SRE_HALT_01_EXIT_MAGIC_POSITION_OPEN;
       result.side_halted = true;
+      V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, result.halt_reason);
       return V2_SRE_ProcessSideHalt(system_alerts, cfg.instance_tag, result.halt_reason,
                                     entry_positions, exit_positions);
    }
@@ -728,19 +860,41 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
 
    V2_SRE_GatherPendingOrders(cfg.symbol, cfg.entry_magic, cfg.exit_magic, cfg.side_direction,
                               exit_orders, pending_entries);
+   bool history_select_ok = false;
    V2_SRE_GatherDealHistory(cfg.symbol, cfg.entry_magic, cfg.exit_magic,
-                            cfg.now, cfg.lookback_sec, deals);
+                            cfg.now, cfg.lookback_sec, deals, history_select_ok);
+   result.history_select_ok = history_select_ok;
+
+   const V2SREHaltReason readiness = V2_SRE_EvaluateReadiness(deals,
+                                                              entry_positions,
+                                                              cfg.now,
+                                                              cfg.lookback_sec,
+                                                              cfg.entry_magic,
+                                                              history_select_ok);
+   result.readiness_result = readiness;
+   if(readiness != V2_SRE_OK) {
+      result.halt_reason = readiness;
+      result.side_halted = true;
+      result.history_read = false;
+      V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, readiness);
+      return V2_SRE_ProcessSideHalt(system_alerts, cfg.instance_tag, readiness,
+                                    entry_positions, exit_positions);
+   }
+
    result.history_read = true;
    result.sentinel_before_history = true;
+   V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, V2_SRE_OK);
 
    const V2SREHaltReason seq = V2_SRE_RunOnInitSteps3To10(cfg, entry_positions, exit_orders,
                                                           pending_entries, deals, result);
    if(seq != V2_SRE_OK) {
       result.side_halted = true;
+      V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, seq);
       return V2_SRE_ProcessSideHalt(system_alerts, cfg.instance_tag, seq,
                                     entry_positions, exit_positions);
    }
 
+   V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, V2_SRE_OK);
    result.entry_pendings_swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic);
    return false;
 }
