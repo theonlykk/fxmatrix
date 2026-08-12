@@ -12,6 +12,8 @@
 #include "fxmatrix_v2_carry.mqh"
 #include "fxmatrix_v2_cap_bridge.mqh"
 #include "fxmatrix_v2_l0_signal.mqh"
+#include "fxmatrix_v2_state_reconstruction.mqh"
+#include "fxmatrix_v2_sre_oninit.mqh"
 
 //+------------------------------------------------------------------+
 double V2_EngineDeadbandSpreadRef()
@@ -1445,6 +1447,55 @@ void V2EmitTelemetry(const bool force = false)
    V2TelemetryWebPost(TelemetryURL, TelemetryAPIKey, payload_short, InpVerboseLog);
 }
 
+V2SRECapBridgeKind V2_SRE_CapBridgeFromProfile(const V2CapProfile p)
+{
+   if(p == V2_CAP_EUR_ONLY)     return V2_SRE_CAP_BRIDGE_EURUSD;
+   if(p == V2_CAP_DUAL_GBP_EUR) return V2_SRE_CAP_BRIDGE_EURGBP_DUAL;
+   return V2_SRE_CAP_BRIDGE_GBPUSD;   // V2_CAP_GBP_ONLY
+}
+
+void V2_ApplyLongSRECommit(const V2SREOnInitSideResult &res)
+{
+   const int n = ArraySize(res.layers);
+   ArrayResize(g_long_layers, n);
+   for(int i = 0; i < n; i++) {
+      g_long_layers[i].entry_price = res.layers[i].entry_price;
+      g_long_layers[i].exit_target = res.layers[i].exit_target;
+      g_long_layers[i].entry_ticket = res.layers[i].entry_ticket;
+      g_long_layers[i].position_ticket = res.layers[i].position_ticket;
+      g_long_layers[i].exit_ticket = res.layers[i].exit_ticket;
+      g_long_layers[i].entry_time = res.layers[i].entry_time;
+      g_long_layers[i].open_depth = i;
+      g_long_layers[i].last_exit_retry_time = 0;
+      g_long_layers[i].first_exit_retry_time = 0;
+      g_long_layers[i].exit_escalated = false;
+   }
+   g_long_last_exit_valid = res.path_state.last_exit_valid;
+   g_long_last_exit_price = res.path_state.last_exit_price;
+   g_long_current_add_pips = res.path_state.current_add_pips;
+}
+
+void V2_ApplyShortSRECommit(const V2SREOnInitSideResult &res)
+{
+   const int n = ArraySize(res.layers);
+   ArrayResize(g_short_layers, n);
+   for(int i = 0; i < n; i++) {
+      g_short_layers[i].entry_price = res.layers[i].entry_price;
+      g_short_layers[i].exit_target = res.layers[i].exit_target;
+      g_short_layers[i].entry_ticket = res.layers[i].entry_ticket;
+      g_short_layers[i].position_ticket = res.layers[i].position_ticket;
+      g_short_layers[i].exit_ticket = res.layers[i].exit_ticket;
+      g_short_layers[i].entry_time = res.layers[i].entry_time;
+      g_short_layers[i].open_depth = i;
+      g_short_layers[i].last_exit_retry_time = 0;
+      g_short_layers[i].first_exit_retry_time = 0;
+      g_short_layers[i].exit_escalated = false;
+   }
+   g_short_last_exit_valid = res.path_state.last_exit_valid;
+   g_short_last_exit_price = res.path_state.last_exit_price;
+   g_short_current_add_pips = res.path_state.current_add_pips;
+}
+
 int OnInit() {
    if(InpEaseDepthFull <= InpEaseDepthStart || InpEaseDepthStart < 0 || InpEaseDepthFull < 0) {
       Print("ERROR: ", g_preset.ea_name, " invalid ease depth inputs — InpEaseDepthStart=",
@@ -1468,29 +1519,62 @@ int OnInit() {
    bool long_orphan  = false;
    bool short_orphan = false;
 
-   ulong long_tickets[];
-   string long_magic_type = "";
-   int long_pos = V2_ScanInstanceOrphanPositions(_Symbol, (long)g_preset.magic_long,
-                                                 (long)g_preset.magic_long_exit,
-                                                 long_tickets, long_magic_type);
-   if(V2_ProcessOrphanStartupCheck(g_long_system_alerts, g_preset.tel_instance_long,
-                                   ArraySize(g_long_layers), long_pos,
-                                   long_magic_type, long_tickets)) {
-      g_long_halted = true;
-      long_orphan = true;
-   }
+   V2SREOnInitSideResult long_sre;
+   V2SREOnInitSideConfig long_cfg;
+   long_cfg.instance_tag = g_preset.tel_instance_long;
+   long_cfg.symbol = _Symbol;
+   long_cfg.side_direction = 1;
+   long_cfg.entry_magic = g_preset.magic_long;
+   long_cfg.exit_magic = g_preset.magic_long_exit;
+   long_cfg.expected_volume = InpLotSize;
+   long_cfg.exit_pips = InpExitPips;
+   long_cfg.point = _Point;
+   long_cfg.add_pips_floor = InpAddPipsFloor;
+   long_cfg.widen_ratio = InpWidenRatio;
+   long_cfg.add_pips_ceiling = InpAddPipsCeiling;
+   long_cfg.layer_count = ArraySize(g_long_layers);
+   long_cfg.now = TimeCurrent();
+   long_cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
+   long_cfg.is_long = true;
+   long_cfg.cap_bridge = V2_SRE_CapBridgeFromProfile(g_preset.cap_profile);
 
-   ulong short_tickets[];
-   string short_magic_type = "";
-   int short_pos = V2_ScanInstanceOrphanPositions(_Symbol, (long)g_preset.magic_short,
-                                                  (long)g_preset.magic_short_exit,
-                                                  short_tickets, short_magic_type);
-   if(V2_ProcessOrphanStartupCheck(g_short_system_alerts, g_preset.tel_instance_short,
-                                   ArraySize(g_short_layers), short_pos,
-                                   short_magic_type, short_tickets)) {
+   V2SREOnInitSideResult short_sre;
+   V2SREOnInitSideConfig short_cfg;
+   short_cfg.instance_tag = g_preset.tel_instance_short;
+   short_cfg.symbol = _Symbol;
+   short_cfg.side_direction = -1;
+   short_cfg.entry_magic = g_preset.magic_short;
+   short_cfg.exit_magic = g_preset.magic_short_exit;
+   short_cfg.expected_volume = InpLotSize;
+   short_cfg.exit_pips = InpExitPips;
+   short_cfg.point = _Point;
+   short_cfg.add_pips_floor = InpAddPipsFloor;
+   short_cfg.widen_ratio = InpWidenRatio;
+   short_cfg.add_pips_ceiling = InpAddPipsCeiling;
+   short_cfg.layer_count = ArraySize(g_short_layers);
+   short_cfg.now = TimeCurrent();
+   short_cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
+   short_cfg.is_long = false;
+   short_cfg.cap_bridge = V2_SRE_CapBridgeFromProfile(g_preset.cap_profile);
+
+   V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
+      g_long_system_alerts, g_short_system_alerts, long_cfg, short_cfg, long_sre, short_sre);
+   long_orphan  = agg.long_halted;
+   short_orphan = agg.short_halted;
+   if(long_orphan)
+      g_long_halted = true;
+   else if(agg.long_committed)
+      V2_ApplyLongSRECommit(long_sre);
+   if(short_orphan)
       g_short_halted = true;
-      short_orphan = true;
-   }
+   else if(agg.short_committed)
+      V2_ApplyShortSRECommit(short_sre);
+
+   // ADR-110: baseline flat-side entry-pending sweep. Flat sides never enter
+   // reconstruction; clear their stale pre-crash entry limits before the tick
+   // loop re-quotes. The zero-position gate excludes orphaned/halted sides.
+   V2_SweepFlatSideEntryPendings(_Symbol, g_preset.magic_long, g_preset.magic_long_exit, 1);
+   V2_SweepFlatSideEntryPendings(_Symbol, g_preset.magic_short, g_preset.magic_short_exit, -1);
 
    if(V2_ShouldPublishCapSyncOnInit(long_orphan))
       V2_Cap_Sync(true, ArraySize(g_long_layers));
@@ -1513,7 +1597,7 @@ int OnInit() {
             "clean instance(s) continue. Reattach flat after resolving orphans.");
    }
 
-   return V2_OnInitResultFromOrphanFlags(long_orphan, short_orphan);
+   return agg.init_result;
 }
 
 void OnDeinit(const int reason) {
