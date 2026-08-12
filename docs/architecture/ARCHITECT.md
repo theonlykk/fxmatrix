@@ -151,9 +151,9 @@ production EAs run on the VPS.
 
 #### `desktop_sync.ps1` (desktop)
 No git pull — the desktop repo is already the working copy. Copies the
-three production `.mq5` files plus 9 shared `.mqh` headers into
+three production `.mq5` files plus 11 shared `.mqh` headers into
 `MQL5\Experts\` (flat, no subfolder), and `fxmatrix_v2_tests.mq5` plus
-that *same* 9-header set into `MQL5\Scripts\`. Both destinations are
+that *same* 11-header set into `MQL5\Scripts\`. Both destinations are
 independently SHA256-verified against the repo after copying.
 
 Two destinations are required, not optional: MQL5 resolves a quoted
@@ -162,12 +162,18 @@ needs its own physical copy of every header the test file depends on —
 there is no way to share one copy across both folders via a normal
 relative include.
 
-The 9-header shared set was derived from the actual `#include`
-dependency graph of all four source files (direct + transitive
-includes), not assumed. If any of the four files' includes change in
-the future, re-derive this list from source rather than hand-editing it
-from memory — a stale assumed list is exactly what caused a 58-error
-compile failure the first time this was attempted without it.
+The 11-header shared set is derived from the actual `#include`
+dependency graph of all four build targets (direct + transitive
+includes), not assumed or hand-edited. At HEAD `155324f` the union is:
+`fxmatrix_v2_api_counter.mqh`, `fxmatrix_v2_carry.mqh`,
+`fxmatrix_v2_eur_cap.mqh`, `fxmatrix_v2_eurgbp_dual_cap.mqh`,
+`fxmatrix_v2_exits.mqh`, `fxmatrix_v2_gbp_cap.mqh`,
+`fxmatrix_v2_logic.mqh`, `fxmatrix_v2_signal.mqh`,
+`fxmatrix_v2_sre_oninit.mqh`, `fxmatrix_v2_state_reconstruction.mqh`,
+`fxmatrix_v2_telemetry.mqh`. If any of the four files' includes change,
+re-derive this list from source rather than hand-editing it from memory
+— a stale assumed list is exactly what caused a 58-error compile
+failure the first time this was attempted without it.
 
 #### Desktop/VPS folder structure is NOT symmetric
 See **Content-Level Verification Before Every Compile** below for the
@@ -458,6 +464,20 @@ Operational Safety Rules) remains the operative safeguard. Reopen only
 if willing to commit to full deal-history replay as its own dedicated
 initiative.
 
+### SRE 90-Day Lookback Ceiling (Known Limitation)
+
+The State Reconstruction Engine cannot reconstruct a managed position
+older than `V2_SRE_DEFAULT_LOOKBACK_SEC` (90 days,
+`state_reconstruction.mqh:18`; used at lines 803, 828, 1074). Any open
+managed position whose history falls outside that window fails
+reconstruction. This is operationally acceptable for a
+mean-reversion/statistical-arbitrage holding profile but is a real
+ceiling — it must not become a silent trap.
+
+**Reopen trigger:** Revisit if average position hold times approach the
+90-day threshold or if the lookback constant
+(`V2_SRE_DEFAULT_LOOKBACK_SEC`) requires extension.
+
 ### EURGBP Native Sigma Migration + Easing Recalibration
 
 Would replace EURGBP's `MathMax(sig_ac, sig_bc)` half-spread sigma with
@@ -650,4 +670,4 @@ Cursor (Implementation Agent): The hands on the keyboard. Executes only after th
 What Gemini Must Always Receive
 Full system context. Never a partial summary. If the proposal references existing architecture, explain it. Provide the raw DeepSeek audit logs. Gemini cannot find poison pills in a problem it doesn't fully understand.
 
-This document has a line count of 653 lines at the bottom.
+This document has a line count of 674 lines at the bottom.
