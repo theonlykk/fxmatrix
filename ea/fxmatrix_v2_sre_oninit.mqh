@@ -106,6 +106,7 @@ struct V2SREOnInitAggregateOutcome
 string V2_SRE_HaltReasonLabel(const V2SREHaltReason reason)
 {
    switch(reason) {
+      case V2_SRE_OK: return "NONE";
       case V2_SRE_HALT_01_EXIT_MAGIC_POSITION_OPEN: return "HALT_01_EXIT_MAGIC_POSITION_OPEN";
       case V2_SRE_HALT_02_EXIT_ORDER_ASSIGNMENT_AMBIGUOUS: return "HALT_02_EXIT_ORDER_ASSIGNMENT_AMBIGUOUS";
       case V2_SRE_HALT_03_TOO_MANY_EXIT_ORDERS: return "HALT_03_TOO_MANY_EXIT_ORDERS";
