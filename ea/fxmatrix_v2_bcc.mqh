@@ -794,6 +794,7 @@ void V2_Bcc_DebounceFindings(V2BccSideRuntime &rt,
                                                current[i].ticket, current[i].magic,
                                                current[i].detail);
          V2_PushSystemAlert(alerts, msg);
+         Print(msg);
       }
    }
 
@@ -827,15 +828,26 @@ void V2_Bcc_RunSideTier2IfPending(const V2BccSideInputs &cfg,
    rt.tier2_pending = false;
 }
 
-void V2_Bcc_RunSideTier3Sweep(const V2BccSideInputs &cfg,
-                              V2BccSideRuntime &rt,
-                              const V2CloseByTask &closeby_queue[],
-                              string &alerts[])
+int V2_Bcc_CountPendingFindings(const V2BccSideRuntime &rt, const int min_streak)
+{
+   int count = 0;
+   for(int i = 0; i < ArraySize(rt.pending); i++) {
+      if(rt.pending[i].streak >= min_streak)
+         count++;
+   }
+   return count;
+}
+
+int V2_Bcc_RunSideTier3Sweep(const V2BccSideInputs &cfg,
+                             V2BccSideRuntime &rt,
+                             const V2CloseByTask &closeby_queue[],
+                             string &alerts[])
 {
    V2BccRawFinding findings[];
    V2_Bcc_CollectTier3Findings(cfg, rt, findings);
    V2_Bcc_DebounceFindings(rt, findings, cfg, closeby_queue, alerts);
    rt.last_tier3_sweep = TimeCurrent();
+   return V2_Bcc_CountPendingFindings(rt, 1);
 }
 
 void V2_Bcc_RunSideInitPass(const V2BccSideInputs &cfg,

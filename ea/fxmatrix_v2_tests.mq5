@@ -4340,6 +4340,8 @@ void Test_BCC_DebounceSingleSweepNoAlert()
    V2_Bcc_DebounceFindings(rt, current, cfg, queue, alerts);
    AssertTrue("single sweep no alert", ArraySize(alerts) == 0);
    AssertTrue("streak recorded", ArraySize(rt.pending) == 1 && rt.pending[0].streak == 1);
+   AssertTrue("pending count at streak>=1", V2_Bcc_CountPendingFindings(rt, 1) == 1);
+   AssertTrue("no pending at streak>=2", V2_Bcc_CountPendingFindings(rt, 2) == 0);
    BCC_TestReset();
 }
 
@@ -4363,8 +4365,29 @@ void Test_BCC_DebounceTwoSweepsEmitsAlert()
    V2_Bcc_DebounceFindings(rt, current, cfg, queue, alerts);
    V2_Bcc_DebounceFindings(rt, current, cfg, queue, alerts);
    AssertTrue("two sweeps emit alert", ArraySize(alerts) == 1);
+   AssertTrue("pending count after emit", V2_Bcc_CountPendingFindings(rt, 1) == 1);
+   AssertTrue("alert streak pending", V2_Bcc_CountPendingFindings(rt, 2) == 1);
    AssertContains("alert format side", alerts[0], "BCC | side=LONG");
    AssertContains("alert format check", alerts[0], "check=DUPLICATE");
+   BCC_TestReset();
+}
+
+void Test_BCC_Tier3SweepReturnsPendingCount()
+{
+   BCC_TestReset();
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   cfg.layer_count = 0;
+   cfg.l0_ticket = 0;
+
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2CloseByTask queue[];
+   string alerts[];
+
+   const int pending_count = V2_Bcc_RunSideTier3Sweep(cfg, rt, queue, alerts);
+   AssertTrue("tier3 sweep reports pending finding count", pending_count == 1);
+   AssertTrue("tier3 first sweep no debounced alert", ArraySize(alerts) == 0);
    BCC_TestReset();
 }
 
@@ -4614,6 +4637,7 @@ void OnStart()
    Test_BCC_CloseByGateAlertsWhenCounterpartyGone();
    Test_BCC_DebounceSingleSweepNoAlert();
    Test_BCC_DebounceTwoSweepsEmitsAlert();
+   Test_BCC_Tier3SweepReturnsPendingCount();
    Test_BCC_UnverifiableAmbiguousTier2Band();
    Test_BCC_OneLeggedFlatSide();
    Test_BCC_DuplicateEntryPending();

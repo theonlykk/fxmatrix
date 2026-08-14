@@ -714,16 +714,25 @@ void V2_Bcc_MaybeRunTier3Sweep()
       return;
    g_v2_bcc_last_tier3 = now;
 
+   int long_findings = 0;
+   int short_findings = 0;
+   int swept = 0;
+
    if(!g_long_halted) {
       V2BccSideInputs cfg;
       V2_Bcc_FillLongInputs(cfg);
-      V2_Bcc_RunSideTier3Sweep(cfg, g_long_bcc, g_long_closeby_queue, g_long_system_alerts);
+      long_findings = V2_Bcc_RunSideTier3Sweep(cfg, g_long_bcc, g_long_closeby_queue, g_long_system_alerts);
+      swept++;
    }
    if(!g_short_halted) {
       V2BccSideInputs cfg;
       V2_Bcc_FillShortInputs(cfg);
-      V2_Bcc_RunSideTier3Sweep(cfg, g_short_bcc, g_short_closeby_queue, g_short_system_alerts);
+      short_findings = V2_Bcc_RunSideTier3Sweep(cfg, g_short_bcc, g_short_closeby_queue, g_short_system_alerts);
+      swept++;
    }
+
+   Print(StringFormat("BCC | sweep=OK | long_findings=%d | short_findings=%d | swept=%d",
+                      long_findings, short_findings, swept));
 }
 
 int Long_OnInit() {
