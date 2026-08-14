@@ -1162,7 +1162,10 @@ void V2_SRE_RemoveStackAt(double &stack[], const int idx)
 V2SREPathState V2_SRE_ReplayPathDependentState(const V2SREReplayEvent &events[],
                                                const double add_pips_floor,
                                                const double widen_ratio,
-                                               const double add_pips_ceiling)
+                                               const double add_pips_ceiling,
+                                               const int direction,
+                                               const double exit_pips,
+                                               const double point)
 {
    V2SREPathState state;
    state.current_add_pips = add_pips_floor;
@@ -1180,7 +1183,8 @@ V2SREPathState V2_SRE_ReplayPathDependentState(const V2SREReplayEvent &events[],
             continue;
          const bool was_top = (idx == n - 1);
          if(was_top) {
-            state.last_exit_price = events[i].entry_price;
+            state.last_exit_price = V2_SRE_ExpectedExitPrice(events[i].entry_price,
+                                                             direction, exit_pips, point);
             state.last_exit_valid = true;
          } else {
             state.last_exit_valid = false;

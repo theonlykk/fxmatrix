@@ -469,15 +469,29 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    Long_EnsureAddNext();
 }
 
-void Long_RemoveLayerAt(const int layer_idx) {
+bool V2_EngineRebaseOriginSuppressed(const datetime fill_time)
+{
+   return V2_RebaseOriginSuppressed(fill_time, _Symbol,
+                                    InpRebaseBlackoutSec, InpRebaseMaxSpreadPips);
+}
+
+void Long_RemoveLayerAt(const int layer_idx,
+                        const bool from_clean_harvest = false,
+                        const datetime fill_time = 0) {
    int n = ArraySize(g_long_layers);
    if(layer_idx < 0 || layer_idx >= n)
       return;
 
    bool was_top = (layer_idx == n - 1);
-   if(was_top) {
-      g_long_last_exit_price = g_long_layers[layer_idx].entry_price;
-      g_long_last_exit_valid = true;
+   if(was_top && from_clean_harvest) {
+      if(V2_EngineRebaseOriginSuppressed(fill_time)) {
+         g_long_last_exit_valid = false;
+      } else {
+         const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         g_long_last_exit_price = V2_SRE_ExpectedExitPrice(
+            g_long_layers[layer_idx].entry_price, +1, InpExitPips, point);
+         g_long_last_exit_valid = true;
+      }
    }
 
    V2_CancelExitOrder(g_long_layers[layer_idx].exit_ticket);
@@ -500,7 +514,7 @@ void Long_RemoveLayerAt(const int layer_idx) {
 }
 
 void Long_PopTopLayer() {
-   Long_RemoveLayerAt(ArraySize(g_long_layers) - 1);
+   Long_RemoveLayerAt(ArraySize(g_long_layers) - 1, false);
 }
 
 bool Long_DealWasProcessed(const ulong deal_ticket) {
@@ -608,7 +622,7 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
                            layer_entry_time, deal_time,
                            layer_depth, stack_depth, open_depth);
 
-      Long_RemoveLayerAt(layer_idx);
+      Long_RemoveLayerAt(layer_idx, true, deal_time);
 
       if(ArraySize(g_long_layers) == 0 && g_long_pod.layers_closed > 0) {
          double hold_mins = (double)(deal_time - g_long_pod.start_time) / 60.0;
@@ -1172,15 +1186,23 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    Short_EnsureAddNext();
 }
 
-void Short_RemoveLayerAt(const int layer_idx) {
+void Short_RemoveLayerAt(const int layer_idx,
+                         const bool from_clean_harvest = false,
+                         const datetime fill_time = 0) {
    int n = ArraySize(g_short_layers);
    if(layer_idx < 0 || layer_idx >= n)
       return;
 
    bool was_top = (layer_idx == n - 1);
-   if(was_top) {
-      g_short_last_exit_price = g_short_layers[layer_idx].entry_price;
-      g_short_last_exit_valid = true;
+   if(was_top && from_clean_harvest) {
+      if(V2_EngineRebaseOriginSuppressed(fill_time)) {
+         g_short_last_exit_valid = false;
+      } else {
+         const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         g_short_last_exit_price = V2_SRE_ExpectedExitPrice(
+            g_short_layers[layer_idx].entry_price, -1, InpExitPips, point);
+         g_short_last_exit_valid = true;
+      }
    }
 
    V2_CancelExitOrder(g_short_layers[layer_idx].exit_ticket);
@@ -1203,7 +1225,7 @@ void Short_RemoveLayerAt(const int layer_idx) {
 }
 
 void Short_PopTopLayer() {
-   Short_RemoveLayerAt(ArraySize(g_short_layers) - 1);
+   Short_RemoveLayerAt(ArraySize(g_short_layers) - 1, false);
 }
 
 bool Short_DealWasProcessed(const ulong deal_ticket) {
@@ -1311,7 +1333,7 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
                            layer_entry_time, deal_time,
                            layer_depth, stack_depth, open_depth);
 
-      Short_RemoveLayerAt(layer_idx);
+      Short_RemoveLayerAt(layer_idx, true, deal_time);
 
       if(ArraySize(g_short_layers) == 0 && g_short_pod.layers_closed > 0) {
          double hold_mins = (double)(deal_time - g_short_pod.start_time) / 60.0;

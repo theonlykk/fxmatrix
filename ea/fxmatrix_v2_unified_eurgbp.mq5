@@ -21,6 +21,10 @@ input double InpSpreadMultiplierEased = 0.0;
 input double InpPassivityBuffer     = 0.5;
 input double InpAddPipsFloor      = 9.0;
 input double InpExitPips          = 3.0;
+input int    InpRebaseBlackoutSec  = 120;  // V2.5 GUARD-1: suppress re-base near broker midnight (sec)
+input double InpRebaseMaxSpreadPips = 8.0; // V2.5 GUARD-1: max broker spread in PIPS at a harvest fill;
+                                           // above this the re-base is suppressed as a possible rollover ghost.
+                                           // Absolute bound, independent of InpQuoteSpread; editable per shell.
 input double InpWidenRatio        = 1.304;
 input double InpAddPipsCeiling    = 1000.0;
 input double InpLotSize           = 0.01;

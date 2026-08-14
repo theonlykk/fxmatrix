@@ -552,7 +552,10 @@ V2SREHaltReason V2_SRE_RunOnInitSteps3To10(const V2SREOnInitSideConfig &cfg,
    V2SREPathState path_state = V2_SRE_ReplayPathDependentState(events,
                                                                 cfg.add_pips_floor,
                                                                 cfg.widen_ratio,
-                                                                cfg.add_pips_ceiling);
+                                                                cfg.add_pips_ceiling,
+                                                                cfg.side_direction,
+                                                                cfg.exit_pips,
+                                                                cfg.point);
 
    // Step 7
    const V2SREHaltReason aggregate = V2_SRE_CheckAmbiguity(V2_SRE_OK, match, anchor, map_result,

@@ -253,6 +253,65 @@ bool V2_ShouldPublishCapSyncOnInit(const bool side_orphan)
    return !side_orphan;
 }
 
+//+------------------------------------------------------------------+
+//| V2.5 re-base guards (GUARD-1) — testable without live engine.     |
+//+------------------------------------------------------------------+
+bool V2_RebaseNearBrokerMidnight(const datetime now, const int blackout_sec)
+{
+   if(blackout_sec <= 0)
+      return false;
+   MqlDateTime dt;
+   TimeToStruct(now, dt);
+   const int sec_since_midnight = dt.hour * 3600 + dt.min * 60 + dt.sec;
+   return (sec_since_midnight <= blackout_sec ||
+           sec_since_midnight >= (86400 - blackout_sec));
+}
+
+bool V2_RebaseSpreadExceedsMax(const double observed_spread_price,
+                               const double max_spread_pips,
+                               const double point)
+{
+   if(max_spread_pips <= 0.0)
+      return false;
+   if(point <= 0.0)
+      return false;
+   const double threshold_price = max_spread_pips * point * 10.0;
+   return (observed_spread_price > threshold_price);
+}
+
+bool V2_RebaseSpreadExceedsMax(const string symbol, const double max_spread_pips)
+{
+   const double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   if(point <= 0.0)
+      return false;
+   const double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+   const double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+   return V2_RebaseSpreadExceedsMax(ask - bid, max_spread_pips, point);
+}
+
+bool V2_RebaseOriginSuppressed(const datetime fill_time,
+                               const string symbol,
+                               const int blackout_sec,
+                               const double max_spread_pips)
+{
+   return V2_RebaseNearBrokerMidnight(fill_time, blackout_sec) ||
+          V2_RebaseSpreadExceedsMax(symbol, max_spread_pips);
+}
+
+double V2_MockPoint()
+{
+   return (_Point > 0.0) ? _Point : 0.00001;
+}
+
+double V2_HarvestOriginFromEntry(const double entry_price,
+                                 const int direction,
+                                 const double exit_pips,
+                                 const double point)
+{
+   const double delta = (point <= 0.0) ? exit_pips * 0.0001 : exit_pips * point * 10.0;
+   return (direction > 0) ? entry_price + delta : entry_price - delta;
+}
+
 string V2_FormatHaltedFillAlert(const string instance_tag,
                                 const string side_label,
                                 const ulong deal_ticket,
@@ -293,13 +352,14 @@ void V2MockReset(V2MockStack &s)
    s.current_add_pips = V2_ADD_PIPS_FLOOR;
 }
 
-void V2MockPopTop(V2MockStack &s)
+void V2MockPopTop(V2MockStack &s, const int direction = +1)
 {
    int n = ArraySize(s.entries);
    if(n <= 0)
       return;
 
-   s.last_exit_price = s.entries[n - 1];
+   const double entry = s.entries[n - 1];
+   s.last_exit_price = V2_HarvestOriginFromEntry(entry, direction, V2_EXIT_PIPS, V2_MockPoint());
    s.last_exit_valid = true;
    ArrayResize(s.entries, n - 1);
    V2_OnOwnStackFlat(s.last_exit_valid, ArraySize(s.entries));

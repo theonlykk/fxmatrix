@@ -143,7 +143,10 @@ void Test_OwnFlatClearsLastExit()
    V2MockPopTop(s);
    AssertTrue("partial stack keeps reload gate", s.last_exit_valid);
    AssertTrue("one layer remains", ArraySize(s.entries) == 1);
-   AssertNear("last_exit_price stored", s.last_exit_price, 1.25000, 1e-9);
+   AssertNear("last_exit_price stored harvest level",
+              s.last_exit_price,
+              V2_HarvestOriginFromEntry(1.25000, +1, V2_EXIT_PIPS, V2_MockPoint()),
+              1e-9);
    AssertNear("partial stack keeps widen state", s.current_add_pips, 15.0, 1e-9);
 }
 
@@ -181,6 +184,129 @@ void Test_CrossInstanceIsolation()
    AssertTrue("short reload gate active after own pop", short_stack.last_exit_valid);
    AssertTrue("long still flat/isolated", !long_stack.last_exit_valid);
    AssertTrue("long still empty", ArraySize(long_stack.entries) == 0);
+}
+
+//+------------------------------------------------------------------+
+// V2.5 layer-anchor ratchet — harvest-origin reload + GUARD-1
+//+------------------------------------------------------------------+
+double V2Test_LongPipsToPrice(const double pips)
+{
+   const double pt = (_Point > 0.0) ? _Point : SRE_POINT;
+   return pips * pt * 10.0;
+}
+
+void Test_V25_CleanHarvestPopSetsHarvestOriginLongShort()
+{
+   V2MockStack s;
+   V2MockReset(s);
+   V2MockAppendEntry(s, 1.30000, false);
+   V2MockAppendEntry(s, 1.29910, false);
+   V2MockPopTop(s, +1);
+   AssertNear("long pop harvest origin",
+              s.last_exit_price,
+              V2_SRE_ExpectedExitPrice(1.29910, +1, V2_EXIT_PIPS, V2_MockPoint()),
+              1e-9);
+   AssertTrue("long reload gate armed", s.last_exit_valid);
+   AssertTrue("long partial stack remains after harvest pop", ArraySize(s.entries) == 1);
+
+   V2MockReset(s);
+   V2MockAppendEntry(s, 1.30000, false);
+   V2MockAppendEntry(s, 1.29910, false);
+   V2MockPopTop(s, -1);
+   AssertNear("short pop harvest origin",
+              s.last_exit_price,
+              V2_SRE_ExpectedExitPrice(1.29910, -1, V2_EXIT_PIPS, V2_MockPoint()),
+              1e-9);
+   AssertTrue("short reload gate armed", s.last_exit_valid);
+   AssertTrue("short partial stack remains after harvest pop", ArraySize(s.entries) == 1);
+}
+
+void Test_V25_ExpectedExitPriceMatchesLivePipScale()
+{
+   const double entry = 1.30000;
+   AssertNear("long SRE vs live pip scale",
+              V2_SRE_ExpectedExitPrice(entry, +1, SRE_EXIT_PIPS, SRE_POINT),
+              entry + V2Test_LongPipsToPrice(SRE_EXIT_PIPS),
+              1e-12);
+   AssertNear("short SRE vs live pip scale",
+              V2_SRE_ExpectedExitPrice(entry, -1, SRE_EXIT_PIPS, SRE_POINT),
+              entry - V2Test_LongPipsToPrice(SRE_EXIT_PIPS),
+              1e-12);
+   AssertNear("mock helper matches SRE",
+              V2_HarvestOriginFromEntry(entry, +1, SRE_EXIT_PIPS, SRE_POINT),
+              V2_SRE_ExpectedExitPrice(entry, +1, SRE_EXIT_PIPS, SRE_POINT),
+              1e-12);
+}
+
+void Test_V25_Inv2_RebaseDoesNotMutateRemainingEntries()
+{
+   V2MockStack s;
+   V2MockReset(s);
+   V2MockAppendEntry(s, 1.30000, false);
+   V2MockAppendEntry(s, 1.29910, false);
+   V2MockAppendEntry(s, 1.29800, false);
+   const double keep0 = s.entries[0];
+   const double keep1 = s.entries[1];
+   V2MockPopTop(s, +1);
+   AssertNear("deepest entry unchanged", s.entries[0], keep0, 1e-9);
+   AssertNear("middle entry unchanged", s.entries[1], keep1, 1e-9);
+   AssertTrue("only top removed", ArraySize(s.entries) == 2);
+}
+
+void Test_V25_Guard1_BlackoutSuppressesRebase()
+{
+   const int blackout = 120;
+   AssertTrue("pre-midnight 23:59:30 in symmetric window",
+              V2_RebaseNearBrokerMidnight(D'2026.03.10 23:59:30', blackout));
+   AssertTrue("post-midnight 00:00:30 in symmetric window",
+              V2_RebaseNearBrokerMidnight(D'2026.03.11 00:00:30', blackout));
+   AssertTrue("180s before midnight outside window",
+              !V2_RebaseNearBrokerMidnight(D'2026.03.10 23:57:00', blackout));
+   AssertTrue("noon outside blackout",
+              !V2_RebaseNearBrokerMidnight(D'2026.03.11 12:00:00', blackout));
+
+   V2MockStack s;
+   V2MockReset(s);
+   V2MockAppendEntry(s, 1.30000, false);
+   V2MockAppendEntry(s, 1.29910, false);
+   const datetime fill_time = D'2026.03.11 00:00:30';
+   if(V2_RebaseNearBrokerMidnight(fill_time, blackout)) {
+      int n = ArraySize(s.entries);
+      ArrayResize(s.entries, n - 1);
+      s.last_exit_valid = false;
+   }
+   AssertTrue("suppressed re-base leaves gate false", !s.last_exit_valid);
+   AssertNear("next add uses entry anchor not reload floor",
+              V2MockComputeAddStepPips(s), s.current_add_pips, 1e-9);
+}
+
+void Test_V25_Guard1_WideSpreadSuppressesRebase()
+{
+   const double point = SRE_POINT;
+   const double max_pips = 8.0;
+   const double observed_10_pips = 10.0 * point * 10.0;
+   const double observed_3_pips  = 3.0 * point * 10.0;
+   AssertTrue("10 pip observed spread exceeds 8 pip threshold (price units)",
+              V2_RebaseSpreadExceedsMax(observed_10_pips, max_pips, point));
+   AssertTrue("3 pip observed spread within 8 pip threshold (price units)",
+              !V2_RebaseSpreadExceedsMax(observed_3_pips, max_pips, point));
+}
+
+void Test_V25_SRE_ReplayHarvestOriginParity()
+{
+   V2SREReplayEvent ev[];
+   ArrayResize(ev, 2);
+   ev[0].event_time = SRE_T0; ev[0].is_removal = false; ev[0].is_reload = false;
+   ev[0].entry_price = 1.30000; ev[0].entry_position_id = 1;
+   ev[1].event_time = SRE_T1; ev[1].is_removal = true; ev[1].is_reload = false;
+   ev[1].entry_price = 1.30000; ev[1].entry_position_id = 1;
+
+   V2SREPathState st = V2_SRE_ReplayPathDependentState(ev, V2_ADD_PIPS_FLOOR,
+                                                       V2_WIDEN_RATIO, V2_ADD_PIPS_CEILING,
+                                                       +1, SRE_EXIT_PIPS, SRE_POINT);
+   const double expected = V2_SRE_ExpectedExitPrice(1.30000, +1, SRE_EXIT_PIPS, SRE_POINT);
+   AssertNear("SRE replay last_exit is harvest level", st.last_exit_price, expected, 1e-9);
+   AssertTrue("SRE replay arms reload gate", st.last_exit_valid);
 }
 
 //+------------------------------------------------------------------+
@@ -1879,7 +2005,8 @@ void Test_SRE_ReloadResetsLastExitValid()
    ev[2].entry_price = 1.30000; ev[2].entry_position_id = 2;
 
    V2SREPathState st = V2_SRE_ReplayPathDependentState(ev, V2_ADD_PIPS_FLOOR,
-                                                       V2_WIDEN_RATIO, V2_ADD_PIPS_CEILING);
+                                                       V2_WIDEN_RATIO, V2_ADD_PIPS_CEILING,
+                                                       +1, SRE_EXIT_PIPS, SRE_POINT);
    AssertTrue("reload clears last_exit_valid", !st.last_exit_valid);
 }
 
@@ -3971,6 +4098,12 @@ void OnStart()
    Test_PostReloadExtensionUsesAccumulatedState();
    Test_OwnFlatClearsLastExit();
    Test_CrossInstanceIsolation();
+   Test_V25_CleanHarvestPopSetsHarvestOriginLongShort();
+   Test_V25_ExpectedExitPriceMatchesLivePipScale();
+   Test_V25_Inv2_RebaseDoesNotMutateRemainingEntries();
+   Test_V25_Guard1_BlackoutSuppressesRebase();
+   Test_V25_Guard1_WideSpreadSuppressesRebase();
+   Test_V25_SRE_ReplayHarvestOriginParity();
    Test_ExitLimitRequestShape();
    Test_ExitPassivityPure();
    Test_CloseByQueueing();
