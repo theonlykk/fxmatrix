@@ -18,6 +18,7 @@
 #include "fxmatrix_v2_l0_signal.mqh"
 #include "fxmatrix_v2_state_reconstruction.mqh"
 #include "fxmatrix_v2_sre_oninit.mqh"
+#include "fxmatrix_v2_bcc.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -4091,6 +4092,399 @@ void Test_SRE_OnInitPairBothCommitInitSucceeded()
 }
 
 //+------------------------------------------------------------------+
+// Book-Consistency Check (BCC) v1 unit tests
+//+------------------------------------------------------------------+
+void BCC_FillTestLongCfg(V2BccSideInputs &cfg)
+{
+   cfg.side_label = "LONG";
+   cfg.symbol = "GBPUSD";
+   cfg.direction = 1;
+   cfg.entry_magic = MM_LONG_V2;
+   cfg.exit_magic = MM_LONG_V2_EXIT;
+   cfg.exit_pips = SRE_EXIT_PIPS;
+   cfg.point = SRE_POINT;
+   cfg.expected_volume = SRE_LOT;
+   cfg.halted = false;
+   cfg.layer_count = 1;
+   cfg.max_layers = 20;
+   cfg.last_exit_valid = false;
+   cfg.cap_blocks_add = false;
+   cfg.l0_ticket = 0;
+   cfg.add_ticket = 0;
+   ArrayResize(cfg.layers, 0);
+}
+
+void BCC_TestReset()
+{
+   V2_Bcc_TestReset();
+}
+
+void Test_BCC_TicketBindingLiveNoTier2()
+{
+   BCC_TestReset();
+   g_v2_bcc_test_active = true;
+
+   V2BccTestPosition pos;
+   pos.ticket = 101; pos.position_id = 1001; pos.magic = MM_LONG_V2;
+   pos.symbol = "GBPUSD"; pos.volume = SRE_LOT; pos.open_price = 1.30000;
+   pos.open_time = SRE_T1; pos.position_type = POSITION_TYPE_BUY;
+   ArrayResize(g_v2_bcc_test_positions, 1);
+   g_v2_bcc_test_positions[0] = pos;
+   ArrayResize(g_v2_bcc_test_position_live, 1);
+   g_v2_bcc_test_position_live[0] = 101;
+
+   V2BccTestOrder ord;
+   ord.ticket = 201; ord.magic = MM_LONG_V2_EXIT; ord.symbol = "GBPUSD";
+   ord.volume = SRE_LOT;
+   ord.price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord.setup_time = SRE_T1 + 60; ord.order_type = ORDER_TYPE_SELL_LIMIT;
+   ArrayResize(g_v2_bcc_test_orders, 1);
+   g_v2_bcc_test_orders[0] = ord;
+
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   ArrayResize(cfg.layers, 1);
+   cfg.layers[0].exit_ticket = 201;
+   cfg.layers[0].position_ticket = 101;
+
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2BccExitItem tier2[];
+   V2_Bcc_Tier1ScanOrphans(cfg, rt, tier2);
+   AssertTrue("bound exit live -> no tier2", !rt.tier2_pending);
+   AssertTrue("bound exit live -> no tier2 candidates", ArraySize(tier2) == 0);
+   BCC_TestReset();
+}
+
+void Test_BCC_TicketBindingGoneFlagsTier2()
+{
+   BCC_TestReset();
+   g_v2_bcc_test_active = true;
+
+   V2BccTestOrder ord;
+   ord.ticket = 201; ord.magic = MM_LONG_V2_EXIT; ord.symbol = "GBPUSD";
+   ord.volume = SRE_LOT;
+   ord.price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   ord.setup_time = SRE_T1 + 60; ord.order_type = ORDER_TYPE_SELL_LIMIT;
+   ArrayResize(g_v2_bcc_test_orders, 1);
+   g_v2_bcc_test_orders[0] = ord;
+
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   ArrayResize(cfg.layers, 1);
+   cfg.layers[0].exit_ticket = 201;
+   cfg.layers[0].position_ticket = 101;
+
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2BccExitItem tier2[];
+   V2_Bcc_Tier1ScanOrphans(cfg, rt, tier2);
+   AssertTrue("bound position gone -> tier2 pending", rt.tier2_pending);
+   AssertTrue("orphan candidate listed", ArraySize(tier2) == 1 && tier2[0].ticket == 201);
+   BCC_TestReset();
+}
+
+void Test_BCC_ParityUnambiguousOrphan()
+{
+   BCC_TestReset();
+   g_v2_bcc_test_active = true;
+
+   V2BccTestPosition pos;
+   pos.ticket = 102; pos.position_id = 1002; pos.magic = MM_LONG_V2;
+   pos.symbol = "GBPUSD"; pos.volume = SRE_LOT; pos.open_price = 1.29910;
+   pos.open_time = SRE_T1; pos.position_type = POSITION_TYPE_BUY;
+   ArrayResize(g_v2_bcc_test_positions, 1);
+   g_v2_bcc_test_positions[0] = pos;
+   ArrayResize(g_v2_bcc_test_position_live, 1);
+   g_v2_bcc_test_position_live[0] = 102;
+
+   const double matched_price = V2_SRE_ExpectedExitPrice(1.29910, 1, SRE_EXIT_PIPS, SRE_POINT);
+   const double orphan_price  = V2_SRE_ExpectedExitPrice(1.31000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   const double tier2_tol     = V2_SRE_RolloverPriceTolerance(SRE_POINT);
+   const double dist_pips     = MathAbs(orphan_price - matched_price) / (SRE_POINT * 10.0);
+   const double tol_pips      = tier2_tol / (SRE_POINT * 10.0);
+   AssertTrue("orphan priced beyond tier2 tolerance band",
+              dist_pips > tol_pips + 1.0);
+
+   V2BccTestOrder ord_orphan;
+   ord_orphan.ticket = 201; ord_orphan.magic = MM_LONG_V2_EXIT; ord_orphan.symbol = "GBPUSD";
+   ord_orphan.volume = SRE_LOT; ord_orphan.price = orphan_price;
+   ord_orphan.setup_time = SRE_T2; ord_orphan.order_type = ORDER_TYPE_SELL_LIMIT;
+   V2BccTestOrder ord_matched;
+   ord_matched.ticket = 202; ord_matched.magic = MM_LONG_V2_EXIT; ord_matched.symbol = "GBPUSD";
+   ord_matched.volume = SRE_LOT; ord_matched.price = matched_price;
+   ord_matched.setup_time = SRE_T1 + 60; ord_matched.order_type = ORDER_TYPE_SELL_LIMIT;
+   ArrayResize(g_v2_bcc_test_orders, 2);
+   g_v2_bcc_test_orders[0] = ord_orphan;
+   g_v2_bcc_test_orders[1] = ord_matched;
+
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   ArrayResize(cfg.layers, 1);
+   cfg.layers[0].exit_ticket = 202;
+   cfg.layers[0].position_ticket = 102;
+
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2BccExitItem tier2[];
+   V2_Bcc_Tier1ScanOrphans(cfg, rt, tier2);
+   AssertTrue("only unbound exit is tier2 candidate",
+              ArraySize(tier2) == 1 && tier2[0].ticket == 201);
+
+   V2BccRawFinding findings[];
+   V2_Bcc_Tier2ResolveOrphans(cfg, tier2, findings);
+
+   bool orphan201 = false;
+   bool flagged202 = false;
+   bool unverifiable = false;
+   for(int i = 0; i < ArraySize(findings); i++) {
+      if(findings[i].ticket == 201 && findings[i].check == V2_BCC_CHECK_ORPHAN_EXIT)
+         orphan201 = true;
+      if(findings[i].ticket == 202)
+         flagged202 = true;
+      if(findings[i].check == V2_BCC_CHECK_UNVERIFIABLE)
+         unverifiable = true;
+   }
+   AssertTrue("unambiguous book yields orphan 201", orphan201);
+   AssertTrue("matched exit 202 not flagged", !flagged202);
+   AssertTrue("unambiguous book has no unverifiable", !unverifiable);
+   BCC_TestReset();
+}
+
+void Test_BCC_DualPoolStrandedExitPosition()
+{
+   BCC_TestReset();
+   g_v2_bcc_test_active = true;
+
+   V2BccTestPosition hedge;
+   hedge.ticket = 301; hedge.position_id = 9001; hedge.magic = MM_LONG_V2_EXIT;
+   hedge.symbol = "GBPUSD"; hedge.volume = SRE_LOT;
+   hedge.open_price = V2_SRE_ExpectedExitPrice(1.30000, 1, SRE_EXIT_PIPS, SRE_POINT);
+   hedge.open_time = SRE_T2; hedge.position_type = POSITION_TYPE_SELL;
+   ArrayResize(g_v2_bcc_test_positions, 1);
+   g_v2_bcc_test_positions[0] = hedge;
+
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   cfg.layer_count = 0;
+
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2BccExitItem tier2[];
+   V2_Bcc_Tier1ScanOrphans(cfg, rt, tier2);
+   AssertTrue("exit-side position discovered", ArraySize(tier2) == 1 && tier2[0].is_position);
+
+   V2BccRawFinding findings[];
+   V2_Bcc_Tier2ResolveOrphans(cfg, tier2, findings);
+   AssertTrue("stranded exit position flagged orphan",
+              ArraySize(findings) == 1 &&
+              findings[0].check == V2_BCC_CHECK_ORPHAN_EXIT &&
+              findings[0].ticket == 301);
+   BCC_TestReset();
+}
+
+void Test_BCC_CloseByGateSuppressesWhenCounterpartyAlive()
+{
+   BCC_TestReset();
+   V2CloseByTask queue[];
+   V2TestQueueCloseBy(queue, 5001, 5002);
+
+   g_v2_bcc_test_active = true;
+   ArrayResize(g_v2_bcc_test_position_live, 1);
+   g_v2_bcc_test_position_live[0] = 5002;
+
+   V2BccRawFinding f;
+   f.check = V2_BCC_CHECK_ORPHAN_EXIT;
+   f.ticket = 5001;
+   f.magic = MM_LONG_V2_EXIT;
+   f.detail = "test";
+   AssertTrue("closeby alive suppresses", V2_Bcc_ShouldSuppressCloseBy(f, queue));
+   BCC_TestReset();
+}
+
+void Test_BCC_CloseByGateAlertsWhenCounterpartyGone()
+{
+   BCC_TestReset();
+   V2CloseByTask queue[];
+   V2TestQueueCloseBy(queue, 5001, 5002);
+
+   g_v2_bcc_test_active = true;
+   ArrayResize(g_v2_bcc_test_position_live, 0);
+
+   V2BccRawFinding f;
+   f.check = V2_BCC_CHECK_ORPHAN_EXIT;
+   f.ticket = 5001;
+   f.magic = MM_LONG_V2_EXIT;
+   f.detail = "test";
+   AssertTrue("counterparty gone does not suppress", !V2_Bcc_ShouldSuppressCloseBy(f, queue));
+   BCC_TestReset();
+}
+
+void Test_BCC_DebounceSingleSweepNoAlert()
+{
+   BCC_TestReset();
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2CloseByTask queue[];
+   string alerts[];
+
+   V2BccRawFinding current[];
+   ArrayResize(current, 1);
+   current[0].check = V2_BCC_CHECK_ONE_LEGGED;
+   current[0].ticket = 0;
+   current[0].magic = MM_LONG_V2;
+   current[0].detail = "flat_side_no_l0_pending";
+
+   V2_Bcc_DebounceFindings(rt, current, cfg, queue, alerts);
+   AssertTrue("single sweep no alert", ArraySize(alerts) == 0);
+   AssertTrue("streak recorded", ArraySize(rt.pending) == 1 && rt.pending[0].streak == 1);
+   BCC_TestReset();
+}
+
+void Test_BCC_DebounceTwoSweepsEmitsAlert()
+{
+   BCC_TestReset();
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   V2CloseByTask queue[];
+   string alerts[];
+
+   V2BccRawFinding current[];
+   ArrayResize(current, 1);
+   current[0].check = V2_BCC_CHECK_DUPLICATE;
+   current[0].ticket = 0;
+   current[0].magic = MM_LONG_V2;
+   current[0].detail = "entry_pendings=2 expected<=1";
+
+   V2_Bcc_DebounceFindings(rt, current, cfg, queue, alerts);
+   V2_Bcc_DebounceFindings(rt, current, cfg, queue, alerts);
+   AssertTrue("two sweeps emit alert", ArraySize(alerts) == 1);
+   AssertContains("alert format side", alerts[0], "BCC | side=LONG");
+   AssertContains("alert format check", alerts[0], "check=DUPLICATE");
+   BCC_TestReset();
+}
+
+void Test_BCC_UnverifiableAmbiguousTier2Band()
+{
+   SRE_Tier2AuditSetSwapOverride(-4.62, -6.18);
+
+   const double entry1 = 1.34950;
+   const double entry2 = 1.34952;
+   const double exit_price = 1.34983;
+   const datetime open1 = D'2026.08.02 23:47:16';
+   const datetime open2 = D'2026.08.02 23:50:00';
+   const datetime exit_time = D'2026.08.06 10:00:00';
+
+   V2SREPositionInput pos[];
+   ArrayResize(pos, 2);
+   pos[0].ticket = 101; pos[0].position_id = 1001; pos[0].open_time = open1;
+   pos[0].entry_price = entry1; pos[0].volume = SRE_LOT; pos[0].direction = 1;
+   pos[0].symbol = "GBPUSD"; pos[0].position_type = POSITION_TYPE_BUY;
+   pos[1].ticket = 102; pos[1].position_id = 1002; pos[1].open_time = open2;
+   pos[1].entry_price = entry2; pos[1].volume = SRE_LOT; pos[1].direction = 1;
+   pos[1].symbol = "GBPUSD"; pos[1].position_type = POSITION_TYPE_BUY;
+
+   V2SREExitOrderInput ord[];
+   ArrayResize(ord, 1);
+   ord[0].ticket = 201; ord[0].placement_time = exit_time;
+   ord[0].price = exit_price; ord[0].volume = SRE_LOT;
+   ord[0].direction = 1; ord[0].symbol = "GBPUSD";
+
+   const double expected1 = V2_SRE_ExpectedExitPrice(entry1, 1, SRE_EXIT_PIPS, SRE_POINT);
+   const double expected2 = V2_SRE_ExpectedExitPrice(entry2, 1, SRE_EXIT_PIPS, SRE_POINT);
+   const double max_shift1 = V2_SRE_MaxPossibleRolloverShift(open1, SRE_AUDIT_NOW,
+                                                             "GBPUSD", 1, SRE_POINT);
+   const double max_shift2 = V2_SRE_MaxPossibleRolloverShift(open2, SRE_AUDIT_NOW,
+                                                             "GBPUSD", 1, SRE_POINT);
+
+   Print("DIAG BCC_UNVERIFIABLE | expected1=", DoubleToString(expected1, 5),
+         " expected2=", DoubleToString(expected2, 5),
+         " max_shift1=", DoubleToString(max_shift1, 5),
+         " max_shift2=", DoubleToString(max_shift2, 5),
+         " order_price=", DoubleToString(exit_price, 5));
+
+   AssertTrue("exit at/above higher expected", exit_price >= MathMax(expected1, expected2));
+   AssertTrue("pos1 long band contains exit",
+              exit_price >= expected1 && exit_price <= expected1 + max_shift1);
+   AssertTrue("pos2 long band contains exit",
+              exit_price >= expected2 && exit_price <= expected2 + max_shift2);
+   AssertTrue("pos1 not tier1 for exit",
+              !V2_SRE_Tier1Eligible(pos[0], ord[0], SRE_AUDIT_NOW,
+                                    SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+   AssertTrue("pos2 not tier1 for exit",
+              !V2_SRE_Tier1Eligible(pos[1], ord[0], SRE_AUDIT_NOW,
+                                    SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+
+   int tier2_count = 0;
+   for(int i = 0; i < 2; i++) {
+      if(V2_SRE_Tier2Eligible(pos[i], ord[0], pos, SRE_AUDIT_NOW,
+                               SRE_EXIT_PIPS, SRE_POINT, SRE_LOT))
+         tier2_count++;
+   }
+   AssertTrue("fixture tier2_matches == 2", tier2_count == 2);
+   AssertTrue("unverifiable predicate true",
+              V2_Bcc_ExitIsUnverifiable(pos, ord[0], SRE_AUDIT_NOW,
+                                         SRE_EXIT_PIPS, SRE_POINT, SRE_LOT));
+   SRE_Tier2AuditResetSwapOverride();
+}
+
+void Test_BCC_OneLeggedFlatSide()
+{
+   BCC_TestReset();
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   cfg.layer_count = 0;
+   cfg.l0_ticket = 0;
+
+   V2BccRawFinding findings[];
+   V2_Bcc_CheckOneLegged(cfg, findings);
+   AssertTrue("flat side without l0 is one-legged",
+              ArraySize(findings) == 1 && findings[0].check == V2_BCC_CHECK_ONE_LEGGED);
+   BCC_TestReset();
+}
+
+void Test_BCC_DuplicateEntryPending()
+{
+   BCC_TestReset();
+   g_v2_bcc_test_active = true;
+
+   V2BccTestOrder o1;
+   o1.ticket = 401; o1.magic = MM_LONG_V2; o1.symbol = "GBPUSD";
+   o1.volume = SRE_LOT; o1.price = 1.30000; o1.setup_time = SRE_T1;
+   o1.order_type = ORDER_TYPE_BUY_LIMIT;
+   V2BccTestOrder o2;
+   o2.ticket = 402; o2.magic = MM_LONG_V2; o2.symbol = "GBPUSD";
+   o2.volume = SRE_LOT; o2.price = 1.29950; o2.setup_time = SRE_T2;
+   o2.order_type = ORDER_TYPE_BUY_LIMIT;
+   ArrayResize(g_v2_bcc_test_orders, 2);
+   g_v2_bcc_test_orders[0] = o1;
+   g_v2_bcc_test_orders[1] = o2;
+
+   V2BccSideInputs cfg;
+   BCC_FillTestLongCfg(cfg);
+   cfg.layer_count = 0;
+
+   V2BccRawFinding findings[];
+   V2_Bcc_CheckDuplicatePending(cfg, findings);
+   AssertTrue("duplicate entry pending flagged",
+              ArraySize(findings) == 1 && findings[0].check == V2_BCC_CHECK_DUPLICATE);
+   BCC_TestReset();
+}
+
+void Test_BCC_AlertFormat()
+{
+   const string msg = V2_Bcc_FormatAlert("LONG", V2_BCC_CHECK_ORPHAN_EXIT,
+                                         201, MM_LONG_V2_EXIT, "detail");
+   AssertContains("bcc alert prefix", msg, "BCC | side=LONG");
+   AssertContains("bcc alert check", msg, "check=ORPHAN_EXIT");
+   AssertContains("bcc alert ticket", msg, "ticket=201");
+}
+
+//+------------------------------------------------------------------+
 void OnStart()
 {
    Print("=== fxmatrix_v2 native unit tests ===");
@@ -4211,6 +4605,19 @@ void OnStart()
    Test_SRE_OnInitPairShortHaltOnlyInitSucceeded();
    Test_SRE_OnInitPairBothFlatInitSucceeded();
    Test_SRE_OnInitPairBothCommitInitSucceeded();
+
+   Test_BCC_TicketBindingLiveNoTier2();
+   Test_BCC_TicketBindingGoneFlagsTier2();
+   Test_BCC_ParityUnambiguousOrphan();
+   Test_BCC_DualPoolStrandedExitPosition();
+   Test_BCC_CloseByGateSuppressesWhenCounterpartyAlive();
+   Test_BCC_CloseByGateAlertsWhenCounterpartyGone();
+   Test_BCC_DebounceSingleSweepNoAlert();
+   Test_BCC_DebounceTwoSweepsEmitsAlert();
+   Test_BCC_UnverifiableAmbiguousTier2Band();
+   Test_BCC_OneLeggedFlatSide();
+   Test_BCC_DuplicateEntryPending();
+   Test_BCC_AlertFormat();
 
    Test_SRE_Tier1RealData_PairA_Eurusd();
    Test_SRE_Tier1RealData_PairB_Gbpusd();

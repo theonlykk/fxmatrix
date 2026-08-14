@@ -41,6 +41,8 @@ input bool   EnableTelemetry      = false;
 input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "";
 input int    TelemetryIntervalSec = 60;
+input bool   InpBccEnable         = true;  // ADR-BCC: passive book-consistency checker
+input int    InpBccSweepSec       = 60;    // ADR-BCC: full C3/C4 sweep interval (sec)
 
 //+------------------------------------------------------------------+
 bool V2_Cap_CheckBlocks(const bool is_long)

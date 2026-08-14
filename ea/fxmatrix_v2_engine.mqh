@@ -14,6 +14,7 @@
 #include "fxmatrix_v2_l0_signal.mqh"
 #include "fxmatrix_v2_state_reconstruction.mqh"
 #include "fxmatrix_v2_sre_oninit.mqh"
+#include "fxmatrix_v2_bcc.mqh"
 
 //+------------------------------------------------------------------+
 double V2_EngineDeadbandSpreadRef()
@@ -80,6 +81,7 @@ bool     g_long_halted = false;
 
 V2CloseByTask g_long_closeby_queue[];
 string        g_long_system_alerts[];
+V2BccSideRuntime g_long_bcc;
 
 int g_long_stat_l0_entries;
 int g_long_stat_l0_requote;
@@ -652,12 +654,85 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
    }
 }
 
+void V2_Bcc_FillLongInputs(V2BccSideInputs &cfg)
+{
+   cfg.side_label = "LONG";
+   cfg.symbol = _Symbol;
+   cfg.direction = 1;
+   cfg.entry_magic = g_preset.magic_long;
+   cfg.exit_magic = g_preset.magic_long_exit;
+   cfg.exit_pips = InpExitPips;
+   cfg.point = _Point;
+   cfg.expected_volume = InpLotSize;
+   cfg.halted = g_long_halted;
+   cfg.layer_count = ArraySize(g_long_layers);
+   cfg.max_layers = InpMaxLayers;
+   cfg.last_exit_valid = g_long_last_exit_valid;
+   cfg.cap_blocks_add = V2_Cap_CheckBlocks(true);
+   cfg.l0_ticket = g_long_l0_ticket;
+   cfg.add_ticket = g_long_add_ticket;
+   const int n = ArraySize(g_long_layers);
+   ArrayResize(cfg.layers, n);
+   for(int i = 0; i < n; i++) {
+      cfg.layers[i].exit_ticket = g_long_layers[i].exit_ticket;
+      cfg.layers[i].position_ticket = g_long_layers[i].position_ticket;
+   }
+}
+
+void V2_Bcc_FillShortInputs(V2BccSideInputs &cfg)
+{
+   cfg.side_label = "SHORT";
+   cfg.symbol = _Symbol;
+   cfg.direction = -1;
+   cfg.entry_magic = g_preset.magic_short;
+   cfg.exit_magic = g_preset.magic_short_exit;
+   cfg.exit_pips = InpExitPips;
+   cfg.point = _Point;
+   cfg.expected_volume = InpLotSize;
+   cfg.halted = g_short_halted;
+   cfg.layer_count = ArraySize(g_short_layers);
+   cfg.max_layers = InpMaxLayers;
+   cfg.last_exit_valid = g_short_last_exit_valid;
+   cfg.cap_blocks_add = V2_Cap_CheckBlocks(false);
+   cfg.l0_ticket = g_short_l0_ticket;
+   cfg.add_ticket = g_short_add_ticket;
+   const int n = ArraySize(g_short_layers);
+   ArrayResize(cfg.layers, n);
+   for(int i = 0; i < n; i++) {
+      cfg.layers[i].exit_ticket = g_short_layers[i].exit_ticket;
+      cfg.layers[i].position_ticket = g_short_layers[i].position_ticket;
+   }
+}
+
+void V2_Bcc_MaybeRunTier3Sweep()
+{
+   if(!InpBccEnable)
+      return;
+
+   const datetime now = TimeCurrent();
+   if(g_v2_bcc_last_tier3 != 0 && (now - g_v2_bcc_last_tier3) < InpBccSweepSec)
+      return;
+   g_v2_bcc_last_tier3 = now;
+
+   if(!g_long_halted) {
+      V2BccSideInputs cfg;
+      V2_Bcc_FillLongInputs(cfg);
+      V2_Bcc_RunSideTier3Sweep(cfg, g_long_bcc, g_long_closeby_queue, g_long_system_alerts);
+   }
+   if(!g_short_halted) {
+      V2BccSideInputs cfg;
+      V2_Bcc_FillShortInputs(cfg);
+      V2_Bcc_RunSideTier3Sweep(cfg, g_short_bcc, g_short_closeby_queue, g_short_system_alerts);
+   }
+}
+
 int Long_OnInit() {
    g_long_last_exit_valid  = false;
    g_long_current_add_pips = InpAddPipsFloor;
    g_long_last_bar_time    = 0;
    g_long_processed_count  = 0;
    ArrayResize(g_long_processed_deals, 0);
+   V2_Bcc_ResetSideRuntime(g_long_bcc);
    Print("INFO: ", g_preset.ea_name, "_long init magic=", g_preset.magic_long,
          " WIDEN=", InpWidenRatio, " reload_flat=1");
    return INIT_SUCCEEDED;
@@ -681,6 +756,12 @@ void Long_OnTick() {
       return;
    Long_OnNewBar();
    Long_AuditExitLimits();
+   if(InpBccEnable) {
+      V2BccSideInputs bcc_cfg;
+      V2_Bcc_FillLongInputs(bcc_cfg);
+      V2_Bcc_RunSideTier1(bcc_cfg, g_long_bcc);
+      V2_Bcc_RunSideTier2IfPending(bcc_cfg, g_long_bcc, g_long_closeby_queue, g_long_system_alerts);
+   }
    V2_ProcessCloseByQueue(g_long_closeby_queue, g_preset.tel_instance_long,
                           g_preset.magic_long, g_long_halted, InpVerboseLog);
 }
@@ -804,6 +885,8 @@ bool     g_short_halted = false;
 
 V2CloseByTask g_short_closeby_queue[];
 string        g_short_system_alerts[];
+V2BccSideRuntime g_short_bcc;
+datetime         g_v2_bcc_last_tier3 = 0;
 
 int g_short_stat_l0_entries;
 int g_short_stat_l0_requote;
@@ -1369,6 +1452,7 @@ int Short_OnInit() {
    g_short_last_bar_time    = 0;
    g_short_processed_count  = 0;
    ArrayResize(g_short_processed_deals, 0);
+   V2_Bcc_ResetSideRuntime(g_short_bcc);
    Print("INFO: ", g_preset.ea_name, "_short init magic=", g_preset.magic_short,
          " WIDEN=", InpWidenRatio, " reload_flat=1");
    return INIT_SUCCEEDED;
@@ -1392,6 +1476,12 @@ void Short_OnTick() {
       return;
    Short_OnNewBar();
    Short_AuditExitLimits();
+   if(InpBccEnable) {
+      V2BccSideInputs bcc_cfg;
+      V2_Bcc_FillShortInputs(bcc_cfg);
+      V2_Bcc_RunSideTier1(bcc_cfg, g_short_bcc);
+      V2_Bcc_RunSideTier2IfPending(bcc_cfg, g_short_bcc, g_short_closeby_queue, g_short_system_alerts);
+   }
    V2_ProcessCloseByQueue(g_short_closeby_queue, g_preset.tel_instance_short,
                           g_preset.magic_short, g_short_halted, InpVerboseLog);
 }
@@ -1619,6 +1709,20 @@ int OnInit() {
             "clean instance(s) continue. Reattach flat after resolving orphans.");
    }
 
+   g_v2_bcc_last_tier3 = 0;
+   if(InpBccEnable) {
+      if(!g_long_halted) {
+         V2BccSideInputs long_bcc;
+         V2_Bcc_FillLongInputs(long_bcc);
+         V2_Bcc_RunSideInitPass(long_bcc, g_long_bcc, g_long_closeby_queue, g_long_system_alerts);
+      }
+      if(!g_short_halted) {
+         V2BccSideInputs short_bcc;
+         V2_Bcc_FillShortInputs(short_bcc);
+         V2_Bcc_RunSideInitPass(short_bcc, g_short_bcc, g_short_closeby_queue, g_short_system_alerts);
+      }
+   }
+
    return agg.init_result;
 }
 
@@ -1633,6 +1737,7 @@ void OnTick() {
    V2_RunRolloverRetryPasses();
    Long_OnTick();
    Short_OnTick();
+   V2_Bcc_MaybeRunTier3Sweep();
    V2EmitTelemetry(false);
 }
 
