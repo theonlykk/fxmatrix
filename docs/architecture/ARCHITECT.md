@@ -19,6 +19,19 @@ Retail Heuristics: Arbitrary constants, rigid thresholds, or lack of relative no
 
 The Override Rule: If DeepSeek uncovers a fatal flaw that invalidates the premise of the request, it must explicitly state the vulnerability, and we abort the premise pending an architectural pivot.
 
+**Source-Grounding Mandate for teardowns of EXISTING mechanisms (ratified
+Gemini, 2026-08-14):** An adversarial teardown of an already-built
+mechanism must either be provided with direct source excerpts of that
+mechanism, or be explicitly constrained to assessing methodology,
+statistical design, and specification consistency. A teardown of existing
+code that runs without source will hallucinate attack vectors against
+assumed (wrong) internals. Empirically demonstrated this session: the BCC
+teardown was commissioned AFTER a source read and returned 4/4 valid
+findings with zero over-flags; the earlier V2.5 mechanism teardown ran
+spec-blind and produced largely invalid mechanism reds. Ground the
+teardown in source, or scope it to methodology — never let it guess at
+internals.
+
 Phase 2 — The Engineering Blueprint (Blue Team)
 Once the Red Team has identified the flaws and proposed institutional fixes, the Blue Team (Claude) synthesizes the execution plan.
 
@@ -237,6 +250,26 @@ the underlying file has been correctly updated on disk.
 
 ### No Recompile or Reattach on a Live/Demo Instance Unless the Chart Is Confirmed Flat
 
+> **[STALE — NEEDS GEMINI RATIFICATION, flagged 2026-08-14]** The State
+> Reconstruction Engine (now SHIPPED — see Parked Backlog) substantially
+> lifts this precondition: the SRE reconstructs managed layer state from
+> broker deal history on reattach, so a NON-FLAT reattach of a
+> reconstructable side is now normal and was performed repeatedly this
+> session, reconstructing to `halt_reason_label=NONE`. The strict
+> "100% flat before any reattach" rule below is therefore no longer
+> operative in its blanket form. HOWEVER the replacement is NOT simply
+> "flat no longer required": a side holding a lone position with no prior
+> dual-flat anchor still halts by design (`HALT_09_ANCHOR_NOT_FOUND`,
+> ADR-113), and that halt is NOT visible in a positions/orders blotter.
+> The precise corrected rule — what the SRE lifts vs. what still requires
+> care (genesis-orphan sides, pre-deploy book pairing) — must be drafted
+> and ratified by Gemini before this section is rewritten clean. Until
+> then: treat NON-FLAT reattach as supported for healthy stacked sides,
+> expect and plan for by-design HALT_09 on lone-position genesis sides,
+> and pair the book by magic before any deploy. The original (pre-SRE)
+> text is retained below for reference, NOT as current operative guidance.
+
+
 **Finding:** `OnInit` does not rebuild an EA's internal layer-tracking
 state from actual broker positions on restart. If an EA is
 recompiled, reloaded, or reattached while it holds open positions, the
@@ -263,6 +296,18 @@ precondition is the operative safeguard and should not be skipped even
 under time pressure or for changes believed to be low-risk.
 
 ### VPS Live Deployment Sequence
+
+> **[STALE STEP 1 — NEEDS GEMINI RATIFICATION, flagged 2026-08-14]** Step 1
+> below ("confirm the account is 100% flat") is superseded by the SRE for
+> reconstructable sides — this session deployed onto a NON-FLAT book that
+> reconstructed cleanly. The operative pre-deploy step is now: pair the
+> live book by magic and confirm it is orphan-free AND has no
+> lone-position genesis sides (which would HALT_09 on reattach, ADR-113).
+> Steps 2 and 4-8 remain correct. Step 3 (delete resting limits) applies
+> only when intentionally flattening a side, not as a blanket step. The
+> exact rewritten sequence is pending Gemini ratification; the original is
+> retained below for reference.
+
 
 1. Confirm the account is 100% flat — zero open positions, zero
    pending orders, across all three instances.
@@ -452,17 +497,35 @@ Items intentionally deferred after real investigation, not simply
 undone or forgotten. Each entry states why it's parked and what would
 need to be true to reopen it.
 
-### State Reconstruction Engine
+### State Reconstruction Engine — SHIPPED (no longer parked)
 
-Would replace the current halt-on-orphan behavior with genuine state
-rebuild from live broker data on restart, removing the need for the
-flat-chart precondition. Rejected in its narrow form (Gemini's ruling,
-2026-08-02) because proving the "safe" narrow envelope requires nearly
-the same deal-history-replay complexity as the full engine — no real
-shortcut exists. Parked indefinitely. The flat-chart rule (see
-Operational Safety Rules) remains the operative safeguard. Reopen only
-if willing to commit to full deal-history replay as its own dedicated
-initiative.
+**Status update (2026-08-14): this entry is superseded. The SRE was
+built, adversarially audited, ruled, implemented, and deployed. It is
+live on the VPS.** The original narrow-form rejection (Gemini, 2026-08-02)
+was itself later superseded: full CloseBy-history mapping (Option A) was
+proven feasible against this account's real deal history and pursued as a
+dedicated initiative, exactly the condition this entry named for reopening.
+
+The engine reconstructs managed layer state from live broker deal history
+on restart (OnInit), replacing halt-on-orphan for reconstructable sides.
+It emits structured `sre_oninit` DIAG telemetry per side with a
+`halt_reason_label` (NONE on clean reconstruction).
+
+Shipped across ADR-105 through ADR-113 (SRE design through unified-engine
+merge), with ADR-114 (V2.5 carry-corrected exits) and ADR-115/116 (BCC —
+the exit-first book-consistency checker that reuses the SRE matcher)
+built on top. Verified live: crash-recovery drills adopted cleanly, and
+multiple non-flat reattaches this session reconstructed to
+`halt_reason_label=NONE`.
+
+**Remaining known limitation (by design, NOT a bug):** a side holding a
+lone position with no prior dual-flat anchor in its deal history halts
+with `HALT_09_ANCHOR_NOT_FOUND / SITE2_NO_DUAL_FLAT` (the genesis-orphan
+case, ADR-113). This is fail-closed and correct — it is not visible in a
+positions/orders blotter (it depends on deal-history dual-flat), so
+"orphan-free book" does NOT imply "reconstructs clean." See the
+flat-chart precondition note below, which the SRE substantially (but not
+entirely) lifts.
 
 ### SRE 90-Day Lookback Ceiling (Known Limitation)
 
@@ -670,4 +733,4 @@ Cursor (Implementation Agent): The hands on the keyboard. Executes only after th
 What Gemini Must Always Receive
 Full system context. Never a partial summary. If the proposal references existing architecture, explain it. Provide the raw DeepSeek audit logs. Gemini cannot find poison pills in a problem it doesn't fully understand.
 
-This document has a line count of 674 lines at the bottom.
+This document has a line count of 736 lines at the bottom.
