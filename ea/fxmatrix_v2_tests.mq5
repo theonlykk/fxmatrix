@@ -3840,13 +3840,13 @@ void Test_SRE_Tier1RealData_PairB_Gbpusd()
       long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
 
    AssertTrue("tier1 pairB init succeeded", agg.init_result == INIT_SUCCEEDED);
-   AssertTrue("tier1 pairB long not halted", !agg.long_halted);
+   AssertTrue("tier1 pairB long halted (HALT_30 by design, ADR-108)", agg.long_halted);
    AssertTrue("tier1 pairB short not halted", !agg.short_halted);
-   AssertTrue("tier1 pairB long committed", agg.long_committed);
+   AssertTrue("tier1 pairB long not committed (halted)", !agg.long_committed);
    AssertTrue("tier1 pairB short committed", agg.short_committed);
-   AssertTrue("tier1 pairB long halt reason ok", long_sre.halt_reason == V2_SRE_OK);
+   AssertTrue("tier1 pairB long halt reason HALT_30", long_sre.halt_reason == V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT);
    AssertTrue("tier1 pairB short halt reason ok", short_sre.halt_reason == V2_SRE_OK);
-   AssertTrue("tier1 pairB long one layer", long_sre.layer_count_after == 1);
+   // pairB long: layer_count_after not asserted on a by-design HALT_30 (fail-closed before commit)
    AssertTrue("tier1 pairB short four layers", short_sre.layer_count_after == 4);
 
    SRE_Tier2AuditResetSwapOverride();
@@ -3887,13 +3887,13 @@ void Test_SRE_Tier1RealData_PairC_Eurgbp()
       long_alerts, short_alerts, long_cfg, short_cfg, long_sre, short_sre);
 
    AssertTrue("tier1 pairC init succeeded", agg.init_result == INIT_SUCCEEDED);
-   AssertTrue("tier1 pairC long not halted", !agg.long_halted);
+   AssertTrue("tier1 pairC long halted (HALT_30 by design, ADR-108)", agg.long_halted);
    AssertTrue("tier1 pairC short not halted", !agg.short_halted);
-   AssertTrue("tier1 pairC long committed", agg.long_committed);
+   AssertTrue("tier1 pairC long not committed (halted)", !agg.long_committed);
    AssertTrue("tier1 pairC short committed", agg.short_committed);
-   AssertTrue("tier1 pairC long halt reason ok", long_sre.halt_reason == V2_SRE_OK);
+   AssertTrue("tier1 pairC long halt reason HALT_30", long_sre.halt_reason == V2_SRE_HALT_30_CLOSEBY_PRICE_INCONSISTENT);
    AssertTrue("tier1 pairC short halt reason ok", short_sre.halt_reason == V2_SRE_OK);
-   AssertTrue("tier1 pairC long one layer", long_sre.layer_count_after == 1);
+   // pairC long: layer_count_after not asserted on a by-design HALT_30 (fail-closed before commit)
    AssertTrue("tier1 pairC short one layer", short_sre.layer_count_after == 1);
 
    SRE_Tier2AuditResetSwapOverride();
