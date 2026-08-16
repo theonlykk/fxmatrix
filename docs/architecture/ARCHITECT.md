@@ -248,81 +248,59 @@ Open** on the explicit terminal path before compiling. A tab left open
 from an earlier session can silently compile old content even after
 the underlying file has been correctly updated on disk.
 
-### No Recompile or Reattach on a Live/Demo Instance Unless the Chart Is Confirmed Flat
+### Recompile / Reattach on a Live/Demo Instance (SRE era)
 
-> **[STALE — NEEDS GEMINI RATIFICATION, flagged 2026-08-14]** The State
-> Reconstruction Engine (now SHIPPED — see Parked Backlog) substantially
-> lifts this precondition: the SRE reconstructs managed layer state from
-> broker deal history on reattach, so a NON-FLAT reattach of a
-> reconstructable side is now normal and was performed repeatedly this
-> session, reconstructing to `halt_reason_label=NONE`. The strict
-> "100% flat before any reattach" rule below is therefore no longer
-> operative in its blanket form. HOWEVER the replacement is NOT simply
-> "flat no longer required": a side holding a lone position with no prior
-> dual-flat anchor still halts by design (`HALT_09_ANCHOR_NOT_FOUND`,
-> ADR-113), and that halt is NOT visible in a positions/orders blotter.
-> The precise corrected rule — what the SRE lifts vs. what still requires
-> care (genesis-orphan sides, pre-deploy book pairing) — must be drafted
-> and ratified by Gemini before this section is rewritten clean. Until
-> then: treat NON-FLAT reattach as supported for healthy stacked sides,
-> expect and plan for by-design HALT_09 on lone-position genesis sides,
-> and pair the book by magic before any deploy. The original (pre-SRE)
-> text is retained below for reference, NOT as current operative guidance.
+**Rule (SRE era, ratified Gemini 2026-08-14):** A recompile/reload/reattach
+on a live or demo instance no longer requires the chart to be 100% flat. The
+State Reconstruction Engine (SHIPPED — see Parked Backlog) reconstructs managed
+layer state from broker deal history on OnInit, so a NON-FLAT reattach of a
+RECONSTRUCTABLE side is normal and expected. However:
 
+- Before any deploy, pair the live book by magic and confirm it is orphan-free
+  (no exit without a justifying position, no naked position).
+- Be aware a lone-position side with no dual-flat anchor in its deal history
+  will HALT_09 by design on reattach (HALT_09_ANCHOR_NOT_FOUND /
+  SITE2_NO_DUAL_FLAT, ADR-113), and this is NOT visible in a positions/orders
+  blotter (it depends on deal-history dual-flat). Either accept the halt and
+  reconcile that side after (close + cancel its exit hedge + reattach), or
+  confirm via deal history first. "Orphan-free book" does NOT imply
+  "reconstructs clean."
+- After reattach, verify each side's `sre_oninit halt_reason_label=NONE` (or a
+  known by-design HALT_09) before turning AlgoTrading on; and, since BCC v1.1,
+  confirm the `BCC | sweep=OK` heartbeat in the log.
+- A halted side is fail-closed (does not trade); clean sides continue. This is
+  safe, not an emergency.
 
-**Finding:** `OnInit` does not rebuild an EA's internal layer-tracking
-state from actual broker positions on restart. If an EA is
-recompiled, reloaded, or reattached while it holds open positions, the
-existing orphan-detection guard halts the instance outright rather
-than reconstructing state from broker truth. This requires manual
-intervention to recover — it is not a momentary accuracy gap, it is a
-full stop of that instance's trading.
-
-Every production deployment prior to this rule's adoption succeeded
-only because the affected chart happened to be flat at the exact
-moment of reattach — this was never a checked precondition, and
-should not be relied upon as one.
-
-**Rule:** No recompile, reload, or reattach cycle may be executed on
-any live or demo trading instance unless the target chart is confirmed
-**100% flat** — zero open positions AND zero pending orders — at the
-time of the action. This applies regardless of how small or
-"logic-free" the change being deployed is (a pure logging addition is
-not exempt).
-
-**Backlog reference:** see **Parked Backlog → State Reconstruction
-Engine** below. Until that initiative exists, the flat-chart
-precondition is the operative safeguard and should not be skipped even
-under time pressure or for changes believed to be low-risk.
+*(Historical note: prior to the SRE, OnInit did not rebuild layer state from
+broker truth, so a non-flat reattach halted the instance and required manual
+recovery. The strict "100% flat before reattach" rule was the operative
+safeguard through 2026-08-13. The SRE replaced it; this section supersedes that
+rule. See ADR-105..113 for the SRE, ADR-113 for the genesis-orphan HALT_09
+boundary.)*
 
 ### VPS Live Deployment Sequence
 
-> **[STALE STEP 1 — NEEDS GEMINI RATIFICATION, flagged 2026-08-14]** Step 1
-> below ("confirm the account is 100% flat") is superseded by the SRE for
-> reconstructable sides — this session deployed onto a NON-FLAT book that
-> reconstructed cleanly. The operative pre-deploy step is now: pair the
-> live book by magic and confirm it is orphan-free AND has no
-> lone-position genesis sides (which would HALT_09 on reattach, ADR-113).
-> Steps 2 and 4-8 remain correct. Step 3 (delete resting limits) applies
-> only when intentionally flattening a side, not as a blanket step. The
-> exact rewritten sequence is pending Gemini ratification; the original is
-> retained below for reference.
+**Ratified Gemini 2026-08-14 (SRE era).**
 
-
-1. Confirm the account is 100% flat — zero open positions, zero
-   pending orders, across all three instances.
+1. Pair the live book by magic; confirm orphan-free and note any lone-position
+   genesis sides (which will HALT_09 on reattach).
 2. Turn AlgoTrading off.
-3. Delete any resting limit orders manually if present.
-4. Detach the EA(s) from their chart(s).
-5. Run `deploy.ps1`.
-6. Compile in MetaEditor.
-7. Turn AlgoTrading back on.
-8. Reattach the EA(s).
+3. (Only if intentionally flattening a side) delete that side's resting entry
+   pending AND its exit hedge (9x3/9x4) — not a blanket step. Deleting the
+   entry pending while leaving its resting exit hedge manufactures a HALT_21
+   orphan state.
+4. Detach the EA(s).
+5. Run `deploy.ps1` (git pull + xcopy + SHA256 verify).
+6. GUI-compile in MetaEditor (authoritative; CLI unreliable — see CLI/Headless
+   Compile Reliability).
+7. Reattach the EA(s); watch `sre_oninit` per side + the `BCC | sweep=OK`
+   heartbeat.
+8. Reconcile any by-design HALT_09 genesis sides if you want them live (close
+   position + cancel its exit hedge + reattach that side).
+9. Turn AlgoTrading on.
 
-This sequence, and the flat-chart precondition specifically, governs
-VPS/live-demo instances only — see Machine Topology above for why
-desktop compiling is exempt.
-
+This sequence governs VPS/live-demo instances only — desktop compiling is
+exempt (see Machine Topology; nothing on desktop is ever live).
 ### Cap-Enablement Gate: Cross-Instance Global Variable Reset
 
 The original finding (EURGBP's `OnInit` unconditionally resetting
@@ -733,4 +711,4 @@ Cursor (Implementation Agent): The hands on the keyboard. Executes only after th
 What Gemini Must Always Receive
 Full system context. Never a partial summary. If the proposal references existing architecture, explain it. Provide the raw DeepSeek audit logs. Gemini cannot find poison pills in a problem it doesn't fully understand.
 
-This document has a line count of 736 lines at the bottom.
+This document has a line count of 714 lines at the bottom.
