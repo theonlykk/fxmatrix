@@ -43,6 +43,10 @@ input string TelemetryAPIKey      = "";
 input int    TelemetryIntervalSec = 60;
 input bool   InpBccEnable         = true;  // ADR-BCC: passive book-consistency checker
 input int    InpBccSweepSec       = 60;    // ADR-BCC: full C3/C4 sweep interval (sec)
+input bool   InpCbEnable          = true;  // ADR-CB: account-wide equity-floor circuit breaker
+input double InpCbDailyLossFrac   = 0.045; // ADR-CB: 4.5% daily floor (FTMO)
+input double InpCbAbsoluteLossFrac = 0.090; // ADR-CB: 9% absolute floor (FTMO)
+input double InpCbInitialBalance  = 0.0;   // ADR-CB: 0 => capture ACCOUNT_BALANCE once, persist
 
 //+------------------------------------------------------------------+
 bool V2_Cap_CheckBlocks(const bool is_long)

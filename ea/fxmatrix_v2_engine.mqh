@@ -15,6 +15,7 @@
 #include "fxmatrix_v2_state_reconstruction.mqh"
 #include "fxmatrix_v2_sre_oninit.mqh"
 #include "fxmatrix_v2_bcc.mqh"
+#include "fxmatrix_v2_circuit_breaker.mqh"
 
 //+------------------------------------------------------------------+
 double V2_EngineDeadbandSpreadRef()
@@ -1691,6 +1692,11 @@ int OnInit() {
    else if(agg.short_committed)
       V2_ApplyShortSRECommit(short_sre);
 
+   if(V2_CbReadAcctHaltGv()) {
+      g_long_halted = true;
+      g_short_halted = true;
+   }
+
    // ADR-110: baseline flat-side entry-pending sweep. Flat sides never enter
    // reconstruction; clear their stale pre-crash entry limits before the tick
    // loop re-quotes. The zero-position gate excludes orphaned/halted sides.
@@ -1744,6 +1750,7 @@ void OnTick() {
    V2_ApiCounterMaybeReset();
    V2_RunDailyRolloverReconciliation();
    V2_RunRolloverRetryPasses();
+   V2_Cb_CheckAndMaybeHalt(g_long_halted, g_short_halted, g_long_system_alerts);
    Long_OnTick();
    Short_OnTick();
    V2_Bcc_MaybeRunTier3Sweep();

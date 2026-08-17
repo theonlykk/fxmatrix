@@ -20,6 +20,13 @@
 #include "fxmatrix_v2_sre_oninit.mqh"
 #include "fxmatrix_v2_bcc.mqh"
 
+bool   InpCbEnable = true;
+double InpCbDailyLossFrac = 0.045;
+double InpCbAbsoluteLossFrac = 0.090;
+double InpCbInitialBalance = 0.0;
+
+#include "fxmatrix_v2_circuit_breaker.mqh"
+
 int g_tests_run = 0;
 int g_tests_passed = 0;
 
@@ -4379,6 +4386,7 @@ void Test_BCC_Tier3SweepReturnsPendingCount()
    BCC_FillTestLongCfg(cfg);
    cfg.layer_count = 0;
    cfg.l0_ticket = 0;
+   g_v2_bcc_test_active = true;
 
    V2BccSideRuntime rt;
    V2_Bcc_ResetSideRuntime(rt);
@@ -4505,6 +4513,101 @@ void Test_BCC_AlertFormat()
    AssertContains("bcc alert prefix", msg, "BCC | side=LONG");
    AssertContains("bcc alert check", msg, "check=ORPHAN_EXIT");
    AssertContains("bcc alert ticket", msg, "ticket=201");
+}
+
+void Test_CB_DailyFloorBoundary()
+{
+   const double anchor = 100000.0;
+   const double frac = 0.045;
+   const double floor = anchor * (1.0 - frac);
+   AssertTrue("daily above floor no breach",
+              !V2_CbDailyFloorBreached(floor + 1.0, anchor, frac));
+   AssertTrue("daily at floor no breach (strict <)",
+              !V2_CbDailyFloorBreached(floor, anchor, frac));
+   AssertTrue("daily below floor breach",
+              V2_CbDailyFloorBreached(floor - 0.01, anchor, frac));
+}
+
+void Test_CB_AbsoluteFloorBoundary()
+{
+   const double initial = 100000.0;
+   const double frac = 0.09;
+   const double floor = initial * (1.0 - frac);
+   AssertTrue("absolute above floor no breach",
+              !V2_CbAbsoluteFloorBreached(floor + 1.0, initial, frac));
+   AssertTrue("absolute at floor no breach (strict <)",
+              !V2_CbAbsoluteFloorBreached(floor, initial, frac));
+   AssertTrue("absolute below floor breach",
+              V2_CbAbsoluteFloorBreached(floor - 0.01, initial, frac));
+}
+
+void CB_TestReset()
+{
+   V2_Cb_TestReset();
+}
+
+void Test_CB_ReanchorTrapUsesPersistedAnchor()
+{
+   const double persisted = 100000.0;
+   const double drawn_down = 92000.0;
+   AssertNear("persisted anchor reused",
+              V2_CbResolveDailyAnchor(true, persisted, drawn_down),
+              persisted, 1e-9);
+   AssertNear("absent anchor captures current balance",
+              V2_CbResolveDailyAnchor(false, persisted, drawn_down),
+              drawn_down, 1e-9);
+
+   CB_TestReset();
+   g_v2_cb_test_active = true;
+   g_v2_cb_test_anchor_day_key = "20260814";
+   g_v2_cb_test_anchor_val = persisted;
+   g_v2_cb_test_anchor_known = true;
+   g_v2_cb_test_balance = drawn_down;
+   const double ensured = V2_CbEnsureDailyAnchor("20260814", drawn_down);
+   AssertNear("ensure daily anchor does not re-anchor mid-day",
+              ensured, persisted, 1e-9);
+   CB_TestReset();
+}
+
+void Test_CB_CestDayKeyDstTransition()
+{
+   AssertTrue("winter CET offset is +1h",
+              V2_CbCestOffsetSeconds(D'2026.01.15 12:00:00') == 3600);
+   AssertTrue("summer CEST offset is +2h",
+              V2_CbCestOffsetSeconds(D'2026.07.15 12:00:00') == 7200);
+
+   const datetime pre_spring = D'2026.03.29 00:30:00';
+   const datetime post_spring = D'2026.03.29 01:30:00';
+   AssertTrue("pre-DST still CET (+1h)",
+              V2_CbCestOffsetSeconds(pre_spring) == 3600);
+   AssertTrue("post-DST is CEST (+2h)",
+              V2_CbCestOffsetSeconds(post_spring) == 7200);
+   AssertTrue("same CE(S)T calendar day across CET->CEST spring forward",
+              V2_CbCestDayKey(pre_spring) == V2_CbCestDayKey(post_spring));
+   AssertTrue("spring-forward day key is 20260329",
+              V2_CbCestDayKey(post_spring) == "20260329");
+}
+
+void Test_CB_PeerHonorHaltsBothSides()
+{
+   bool long_h = false;
+   bool short_h = false;
+   V2_CbHonorPeerHalt(true, long_h, short_h);
+   AssertTrue("peer gv halts long", long_h);
+   AssertTrue("peer gv halts short", short_h);
+}
+
+void Test_CB_DisabledNeverTripsOnEquity()
+{
+   const double anchor = 100000.0;
+   const double frac = 0.045;
+   const double floor = anchor * (1.0 - frac);
+   const bool daily_breach = V2_CbDailyFloorBreached(floor - 100.0, anchor, frac);
+   AssertTrue("fixture is a breach", daily_breach);
+   AssertTrue("disabled skips floor halt",
+              !V2_CbShouldHaltFromFloors(false, daily_breach, false));
+   AssertTrue("enabled trips on breach",
+              V2_CbShouldHaltFromFloors(true, daily_breach, false));
 }
 
 //+------------------------------------------------------------------+
@@ -4642,6 +4745,12 @@ void OnStart()
    Test_BCC_OneLeggedFlatSide();
    Test_BCC_DuplicateEntryPending();
    Test_BCC_AlertFormat();
+   Test_CB_DailyFloorBoundary();
+   Test_CB_AbsoluteFloorBoundary();
+   Test_CB_ReanchorTrapUsesPersistedAnchor();
+   Test_CB_CestDayKeyDstTransition();
+   Test_CB_PeerHonorHaltsBothSides();
+   Test_CB_DisabledNeverTripsOnEquity();
 
    Test_SRE_Tier1RealData_PairA_Eurusd();
    Test_SRE_Tier1RealData_PairB_Gbpusd();
