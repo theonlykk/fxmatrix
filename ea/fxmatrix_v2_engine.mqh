@@ -1545,6 +1545,11 @@ void V2EmitTelemetry(const bool force = false)
    V2FillShortTelLayers(short_layers);
 
    datetime ts_utc = TimeGMT();
+   string long_live_alerts[];
+   string short_live_alerts[];
+   V2_Bcc_BuildLiveAlerts("LONG", g_long_bcc, g_long_halted, long_live_alerts);
+   V2_Bcc_BuildLiveAlerts("SHORT", g_short_bcc, g_short_halted, short_live_alerts);
+
    string payload_long = V2BuildInstanceTelemetryPayload(
       g_preset.tel_instance_long,
       _Symbol,
@@ -1553,7 +1558,7 @@ void V2EmitTelemetry(const bool force = false)
       1,
       InpQuoteSpread,
       ts_utc,
-      g_long_system_alerts
+      long_live_alerts
    );
    string payload_short = V2BuildInstanceTelemetryPayload(
       g_preset.tel_instance_short,
@@ -1563,7 +1568,7 @@ void V2EmitTelemetry(const bool force = false)
       -1,
       InpQuoteSpread,
       ts_utc,
-      g_short_system_alerts
+      short_live_alerts
    );
 
    V2TelemetryWebPost(TelemetryURL, TelemetryAPIKey, payload_long, InpVerboseLog);
@@ -1748,6 +1753,8 @@ void OnDeinit(const int reason) {
 }
 
 void OnTick() {
+   ArrayResize(g_long_system_alerts, 0);
+   ArrayResize(g_short_system_alerts, 0);
    V2_ApiCounterMaybeReset();
    V2_RunDailyRolloverReconciliation();
    V2_RunRolloverRetryPasses();

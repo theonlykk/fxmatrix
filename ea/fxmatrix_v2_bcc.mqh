@@ -154,6 +154,33 @@ string V2_Bcc_FormatAlert(const string side_label,
                        detail);
 }
 
+void V2_Bcc_BuildLiveAlerts(const string side_label,
+                            const V2BccSideRuntime &rt,
+                            const bool halted,
+                            string &out_alerts[])
+{
+   ArrayResize(out_alerts, 0);
+
+   for(int i = 0; i < ArraySize(rt.pending); i++) {
+      if(rt.pending[i].streak < 2)
+         continue;
+      const string msg = V2_Bcc_FormatAlert(side_label, rt.pending[i].check,
+                                            rt.pending[i].ticket, rt.pending[i].magic,
+                                            rt.pending[i].detail);
+      const int n = ArraySize(out_alerts);
+      ArrayResize(out_alerts, n + 1);
+      out_alerts[n] = msg;
+   }
+
+   if(halted) {
+      const string halt_msg = StringFormat("HALT | side=%s | instance halted (see Experts log)",
+                                           side_label);
+      const int n = ArraySize(out_alerts);
+      ArrayResize(out_alerts, n + 1);
+      out_alerts[n] = halt_msg;
+   }
+}
+
 bool V2_Bcc_FindingKeyEqual(const V2BccRawFinding &a, const V2BccDebouncedFinding &b)
 {
    return (a.check == b.check && a.ticket == b.ticket && a.magic == b.magic);

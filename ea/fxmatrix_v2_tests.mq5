@@ -4517,6 +4517,62 @@ void Test_BCC_AlertFormat()
    AssertContains("bcc alert ticket", msg, "ticket=201");
 }
 
+void Test_TEL_LiveAlertsStreakFilter()
+{
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   ArrayResize(rt.pending, 3);
+
+   rt.pending[0].check = V2_BCC_CHECK_ONE_LEGGED;
+   rt.pending[0].ticket = 0;
+   rt.pending[0].magic = MM_LONG_V2;
+   rt.pending[0].detail = "flat_side_no_l0_pending";
+   rt.pending[0].streak = 2;
+
+   rt.pending[1].check = V2_BCC_CHECK_DUPLICATE;
+   rt.pending[1].ticket = 0;
+   rt.pending[1].magic = MM_LONG_V2;
+   rt.pending[1].detail = "entry_pendings=2 expected<=1";
+   rt.pending[1].streak = 2;
+
+   rt.pending[2].check = V2_BCC_CHECK_NAKED;
+   rt.pending[2].ticket = 101;
+   rt.pending[2].magic = MM_LONG_V2;
+   rt.pending[2].detail = "entry_position_without_resting_exit";
+   rt.pending[2].streak = 1;
+
+   string alerts[];
+   V2_Bcc_BuildLiveAlerts("LONG", rt, false, alerts);
+   AssertTrue("live alerts include only streak>=2", ArraySize(alerts) == 2);
+   AssertContains("live alert one-legged", alerts[0], "check=ONE_LEGGED");
+   AssertContains("live alert duplicate", alerts[1], "check=DUPLICATE");
+   AssertTrue("streak-1 naked excluded",
+              V2_Bcc_FormatAlert("LONG", V2_BCC_CHECK_NAKED, 101, MM_LONG_V2,
+                                 "entry_position_without_resting_exit") != alerts[0] &&
+              V2_Bcc_FormatAlert("LONG", V2_BCC_CHECK_NAKED, 101, MM_LONG_V2,
+                                 "entry_position_without_resting_exit") != alerts[1]);
+}
+
+void Test_TEL_LiveAlertsEmptyWhenResolved()
+{
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   string alerts[];
+   V2_Bcc_BuildLiveAlerts("LONG", rt, false, alerts);
+   AssertTrue("resolved signal yields empty live alerts", ArraySize(alerts) == 0);
+}
+
+void Test_TEL_LiveAlertsHaltMarker()
+{
+   V2BccSideRuntime rt;
+   V2_Bcc_ResetSideRuntime(rt);
+   string alerts[];
+   V2_Bcc_BuildLiveAlerts("SHORT", rt, true, alerts);
+   AssertTrue("halt marker alone", ArraySize(alerts) == 1);
+   AssertContains("halt marker text", alerts[0], "HALT | side=SHORT");
+   AssertContains("halt marker experts log hint", alerts[0], "see Experts log");
+}
+
 void Test_CB_DailyFloorBoundary()
 {
    const double anchor = 100000.0;
@@ -4896,6 +4952,9 @@ void OnStart()
    Test_BCC_OneLeggedFlatSide();
    Test_BCC_DuplicateEntryPending();
    Test_BCC_AlertFormat();
+   Test_TEL_LiveAlertsStreakFilter();
+   Test_TEL_LiveAlertsEmptyWhenResolved();
+   Test_TEL_LiveAlertsHaltMarker();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();
