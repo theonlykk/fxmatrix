@@ -153,10 +153,12 @@ foreach ($item in ($diskMq5 + $diskMqh)) {
 }
 if ($untracked.Count -gt 0) {
     Write-Host ""
-    Write-Host "WARNING: untracked files in ea/ root exist on disk but are NOT synced (not in git):" -ForegroundColor Yellow
+    Write-Host "ERROR: untracked source files in ea/ are on disk but NOT in git, so they will NOT sync to the terminal. A compile now would be stale/incomplete:" -ForegroundColor Red
     foreach ($u in ($untracked | Sort-Object)) {
-        Write-Host "  $u"
+        Write-Host "  $u" -ForegroundColor Red
     }
+    Write-Host "Fix: 'git add' each new source file (or add it to `$ExcludeV1Files if intentionally excluded), then re-run." -ForegroundColor Yellow
+    exit 1
 }
 
 $mismatch = $false
