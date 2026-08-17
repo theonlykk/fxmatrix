@@ -26,6 +26,8 @@ double InpCbAbsoluteLossFrac = 0.090;
 double InpCbInitialBalance = 0.0;
 
 #include "fxmatrix_v2_circuit_breaker.mqh"
+bool   InpTaEnable = true;
+#include "fxmatrix_v2_trigger_a.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -4610,6 +4612,155 @@ void Test_CB_DisabledNeverTripsOnEquity()
               V2_CbShouldHaltFromFloors(true, daily_breach, false));
 }
 
+void Test_TA_HardMaxBoundary()
+{
+   const int max_layers = 20;
+   AssertTrue("depth at max no breach", !V2_TaHardMaxBreached(max_layers, max_layers));
+   AssertTrue("depth above max breach", V2_TaHardMaxBreached(max_layers + 1, max_layers));
+   AssertTrue("disabled skips hard max", !V2_TaShouldHaltHardMax(false, max_layers + 1, max_layers));
+}
+
+void Test_TA_SameDirEscalationThreshold()
+{
+   AssertTrue("same-dir count 1 no escalate", !V2_TaSameDirCritEscalates(1));
+   AssertTrue("same-dir count 2 escalate", V2_TaSameDirCritEscalates(2));
+   AssertTrue("disabled skips same-dir escalate", !V2_TaShouldEscalateSameDir(false, 2));
+}
+
+void Test_TA_DivergenceStreakDebounce()
+{
+   int streak = 0;
+   streak = V2_TaUpdateDivergenceStreak(true, streak);
+   AssertTrue("first divergent streak is 1", streak == 1);
+   AssertTrue("streak 1 does not halt", !V2_TaDivergenceStreakHalts(streak));
+
+   streak = V2_TaUpdateDivergenceStreak(true, streak);
+   AssertTrue("second divergent streak is 2", streak == 2);
+   AssertTrue("streak 2 halts", V2_TaDivergenceStreakHalts(streak));
+
+   streak = V2_TaUpdateDivergenceStreak(false, streak);
+   AssertTrue("clear resets streak to 0", streak == 0);
+   AssertTrue("reset streak does not halt", !V2_TaDivergenceStreakHalts(streak));
+   AssertTrue("disabled skips divergence halt", !V2_TaShouldHaltDivergence(false, 2));
+}
+
+void Test_TA_DivergenceDetect()
+{
+   AssertTrue("managed equals broker not divergent",
+              !V2_TaPositionDivergent(3, 3));
+   AssertTrue("managed not equal broker divergent",
+              V2_TaPositionDivergent(3, 4));
+}
+
+void Test_TA_DisabledNeverTrips()
+{
+   AssertTrue("disabled hard max guard", !V2_TaShouldHaltHardMax(false, 25, 20));
+   AssertTrue("disabled same-dir guard", !V2_TaShouldEscalateSameDir(false, 3));
+   AssertTrue("disabled divergence guard", !V2_TaShouldHaltDivergence(false, 3));
+}
+
+void TA_TestReset()
+{
+   V2_Ta_TestReset();
+   V2_Cb_TestReset();
+}
+
+void Test_TA_WiredDivergenceEndOfTickDebounce()
+{
+   TA_TestReset();
+   g_v2_ta_test_active = true;
+
+   const int long_depth = 3;
+   const int short_depth = 2;
+   g_v2_ta_test_broker_long = 4;
+   g_v2_ta_test_broker_short = short_depth;
+
+   bool long_halted = false;
+   bool short_halted = false;
+   string alerts[];
+
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        long_depth, short_depth);
+   AssertTrue("wired divergence first check long not halted", !long_halted);
+   AssertTrue("wired divergence first check short not halted", !short_halted);
+
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        long_depth, short_depth);
+   AssertTrue("wired divergence second check long halted", long_halted);
+   AssertTrue("wired divergence second check short still not halted", !short_halted);
+
+   TA_TestReset();
+}
+
+void Test_TA_WiredDivergenceTransientClearsStreak()
+{
+   TA_TestReset();
+   g_v2_ta_test_active = true;
+
+   const int long_depth = 2;
+   const int short_depth = 0;
+   g_v2_ta_test_broker_long = 5;
+   g_v2_ta_test_broker_short = 0;
+
+   bool long_halted = false;
+   bool short_halted = false;
+   string alerts[];
+
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        long_depth, short_depth);
+   AssertTrue("transient first check long not halted", !long_halted);
+
+   g_v2_ta_test_broker_long = long_depth;
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        long_depth, short_depth);
+   AssertTrue("transient cleared long still not halted", !long_halted);
+   AssertTrue("transient cleared streak reset", g_ta_long_div_streak == 0);
+
+   TA_TestReset();
+}
+
+void Test_TA_WiredHardMaxSideLocal()
+{
+   TA_TestReset();
+
+   const int max_layers = 20;
+   bool long_halted = false;
+   bool short_halted = false;
+   string alerts[];
+
+   V2_Ta_CheckHardMaxSide("LONG", max_layers + 1, max_layers, long_halted, alerts);
+   AssertTrue("wired hard-max halts long only", long_halted);
+   AssertTrue("wired hard-max leaves short unhalted", !short_halted);
+
+   TA_TestReset();
+}
+
+void Test_TA_WiredSameDirEscalationAccountWide()
+{
+   TA_TestReset();
+   g_v2_cb_test_active = true;
+
+   bool long_halted = false;
+   bool short_halted = false;
+   string alerts[];
+
+   V2_Ta_CheckSameDirEscalation(2, long_halted, short_halted, alerts);
+   AssertTrue("wired same-dir halts long", long_halted);
+   AssertTrue("wired same-dir halts short", short_halted);
+   AssertTrue("wired same-dir publishes account halt gv", V2_CbReadAcctHaltGv());
+
+   const int alerts_after_first = ArraySize(alerts);
+   V2_Ta_CheckSameDirEscalation(3, long_halted, short_halted, alerts);
+   AssertTrue("wired same-dir idempotent alert count",
+              ArraySize(alerts) == alerts_after_first);
+
+   TA_TestReset();
+}
+
 //+------------------------------------------------------------------+
 void OnStart()
 {
@@ -4751,6 +4902,15 @@ void OnStart()
    Test_CB_CestDayKeyDstTransition();
    Test_CB_PeerHonorHaltsBothSides();
    Test_CB_DisabledNeverTripsOnEquity();
+   Test_TA_HardMaxBoundary();
+   Test_TA_SameDirEscalationThreshold();
+   Test_TA_DivergenceStreakDebounce();
+   Test_TA_DivergenceDetect();
+   Test_TA_DisabledNeverTrips();
+   Test_TA_WiredDivergenceEndOfTickDebounce();
+   Test_TA_WiredDivergenceTransientClearsStreak();
+   Test_TA_WiredHardMaxSideLocal();
+   Test_TA_WiredSameDirEscalationAccountWide();
 
    Test_SRE_Tier1RealData_PairA_Eurusd();
    Test_SRE_Tier1RealData_PairB_Gbpusd();

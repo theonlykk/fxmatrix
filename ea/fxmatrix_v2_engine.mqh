@@ -16,6 +16,7 @@
 #include "fxmatrix_v2_sre_oninit.mqh"
 #include "fxmatrix_v2_bcc.mqh"
 #include "fxmatrix_v2_circuit_breaker.mqh"
+#include "fxmatrix_v2_trigger_a.mqh"
 
 //+------------------------------------------------------------------+
 double V2_EngineDeadbandSpreadRef()
@@ -1751,9 +1752,15 @@ void OnTick() {
    V2_RunDailyRolloverReconciliation();
    V2_RunRolloverRetryPasses();
    V2_Cb_CheckAndMaybeHalt(g_long_halted, g_short_halted, g_long_system_alerts);
+   V2_Ta_CheckStartOfTick(g_long_halted, g_short_halted, g_long_system_alerts,
+                          ArraySize(g_long_layers), ArraySize(g_short_layers),
+                          InpMaxLayers, g_v2_ta_samedir_crit);
    Long_OnTick();
    Short_OnTick();
    V2_Bcc_MaybeRunTier3Sweep();
+   V2_Ta_CheckEndOfTick(g_long_halted, g_short_halted, g_long_system_alerts,
+                        _Symbol, g_preset.magic_long, g_preset.magic_short,
+                        ArraySize(g_long_layers), ArraySize(g_short_layers));
    V2EmitTelemetry(false);
 }
 

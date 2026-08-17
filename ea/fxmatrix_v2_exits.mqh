@@ -8,6 +8,8 @@
 #include "fxmatrix_v2_logic.mqh"
 #include "fxmatrix_v2_telemetry.mqh"
 
+int g_v2_ta_samedir_crit = 0;
+
 //+------------------------------------------------------------------+
 //| Broker-facing helpers (live book / history).                      |
 //+------------------------------------------------------------------+
@@ -204,6 +206,7 @@ void V2_ProcessCloseByQueue(V2CloseByTask &queue[],
                   type1, queue[i].last_retcode);
                Print(alert_msg);
                halted = true;
+               g_v2_ta_samedir_crit++;
             }
          } else {
             Print("INFO V2_CLOSEBY_EXHAUSTED | instance=", instance_tag,
