@@ -48,11 +48,14 @@ input double InpCbDailyLossFrac   = 0.045; // ADR-CB: 4.5% daily floor (FTMO)
 input double InpCbAbsoluteLossFrac = 0.090; // ADR-CB: 9% absolute floor (FTMO)
 input double InpCbInitialBalance  = 0.0;   // ADR-CB: 0 => capture ACCOUNT_BALANCE once, persist
 input bool   InpTaEnable          = true;  // ADR-TA: operational anomaly Trigger A
+input V2EntryMode InpEntryMode    = ENTRY_SIGNAL;
+input double InpDumbStraddlePips  = 9.0;
+input double InpDumbRefBandPips   = 3.0;
 
 //+------------------------------------------------------------------+
 bool V2_Cap_CheckBlocks(const bool is_long)
 {
-   return V2_AnyCapBlocksNewAdd(is_long, InpGbpCapThreshold, InpEurCapThreshold);
+   return V2_AnyCapBlocksNewAdd(g_preset.cap_namespace, is_long, InpGbpCapThreshold, InpEurCapThreshold);
 }
 
 void V2_Cap_RecordBlock(const bool is_long)
@@ -62,7 +65,7 @@ void V2_Cap_RecordBlock(const bool is_long)
 
 void V2_Cap_Sync(const bool is_long, const int layer_count)
 {
-   V2_SyncAllCaps(is_long, layer_count);
+   V2_SyncAllCaps(g_preset.cap_namespace, is_long, layer_count);
 }
 
 #include "fxmatrix_v2_engine.mqh"

@@ -9,9 +9,10 @@
 
 #include "fxmatrix_v2_pair_preset.mqh"
 
-const V2PairPreset g_preset =
+V2PairPreset g_preset =
 {
    "EURGBP",              // chart_symbol
+   "EURGBP",              // cap_namespace
    "MM_LONG_EURGBP",      // tel_instance_long
    "MM_SHORT_EURGBP",     // tel_instance_short
    "fxmatrix_v2_eurgbp",  // ea_name

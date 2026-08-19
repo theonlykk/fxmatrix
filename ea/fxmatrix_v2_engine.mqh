@@ -17,8 +17,11 @@
 #include "fxmatrix_v2_bcc.mqh"
 #include "fxmatrix_v2_circuit_breaker.mqh"
 #include "fxmatrix_v2_trigger_a.mqh"
+#include "fxmatrix_v2_entry_ab.mqh"
 
 //+------------------------------------------------------------------+
+double g_straddle_ref_mid = 0.0;
+string   g_v2_inst_api_tag = "";
 double V2_EngineDeadbandSpreadRef()
 {
    if(!g_preset.l0_deadband_vol_scale_enabled)
@@ -57,6 +60,63 @@ V2L0SignalContext V2_EngineBuildShortL0Context()
    ctx.leg_ac = InpLegAC;
    ctx.leg_bc = InpLegBC;
    return ctx;
+}
+
+//+------------------------------------------------------------------+
+void V2_EngineApplyEntryModeIdentity()
+{
+   V2_InitPresetCapNamespace(g_preset);
+   if(InpEntryMode == ENTRY_STRADDLE)
+      V2_ApplyStraddleIdentityTransform(g_preset);
+}
+
+//+------------------------------------------------------------------+
+void V2_StraddleL0OnTick()
+{
+   if(InpEntryMode != ENTRY_STRADDLE)
+      return;
+
+   const bool long_flat = (ArraySize(g_long_layers) == 0);
+   const bool short_flat = (ArraySize(g_short_layers) == 0);
+   if(!long_flat && !short_flat)
+      return;
+
+   const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   const double mid = V2_DumbStraddleMid(bid, ask);
+   if(!V2_DumbShouldRePlace(g_straddle_ref_mid, mid, InpDumbRefBandPips, _Point))
+      return;
+
+   bool updated = false;
+
+   if(long_flat) {
+      double buy_theo = V2_DumbStraddleBuyPrice(mid, InpDumbStraddlePips, _Point);
+      double buy_lvl;
+      Long_Adr013ClampBuy(buy_theo, buy_lvl);
+      g_v2_inst_api_tag = g_preset.tel_instance_long;
+      if(Long_ReplacePendingBuy(g_long_l0_ticket, buy_lvl, g_preset.magic_long, "V2_L0")) {
+         updated = true;
+         if(InpVerboseLog)
+            Print("DIAG V2_LONG | event=straddle_l0 | mid=", DoubleToString(mid, 5),
+                  " buy_lvl=", DoubleToString(buy_lvl, 5));
+      }
+   }
+
+   if(short_flat) {
+      double sell_theo = V2_DumbStraddleSellPrice(mid, InpDumbStraddlePips, _Point);
+      double sell_lvl;
+      Short_Adr013ClampSell(sell_theo, sell_lvl);
+      g_v2_inst_api_tag = g_preset.tel_instance_short;
+      if(Short_ReplacePendingSell(g_short_l0_ticket, sell_lvl, g_preset.magic_short, "V2_L0")) {
+         updated = true;
+         if(InpVerboseLog)
+            Print("DIAG V2_SHORT | event=straddle_l0 | mid=", DoubleToString(mid, 5),
+                  " sell_lvl=", DoubleToString(sell_lvl, 5));
+      }
+   }
+
+   if(updated)
+      g_straddle_ref_mid = mid;
 }
 
 struct LongV2Layer {
@@ -287,7 +347,8 @@ double Long_ComputeAddTarget() {
 }
 
 bool Long_ReplacePendingBuy(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
-   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef())) {
+   if(InpEntryMode == ENTRY_SIGNAL &&
+      V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef())) {
       g_long_stat_l0_deadband_skip++;
       return false;
    }
@@ -400,15 +461,15 @@ void Long_OnNewBar() {
       return;
    g_long_last_bar_time = bar_time;
 
-   double bid_theoretical;
-   if (!Long_ComputeBidSignal(bid_theoretical))
-      return;
-
-   double bid_lvl;
-   Long_Adr013ClampBuy(bid_theoretical, bid_lvl);
-
    int n = ArraySize(g_long_layers);
-   if (n == 0) {
+   if (n == 0 && InpEntryMode == ENTRY_SIGNAL) {
+      double bid_theoretical;
+      if (!Long_ComputeBidSignal(bid_theoretical))
+         return;
+
+      double bid_lvl;
+      Long_Adr013ClampBuy(bid_theoretical, bid_lvl);
+
       g_long_last_exit_valid = false;
       if(InpVerboseLog && ArraySize(g_short_layers) > InpEaseDepthStart) {
          const double resting_price = V2_GetPendingOrderPrice(g_long_l0_ticket);
@@ -765,6 +826,7 @@ void Long_OnDeinit(const int reason) {
 void Long_OnTick() {
    if(g_long_halted)
       return;
+   g_v2_inst_api_tag = g_preset.tel_instance_long;
    Long_OnNewBar();
    Long_AuditExitLimits();
    if(InpBccEnable) {
@@ -1094,7 +1156,8 @@ double Short_ComputeAddTarget() {
 }
 
 bool Short_ReplacePendingSell(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
-   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef())) {
+   if(InpEntryMode == ENTRY_SIGNAL &&
+      V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef())) {
       g_short_stat_l0_deadband_skip++;
       return false;
    }
@@ -1207,15 +1270,15 @@ void Short_OnNewBar() {
       return;
    g_short_last_bar_time = bar_time;
 
-   double offer_theoretical;
-   if (!Short_ComputeOfferSignal(offer_theoretical))
-      return;
-
-   double offer_lvl;
-   Short_Adr013ClampSell(offer_theoretical, offer_lvl);
-
    int n = ArraySize(g_short_layers);
-   if (n == 0) {
+   if (n == 0 && InpEntryMode == ENTRY_SIGNAL) {
+      double offer_theoretical;
+      if (!Short_ComputeOfferSignal(offer_theoretical))
+         return;
+
+      double offer_lvl;
+      Short_Adr013ClampSell(offer_theoretical, offer_lvl);
+
       g_short_last_exit_valid = false;
       if(InpVerboseLog && ArraySize(g_long_layers) > InpEaseDepthStart) {
          const double resting_price = V2_GetPendingOrderPrice(g_short_l0_ticket);
@@ -1485,6 +1548,7 @@ void Short_OnDeinit(const int reason) {
 void Short_OnTick() {
    if(g_short_halted)
       return;
+   g_v2_inst_api_tag = g_preset.tel_instance_short;
    Short_OnNewBar();
    Short_AuditExitLimits();
    if(InpBccEnable) {
@@ -1625,6 +1689,18 @@ void V2_ApplyShortSRECommit(const V2SREOnInitSideResult &res)
 }
 
 int OnInit() {
+   V2_EngineApplyEntryModeIdentity();
+   if(InpEntryMode == ENTRY_STRADDLE) {
+      const long probe[] = {g_preset.magic_long, g_preset.magic_short,
+                            g_preset.magic_long_exit, g_preset.magic_short_exit};
+      for(int i = 0; i < ArraySize(probe); i++) {
+         if(V2_IsLiveV2EntryMagic(probe[i])) {
+            Print("ERROR: ", g_preset.ea_name,
+                  " STRADDLE identity collision with live magic ", probe[i], ". Halting.");
+            return INIT_FAILED;
+         }
+      }
+   }
    if(InpEaseDepthFull <= InpEaseDepthStart || InpEaseDepthStart < 0 || InpEaseDepthFull < 0) {
       Print("ERROR: ", g_preset.ea_name, " invalid ease depth inputs — InpEaseDepthStart=",
             InpEaseDepthStart, " InpEaseDepthFull=", InpEaseDepthFull,
@@ -1665,6 +1741,7 @@ int OnInit() {
    long_cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
    long_cfg.is_long = true;
    long_cfg.cap_bridge = V2_SRE_CapBridgeFromProfile(g_preset.cap_profile);
+   long_cfg.cap_namespace = g_preset.cap_namespace;
 
    V2SREOnInitSideResult short_sre;
    V2SREOnInitSideConfig short_cfg;
@@ -1684,6 +1761,7 @@ int OnInit() {
    short_cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
    short_cfg.is_long = false;
    short_cfg.cap_bridge = V2_SRE_CapBridgeFromProfile(g_preset.cap_profile);
+   short_cfg.cap_namespace = g_preset.cap_namespace;
 
    V2SREOnInitAggregateOutcome agg = V2_SRE_RunOnInitSidePair(
       g_long_system_alerts, g_short_system_alerts, long_cfg, short_cfg, long_sre, short_sre);
@@ -1762,6 +1840,7 @@ void OnTick() {
    V2_Ta_CheckStartOfTick(g_long_halted, g_short_halted, g_long_system_alerts,
                           ArraySize(g_long_layers), ArraySize(g_short_layers),
                           InpMaxLayers, g_v2_ta_samedir_crit);
+   V2_StraddleL0OnTick();
    Long_OnTick();
    Short_OnTick();
    V2_Bcc_MaybeRunTier3Sweep();

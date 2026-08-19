@@ -31,28 +31,49 @@ void V2_EurCapPublishLayers(const string gv_key, const int layers)
 }
 
 //+------------------------------------------------------------------+
-string V2_EurCapGvKey(const string pair_label, const bool is_long)
+string V2_EurCapNamespaceSuffix(const string cap_namespace)
 {
-   if(pair_label == "EURUSD")
-      return is_long ? V2_EUR_CAP_GV_EUR_LONG : V2_EUR_CAP_GV_EUR_SHORT;
-   if(pair_label == "EURGBP")
-      return is_long ? V2_EUR_CAP_GV_EGP_LONG : V2_EUR_CAP_GV_EGP_SHORT;
+   if(StringFind(cap_namespace, "_DUMB") >= 0)
+      return "_DUMB";
    return "";
 }
 
 //+------------------------------------------------------------------+
-double V2_EurNetExposure()
+string V2_EurCapChartSymbol(const string cap_namespace)
 {
-   long eur_l = V2_EurCapReadLayers(V2_EUR_CAP_GV_EUR_LONG);
-   long eur_s = V2_EurCapReadLayers(V2_EUR_CAP_GV_EUR_SHORT);
-   long egp_l = V2_EurCapReadLayers(V2_EUR_CAP_GV_EGP_LONG);
-   long egp_s = V2_EurCapReadLayers(V2_EUR_CAP_GV_EGP_SHORT);
+   const int pos = StringFind(cap_namespace, "_DUMB");
+   if(pos >= 0)
+      return StringSubstr(cap_namespace, 0, pos);
+   return cap_namespace;
+}
+
+//+------------------------------------------------------------------+
+string V2_EurCapGvKey(const string cap_namespace, const bool is_long)
+{
+   const string pair_label = V2_EurCapChartSymbol(cap_namespace);
+   const string suffix = V2_EurCapNamespaceSuffix(cap_namespace);
+   if(pair_label == "EURUSD")
+      return is_long ? (V2_EUR_CAP_GV_EUR_LONG + suffix) : (V2_EUR_CAP_GV_EUR_SHORT + suffix);
+   if(pair_label == "EURGBP")
+      return is_long ? (V2_EUR_CAP_GV_EGP_LONG + suffix) : (V2_EUR_CAP_GV_EGP_SHORT + suffix);
+   return "";
+}
+
+//+------------------------------------------------------------------+
+double V2_EurNetExposure(const string cap_namespace = "")
+{
+   const string suffix = V2_EurCapNamespaceSuffix(cap_namespace);
+   long eur_l = V2_EurCapReadLayers(V2_EUR_CAP_GV_EUR_LONG + suffix);
+   long eur_s = V2_EurCapReadLayers(V2_EUR_CAP_GV_EUR_SHORT + suffix);
+   long egp_l = V2_EurCapReadLayers(V2_EUR_CAP_GV_EGP_LONG + suffix);
+   long egp_s = V2_EurCapReadLayers(V2_EUR_CAP_GV_EGP_SHORT + suffix);
    return (double)((eur_l - eur_s) + (egp_l - egp_s));
 }
 
 //+------------------------------------------------------------------+
-double V2_EurCapDeltaForAdd(const string pair_label, const bool is_long)
+double V2_EurCapDeltaForAdd(const string cap_namespace, const bool is_long)
 {
+   const string pair_label = V2_EurCapChartSymbol(cap_namespace);
    if(pair_label == "EURUSD")
       return is_long ? 1.0 : -1.0;
    if(pair_label == "EURGBP")
@@ -65,18 +86,18 @@ double V2_EurCapDeltaForAdd(const string pair_label, const bool is_long)
 //| threshold. Landing exactly on threshold (e.g. 11 -> 12) allowed. |
 //| Non-EUR pairs: delta=0 => never blocked.                         |
 //+------------------------------------------------------------------+
-bool V2_EurCapBlocksNewAdd(const string pair_label,
+bool V2_EurCapBlocksNewAdd(const string cap_namespace,
                            const bool is_long,
                            const int threshold)
 {
    if(threshold <= 0)
       return false;
 
-   double delta = V2_EurCapDeltaForAdd(pair_label, is_long);
+   double delta = V2_EurCapDeltaForAdd(cap_namespace, is_long);
    if(delta == 0.0)
       return false;
 
-   double net = V2_EurNetExposure();
+   double net = V2_EurNetExposure(cap_namespace);
    double new_net = net + delta;
 
    if(MathAbs(new_net) <= MathAbs(net) + 1e-9)
@@ -86,9 +107,9 @@ bool V2_EurCapBlocksNewAdd(const string pair_label,
 }
 
 //+------------------------------------------------------------------+
-void V2_EurCapSyncInstance(const string pair_label, const bool is_long, const int layer_count)
+void V2_EurCapSyncInstance(const string cap_namespace, const bool is_long, const int layer_count)
 {
-   string key = V2_EurCapGvKey(pair_label, is_long);
+   string key = V2_EurCapGvKey(cap_namespace, is_long);
    if(key != "")
       V2_EurCapPublishLayers(key, layer_count);
 }

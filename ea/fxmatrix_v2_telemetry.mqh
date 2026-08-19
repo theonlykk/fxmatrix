@@ -234,6 +234,7 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
 
    string alerts_json = V2BuildSystemAlertsJSON(system_alerts);
    int account_daily_api_count = V2_ApiCounterRead();
+   int instance_daily_api_count = V2_InstApiCounterRead(instance_id);
    bool account_daily_api_warning = V2_ApiCounterSoftWarnActive();
 
    return StringFormat(
@@ -250,6 +251,7 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
          "\"execution_mode\":\"V2_PASSIVE_GRID\","
          "\"quote_spread\":%.6f,"
          "\"daily_api_count\":0,"
+         "\"instance_daily_api_count\":%d,"
          "\"account_daily_api_count\":%d,"
          "\"account_daily_api_limit\":%d,"
          "\"account_daily_api_soft_warn\":%d,"
@@ -270,6 +272,7 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       equity,
       margin_lvl,
       quote_spread,
+      instance_daily_api_count,
       account_daily_api_count,
       V2_DAILY_API_LIMIT,
       V2_DAILY_API_SOFT_WARN,

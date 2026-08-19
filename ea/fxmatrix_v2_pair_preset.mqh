@@ -18,10 +18,18 @@ enum V2CapProfile
    V2_CAP_DUAL_GBP_EUR
 };
 
+enum V2EntryMode
+{
+   ENTRY_SIGNAL   = 0,
+   ENTRY_STRADDLE = 1,
+   ENTRY_RANDOM   = 2   // reserved — not implemented this pass
+};
+
 struct V2PairPreset
 {
    // Identity (non-overridable)
    string         chart_symbol;
+   string         cap_namespace;
    string         tel_instance_long;
    string         tel_instance_short;
    string         ea_name;

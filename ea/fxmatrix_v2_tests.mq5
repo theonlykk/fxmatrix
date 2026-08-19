@@ -19,6 +19,9 @@
 #include "fxmatrix_v2_state_reconstruction.mqh"
 #include "fxmatrix_v2_sre_oninit.mqh"
 #include "fxmatrix_v2_bcc.mqh"
+#include "fxmatrix_v2_entry_ab.mqh"
+
+string g_v2_inst_api_tag = "";
 
 bool   InpCbEnable = true;
 double InpCbDailyLossFrac = 0.045;
@@ -1609,7 +1612,7 @@ void Test_AnyCapBlocksNewAddNoMasking()
    bool gbp_blocked = false;
    bool eur_blocked = false;
    string eval_log = "";
-   V2_EvalBothCaps(true, 3, 10, gbp_blocked, eur_blocked, eval_log);
+   V2_EvalBothCaps("EURGBP", true, 3, 10, gbp_blocked, eur_blocked, eval_log);
 
    AssertTrue("gbp-only block case blocks aggregate", gbp_blocked);
    AssertTrue("gbp-only block case eur does not block", !eur_blocked);
@@ -1617,7 +1620,7 @@ void Test_AnyCapBlocksNewAddNoMasking()
    AssertContains("gbp-only log mentions EUR cap", eval_log, "EUR cap:");
    AssertContains("gbp-only log gbp blocked true", eval_log, "GBP cap: blocked=true");
    AssertContains("gbp-only log eur blocked false", eval_log, "EUR cap: blocked=false");
-   AssertTrue("anycap gbp-only aggregate", V2_AnyCapBlocksNewAdd(true, 3, 10));
+   AssertTrue("anycap gbp-only aggregate", V2_AnyCapBlocksNewAdd("EURGBP", true, 3, 10));
 
    Test_ClearCapGvs();
    GlobalVariableSet("V2GBP_CAP_TRIGGERS", 0.0);
@@ -1629,7 +1632,7 @@ void Test_AnyCapBlocksNewAddNoMasking()
    gbp_blocked = false;
    eur_blocked = false;
    eval_log = "";
-   V2_EvalBothCaps(true, 10, 3, gbp_blocked, eur_blocked, eval_log);
+   V2_EvalBothCaps("EURGBP", true, 10, 3, gbp_blocked, eur_blocked, eval_log);
 
    AssertTrue("eur-only block case eur blocks", eur_blocked);
    AssertTrue("eur-only block case gbp does not block", !gbp_blocked);
@@ -1637,7 +1640,7 @@ void Test_AnyCapBlocksNewAddNoMasking()
    AssertContains("eur-only log mentions EUR cap", eval_log, "EUR cap:");
    AssertContains("eur-only log gbp blocked false", eval_log, "GBP cap: blocked=false");
    AssertContains("eur-only log eur blocked true", eval_log, "EUR cap: blocked=true");
-   AssertTrue("anycap eur-only aggregate", V2_AnyCapBlocksNewAdd(true, 10, 3));
+   AssertTrue("anycap eur-only aggregate", V2_AnyCapBlocksNewAdd("EURGBP", true, 10, 3));
 
    Test_ClearCapGvs();
 }
@@ -1646,7 +1649,7 @@ void Test_SyncAllCapsPublishesBothGvSets()
 {
    Test_ClearCapGvs();
 
-   V2_SyncAllCaps(true, 7);
+   V2_SyncAllCaps("EURGBP", true, 7);
 
    AssertTrue("sync all caps publishes gbp long gv",
               GlobalVariableCheck(V2_GBP_CAP_GV_EGP_LONG));
@@ -1657,7 +1660,7 @@ void Test_SyncAllCapsPublishesBothGvSets()
    AssertNear("sync all caps eur long value",
               GlobalVariableGet(V2_EUR_CAP_GV_EGP_LONG), 7.0, 1e-9);
 
-   V2_SyncAllCaps(false, 2);
+   V2_SyncAllCaps("EURGBP", false, 2);
    AssertNear("sync all caps gbp short value",
               GlobalVariableGet(V2_GBP_CAP_GV_EGP_SHORT), 2.0, 1e-9);
    AssertNear("sync all caps eur short value",
@@ -2483,6 +2486,7 @@ V2SREOnInitSideConfig SRE_OnInitTestConfigForPair(const int pair, const bool is_
    cfg.lookback_sec = V2_SRE_DEFAULT_LOOKBACK_SEC;
    cfg.is_long = is_long;
    cfg.cap_bridge = bridge;
+   cfg.cap_namespace = symbol;
    return cfg;
 }
 
@@ -4573,6 +4577,83 @@ void Test_TEL_LiveAlertsHaltMarker()
    AssertContains("halt marker experts log hint", alerts[0], "see Experts log");
 }
 
+V2PairPreset AB_TestGbpPreset()
+{
+   V2PairPreset p;
+   p.chart_symbol = "GBPUSD";
+   p.cap_namespace = "";
+   p.tel_instance_long = "MM_LONG_V2";
+   p.tel_instance_short = "MM_SHORT_V2";
+   p.ea_name = "fxmatrix_v2";
+   p.magic_long = 20260901;
+   p.magic_short = 20260902;
+   p.magic_long_exit = 20260903;
+   p.magic_short_exit = 20260904;
+   p.signal_slot = V2_SIGNAL_BC_NATIVE;
+   p.leg_ac_symbol_default = "";
+   p.leg_bc_symbol_default = "";
+   p.l0_deadband_vol_scale_enabled = false;
+   p.l0_deadband_spread_ref_pips = 0.0;
+   p.cap_profile = V2_CAP_GBP_ONLY;
+   return p;
+}
+
+void Test_AB_SignalModePresetUnchanged()
+{
+   V2PairPreset p = AB_TestGbpPreset();
+   V2_InitPresetCapNamespace(p);
+   AssertTrue("signal cap_namespace equals chart_symbol", p.cap_namespace == "GBPUSD");
+   AssertTrue("signal magic_long unchanged", p.magic_long == 20260901);
+   AssertTrue("signal magic_short unchanged", p.magic_short == 20260902);
+   AssertTrue("signal tel long unchanged", p.tel_instance_long == "MM_LONG_V2");
+   AssertTrue("signal tel short unchanged", p.tel_instance_short == "MM_SHORT_V2");
+}
+
+void Test_AB_StraddleIdentityTransform()
+{
+   V2PairPreset p = AB_TestGbpPreset();
+   V2_InitPresetCapNamespace(p);
+   V2_ApplyStraddleIdentityTransform(p);
+   AssertTrue("straddle magic_long offset", p.magic_long == 21260901);
+   AssertTrue("straddle magic_short offset", p.magic_short == 21260902);
+   AssertTrue("straddle magic_long_exit offset", p.magic_long_exit == 21260903);
+   AssertTrue("straddle magic_short_exit offset", p.magic_short_exit == 21260904);
+   AssertTrue("straddle cap_namespace", p.cap_namespace == "GBPUSD_DUMB");
+   AssertContains("straddle tel long suffix", p.tel_instance_long, "_DUMB");
+   AssertContains("straddle tel short suffix", p.tel_instance_short, "_DUMB");
+   AssertTrue("straddle magics avoid live set",
+              !V2_IsLiveV2EntryMagic(p.magic_long) &&
+              !V2_IsLiveV2EntryMagic(p.magic_short) &&
+              !V2_IsLiveV2EntryMagic(p.magic_long_exit) &&
+              !V2_IsLiveV2EntryMagic(p.magic_short_exit));
+   AssertTrue("straddle gbp cap key distinct",
+              V2_GbpCapGvKey("GBPUSD_DUMB", true) == "V2GBP_L_GBPUSD_DUMB");
+}
+
+void Test_AB_StraddlePlacementGeometry()
+{
+   const double point = 0.00001;
+   const double mid = 1.25000;
+   const double buy = V2_DumbStraddleBuyPrice(mid, 9.0, point);
+   const double sell = V2_DumbStraddleSellPrice(mid, 9.0, point);
+   AssertNear("straddle buy at mid-9p", buy, 1.24910, point);
+   AssertNear("straddle sell at mid+9p", sell, 1.25090, point);
+}
+
+void Test_AB_StraddleAntiThrashBand()
+{
+   const double point = 0.00001;
+   const double ref = 1.25000;
+   const double mid_inside = 1.25020; // 2 pips drift
+   const double mid_outside = 1.25040; // 4 pips drift
+   AssertTrue("anti-thrash inside band skips re-place",
+              !V2_DumbShouldRePlace(ref, mid_inside, 3.0, point));
+   AssertTrue("anti-thrash outside band re-places",
+              V2_DumbShouldRePlace(ref, mid_outside, 3.0, point));
+   AssertTrue("anti-thrash first placement always re-places",
+              V2_DumbShouldRePlace(0.0, mid_inside, 3.0, point));
+}
+
 void Test_CB_DailyFloorBoundary()
 {
    const double anchor = 100000.0;
@@ -4955,6 +5036,10 @@ void OnStart()
    Test_TEL_LiveAlertsStreakFilter();
    Test_TEL_LiveAlertsEmptyWhenResolved();
    Test_TEL_LiveAlertsHaltMarker();
+   Test_AB_SignalModePresetUnchanged();
+   Test_AB_StraddleIdentityTransform();
+   Test_AB_StraddlePlacementGeometry();
+   Test_AB_StraddleAntiThrashBand();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();

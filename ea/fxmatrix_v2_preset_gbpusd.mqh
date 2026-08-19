@@ -7,9 +7,10 @@
 
 #include "fxmatrix_v2_pair_preset.mqh"
 
-const V2PairPreset g_preset =
+V2PairPreset g_preset =
 {
    "GBPUSD",              // chart_symbol
+   "GBPUSD",              // cap_namespace (== chart_symbol for signal arm)
    "MM_LONG_V2",          // tel_instance_long
    "MM_SHORT_V2",         // tel_instance_short
    "fxmatrix_v2",         // ea_name

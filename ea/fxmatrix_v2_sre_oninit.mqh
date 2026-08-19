@@ -36,6 +36,7 @@ struct V2SREOnInitSideConfig
    int                 lookback_sec;
    bool                is_long;
    V2SRECapBridgeKind  cap_bridge;
+   string              cap_namespace;
 };
 
 struct V2SREOnInitSideResult
@@ -180,32 +181,35 @@ void V2_SRE_CapWriteSentinelKey(const string gv_key)
 }
 
 //+------------------------------------------------------------------+
-void V2_SRE_CapWriteSentinel(const V2SRECapBridgeKind kind, const bool is_long)
+void V2_SRE_CapWriteSentinel(const V2SRECapBridgeKind kind,
+                             const bool is_long,
+                             const string cap_namespace)
 {
    if(kind == V2_SRE_CAP_BRIDGE_GBPUSD) {
-      string key = V2_GbpCapGvKey("GBPUSD", is_long);
+      string key = V2_GbpCapGvKey(cap_namespace, is_long);
       V2_SRE_CapWriteSentinelKey(key);
    } else if(kind == V2_SRE_CAP_BRIDGE_EURUSD) {
-      string key = V2_EurCapGvKey("EURUSD", is_long);
+      string key = V2_EurCapGvKey(cap_namespace, is_long);
       V2_SRE_CapWriteSentinelKey(key);
    } else if(kind == V2_SRE_CAP_BRIDGE_EURGBP_DUAL) {
-      V2_SRE_CapWriteSentinelKey(V2_GbpCapGvKey("EURGBP", is_long));
-      V2_SRE_CapWriteSentinelKey(V2_EurCapGvKey("EURGBP", is_long));
+      V2_SRE_CapWriteSentinelKey(V2_GbpCapGvKey(cap_namespace, is_long));
+      V2_SRE_CapWriteSentinelKey(V2_EurCapGvKey(cap_namespace, is_long));
    }
 }
 
 //+------------------------------------------------------------------+
 void V2_SRE_CapPublishLayers(const V2SRECapBridgeKind kind,
                              const bool is_long,
-                             const int layer_count)
+                             const int layer_count,
+                             const string cap_namespace)
 {
    if(kind == V2_SRE_CAP_BRIDGE_GBPUSD)
-      V2_GbpCapSyncInstance("GBPUSD", is_long, layer_count);
+      V2_GbpCapSyncInstance(cap_namespace, is_long, layer_count);
    else if(kind == V2_SRE_CAP_BRIDGE_EURUSD)
-      V2_EurCapSyncInstance("EURUSD", is_long, layer_count);
+      V2_EurCapSyncInstance(cap_namespace, is_long, layer_count);
    else if(kind == V2_SRE_CAP_BRIDGE_EURGBP_DUAL) {
-      V2_GbpCapSyncInstance("EURGBP", is_long, layer_count);
-      V2_EurCapSyncInstance("EURGBP", is_long, layer_count);
+      V2_GbpCapSyncInstance(cap_namespace, is_long, layer_count);
+      V2_EurCapSyncInstance(cap_namespace, is_long, layer_count);
    }
 }
 
@@ -594,7 +598,7 @@ V2SREHaltReason V2_SRE_RunOnInitSteps3To10(const V2SREOnInitSideConfig &cfg,
    result.layer_count_after = layer_count;
    result.committed = true;
 
-   V2_SRE_CapPublishLayers(cfg.cap_bridge, cfg.is_long, layer_count);
+   V2_SRE_CapPublishLayers(cfg.cap_bridge, cfg.is_long, layer_count, cfg.cap_namespace);
    result.cap_published_on_commit = true;
    result.cap_published_layers = layer_count;
 
@@ -745,7 +749,7 @@ V2SREHaltReason V2_SRE_RunOnInitSequencePure(const V2SREOnInitSideConfig &cfg,
       return result.halt_reason;
    }
 
-   V2_SRE_CapWriteSentinel(cfg.cap_bridge, cfg.is_long);
+   V2_SRE_CapWriteSentinel(cfg.cap_bridge, cfg.is_long, cfg.cap_namespace);
    result.sentinel_written = true;
    result.history_read = (deal_n > 0 || ord_n > 0 || pend_n > 0);
    result.sentinel_before_history = result.sentinel_written;
@@ -859,7 +863,7 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
                                     entry_positions, exit_positions);
    }
 
-   V2_SRE_CapWriteSentinel(cfg.cap_bridge, cfg.is_long);
+   V2_SRE_CapWriteSentinel(cfg.cap_bridge, cfg.is_long, cfg.cap_namespace);
    result.sentinel_written = true;
 
    V2_SRE_GatherPendingOrders(cfg.symbol, cfg.entry_magic, cfg.exit_magic, cfg.side_direction,

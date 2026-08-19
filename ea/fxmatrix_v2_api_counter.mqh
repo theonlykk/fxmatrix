@@ -20,8 +20,60 @@
 
 #define V2_DAILY_API_COUNT_GV "V2_DAILY_API_COUNT"
 #define V2_DAILY_API_DATE_GV  "V2_DAILY_API_DATE"
+#define V2_INST_API_COUNT_PREFIX "V2_INST_API_"
 #define V2_DAILY_API_LIMIT       2000
 #define V2_DAILY_API_SOFT_WARN   1800   // ADR-021 combined ceiling (900 x 2 instances)
+
+// Set by engine before side-local OrderSend paths (empty => skip inst tally).
+extern string g_v2_inst_api_tag;
+
+//+------------------------------------------------------------------+
+string V2_InstApiCounterGvKey(const string instance_id)
+{
+   return V2_INST_API_COUNT_PREFIX + instance_id;
+}
+
+//+------------------------------------------------------------------+
+void V2_InstApiCounterMaybeReset()
+{
+   if(g_v2_inst_api_tag == "")
+      return;
+   const string count_gv = V2_InstApiCounterGvKey(g_v2_inst_api_tag);
+   const string date_gv  = count_gv + "_DATE";
+   const double today_val = V2_ApiCounterTodayYmd();
+   const double stored = GlobalVariableCheck(date_gv) ? GlobalVariableGet(date_gv) : 0.0;
+   if(!GlobalVariableCheck(date_gv) || stored != today_val) {
+      GlobalVariableSet(date_gv, today_val);
+      GlobalVariableSet(count_gv, 0.0);
+   }
+}
+
+//+------------------------------------------------------------------+
+void V2_InstApiCounterIncrement()
+{
+   if(g_v2_inst_api_tag == "")
+      return;
+   V2_InstApiCounterMaybeReset();
+   const string count_gv = V2_InstApiCounterGvKey(g_v2_inst_api_tag);
+   const double n = GlobalVariableCheck(count_gv) ? GlobalVariableGet(count_gv) : 0.0;
+   GlobalVariableSet(count_gv, n + 1.0);
+}
+
+//+------------------------------------------------------------------+
+int V2_InstApiCounterRead(const string instance_id)
+{
+   if(instance_id == "")
+      return 0;
+   const string count_gv = V2_InstApiCounterGvKey(instance_id);
+   const string date_gv  = count_gv + "_DATE";
+   const double today_val = V2_ApiCounterTodayYmd();
+   const double stored = GlobalVariableCheck(date_gv) ? GlobalVariableGet(date_gv) : 0.0;
+   if(!GlobalVariableCheck(date_gv) || stored != today_val)
+      return 0;
+   if(!GlobalVariableCheck(count_gv))
+      return 0;
+   return (int)GlobalVariableGet(count_gv);
+}
 
 //+------------------------------------------------------------------+
 double V2_ApiCounterTodayYmd()
@@ -56,6 +108,7 @@ void V2_ApiCounterIncrement()
               ? GlobalVariableGet(V2_DAILY_API_COUNT_GV)
               : 0.0;
    GlobalVariableSet(V2_DAILY_API_COUNT_GV, n + 1.0);
+   V2_InstApiCounterIncrement();
 }
 
 //+------------------------------------------------------------------+
