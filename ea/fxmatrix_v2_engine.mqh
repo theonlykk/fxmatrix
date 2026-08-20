@@ -221,6 +221,7 @@ void Long_CancelTicket(const ulong ticket) {
    MqlTradeResult  res = {};
    req.action = TRADE_ACTION_REMOVE;
    req.order  = ticket;
+   g_v2_inst_api_tag = g_preset.tel_instance_long;
    V2_OrderSendCounted(req, res);
 }
 
@@ -241,6 +242,7 @@ ulong Long_PlaceBuyLimit(const double price, const ulong magic, const string com
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
+   g_v2_inst_api_tag = g_preset.tel_instance_long;
    if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
@@ -263,6 +265,7 @@ ulong Long_PlaceSellLimit(const double price, const ulong magic, const string co
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
+   g_v2_inst_api_tag = g_preset.tel_instance_long;
    if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
@@ -297,12 +300,13 @@ bool Long_SetExitTakeProfit(const int layer_idx) {
       return true;
 
    if(existing != 0) {
-      V2_CancelExitOrder(existing);
+      V2_CancelExitOrder(existing, g_preset.tel_instance_long);
       g_long_layers[layer_idx].exit_ticket = 0;
    }
 
    ulong exit_order = V2_SendExitLimit(_Symbol, target, InpLotSize, 1,
-                                       g_preset.magic_long_exit, target);
+                                       g_preset.magic_long_exit, target,
+                                       g_preset.tel_instance_long);
    if(exit_order == 0) {
       if (InpVerboseLog)
          Print("WARN V2_LONG | exit limit placement failed layer=", layer_idx,
@@ -322,7 +326,7 @@ void Long_ClearExitTakeProfit(const ulong position_ref) {
    for(int i = 0; i < n; i++) {
       if(g_long_layers[i].position_ticket != position_ref)
          continue;
-      V2_CancelExitOrder(g_long_layers[i].exit_ticket);
+      V2_CancelExitOrder(g_long_layers[i].exit_ticket, g_preset.tel_instance_long);
       g_long_layers[i].exit_ticket = 0;
       return;
    }
@@ -559,7 +563,7 @@ void Long_RemoveLayerAt(const int layer_idx,
       }
    }
 
-   V2_CancelExitOrder(g_long_layers[layer_idx].exit_ticket);
+   V2_CancelExitOrder(g_long_layers[layer_idx].exit_ticket, g_preset.tel_instance_long);
    if(was_top) {
       Long_CancelTicket(g_long_add_ticket);
       g_long_add_ticket = 0;
@@ -896,13 +900,13 @@ void V2_RunRolloverRetryPasses()
    V2_BuildLongRolloverSlots(slots);
    V2_RunRolloverRetryPass(_Symbol, 1, mult, InpVerboseLog,
                            InpRolloverRetryMinutes, InpRolloverMaxRetries,
-                           g_long_rollover_retry, slots);
+                           g_long_rollover_retry, slots, g_preset.tel_instance_long);
    V2_ApplyLongRolloverSlots(slots);
 
    V2_BuildShortRolloverSlots(slots);
    V2_RunRolloverRetryPass(_Symbol, -1, mult, InpVerboseLog,
                            InpRolloverRetryMinutes, InpRolloverMaxRetries,
-                           g_short_rollover_retry, slots);
+                           g_short_rollover_retry, slots, g_preset.tel_instance_short);
    V2_ApplyShortRolloverSlots(slots);
 }
 
@@ -926,12 +930,14 @@ void V2_RunDailyRolloverReconciliation() {
 
    V2_BuildLongRolloverSlots(slots);
    V2_RunDailyRolloverSidePass(_Symbol, 1, mult, InpVerboseLog,
-                               InpRolloverRetryMinutes, g_long_rollover_retry, slots);
+                               InpRolloverRetryMinutes, g_long_rollover_retry, slots,
+                               g_preset.tel_instance_long);
    V2_ApplyLongRolloverSlots(slots);
 
    V2_BuildShortRolloverSlots(slots);
    V2_RunDailyRolloverSidePass(_Symbol, -1, mult, InpVerboseLog,
-                               InpRolloverRetryMinutes, g_short_rollover_retry, slots);
+                               InpRolloverRetryMinutes, g_short_rollover_retry, slots,
+                               g_preset.tel_instance_short);
    V2_ApplyShortRolloverSlots(slots);
 }
 struct ShortV2Layer {
@@ -1030,6 +1036,7 @@ void Short_CancelTicket(const ulong ticket) {
    MqlTradeResult  res = {};
    req.action = TRADE_ACTION_REMOVE;
    req.order  = ticket;
+   g_v2_inst_api_tag = g_preset.tel_instance_short;
    V2_OrderSendCounted(req, res);
 }
 
@@ -1050,6 +1057,7 @@ ulong Short_PlaceSellLimit(const double price, const ulong magic, const string c
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
+   g_v2_inst_api_tag = g_preset.tel_instance_short;
    if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
@@ -1072,6 +1080,7 @@ ulong Short_PlaceBuyLimit(const double price, const ulong magic, const string co
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
    req.comment      = comment;
+   g_v2_inst_api_tag = g_preset.tel_instance_short;
    if (!V2_OrderSendCounted(req, res))
       return 0;
    return res.order;
@@ -1106,12 +1115,13 @@ bool Short_SetExitTakeProfit(const int layer_idx) {
       return true;
 
    if(existing != 0) {
-      V2_CancelExitOrder(existing);
+      V2_CancelExitOrder(existing, g_preset.tel_instance_short);
       g_short_layers[layer_idx].exit_ticket = 0;
    }
 
    ulong exit_order = V2_SendExitLimit(_Symbol, target, InpLotSize, -1,
-                                       g_preset.magic_short_exit, target);
+                                       g_preset.magic_short_exit, target,
+                                       g_preset.tel_instance_short);
    if(exit_order == 0) {
       if (InpVerboseLog)
          Print("WARN V2_SHORT | exit limit placement failed layer=", layer_idx,
@@ -1131,7 +1141,7 @@ void Short_ClearExitTakeProfit(const ulong position_ref) {
    for(int i = 0; i < n; i++) {
       if(g_short_layers[i].position_ticket != position_ref)
          continue;
-      V2_CancelExitOrder(g_short_layers[i].exit_ticket);
+      V2_CancelExitOrder(g_short_layers[i].exit_ticket, g_preset.tel_instance_short);
       g_short_layers[i].exit_ticket = 0;
       return;
    }
@@ -1362,7 +1372,7 @@ void Short_RemoveLayerAt(const int layer_idx,
       }
    }
 
-   V2_CancelExitOrder(g_short_layers[layer_idx].exit_ticket);
+   V2_CancelExitOrder(g_short_layers[layer_idx].exit_ticket, g_preset.tel_instance_short);
    if(was_top) {
       Short_CancelTicket(g_short_add_ticket);
       g_short_add_ticket = 0;
@@ -1784,8 +1794,10 @@ int OnInit() {
    // ADR-110: baseline flat-side entry-pending sweep. Flat sides never enter
    // reconstruction; clear their stale pre-crash entry limits before the tick
    // loop re-quotes. The zero-position gate excludes orphaned/halted sides.
-   V2_SweepFlatSideEntryPendings(_Symbol, g_preset.magic_long, g_preset.magic_long_exit, 1);
-   V2_SweepFlatSideEntryPendings(_Symbol, g_preset.magic_short, g_preset.magic_short_exit, -1);
+   V2_SweepFlatSideEntryPendings(_Symbol, g_preset.magic_long, g_preset.magic_long_exit, 1,
+                                 g_preset.tel_instance_long);
+   V2_SweepFlatSideEntryPendings(_Symbol, g_preset.magic_short, g_preset.magic_short_exit, -1,
+                                 g_preset.tel_instance_short);
 
    if(V2_ShouldPublishCapSyncOnInit(long_orphan))
       V2_Cap_Sync(true, ArraySize(g_long_layers));

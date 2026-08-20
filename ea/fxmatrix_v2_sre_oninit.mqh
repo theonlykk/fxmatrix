@@ -612,7 +612,8 @@ bool V2_SRE_OrderStateIsRestingPending(const long state)
 }
 
 //+------------------------------------------------------------------+
-int V2_SRE_SweepEntryPendingOrders(const string symbol, const long entry_magic)
+int V2_SRE_SweepEntryPendingOrders(const string symbol, const long entry_magic,
+                                   const string instance_tag)
 {
    int swept = 0;
 
@@ -656,6 +657,7 @@ int V2_SRE_SweepEntryPendingOrders(const string symbol, const long entry_magic)
       MqlTradeResult res = {};
       req.action = TRADE_ACTION_REMOVE;
       req.order = ticket;
+      g_v2_inst_api_tag = instance_tag;
       if(V2_OrderSendCounted(req, res))
          swept++;
    }
@@ -674,7 +676,8 @@ int  g_v2_sre_flatsweep_test_position_count = 0;
 // structurally excludes reconstructed and halted sides (both hold positions).
 // Returns the count of entry pendings swept (0 if the side is not flat).
 int V2_SweepFlatSideEntryPendings(const string symbol, const long entry_magic,
-                                  const long exit_magic, const int side_direction)
+                                  const long exit_magic, const int side_direction,
+                                  const string instance_tag)
 {
    int pos_count;
    if(g_v2_sre_flatsweep_test_active) {
@@ -688,7 +691,7 @@ int V2_SweepFlatSideEntryPendings(const string symbol, const long entry_magic,
    }
    if(pos_count > 0)
       return 0;
-   return V2_SRE_SweepEntryPendingOrders(symbol, entry_magic);
+   return V2_SRE_SweepEntryPendingOrders(symbol, entry_magic, instance_tag);
 }
 
 //+------------------------------------------------------------------+
@@ -903,7 +906,8 @@ bool V2_SRE_RunSideOnInit(string &system_alerts[],
    }
 
    V2_SRE_EmitOnInitObservability(cfg, result, deals, entry_positions, V2_SRE_OK);
-   result.entry_pendings_swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic);
+   result.entry_pendings_swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic,
+                                                                cfg.instance_tag);
    return false;
 }
 

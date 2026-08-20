@@ -189,13 +189,14 @@ void V2_RolloverTestAdjustReset()
 
 //+------------------------------------------------------------------+
 bool V2_RolloverAdjustOneLayerForRetry(const string symbol,
-                                       const int entry_direction,
-                                       const int multiplier,
-                                       const bool verbose_log,
-                                       const double entry_price,
-                                       double &exit_target,
-                                       ulong &exit_ticket,
-                                       const ulong position_ticket)
+                                        const int entry_direction,
+                                        const int multiplier,
+                                        const bool verbose_log,
+                                        const double entry_price,
+                                        double &exit_target,
+                                        ulong &exit_ticket,
+                                        const ulong position_ticket,
+                                        const string instance_tag)
 {
    if(g_v2_rollover_use_test_adjust) {
       V2_RolloverTestAdjustRecordCall(position_ticket);
@@ -210,7 +211,7 @@ bool V2_RolloverAdjustOneLayerForRetry(const string symbol,
    }
 
    return V2_RolloverAdjustOneLayer(symbol, entry_direction, multiplier, verbose_log,
-                                    entry_price, exit_target, exit_ticket);
+                                    entry_price, exit_target, exit_ticket, instance_tag);
 }
 
 //+------------------------------------------------------------------+
@@ -222,7 +223,8 @@ bool V2_RolloverAdjustOneLayer(const string symbol,
                                const bool verbose_log,
                                const double entry_price,
                                double &exit_target,
-                               ulong &exit_ticket)
+                               ulong &exit_ticket,
+                               const string instance_tag)
 {
    double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
    if(point <= 0.0)
@@ -256,7 +258,8 @@ bool V2_RolloverAdjustOneLayer(const string symbol,
       return false;
 
    if(exit_ticket != 0 && OrderSelect(exit_ticket)) {
-      if(!V2_ModifyExitLimitPrice(exit_ticket, new_exit, symbol, entry_direction, verbose_log))
+      if(!V2_ModifyExitLimitPrice(exit_ticket, new_exit, symbol, entry_direction, verbose_log,
+                                  instance_tag))
          return false;
    }
 
@@ -300,7 +303,8 @@ void V2_RunDailyRolloverSidePass(const string symbol,
                                  const bool verbose_log,
                                  const int retry_minutes,
                                  V2RolloverSideRetryState &retry_state,
-                                 V2RolloverLayerSlot &layers[])
+                                 V2RolloverLayerSlot &layers[],
+                                 const string instance_tag)
 {
    const datetime now = TimeCurrent();
 
@@ -311,7 +315,7 @@ void V2_RunDailyRolloverSidePass(const string symbol,
       const bool ok = V2_RolloverAdjustOneLayerForRetry(
          symbol, entry_direction, multiplier, verbose_log,
          layers[i].entry_price, layers[i].exit_target, layers[i].exit_ticket,
-         layers[i].position_ticket);
+         layers[i].position_ticket, instance_tag);
 
       if(!ok)
          V2_RolloverRetryRecordFailure(retry_state, layers[i].position_ticket,
@@ -327,7 +331,8 @@ void V2_RunRolloverRetryPass(const string symbol,
                              const int retry_minutes,
                              const int max_retries,
                              V2RolloverSideRetryState &retry_state,
-                             V2RolloverLayerSlot &layers[])
+                             V2RolloverLayerSlot &layers[],
+                             const string instance_tag)
 {
    if(ArraySize(retry_state.pending_position_tickets) == 0)
       return;
@@ -347,7 +352,7 @@ void V2_RunRolloverRetryPass(const string symbol,
       const bool ok = V2_RolloverAdjustOneLayerForRetry(
          symbol, entry_direction, multiplier, verbose_log,
          layers[layer_idx].entry_price, layers[layer_idx].exit_target,
-         layers[layer_idx].exit_ticket, position_ticket);
+         layers[layer_idx].exit_ticket, position_ticket, instance_tag);
 
       if(ok)
          V2_RolloverRetryRemovePendingAt(retry_state, p);

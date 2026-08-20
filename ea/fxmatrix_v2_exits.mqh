@@ -52,7 +52,8 @@ ulong V2_SendExitLimit(const string symbol,
                        const double volume,
                        const int entry_direction,
                        const ulong exit_magic,
-                       const double normalize_price)
+                       const double normalize_price,
+                       const string instance_tag)
 {
    if(!V2_ExitPassivityOk(symbol, entry_direction, exit_price))
       return 0;
@@ -63,6 +64,7 @@ ulong V2_SendExitLimit(const string symbol,
                                 entry_direction, exit_magic, req))
       return 0;
 
+   g_v2_inst_api_tag = instance_tag;
    if(!V2_OrderSendCounted(req, res))
       return 0;
 
@@ -70,7 +72,7 @@ ulong V2_SendExitLimit(const string symbol,
 }
 
 //+------------------------------------------------------------------+
-void V2_CancelExitOrder(const ulong order_ticket)
+void V2_CancelExitOrder(const ulong order_ticket, const string instance_tag)
 {
    if(order_ticket == 0)
       return;
@@ -81,6 +83,7 @@ void V2_CancelExitOrder(const ulong order_ticket)
    MqlTradeResult  res = {};
    req.action = TRADE_ACTION_REMOVE;
    req.order  = order_ticket;
+   g_v2_inst_api_tag = instance_tag;
    V2_OrderSendCounted(req, res);
 }
 
@@ -106,7 +109,8 @@ bool V2_ModifyExitLimitPrice(const ulong order_ticket,
                              const double new_price,
                              const string symbol,
                              const int entry_direction,
-                             const bool verbose_log)
+                             const bool verbose_log,
+                             const string instance_tag)
 {
    if(order_ticket == 0 || !OrderSelect(order_ticket))
       return false;
@@ -144,6 +148,7 @@ bool V2_ModifyExitLimitPrice(const ulong order_ticket,
    req.type_time  = (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
    req.expiration = (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
 
+   g_v2_inst_api_tag = instance_tag;
    if(!V2_OrderSendCounted(req, res))
       return false;
    if(res.retcode == TRADE_RETCODE_NO_CHANGES)
@@ -261,6 +266,7 @@ void V2_ProcessCloseByQueue(V2CloseByTask &queue[],
       req.symbol      = sym;
       req.magic       = closeby_magic;
 
+      g_v2_inst_api_tag = instance_tag;
       if(V2_OrderSendCounted(req, res)) {
          if(verbose)
             Print("INFO V2_CLOSEBY | instance=", instance_tag,

@@ -976,6 +976,74 @@ void Test_ApiCounterTelemetryFields()
 }
 
 //+------------------------------------------------------------------+
+void ApiInstTestClearGv(const string instance_id)
+{
+   const string count_gv = V2_InstApiCounterGvKey(instance_id);
+   const string date_gv  = count_gv + "_DATE";
+   if(GlobalVariableCheck(count_gv))
+      GlobalVariableDel(count_gv);
+   if(GlobalVariableCheck(date_gv))
+      GlobalVariableDel(date_gv);
+}
+
+//+------------------------------------------------------------------+
+void Test_ApiInstTagLongSendPath()
+{
+   g_v2_inst_api_tag = V2_TEL_INSTANCE_LONG;
+   AssertTrue("T-API-1 long tag before send", g_v2_inst_api_tag == V2_TEL_INSTANCE_LONG);
+   AssertTrue("T-API-1 not empty", g_v2_inst_api_tag != "");
+   AssertTrue("T-API-1 not short tag", g_v2_inst_api_tag != V2_TEL_INSTANCE_SHORT);
+}
+
+//+------------------------------------------------------------------+
+void Test_ApiInstTagShortSendPath()
+{
+   g_v2_inst_api_tag = V2_TEL_INSTANCE_SHORT;
+   AssertTrue("T-API-2 short tag before send", g_v2_inst_api_tag == V2_TEL_INSTANCE_SHORT);
+   AssertTrue("T-API-2 not empty", g_v2_inst_api_tag != "");
+   AssertTrue("T-API-2 not long tag", g_v2_inst_api_tag != V2_TEL_INSTANCE_LONG);
+}
+
+//+------------------------------------------------------------------+
+void Test_ApiInstCounterIncrementGuard()
+{
+   ApiInstTestClearGv(V2_TEL_INSTANCE_LONG);
+   V2_InstApiCounterMaybeReset();
+
+   g_v2_inst_api_tag = "";
+   V2_InstApiCounterIncrement();
+   AssertTrue("T-API-3 empty tag skips inst increment", V2_InstApiCounterRead(V2_TEL_INSTANCE_LONG) == 0);
+
+   g_v2_inst_api_tag = V2_TEL_INSTANCE_LONG;
+   V2_InstApiCounterIncrement();
+   AssertTrue("T-API-3 tagged increment", V2_InstApiCounterRead(V2_TEL_INSTANCE_LONG) == 1);
+
+   ApiInstTestClearGv(V2_TEL_INSTANCE_LONG);
+}
+
+//+------------------------------------------------------------------+
+void Test_ApiInstTagNoStaleCarry()
+{
+   ApiInstTestClearGv(V2_TEL_INSTANCE_LONG);
+   ApiInstTestClearGv(V2_TEL_INSTANCE_SHORT);
+
+   g_v2_inst_api_tag = V2_TEL_INSTANCE_LONG;
+   V2_InstApiCounterIncrement();
+   AssertTrue("T-API-4 long attributed once", V2_InstApiCounterRead(V2_TEL_INSTANCE_LONG) == 1);
+   AssertTrue("T-API-4 short still zero after long", V2_InstApiCounterRead(V2_TEL_INSTANCE_SHORT) == 0);
+
+   g_v2_inst_api_tag = V2_TEL_INSTANCE_SHORT;
+   V2_InstApiCounterIncrement();
+   AssertTrue("T-API-4 short attributed after explicit set",
+              V2_InstApiCounterRead(V2_TEL_INSTANCE_SHORT) == 1);
+   AssertTrue("T-API-4 long unchanged by short send",
+              V2_InstApiCounterRead(V2_TEL_INSTANCE_LONG) == 1);
+
+   ApiInstTestClearGv(V2_TEL_INSTANCE_LONG);
+   ApiInstTestClearGv(V2_TEL_INSTANCE_SHORT);
+}
+
+//+------------------------------------------------------------------+
 void Test_PairTelemetryInstanceIds()
 {
    AssertTrue("gbp long tel id default", V2_TEL_INSTANCE_LONG == "MM_LONG_V2");
@@ -1101,7 +1169,7 @@ void Test_RolloverRetryDoubleShiftGuard()
    Test_RolloverRetrySetupLayer(layers, 100, 1.30800);
    Test_RolloverRetrySetupLayer(layers, 200, 1.30700);
 
-   V2_RunDailyRolloverSidePass("GBPUSD", 1, 1, false, 10, state, layers);
+   V2_RunDailyRolloverSidePass("GBPUSD", 1, 1, false, 10, state, layers, "MM_LONG_V2");
 
    AssertTrue("6a success ticket not pending", !V2_RolloverRetryPendingContains(state, 100));
    AssertTrue("6a failure ticket pending", V2_RolloverRetryPendingContains(state, 200));
@@ -1113,7 +1181,7 @@ void Test_RolloverRetryDoubleShiftGuard()
    ArrayResize(g_v2_rollover_test_adjust_calls, 0);
    Test_RolloverRetrySetSuccessTickets(200);
 
-   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers, "MM_LONG_V2");
 
    AssertTrue("6a retry pass never re-adjusts success ticket",
               !Test_RolloverRetryCallsContain(100));
@@ -1138,7 +1206,7 @@ void Test_RolloverRetryPendingAndSingleLayerRetry()
    V2RolloverLayerSlot layers[];
    Test_RolloverRetrySetupLayer(layers, 300, 1.30600);
 
-   V2_RunDailyRolloverSidePass("GBPUSD", 1, 1, false, 10, state, layers);
+   V2_RunDailyRolloverSidePass("GBPUSD", 1, 1, false, 10, state, layers, "MM_LONG_V2");
 
    AssertTrue("6b failed layer added to pending", V2_RolloverRetryPendingContains(state, 300));
    AssertNear("6b exit_target unchanged on failed daily pass", layers[0].exit_target, 1.30600, 1e-12);
@@ -1147,7 +1215,7 @@ void Test_RolloverRetryPendingAndSingleLayerRetry()
    ArrayResize(g_v2_rollover_test_adjust_calls, 0);
    Test_RolloverRetrySetSuccessTickets(300);
 
-   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers, "MM_LONG_V2");
 
    AssertTrue("6b retry pass called adjust for pending ticket only",
               ArraySize(g_v2_rollover_test_adjust_calls) == 1 &&
@@ -1176,7 +1244,7 @@ void Test_RolloverRetryCounterOncePerPass()
    Test_RolloverRetrySetupLayer(layers, 401, 1.30500);
    Test_RolloverRetrySetupLayer(layers, 402, 1.30400);
 
-   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers, "MM_LONG_V2");
 
    AssertTrue("6c counter increments once per pass", state.retry_attempt_count == 1);
    AssertTrue("6c both tickets still pending after failed retry",
@@ -1202,7 +1270,7 @@ void Test_RolloverRetryStopsAtMaxRetries()
    Test_RolloverRetrySetupLayer(layers, 501, 1.30300);
 
    const int calls_before = ArraySize(g_v2_rollover_test_adjust_calls);
-   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers, "MM_LONG_V2");
 
    AssertTrue("6d no retry when max already reached",
               state.retry_attempt_count == 15);
@@ -1229,7 +1297,7 @@ void Test_RolloverRetryRespectsNextDue()
    V2RolloverLayerSlot layers[];
    Test_RolloverRetrySetupLayer(layers, 601, 1.30200);
 
-   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers);
+   V2_RunRolloverRetryPass("GBPUSD", 1, 1, false, 10, 15, state, layers, "MM_LONG_V2");
 
    AssertTrue("6e counter unchanged before due", state.retry_attempt_count == 0);
    AssertTrue("6e pending unchanged before due", V2_RolloverRetryPendingContains(state, 601));
@@ -2951,7 +3019,7 @@ void Test_SRE_EntryPendingSweep_CountsEntrySkipsExit()
    SRE_SweepTestAddOrder(910003, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_STOP, ORDER_STATE_PLACED);
    SRE_SweepTestAddOrder(910004, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_FILLED);
 
-   const int swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic);
+   const int swept = V2_SRE_SweepEntryPendingOrders(cfg.symbol, cfg.entry_magic, cfg.instance_tag);
    AssertTrue("entry pending sweep counts entry limits only", swept == 3);
 
    SRE_OnInitResetOverride();
@@ -3130,7 +3198,8 @@ void Test_SRE_FlatSideSweep_FlatSweepsEntries()
    SRE_SweepTestAddOrder(920003, cfg.symbol, cfg.exit_magic,  ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
 
    const int swept = V2_SweepFlatSideEntryPendings(cfg.symbol, cfg.entry_magic,
-                                                   cfg.exit_magic, cfg.side_direction);
+                                                   cfg.exit_magic, cfg.side_direction,
+                                                   cfg.instance_tag);
    AssertTrue("flat side sweeps entry pendings only", swept == 2);
 
    SRE_OnInitResetOverride();
@@ -3148,7 +3217,8 @@ void Test_SRE_FlatSideSweep_NonFlatSkips()
    SRE_SweepTestAddOrder(920101, cfg.symbol, cfg.entry_magic, ORDER_TYPE_BUY_LIMIT, ORDER_STATE_PLACED);
 
    const int swept = V2_SweepFlatSideEntryPendings(cfg.symbol, cfg.entry_magic,
-                                                   cfg.exit_magic, cfg.side_direction);
+                                                   cfg.exit_magic, cfg.side_direction,
+                                                   cfg.instance_tag);
    AssertTrue("non-flat side does not sweep", swept == 0);
 
    SRE_OnInitResetOverride();
@@ -4937,6 +5007,10 @@ void OnStart()
    Test_SixInstanceMockStateIsolation();
    Test_ApiCounterIncrementAndRollover();
    Test_ApiCounterTelemetryFields();
+   Test_ApiInstTagLongSendPath();
+   Test_ApiInstTagShortSendPath();
+   Test_ApiInstCounterIncrementGuard();
+   Test_ApiInstTagNoStaleCarry();
    Test_PairTelemetryInstanceIds();
    Test_RolloverAdr045ShiftMath();
    Test_RolloverDailyGate();
