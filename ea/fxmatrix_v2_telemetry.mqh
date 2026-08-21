@@ -7,6 +7,15 @@
 
 #include "fxmatrix_v2_api_counter.mqh"
 
+#ifndef FXMATRIX_V2_MAE_MQH
+extern string g_v2_mae_day_key;
+extern double g_v2_mae_equity_low;
+extern double g_v2_mae_open_mtm_trough;
+extern double g_v2_mae_open_mtm_peak;
+extern double g_v2_mae_equity_low_dist_to_floor;
+double V2_MaeReadPairTrough(const int idx);
+#endif
+
 #ifndef V2_TEL_INSTANCE_LONG
 #define V2_TEL_INSTANCE_LONG  "MM_LONG_V2"
 #endif
@@ -256,6 +265,14 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
          "\"account_daily_api_limit\":%d,"
          "\"account_daily_api_soft_warn\":%d,"
          "\"account_daily_api_warning\":%s,"
+         "\"mae_equity_low\":%.2f,"
+         "\"mae_open_mtm_trough\":%.2f,"
+         "\"mae_open_mtm_peak\":%.2f,"
+         "\"mae_equity_low_dist_to_floor\":%.2f,"
+         "\"mae_pair_mtm_trough_gbpusd\":%.2f,"
+         "\"mae_pair_mtm_trough_eurusd\":%.2f,"
+         "\"mae_pair_mtm_trough_eurgbp\":%.2f,"
+         "\"mae_day_key\":\"%s\","
          "\"ldak_vratios\":{},"
          "\"rollover_active\":false"
       "},"
@@ -277,6 +294,14 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       V2_DAILY_API_LIMIT,
       V2_DAILY_API_SOFT_WARN,
       (account_daily_api_warning ? "true" : "false"),
+      g_v2_mae_equity_low,
+      g_v2_mae_open_mtm_trough,
+      g_v2_mae_open_mtm_peak,
+      g_v2_mae_equity_low_dist_to_floor,
+      V2_MaeReadPairTrough(0),
+      V2_MaeReadPairTrough(1),
+      V2_MaeReadPairTrough(2),
+      g_v2_mae_day_key,
       pods_json,
       market_json,
       alerts_json

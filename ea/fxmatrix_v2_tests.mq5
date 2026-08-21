@@ -29,6 +29,7 @@ double InpCbAbsoluteLossFrac = 0.090;
 double InpCbInitialBalance = 0.0;
 
 #include "fxmatrix_v2_circuit_breaker.mqh"
+#include "fxmatrix_v2_mae.mqh"
 bool   InpTaEnable = true;
 #include "fxmatrix_v2_trigger_a.mqh"
 
@@ -1041,6 +1042,137 @@ void Test_ApiInstTagNoStaleCarry()
 
    ApiInstTestClearGv(V2_TEL_INSTANCE_LONG);
    ApiInstTestClearGv(V2_TEL_INSTANCE_SHORT);
+}
+
+//+------------------------------------------------------------------+
+void Test_MaeRunningEquityLow()
+{
+   V2_MaeReset();
+   V2_Cb_TestReset();
+   g_v2_cb_test_active = true;
+   g_v2_cb_test_anchor_day_key = "20260820";
+   g_v2_cb_test_anchor_val = 10000.0;
+   g_v2_cb_test_anchor_known = true;
+
+   double pair[V2_MAE_PAIR_COUNT];
+   ArrayInitialize(pair, 0.0);
+   V2_MaeCoreUpdate("20260820", 10050.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   V2_MaeCoreUpdate("20260820", 10020.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-1 equity low holds min", g_v2_mae_equity_low == 10020.0);
+   V2_MaeCoreUpdate("20260820", 10080.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-1 higher equity does not raise low", g_v2_mae_equity_low == 10020.0);
+
+   V2_Cb_TestReset();
+   V2_MaeReset();
+}
+
+//+------------------------------------------------------------------+
+void Test_MaeNewDayReset()
+{
+   V2_MaeReset();
+   V2_Cb_TestReset();
+   g_v2_cb_test_active = true;
+   g_v2_cb_test_anchor_day_key = "20260820";
+   g_v2_cb_test_anchor_val = 10000.0;
+   g_v2_cb_test_anchor_known = true;
+
+   double pair[V2_MAE_PAIR_COUNT];
+   ArrayInitialize(pair, 0.0);
+   V2_MaeCoreUpdate("20260820", 9900.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-2 prior day low tracked", g_v2_mae_equity_low == 9900.0);
+
+   g_v2_cb_test_anchor_day_key = "20260821";
+   g_v2_cb_test_anchor_val = 10100.0;
+   V2_MaeCoreUpdate("20260821", 10100.0, 10100.0, pair, 10100.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-2 new day resets equity low", g_v2_mae_equity_low == 10100.0);
+   AssertTrue("T-MAE-2 new day key stored", g_v2_mae_day_key == "20260821");
+
+   V2_Cb_TestReset();
+   V2_MaeReset();
+}
+
+//+------------------------------------------------------------------+
+void Test_MaeOpenMtmTroughAndPeak()
+{
+   V2_MaeReset();
+   double pair[V2_MAE_PAIR_COUNT];
+   ArrayInitialize(pair, 0.0);
+
+   V2_MaeCoreUpdate("20260820", 10010.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   V2_MaeCoreUpdate("20260820", 9990.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   V2_MaeCoreUpdate("20260820", 10030.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-3 open mtm trough", g_v2_mae_open_mtm_trough == -10.0);
+   AssertTrue("T-MAE-3 open mtm peak", g_v2_mae_open_mtm_peak == 30.0);
+
+   V2_MaeReset();
+}
+
+//+------------------------------------------------------------------+
+void Test_MaeDistToFloor()
+{
+   const double anchor = 10000.0;
+   const double frac = 0.045;
+   const double floor = V2_MaeDailyFloorValue(anchor, frac);
+   AssertTrue("T-MAE-4 floor value", MathAbs(floor - 9550.0) < 0.01);
+   const double dist = V2_MaeDistToFloor(9600.0, anchor, frac);
+   AssertTrue("T-MAE-4 dist to floor", MathAbs(dist - 50.0) < 0.01);
+}
+
+//+------------------------------------------------------------------+
+void Test_MaePerPairTroughIsolation()
+{
+   V2_MaeReset();
+   double pair[V2_MAE_PAIR_COUNT];
+   pair[0] = -5.0;
+   pair[1] = -50.0;
+   pair[2] = -2.0;
+   V2_MaeCoreUpdate("20260820", 9943.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-5 gbp trough initial", g_v2_mae_pair_mtm_trough[0] == -5.0);
+   AssertTrue("T-MAE-5 eur trough initial", g_v2_mae_pair_mtm_trough[1] == -50.0);
+
+   pair[0] = -3.0;
+   pair[1] = -80.0;
+   pair[2] = -1.0;
+   V2_MaeCoreUpdate("20260820", 9920.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+   AssertTrue("T-MAE-5 gbp trough unchanged by eur deepen", g_v2_mae_pair_mtm_trough[0] == -5.0);
+   AssertTrue("T-MAE-5 eur trough deepens", g_v2_mae_pair_mtm_trough[1] == -80.0);
+
+   V2_MaeReset();
+}
+
+//+------------------------------------------------------------------+
+void Test_MaeTelemetryFields()
+{
+   V2_MaeReset();
+   double pair[V2_MAE_PAIR_COUNT];
+   pair[0] = -1.0;
+   pair[1] = -2.0;
+   pair[2] = -3.0;
+   V2_MaeCoreUpdate("20260820", 9990.0, 10000.0, pair, 10000.0, InpCbDailyLossFrac);
+
+   V2TelLayerSnapshot layers[];
+   string alerts[];
+   const string payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG,
+      "GBPUSD",
+      layers,
+      0,
+      1,
+      0.0004,
+      TimeGMT(),
+      alerts
+   );
+
+   AssertContains("telemetry mae equity low", payload, "\"mae_equity_low\":9990.00");
+   AssertContains("telemetry mae open mtm trough", payload, "\"mae_open_mtm_trough\":-10.00");
+   AssertContains("telemetry mae open mtm peak", payload, "\"mae_open_mtm_peak\":-10.00");
+   AssertContains("telemetry mae dist to floor", payload, "\"mae_equity_low_dist_to_floor\":");
+   AssertContains("telemetry mae gbpusd trough", payload, "\"mae_pair_mtm_trough_gbpusd\":-1.00");
+   AssertContains("telemetry mae eurusd trough", payload, "\"mae_pair_mtm_trough_eurusd\":-2.00");
+   AssertContains("telemetry mae eurgbp trough", payload, "\"mae_pair_mtm_trough_eurgbp\":-3.00");
+   AssertContains("telemetry mae day key", payload, "\"mae_day_key\":\"20260820\"");
+
+   V2_MaeReset();
 }
 
 //+------------------------------------------------------------------+
@@ -5011,6 +5143,12 @@ void OnStart()
    Test_ApiInstTagShortSendPath();
    Test_ApiInstCounterIncrementGuard();
    Test_ApiInstTagNoStaleCarry();
+   Test_MaeRunningEquityLow();
+   Test_MaeNewDayReset();
+   Test_MaeOpenMtmTroughAndPeak();
+   Test_MaeDistToFloor();
+   Test_MaePerPairTroughIsolation();
+   Test_MaeTelemetryFields();
    Test_PairTelemetryInstanceIds();
    Test_RolloverAdr045ShiftMath();
    Test_RolloverDailyGate();

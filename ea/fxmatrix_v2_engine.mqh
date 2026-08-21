@@ -8,7 +8,6 @@
 
 #include "fxmatrix_v2_logic.mqh"
 #include "fxmatrix_v2_exits.mqh"
-#include "fxmatrix_v2_telemetry.mqh"
 #include "fxmatrix_v2_carry.mqh"
 #include "fxmatrix_v2_cap_bridge.mqh"
 #include "fxmatrix_v2_l0_signal.mqh"
@@ -16,6 +15,8 @@
 #include "fxmatrix_v2_sre_oninit.mqh"
 #include "fxmatrix_v2_bcc.mqh"
 #include "fxmatrix_v2_circuit_breaker.mqh"
+#include "fxmatrix_v2_mae.mqh"
+#include "fxmatrix_v2_telemetry.mqh"
 #include "fxmatrix_v2_trigger_a.mqh"
 #include "fxmatrix_v2_entry_ab.mqh"
 
@@ -1845,6 +1846,7 @@ void OnDeinit(const int reason) {
 void OnTick() {
    ArrayResize(g_long_system_alerts, 0);
    ArrayResize(g_short_system_alerts, 0);
+   V2_MaeOnTick();
    V2_ApiCounterMaybeReset();
    V2_RunDailyRolloverReconciliation();
    V2_RunRolloverRetryPasses();
