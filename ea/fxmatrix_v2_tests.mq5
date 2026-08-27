@@ -2810,6 +2810,141 @@ void Test_SRE_ValidationMismatchHalts()
               V2_SRE_HALT_VALIDATION_MISMATCH);
 }
 
+void SRE_MCInitDeal(V2SREDealInput &d,
+                    const ulong deal_ticket,
+                    const ulong position_id,
+                    const long entry_type,
+                    const long deal_magic,
+                    const double volume,
+                    const long deal_reason = 0)
+{
+   d.deal_ticket = deal_ticket;
+   d.position_id = position_id;
+   d.order_id = position_id;
+   d.deal_time = SRE_T1;
+   d.entry_type = entry_type;
+   d.deal_type = (entry_type == DEAL_ENTRY_IN ? DEAL_TYPE_BUY : DEAL_TYPE_SELL);
+   d.deal_magic = deal_magic;
+   d.deal_reason = deal_reason;
+   d.price = 1.30000;
+   d.volume = volume;
+   d.comment = "";
+}
+
+void Test_SRE_MC1_ManualCloseCaptured()
+{
+   V2SREDealInput pass1[], all[], merged[];
+   ArrayResize(pass1, 1);
+   SRE_MCInitDeal(pass1[0], 1, 8101, DEAL_ENTRY_IN, MM_LONG_V2, SRE_LOT);
+   ArrayResize(all, 2);
+   all[0] = pass1[0];
+   SRE_MCInitDeal(all[1], 2, 8101, DEAL_ENTRY_OUT, 0, SRE_LOT);
+   V2_SRE_MergeManagedPositionCloseDeals(pass1, all, MM_LONG_V2, merged);
+   AssertTrue("T-SRE-MC-1 merged count", ArraySize(merged) == 2);
+   const double net = V2_SRE_PositionNetVolume(8101, merged, ArraySize(merged) - 1,
+                                               MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertNear("T-SRE-MC-1 nets flat", net, 0.0, 1e-12);
+}
+
+void Test_SRE_MC2_StopOutCaptured()
+{
+   V2SREDealInput pass1[], all[], merged[];
+   ArrayResize(pass1, 1);
+   SRE_MCInitDeal(pass1[0], 11, 8111, DEAL_ENTRY_IN, MM_LONG_V2, SRE_LOT);
+   ArrayResize(all, 2);
+   all[0] = pass1[0];
+   SRE_MCInitDeal(all[1], 12, 8111, DEAL_ENTRY_OUT, 0, SRE_LOT, DEAL_REASON_SO);
+   V2_SRE_MergeManagedPositionCloseDeals(pass1, all, MM_LONG_V2, merged);
+   AssertTrue("T-SRE-MC-2 merged count", ArraySize(merged) == 2);
+   const double net = V2_SRE_PositionNetVolume(8111, merged, ArraySize(merged) - 1,
+                                               MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertNear("T-SRE-MC-2 nets flat", net, 0.0, 1e-12);
+}
+
+void Test_SRE_MC3_UnrelatedMagicZeroNotAdmitted()
+{
+   V2SREDealInput pass1[], all[], merged[];
+   ArrayResize(pass1, 1);
+   SRE_MCInitDeal(pass1[0], 21, 8201, DEAL_ENTRY_IN, MM_LONG_V2, SRE_LOT);
+   ArrayResize(all, 2);
+   all[0] = pass1[0];
+   SRE_MCInitDeal(all[1], 22, 9999, DEAL_ENTRY_OUT, 0, SRE_LOT);
+   V2_SRE_MergeManagedPositionCloseDeals(pass1, all, MM_LONG_V2, merged);
+   AssertTrue("T-SRE-MC-3 only pass1 deals", ArraySize(merged) == 1);
+   AssertTrue("T-SRE-MC-3 unrelated not merged", merged[0].deal_ticket == 21);
+}
+
+void Test_SRE_MC4_PhantomVetoRemovesNonLive()
+{
+   g_v2_sre_phantom_veto_test_active = true;
+   ArrayResize(g_v2_sre_phantom_veto_live_tickets, 0);
+   V2SRELayerSnapshot layers[];
+   ArrayResize(layers, 2);
+   layers[0].position_ticket = 1001;
+   layers[1].position_ticket = 1002;
+   const int removed = V2_SRE_VetoPhantomLayers(layers, true);
+   AssertTrue("T-SRE-MC-4 removed count", removed == 2);
+   AssertTrue("T-SRE-MC-4 array shrunk", ArraySize(layers) == 0);
+}
+
+void Test_SRE_MC5_PhantomVetoKeepsLive()
+{
+   g_v2_sre_phantom_veto_test_active = true;
+   ArrayResize(g_v2_sre_phantom_veto_live_tickets, 1);
+   g_v2_sre_phantom_veto_live_tickets[0] = 1001;
+   V2SRELayerSnapshot layers[];
+   ArrayResize(layers, 2);
+   layers[0].position_ticket = 1001;
+   layers[1].position_ticket = 1002;
+   const int removed = V2_SRE_VetoPhantomLayers(layers, true);
+   AssertTrue("T-SRE-MC-5 removed one", removed == 1);
+   AssertTrue("T-SRE-MC-5 one layer left", ArraySize(layers) == 1);
+   AssertTrue("T-SRE-MC-5 live layer kept", layers[0].position_ticket == 1001);
+}
+
+void Test_SRE_MC6_EaExitCloseRegression()
+{
+   V2SREDealInput deals[];
+   ArrayResize(deals, 4);
+   SRE_MCInitDeal(deals[0], 31, 8301, DEAL_ENTRY_IN, MM_LONG_V2, SRE_LOT);
+   SRE_MCInitDeal(deals[1], 32, 8302, DEAL_ENTRY_IN, MM_LONG_V2_EXIT, SRE_LOT);
+   deals[2].deal_ticket = 33; deals[2].position_id = 8301;
+   deals[2].entry_type = DEAL_ENTRY_OUT_BY; deals[2].deal_magic = MM_LONG_V2;
+   deals[2].volume = SRE_LOT; deals[2].deal_time = SRE_T1; deals[2].order_id = 9001;
+   deals[3].deal_ticket = 34; deals[3].position_id = 8302;
+   deals[3].entry_type = DEAL_ENTRY_OUT_BY; deals[3].deal_magic = MM_LONG_V2_EXIT;
+   deals[3].volume = SRE_LOT; deals[3].deal_time = SRE_T1; deals[3].order_id = 9001;
+   const double net = V2_SRE_PositionNetVolume(8301, deals, ArraySize(deals) - 1,
+                                               MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertNear("T-SRE-MC-6 ea exit nets flat", net, 0.0, 1e-12);
+}
+
+void Test_SRE_MC7_GbpusdLongManualCloseRepro()
+{
+   g_v2_sre_phantom_veto_test_active = true;
+   ArrayResize(g_v2_sre_phantom_veto_live_tickets, 0);
+
+   V2SREDealInput pass1[], all[], merged[];
+   ArrayResize(pass1, 1);
+   SRE_MCInitDeal(pass1[0], 41, 8401, DEAL_ENTRY_IN, MM_LONG_V2, SRE_LOT);
+   ArrayResize(all, 2);
+   all[0] = pass1[0];
+   SRE_MCInitDeal(all[1], 42, 8401, DEAL_ENTRY_OUT, 0, SRE_LOT);
+   V2_SRE_MergeManagedPositionCloseDeals(pass1, all, MM_LONG_V2, merged);
+   const double net = V2_SRE_PositionNetVolume(8401, merged, ArraySize(merged) - 1,
+                                               MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertNear("T-SRE-MC-7 history nets flat", net, 0.0, 1e-12);
+
+   V2SRELayerSnapshot layers[];
+   ArrayResize(layers, 1);
+   layers[0].position_ticket = 8401;
+   layers[0].entry_ticket = 101;
+   layers[0].entry_price = 1.30000;
+   const int removed = V2_SRE_VetoPhantomLayers(layers, true);
+   AssertTrue("T-SRE-MC-7 veto removed phantom", removed == 1);
+   AssertTrue("T-SRE-MC-7 zero open layers", ArraySize(layers) == 0);
+}
+
 //+------------------------------------------------------------------+
 // Phase B â€” OnInit SRE orchestration tests
 void SRE_OnInitResetOverride()
@@ -2845,6 +2980,9 @@ void SRE_OnInitResetOverride()
    ArrayResize(g_v2_sre_sweep_test_orders, 0);
    g_v2_sre_flatsweep_test_active = false;
    g_v2_sre_flatsweep_test_position_count = 0;
+
+   g_v2_sre_phantom_veto_test_active = false;
+   ArrayResize(g_v2_sre_phantom_veto_live_tickets, 0);
 }
 
 void SRE_SweepTestAddOrder(const ulong ticket,
@@ -5520,6 +5658,14 @@ void OnStart()
    Test_SRE_Tier1RealData_PairB_Gbpusd();
    Test_SRE_Tier1RealData_PairC_Eurgbp();
    Test_SRE_Tier1RealData_StandaloneD_EurusdCloseBy();
+
+   Test_SRE_MC1_ManualCloseCaptured();
+   Test_SRE_MC2_StopOutCaptured();
+   Test_SRE_MC3_UnrelatedMagicZeroNotAdmitted();
+   Test_SRE_MC4_PhantomVetoRemovesNonLive();
+   Test_SRE_MC5_PhantomVetoKeepsLive();
+   Test_SRE_MC6_EaExitCloseRegression();
+   Test_SRE_MC7_GbpusdLongManualCloseRepro();
 
    Print("=== summary: ", g_tests_passed, "/", g_tests_run, " passed ===");
    if(g_tests_passed != g_tests_run)

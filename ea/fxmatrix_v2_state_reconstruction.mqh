@@ -726,6 +726,83 @@ double V2_SRE_PositionNetVolume(const ulong position_id,
    return vol;
 }
 
+bool V2_SRE_PositionIdInSet(const ulong position_id, const ulong &ids[])
+{
+   for(int i = 0; i < ArraySize(ids); i++) {
+      if(ids[i] == position_id)
+         return true;
+   }
+   return false;
+}
+
+void V2_SRE_BuildManagedEntryPositionIds(const V2SREDealInput &deals[],
+                                         const long entry_magic,
+                                         ulong &managed_ids[])
+{
+   ArrayResize(managed_ids, 0);
+   for(int i = 0; i < ArraySize(deals); i++) {
+      const ulong pid = deals[i].position_id;
+      if(pid == 0)
+         continue;
+      if(deals[i].entry_type != DEAL_ENTRY_IN)
+         continue;
+      if(deals[i].deal_magic != entry_magic)
+         continue;
+      if(V2_SRE_PositionIdInSet(pid, managed_ids))
+         continue;
+      const int n = ArraySize(managed_ids);
+      ArrayResize(managed_ids, n + 1);
+      managed_ids[n] = pid;
+   }
+}
+
+bool V2_SRE_IsManagedPositionTerminatingClose(const ulong position_id,
+                                              const long entry_type,
+                                              const ulong &managed_ids[])
+{
+   if(position_id == 0)
+      return false;
+   if(!V2_SRE_PositionIdInSet(position_id, managed_ids))
+      return false;
+   return (entry_type == DEAL_ENTRY_OUT || entry_type == DEAL_ENTRY_OUT_BY);
+}
+
+bool V2_SRE_DealTicketInArray(const ulong deal_ticket, const V2SREDealInput &deals[])
+{
+   for(int i = 0; i < ArraySize(deals); i++) {
+      if(deals[i].deal_ticket == deal_ticket)
+         return true;
+   }
+   return false;
+}
+
+// Pass-1 magic-filtered deals plus managed-position OUT/OUT_BY closes (any magic).
+void V2_SRE_MergeManagedPositionCloseDeals(const V2SREDealInput &pass1_deals[],
+                                           const V2SREDealInput &all_symbol_deals[],
+                                           const long entry_magic,
+                                           V2SREDealInput &merged[])
+{
+   const int p1_n = ArraySize(pass1_deals);
+   ArrayResize(merged, p1_n);
+   for(int i = 0; i < p1_n; i++)
+      merged[i] = pass1_deals[i];
+
+   ulong managed_ids[];
+   V2_SRE_BuildManagedEntryPositionIds(pass1_deals, entry_magic, managed_ids);
+
+   for(int i = 0; i < ArraySize(all_symbol_deals); i++) {
+      if(V2_SRE_DealTicketInArray(all_symbol_deals[i].deal_ticket, merged))
+         continue;
+      if(!V2_SRE_IsManagedPositionTerminatingClose(all_symbol_deals[i].position_id,
+                                                   all_symbol_deals[i].entry_type,
+                                                   managed_ids))
+         continue;
+      const int n = ArraySize(merged);
+      ArrayResize(merged, n + 1);
+      merged[n] = all_symbol_deals[i];
+   }
+}
+
 void V2_SRE_CollectManagedPositionIds(const V2SREDealInput &deals[],
                                       const int deal_index,
                                       const long entry_magic,

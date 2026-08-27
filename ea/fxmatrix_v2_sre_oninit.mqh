@@ -283,6 +283,25 @@ void V2_SRE_GatherPendingOrders(const string symbol,
    }
 }
 
+void V2_SRE_AppendDealFromHistoryTicket(const ulong deal_ticket, V2SREDealInput &deals[])
+{
+   V2SREDealInput d;
+   d.deal_ticket = deal_ticket;
+   d.position_id = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
+   d.order_id = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_ORDER);
+   d.deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
+   d.entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+   d.deal_type = HistoryDealGetInteger(deal_ticket, DEAL_TYPE);
+   d.deal_magic = HistoryDealGetInteger(deal_ticket, DEAL_MAGIC);
+   d.deal_reason = HistoryDealGetInteger(deal_ticket, DEAL_REASON);
+   d.price = HistoryDealGetDouble(deal_ticket, DEAL_PRICE);
+   d.volume = HistoryDealGetDouble(deal_ticket, DEAL_VOLUME);
+   d.comment = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
+   const int n = ArraySize(deals);
+   ArrayResize(deals, n + 1);
+   deals[n] = d;
+}
+
 //+------------------------------------------------------------------+
 void V2_SRE_GatherDealHistory(const string symbol,
                               const long entry_magic,
@@ -300,31 +319,37 @@ void V2_SRE_GatherDealHistory(const string symbol,
 
    history_select_ok = true;
    const int total = HistoryDealsTotal();
+
+   // Pass 1 — EA magic deals (unchanged baseline filter).
    for(int i = 0; i < total; i++) {
-      ulong deal_ticket = HistoryDealGetTicket(i);
+      const ulong deal_ticket = HistoryDealGetTicket(i);
       if(deal_ticket == 0)
          continue;
       if(HistoryDealGetString(deal_ticket, DEAL_SYMBOL) != symbol)
          continue;
-      long dmagic = HistoryDealGetInteger(deal_ticket, DEAL_MAGIC);
+      const long dmagic = HistoryDealGetInteger(deal_ticket, DEAL_MAGIC);
       if(dmagic != entry_magic && dmagic != exit_magic)
          continue;
+      V2_SRE_AppendDealFromHistoryTicket(deal_ticket, deals);
+   }
 
-      V2SREDealInput d;
-      d.deal_ticket = deal_ticket;
-      d.position_id = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
-      d.order_id = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_ORDER);
-      d.deal_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
-      d.entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
-      d.deal_type = HistoryDealGetInteger(deal_ticket, DEAL_TYPE);
-      d.deal_magic = dmagic;
-      d.deal_reason = HistoryDealGetInteger(deal_ticket, DEAL_REASON);
-      d.price = HistoryDealGetDouble(deal_ticket, DEAL_PRICE);
-      d.volume = HistoryDealGetDouble(deal_ticket, DEAL_VOLUME);
-      d.comment = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
-      int n = ArraySize(deals);
-      ArrayResize(deals, n + 1);
-      deals[n] = d;
+   ulong managed_ids[];
+   V2_SRE_BuildManagedEntryPositionIds(deals, entry_magic, managed_ids);
+
+   // Pass 2 — terminating closes on managed position_ids (manual / stop-out; any magic).
+   for(int i = 0; i < total; i++) {
+      const ulong deal_ticket = HistoryDealGetTicket(i);
+      if(deal_ticket == 0)
+         continue;
+      if(HistoryDealGetString(deal_ticket, DEAL_SYMBOL) != symbol)
+         continue;
+      if(V2_SRE_DealTicketInArray(deal_ticket, deals))
+         continue;
+      const ulong position_id = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
+      const long entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+      if(!V2_SRE_IsManagedPositionTerminatingClose(position_id, entry_type, managed_ids))
+         continue;
+      V2_SRE_AppendDealFromHistoryTicket(deal_ticket, deals);
    }
 }
 
@@ -662,6 +687,44 @@ int V2_SRE_SweepEntryPendingOrders(const string symbol, const long entry_magic,
          swept++;
    }
    return swept;
+}
+
+// --- Option A: live-book phantom veto (post-reconstruction backstop) ---------
+bool g_v2_sre_phantom_veto_test_active = false;
+ulong g_v2_sre_phantom_veto_live_tickets[];
+
+bool V2_SRE_PhantomVetoPositionLive(const ulong position_ticket)
+{
+   if(position_ticket == 0)
+      return false;
+   if(g_v2_sre_phantom_veto_test_active) {
+      for(int i = 0; i < ArraySize(g_v2_sre_phantom_veto_live_tickets); i++) {
+         if(g_v2_sre_phantom_veto_live_tickets[i] == position_ticket)
+            return true;
+      }
+      return false;
+   }
+   return PositionSelectByTicket(position_ticket);
+}
+
+int V2_SRE_VetoPhantomLayers(V2SRELayerSnapshot &layers[], const bool is_long)
+{
+   int removed = 0;
+   const string side = is_long ? "long" : "short";
+   for(int i = ArraySize(layers) - 1; i >= 0; i--) {
+      const ulong pt = layers[i].position_ticket;
+      if(pt != 0 && V2_SRE_PhantomVetoPositionLive(pt))
+         continue;
+      Print("ALERT V2_SRE_PHANTOM_VETO | side=", side,
+            " | ticket=", pt,
+            " reconstructed-open but broker-flat -> layer cleared");
+      const int n = ArraySize(layers);
+      for(int j = i; j < n - 1; j++)
+         layers[j] = layers[j + 1];
+      ArrayResize(layers, n - 1);
+      removed++;
+   }
+   return removed;
 }
 
 // --- ADR-110: baseline flat-side sweep --------------------------------------

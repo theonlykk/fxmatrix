@@ -1795,6 +1795,52 @@ void V2_ApplyShortSRECommit(const V2SREOnInitSideResult &res)
    g_short_current_add_pips = res.path_state.current_add_pips;
 }
 
+void Long_VetoPhantomLayers()
+{
+   const int before = ArraySize(g_long_layers);
+   for(int i = ArraySize(g_long_layers) - 1; i >= 0; i--) {
+      const ulong pt = Long_ResolvePositionTicket(g_long_layers[i].position_ticket);
+      if(pt != 0 && V2_SRE_PhantomVetoPositionLive(pt))
+         continue;
+      Print("ALERT V2_SRE_PHANTOM_VETO | side=long | ticket=", g_long_layers[i].position_ticket,
+            " reconstructed-open but broker-flat -> layer cleared");
+      V2_CancelExitOrder(g_long_layers[i].exit_ticket, g_preset.tel_instance_long);
+      const int n = ArraySize(g_long_layers);
+      for(int j = i; j < n - 1; j++)
+         g_long_layers[j] = g_long_layers[j + 1];
+      ArrayResize(g_long_layers, n - 1);
+   }
+   if(ArraySize(g_long_layers) != before) {
+      V2_OnOwnStackFlat(g_long_last_exit_valid, ArraySize(g_long_layers));
+      V2_Cap_Sync(true, ArraySize(g_long_layers));
+      if(ArraySize(g_long_layers) == 0)
+         g_long_current_add_pips = InpAddPipsFloor;
+   }
+}
+
+void Short_VetoPhantomLayers()
+{
+   const int before = ArraySize(g_short_layers);
+   for(int i = ArraySize(g_short_layers) - 1; i >= 0; i--) {
+      const ulong pt = Short_ResolvePositionTicket(g_short_layers[i].position_ticket);
+      if(pt != 0 && V2_SRE_PhantomVetoPositionLive(pt))
+         continue;
+      Print("ALERT V2_SRE_PHANTOM_VETO | side=short | ticket=", g_short_layers[i].position_ticket,
+            " reconstructed-open but broker-flat -> layer cleared");
+      V2_CancelExitOrder(g_short_layers[i].exit_ticket, g_preset.tel_instance_short);
+      const int n = ArraySize(g_short_layers);
+      for(int j = i; j < n - 1; j++)
+         g_short_layers[j] = g_short_layers[j + 1];
+      ArrayResize(g_short_layers, n - 1);
+   }
+   if(ArraySize(g_short_layers) != before) {
+      V2_OnOwnStackFlat(g_short_last_exit_valid, ArraySize(g_short_layers));
+      V2_Cap_Sync(false, ArraySize(g_short_layers));
+      if(ArraySize(g_short_layers) == 0)
+         g_short_current_add_pips = InpAddPipsFloor;
+   }
+}
+
 int OnInit() {
    V2_EngineApplyEntryModeIdentity();
    if(InpEntryMode == ENTRY_STRADDLE) {
@@ -1876,12 +1922,16 @@ int OnInit() {
    short_orphan = agg.short_halted;
    if(long_orphan)
       g_long_halted = true;
-   else if(agg.long_committed)
+   else if(agg.long_committed) {
       V2_ApplyLongSRECommit(long_sre);
+      Long_VetoPhantomLayers();
+   }
    if(short_orphan)
       g_short_halted = true;
-   else if(agg.short_committed)
+   else if(agg.short_committed) {
       V2_ApplyShortSRECommit(short_sre);
+      Short_VetoPhantomLayers();
+   }
 
    if(V2_CbReadAcctHaltGv()) {
       g_long_halted = true;
