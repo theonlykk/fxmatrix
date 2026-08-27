@@ -78,6 +78,7 @@ struct V2BccSideInputs
 
 // Test hooks — broker pool override for unit tests (detect-only paths only).
 bool g_v2_bcc_test_active = false;
+datetime g_v2_bcc_test_now = 0;
 
 struct V2BccTestPosition
 {
@@ -109,6 +110,7 @@ ulong             g_v2_bcc_test_position_live[];
 void V2_Bcc_TestReset()
 {
    g_v2_bcc_test_active = false;
+   g_v2_bcc_test_now = 0;
    ArrayResize(g_v2_bcc_test_positions, 0);
    ArrayResize(g_v2_bcc_test_orders, 0);
    ArrayResize(g_v2_bcc_test_position_live, 0);
@@ -571,7 +573,9 @@ void V2_Bcc_Tier2ResolveOrphans(const V2BccSideInputs &cfg,
    V2SREExitOrderInput orders[];
    V2_Bcc_ExitItemsToSREOrders(all_exits, cfg, orders);
 
-   const datetime now = TimeCurrent();
+   const datetime now = (g_v2_bcc_test_active && g_v2_bcc_test_now > 0)
+                        ? g_v2_bcc_test_now
+                        : TimeCurrent();
 
    for(int c = 0; c < ArraySize(tier2_candidates); c++) {
       int ord_idx = -1;

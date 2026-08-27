@@ -222,7 +222,11 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
                                        const int direction,
                                        const double quote_spread,
                                        const datetime timestamp_utc,
-                                       string& system_alerts[])
+                                       string& system_alerts[],
+                                       const int harvest_type_limit = 0,
+                                       const int harvest_type_market = 0,
+                                       const double harvest_pips_limit = 0.0,
+                                       const double harvest_pips_market = 0.0)
 {
    string ts = V2TelIsoUtc(timestamp_utc);
 
@@ -274,7 +278,11 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
          "\"mae_pair_mtm_trough_eurgbp\":%.2f,"
          "\"mae_day_key\":\"%s\","
          "\"ldak_vratios\":{},"
-         "\"rollover_active\":false"
+         "\"rollover_active\":false,"
+         "\"harvest_type_limit\":%d,"
+         "\"harvest_type_market\":%d,"
+         "\"harvest_pips_limit\":%.2f,"
+         "\"harvest_pips_market\":%.2f"
       "},"
       "\"active_pods\":%s,"
       "\"working_orders\":{},"
@@ -302,6 +310,10 @@ string V2BuildInstanceTelemetryPayload(const string instance_id,
       V2_MaeReadPairTrough(1),
       V2_MaeReadPairTrough(2),
       g_v2_mae_day_key,
+      harvest_type_limit,
+      harvest_type_market,
+      harvest_pips_limit,
+      harvest_pips_market,
       pods_json,
       market_json,
       alerts_json

@@ -305,13 +305,39 @@ bool Long_SetExitTakeProfit(const int layer_idx) {
       g_long_layers[layer_idx].exit_ticket = 0;
    }
 
-   ulong exit_order = V2_SendExitLimit(_Symbol, target, InpLotSize, 1,
-                                       g_preset.magic_long_exit, target,
+   // STEP 1: harvest-at-market (stored target; preempts any limit placement).
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(bid >= target) {
+      if(V2_CloseExitAtMarket(_Symbol, +1, InpLotSize,
+                              g_preset.magic_long_exit,
+                              position_ticket,
+                              g_preset.tel_instance_long)) {
+         g_long_layers[layer_idx].exit_ticket = 0;
+         const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         V2_HarvestRecordMarket(+1,
+            V2_HarvestPipsPure(+1, g_long_layers[layer_idx].entry_price, bid, pt));
+         if(InpVerboseLog)
+            Print("DIAG V2_LONG | event=exit_market_close | layer=", layer_idx,
+                  " target=", DoubleToString(target, 5),
+                  " bid=", DoubleToString(bid, 5));
+         return true;
+      }
+   }
+
+   // STEP 2: Option-1 stretch (local `place` only; stored exit_target unchanged).
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double buffer = V2_ExitClearanceBuffer(_Symbol);
+   double place = Long_NormalizeSym(MathMax(target, ask + buffer));
+
+   // STEP 3: rest passive limit at `place`.
+   ulong exit_order = V2_SendExitLimit(_Symbol, place, InpLotSize, 1,
+                                       g_preset.magic_long_exit, place,
                                        g_preset.tel_instance_long);
    if(exit_order == 0) {
       if (InpVerboseLog)
          Print("WARN V2_LONG | exit limit placement failed layer=", layer_idx,
-               " target=", DoubleToString(target, 5));
+               " target=", DoubleToString(target, 5),
+               " place=", DoubleToString(place, 5));
       return false;
    }
 
@@ -652,10 +678,22 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    if (is_long_exit) {
       int layer_idx = -1;
+      bool matched_by_exit_ticket = false;
       for(int i = 0; i < ArraySize(g_long_layers); i++) {
          if(g_long_layers[i].exit_ticket == order_ticket) {
             layer_idx = i;
+            matched_by_exit_ticket = true;
             break;
+         }
+      }
+      if(layer_idx < 0) {
+         for(int i = 0; i < ArraySize(g_long_layers); i++) {
+            ulong pos_ticket = Long_ResolvePositionTicket(g_long_layers[i].position_ticket);
+            if(pos_ticket == position_id ||
+               g_long_layers[i].position_ticket == position_id) {
+               layer_idx = i;
+               break;
+            }
          }
       }
       if(layer_idx < 0) {
@@ -674,6 +712,12 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       int open_depth = g_long_layers[layer_idx].open_depth;
 
       double real_profit = V2_ComputeExitRealizedPnl(deal_ticket, orig_pos);
+
+      if(matched_by_exit_ticket) {
+         const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         V2_HarvestRecordLimit(+1,
+            V2_HarvestPipsPure(+1, layer_entry, deal_price, pt));
+      }
 
       if(orig_pos > 0 && position_id > 0) {
          V2_QueueCloseBy(g_long_closeby_queue, orig_pos, position_id);
@@ -1120,13 +1164,39 @@ bool Short_SetExitTakeProfit(const int layer_idx) {
       g_short_layers[layer_idx].exit_ticket = 0;
    }
 
-   ulong exit_order = V2_SendExitLimit(_Symbol, target, InpLotSize, -1,
-                                       g_preset.magic_short_exit, target,
+   // STEP 1: harvest-at-market (stored target; preempts any limit placement).
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(ask <= target) {
+      if(V2_CloseExitAtMarket(_Symbol, -1, InpLotSize,
+                              g_preset.magic_short_exit,
+                              position_ticket,
+                              g_preset.tel_instance_short)) {
+         g_short_layers[layer_idx].exit_ticket = 0;
+         const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         V2_HarvestRecordMarket(-1,
+            V2_HarvestPipsPure(-1, g_short_layers[layer_idx].entry_price, ask, pt));
+         if(InpVerboseLog)
+            Print("DIAG V2_SHORT | event=exit_market_close | layer=", layer_idx,
+                  " target=", DoubleToString(target, 5),
+                  " ask=", DoubleToString(ask, 5));
+         return true;
+      }
+   }
+
+   // STEP 2: Option-1 stretch (local `place` only; stored exit_target unchanged).
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double buffer = V2_ExitClearanceBuffer(_Symbol);
+   double place = Short_NormalizeSym(MathMin(target, bid - buffer));
+
+   // STEP 3: rest passive limit at `place`.
+   ulong exit_order = V2_SendExitLimit(_Symbol, place, InpLotSize, -1,
+                                       g_preset.magic_short_exit, place,
                                        g_preset.tel_instance_short);
    if(exit_order == 0) {
       if (InpVerboseLog)
          Print("WARN V2_SHORT | exit limit placement failed layer=", layer_idx,
-               " target=", DoubleToString(target, 5));
+               " target=", DoubleToString(target, 5),
+               " place=", DoubleToString(place, 5));
       return false;
    }
 
@@ -1461,10 +1531,22 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    if (is_short_exit) {
       int layer_idx = -1;
+      bool matched_by_exit_ticket = false;
       for(int i = 0; i < ArraySize(g_short_layers); i++) {
          if(g_short_layers[i].exit_ticket == order_ticket) {
             layer_idx = i;
+            matched_by_exit_ticket = true;
             break;
+         }
+      }
+      if(layer_idx < 0) {
+         for(int i = 0; i < ArraySize(g_short_layers); i++) {
+            ulong pos_ticket = Short_ResolvePositionTicket(g_short_layers[i].position_ticket);
+            if(pos_ticket == position_id ||
+               g_short_layers[i].position_ticket == position_id) {
+               layer_idx = i;
+               break;
+            }
          }
       }
       if(layer_idx < 0) {
@@ -1483,6 +1565,12 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       int open_depth = g_short_layers[layer_idx].open_depth;
 
       double real_profit = V2_ComputeExitRealizedPnl(deal_ticket, orig_pos);
+
+      if(matched_by_exit_ticket) {
+         const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         V2_HarvestRecordLimit(-1,
+            V2_HarvestPipsPure(-1, layer_entry, deal_price, pt));
+      }
 
       if(orig_pos > 0 && position_id > 0) {
          V2_QueueCloseBy(g_short_closeby_queue, orig_pos, position_id);
@@ -1633,7 +1721,11 @@ void V2EmitTelemetry(const bool force = false)
       1,
       InpQuoteSpread,
       ts_utc,
-      long_live_alerts
+      long_live_alerts,
+      g_v2_harvest_type_limit_long,
+      g_v2_harvest_type_market_long,
+      g_v2_harvest_pips_limit_long,
+      g_v2_harvest_pips_market_long
    );
    string payload_short = V2BuildInstanceTelemetryPayload(
       g_preset.tel_instance_short,
@@ -1643,7 +1735,11 @@ void V2EmitTelemetry(const bool force = false)
       -1,
       InpQuoteSpread,
       ts_utc,
-      short_live_alerts
+      short_live_alerts,
+      g_v2_harvest_type_limit_short,
+      g_v2_harvest_type_market_short,
+      g_v2_harvest_pips_limit_short,
+      g_v2_harvest_pips_market_short
    );
 
    V2TelemetryWebPost(TelemetryURL, TelemetryAPIKey, payload_long, InpVerboseLog);

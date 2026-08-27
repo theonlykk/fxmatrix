@@ -10,6 +10,181 @@
 
 int g_v2_ta_samedir_crit = 0;
 
+// Test harness for exit-fallback unit tests (script mode; no live OrderSend).
+bool g_v2_exitfb_test_harness = false;
+bool g_v2_exitfb_test_limit_harness = false;
+int  g_v2_exitfb_test_market_close_calls = 0;
+int  g_v2_exitfb_test_limit_calls = 0;
+ulong g_v2_exitfb_test_market_close_position = 0;
+double g_v2_exitfb_test_last_limit_price = 0.0;
+double g_v2_exitfb_test_bid = 0.0;
+double g_v2_exitfb_test_ask = 0.0;
+double g_v2_exitfb_test_freeze = 0.0;
+
+// Per-arm harvest-type counters (instance/magic scoped in engine; reset on attach).
+int    g_v2_harvest_type_limit_long = 0;
+int    g_v2_harvest_type_market_long = 0;
+double g_v2_harvest_pips_limit_long = 0.0;
+double g_v2_harvest_pips_market_long = 0.0;
+int    g_v2_harvest_type_limit_short = 0;
+int    g_v2_harvest_type_market_short = 0;
+double g_v2_harvest_pips_limit_short = 0.0;
+double g_v2_harvest_pips_market_short = 0.0;
+
+//+------------------------------------------------------------------+
+void V2_HarvestCountersReset()
+{
+   g_v2_harvest_type_limit_long = 0;
+   g_v2_harvest_type_market_long = 0;
+   g_v2_harvest_pips_limit_long = 0.0;
+   g_v2_harvest_pips_market_long = 0.0;
+   g_v2_harvest_type_limit_short = 0;
+   g_v2_harvest_type_market_short = 0;
+   g_v2_harvest_pips_limit_short = 0.0;
+   g_v2_harvest_pips_market_short = 0.0;
+}
+
+//+------------------------------------------------------------------+
+void V2_HarvestRecordMarket(const int entry_direction, const double pips)
+{
+   if(entry_direction > 0) {
+      g_v2_harvest_type_market_long++;
+      g_v2_harvest_pips_market_long += pips;
+   } else {
+      g_v2_harvest_type_market_short++;
+      g_v2_harvest_pips_market_short += pips;
+   }
+}
+
+//+------------------------------------------------------------------+
+void V2_HarvestRecordLimit(const int entry_direction, const double pips)
+{
+   if(entry_direction > 0) {
+      g_v2_harvest_type_limit_long++;
+      g_v2_harvest_pips_limit_long += pips;
+   } else {
+      g_v2_harvest_type_limit_short++;
+      g_v2_harvest_pips_limit_short += pips;
+   }
+}
+
+//+------------------------------------------------------------------+
+double V2_ExitClearanceBuffer(const string symbol)
+{
+   double pt = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   long freeze = SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL);
+   return V2_ExitClearanceBufferPure(pt, freeze);
+}
+
+//+------------------------------------------------------------------+
+bool V2_CloseExitAtMarket(const string symbol,
+                          const int entry_direction,
+                          const double volume,
+                          const ulong exit_magic,
+                          const ulong position_ticket,
+                          const string instance_tag)
+{
+   if(position_ticket == 0)
+      return false;
+
+   double close_vol = volume;
+   if(close_vol <= 0.0) {
+      if(!PositionSelectByTicket(position_ticket))
+         return false;
+      close_vol = PositionGetDouble(POSITION_VOLUME);
+   }
+
+   if(g_v2_exitfb_test_harness) {
+      g_v2_exitfb_test_market_close_calls++;
+      g_v2_exitfb_test_market_close_position = position_ticket;
+      return true;
+   }
+
+   double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+
+   MqlTradeRequest req = {};
+   MqlTradeResult  res = {};
+   if(!V2_BuildExitMarketCloseRequest(symbol, entry_direction, close_vol, exit_magic,
+                                      position_ticket, bid, ask, req))
+      return false;
+
+   g_v2_inst_api_tag = instance_tag;
+   if(!V2_OrderSendCounted(req, res))
+      return false;
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| Simulate SetExitTakeProfit 3-step path (tests).                   |
+//+------------------------------------------------------------------+
+bool V2_TestRunExitTakeProfitFlow(const string symbol,
+                                  const int entry_direction,
+                                  const double stored_target,
+                                  const double volume,
+                                  const ulong exit_magic,
+                                  const ulong position_ticket,
+                                  const double bid,
+                                  const double ask,
+                                  const double point,
+                                  const long freeze_level,
+                                  const string instance_tag,
+                                  bool &used_market_close,
+                                  double &place_price_out)
+{
+   used_market_close = false;
+   place_price_out = stored_target;
+   g_v2_exitfb_test_limit_calls = 0;
+   g_v2_exitfb_test_market_close_calls = 0;
+
+   if(V2_ExitShouldHarvestAtMarketPure(entry_direction, stored_target, bid, ask)) {
+      g_v2_exitfb_test_harness = true;
+      g_v2_exitfb_test_market_close_position = 0;
+      const bool ok = V2_CloseExitAtMarket(symbol, entry_direction, volume, exit_magic,
+                                           position_ticket, instance_tag);
+      g_v2_exitfb_test_harness = false;
+      if(ok)
+         used_market_close = true;
+      return ok;
+   }
+
+   const double freeze = (double)freeze_level * point;
+   const double buffer = V2_ExitClearanceBufferPure(point, freeze_level);
+   place_price_out = V2_ExitPlacementPricePure(entry_direction, stored_target, bid, ask, buffer);
+
+   g_v2_exitfb_test_limit_harness = true;
+   g_v2_exitfb_test_limit_calls = 0;
+   g_v2_exitfb_test_last_limit_price = 0.0;
+   g_v2_exitfb_test_bid = bid;
+   g_v2_exitfb_test_ask = ask;
+   g_v2_exitfb_test_freeze = freeze;
+   const ulong ticket = V2_SendExitLimit(symbol, place_price_out, volume, entry_direction,
+                                         exit_magic, place_price_out, instance_tag);
+   g_v2_exitfb_test_limit_harness = false;
+   return (ticket != 0);
+}
+
+// Legacy alias used by early T-EXITFB tests (harvest-only path).
+bool V2_TestTryExitLimitOrHarvest(const string symbol,
+                                  const int entry_direction,
+                                  const double target,
+                                  const double volume,
+                                  const ulong exit_magic,
+                                  const ulong position_ticket,
+                                  const double bid,
+                                  const double ask,
+                                  const double freeze,
+                                  const string instance_tag,
+                                  bool &used_market_close)
+{
+   double place = target;
+   const double point = (freeze > 0.0) ? freeze / 10.0 : 0.00001;
+   const long freeze_level = (long)MathRound(freeze / point);
+   return V2_TestRunExitTakeProfitFlow(symbol, entry_direction, target, volume, exit_magic,
+                                       position_ticket, bid, ask, point, freeze_level,
+                                       instance_tag, used_market_close, place);
+}
+
 //+------------------------------------------------------------------+
 //| Broker-facing helpers (live book / history).                      |
 //+------------------------------------------------------------------+
@@ -55,6 +230,16 @@ ulong V2_SendExitLimit(const string symbol,
                        const double normalize_price,
                        const string instance_tag)
 {
+   if(g_v2_exitfb_test_limit_harness) {
+      if(!V2_ExitPassivityOkPure(entry_direction, exit_price,
+                                 g_v2_exitfb_test_bid, g_v2_exitfb_test_ask,
+                                 g_v2_exitfb_test_freeze))
+         return 0;
+      g_v2_exitfb_test_limit_calls++;
+      g_v2_exitfb_test_last_limit_price = exit_price;
+      return 880001;
+   }
+
    if(!V2_ExitPassivityOk(symbol, entry_direction, exit_price))
       return 0;
 

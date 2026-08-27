@@ -134,6 +134,86 @@ bool V2_ExitPassivityOkPure(const int entry_direction,
 }
 
 //+------------------------------------------------------------------+
+//| Harvest-at-market when limit placement fails (pure decision).       |
+//| Long:  bid >= target — target through/at market.                  |
+//| Short: ask <= target — mirror.                                    |
+//| NOT for freeze-band case (target still above/below market).       |
+//+------------------------------------------------------------------+
+bool V2_ExitShouldHarvestAtMarketPure(const int entry_direction,
+                                      const double target,
+                                      const double bid,
+                                      const double ask)
+{
+   if(entry_direction > 0)
+      return (bid >= target);
+   return (ask <= target);
+}
+
+//+------------------------------------------------------------------+
+//| Option-1 spread clearance: freeze band + 1 point (pure).          |
+//+------------------------------------------------------------------+
+double V2_ExitClearanceBufferPure(const double point, const long freeze_level)
+{
+   return (double)freeze_level * point + point;
+}
+
+//+------------------------------------------------------------------+
+double V2_ExitPlacementPricePure(const int entry_direction,
+                                const double stored_target,
+                                const double bid,
+                                const double ask,
+                                const double buffer)
+{
+   if(entry_direction > 0)
+      return MathMax(stored_target, ask + buffer);
+   return MathMin(stored_target, bid - buffer);
+}
+
+//+------------------------------------------------------------------+
+double V2_HarvestPipsPure(const int entry_direction,
+                          const double entry_price,
+                          const double exit_price,
+                          const double point)
+{
+   if(point <= 0.0)
+      return 0.0;
+   if(entry_direction > 0)
+      return (exit_price - entry_price) / point;
+   return (entry_price - exit_price) / point;
+}
+
+//+------------------------------------------------------------------+
+bool V2_BuildExitMarketCloseRequest(const string symbol,
+                                    const int entry_direction,
+                                    const double volume,
+                                    const ulong exit_magic,
+                                    const ulong position_ticket,
+                                    const double bid,
+                                    const double ask,
+                                    MqlTradeRequest &req)
+{
+   if(volume <= 0.0 || position_ticket == 0 || symbol == "")
+      return false;
+
+   ZeroMemory(req);
+   req.action   = TRADE_ACTION_DEAL;
+   req.position = position_ticket;
+   req.symbol   = symbol;
+   req.volume   = volume;
+   req.magic    = exit_magic;
+   req.comment  = "V2_Exit";
+   if(entry_direction > 0) {
+      req.type  = ORDER_TYPE_SELL;
+      req.price = bid;
+   } else {
+      req.type  = ORDER_TYPE_BUY;
+      req.price = ask;
+   }
+   req.type_filling = ORDER_FILLING_IOC;
+   return true;
+}
+
+//+------------------------------------------------------------------+
 string V2_FormatExitEscalationAlert(const string instance_tag,
                                     const int layer_idx,
                                     const double exit_price)

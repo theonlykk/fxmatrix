@@ -364,6 +364,243 @@ void Test_ExitPassivityPure()
 }
 
 //+------------------------------------------------------------------+
+void Test_ExitFallbackHarvestLong()
+{
+   const double freeze = 0.00010;
+   const double target = 1.25050;
+   const double bid    = 1.25100;
+   const double ask    = 1.25120;
+   bool used_mc = false;
+
+   AssertTrue("harvest case bid>=target",
+              V2_ExitShouldHarvestAtMarketPure(1, target, bid, ask));
+   AssertTrue("limit not passive when target through market",
+              !V2_ExitPassivityOkPure(1, target, bid, ask, freeze));
+
+   const bool ok = V2_TestTryExitLimitOrHarvest(
+      "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9001,
+      bid, ask, freeze, V2_TEL_INSTANCE_LONG, used_mc);
+   AssertTrue("harvest fallback succeeds", ok);
+   AssertTrue("harvest uses market close", used_mc);
+   AssertTrue("market close counter incremented", g_v2_exitfb_test_market_close_calls == 1);
+   AssertTrue("market close targets layer ticket",
+              g_v2_exitfb_test_market_close_position == 9001);
+
+   MqlTradeRequest req = {};
+   AssertTrue("market close request builds",
+              V2_BuildExitMarketCloseRequest("GBPUSD", 1, 0.01, MM_LONG_V2_EXIT, 9001,
+                                             bid, ask, req));
+   AssertTrue("market close is TRADE_ACTION_DEAL", req.action == TRADE_ACTION_DEAL);
+   AssertTrue("market close uses position ticket", req.position == 9001);
+   AssertTrue("long harvest sells at bid", req.type == ORDER_TYPE_SELL);
+   AssertNear("long harvest price at bid", req.price, bid, 1e-9);
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitFallbackFreezeLong()
+{
+   const double freeze = 0.00010;
+   const double ask    = 1.25020;
+   const double bid    = 1.25000;
+   const double target = 1.25015;
+   bool used_mc = false;
+   double place = 0.0;
+
+   AssertTrue("spread-trap fails passivity on stored target",
+              !V2_ExitPassivityOkPure(1, target, bid, ask, freeze));
+   AssertTrue("spread-trap not harvest (bid<target)",
+              !V2_ExitShouldHarvestAtMarketPure(1, target, bid, ask));
+
+   const double buffer = V2_ExitClearanceBufferPure(0.00001, 10);
+   AssertNear("option1 stretch clears spread",
+              V2_ExitPlacementPricePure(1, target, bid, ask, buffer),
+              ask + buffer, 1e-9);
+
+   g_v2_exitfb_test_market_close_calls = 0;
+   const bool ok = V2_TestRunExitTakeProfitFlow(
+      "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9002,
+      bid, ask, 0.00001, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
+   AssertTrue("spread-trap rests stretched limit", ok);
+   AssertTrue("spread-trap no market close", !used_mc);
+   AssertTrue("spread-trap limit call made", g_v2_exitfb_test_limit_calls == 1);
+   AssertTrue("spread-trap zero market close calls", g_v2_exitfb_test_market_close_calls == 0);
+   AssertNear("spread-trap place above ask", place, ask + buffer, 1e-9);
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitFallbackNormalLong()
+{
+   const double freeze = 0.00010;
+   const double bid    = 1.25000;
+   const double ask    = 1.25020;
+   const double target = 1.25500;
+
+   AssertTrue("normal target passive ok",
+              V2_ExitPassivityOkPure(1, target, bid, ask, freeze));
+   AssertTrue("normal target not harvest",
+              !V2_ExitShouldHarvestAtMarketPure(1, target, bid, ask));
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitFallbackHarvestShort()
+{
+   const double freeze = 0.00010;
+   const double target = 1.24950;
+   const double bid    = 1.24940;
+   const double ask    = 1.24945;
+   bool used_mc = false;
+
+   AssertTrue("short harvest ask<=target",
+              V2_ExitShouldHarvestAtMarketPure(-1, target, bid, ask));
+   AssertTrue("short limit not passive when through market",
+              !V2_ExitPassivityOkPure(-1, target, bid, ask, freeze));
+
+   const bool ok = V2_TestTryExitLimitOrHarvest(
+      "GBPUSD", -1, target, 0.01, MM_SHORT_V2_EXIT, 8001,
+      bid, ask, freeze, V2_TEL_INSTANCE_SHORT, used_mc);
+   AssertTrue("short harvest fallback succeeds", ok);
+   AssertTrue("short harvest uses market close", used_mc);
+
+   MqlTradeRequest req = {};
+   AssertTrue("short market close request builds",
+              V2_BuildExitMarketCloseRequest("GBPUSD", -1, 0.01, MM_SHORT_V2_EXIT, 8001,
+                                             bid, ask, req));
+   AssertTrue("short harvest buys at ask", req.type == ORDER_TYPE_BUY);
+   AssertNear("short harvest price at ask", req.price, ask, 1e-9);
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitFallbackFreezeShort()
+{
+   const double freeze = 0.00010;
+   const double bid    = 1.25000;
+   const double ask    = 1.25020;
+   const double target = 1.24995;
+   bool used_mc = false;
+   double place = 0.0;
+
+   AssertTrue("short spread-trap fails passivity",
+              !V2_ExitPassivityOkPure(-1, target, bid, ask, freeze));
+   AssertTrue("short spread-trap not harvest (ask>target)",
+              !V2_ExitShouldHarvestAtMarketPure(-1, target, bid, ask));
+
+   const double buffer = V2_ExitClearanceBufferPure(0.00001, 10);
+   AssertNear("short option1 stretch clears spread",
+              V2_ExitPlacementPricePure(-1, target, bid, ask, buffer),
+              bid - buffer, 1e-9);
+
+   g_v2_exitfb_test_market_close_calls = 0;
+   const bool ok = V2_TestRunExitTakeProfitFlow(
+      "GBPUSD", -1, target, 0.01, MM_SHORT_V2_EXIT, 8002,
+      bid, ask, 0.00001, 10, V2_TEL_INSTANCE_SHORT, used_mc, place);
+   AssertTrue("short spread-trap rests limit", ok);
+   AssertTrue("short spread-trap no market close", !used_mc);
+   AssertTrue("short spread-trap limit placed", g_v2_exitfb_test_limit_calls == 1);
+}
+
+//+------------------------------------------------------------------+
+void Test_ExitFallbackSpreadTrapLong()
+{
+   const double point = 0.00001;
+   const double freeze = 0.00010;
+   const double bid = 1.25000;
+   const double ask = 1.25020;
+   const double target = 1.25015;
+   const double buffer = V2_ExitClearanceBufferPure(point, 10);
+   bool used_mc = false;
+   double place = 0.0;
+
+   AssertTrue("bid<target<=ask spread trap",
+              bid < target && target <= ask);
+   const bool ok = V2_TestRunExitTakeProfitFlow(
+      "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9101,
+      bid, ask, point, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
+   AssertTrue("T-EXITFB-6 limit rests", ok);
+   AssertTrue("T-EXITFB-6 no market close", !used_mc);
+   AssertTrue("T-EXITFB-6 passive stretched price",
+              V2_ExitPassivityOkPure(1, place, bid, ask, freeze));
+}
+
+void Test_ExitFallbackSpreadTrapShort()
+{
+   const double point = 0.00001;
+   const double freeze = 0.00010;
+   const double bid = 1.24980;
+   const double ask = 1.25000;
+   const double target = 1.24985;
+   const double buffer = V2_ExitClearanceBufferPure(point, 10);
+   bool used_mc = false;
+   double place = 0.0;
+
+   AssertTrue("ask>target>=bid short spread trap",
+              ask > target && target >= bid);
+   const bool ok = V2_TestRunExitTakeProfitFlow(
+      "GBPUSD", -1, target, 0.01, MM_SHORT_V2_EXIT, 9102,
+      bid, ask, point, 10, V2_TEL_INSTANCE_SHORT, used_mc, place);
+   AssertTrue("T-EXITFB-7 short limit rests", ok);
+   AssertTrue("T-EXITFB-7 no market close", !used_mc);
+   AssertTrue("T-EXITFB-7 passive stretched price",
+              V2_ExitPassivityOkPure(-1, place, bid, ask, freeze));
+}
+
+void Test_ExitFallbackStoredTargetPreserved()
+{
+   const double entry = 1.25000;
+   const double stored_target = entry + 3.0 * 0.00001 * 10.0;
+   const double bid = 1.25000;
+   const double ask = 1.25020;
+   const double buffer = V2_ExitClearanceBufferPure(0.00001, 10);
+   const double place = V2_ExitPlacementPricePure(1, stored_target, bid, ask, buffer);
+
+   AssertNear("T-EXITFB-8 stored target unchanged in pure sim", stored_target, entry + 0.00030, 1e-9);
+   AssertTrue("T-EXITFB-8 place differs from stored when trapped",
+              place > stored_target);
+   AssertNear("T-EXITFB-8 place is ask+buffer", place, ask + buffer, 1e-9);
+}
+
+void Test_ExitFallbackHarvestTelemetry()
+{
+   V2_HarvestCountersReset();
+   V2_HarvestRecordMarket(+1, 30.0);
+   AssertTrue("T-EXITFB-9 market counter long", g_v2_harvest_type_market_long == 1);
+   AssertTrue("T-EXITFB-9 limit counter long zero", g_v2_harvest_type_limit_long == 0);
+   AssertNear("T-EXITFB-9 market pips long", g_v2_harvest_pips_market_long, 30.0, 1e-9);
+
+   V2_HarvestRecordLimit(+1, 30.0);
+   AssertTrue("T-EXITFB-9 limit counter long", g_v2_harvest_type_limit_long == 1);
+   AssertNear("T-EXITFB-9 limit pips long", g_v2_harvest_pips_limit_long, 30.0, 1e-9);
+
+   V2TelLayerSnapshot empty_layers[];
+   string empty_alerts[];
+   string payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", empty_layers, 0, 1, 0.0004,
+      D'2026.06.05 12:00:00', empty_alerts,
+      g_v2_harvest_type_limit_long, g_v2_harvest_type_market_long,
+      g_v2_harvest_pips_limit_long, g_v2_harvest_pips_market_long);
+   AssertContains("T-EXITFB-9 telemetry harvest_type_limit", payload, "\"harvest_type_limit\":1");
+   AssertContains("T-EXITFB-9 telemetry harvest_type_market", payload, "\"harvest_type_market\":1");
+   V2_HarvestCountersReset();
+}
+
+void Test_ExitFallbackHarvestPreemptsStretch()
+{
+   const double target = 1.25050;
+   const double bid = 1.25100;
+   const double ask = 1.25120;
+   bool used_mc = false;
+   double place = 0.0;
+
+   AssertTrue("T-EXITFB-10 through-market harvest predicate",
+              V2_ExitShouldHarvestAtMarketPure(1, target, bid, ask));
+   const bool ok = V2_TestRunExitTakeProfitFlow(
+      "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9201,
+      bid, ask, 0.00001, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
+   AssertTrue("T-EXITFB-10 harvest succeeds", ok);
+   AssertTrue("T-EXITFB-10 uses market close not stretch", used_mc);
+   AssertTrue("T-EXITFB-10 no limit placement", g_v2_exitfb_test_limit_calls == 0);
+}
+
+//+------------------------------------------------------------------+
 void Test_CloseByQueueing()
 {
    V2CloseByTask queue[];
@@ -4403,6 +4640,7 @@ void Test_BCC_ParityUnambiguousOrphan()
 {
    BCC_TestReset();
    g_v2_bcc_test_active = true;
+   g_v2_bcc_test_now = SRE_T2 + 3600;
 
    V2BccTestPosition pos;
    pos.ticket = 102; pos.position_id = 1002; pos.magic = MM_LONG_V2;
@@ -5116,6 +5354,16 @@ void OnStart()
    Test_V25_SRE_ReplayHarvestOriginParity();
    Test_ExitLimitRequestShape();
    Test_ExitPassivityPure();
+   Test_ExitFallbackHarvestLong();
+   Test_ExitFallbackFreezeLong();
+   Test_ExitFallbackNormalLong();
+   Test_ExitFallbackHarvestShort();
+   Test_ExitFallbackFreezeShort();
+   Test_ExitFallbackSpreadTrapLong();
+   Test_ExitFallbackSpreadTrapShort();
+   Test_ExitFallbackStoredTargetPreserved();
+   Test_ExitFallbackHarvestTelemetry();
+   Test_ExitFallbackHarvestPreemptsStretch();
    Test_CloseByQueueing();
    Test_TickAuditMissingExit();
    Test_ExitEscalationAlertSignature();
