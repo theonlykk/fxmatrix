@@ -24,6 +24,8 @@
 double g_straddle_ref_mid = 0.0;
 ulong    g_long_l0_cooldown_until = 0;
 ulong    g_short_l0_cooldown_until = 0;
+long     g_last_feed_tick_msc = 0;
+ulong    g_last_feed_seen_local = 0;
 string   g_v2_inst_api_tag = "";
 double V2_EngineDeadbandSpreadRef()
 {
@@ -74,9 +76,27 @@ void V2_EngineApplyEntryModeIdentity()
 }
 
 //+------------------------------------------------------------------+
+bool V2_IsFeedStale(const string symbol, const ulong max_age_ms)
+{
+   MqlTick tick;
+   if(!SymbolInfoTick(symbol, tick))
+      return true;
+   const ulong now_local = GetTickCount64();
+   if(tick.time_msc != g_last_feed_tick_msc) {
+      g_last_feed_tick_msc = tick.time_msc;
+      g_last_feed_seen_local = now_local;
+      return false;
+   }
+   return V2_FeedStaleElapsed(now_local, g_last_feed_seen_local, max_age_ms);
+}
+
+//+------------------------------------------------------------------+
 void V2_StraddleL0OnTick()
 {
    if(InpEntryMode != ENTRY_STRADDLE)
+      return;
+
+   if(V2_IsFeedStale(_Symbol, (ulong)InpFeedStaleMaxMs))
       return;
 
    const bool long_flat = (ArraySize(g_long_layers) == 0);
@@ -89,11 +109,12 @@ void V2_StraddleL0OnTick()
    const double mid = V2_DumbStraddleMid(bid, ask);
    const bool mid_drifted = V2_DumbShouldRePlace(g_straddle_ref_mid, mid,
                                                  InpDumbRefBandPips, _Point);
+   const bool ref_established = (g_straddle_ref_mid > 0.0);
    const ulong now_ms = GetTickCount64();
 
    if(long_flat) {
       const bool long_live = Long_IsOurOrderTicket(g_long_l0_ticket, g_preset.magic_long);
-      if(V2_StraddleLegShouldAttempt(long_live, mid_drifted)) {
+      if(V2_StraddleLegShouldAttempt(long_live, mid_drifted, ref_established)) {
          double buy_theo = V2_DumbStraddleBuyPrice(mid, InpDumbStraddlePips, _Point);
          double buy_lvl;
          Long_Adr013ClampBuy(buy_theo, buy_lvl);
@@ -119,7 +140,7 @@ void V2_StraddleL0OnTick()
 
    if(short_flat) {
       const bool short_live = Short_IsOurOrderTicket(g_short_l0_ticket, g_preset.magic_short);
-      if(V2_StraddleLegShouldAttempt(short_live, mid_drifted)) {
+      if(V2_StraddleLegShouldAttempt(short_live, mid_drifted, ref_established)) {
          double sell_theo = V2_DumbStraddleSellPrice(mid, InpDumbStraddlePips, _Point);
          double sell_lvl;
          Short_Adr013ClampSell(sell_theo, sell_lvl);

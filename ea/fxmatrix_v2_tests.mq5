@@ -5523,10 +5523,10 @@ void Test_SL2_MissingLegRetriesWithoutBandDrift()
    const bool long_live = false;
    const bool mid_drifted = false;
    AssertTrue("T-SL-2 missing leg attempts despite no drift",
-              V2_StraddleLegShouldAttempt(long_live, mid_drifted));
+              V2_StraddleLegShouldAttempt(long_live, mid_drifted, true));
 
    AssertTrue("T-SL-2 live leg skips when no drift",
-              !V2_StraddleLegShouldAttempt(true, mid_drifted));
+              !V2_StraddleLegShouldAttempt(true, mid_drifted, true));
 }
 
 void Test_SL3_PreSendMarketabilitySkipsNoCooldown()
@@ -5576,9 +5576,9 @@ void Test_SL5_HealthyTwoLeggedNoChurnWithinBand()
 {
    const bool mid_drifted = false;
    AssertTrue("T-SL-5 live buy no churn",
-              !V2_StraddleLegShouldAttempt(true, mid_drifted));
+              !V2_StraddleLegShouldAttempt(true, mid_drifted, true));
    AssertTrue("T-SL-5 live sell no churn",
-              !V2_StraddleLegShouldAttempt(true, mid_drifted));
+              !V2_StraddleLegShouldAttempt(true, mid_drifted, true));
 }
 
 void Test_SL6_CompleteStraddleAdvancesRefMid()
@@ -5587,6 +5587,64 @@ void Test_SL6_CompleteStraddleAdvancesRefMid()
    double ref_mid = 1.25000;
    V2_StraddleRefMidApplyGoalpost(true, true, true, true, mid, ref_mid);
    AssertNear("T-SL-6 both legs live advances ref_mid", ref_mid, mid, 1e-9);
+}
+
+//+------------------------------------------------------------------+
+// ADR-122: straddle churn fix + feed staleness guard (T-SL-7..11)
+//+------------------------------------------------------------------+
+void Test_SL7_LiveLegNoRequoteWhenRefNotEstablished()
+{
+   AssertTrue("T-SL-7 live leg ref_mid zero no re-quote despite drift",
+              !V2_StraddleLegShouldAttempt(true, true, false));
+}
+
+void Test_SL8_LiveLegRequotesOnlyWhenRefEstablishedAndDrifted()
+{
+   AssertTrue("T-SL-8 live leg re-quotes when ref established and drifted",
+              V2_StraddleLegShouldAttempt(true, true, true));
+   AssertTrue("T-SL-8 live leg skips when ref established but no drift",
+              !V2_StraddleLegShouldAttempt(true, false, true));
+}
+
+void Test_SL9_MissingLegRetriesRegardless()
+{
+   AssertTrue("T-SL-9 missing leg retries no drift no ref",
+              V2_StraddleLegShouldAttempt(false, false, false));
+   AssertTrue("T-SL-9 missing leg retries with drift no ref",
+              V2_StraddleLegShouldAttempt(false, true, false));
+   AssertTrue("T-SL-9 missing leg retries no drift ref established",
+              V2_StraddleLegShouldAttempt(false, false, true));
+   AssertTrue("T-SL-9 missing leg retries with drift ref established",
+              V2_StraddleLegShouldAttempt(false, true, true));
+}
+
+void Test_SL10_FeedStaleElapsed()
+{
+   const ulong last_seen = 1000;
+   const ulong max_age = 5000;
+   AssertTrue("T-SL-10 within max_age not elapsed",
+              !V2_FeedStaleElapsed(5000, last_seen, max_age));
+   AssertTrue("T-SL-10 at boundary not elapsed",
+              !V2_FeedStaleElapsed(6000, last_seen, max_age));
+   AssertTrue("T-SL-10 past max_age elapsed",
+              V2_FeedStaleElapsed(6001, last_seen, max_age));
+}
+
+void Test_SL11_FeedStaleHarness()
+{
+   long last_tick_msc = 1000;
+   ulong last_seen_local = 5000;
+   const ulong max_age = 10000;
+
+   AssertTrue("T-SL-11 new tick msc clears staleness",
+              !V2_FeedStaleAfterTick(2000, last_tick_msc, last_seen_local, 6000, max_age));
+   AssertTrue("T-SL-11 new tick updates last_tick_msc", last_tick_msc == 2000);
+
+   AssertTrue("T-SL-11 unchanged tick within window not stale",
+              !V2_FeedStaleAfterTick(2000, last_tick_msc, last_seen_local, 15000, max_age));
+
+   AssertTrue("T-SL-11 unchanged tick past max_age is stale",
+              V2_FeedStaleAfterTick(2000, last_tick_msc, last_seen_local, 16001, max_age));
 }
 
 //+------------------------------------------------------------------+
@@ -6009,6 +6067,11 @@ void OnStart()
    Test_SL4_CooldownBlocksThenAllows();
    Test_SL5_HealthyTwoLeggedNoChurnWithinBand();
    Test_SL6_CompleteStraddleAdvancesRefMid();
+   Test_SL7_LiveLegNoRequoteWhenRefNotEstablished();
+   Test_SL8_LiveLegRequotesOnlyWhenRefEstablishedAndDrifted();
+   Test_SL9_MissingLegRetriesRegardless();
+   Test_SL10_FeedStaleElapsed();
+   Test_SL11_FeedStaleHarness();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();

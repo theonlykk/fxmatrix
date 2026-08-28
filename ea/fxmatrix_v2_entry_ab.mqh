@@ -79,13 +79,36 @@ bool V2_DumbShouldRePlace(const double last_ref_mid,
 }
 
 //+------------------------------------------------------------------+
-//| ADR-121: straddle L0 decouple-and-retry pure helpers.             |
+//| ADR-121/122: straddle L0 decouple-and-retry pure helpers.        |
 //+------------------------------------------------------------------+
-bool V2_StraddleLegShouldAttempt(const bool leg_live, const bool mid_drifted)
+bool V2_StraddleLegShouldAttempt(const bool leg_live,
+                                 const bool mid_drifted,
+                                 const bool ref_established)
 {
    if(!leg_live)
       return true;
-   return mid_drifted;
+   return (ref_established && mid_drifted);
+}
+
+bool V2_FeedStaleElapsed(const ulong now_local,
+                         const ulong last_seen_local,
+                         const ulong max_age_ms)
+{
+   return (now_local - last_seen_local) > max_age_ms;
+}
+
+bool V2_FeedStaleAfterTick(const long tick_msc,
+                           long &last_feed_tick_msc,
+                           ulong &last_feed_seen_local,
+                           const ulong now_local,
+                           const ulong max_age_ms)
+{
+   if(tick_msc != last_feed_tick_msc) {
+      last_feed_tick_msc = tick_msc;
+      last_feed_seen_local = now_local;
+      return false;
+   }
+   return V2_FeedStaleElapsed(now_local, last_feed_seen_local, max_age_ms);
 }
 
 bool V2_StraddleL0BuyMarketable(const double buy_price, const double ask)
