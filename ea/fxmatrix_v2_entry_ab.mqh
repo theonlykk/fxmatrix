@@ -67,29 +67,8 @@ double V2_DumbStraddleSellPrice(const double mid,
 }
 
 //+------------------------------------------------------------------+
-bool V2_DumbShouldRePlace(const double last_ref_mid,
-                          const double mid,
-                          const double band_pips,
-                          const double point)
-{
-   if(last_ref_mid <= 0.0)
-      return true;
-   const double drift_pips = MathAbs(mid - last_ref_mid) / (point * 10.0);
-   return drift_pips > band_pips;
-}
-
+//| ADR-122/123: straddle feed staleness + place-once pure helpers.  |
 //+------------------------------------------------------------------+
-//| ADR-121/122: straddle L0 decouple-and-retry pure helpers.        |
-//+------------------------------------------------------------------+
-bool V2_StraddleLegShouldAttempt(const bool leg_live,
-                                 const bool mid_drifted,
-                                 const bool ref_established)
-{
-   if(!leg_live)
-      return true;
-   return (ref_established && mid_drifted);
-}
-
 bool V2_FeedStaleElapsed(const ulong now_local,
                          const ulong last_seen_local,
                          const ulong max_age_ms)
@@ -121,39 +100,18 @@ bool V2_StraddleL0SellMarketable(const double sell_price, const double bid)
    return (sell_price > bid);
 }
 
-bool V2_StraddleL0CooldownBlocks(const ulong cooldown_until, const ulong now_ms)
+bool V2_StraddleL0ShouldPlaceLeg(const bool side_flat, const bool leg_is_ours_live)
 {
-   return (cooldown_until > 0 && now_ms < cooldown_until);
+   return (side_flat && !leg_is_ours_live);
 }
 
-bool V2_StraddleRefMidShouldAdvance(const bool long_flat,
-                                    const bool short_flat,
-                                    const bool long_leg_live,
-                                    const bool short_leg_live)
+bool V2_StraddleL0TickAllowsAction(const bool feed_stale,
+                                   const bool long_flat,
+                                   const bool short_flat)
 {
-   return (long_flat && short_flat && long_leg_live && short_leg_live);
-}
-
-void V2_StraddleRefMidApplyGoalpost(const bool long_flat,
-                                    const bool short_flat,
-                                    const bool long_leg_live,
-                                    const bool short_leg_live,
-                                    const double mid,
-                                    double &ref_mid)
-{
-   if(V2_StraddleRefMidShouldAdvance(long_flat, short_flat, long_leg_live, short_leg_live))
-      ref_mid = mid;
-}
-
-bool V2_StraddleL0ApplySendOutcome(const bool replace_ok,
-                                   ulong &cooldown_until,
-                                   const ulong now_ms,
-                                   const int cooldown_ms)
-{
-   if(replace_ok)
-      return true;
-   cooldown_until = now_ms + (ulong)cooldown_ms;
-   return false;
+   if(feed_stale)
+      return false;
+   return (long_flat || short_flat);
 }
 
 #endif // FXMATRIX_V2_ENTRY_AB_MQH

@@ -5489,47 +5489,22 @@ void Test_AB_StraddlePlacementGeometry()
    AssertNear("straddle sell at mid+9p", sell, 1.25090, point);
 }
 
-void Test_AB_StraddleAntiThrashBand()
-{
-   const double point = 0.00001;
-   const double ref = 1.25000;
-   const double mid_inside = 1.25020; // 2 pips drift
-   const double mid_outside = 1.25040; // 4 pips drift
-   AssertTrue("anti-thrash inside band skips re-place",
-              !V2_DumbShouldRePlace(ref, mid_inside, 3.0, point));
-   AssertTrue("anti-thrash outside band re-places",
-              V2_DumbShouldRePlace(ref, mid_outside, 3.0, point));
-   AssertTrue("anti-thrash first placement always re-places",
-              V2_DumbShouldRePlace(0.0, mid_inside, 3.0, point));
-}
-
 //+------------------------------------------------------------------+
-// ADR-121: straddle L0 decouple-and-retry tests (T-SL-1..6)
+// ADR-123: place-once-and-wait straddle tests (T-SL-3, T-SL-10..14)
 //+------------------------------------------------------------------+
-void Test_SL1_PartialPlacementDoesNotAdvanceRefMid()
+int SL123_SimulatePlaceCalls(const bool side_flat, bool &leg_is_ours_live, const int ticks)
 {
-   const double mid = 1.25000;
-   double ref_mid = 0.0;
-   V2_StraddleRefMidApplyGoalpost(true, true, false, true, mid, ref_mid);
-   AssertTrue("T-SL-1 partial buy fail sell ok no advance", ref_mid == 0.0);
-
-   ref_mid = 1.24900;
-   V2_StraddleRefMidApplyGoalpost(true, true, false, true, mid, ref_mid);
-   AssertNear("T-SL-1 partial leaves prior ref_mid", ref_mid, 1.24900, 1e-9);
+   int calls = 0;
+   for(int i = 0; i < ticks; i++) {
+      if(V2_StraddleL0ShouldPlaceLeg(side_flat, leg_is_ours_live)) {
+         calls++;
+         leg_is_ours_live = true;
+      }
+   }
+   return calls;
 }
 
-void Test_SL2_MissingLegRetriesWithoutBandDrift()
-{
-   const bool long_live = false;
-   const bool mid_drifted = false;
-   AssertTrue("T-SL-2 missing leg attempts despite no drift",
-              V2_StraddleLegShouldAttempt(long_live, mid_drifted, true));
-
-   AssertTrue("T-SL-2 live leg skips when no drift",
-              !V2_StraddleLegShouldAttempt(true, mid_drifted, true));
-}
-
-void Test_SL3_PreSendMarketabilitySkipsNoCooldown()
+void Test_SL3_PreSendMarketabilitySkipsNoPlace()
 {
    const double ask = 1.25020;
    const double bid = 1.25000;
@@ -5546,76 +5521,46 @@ void Test_SL3_PreSendMarketabilitySkipsNoCooldown()
               !V2_StraddleL0SellMarketable(bid - 0.00001, bid));
    AssertTrue("T-SL-3 passive sell marketable",
               V2_StraddleL0SellMarketable(1.25010, bid));
-
-   ulong cooldown = 0;
-   AssertTrue("T-SL-3 marketability skip leaves cooldown zero", cooldown == 0);
 }
 
-void Test_SL4_CooldownBlocksThenAllows()
+void Test_SL12_RestingLegNoPlaceCall()
 {
-   ulong cooldown = 1500;
-   AssertTrue("T-SL-4 active cooldown blocks",
-              V2_StraddleL0CooldownBlocks(cooldown, 1000));
-   AssertTrue("T-SL-4 cooldown expired allows",
-              !V2_StraddleL0CooldownBlocks(cooldown, 1500));
-   AssertTrue("T-SL-4 after expiry allows",
-              !V2_StraddleL0CooldownBlocks(cooldown, 2000));
-
-   cooldown = 0;
-   const ulong now = 5000;
-   AssertTrue("T-SL-4 failed send sets cooldown",
-              !V2_StraddleL0ApplySendOutcome(false, cooldown, now, 750));
-   AssertTrue("T-SL-4 cooldown end computed", cooldown == 5750);
-   AssertTrue("T-SL-4 blocked until expiry",
-              V2_StraddleL0CooldownBlocks(cooldown, 5700));
-   AssertTrue("T-SL-4 allowed after expiry",
-              !V2_StraddleL0CooldownBlocks(cooldown, 5750));
+   AssertTrue("T-SL-12 resting buy leg skips place gate",
+              !V2_StraddleL0ShouldPlaceLeg(true, true));
+   AssertTrue("T-SL-12 resting sell leg skips place gate",
+              !V2_StraddleL0ShouldPlaceLeg(true, true));
 }
 
-void Test_SL5_HealthyTwoLeggedNoChurnWithinBand()
+void Test_SL13_MissingLegPlacesExactlyOnce()
 {
-   const bool mid_drifted = false;
-   AssertTrue("T-SL-5 live buy no churn",
-              !V2_StraddleLegShouldAttempt(true, mid_drifted, true));
-   AssertTrue("T-SL-5 live sell no churn",
-              !V2_StraddleLegShouldAttempt(true, mid_drifted, true));
+   bool long_live = false;
+   AssertTrue("T-SL-13 missing leg first tick places",
+              V2_StraddleL0ShouldPlaceLeg(true, long_live));
+   const int calls = SL123_SimulatePlaceCalls(true, long_live, 10);
+   AssertTrue("T-SL-13 exactly one place call over ten ticks", calls == 1);
+   AssertTrue("T-SL-13 leg marked live after place", long_live);
 }
 
-void Test_SL6_CompleteStraddleAdvancesRefMid()
+void Test_SL14_MarketabilityBlocksPlacePath()
 {
-   const double mid = 1.25100;
-   double ref_mid = 1.25000;
-   V2_StraddleRefMidApplyGoalpost(true, true, true, true, mid, ref_mid);
-   AssertNear("T-SL-6 both legs live advances ref_mid", ref_mid, mid, 1e-9);
+   const double ask = 1.25000;
+   const double buy_lvl = ask;
+   AssertTrue("T-SL-14 clamped buy at ask not marketable",
+              !V2_StraddleL0BuyMarketable(buy_lvl, ask));
+   AssertTrue("T-SL-14 marketability blocks even when place gate open",
+              V2_StraddleL0ShouldPlaceLeg(true, false) &&
+              !V2_StraddleL0BuyMarketable(buy_lvl, ask));
 }
 
-//+------------------------------------------------------------------+
-// ADR-122: straddle churn fix + feed staleness guard (T-SL-7..11)
-//+------------------------------------------------------------------+
-void Test_SL7_LiveLegNoRequoteWhenRefNotEstablished()
+void Test_SL15_FeedStaleBlocksBothLegs()
 {
-   AssertTrue("T-SL-7 live leg ref_mid zero no re-quote despite drift",
-              !V2_StraddleLegShouldAttempt(true, true, false));
-}
-
-void Test_SL8_LiveLegRequotesOnlyWhenRefEstablishedAndDrifted()
-{
-   AssertTrue("T-SL-8 live leg re-quotes when ref established and drifted",
-              V2_StraddleLegShouldAttempt(true, true, true));
-   AssertTrue("T-SL-8 live leg skips when ref established but no drift",
-              !V2_StraddleLegShouldAttempt(true, false, true));
-}
-
-void Test_SL9_MissingLegRetriesRegardless()
-{
-   AssertTrue("T-SL-9 missing leg retries no drift no ref",
-              V2_StraddleLegShouldAttempt(false, false, false));
-   AssertTrue("T-SL-9 missing leg retries with drift no ref",
-              V2_StraddleLegShouldAttempt(false, true, false));
-   AssertTrue("T-SL-9 missing leg retries no drift ref established",
-              V2_StraddleLegShouldAttempt(false, false, true));
-   AssertTrue("T-SL-9 missing leg retries with drift ref established",
-              V2_StraddleLegShouldAttempt(false, true, true));
+   AssertTrue("T-SL-15 stale feed blocks tick action",
+              !V2_StraddleL0TickAllowsAction(true, true, true));
+   AssertTrue("T-SL-15 live feed allows flat-side action",
+              V2_StraddleL0TickAllowsAction(false, true, false));
+   AssertTrue("T-SL-15 stale feed suppresses missing-leg gate",
+              !V2_StraddleL0TickAllowsAction(true, true, true) ||
+              !V2_StraddleL0ShouldPlaceLeg(true, false));
 }
 
 void Test_SL10_FeedStaleElapsed()
@@ -6060,16 +6005,11 @@ void OnStart()
    Test_AB_SignalModePresetUnchanged();
    Test_AB_StraddleIdentityTransform();
    Test_AB_StraddlePlacementGeometry();
-   Test_AB_StraddleAntiThrashBand();
-   Test_SL1_PartialPlacementDoesNotAdvanceRefMid();
-   Test_SL2_MissingLegRetriesWithoutBandDrift();
-   Test_SL3_PreSendMarketabilitySkipsNoCooldown();
-   Test_SL4_CooldownBlocksThenAllows();
-   Test_SL5_HealthyTwoLeggedNoChurnWithinBand();
-   Test_SL6_CompleteStraddleAdvancesRefMid();
-   Test_SL7_LiveLegNoRequoteWhenRefNotEstablished();
-   Test_SL8_LiveLegRequotesOnlyWhenRefEstablishedAndDrifted();
-   Test_SL9_MissingLegRetriesRegardless();
+   Test_SL3_PreSendMarketabilitySkipsNoPlace();
+   Test_SL12_RestingLegNoPlaceCall();
+   Test_SL13_MissingLegPlacesExactlyOnce();
+   Test_SL14_MarketabilityBlocksPlacePath();
+   Test_SL15_FeedStaleBlocksBothLegs();
    Test_SL10_FeedStaleElapsed();
    Test_SL11_FeedStaleHarness();
    Test_CB_DailyFloorBoundary();

@@ -48,8 +48,7 @@ input double InpCbInitialBalance  = 0.0;   // ADR-CB: 0 => capture ACCOUNT_BALAN
 input bool   InpTaEnable          = true;  // ADR-TA: operational anomaly Trigger A
 input V2EntryMode InpEntryMode    = ENTRY_SIGNAL;
 input double InpDumbStraddlePips  = 9.0;   // dumb arm: resting L0 at mid +/- this (pips)
-input double InpDumbRefBandPips   = 3.0;   // dumb arm: re-place only when mid drifts > band
-input int    InpL0RetryCooldownMs = 750;    // ADR-121: per-side L0 retry cooldown after failed send
+input double InpDumbRefBandPips   = 3.0;   // dumb arm: legacy input (unused post-ADR-123)
 input int    InpFeedStaleMaxMs    = 10000;  // ADR-122: refuse straddle L0 when feed tick age exceeds this
 
 //+------------------------------------------------------------------+

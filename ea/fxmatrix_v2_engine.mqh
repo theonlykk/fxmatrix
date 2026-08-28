@@ -21,9 +21,6 @@
 #include "fxmatrix_v2_entry_ab.mqh"
 
 //+------------------------------------------------------------------+
-double g_straddle_ref_mid = 0.0;
-ulong    g_long_l0_cooldown_until = 0;
-ulong    g_short_l0_cooldown_until = 0;
 long     g_last_feed_tick_msc = 0;
 ulong    g_last_feed_seen_local = 0;
 string   g_v2_inst_api_tag = "";
@@ -95,7 +92,6 @@ void V2_StraddleL0OnTick()
 {
    if(InpEntryMode != ENTRY_STRADDLE)
       return;
-
    if(V2_IsFeedStale(_Symbol, (ulong)InpFeedStaleMaxMs))
       return;
 
@@ -107,68 +103,41 @@ void V2_StraddleL0OnTick()
    const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    const double mid = V2_DumbStraddleMid(bid, ask);
-   const bool mid_drifted = V2_DumbShouldRePlace(g_straddle_ref_mid, mid,
-                                                 InpDumbRefBandPips, _Point);
-   const bool ref_established = (g_straddle_ref_mid > 0.0);
-   const ulong now_ms = GetTickCount64();
 
-   if(long_flat) {
-      const bool long_live = Long_IsOurOrderTicket(g_long_l0_ticket, g_preset.magic_long);
-      if(V2_StraddleLegShouldAttempt(long_live, mid_drifted, ref_established)) {
-         double buy_theo = V2_DumbStraddleBuyPrice(mid, InpDumbStraddlePips, _Point);
-         double buy_lvl;
-         Long_Adr013ClampBuy(buy_theo, buy_lvl);
-         const double ask_now = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-         if(V2_StraddleL0CooldownBlocks(g_long_l0_cooldown_until, now_ms)) {
-            // side blocked by hard cooldown
-         } else if(!V2_StraddleL0BuyMarketable(buy_lvl, ask_now)) {
-            if(InpVerboseLog)
-               Print("DIAG V2_LONG | event=straddle_l0_marketability_skip | buy_lvl=",
-                     DoubleToString(buy_lvl, 5), " ask=", DoubleToString(ask_now, 5));
-         } else {
-            g_v2_inst_api_tag = g_preset.tel_instance_long;
-            if(Long_ReplacePendingBuy(g_long_l0_ticket, buy_lvl, g_preset.magic_long, "V2_L0")) {
-               if(InpVerboseLog)
-                  Print("DIAG V2_LONG | event=straddle_l0 | mid=", DoubleToString(mid, 5),
-                        " buy_lvl=", DoubleToString(buy_lvl, 5));
-            } else {
-               g_long_l0_cooldown_until = now_ms + (ulong)InpL0RetryCooldownMs;
-            }
-         }
+   // LONG: place buy L0 once; if already resting, leave it.
+   if(long_flat && !Long_IsOurOrderTicket(g_long_l0_ticket, g_preset.magic_long)) {
+      double buy_theo = V2_DumbStraddleBuyPrice(mid, InpDumbStraddlePips, _Point);
+      double buy_lvl;
+      Long_Adr013ClampBuy(buy_theo, buy_lvl);
+      const double ask_now = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      if(V2_StraddleL0BuyMarketable(buy_lvl, ask_now)) {          // placeable: buy < ask
+         g_v2_inst_api_tag = g_preset.tel_instance_long;
+         g_long_l0_ticket = Long_PlaceBuyLimit(buy_lvl, g_preset.magic_long, "V2_L0");
+         if(InpVerboseLog && g_long_l0_ticket > 0)
+            Print("DIAG V2_LONG | event=straddle_l0 | mid=", DoubleToString(mid,5),
+                  " buy_lvl=", DoubleToString(buy_lvl,5));
+      } else if(InpVerboseLog) {
+         Print("DIAG V2_LONG | event=straddle_l0_marketability_skip | buy_lvl=",
+               DoubleToString(buy_lvl,5), " ask=", DoubleToString(ask_now,5));
       }
    }
 
-   if(short_flat) {
-      const bool short_live = Short_IsOurOrderTicket(g_short_l0_ticket, g_preset.magic_short);
-      if(V2_StraddleLegShouldAttempt(short_live, mid_drifted, ref_established)) {
-         double sell_theo = V2_DumbStraddleSellPrice(mid, InpDumbStraddlePips, _Point);
-         double sell_lvl;
-         Short_Adr013ClampSell(sell_theo, sell_lvl);
-         const double bid_now = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-         if(V2_StraddleL0CooldownBlocks(g_short_l0_cooldown_until, now_ms)) {
-            // side blocked by hard cooldown
-         } else if(!V2_StraddleL0SellMarketable(sell_lvl, bid_now)) {
-            if(InpVerboseLog)
-               Print("DIAG V2_SHORT | event=straddle_l0_marketability_skip | sell_lvl=",
-                     DoubleToString(sell_lvl, 5), " bid=", DoubleToString(bid_now, 5));
-         } else {
-            g_v2_inst_api_tag = g_preset.tel_instance_short;
-            if(Short_ReplacePendingSell(g_short_l0_ticket, sell_lvl, g_preset.magic_short, "V2_L0")) {
-               if(InpVerboseLog)
-                  Print("DIAG V2_SHORT | event=straddle_l0 | mid=", DoubleToString(mid, 5),
-                        " sell_lvl=", DoubleToString(sell_lvl, 5));
-            } else {
-               g_short_l0_cooldown_until = now_ms + (ulong)InpL0RetryCooldownMs;
-            }
-         }
+   // SHORT: place sell L0 once; if already resting, leave it.
+   if(short_flat && !Short_IsOurOrderTicket(g_short_l0_ticket, g_preset.magic_short)) {
+      double sell_theo = V2_DumbStraddleSellPrice(mid, InpDumbStraddlePips, _Point);
+      double sell_lvl;
+      Short_Adr013ClampSell(sell_theo, sell_lvl);
+      const double bid_now = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(V2_StraddleL0SellMarketable(sell_lvl, bid_now)) {        // placeable: sell > bid
+         g_v2_inst_api_tag = g_preset.tel_instance_short;
+         g_short_l0_ticket = Short_PlaceSellLimit(sell_lvl, g_preset.magic_short, "V2_L0");
+         if(InpVerboseLog && g_short_l0_ticket > 0)
+            Print("DIAG V2_SHORT | event=straddle_l0 | mid=", DoubleToString(mid,5),
+                  " sell_lvl=", DoubleToString(sell_lvl,5));
+      } else if(InpVerboseLog) {
+         Print("DIAG V2_SHORT | event=straddle_l0_marketability_skip | sell_lvl=",
+               DoubleToString(sell_lvl,5), " bid=", DoubleToString(bid_now,5));
       }
-   }
-
-   if(long_flat && short_flat) {
-      const bool long_live = Long_IsOurOrderTicket(g_long_l0_ticket, g_preset.magic_long);
-      const bool short_live = Short_IsOurOrderTicket(g_short_l0_ticket, g_preset.magic_short);
-      V2_StraddleRefMidApplyGoalpost(long_flat, short_flat, long_live, short_live,
-                                     mid, g_straddle_ref_mid);
    }
 }
 
