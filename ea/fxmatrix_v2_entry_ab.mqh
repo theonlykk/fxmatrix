@@ -78,4 +78,59 @@ bool V2_DumbShouldRePlace(const double last_ref_mid,
    return drift_pips > band_pips;
 }
 
+//+------------------------------------------------------------------+
+//| ADR-121: straddle L0 decouple-and-retry pure helpers.             |
+//+------------------------------------------------------------------+
+bool V2_StraddleLegShouldAttempt(const bool leg_live, const bool mid_drifted)
+{
+   if(!leg_live)
+      return true;
+   return mid_drifted;
+}
+
+bool V2_StraddleL0BuyMarketable(const double buy_price, const double ask)
+{
+   return (buy_price < ask);
+}
+
+bool V2_StraddleL0SellMarketable(const double sell_price, const double bid)
+{
+   return (sell_price > bid);
+}
+
+bool V2_StraddleL0CooldownBlocks(const ulong cooldown_until, const ulong now_ms)
+{
+   return (cooldown_until > 0 && now_ms < cooldown_until);
+}
+
+bool V2_StraddleRefMidShouldAdvance(const bool long_flat,
+                                    const bool short_flat,
+                                    const bool long_leg_live,
+                                    const bool short_leg_live)
+{
+   return (long_flat && short_flat && long_leg_live && short_leg_live);
+}
+
+void V2_StraddleRefMidApplyGoalpost(const bool long_flat,
+                                    const bool short_flat,
+                                    const bool long_leg_live,
+                                    const bool short_leg_live,
+                                    const double mid,
+                                    double &ref_mid)
+{
+   if(V2_StraddleRefMidShouldAdvance(long_flat, short_flat, long_leg_live, short_leg_live))
+      ref_mid = mid;
+}
+
+bool V2_StraddleL0ApplySendOutcome(const bool replace_ok,
+                                   ulong &cooldown_until,
+                                   const ulong now_ms,
+                                   const int cooldown_ms)
+{
+   if(replace_ok)
+      return true;
+   cooldown_until = now_ms + (ulong)cooldown_ms;
+   return false;
+}
+
 #endif // FXMATRIX_V2_ENTRY_AB_MQH

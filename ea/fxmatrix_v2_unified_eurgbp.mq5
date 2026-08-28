@@ -51,6 +51,7 @@ input bool   InpTaEnable          = true;  // ADR-TA: operational anomaly Trigge
 input V2EntryMode InpEntryMode    = ENTRY_SIGNAL;
 input double InpDumbStraddlePips  = 9.0;
 input double InpDumbRefBandPips   = 3.0;
+input int    InpL0RetryCooldownMs = 750;    // ADR-121: per-side L0 retry cooldown after failed send
 
 //+------------------------------------------------------------------+
 bool V2_Cap_CheckBlocks(const bool is_long)

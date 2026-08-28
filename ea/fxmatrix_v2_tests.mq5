@@ -5503,6 +5503,93 @@ void Test_AB_StraddleAntiThrashBand()
               V2_DumbShouldRePlace(0.0, mid_inside, 3.0, point));
 }
 
+//+------------------------------------------------------------------+
+// ADR-121: straddle L0 decouple-and-retry tests (T-SL-1..6)
+//+------------------------------------------------------------------+
+void Test_SL1_PartialPlacementDoesNotAdvanceRefMid()
+{
+   const double mid = 1.25000;
+   double ref_mid = 0.0;
+   V2_StraddleRefMidApplyGoalpost(true, true, false, true, mid, ref_mid);
+   AssertTrue("T-SL-1 partial buy fail sell ok no advance", ref_mid == 0.0);
+
+   ref_mid = 1.24900;
+   V2_StraddleRefMidApplyGoalpost(true, true, false, true, mid, ref_mid);
+   AssertNear("T-SL-1 partial leaves prior ref_mid", ref_mid, 1.24900, 1e-9);
+}
+
+void Test_SL2_MissingLegRetriesWithoutBandDrift()
+{
+   const bool long_live = false;
+   const bool mid_drifted = false;
+   AssertTrue("T-SL-2 missing leg attempts despite no drift",
+              V2_StraddleLegShouldAttempt(long_live, mid_drifted));
+
+   AssertTrue("T-SL-2 live leg skips when no drift",
+              !V2_StraddleLegShouldAttempt(true, mid_drifted));
+}
+
+void Test_SL3_PreSendMarketabilitySkipsNoCooldown()
+{
+   const double ask = 1.25020;
+   const double bid = 1.25000;
+   AssertTrue("T-SL-3 buy at ask not marketable",
+              !V2_StraddleL0BuyMarketable(ask, ask));
+   AssertTrue("T-SL-3 buy above ask not marketable",
+              !V2_StraddleL0BuyMarketable(ask + 0.00001, ask));
+   AssertTrue("T-SL-3 passive buy marketable",
+              V2_StraddleL0BuyMarketable(1.25010, ask));
+
+   AssertTrue("T-SL-3 sell at bid not marketable",
+              !V2_StraddleL0SellMarketable(bid, bid));
+   AssertTrue("T-SL-3 sell below bid not marketable",
+              !V2_StraddleL0SellMarketable(bid - 0.00001, bid));
+   AssertTrue("T-SL-3 passive sell marketable",
+              V2_StraddleL0SellMarketable(1.25010, bid));
+
+   ulong cooldown = 0;
+   AssertTrue("T-SL-3 marketability skip leaves cooldown zero", cooldown == 0);
+}
+
+void Test_SL4_CooldownBlocksThenAllows()
+{
+   ulong cooldown = 1500;
+   AssertTrue("T-SL-4 active cooldown blocks",
+              V2_StraddleL0CooldownBlocks(cooldown, 1000));
+   AssertTrue("T-SL-4 cooldown expired allows",
+              !V2_StraddleL0CooldownBlocks(cooldown, 1500));
+   AssertTrue("T-SL-4 after expiry allows",
+              !V2_StraddleL0CooldownBlocks(cooldown, 2000));
+
+   cooldown = 0;
+   const ulong now = 5000;
+   AssertTrue("T-SL-4 failed send sets cooldown",
+              !V2_StraddleL0ApplySendOutcome(false, cooldown, now, 750));
+   AssertTrue("T-SL-4 cooldown end computed", cooldown == 5750);
+   AssertTrue("T-SL-4 blocked until expiry",
+              V2_StraddleL0CooldownBlocks(cooldown, 5700));
+   AssertTrue("T-SL-4 allowed after expiry",
+              !V2_StraddleL0CooldownBlocks(cooldown, 5750));
+}
+
+void Test_SL5_HealthyTwoLeggedNoChurnWithinBand()
+{
+   const bool mid_drifted = false;
+   AssertTrue("T-SL-5 live buy no churn",
+              !V2_StraddleLegShouldAttempt(true, mid_drifted));
+   AssertTrue("T-SL-5 live sell no churn",
+              !V2_StraddleLegShouldAttempt(true, mid_drifted));
+}
+
+void Test_SL6_CompleteStraddleAdvancesRefMid()
+{
+   const double mid = 1.25100;
+   double ref_mid = 1.25000;
+   V2_StraddleRefMidApplyGoalpost(true, true, true, true, mid, ref_mid);
+   AssertNear("T-SL-6 both legs live advances ref_mid", ref_mid, mid, 1e-9);
+}
+
+//+------------------------------------------------------------------+
 void Test_CB_DailyFloorBoundary()
 {
    const double anchor = 100000.0;
@@ -5916,6 +6003,12 @@ void OnStart()
    Test_AB_StraddleIdentityTransform();
    Test_AB_StraddlePlacementGeometry();
    Test_AB_StraddleAntiThrashBand();
+   Test_SL1_PartialPlacementDoesNotAdvanceRefMid();
+   Test_SL2_MissingLegRetriesWithoutBandDrift();
+   Test_SL3_PreSendMarketabilitySkipsNoCooldown();
+   Test_SL4_CooldownBlocksThenAllows();
+   Test_SL5_HealthyTwoLeggedNoChurnWithinBand();
+   Test_SL6_CompleteStraddleAdvancesRefMid();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();
