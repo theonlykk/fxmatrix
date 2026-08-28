@@ -129,6 +129,7 @@ struct LongV2Layer {
    datetime last_exit_retry_time;
    datetime first_exit_retry_time;
    bool     exit_escalated;
+   bool     exit_is_market_hedge;
    int      open_depth;   // 0=L0 at fill (Python sim parity; stable after compaction)
    datetime entry_time;   // layer open time for resolution metrics
 };
@@ -303,23 +304,31 @@ bool Long_SetExitTakeProfit(const int layer_idx) {
    if(existing != 0) {
       V2_CancelExitOrder(existing, g_preset.tel_instance_long);
       g_long_layers[layer_idx].exit_ticket = 0;
+      g_long_layers[layer_idx].exit_is_market_hedge = false;
    }
 
    // STEP 1: harvest-at-market (stored target; preempts any limit placement).
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(bid >= target) {
-      if(V2_CloseExitAtMarket(_Symbol, +1, InpLotSize,
-                              g_preset.magic_long_exit,
-                              position_ticket,
-                              g_preset.tel_instance_long)) {
-         g_long_layers[layer_idx].exit_ticket = 0;
-         const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-         V2_HarvestRecordMarket(+1,
-            V2_HarvestPipsPure(+1, g_long_layers[layer_idx].entry_price, bid, pt));
+      ulong hedge_order = 0;
+      double filled_vol = 0.0;
+      const V2ExitHedgeOpenOutcome hedge_result =
+         V2_OpenExitHedgeAtMarket(_Symbol, +1, InpLotSize, g_preset.magic_long_exit,
+                                  g_preset.tel_instance_long, hedge_order, filled_vol);
+      if(hedge_result == V2_EXIT_HEDGE_OPEN_FULL) {
+         g_long_layers[layer_idx].exit_ticket = hedge_order;
+         g_long_layers[layer_idx].exit_is_market_hedge = true;
          if(InpVerboseLog)
             Print("DIAG V2_LONG | event=exit_market_close | layer=", layer_idx,
                   " target=", DoubleToString(target, 5),
                   " bid=", DoubleToString(bid, 5));
+         return true;
+      }
+      if(hedge_result == V2_EXIT_HEDGE_OPEN_PARTIAL) {
+         g_long_halted = true;
+         V2_PushSystemAlert(g_long_system_alerts,
+            StringFormat("V2_EXIT_HEDGE_PARTIAL | side=LONG | layer=%d | filled=%.4f | requested=%.4f",
+                         layer_idx, filled_vol, InpLotSize));
          return true;
       }
    }
@@ -355,6 +364,7 @@ void Long_ClearExitTakeProfit(const ulong position_ref) {
          continue;
       V2_CancelExitOrder(g_long_layers[i].exit_ticket, g_preset.tel_instance_long);
       g_long_layers[i].exit_ticket = 0;
+      g_long_layers[i].exit_is_market_hedge = false;
       return;
    }
 }
@@ -433,6 +443,7 @@ void Long_AuditExitLimits() {
             Print("WARNING V2_LONG | stale exit ticket cleared layer=", i,
                   " ticket=", g_long_layers[i].exit_ticket);
          g_long_layers[i].exit_ticket = 0;
+         g_long_layers[i].exit_is_market_hedge = false;
          exit_live = false;
       }
 
@@ -533,6 +544,7 @@ void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
    g_long_layers[n].last_exit_retry_time  = 0;
    g_long_layers[n].first_exit_retry_time = 0;
    g_long_layers[n].exit_escalated        = false;
+   g_long_layers[n].exit_is_market_hedge   = false;
    g_long_layers[n].open_depth            = n;
    g_long_layers[n].entry_time            = TimeCurrent();
 
@@ -715,8 +727,12 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
       if(matched_by_exit_ticket) {
          const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-         V2_HarvestRecordLimit(+1,
-            V2_HarvestPipsPure(+1, layer_entry, deal_price, pt));
+         if(g_long_layers[layer_idx].exit_is_market_hedge)
+            V2_HarvestRecordMarket(+1,
+               V2_HarvestPipsPure(+1, layer_entry, deal_price, pt));
+         else
+            V2_HarvestRecordLimit(+1,
+               V2_HarvestPipsPure(+1, layer_entry, deal_price, pt));
       }
 
       if(orig_pos > 0 && position_id > 0) {
@@ -994,6 +1010,7 @@ struct ShortV2Layer {
    datetime last_exit_retry_time;
    datetime first_exit_retry_time;
    bool     exit_escalated;
+   bool     exit_is_market_hedge;
    int      open_depth;
    datetime entry_time;
 };
@@ -1162,23 +1179,31 @@ bool Short_SetExitTakeProfit(const int layer_idx) {
    if(existing != 0) {
       V2_CancelExitOrder(existing, g_preset.tel_instance_short);
       g_short_layers[layer_idx].exit_ticket = 0;
+      g_short_layers[layer_idx].exit_is_market_hedge = false;
    }
 
    // STEP 1: harvest-at-market (stored target; preempts any limit placement).
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    if(ask <= target) {
-      if(V2_CloseExitAtMarket(_Symbol, -1, InpLotSize,
-                              g_preset.magic_short_exit,
-                              position_ticket,
-                              g_preset.tel_instance_short)) {
-         g_short_layers[layer_idx].exit_ticket = 0;
-         const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-         V2_HarvestRecordMarket(-1,
-            V2_HarvestPipsPure(-1, g_short_layers[layer_idx].entry_price, ask, pt));
+      ulong hedge_order = 0;
+      double filled_vol = 0.0;
+      const V2ExitHedgeOpenOutcome hedge_result =
+         V2_OpenExitHedgeAtMarket(_Symbol, -1, InpLotSize, g_preset.magic_short_exit,
+                                  g_preset.tel_instance_short, hedge_order, filled_vol);
+      if(hedge_result == V2_EXIT_HEDGE_OPEN_FULL) {
+         g_short_layers[layer_idx].exit_ticket = hedge_order;
+         g_short_layers[layer_idx].exit_is_market_hedge = true;
          if(InpVerboseLog)
             Print("DIAG V2_SHORT | event=exit_market_close | layer=", layer_idx,
                   " target=", DoubleToString(target, 5),
                   " ask=", DoubleToString(ask, 5));
+         return true;
+      }
+      if(hedge_result == V2_EXIT_HEDGE_OPEN_PARTIAL) {
+         g_short_halted = true;
+         V2_PushSystemAlert(g_short_system_alerts,
+            StringFormat("V2_EXIT_HEDGE_PARTIAL | side=SHORT | layer=%d | filled=%.4f | requested=%.4f",
+                         layer_idx, filled_vol, InpLotSize));
          return true;
       }
    }
@@ -1214,6 +1239,7 @@ void Short_ClearExitTakeProfit(const ulong position_ref) {
          continue;
       V2_CancelExitOrder(g_short_layers[i].exit_ticket, g_preset.tel_instance_short);
       g_short_layers[i].exit_ticket = 0;
+      g_short_layers[i].exit_is_market_hedge = false;
       return;
    }
 }
@@ -1292,6 +1318,7 @@ void Short_AuditExitLimits() {
             Print("WARNING V2_SHORT | stale exit ticket cleared layer=", i,
                   " ticket=", g_short_layers[i].exit_ticket);
          g_short_layers[i].exit_ticket = 0;
+         g_short_layers[i].exit_is_market_hedge = false;
          exit_live = false;
       }
 
@@ -1392,6 +1419,7 @@ void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
    g_short_layers[n].last_exit_retry_time  = 0;
    g_short_layers[n].first_exit_retry_time = 0;
    g_short_layers[n].exit_escalated        = false;
+   g_short_layers[n].exit_is_market_hedge   = false;
    g_short_layers[n].open_depth            = n;
    g_short_layers[n].entry_time            = TimeCurrent();
 
@@ -1568,8 +1596,12 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
       if(matched_by_exit_ticket) {
          const double pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-         V2_HarvestRecordLimit(-1,
-            V2_HarvestPipsPure(-1, layer_entry, deal_price, pt));
+         if(g_short_layers[layer_idx].exit_is_market_hedge)
+            V2_HarvestRecordMarket(-1,
+               V2_HarvestPipsPure(-1, layer_entry, deal_price, pt));
+         else
+            V2_HarvestRecordLimit(-1,
+               V2_HarvestPipsPure(-1, layer_entry, deal_price, pt));
       }
 
       if(orig_pos > 0 && position_id > 0) {

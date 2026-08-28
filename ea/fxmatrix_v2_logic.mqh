@@ -183,21 +183,29 @@ double V2_HarvestPipsPure(const int entry_direction,
 }
 
 //+------------------------------------------------------------------+
-bool V2_BuildExitMarketCloseRequest(const string symbol,
-                                    const int entry_direction,
-                                    const double volume,
-                                    const ulong exit_magic,
-                                    const ulong position_ticket,
-                                    const double bid,
-                                    const double ask,
-                                    MqlTradeRequest &req)
+enum V2ExitHedgeOpenOutcome
 {
-   if(volume <= 0.0 || position_ticket == 0 || symbol == "")
+   V2_EXIT_HEDGE_OPEN_REJECTED = 0,
+   V2_EXIT_HEDGE_OPEN_PARTIAL    = 1,
+   V2_EXIT_HEDGE_OPEN_FULL       = 2
+};
+
+//+------------------------------------------------------------------+
+//| Option B: open opposing hedge at market (DEAL_ENTRY_IN, exit_magic).|
+//+------------------------------------------------------------------+
+bool V2_BuildExitHedgeOpenRequest(const string symbol,
+                                  const int entry_direction,
+                                  const double volume,
+                                  const ulong exit_magic,
+                                  const double bid,
+                                  const double ask,
+                                  MqlTradeRequest &req)
+{
+   if(volume <= 0.0 || symbol == "")
       return false;
 
    ZeroMemory(req);
    req.action   = TRADE_ACTION_DEAL;
-   req.position = position_ticket;
    req.symbol   = symbol;
    req.volume   = volume;
    req.magic    = exit_magic;

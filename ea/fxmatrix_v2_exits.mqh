@@ -13,9 +13,11 @@ int g_v2_ta_samedir_crit = 0;
 // Test harness for exit-fallback unit tests (script mode; no live OrderSend).
 bool g_v2_exitfb_test_harness = false;
 bool g_v2_exitfb_test_limit_harness = false;
-int  g_v2_exitfb_test_market_close_calls = 0;
+int  g_v2_exitfb_test_hedge_open_calls = 0;
+int  g_v2_exitfb_test_hedge_open_outcome = V2_EXIT_HEDGE_OPEN_FULL;
 int  g_v2_exitfb_test_limit_calls = 0;
-ulong g_v2_exitfb_test_market_close_position = 0;
+ulong g_v2_exitfb_test_hedge_open_order = 880101;
+double g_v2_exitfb_test_hedge_open_filled_volume = 0.0;
 double g_v2_exitfb_test_last_limit_price = 0.0;
 double g_v2_exitfb_test_bid = 0.0;
 double g_v2_exitfb_test_ask = 0.0;
@@ -77,27 +79,32 @@ double V2_ExitClearanceBuffer(const string symbol)
 }
 
 //+------------------------------------------------------------------+
-bool V2_CloseExitAtMarket(const string symbol,
-                          const int entry_direction,
-                          const double volume,
-                          const ulong exit_magic,
-                          const ulong position_ticket,
-                          const string instance_tag)
+V2ExitHedgeOpenOutcome V2_OpenExitHedgeAtMarket(const string symbol,
+                                                const int entry_direction,
+                                                const double volume,
+                                                const ulong exit_magic,
+                                                const string instance_tag,
+                                                ulong &hedge_order_out,
+                                                double &filled_volume_out)
 {
-   if(position_ticket == 0)
-      return false;
-
-   double close_vol = volume;
-   if(close_vol <= 0.0) {
-      if(!PositionSelectByTicket(position_ticket))
-         return false;
-      close_vol = PositionGetDouble(POSITION_VOLUME);
-   }
+   hedge_order_out = 0;
+   filled_volume_out = 0.0;
+   if(volume <= 0.0)
+      return V2_EXIT_HEDGE_OPEN_REJECTED;
 
    if(g_v2_exitfb_test_harness) {
-      g_v2_exitfb_test_market_close_calls++;
-      g_v2_exitfb_test_market_close_position = position_ticket;
-      return true;
+      g_v2_exitfb_test_hedge_open_calls++;
+      hedge_order_out = g_v2_exitfb_test_hedge_open_order;
+      if(g_v2_exitfb_test_hedge_open_outcome == V2_EXIT_HEDGE_OPEN_PARTIAL) {
+         filled_volume_out = (g_v2_exitfb_test_hedge_open_filled_volume > 0.0)
+                             ? g_v2_exitfb_test_hedge_open_filled_volume
+                             : volume * 0.5;
+         return V2_EXIT_HEDGE_OPEN_PARTIAL;
+      }
+      if(g_v2_exitfb_test_hedge_open_outcome == V2_EXIT_HEDGE_OPEN_REJECTED)
+         return V2_EXIT_HEDGE_OPEN_REJECTED;
+      filled_volume_out = volume;
+      return V2_EXIT_HEDGE_OPEN_FULL;
    }
 
    double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
@@ -105,14 +112,21 @@ bool V2_CloseExitAtMarket(const string symbol,
 
    MqlTradeRequest req = {};
    MqlTradeResult  res = {};
-   if(!V2_BuildExitMarketCloseRequest(symbol, entry_direction, close_vol, exit_magic,
-                                      position_ticket, bid, ask, req))
-      return false;
+   if(!V2_BuildExitHedgeOpenRequest(symbol, entry_direction, volume, exit_magic,
+                                    bid, ask, req))
+      return V2_EXIT_HEDGE_OPEN_REJECTED;
 
    g_v2_inst_api_tag = instance_tag;
    if(!V2_OrderSendCounted(req, res))
-      return false;
-   return true;
+      return V2_EXIT_HEDGE_OPEN_REJECTED;
+
+   filled_volume_out = res.volume;
+   hedge_order_out = res.order;
+   if(filled_volume_out <= 0.0)
+      return V2_EXIT_HEDGE_OPEN_REJECTED;
+   if(filled_volume_out + 1e-12 < req.volume)
+      return V2_EXIT_HEDGE_OPEN_PARTIAL;
+   return V2_EXIT_HEDGE_OPEN_FULL;
 }
 
 //+------------------------------------------------------------------+
@@ -135,17 +149,23 @@ bool V2_TestRunExitTakeProfitFlow(const string symbol,
    used_market_close = false;
    place_price_out = stored_target;
    g_v2_exitfb_test_limit_calls = 0;
-   g_v2_exitfb_test_market_close_calls = 0;
+   g_v2_exitfb_test_hedge_open_calls = 0;
 
    if(V2_ExitShouldHarvestAtMarketPure(entry_direction, stored_target, bid, ask)) {
       g_v2_exitfb_test_harness = true;
-      g_v2_exitfb_test_market_close_position = 0;
-      const bool ok = V2_CloseExitAtMarket(symbol, entry_direction, volume, exit_magic,
-                                           position_ticket, instance_tag);
+      ulong hedge_order = 0;
+      double filled_vol = 0.0;
+      const V2ExitHedgeOpenOutcome hedge_result =
+         V2_OpenExitHedgeAtMarket(symbol, entry_direction, volume, exit_magic,
+                                  instance_tag, hedge_order, filled_vol);
       g_v2_exitfb_test_harness = false;
-      if(ok)
+      if(hedge_result == V2_EXIT_HEDGE_OPEN_FULL) {
          used_market_close = true;
-      return ok;
+         return true;
+      }
+      if(hedge_result == V2_EXIT_HEDGE_OPEN_PARTIAL)
+         return true;
+      // REJECTED — fall through to limit placement.
    }
 
    const double freeze = (double)freeze_level * point;

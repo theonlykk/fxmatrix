@@ -381,18 +381,16 @@ void Test_ExitFallbackHarvestLong()
       "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9001,
       bid, ask, freeze, V2_TEL_INSTANCE_LONG, used_mc);
    AssertTrue("harvest fallback succeeds", ok);
-   AssertTrue("harvest uses market close", used_mc);
-   AssertTrue("market close counter incremented", g_v2_exitfb_test_market_close_calls == 1);
-   AssertTrue("market close targets layer ticket",
-              g_v2_exitfb_test_market_close_position == 9001);
+   AssertTrue("harvest uses hedge open", used_mc);
+   AssertTrue("hedge open counter incremented", g_v2_exitfb_test_hedge_open_calls == 1);
 
    MqlTradeRequest req = {};
-   AssertTrue("market close request builds",
-              V2_BuildExitMarketCloseRequest("GBPUSD", 1, 0.01, MM_LONG_V2_EXIT, 9001,
-                                             bid, ask, req));
-   AssertTrue("market close is TRADE_ACTION_DEAL", req.action == TRADE_ACTION_DEAL);
-   AssertTrue("market close uses position ticket", req.position == 9001);
-   AssertTrue("long harvest sells at bid", req.type == ORDER_TYPE_SELL);
+   AssertTrue("hedge open request builds",
+              V2_BuildExitHedgeOpenRequest("GBPUSD", 1, 0.01, MM_LONG_V2_EXIT,
+                                           bid, ask, req));
+   AssertTrue("hedge open is TRADE_ACTION_DEAL", req.action == TRADE_ACTION_DEAL);
+   AssertTrue("hedge open does not close position", req.position == 0);
+   AssertTrue("long harvest hedge sells at bid", req.type == ORDER_TYPE_SELL);
    AssertNear("long harvest price at bid", req.price, bid, 1e-9);
 }
 
@@ -416,14 +414,14 @@ void Test_ExitFallbackFreezeLong()
               V2_ExitPlacementPricePure(1, target, bid, ask, buffer),
               ask + buffer, 1e-9);
 
-   g_v2_exitfb_test_market_close_calls = 0;
+   g_v2_exitfb_test_hedge_open_calls = 0;
    const bool ok = V2_TestRunExitTakeProfitFlow(
       "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9002,
       bid, ask, 0.00001, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
    AssertTrue("spread-trap rests stretched limit", ok);
-   AssertTrue("spread-trap no market close", !used_mc);
+   AssertTrue("spread-trap no hedge open", !used_mc);
    AssertTrue("spread-trap limit call made", g_v2_exitfb_test_limit_calls == 1);
-   AssertTrue("spread-trap zero market close calls", g_v2_exitfb_test_market_close_calls == 0);
+   AssertTrue("spread-trap zero hedge open calls", g_v2_exitfb_test_hedge_open_calls == 0);
    AssertNear("spread-trap place above ask", place, ask + buffer, 1e-9);
 }
 
@@ -459,13 +457,13 @@ void Test_ExitFallbackHarvestShort()
       "GBPUSD", -1, target, 0.01, MM_SHORT_V2_EXIT, 8001,
       bid, ask, freeze, V2_TEL_INSTANCE_SHORT, used_mc);
    AssertTrue("short harvest fallback succeeds", ok);
-   AssertTrue("short harvest uses market close", used_mc);
+   AssertTrue("short harvest uses hedge open", used_mc);
 
    MqlTradeRequest req = {};
-   AssertTrue("short market close request builds",
-              V2_BuildExitMarketCloseRequest("GBPUSD", -1, 0.01, MM_SHORT_V2_EXIT, 8001,
-                                             bid, ask, req));
-   AssertTrue("short harvest buys at ask", req.type == ORDER_TYPE_BUY);
+   AssertTrue("short hedge open request builds",
+              V2_BuildExitHedgeOpenRequest("GBPUSD", -1, 0.01, MM_SHORT_V2_EXIT,
+                                           bid, ask, req));
+   AssertTrue("short hedge open buys at ask", req.type == ORDER_TYPE_BUY);
    AssertNear("short harvest price at ask", req.price, ask, 1e-9);
 }
 
@@ -489,12 +487,12 @@ void Test_ExitFallbackFreezeShort()
               V2_ExitPlacementPricePure(-1, target, bid, ask, buffer),
               bid - buffer, 1e-9);
 
-   g_v2_exitfb_test_market_close_calls = 0;
+   g_v2_exitfb_test_hedge_open_calls = 0;
    const bool ok = V2_TestRunExitTakeProfitFlow(
       "GBPUSD", -1, target, 0.01, MM_SHORT_V2_EXIT, 8002,
       bid, ask, 0.00001, 10, V2_TEL_INSTANCE_SHORT, used_mc, place);
    AssertTrue("short spread-trap rests limit", ok);
-   AssertTrue("short spread-trap no market close", !used_mc);
+   AssertTrue("short spread-trap no hedge open", !used_mc);
    AssertTrue("short spread-trap limit placed", g_v2_exitfb_test_limit_calls == 1);
 }
 
@@ -516,7 +514,7 @@ void Test_ExitFallbackSpreadTrapLong()
       "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9101,
       bid, ask, point, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
    AssertTrue("T-EXITFB-6 limit rests", ok);
-   AssertTrue("T-EXITFB-6 no market close", !used_mc);
+   AssertTrue("T-EXITFB-6 no hedge open", !used_mc);
    AssertTrue("T-EXITFB-6 passive stretched price",
               V2_ExitPassivityOkPure(1, place, bid, ask, freeze));
 }
@@ -538,7 +536,7 @@ void Test_ExitFallbackSpreadTrapShort()
       "GBPUSD", -1, target, 0.01, MM_SHORT_V2_EXIT, 9102,
       bid, ask, point, 10, V2_TEL_INSTANCE_SHORT, used_mc, place);
    AssertTrue("T-EXITFB-7 short limit rests", ok);
-   AssertTrue("T-EXITFB-7 no market close", !used_mc);
+   AssertTrue("T-EXITFB-7 no hedge open", !used_mc);
    AssertTrue("T-EXITFB-7 passive stretched price",
               V2_ExitPassivityOkPure(-1, place, bid, ask, freeze));
 }
@@ -596,8 +594,281 @@ void Test_ExitFallbackHarvestPreemptsStretch()
       "GBPUSD", 1, target, 0.01, MM_LONG_V2_EXIT, 9201,
       bid, ask, 0.00001, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
    AssertTrue("T-EXITFB-10 harvest succeeds", ok);
-   AssertTrue("T-EXITFB-10 uses market close not stretch", used_mc);
+   AssertTrue("T-EXITFB-10 uses hedge open not stretch", used_mc);
    AssertTrue("T-EXITFB-10 no limit placement", g_v2_exitfb_test_limit_calls == 0);
+}
+
+//+------------------------------------------------------------------+
+// ADR-120 Option B: hedge-open harvest tests (T-B-1..7)
+//+------------------------------------------------------------------+
+void TB_TestResetHarness()
+{
+   g_v2_exitfb_test_harness = false;
+   g_v2_exitfb_test_hedge_open_calls = 0;
+   g_v2_exitfb_test_hedge_open_outcome = V2_EXIT_HEDGE_OPEN_FULL;
+   g_v2_exitfb_test_hedge_open_order = 880101;
+   g_v2_exitfb_test_hedge_open_filled_volume = 0.0;
+}
+
+bool TB_SimulateLongHarvestStep1(const int layer_idx,
+                                 const double bid,
+                                 const double target,
+                                 const double lot,
+                                 ulong &exit_ticket,
+                                 bool &exit_is_market_hedge,
+                                 bool &side_halted,
+                                 string &alerts[])
+{
+   exit_ticket = 0;
+   exit_is_market_hedge = false;
+   if(bid < target)
+      return false;
+
+   ulong hedge_order = 0;
+   double filled_vol = 0.0;
+   g_v2_exitfb_test_harness = true;
+   const V2ExitHedgeOpenOutcome hedge_result =
+      V2_OpenExitHedgeAtMarket("GBPUSD", +1, lot, MM_LONG_V2_EXIT,
+                               V2_TEL_INSTANCE_LONG, hedge_order, filled_vol);
+   g_v2_exitfb_test_harness = false;
+
+   if(hedge_result == V2_EXIT_HEDGE_OPEN_FULL) {
+      exit_ticket = hedge_order;
+      exit_is_market_hedge = true;
+      return true;
+   }
+   if(hedge_result == V2_EXIT_HEDGE_OPEN_PARTIAL) {
+      side_halted = true;
+      V2_PushSystemAlert(alerts,
+         StringFormat("V2_EXIT_HEDGE_PARTIAL | side=LONG | layer=%d | filled=%.4f | requested=%.4f",
+                      layer_idx, filled_vol, lot));
+      return true;
+   }
+   return false;
+}
+
+void Test_B1_HarvestOpensExitMagicHedge()
+{
+   TB_TestResetHarness();
+   const double target = 1.25050;
+   const double bid = 1.25100;
+   const double ask = 1.25120;
+   ulong exit_ticket = 0;
+   bool exit_is_market_hedge = false;
+   bool side_halted = false;
+   string alerts[];
+
+   AssertTrue("T-B-1 harvest predicate",
+              V2_ExitShouldHarvestAtMarketPure(1, target, bid, ask));
+   AssertTrue("T-B-1 step1 succeeds",
+              TB_SimulateLongHarvestStep1(0, bid, target, 0.01,
+                                           exit_ticket, exit_is_market_hedge,
+                                           side_halted, alerts));
+   AssertTrue("T-B-1 exit_ticket stored", exit_ticket == g_v2_exitfb_test_hedge_open_order);
+   AssertTrue("T-B-1 exit_is_market_hedge set", exit_is_market_hedge);
+   AssertTrue("T-B-1 side not halted", !side_halted);
+
+   MqlTradeRequest req = {};
+   AssertTrue("T-B-1 hedge request builds",
+              V2_BuildExitHedgeOpenRequest("GBPUSD", 1, 0.01, MM_LONG_V2_EXIT,
+                                           bid, ask, req));
+   AssertTrue("T-B-1 opens not closes", req.position == 0);
+   AssertTrue("T-B-1 exit_magic on hedge", req.magic == MM_LONG_V2_EXIT);
+   AssertTrue("T-B-1 TRADE_ACTION_DEAL", req.action == TRADE_ACTION_DEAL);
+}
+
+void Test_B2_HedgeFillRecognizedCloseByQueued()
+{
+   TB_TestResetHarness();
+   const ulong hedge_order = 880101;
+   AssertTrue("T-B-2 exit IN deal recognized",
+              V2_IsManagedExitDeal(DEAL_ENTRY_IN, MM_LONG_V2_EXIT, MM_LONG_V2_EXIT));
+
+   V2CloseByTask queue[];
+   const ulong entry_pos = 1001;
+   const ulong hedge_pos = 2002;
+   V2TestQueueCloseBy(queue, entry_pos, hedge_pos);
+   AssertTrue("T-B-2 CloseBy queued once", V2TestCloseByQueueSize(queue) == 1);
+   AssertTrue("T-B-2 CloseBy entry leg", queue[0].ticket1 == entry_pos);
+   AssertTrue("T-B-2 CloseBy hedge leg", queue[0].ticket2 == hedge_pos);
+
+   V2SREDealInput deals[];
+   ArrayResize(deals, 4);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = entry_pos;
+   deals[0].entry_type = DEAL_ENTRY_IN; deals[0].deal_magic = MM_LONG_V2;
+   deals[0].volume = SRE_LOT; deals[0].order_id = hedge_order;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = hedge_pos;
+   deals[1].entry_type = DEAL_ENTRY_IN; deals[1].deal_magic = MM_LONG_V2_EXIT;
+   deals[1].volume = SRE_LOT; deals[1].order_id = hedge_order;
+   deals[2].deal_time = SRE_T1 + 30; deals[2].position_id = entry_pos;
+   deals[2].entry_type = DEAL_ENTRY_OUT_BY; deals[2].deal_magic = MM_LONG_V2;
+   deals[2].volume = SRE_LOT; deals[2].order_id = 9001;
+   deals[3].deal_time = SRE_T1 + 30; deals[3].position_id = hedge_pos;
+   deals[3].entry_type = DEAL_ENTRY_OUT_BY; deals[3].deal_magic = MM_LONG_V2;
+   deals[3].volume = SRE_LOT; deals[3].order_id = 9001;
+
+   const double net = V2_SRE_PositionNetVolume(entry_pos, deals, 3,
+                                               MM_LONG_V2, MM_LONG_V2_EXIT);
+   AssertNear("T-B-2 harvested layer nets flat", net, 0.0, 1e-12);
+   AssertTrue("T-B-2 terminal OUT_BY not plain OUT",
+              deals[2].entry_type == DEAL_ENTRY_OUT_BY);
+}
+
+void Test_B3_MarketHarvestReattachNoHalt23()
+{
+   V2SREDealInput deals[];
+   ArrayResize(deals, 6);
+   deals[0].deal_time = SRE_T0; deals[0].position_id = 5001; deals[0].entry_type = DEAL_ENTRY_IN;
+   deals[0].deal_magic = MM_LONG_V2; deals[0].volume = SRE_LOT;
+   deals[1].deal_time = SRE_T1; deals[1].position_id = 5002; deals[1].entry_type = DEAL_ENTRY_IN;
+   deals[1].deal_magic = MM_LONG_V2_EXIT; deals[1].volume = SRE_LOT;
+   deals[2].deal_time = SRE_T1 + 30; deals[2].position_id = 5001; deals[2].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[2].deal_magic = MM_LONG_V2; deals[2].volume = SRE_LOT;
+   deals[3].deal_time = SRE_T1 + 30; deals[3].position_id = 5002; deals[3].entry_type = DEAL_ENTRY_OUT_BY;
+   deals[3].deal_magic = MM_LONG_V2; deals[3].volume = SRE_LOT;
+   deals[4].deal_time = SRE_T2; deals[4].position_id = 1001; deals[4].entry_type = DEAL_ENTRY_IN;
+   deals[4].deal_magic = MM_LONG_V2; deals[4].volume = SRE_LOT;
+   deals[5].deal_time = SRE_T3; deals[5].position_id = 1002; deals[5].entry_type = DEAL_ENTRY_IN;
+   deals[5].deal_magic = MM_LONG_V2; deals[5].volume = SRE_LOT;
+
+   const V2SREHaltReason hr =
+      V2_SRE_CheckNonStandardClosures(deals, SRE_NOW,
+                                        V2_SRE_DEFAULT_LOOKBACK_SEC, MM_LONG_V2);
+   AssertTrue("T-B-3 Option B stack no HALT_23", hr == V2_SRE_OK);
+   AssertTrue("T-B-3 halt label not HALT_23",
+              V2_SRE_HaltReasonLabel(hr) != "HALT_23_NON_STANDARD_ENTRY_CLOSE");
+
+   V2SREDealInput plain_out[];
+   ArrayResize(plain_out, 4);
+   plain_out[0] = deals[0];
+   plain_out[1] = deals[1];
+   plain_out[2] = deals[0];
+   plain_out[2].deal_time = SRE_T1 + 30;
+   plain_out[2].entry_type = DEAL_ENTRY_OUT;
+   plain_out[2].deal_magic = MM_LONG_V2_EXIT;
+   plain_out[3] = deals[4];
+   AssertTrue("T-B-3 plain OUT contrast halts",
+              V2_SRE_CheckNonStandardClosures(plain_out, SRE_NOW,
+                                              V2_SRE_DEFAULT_LOOKBACK_SEC,
+                                              MM_LONG_V2) ==
+              V2_SRE_HALT_23_NON_STANDARD_ENTRY_CLOSE);
+}
+
+void Test_B4_HarvestWindowNoTaDivergenceHalt()
+{
+   TA_TestReset();
+   g_v2_ta_test_active = true;
+
+   const int managed_depth = 1;
+   const int short_depth = 0;
+   g_v2_ta_test_broker_long = 1;
+   g_v2_ta_test_broker_short = 0;
+
+   bool long_halted = false;
+   bool short_halted = false;
+   string alerts[];
+
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        managed_depth, short_depth);
+   AssertTrue("T-B-4 first tick no halt", !long_halted);
+   AssertTrue("T-B-4 streak below threshold", g_ta_long_div_streak < 2);
+
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        managed_depth, short_depth);
+   AssertTrue("T-B-4 second tick still no halt", !long_halted);
+   AssertTrue("T-B-4 streak stays below 2", g_ta_long_div_streak < 2);
+
+   g_v2_ta_test_broker_long = 0;
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        managed_depth, short_depth);
+   V2_Ta_CheckEndOfTick(long_halted, short_halted, alerts,
+                        "GBPUSD", MM_LONG_V2, MM_SHORT_V2,
+                        managed_depth, short_depth);
+   AssertTrue("T-B-4 old plain-OUT bug would halt", long_halted);
+
+   TA_TestReset();
+}
+
+void Test_B5_PartialFillHaltsSideNoCloseBy()
+{
+   TB_TestResetHarness();
+   g_v2_exitfb_test_hedge_open_outcome = V2_EXIT_HEDGE_OPEN_PARTIAL;
+   g_v2_exitfb_test_hedge_open_filled_volume = 0.005;
+
+   ulong exit_ticket = 0;
+   bool exit_is_market_hedge = false;
+   bool side_halted = false;
+   string alerts[];
+
+   AssertTrue("T-B-5 step1 partial path",
+              TB_SimulateLongHarvestStep1(0, 1.25100, 1.25050, 0.01,
+                                          exit_ticket, exit_is_market_hedge,
+                                          side_halted, alerts));
+   AssertTrue("T-B-5 side halted", side_halted);
+   AssertTrue("T-B-5 no exit_ticket stored", exit_ticket == 0);
+   AssertTrue("T-B-5 flag not set", !exit_is_market_hedge);
+   AssertContains("T-B-5 partial alert", alerts[0], "V2_EXIT_HEDGE_PARTIAL");
+
+   V2CloseByTask queue[];
+   AssertTrue("T-B-5 no CloseBy queued", V2TestCloseByQueueSize(queue) == 0);
+}
+
+void Test_B6_FullRejectionNoExitTicketNoHalt()
+{
+   TB_TestResetHarness();
+   g_v2_exitfb_test_hedge_open_outcome = V2_EXIT_HEDGE_OPEN_REJECTED;
+
+   ulong exit_ticket = 0;
+   bool exit_is_market_hedge = false;
+   bool side_halted = false;
+   string alerts[];
+
+   AssertTrue("T-B-6 step1 rejected returns false",
+              !TB_SimulateLongHarvestStep1(0, 1.25100, 1.25050, 0.01,
+                                           exit_ticket, exit_is_market_hedge,
+                                           side_halted, alerts));
+   AssertTrue("T-B-6 no exit_ticket", exit_ticket == 0);
+   AssertTrue("T-B-6 side not halted", !side_halted);
+   AssertTrue("T-B-6 no alerts", ArraySize(alerts) == 0);
+
+   bool used_mc = false;
+   double place = 0.0;
+   const bool ok = V2_TestRunExitTakeProfitFlow(
+      "GBPUSD", 1, 1.25050, 0.01, MM_LONG_V2_EXIT, 9301,
+      1.25100, 1.25120, 0.00001, 10, V2_TEL_INSTANCE_LONG, used_mc, place);
+   AssertTrue("T-B-6 rejected falls through to limit", ok);
+   AssertTrue("T-B-6 no hedge path on reject", !used_mc);
+   AssertTrue("T-B-6 limit placement attempted", g_v2_exitfb_test_limit_calls == 1);
+}
+
+void Test_B7_HarvestTypeMarketNotLimit()
+{
+   V2_HarvestCountersReset();
+   const bool exit_is_market_hedge = true;
+   const double pips = 30.0;
+   if(exit_is_market_hedge)
+      V2_HarvestRecordMarket(+1, pips);
+   else
+      V2_HarvestRecordLimit(+1, pips);
+
+   AssertTrue("T-B-7 market counter", g_v2_harvest_type_market_long == 1);
+   AssertTrue("T-B-7 limit counter zero", g_v2_harvest_type_limit_long == 0);
+   AssertNear("T-B-7 market pips", g_v2_harvest_pips_market_long, pips, 1e-9);
+
+   V2TelLayerSnapshot empty_layers[];
+   string empty_alerts[];
+   string payload = V2BuildInstanceTelemetryPayload(
+      V2_TEL_INSTANCE_LONG, "GBPUSD", empty_layers, 0, 1, 0.0004,
+      D'2026.06.05 12:00:00', empty_alerts,
+      g_v2_harvest_type_limit_long, g_v2_harvest_type_market_long,
+      g_v2_harvest_pips_limit_long, g_v2_harvest_pips_market_long);
+   AssertContains("T-B-7 telemetry harvest_type_market", payload,
+                  "\"harvest_type_market\":1");
+   AssertContains("T-B-7 telemetry harvest_type_limit zero", payload,
+                  "\"harvest_type_limit\":0");
 }
 
 //+------------------------------------------------------------------+
@@ -5502,6 +5773,13 @@ void OnStart()
    Test_ExitFallbackStoredTargetPreserved();
    Test_ExitFallbackHarvestTelemetry();
    Test_ExitFallbackHarvestPreemptsStretch();
+   Test_B1_HarvestOpensExitMagicHedge();
+   Test_B2_HedgeFillRecognizedCloseByQueued();
+   Test_B3_MarketHarvestReattachNoHalt23();
+   Test_B4_HarvestWindowNoTaDivergenceHalt();
+   Test_B5_PartialFillHaltsSideNoCloseBy();
+   Test_B6_FullRejectionNoExitTicketNoHalt();
+   Test_B7_HarvestTypeMarketNotLimit();
    Test_CloseByQueueing();
    Test_TickAuditMissingExit();
    Test_ExitEscalationAlertSignature();
