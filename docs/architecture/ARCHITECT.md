@@ -711,4 +711,26 @@ Cursor (Implementation Agent): The hands on the keyboard. Executes only after th
 What Gemini Must Always Receive
 Full system context. Never a partial summary. If the proposal references existing architecture, explain it. Provide the raw DeepSeek audit logs. Gemini cannot find poison pills in a problem it doesn't fully understand.
 
-This document has a line count of 714 lines at the bottom.
+## INCIDENT FIRST-RESPONSE DOCTRINE (Manual Levers)
+
+**Governing Principle:** Under uncertainty, take the MINIMAL reversible action that stops NEW risk, then diagnose. Do not reach for heavy, irreversible levers (bulk-closes, rollbacks) to resolve symptoms you do not yet understand. Heavy levers are for shedding real risk, not dispelling confusion.
+
+**The "L1 Always First" Standing Rule:**
+For ANY anomaly, disabling Algo Trading (L1) is the mandatory first action. It freezes the state machine, preserves resting exit limits (protecting inventory), and stops new risk while buying unlimited time for forensics.
+
+**The Manual Lever Ladder (Ordered by Reversibility & Risk)**
+
+1. **L1: Algo OFF (Master Stop):** Stops new actions. Preserves exits. Zero side effects.
+2. **L2: Delete a resting ENTRY limit:** Sheds potential future risk. Reversible. *(CAUTION: Deleting an EXIT limit leaves a position naked and should only be done if L1 is active, and must remain off until a new exit is established.)*
+3. **L3: Restart the terminal:** Forces feed reconnection and SRE OnInit rebuild. Safe/trivial when FLAT. Exercises complex reconstruction logic when LOADED.
+4. **L4: Close position(s):** Irreversible (realizes P&L). Surgical closes are preferred. Bulk-closes feed magic-0 deals into the SRE and should be reserved for genuine risk-shedding, not bug-clearing.
+5. **L5: Add a manual limit/market order:** Creates a direct conflict with Trigger A and BCC (manually adding an order WILL trigger a halt). Functionally incompatible with automated mode. The EA must remain in L1 (Algo Off, monitor-only) until the manual order is cleared.
+
+**Symptom Pairing & Triage**
+
+* **Runaway loop / Order spam:** L1 (Algo Off) -> Save Journal/Experts logs FIRST -> Do NOT restart until logs are secured (a restart wipes terminal RAM and destroys the evidence of why it looped).
+* **Quotes not appearing / Book looks wrong / Frozen state:** L1 (Algo Off) -> If FLAT, use L3 (Restart) immediately as triage. If it clears, the feed was stale. If it persists, diagnose the code.
+* **Holding unwanted risk / Margin pressure:** L1 (Algo Off) -> L4 (Surgical close).
+* **Stray/Orphaned resting order:** L1 (Algo Off) -> L2 (Delete specific order).
+
+This document has a line count of 736 lines at the bottom.
