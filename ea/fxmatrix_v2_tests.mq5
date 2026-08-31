@@ -5592,6 +5592,55 @@ void Test_SL11_FeedStaleHarness()
               V2_FeedStaleAfterTick(2000, last_tick_msc, last_seen_local, 16001, max_age));
 }
 
+void Test_STRAND1_DriftFromMidPips()
+{
+   const double point = 0.00001;
+   const double placement_mid = 1.35373;
+   const double current_mid = 1.35435;
+   AssertNear("T-STRAND-1 drift_from_mid_pips",
+              V2_StrandedDriftPipsPure(placement_mid, current_mid, point),
+              6.2, 0.05);
+}
+
+void Test_STRAND2_DistFromMidPips()
+{
+   const double point = 0.00001;
+   const double resting_price = 1.35283;
+   const double current_mid = 1.35435;
+   AssertNear("T-STRAND-2 dist_from_mid_pips",
+              V2_StrandedDistFromMidPipsPure(resting_price, current_mid, point),
+              15.2, 0.05);
+}
+
+void Test_STRAND3_StrandedFlagThreshold()
+{
+   const double thresh = 18.0;
+   AssertTrue("T-STRAND-3 drift 6.2 not stranded",
+              !V2_StrandedFlagPure(6.2, thresh));
+   AssertTrue("T-STRAND-3 drift 18.1 stranded",
+              V2_StrandedFlagPure(18.1, thresh));
+}
+
+void Test_STRAND4_RestDurationSec()
+{
+   const datetime placement_time = D'2026.08.30 12:00:00';
+   const datetime now_time = D'2026.08.30 12:05:30';
+   AssertTrue("T-STRAND-4 rest_duration_sec",
+              V2_StrandedRestDurationSecPure(now_time, placement_time) == 330);
+   AssertTrue("T-STRAND-4 zero placement_time",
+              V2_StrandedRestDurationSecPure(now_time, 0) == 0);
+}
+
+void Test_STRAND5_DriftPureExact()
+{
+   const double point = 0.00001;
+   const double mid_a = 1.10000;
+   const double mid_b = 1.10010;
+   AssertNear("T-STRAND-5 V2_StrandedDriftPipsPure exact",
+              V2_StrandedDriftPipsPure(mid_a, mid_b, point),
+              1.0, 1e-9);
+}
+
 //+------------------------------------------------------------------+
 void Test_CB_DailyFloorBoundary()
 {
@@ -6012,6 +6061,11 @@ void OnStart()
    Test_SL15_FeedStaleBlocksBothLegs();
    Test_SL10_FeedStaleElapsed();
    Test_SL11_FeedStaleHarness();
+   Test_STRAND1_DriftFromMidPips();
+   Test_STRAND2_DistFromMidPips();
+   Test_STRAND3_StrandedFlagThreshold();
+   Test_STRAND4_RestDurationSec();
+   Test_STRAND5_DriftPureExact();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();

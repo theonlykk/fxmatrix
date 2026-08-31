@@ -88,6 +88,77 @@ bool V2_IsFeedStale(const string symbol, const ulong max_age_ms)
 }
 
 //+------------------------------------------------------------------+
+void V2_EmitStrandedTelemLong()
+{
+   if(InpEntryMode != ENTRY_STRADDLE)
+      return;
+
+   const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   const double current_mid = V2_DumbStraddleMid(bid, ask);
+   const bool has_l0 = (g_long_l0_ticket != 0 &&
+                        Long_IsOurOrderTicket(g_long_l0_ticket, g_preset.magic_long));
+
+   double drift_from_mid_pips = 0.0;
+   double dist_from_mid_pips = 0.0;
+   long rest_duration_sec = 0;
+   bool stranded = false;
+   const double placement_mid = g_long_l0_placement_mid;
+
+   if(has_l0) {
+      drift_from_mid_pips = V2_StrandedDriftPipsPure(placement_mid, current_mid, _Point);
+      const double resting_price = V2_GetPendingOrderPrice(g_long_l0_ticket);
+      if(resting_price > 0.0)
+         dist_from_mid_pips = V2_StrandedDistFromMidPipsPure(resting_price, current_mid, _Point);
+      rest_duration_sec = V2_StrandedRestDurationSecPure(TimeCurrent(), g_long_l0_placement_time);
+      stranded = V2_StrandedFlagPure(drift_from_mid_pips, InpStrandedThreshPips);
+   }
+
+   Print("STRANDED_TELEM_LONG | resting=", (has_l0 ? 1 : 0),
+         " drift_mid_pips=", DoubleToString(drift_from_mid_pips, 1),
+         " dist_mid_pips=", DoubleToString(dist_from_mid_pips, 1),
+         " rest_sec=", rest_duration_sec,
+         " stranded=", (stranded ? 1 : 0),
+         " placement_mid=", DoubleToString(placement_mid, 5),
+         " current_mid=", DoubleToString(current_mid, 5));
+}
+
+void V2_EmitStrandedTelemShort()
+{
+   if(InpEntryMode != ENTRY_STRADDLE)
+      return;
+
+   const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   const double current_mid = V2_DumbStraddleMid(bid, ask);
+   const bool has_l0 = (g_short_l0_ticket != 0 &&
+                        Short_IsOurOrderTicket(g_short_l0_ticket, g_preset.magic_short));
+
+   double drift_from_mid_pips = 0.0;
+   double dist_from_mid_pips = 0.0;
+   long rest_duration_sec = 0;
+   bool stranded = false;
+   const double placement_mid = g_short_l0_placement_mid;
+
+   if(has_l0) {
+      drift_from_mid_pips = V2_StrandedDriftPipsPure(placement_mid, current_mid, _Point);
+      const double resting_price = V2_GetPendingOrderPrice(g_short_l0_ticket);
+      if(resting_price > 0.0)
+         dist_from_mid_pips = V2_StrandedDistFromMidPipsPure(resting_price, current_mid, _Point);
+      rest_duration_sec = V2_StrandedRestDurationSecPure(TimeCurrent(), g_short_l0_placement_time);
+      stranded = V2_StrandedFlagPure(drift_from_mid_pips, InpStrandedThreshPips);
+   }
+
+   Print("STRANDED_TELEM_SHORT | resting=", (has_l0 ? 1 : 0),
+         " drift_mid_pips=", DoubleToString(drift_from_mid_pips, 1),
+         " dist_mid_pips=", DoubleToString(dist_from_mid_pips, 1),
+         " rest_sec=", rest_duration_sec,
+         " stranded=", (stranded ? 1 : 0),
+         " placement_mid=", DoubleToString(placement_mid, 5),
+         " current_mid=", DoubleToString(current_mid, 5));
+}
+
+//+------------------------------------------------------------------+
 void V2_StraddleL0OnTick()
 {
    if(InpEntryMode != ENTRY_STRADDLE)
@@ -113,9 +184,13 @@ void V2_StraddleL0OnTick()
       if(V2_StraddleL0BuyMarketable(buy_lvl, ask_now)) {          // placeable: buy < ask
          g_v2_inst_api_tag = g_preset.tel_instance_long;
          g_long_l0_ticket = Long_PlaceBuyLimit(buy_lvl, g_preset.magic_long, "V2_L0");
-         if(InpVerboseLog && g_long_l0_ticket > 0)
-            Print("DIAG V2_LONG | event=straddle_l0 | mid=", DoubleToString(mid,5),
-                  " buy_lvl=", DoubleToString(buy_lvl,5));
+         if(g_long_l0_ticket > 0) {
+            g_long_l0_placement_mid = mid;
+            g_long_l0_placement_time = TimeCurrent();
+            if(InpVerboseLog)
+               Print("DIAG V2_LONG | event=straddle_l0 | mid=", DoubleToString(mid,5),
+                     " buy_lvl=", DoubleToString(buy_lvl,5));
+         }
       } else if(InpVerboseLog) {
          Print("DIAG V2_LONG | event=straddle_l0_marketability_skip | buy_lvl=",
                DoubleToString(buy_lvl,5), " ask=", DoubleToString(ask_now,5));
@@ -131,9 +206,13 @@ void V2_StraddleL0OnTick()
       if(V2_StraddleL0SellMarketable(sell_lvl, bid_now)) {        // placeable: sell > bid
          g_v2_inst_api_tag = g_preset.tel_instance_short;
          g_short_l0_ticket = Short_PlaceSellLimit(sell_lvl, g_preset.magic_short, "V2_L0");
-         if(InpVerboseLog && g_short_l0_ticket > 0)
-            Print("DIAG V2_SHORT | event=straddle_l0 | mid=", DoubleToString(mid,5),
-                  " sell_lvl=", DoubleToString(sell_lvl,5));
+         if(g_short_l0_ticket > 0) {
+            g_short_l0_placement_mid = mid;
+            g_short_l0_placement_time = TimeCurrent();
+            if(InpVerboseLog)
+               Print("DIAG V2_SHORT | event=straddle_l0 | mid=", DoubleToString(mid,5),
+                     " sell_lvl=", DoubleToString(sell_lvl,5));
+         }
       } else if(InpVerboseLog) {
          Print("DIAG V2_SHORT | event=straddle_l0_marketability_skip | sell_lvl=",
                DoubleToString(sell_lvl,5), " bid=", DoubleToString(bid_now,5));
@@ -160,6 +239,8 @@ double   g_long_last_exit_price;
 bool     g_long_last_exit_valid;
 double   g_long_current_add_pips;
 ulong    g_long_l0_ticket;
+double   g_long_l0_placement_mid = 0.0;
+datetime g_long_l0_placement_time = 0;
 ulong    g_long_add_ticket;
 datetime g_long_last_bar_time;
 bool     g_long_halted = false;
@@ -551,6 +632,7 @@ void Long_OnNewBar() {
    }
 
    Long_EnsureAddNext();
+   V2_EmitStrandedTelemLong();
 }
 
 void Long_AppendLayer(const double entry_price, const ulong entry_ticket,
@@ -696,8 +778,11 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    if (is_long_entry) {
       bool is_reload = g_long_last_exit_valid;
-      if (order_ticket == g_long_l0_ticket)
+      if (order_ticket == g_long_l0_ticket) {
          g_long_l0_ticket = 0;
+         g_long_l0_placement_mid = 0.0;
+         g_long_l0_placement_time = 0;
+      }
       if (order_ticket == g_long_add_ticket)
          g_long_add_ticket = 0;
       if (ArraySize(g_long_layers) == 0)
@@ -1041,6 +1126,8 @@ double   g_short_last_exit_price;
 bool     g_short_last_exit_valid;
 double   g_short_current_add_pips;
 ulong    g_short_l0_ticket;
+double   g_short_l0_placement_mid = 0.0;
+datetime g_short_l0_placement_time = 0;
 ulong    g_short_add_ticket;
 datetime g_short_last_bar_time;
 bool     g_short_halted = false;
@@ -1426,6 +1513,7 @@ void Short_OnNewBar() {
    }
 
    Short_EnsureAddNext();
+   V2_EmitStrandedTelemShort();
 }
 
 void Short_AppendLayer(const double entry_price, const ulong entry_ticket,
@@ -1565,8 +1653,11 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
 
    if (is_short_entry) {
       bool is_reload = g_short_last_exit_valid;
-      if (order_ticket == g_short_l0_ticket)
+      if (order_ticket == g_short_l0_ticket) {
          g_short_l0_ticket = 0;
+         g_short_l0_placement_mid = 0.0;
+         g_short_l0_placement_time = 0;
+      }
       if (order_ticket == g_short_add_ticket)
          g_short_add_ticket = 0;
       if (ArraySize(g_short_layers) == 0)

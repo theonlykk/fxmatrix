@@ -114,4 +114,32 @@ bool V2_StraddleL0TickAllowsAction(const bool feed_stale,
    return (long_flat || short_flat);
 }
 
+double V2_StrandedDriftPipsPure(const double placement_mid,
+                                const double current_mid,
+                                const double point)
+{
+   return MathAbs(current_mid - placement_mid) / (point * 10.0);
+}
+
+double V2_StrandedDistFromMidPipsPure(const double resting_price,
+                                      const double current_mid,
+                                      const double point)
+{
+   return MathAbs(resting_price - current_mid) / (point * 10.0);
+}
+
+bool V2_StrandedFlagPure(const double drift_from_mid_pips,
+                         const double thresh_pips)
+{
+   return (drift_from_mid_pips > thresh_pips);
+}
+
+long V2_StrandedRestDurationSecPure(const datetime now_time,
+                                    const datetime placement_time)
+{
+   if(placement_time <= 0)
+      return 0;
+   return (long)(now_time - placement_time);
+}
+
 #endif // FXMATRIX_V2_ENTRY_AB_MQH
