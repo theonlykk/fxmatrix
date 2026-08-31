@@ -791,6 +791,7 @@ void Long_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       if (InpVerboseLog)
          Print("DIAG V2_LONG | event=entry_filled | price=", DoubleToString(deal_price, 5),
                " reload=", is_reload, " layers=", ArraySize(g_long_layers));
+      V2_DumbTryRecenterOppositeShortL0();
       return;
    }
 
@@ -1385,6 +1386,82 @@ bool Short_ReplacePendingSell(ulong &ticket_ref, const double price, const ulong
    return false;
 }
 
+void V2_DumbTryRecenterOppositeShortL0()
+{
+   if(InpEntryMode != ENTRY_STRADDLE)
+      return;
+   if(ArraySize(g_short_layers) != 0)
+      return;
+   if(g_short_l0_ticket == 0 ||
+      !Short_IsOurOrderTicket(g_short_l0_ticket, g_preset.magic_short))
+      return;
+
+   const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   const double current_mid = V2_DumbStraddleMid(bid, ask);
+   const double resting_price = V2_GetPendingOrderPrice(g_short_l0_ticket);
+   if(resting_price <= 0.0)
+      return;
+
+   const double dist_mid_pips = V2_StrandedDistFromMidPipsPure(resting_price, current_mid, _Point);
+   if(!V2_DumbShouldRecenterPure(dist_mid_pips, InpStrandedThreshPips))
+      return;
+
+   double sell_theo = V2_DumbStraddleSellPrice(current_mid, InpDumbStraddlePips, _Point);
+   double sell_lvl;
+   Short_Adr013ClampSell(sell_theo, sell_lvl);
+   if(!V2_StraddleL0SellMarketable(sell_lvl, bid))
+      return;
+
+   g_v2_inst_api_tag = g_preset.tel_instance_short;
+   if(Short_ReplacePendingSell(g_short_l0_ticket, sell_lvl, g_preset.magic_short, "V2_L0_RECENTER")) {
+      g_short_l0_placement_mid = current_mid;
+      g_short_l0_placement_time = TimeCurrent();
+      if(InpVerboseLog)
+         Print("DIAG V2_SHORT | event=l0_recenter | mid=", DoubleToString(current_mid, 5),
+               " sell_lvl=", DoubleToString(sell_lvl, 5),
+               " dist_mid_pips=", DoubleToString(dist_mid_pips, 1));
+   }
+}
+
+void V2_DumbTryRecenterOppositeLongL0()
+{
+   if(InpEntryMode != ENTRY_STRADDLE)
+      return;
+   if(ArraySize(g_long_layers) != 0)
+      return;
+   if(g_long_l0_ticket == 0 ||
+      !Long_IsOurOrderTicket(g_long_l0_ticket, g_preset.magic_long))
+      return;
+
+   const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   const double current_mid = V2_DumbStraddleMid(bid, ask);
+   const double resting_price = V2_GetPendingOrderPrice(g_long_l0_ticket);
+   if(resting_price <= 0.0)
+      return;
+
+   const double dist_mid_pips = V2_StrandedDistFromMidPipsPure(resting_price, current_mid, _Point);
+   if(!V2_DumbShouldRecenterPure(dist_mid_pips, InpStrandedThreshPips))
+      return;
+
+   double buy_theo = V2_DumbStraddleBuyPrice(current_mid, InpDumbStraddlePips, _Point);
+   double buy_lvl;
+   Long_Adr013ClampBuy(buy_theo, buy_lvl);
+   if(!V2_StraddleL0BuyMarketable(buy_lvl, ask))
+      return;
+
+   g_v2_inst_api_tag = g_preset.tel_instance_long;
+   if(Long_ReplacePendingBuy(g_long_l0_ticket, buy_lvl, g_preset.magic_long, "V2_L0_RECENTER")) {
+      g_long_l0_placement_mid = current_mid;
+      g_long_l0_placement_time = TimeCurrent();
+      if(InpVerboseLog)
+         Print("DIAG V2_LONG | event=l0_recenter | mid=", DoubleToString(current_mid, 5),
+               " buy_lvl=", DoubleToString(buy_lvl, 5),
+               " dist_mid_pips=", DoubleToString(dist_mid_pips, 1));
+   }
+}
+
 void Short_PlaceExitForLayer(const int layer_idx, const bool immediate) {
    if (layer_idx < 0 || layer_idx >= ArraySize(g_short_layers))
       return;
@@ -1666,6 +1743,7 @@ void Short_HandleDealFill(const ulong deal_ticket, const ulong position_ref) {
       if (InpVerboseLog)
          Print("DIAG V2_SHORT | event=entry_filled | price=", DoubleToString(deal_price, 5),
                " reload=", is_reload, " layers=", ArraySize(g_short_layers));
+      V2_DumbTryRecenterOppositeLongL0();
       return;
    }
 

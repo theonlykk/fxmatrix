@@ -142,4 +142,25 @@ long V2_StrandedRestDurationSecPure(const datetime now_time,
    return (long)(now_time - placement_time);
 }
 
+bool V2_DumbShouldRecenterPure(const double dist_mid_pips,
+                               const double thresh_pips)
+{
+   return (dist_mid_pips > thresh_pips);
+}
+
+bool V2_DumbRecenterEligiblePure(const bool entry_straddle,
+                                 const bool opposite_flat,
+                                 const bool opposite_has_l0,
+                                 const double dist_mid_pips,
+                                 const double thresh_pips)
+{
+   if(!entry_straddle)
+      return false;
+   if(!opposite_flat)
+      return false;
+   if(!opposite_has_l0)
+      return false;
+   return V2_DumbShouldRecenterPure(dist_mid_pips, thresh_pips);
+}
+
 #endif // FXMATRIX_V2_ENTRY_AB_MQH

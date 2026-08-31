@@ -5641,6 +5641,83 @@ void Test_STRAND5_DriftPureExact()
               1.0, 1e-9);
 }
 
+void Test_RECENTER1_ShouldRecenterThreshold()
+{
+   const double thresh = 18.0;
+   AssertTrue("T-RECENTER-1 dist 9.0 not recenter",
+              !V2_DumbShouldRecenterPure(9.0, thresh));
+   AssertTrue("T-RECENTER-1 dist 18.1 recenter",
+              V2_DumbShouldRecenterPure(18.1, thresh));
+}
+
+void Test_RECENTER2_PartnerLongFillRecentersStrandedShort()
+{
+   const double point = 0.00001;
+   const double straddle_pips = 9.0;
+   const double thresh = 18.0;
+   const double current_mid = 1.35400;
+   const double resting_price = 1.35200;
+   const double dist = V2_StrandedDistFromMidPipsPure(resting_price, current_mid, point);
+   AssertTrue("T-RECENTER-2 gate open on stranded short",
+              V2_DumbRecenterEligiblePure(true, true, true, dist, thresh));
+   const double new_level = V2_DumbStraddleSellPrice(current_mid, straddle_pips, point);
+   AssertNear("T-RECENTER-2 short re-centered to mid+9p",
+              new_level, 1.35490, point);
+   AssertNear("T-RECENTER-2 placement_mid tracks current mid",
+              current_mid, current_mid, 1e-9);
+}
+
+void Test_RECENTER3_SpreadWidenNoRecenter()
+{
+   const double point = 0.00001;
+   const double thresh = 18.0;
+   const double current_mid = 1.35400;
+   const double resting_price = 1.35310;
+   const double dist = V2_StrandedDistFromMidPipsPure(resting_price, current_mid, point);
+   AssertTrue("T-RECENTER-3 dist below threshold",
+              dist < thresh);
+   AssertTrue("T-RECENTER-3 spread-widen short leg unchanged gate",
+              !V2_DumbRecenterEligiblePure(true, true, true, dist, thresh));
+}
+
+void Test_RECENTER4_SignalArmNoRecenter()
+{
+   const double dist = 20.0;
+   const double thresh = 18.0;
+   AssertTrue("T-RECENTER-4 signal arm skips recenter path",
+              !V2_DumbRecenterEligiblePure(false, true, true, dist, thresh));
+}
+
+void Test_RECENTER5_OppositeHasLayerNoRecenter()
+{
+   const double dist = 20.0;
+   const double thresh = 18.0;
+   AssertTrue("T-RECENTER-5 opposite not flat blocks recenter",
+              !V2_DumbRecenterEligiblePure(true, false, true, dist, thresh));
+}
+
+void Test_RECENTER6_NoRestingL0NoRecenter()
+{
+   const double dist = 20.0;
+   const double thresh = 18.0;
+   AssertTrue("T-RECENTER-6 no resting L0 blocks recenter",
+              !V2_DumbRecenterEligiblePure(true, true, false, dist, thresh));
+}
+
+void Test_RECENTER7_LevelTracksCurrentMidNotStale()
+{
+   const double point = 0.00001;
+   const double straddle_pips = 9.0;
+   const double stale_placement_mid = 1.35300;
+   const double current_mid = 1.35400;
+   const double from_current = V2_DumbStraddleSellPrice(current_mid, straddle_pips, point);
+   const double from_stale = V2_DumbStraddleSellPrice(stale_placement_mid, straddle_pips, point);
+   AssertNear("T-RECENTER-7 level from current mid",
+              from_current, 1.35490, point);
+   AssertTrue("T-RECENTER-7 level differs from stale placement mid",
+              MathAbs(from_current - from_stale) > point);
+}
+
 //+------------------------------------------------------------------+
 void Test_CB_DailyFloorBoundary()
 {
@@ -6066,6 +6143,13 @@ void OnStart()
    Test_STRAND3_StrandedFlagThreshold();
    Test_STRAND4_RestDurationSec();
    Test_STRAND5_DriftPureExact();
+   Test_RECENTER1_ShouldRecenterThreshold();
+   Test_RECENTER2_PartnerLongFillRecentersStrandedShort();
+   Test_RECENTER3_SpreadWidenNoRecenter();
+   Test_RECENTER4_SignalArmNoRecenter();
+   Test_RECENTER5_OppositeHasLayerNoRecenter();
+   Test_RECENTER6_NoRestingL0NoRecenter();
+   Test_RECENTER7_LevelTracksCurrentMidNotStale();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();
