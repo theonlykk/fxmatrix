@@ -10,7 +10,9 @@
 #include "fxmatrix_v2_eur_cap.mqh"
 
 input double InpQuoteSpread       = 0.0004;
-input double InpL0DeadbandMult    = 1.0;   // ADR-017: 1.0=V1 parity; 2.0/3.0=wider L0 skip band
+input double InpL0DeadbandPips    = 4.0;   // FTMO hotfix: absolute-pip L0 re-quote skip band (signal arm)
+input int    InpL0RequoteCooldownSec = 60; // FTMO hotfix: min resting order age before signal re-quote
+input double InpL0DeadbandMult    = 1.0;   // compile-compat no-op (superseded by InpL0DeadbandPips)
 input bool   InpL0DeadbandVolScale = true;  // scale band by preset ref vs GBPUSD (0.64)
 input double InpSpreadMultiplier  = 0.500;
 input int    InpEaseDepthStart      = 1;

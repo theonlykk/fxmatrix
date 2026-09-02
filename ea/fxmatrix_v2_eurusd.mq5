@@ -24,8 +24,9 @@
 #include "fxmatrix_v2_sre_oninit.mqh"
 
 input double InpQuoteSpread       = 0.0004;
-input double InpL0DeadbandMult    = 1.0;   // ADR-017: 1.0=V1 parity; 2.0/3.0=wider L0 skip band
-input bool   InpL0DeadbandVolScale = true;  // scale band by V2_PAIR_SPREAD_PIPS_REF vs GBPUSD (0.64)
+input double InpL0DeadbandPips    = 4.0;   // absolute-pip L0 re-quote skip band
+input double InpL0DeadbandMult    = 1.0;   // compile-compat no-op (superseded by InpL0DeadbandPips)
+input bool   InpL0DeadbandVolScale = true;  // compile-compat no-op
 input double InpSpreadMultiplier  = 0.500;
 input int    InpEaseDepthStart      = 1;
 input int    InpEaseDepthFull       = 4;
@@ -261,7 +262,7 @@ double Long_ComputeAddTarget() {
 }
 
 bool Long_ReplacePendingBuy(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
-   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, EurUsd_L0DeadbandSpreadRef())) {
+   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpL0DeadbandPips)) {
       g_long_stat_l0_deadband_skip++;
       return false;
    }
@@ -390,8 +391,7 @@ void Long_OnNewBar() {
       if(InpVerboseLog && ArraySize(g_short_layers) > InpEaseDepthStart) {
          const double resting_price = V2_GetPendingOrderPrice(g_long_l0_ticket);
          const bool deadband_skip = V2_L0RestingWithinDeadband(g_long_l0_ticket, bid_lvl,
-                                                               InpQuoteSpread, InpL0DeadbandMult,
-                                                               EurUsd_L0DeadbandSpreadRef());
+                                                               InpL0DeadbandPips);
          const double gap_pips = (resting_price > 0.0)
             ? MathAbs(bid_theoretical - resting_price) / (_Point * 10.0)
             : 0.0;
@@ -1053,7 +1053,7 @@ double Short_ComputeAddTarget() {
 }
 
 bool Short_ReplacePendingSell(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
-   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, EurUsd_L0DeadbandSpreadRef())) {
+   if(V2_L0RestingWithinDeadband(ticket_ref, price, InpL0DeadbandPips)) {
       g_short_stat_l0_deadband_skip++;
       return false;
    }
@@ -1182,8 +1182,7 @@ void Short_OnNewBar() {
       if(InpVerboseLog && ArraySize(g_long_layers) > InpEaseDepthStart) {
          const double resting_price = V2_GetPendingOrderPrice(g_short_l0_ticket);
          const bool deadband_skip = V2_L0RestingWithinDeadband(g_short_l0_ticket, offer_lvl,
-                                                               InpQuoteSpread, InpL0DeadbandMult,
-                                                               EurUsd_L0DeadbandSpreadRef());
+                                                               InpL0DeadbandPips);
          const double gap_pips = (resting_price > 0.0)
             ? MathAbs(offer_theoretical - resting_price) / (_Point * 10.0)
             : 0.0;

@@ -495,20 +495,35 @@ int V2TestCloseByQueueSize(const V2CloseByTask &queue[])
 }
 
 //+------------------------------------------------------------------+
-//| ADR-017 flat L0 spatial deadband (V1 FXMatrix.mq5 parity).        |
-//| QuoteSpread * 0.25 - 0.5 * _Point — L0 requote only, not add/reload.|
-//| Optional pair_spread_pips_ref scales width vs GBPUSD anchor (0.64). |
+//| FTMO hotfix: explicit absolute-pip L0 re-quote deadband (signal). |
+//| band = deadband_pips * _Point * 10.0 (5-digit majors).           |
 //+------------------------------------------------------------------+
-#define V2_L0_DEADBAND_VOL_REF_PIPS 0.64
-
-double V2_L0RequoteDeadband(const double quote_spread,
-                            const double multiplier = 1.0,
-                            const double pair_spread_pips_ref = 0.0)
+double V2_L0RequoteDeadband(const double deadband_pips)
 {
-   double db = multiplier * (quote_spread * 0.25 - 0.5 * _Point);
-   if(pair_spread_pips_ref > 0.0)
-      db *= (pair_spread_pips_ref / V2_L0_DEADBAND_VOL_REF_PIPS);
-   return db;
+   return deadband_pips * _Point * 10.0;
+}
+
+bool V2_L0PriceWithinDeadbandPure(const double current_price,
+                                  const double new_price,
+                                  const double deadband_pips,
+                                  const double point)
+{
+   const double deadband = deadband_pips * point * 10.0;
+   return (MathAbs(new_price - current_price) < deadband);
+}
+
+bool V2_L0RequoteTtlBlocksPure(const datetime now,
+                               const datetime setup_time,
+                               const int cooldown_sec)
+{
+   if(setup_time <= 0)
+      return false;
+   return ((int)(now - setup_time) < cooldown_sec);
+}
+
+bool V2_L0RequoteSignalGuardsApplyPure(const bool is_signal_arm)
+{
+   return is_signal_arm;
 }
 
 double V2_GetPendingOrderPrice(const ulong ticket)
@@ -520,17 +535,27 @@ double V2_GetPendingOrderPrice(const ulong ticket)
 
 bool V2_L0RestingWithinDeadband(const ulong resting_ticket,
                                 const double new_price,
-                                const double quote_spread,
-                                const double multiplier = 1.0,
-                                const double pair_spread_pips_ref = 0.0)
+                                const double deadband_pips)
 {
    if(resting_ticket == 0)
       return false;
    const double current = V2_GetPendingOrderPrice(resting_ticket);
    if(current <= 0.0)
       return false;
-   const double deadband = V2_L0RequoteDeadband(quote_spread, multiplier, pair_spread_pips_ref);
+   const double deadband = V2_L0RequoteDeadband(deadband_pips);
    return (MathAbs(new_price - current) < deadband);
+}
+
+bool V2_L0RequoteTtlBlocks(const ulong resting_ticket,
+                           const datetime now,
+                           const int cooldown_sec)
+{
+   if(resting_ticket == 0)
+      return false;
+   if(!OrderSelect(resting_ticket))
+      return false;
+   const datetime setup = (datetime)OrderGetInteger(ORDER_TIME_SETUP);
+   return V2_L0RequoteTtlBlocksPure(now, setup, cooldown_sec);
 }
 
 #endif // FXMATRIX_V2_LOGIC_MQH

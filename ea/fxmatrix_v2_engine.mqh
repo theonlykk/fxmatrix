@@ -24,12 +24,6 @@
 long     g_last_feed_tick_msc = 0;
 ulong    g_last_feed_seen_local = 0;
 string   g_v2_inst_api_tag = "";
-double V2_EngineDeadbandSpreadRef()
-{
-   if(!g_preset.l0_deadband_vol_scale_enabled)
-      return 0.0;
-   return InpL0DeadbandVolScale ? g_preset.l0_deadband_spread_ref_pips : 0.0;
-}
 
 //+------------------------------------------------------------------+
 V2L0SignalContext V2_EngineBuildLongL0Context()
@@ -252,6 +246,7 @@ V2BccSideRuntime g_long_bcc;
 int g_long_stat_l0_entries;
 int g_long_stat_l0_requote;
 int g_long_stat_l0_deadband_skip;
+int g_long_stat_l0_ttl_skip;
 int g_long_stat_add_entries;
 int g_long_stat_reload_entries;
 int g_long_stat_exits;
@@ -490,10 +485,15 @@ double Long_ComputeAddTarget() {
 }
 
 bool Long_ReplacePendingBuy(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
-   if(InpEntryMode == ENTRY_SIGNAL &&
-      V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef())) {
-      g_long_stat_l0_deadband_skip++;
-      return false;
+   if(InpEntryMode == ENTRY_SIGNAL) {
+      if(V2_L0RestingWithinDeadband(ticket_ref, price, InpL0DeadbandPips)) {
+         g_long_stat_l0_deadband_skip++;
+         return false;
+      }
+      if(V2_L0RequoteTtlBlocks(ticket_ref, TimeCurrent(), InpL0RequoteCooldownSec)) {
+         g_long_stat_l0_ttl_skip++;
+         return false;
+      }
    }
    Long_CancelTicket(ticket_ref);
    ticket_ref = Long_PlaceBuyLimit(price, magic, comment);
@@ -617,7 +617,7 @@ void Long_OnNewBar() {
       g_long_last_exit_valid = false;
       if(InpVerboseLog && ArraySize(g_short_layers) > InpEaseDepthStart) {
          const double resting_price = V2_GetPendingOrderPrice(g_long_l0_ticket);
-         const bool deadband_skip = V2_L0RestingWithinDeadband(g_long_l0_ticket, bid_lvl, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef());
+         const bool deadband_skip = V2_L0RestingWithinDeadband(g_long_l0_ticket, bid_lvl, InpL0DeadbandPips);
          const double gap_pips = (resting_price > 0.0)
             ? MathAbs(bid_theoretical - resting_price) / (_Point * 10.0)
             : 0.0;
@@ -986,6 +986,7 @@ void Long_OnDeinit(const int reason) {
    Print("V2_STATS_LONG | l0=", g_long_stat_l0_entries,
          " l0_requote=", g_long_stat_l0_requote,
          " l0_deadband_skip=", g_long_stat_l0_deadband_skip,
+         " l0_ttl_skip=", g_long_stat_l0_ttl_skip,
          " add=", g_long_stat_add_entries,
          " reload=", g_long_stat_reload_entries,
          " exits=", g_long_stat_exits,
@@ -1141,6 +1142,7 @@ datetime         g_v2_bcc_last_tier3 = 0;
 int g_short_stat_l0_entries;
 int g_short_stat_l0_requote;
 int g_short_stat_l0_deadband_skip;
+int g_short_stat_l0_ttl_skip;
 int g_short_stat_add_entries;
 int g_short_stat_reload_entries;
 int g_short_stat_exits;
@@ -1372,10 +1374,15 @@ double Short_ComputeAddTarget() {
 }
 
 bool Short_ReplacePendingSell(ulong &ticket_ref, const double price, const ulong magic, const string comment) {
-   if(InpEntryMode == ENTRY_SIGNAL &&
-      V2_L0RestingWithinDeadband(ticket_ref, price, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef())) {
-      g_short_stat_l0_deadband_skip++;
-      return false;
+   if(InpEntryMode == ENTRY_SIGNAL) {
+      if(V2_L0RestingWithinDeadband(ticket_ref, price, InpL0DeadbandPips)) {
+         g_short_stat_l0_deadband_skip++;
+         return false;
+      }
+      if(V2_L0RequoteTtlBlocks(ticket_ref, TimeCurrent(), InpL0RequoteCooldownSec)) {
+         g_short_stat_l0_ttl_skip++;
+         return false;
+      }
    }
    Short_CancelTicket(ticket_ref);
    ticket_ref = Short_PlaceSellLimit(price, magic, comment);
@@ -1575,7 +1582,7 @@ void Short_OnNewBar() {
       g_short_last_exit_valid = false;
       if(InpVerboseLog && ArraySize(g_long_layers) > InpEaseDepthStart) {
          const double resting_price = V2_GetPendingOrderPrice(g_short_l0_ticket);
-         const bool deadband_skip = V2_L0RestingWithinDeadband(g_short_l0_ticket, offer_lvl, InpQuoteSpread, InpL0DeadbandMult, V2_EngineDeadbandSpreadRef());
+         const bool deadband_skip = V2_L0RestingWithinDeadband(g_short_l0_ticket, offer_lvl, InpL0DeadbandPips);
          const double gap_pips = (resting_price > 0.0)
             ? MathAbs(offer_theoretical - resting_price) / (_Point * 10.0)
             : 0.0;
@@ -1857,6 +1864,7 @@ void Short_OnDeinit(const int reason) {
    Print("V2_STATS_SHORT | l0=", g_short_stat_l0_entries,
          " l0_requote=", g_short_stat_l0_requote,
          " l0_deadband_skip=", g_short_stat_l0_deadband_skip,
+         " l0_ttl_skip=", g_short_stat_l0_ttl_skip,
          " add=", g_short_stat_add_entries,
          " reload=", g_short_stat_reload_entries,
          " exits=", g_short_stat_exits,

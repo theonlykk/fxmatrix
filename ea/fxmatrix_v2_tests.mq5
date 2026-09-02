@@ -5718,6 +5718,70 @@ void Test_RECENTER7_LevelTracksCurrentMidNotStale()
               MathAbs(from_current - from_stale) > point);
 }
 
+void Test_DB1_AbsolutePipDeadbandMagnitude()
+{
+   const double point = 0.00001;
+   const double base = 1.25000;
+   const double deadband_pips = 4.0;
+   AssertNear("T-DB-1 band equals InpL0DeadbandPips pips",
+              V2_L0RequoteDeadband(deadband_pips), deadband_pips * point * 10.0, 1e-12);
+   AssertTrue("T-DB-1 3.9 pip move within (skip)",
+              V2_L0PriceWithinDeadbandPure(base, base - 3.9 * point * 10.0, deadband_pips, point));
+   AssertTrue("T-DB-1 4.1 pip move not within (re-quote)",
+              !V2_L0PriceWithinDeadbandPure(base, base - 4.1 * point * 10.0, deadband_pips, point));
+}
+
+void Test_DB2_SpreadNoiseMovesNowSkip()
+{
+   const double point = 0.00001;
+   const double base = 1.25000;
+   const double deadband_pips = 4.0;
+   const double moves[3] = {0.62, 0.79, 1.75};
+   for(int i = 0; i < 3; i++) {
+      const double delta = moves[i] * point * 10.0;
+      AssertTrue("T-DB-2 " + DoubleToString(moves[i], 2) + " pip move skips",
+                 V2_L0PriceWithinDeadbandPure(base, base - delta, deadband_pips, point));
+   }
+   const double quote = 0.0004;
+   const double old_band = quote * 0.25 - 0.5 * point;
+   AssertTrue("T-DB-2 old x0.25 magnitude gone",
+              MathAbs(V2_L0RequoteDeadband(deadband_pips) - old_band) > point);
+}
+
+void Test_TTL1_YoungOrderBlocks()
+{
+   const datetime setup = D'2026.09.02 12:00:00';
+   const datetime now = D'2026.09.02 12:00:30';
+   AssertTrue("T-TTL-1 resting order age < 60s blocks re-quote",
+              V2_L0RequoteTtlBlocksPure(now, setup, 60));
+}
+
+void Test_TTL2_OldOrderProceeds()
+{
+   const datetime setup = D'2026.09.02 12:00:00';
+   const datetime now = D'2026.09.02 12:01:30';
+   const double point = 0.00001;
+   AssertTrue("T-TTL-2 resting order age >= 60s TTL clear",
+              !V2_L0RequoteTtlBlocksPure(now, setup, 60));
+   AssertTrue("T-TTL-2 outside deadband move not within",
+              !V2_L0PriceWithinDeadbandPure(1.25000, 1.24950, 4.0, point));
+}
+
+void Test_TTL3_SignalOnlyGuards()
+{
+   AssertTrue("T-TTL-3 signal arm applies guards",
+              V2_L0RequoteSignalGuardsApplyPure(true));
+   AssertTrue("T-TTL-3 straddle arm skips guards",
+              !V2_L0RequoteSignalGuardsApplyPure(false));
+}
+
+void Test_TTL4_UnreadableSetupTimeNoBlock()
+{
+   const datetime now = D'2026.09.02 12:01:00';
+   AssertTrue("T-TTL-4 zero setup_time does not block",
+              !V2_L0RequoteTtlBlocksPure(now, 0, 60));
+}
+
 //+------------------------------------------------------------------+
 void Test_CB_DailyFloorBoundary()
 {
@@ -6150,6 +6214,12 @@ void OnStart()
    Test_RECENTER5_OppositeHasLayerNoRecenter();
    Test_RECENTER6_NoRestingL0NoRecenter();
    Test_RECENTER7_LevelTracksCurrentMidNotStale();
+   Test_DB1_AbsolutePipDeadbandMagnitude();
+   Test_DB2_SpreadNoiseMovesNowSkip();
+   Test_TTL1_YoungOrderBlocks();
+   Test_TTL2_OldOrderProceeds();
+   Test_TTL3_SignalOnlyGuards();
+   Test_TTL4_UnreadableSetupTimeNoBlock();
    Test_CB_DailyFloorBoundary();
    Test_CB_AbsoluteFloorBoundary();
    Test_CB_ReanchorTrapUsesPersistedAnchor();
