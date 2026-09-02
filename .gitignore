@@ -46,3 +46,8 @@ temp/
 /diff_sre.txt
 /unit_tests.md
 /*_handoff_*.md
+
+# root-level runtime logs (missed by logs/ and ea/*.log)
+/*.log
+/*_journal.log
+json-backup/
