@@ -1,1 +1,48 @@
 venv/
+# compiled MT5 artifacts (never track; regenerated every compile)
+*.ex5
+ea/*.log
+ea/compile*.log
+
+# python / jupyter scratch
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+*.ipynb
+
+# generated data & runtime logs
+data/
+logs/
+temp/*.csv
+temp/*.png
+temp/*.PNG
+temp/*.html
+temp/*.log
+temp/*.json
+temp/*.parquet
+
+# root-level scratch
+/*.csv
+/*.png
+/*.PNG
+/*.jpg
+/*.docx
+/commit_msg*.txt
+/Untitled*.ipynb
+/Capture*.PNG
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# temp scratch (tracked temp/*.py stay tracked; this hides everything else)
+temp/
+
+# loose root scratch
+/verify_*.ps1
+/check_redis.py
+/diff_sre.txt
+/unit_tests.md
+/*_handoff_*.md
