@@ -13,7 +13,9 @@ Usage:
   python scripts/run_width_exit_sweep.py --test-wiring
   python scripts/run_width_exit_sweep.py --smoke-test
   python scripts/run_width_exit_sweep.py --preview --workers 6   # full grid, all windows, n=50
+  python scripts/run_width_exit_sweep.py --fast-shape --workers 6  # coarse shape-read <1h
   python scripts/run_width_exit_sweep.py --n-seeds 500 --workers 6 --runtag my_run
+  python scripts/run_width_exit_sweep.py --check-substeps-stability
   python scripts/run_width_exit_sweep.py --quick-run --workers 4   # n=30, full grid
 
 Progress is flushed per cell; checkpoints write to temp/width_exit_sweep/<runtag>_partial.json
@@ -63,6 +65,16 @@ WIDTH_GRID = [3, 5, 7, 9, 11, 13, 15, 18, 22]
 EXIT_GRID = [1, 2, 3, 4, 5, 7, 10]
 MINI_WIDTH_GRID = [5, 7, 9, 11, 13, 15]
 MINI_EXIT_GRID = [2, 3, 4, 5, 7, 10]
+FAST_SHAPE_WIDTH_GRID = [3, 6, 9, 13, 18]
+FAST_SHAPE_EXIT_GRID = [1, 2, 3, 5, 8]
+FAST_SHAPE_WINDOWS = ("q1_2024_chop", "truss_crisis", "full_quarter")
+FAST_SHAPE_N_SEEDS = 15
+FAST_SHAPE_SUBSTEPS = 20
+DEFAULT_SUBSTEPS = 100
+DEFAULT_N_SEEDS = 500
+# Measured on Surface preview: ~4.3 s/seed at substeps=100, ~24k bars (GBPUSD chop).
+SEC_PER_SEED_AT_SUB100 = 4.3
+REF_BARS = 24007
 PROD_WIDTH = 9.0
 PROD_EXIT = 3.0
 
@@ -96,17 +108,48 @@ def format_hms(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
+def parse_float_list(text: str) -> list[float]:
+    return [float(x.strip()) for x in text.split(",") if x.strip()]
+
+
+def estimate_cell_sec(n_seeds: int, substeps: int, n_bars: int) -> float:
+    return n_seeds * (substeps / DEFAULT_SUBSTEPS) * SEC_PER_SEED_AT_SUB100 * (n_bars / REF_BARS)
+
+
+def estimate_sweep_runtime(
+    n_cells: int,
+    n_seeds: int,
+    substeps: int,
+    workers: int,
+    bar_counts: list[int],
+) -> float:
+    if not bar_counts:
+        bar_counts = [REF_BARS]
+    avg_bars = float(np.mean(bar_counts))
+    cell_sec = estimate_cell_sec(n_seeds, substeps, int(avg_bars))
+    return (n_cells * cell_sec) / max(workers, 1)
+
+
 def build_runtag(
     n_seeds: int,
     width_grid: list[float],
     exit_grid: list[float],
     window_keys: list[str],
     pairs: tuple[str, ...],
+    substeps: int = DEFAULT_SUBSTEPS,
     preview: bool = False,
+    fast_shape: bool = False,
 ) -> str:
-    grid_tag = "fullgrid" if width_grid == WIDTH_GRID and exit_grid == EXIT_GRID else f"g{len(width_grid)}x{len(exit_grid)}"
+    if fast_shape:
+        return f"fastshape_n{n_seeds}_s{substeps}_{len(window_keys)}win"
+    grid_tag = (
+        "fullgrid"
+        if width_grid == WIDTH_GRID and exit_grid == EXIT_GRID
+        else f"g{len(width_grid)}x{len(exit_grid)}"
+    )
     prev = "preview_" if preview else ""
-    return f"{prev}n{n_seeds}_{grid_tag}_{len(window_keys)}win_{len(pairs)}pair"
+    sub = f"_s{substeps}" if substeps != DEFAULT_SUBSTEPS else ""
+    return f"{prev}n{n_seeds}{sub}_{grid_tag}_{len(window_keys)}win_{len(pairs)}pair"
 
 
 def checkpoint_config_matches(
@@ -116,9 +159,11 @@ def checkpoint_config_matches(
     exit_grid: list[float],
     window_keys: list[str],
     pairs: tuple[str, ...],
+    substeps: int,
 ) -> bool:
     return (
         ckpt.get("n_seeds") == n_seeds
+        and ckpt.get("substeps", DEFAULT_SUBSTEPS) == substeps
         and ckpt.get("width_grid") == width_grid
         and ckpt.get("exit_grid") == exit_grid
         and sorted(ckpt.get("windows", [])) == sorted(window_keys)
@@ -204,6 +249,7 @@ def _worker_cell(payload: dict) -> dict:
     times = np.asarray(payload["times"])
     dummy = np.zeros_like(closes)
     n_seeds = int(payload["n_seeds"])
+    sub_steps = int(payload.get("substeps", DEFAULT_SUBSTEPS))
 
     seed_results: list[dict] = []
     with patch.dict(sim6.PAIR_SPREAD_PIPS, patched, clear=False):
@@ -218,7 +264,7 @@ def _worker_cell(payload: dict) -> dict:
                     bias_mode=payload["bias_mode"],
                     spacing_mode=payload["spacing"],
                     seed=s,
-                    sub_steps=100,
+                    sub_steps=sub_steps,
                     entry_mode="straddle",
                     straddle_half_width_pips=payload["width"],
                     exit_pips=payload["exit_pips"],
@@ -247,6 +293,7 @@ def _run_one_cell_local(
     width: float,
     exit_pips: float,
     n_seeds: int,
+    substeps: int = DEFAULT_SUBSTEPS,
 ) -> dict:
     """In-process single cell (workers=1 path) — identical seed loop to _worker_cell."""
     t0 = time.time()
@@ -263,7 +310,7 @@ def _run_one_cell_local(
                 bias_mode=BIAS_MODE,
                 spacing_mode=SPACING_MODE,
                 seed=s,
-                sub_steps=100,
+                sub_steps=substeps,
                 entry_mode="straddle",
                 straddle_half_width_pips=width,
                 exit_pips=exit_pips,
@@ -360,6 +407,7 @@ def run_sweep(
     checkpoint_path: Path | None = None,
     resume_cells: dict[str, dict] | None = None,
     runtag: str = "",
+    substeps: int = DEFAULT_SUBSTEPS,
 ) -> dict[str, Any]:
     start = time.time()
     cells: dict[str, dict] = dict(resume_cells or {})
@@ -413,6 +461,7 @@ def run_sweep(
                         "regime": WINDOW_META[wkey]["regime"],
                         "cell_key": ck,
                         "n_seeds": n_seeds,
+                        "substeps": substeps,
                     })
 
     total = len(cells) + len(jobs)
@@ -434,6 +483,7 @@ def run_sweep(
                 "runtag": runtag,
                 "status": status,
                 "n_seeds": n_seeds,
+                "substeps": substeps,
                 "width_grid": width_grid,
                 "exit_grid": exit_grid,
                 "windows": sorted(windows.keys()),
@@ -470,6 +520,7 @@ def run_sweep(
                 job["width"],
                 job["exit_pips"],
                 n_seeds,
+                substeps,
             )
             cells[cell["cell_key"]] = cell
             done += 1
@@ -762,6 +813,122 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
     print(f"  Heatmaps: {out_dir}")
 
 
+def check_substeps_stability(
+    n_seeds: int = 8,
+    width_grid: list[float] | None = None,
+    exit_grid: list[float] | None = None,
+) -> dict:
+    """
+    Compare risk-adj cell RANKING at substeps=100 vs 20 on q1_2024_chop / GBPUSD.
+    Same seeds, same grid — only bridge resolution differs.
+    Default uses a 3x3 subgrid for speed; prod 9/3 reported explicitly.
+    """
+    width_grid = width_grid or [3, 9, 18]
+    exit_grid = exit_grid or [1, 3, 8]
+    path = window_path("GBPUSD", "q1_2024_chop")
+    if not path.is_file():
+        print("SKIP stability check: chop CSV missing", flush=True)
+        return {"skipped": True}
+
+    df = simv6.load_mt5_csv(str(path))
+    closes = df["CLOSE"].values
+    times = df["datetime"].values
+    hours = (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
+    spread = simv6.PAIR_SPREAD_PIPS.get("GBPUSD", 0.64)
+
+    def run_grid(substeps: int) -> dict[tuple[float, float], float]:
+        scores: dict[tuple[float, float], float] = {}
+        for w in width_grid:
+            for e in exit_grid:
+                cell = _run_one_cell_local(
+                    closes, times, "GBPUSD", spread, "q1_2024_chop", hours, w, e, n_seeds, substeps
+                )
+                scores[(w, e)] = risk_adjusted_score(cell)
+        return scores
+
+    print(
+        f"Substeps stability check: {len(width_grid)}x{len(exit_grid)} grid, "
+        f"n={n_seeds}, q1_2024_chop/GBPUSD ...",
+        flush=True,
+    )
+    t0 = time.time()
+    fine = run_grid(100)
+    coarse = run_grid(20)
+    elapsed = time.time() - t0
+
+    def rank_map(scores: dict) -> dict[tuple, int]:
+        ordered = sorted(
+            ((k, v) for k, v in scores.items() if np.isfinite(v)),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        return {k: i + 1 for i, (k, _) in enumerate(ordered)}
+
+    r_fine = rank_map(fine)
+    r_coarse = rank_map(coarse)
+    keys = sorted(set(r_fine) | set(r_coarse))
+    rank_delta = [abs(r_fine.get(k, 999) - r_coarse.get(k, 999)) for k in keys if k in r_fine and k in r_coarse]
+    spearman_ok = True
+    if len(keys) >= 3:
+        fv = np.array([fine[k] for k in keys])
+        cv = np.array([coarse[k] for k in keys])
+        try:
+            from scipy.stats import spearmanr
+            rho, p = spearmanr(fv, cv)
+        except ImportError:
+            rf = np.argsort(np.argsort(-fv))
+            rc = np.argsort(np.argsort(-cv))
+            rho = float(np.corrcoef(rf, rc)[0, 1])
+            p = float("nan")
+    else:
+        rho, p = float("nan"), float("nan")
+
+    prod = (PROD_WIDTH, PROD_EXIT)
+    prod_f = fine.get(prod, float("nan"))
+    prod_c = coarse.get(prod, float("nan"))
+    max_rank_shift = max(rank_delta) if rank_delta else 0
+    mean_rank_shift = float(np.mean(rank_delta)) if rank_delta else 0.0
+    stable = mean_rank_shift <= 2.0 and (np.isnan(rho) or rho >= 0.85)
+
+    print(f"  elapsed: {elapsed:.0f}s", flush=True)
+    print(f"  prod 9/3 risk_adj: substeps=100 -> {prod_f:.1f} | substeps=20 -> {prod_c:.1f}", flush=True)
+    print(
+        f"  prod 9/3 mean_realised (same seeds): "
+        f"compare absolute levels in JSON cells; ranking uses risk_adj above",
+        flush=True,
+    )
+    print(f"  Spearman rho (scores): {rho:.3f}  mean rank shift: {mean_rank_shift:.2f}  max: {max_rank_shift}", flush=True)
+    print(
+        f"  VERDICT: {'SHAPE STABLE' if stable else 'SHAPE MAY SHIFT'} — "
+        f"coarse substeps preserve relative ordering {'well enough' if stable else 'only approximately'} "
+        f"for fast-shape reads.",
+        flush=True,
+    )
+    return {
+        "stable": stable,
+        "spearman_rho": float(rho),
+        "mean_rank_shift": mean_rank_shift,
+        "max_rank_shift": max_rank_shift,
+        "prod_score_100": prod_f,
+        "prod_score_20": prod_c,
+        "elapsed_sec": elapsed,
+    }
+
+
+def filter_windows(keys: tuple[str, ...] | list[str], pairs: tuple[str, ...]) -> dict[str, dict[str, Path]]:
+    return {k: {p: window_path(p, k) for p in pairs} for k in keys}
+
+
+def collect_bar_counts(windows: dict[str, dict[str, Path]]) -> list[int]:
+    counts = []
+    for paths in windows.values():
+        for path in paths.values():
+            if path.is_file():
+                df = simv6.load_mt5_csv(str(path))
+                counts.append(len(df))
+    return counts
+
+
 def test_wiring():
     path = window_path("GBPUSD", "q1_2024_chop")
     if not path.is_file():
@@ -826,7 +993,9 @@ def test_straddle_entry_differs_from_signal():
 
 def main():
     parser = argparse.ArgumentParser(description="2D width x exit dumb-straddle Monte Carlo sweep")
-    parser.add_argument("--n-seeds", type=int, default=500)
+    parser.add_argument("--n-seeds", type=int, default=DEFAULT_N_SEEDS)
+    parser.add_argument("--substeps", type=int, default=DEFAULT_SUBSTEPS,
+                        help=f"Bridge substeps per bar (default {DEFAULT_SUBSTEPS})")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--quick-run", action="store_true", help="Full grid, n=30 seeds")
@@ -836,6 +1005,13 @@ def main():
         action="store_true",
         help="Full 9x7 grid, all 5 windows, all 3 pairs, n=50 (shape-read + rate measure)",
     )
+    parser.add_argument(
+        "--fast-shape",
+        action="store_true",
+        help="Cheap shape-pass: 5x5 coarse grid, 3 windows, GBPUSD, n=15, substeps=20",
+    )
+    parser.add_argument("--widths", type=str, default=None, help="Comma widths, e.g. 3,6,9,13,18")
+    parser.add_argument("--exits", type=str, default=None, help="Comma exits, e.g. 1,2,3,5,8")
     parser.add_argument("--windows", nargs="*", default=None, help="Subset of window keys")
     parser.add_argument("--pairs", nargs="*", default=None, help="Subset of pairs")
     parser.add_argument("--output-dir", type=str, default="")
@@ -853,44 +1029,84 @@ def main():
     args = parser.parse_args()
 
     global PAIRS
-    if args.pairs:
-        PAIRS = tuple(p.upper() for p in args.pairs)
 
     width_grid = WIDTH_GRID
     exit_grid = EXIT_GRID
     n_seeds = args.n_seeds
+    substeps = args.substeps
     windows = all_window_paths()
     preview = False
+    fast_shape = False
+    user_set_seeds = args.n_seeds != DEFAULT_N_SEEDS
+    user_set_substeps = args.substeps != DEFAULT_SUBSTEPS
 
     if args.smoke_test:
         width_grid = [9.0]
         exit_grid = [3.0, 5.0]
         n_seeds = 2
-        windows = {"q1_2024_chop": {PAIRS[0]: window_path(PAIRS[0], "q1_2024_chop")}}
+        substeps = DEFAULT_SUBSTEPS
+        windows = filter_windows(["q1_2024_chop"], (PAIRS[0],))
         print("SMOKE TEST: q1_2024_chop / first pair / 2x1 grid / n=2 seeds\n", flush=True)
+    elif args.fast_shape:
+        fast_shape = True
+        width_grid = list(FAST_SHAPE_WIDTH_GRID)
+        exit_grid = list(FAST_SHAPE_EXIT_GRID)
+        if not user_set_seeds:
+            n_seeds = FAST_SHAPE_N_SEEDS
+        if not user_set_substeps:
+            substeps = FAST_SHAPE_SUBSTEPS
+        PAIRS = ("GBPUSD",)
+        windows = filter_windows(FAST_SHAPE_WINDOWS, PAIRS)
+        print(
+            f"FAST-SHAPE: {len(width_grid)}x{len(exit_grid)} coarse grid, "
+            f"windows={list(FAST_SHAPE_WINDOWS)}, pair=GBPUSD, "
+            f"n={n_seeds}, substeps={substeps}\n",
+            flush=True,
+        )
     elif args.preview:
         preview = True
-        n_seeds = PREVIEW_N_SEEDS if args.n_seeds == 500 else args.n_seeds
+        if not user_set_seeds:
+            n_seeds = PREVIEW_N_SEEDS
         print(
             f"PREVIEW: full {len(WIDTH_GRID)}x{len(EXIT_GRID)} grid, "
-            f"all {len(WINDOW_META)} windows, all pairs, n={n_seeds} seeds\n",
+            f"all {len(WINDOW_META)} windows, all pairs, n={n_seeds}, substeps={substeps}\n",
             flush=True,
         )
     elif args.quick_run:
-        n_seeds = max(n_seeds, 30) if args.n_seeds == 500 else args.n_seeds
-        print(f"QUICK RUN: full {len(WIDTH_GRID)}x{len(EXIT_GRID)} grid, n={n_seeds} seeds\n", flush=True)
+        if not user_set_seeds:
+            n_seeds = max(n_seeds, 30)
+        print(
+            f"QUICK RUN: full {len(WIDTH_GRID)}x{len(EXIT_GRID)} grid, "
+            f"n={n_seeds}, substeps={substeps}\n",
+            flush=True,
+        )
     elif args.mini_run:
         width_grid = MINI_WIDTH_GRID
         exit_grid = MINI_EXIT_GRID
-        if args.n_seeds == 500:
+        if not user_set_seeds:
             n_seeds = 25
         print(
-            f"MINI RUN: {len(width_grid)}x{len(exit_grid)} grid, all windows/pairs, n={n_seeds} seeds\n",
+            f"MINI RUN: {len(width_grid)}x{len(exit_grid)} grid, all windows/pairs, "
+            f"n={n_seeds}, substeps={substeps}\n",
             flush=True,
         )
 
-    if args.windows:
-        windows = {k: windows[k] for k in args.windows if k in windows}
+    if args.widths:
+        width_grid = parse_float_list(args.widths)
+    if args.exits:
+        exit_grid = parse_float_list(args.exits)
+    if args.pairs:
+        PAIRS = tuple(p.upper() for p in args.pairs)
+        if args.windows:
+            windows = filter_windows(args.windows, PAIRS)
+        elif fast_shape:
+            windows = filter_windows(FAST_SHAPE_WINDOWS, PAIRS)
+        else:
+            windows = filter_windows(WINDOW_META.keys(), PAIRS)
+    elif args.windows:
+        windows = {k: all_window_paths()[k] for k in args.windows if k in WINDOW_META}
+        # restrict to current PAIRS
+        windows = {k: {p: v[p] for p in PAIRS if p in v} for k, v in windows.items()}
 
     missing = [str(p) for paths in windows.values() for p in paths.values() if not p.is_file()]
     if missing:
@@ -903,14 +1119,18 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     window_keys = sorted(windows.keys())
-    runtag = args.runtag or build_runtag(n_seeds, width_grid, exit_grid, window_keys, PAIRS, preview)
+    runtag = args.runtag or build_runtag(
+        n_seeds, width_grid, exit_grid, window_keys, PAIRS, substeps, preview, fast_shape
+    )
     partial_path = out_dir / f"{runtag}_partial.json"
     final_path = out_dir / f"{runtag}.json"
 
     resume_cells: dict[str, dict] = {}
     if not args.fresh and partial_path.is_file():
         ckpt = load_checkpoint(partial_path)
-        if ckpt and checkpoint_config_matches(ckpt, n_seeds, width_grid, exit_grid, window_keys, PAIRS):
+        if ckpt and checkpoint_config_matches(
+            ckpt, n_seeds, width_grid, exit_grid, window_keys, PAIRS, substeps
+        ):
             resume_cells = ckpt.get("cells", {})
             print(
                 f"RESUME: loaded {len(resume_cells)} cells from {partial_path.name}",
@@ -924,12 +1144,20 @@ def main():
             )
 
     n_cells = len(width_grid) * len(exit_grid) * sum(len(v) for v in windows.values())
+    bar_counts = collect_bar_counts(windows)
+    est_sec = estimate_sweep_runtime(n_cells, n_seeds, substeps, args.workers, bar_counts)
+    per_cell_est = estimate_cell_sec(n_seeds, substeps, int(np.mean(bar_counts)) if bar_counts else REF_BARS)
     print(
         f"Sweep: {len(width_grid)} widths x {len(exit_grid)} exits x "
-        f"{n_cells // (len(width_grid)*len(exit_grid))} series = {n_cells} cells x {n_seeds} seeds",
+        f"{n_cells // max(1, len(width_grid)*len(exit_grid))} series = {n_cells} cells",
         flush=True,
     )
-    print(f"Workers: {args.workers} | runtag: {runtag}\n", flush=True)
+    print(
+        f"  n_seeds={n_seeds}  substeps={substeps}  ~{per_cell_est:.0f}s/cell (est)  "
+        f"workers={args.workers}  ETA ~{format_hms(est_sec)}",
+        flush=True,
+    )
+    print(f"  runtag: {runtag}\n", flush=True)
 
     payload = run_sweep(
         width_grid,
@@ -941,6 +1169,7 @@ def main():
         checkpoint_path=partial_path,
         resume_cells=resume_cells,
         runtag=runtag,
+        substeps=substeps,
     )
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
@@ -949,11 +1178,13 @@ def main():
         "status": "complete",
         "timestamp_utc": ts,
         "n_seeds": n_seeds,
+        "substeps": substeps,
         "width_grid": width_grid,
         "exit_grid": exit_grid,
         "windows": window_keys,
         "pairs": list(PAIRS),
         "preview": preview,
+        "fast_shape": fast_shape,
         "production_point": [PROD_WIDTH, PROD_EXIT],
         "knobs": {"width": "InpDumbStraddlePips", "exit": "InpExitPips"},
         "elapsed_sec": payload["elapsed_sec"],
@@ -972,5 +1203,7 @@ if __name__ == "__main__":
         test_wiring()
         test_straddle_entry_differs_from_signal()
         print("All wiring tests: PASS")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--check-substeps-stability":
+        check_substeps_stability()
     else:
         main()
