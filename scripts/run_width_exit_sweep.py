@@ -12,10 +12,12 @@ Add/reload geometry unchanged (ADD_PIPS_FLOOR=9, WIDEN_RATIO=1.304, reload_ancho
 Usage:
   python scripts/run_width_exit_sweep.py --test-wiring
   python scripts/run_width_exit_sweep.py --smoke-test
-  python scripts/run_width_exit_sweep.py --n-seeds 500 --workers 6
+  python scripts/run_width_exit_sweep.py --preview --workers 6   # full grid, all windows, n=50
+  python scripts/run_width_exit_sweep.py --n-seeds 500 --workers 6 --runtag my_run
   python scripts/run_width_exit_sweep.py --quick-run --workers 4   # n=30, full grid
 
-Results JSON + heatmaps -> temp/width_exit_sweep/ (gitignored via temp/).
+Progress is flushed per cell; checkpoints write to temp/width_exit_sweep/<runtag>_partial.json
+(resumable on interrupt). Final JSON: temp/width_exit_sweep/<runtag>.json
 """
 from __future__ import annotations
 
@@ -34,6 +36,13 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+
+# Unbuffered progress when stdout is redirected to a log file.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
@@ -72,6 +81,85 @@ HARVEST_WINDOWS = ("q1_2024_chop", "full_quarter")
 STRESS_WINDOWS = ("truss_crisis", "vaccine_rally", "june_blowup")
 
 BAR_MINUTES = 5.0
+PREVIEW_N_SEEDS = 50
+
+
+def make_cell_key(wkey: str, pair: str, width: float, exit_pips: float) -> str:
+    return f"{wkey}|{pair}|{width:g}|{exit_pips:g}"
+
+
+def format_hms(seconds: float) -> str:
+    seconds = max(0.0, float(seconds))
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def build_runtag(
+    n_seeds: int,
+    width_grid: list[float],
+    exit_grid: list[float],
+    window_keys: list[str],
+    pairs: tuple[str, ...],
+    preview: bool = False,
+) -> str:
+    grid_tag = "fullgrid" if width_grid == WIDTH_GRID and exit_grid == EXIT_GRID else f"g{len(width_grid)}x{len(exit_grid)}"
+    prev = "preview_" if preview else ""
+    return f"{prev}n{n_seeds}_{grid_tag}_{len(window_keys)}win_{len(pairs)}pair"
+
+
+def checkpoint_config_matches(
+    ckpt: dict,
+    n_seeds: int,
+    width_grid: list[float],
+    exit_grid: list[float],
+    window_keys: list[str],
+    pairs: tuple[str, ...],
+) -> bool:
+    return (
+        ckpt.get("n_seeds") == n_seeds
+        and ckpt.get("width_grid") == width_grid
+        and ckpt.get("exit_grid") == exit_grid
+        and sorted(ckpt.get("windows", [])) == sorted(window_keys)
+        and sorted(ckpt.get("pairs", [])) == sorted(pairs)
+    )
+
+
+def write_checkpoint(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+    tmp.replace(path)
+
+
+def load_checkpoint(path: Path) -> dict | None:
+    if not path.is_file():
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def print_progress_line(
+    done: int,
+    total: int,
+    cell: dict,
+    cell_sec: float,
+    elapsed_sec: float,
+) -> None:
+    remaining = total - done
+    rate = elapsed_sec / done if done > 0 else 0.0
+    eta_sec = rate * remaining if done > 0 else 0.0
+    dd4 = cell.get("dd4_rate", float("nan"))
+    print(
+        f"[cell {done}/{total}] w={cell['width']:g} e={cell['exit_pips']:g} "
+        f"win={cell['window']} pair={cell['pair']} | "
+        f"mean_pnl={cell['mean_pnl']:+.0f} med_pnl={cell['median_pnl']:+.0f} "
+        f"dd4={dd4:.0f}% | cell {cell_sec:.1f}s | "
+        f"elapsed {format_hms(elapsed_sec)} | ETA {format_hms(eta_sec)}",
+        flush=True,
+    )
 
 
 def window_path(pair: str, window_key: str) -> Path:
@@ -92,9 +180,11 @@ def all_window_paths() -> dict[str, dict[str, Path]]:
     return out
 
 
-def _worker_batch(payload: dict) -> list[tuple[int, dict]]:
+def _worker_cell(payload: dict) -> dict:
+    """Run all seeds for one (window, pair, width, exit) cell — same math as sequential path."""
     import importlib.util as _ilu
 
+    t0 = time.time()
     spec7 = _ilu.spec_from_file_location(
         "simv7", Path(payload["root"]) / "scripts" / "grid_sim_v7_real_signal.py"
     )
@@ -113,76 +203,82 @@ def _worker_batch(payload: dict) -> list[tuple[int, dict]]:
     closes = np.asarray(payload["closes"], dtype=float)
     times = np.asarray(payload["times"])
     dummy = np.zeros_like(closes)
+    n_seeds = int(payload["n_seeds"])
 
-    results: list[tuple[int, dict]] = []
+    seed_results: list[dict] = []
     with patch.dict(sim6.PAIR_SPREAD_PIPS, patched, clear=False):
-        for seed in payload["seeds"]:
-            r = sim7.simulate_one_path(
+        for s in range(n_seeds):
+            seed_results.append(
+                sim7.simulate_one_path(
+                    closes,
+                    dummy,
+                    dummy,
+                    times=times,
+                    symbol=payload["symbol"].upper(),
+                    bias_mode=payload["bias_mode"],
+                    spacing_mode=payload["spacing"],
+                    seed=s,
+                    sub_steps=100,
+                    entry_mode="straddle",
+                    straddle_half_width_pips=payload["width"],
+                    exit_pips=payload["exit_pips"],
+                    track_l0_stats=True,
+                )
+            )
+
+    cell = aggregate_seed_results(seed_results, payload["window_hours"])
+    cell["window"] = payload["window"]
+    cell["pair"] = payload["symbol"].upper()
+    cell["width"] = float(payload["width"])
+    cell["exit_pips"] = float(payload["exit_pips"])
+    cell["regime"] = payload["regime"]
+    cell["cell_key"] = payload["cell_key"]
+    cell["cell_elapsed_sec"] = time.time() - t0
+    return cell
+
+
+def _run_one_cell_local(
+    closes,
+    times,
+    pair: str,
+    pair_spread: float,
+    wkey: str,
+    window_hours: float,
+    width: float,
+    exit_pips: float,
+    n_seeds: int,
+) -> dict:
+    """In-process single cell (workers=1 path) — identical seed loop to _worker_cell."""
+    t0 = time.time()
+    dummy = np.zeros_like(closes)
+    seed_results = []
+    for s in range(n_seeds):
+        seed_results.append(
+            simv7.simulate_one_path(
                 closes,
                 dummy,
                 dummy,
                 times=times,
-                symbol=payload["symbol"].upper(),
-                bias_mode=payload["bias_mode"],
-                spacing_mode=payload["spacing"],
-                seed=int(seed),
+                symbol=pair,
+                bias_mode=BIAS_MODE,
+                spacing_mode=SPACING_MODE,
+                seed=s,
                 sub_steps=100,
                 entry_mode="straddle",
-                straddle_half_width_pips=payload["width"],
-                exit_pips=payload["exit_pips"],
+                straddle_half_width_pips=width,
+                exit_pips=exit_pips,
                 track_l0_stats=True,
             )
-            results.append((int(seed), r))
-    return results
-
-
-def run_seeds_parallel(
-    closes,
-    times,
-    symbol: str,
-    pair_spread: float,
-    width: float,
-    exit_pips: float,
-    n_seeds: int,
-    workers: int,
-    executor: ProcessPoolExecutor | None = None,
-) -> list[dict]:
-    workers = max(1, min(workers, n_seeds))
-    chunk = max(1, math.ceil(n_seeds / (workers * 2)))
-    batches = [
-        list(range(s, min(s + chunk, n_seeds)))
-        for s in range(0, n_seeds, chunk)
-    ]
-    base = {
-        "root": str(ROOT),
-        "symbol": symbol.upper(),
-        "pair_spread": pair_spread,
-        "width": width,
-        "exit_pips": exit_pips,
-        "spacing": SPACING_MODE,
-        "bias_mode": int(BIAS_MODE),
-        "closes": closes,
-        "times": times,
-    }
-    by_seed: dict[int, dict] = {}
-
-    def _collect(futs):
-        for fut in as_completed(futs):
-            for seed, result in fut.result():
-                by_seed[seed] = result
-
-    futs = []
-    for seeds in batches:
-        p = dict(base)
-        p["seeds"] = seeds
-        if executor is not None:
-            futs.append(executor.submit(_worker_batch, p))
-        else:
-            for seed, result in _worker_batch(p):
-                by_seed[seed] = result
-    if futs:
-        _collect(futs)
-    return [by_seed[s] for s in range(n_seeds)]
+        )
+    cell = aggregate_seed_results(seed_results, window_hours)
+    cell["window"] = wkey
+    cell["pair"] = pair
+    cell["width"] = width
+    cell["exit_pips"] = exit_pips
+    cell["regime"] = WINDOW_META[wkey]["regime"]
+    cell["cell_key"] = make_cell_key(wkey, pair, width, exit_pips)
+    cell["cell_elapsed_sec"] = time.time() - t0
+    return cell
 
 
 def aggregate_seed_results(
@@ -261,89 +357,144 @@ def run_sweep(
     windows: dict[str, dict[str, Path]],
     workers: int = 1,
     verbose: bool = True,
+    checkpoint_path: Path | None = None,
+    resume_cells: dict[str, dict] | None = None,
+    runtag: str = "",
 ) -> dict[str, Any]:
     start = time.time()
-    cells: dict[str, dict] = {}
-    total = len(width_grid) * len(exit_grid) * len(windows) * len(PAIRS)
-    done = 0
+    cells: dict[str, dict] = dict(resume_cells or {})
+    pairs = PAIRS
 
-    pool_ctx = (
-        ProcessPoolExecutor(max_workers=workers)
-        if workers > 1
-        else None
-    )
-    try:
-        for wkey, pair_paths in windows.items():
-            for pair, path in pair_paths.items():
-                if not path.is_file():
-                    raise FileNotFoundError(path)
-                df = simv6.load_mt5_csv(str(path))
-                closes = df["CLOSE"].values
-                times = df["datetime"].values
-                window_hours = (
-                    (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
+    # Pre-load window data once per (window, pair).
+    series_cache: dict[tuple[str, str], dict] = {}
+    jobs: list[dict] = []
+    for wkey, pair_paths in windows.items():
+        for pair, path in pair_paths.items():
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            df = simv6.load_mt5_csv(str(path))
+            closes = df["CLOSE"].values
+            times = df["datetime"].values
+            window_hours = (
+                (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
+            )
+            pair_spread = simv6.PAIR_SPREAD_PIPS.get(pair, 0.5)
+            series_cache[(wkey, pair)] = {
+                "closes": closes,
+                "times": times,
+                "window_hours": window_hours,
+                "pair_spread": pair_spread,
+            }
+            if verbose:
+                print(
+                    f"Loaded {wkey}/{pair}: {len(df)} bars, "
+                    f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]} "
+                    f"({window_hours:.1f}h)",
+                    flush=True,
                 )
-                pair_spread = simv6.PAIR_SPREAD_PIPS.get(pair, 0.5)
+            for width in width_grid:
+                for exit_pips in exit_grid:
+                    ck = make_cell_key(wkey, pair, width, exit_pips)
+                    if ck in cells:
+                        continue
+                    cache = series_cache[(wkey, pair)]
+                    jobs.append({
+                        "root": str(ROOT),
+                        "symbol": pair.upper(),
+                        "pair_spread": cache["pair_spread"],
+                        "width": width,
+                        "exit_pips": exit_pips,
+                        "spacing": SPACING_MODE,
+                        "bias_mode": int(BIAS_MODE),
+                        "closes": cache["closes"],
+                        "times": cache["times"],
+                        "window_hours": cache["window_hours"],
+                        "window": wkey,
+                        "regime": WINDOW_META[wkey]["regime"],
+                        "cell_key": ck,
+                        "n_seeds": n_seeds,
+                    })
+
+    total = len(cells) + len(jobs)
+    skipped = len(cells)
+    if verbose:
+        print(
+            f"Cells: {total} total | {skipped} resumed/skipped | {len(jobs)} to run",
+            flush=True,
+        )
+        if checkpoint_path:
+            print(f"Checkpoint: {checkpoint_path}", flush=True)
+
+    def _save_partial(status: str = "partial") -> None:
+        if not checkpoint_path:
+            return
+        write_checkpoint(
+            checkpoint_path,
+            {
+                "runtag": runtag,
+                "status": status,
+                "n_seeds": n_seeds,
+                "width_grid": width_grid,
+                "exit_grid": exit_grid,
+                "windows": sorted(windows.keys()),
+                "pairs": list(pairs),
+                "started_utc": datetime.fromtimestamp(start, tz=timezone.utc).isoformat(),
+                "updated_utc": datetime.now(timezone.utc).isoformat(),
+                "cells_completed": len(cells),
+                "cells_total": total,
+                "elapsed_sec": time.time() - start,
+                "production_point": [PROD_WIDTH, PROD_EXIT],
+                "knobs": {"width": "InpDumbStraddlePips", "exit": "InpExitPips"},
+                "cells": cells,
+            },
+        )
+
+    done = len(cells)
+    if skipped and checkpoint_path:
+        _save_partial("partial")
+
+    if not jobs:
+        return {"cells": cells, "elapsed_sec": time.time() - start, "n_seeds": n_seeds}
+
+    if workers <= 1:
+        for job in jobs:
+            t_cell = time.time()
+            cache = series_cache[(job["window"], job["symbol"])]
+            cell = _run_one_cell_local(
+                cache["closes"],
+                cache["times"],
+                job["symbol"],
+                job["pair_spread"],
+                job["window"],
+                job["window_hours"],
+                job["width"],
+                job["exit_pips"],
+                n_seeds,
+            )
+            cells[cell["cell_key"]] = cell
+            done += 1
+            if verbose:
+                print_progress_line(done, total, cell, time.time() - t_cell, time.time() - start)
+            _save_partial("partial")
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futs = {pool.submit(_worker_cell, job): job for job in jobs}
+            for fut in as_completed(futs):
+                cell = fut.result()
+                cells[cell["cell_key"]] = cell
+                done += 1
                 if verbose:
-                    print(
-                        f"Loaded {wkey}/{pair}: {len(df)} bars, "
-                        f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]} "
-                        f"({window_hours:.1f}h)",
-                        flush=True,
+                    print_progress_line(
+                        done,
+                        total,
+                        cell,
+                        cell.get("cell_elapsed_sec", 0.0),
+                        time.time() - start,
                     )
+                _save_partial("partial")
 
-                for width in width_grid:
-                    for exit_pips in exit_grid:
-                        if workers <= 1:
-                            seed_results = []
-                            dummy = np.zeros_like(closes)
-                            for s in range(n_seeds):
-                                seed_results.append(
-                                    simv7.simulate_one_path(
-                                        closes,
-                                        dummy,
-                                        dummy,
-                                        times=times,
-                                        symbol=pair,
-                                        bias_mode=BIAS_MODE,
-                                        spacing_mode=SPACING_MODE,
-                                        seed=s,
-                                        sub_steps=100,
-                                        entry_mode="straddle",
-                                        straddle_half_width_pips=width,
-                                        exit_pips=exit_pips,
-                                        track_l0_stats=True,
-                                    )
-                                )
-                        else:
-                            seed_results = run_seeds_parallel(
-                                closes,
-                                times,
-                                pair,
-                                pair_spread,
-                                width,
-                                exit_pips,
-                                n_seeds,
-                                workers,
-                                executor=pool_ctx,
-                            )
-
-                        key = f"{wkey}|{pair}|{width:g}|{exit_pips:g}"
-                        cells[key] = aggregate_seed_results(seed_results, window_hours)
-                        cells[key]["window"] = wkey
-                        cells[key]["pair"] = pair
-                        cells[key]["width"] = width
-                        cells[key]["exit_pips"] = exit_pips
-                        cells[key]["regime"] = WINDOW_META[wkey]["regime"]
-                        done += 1
-                        if verbose and done % 5 == 0:
-                            print(
-                                f"  progress {done}/{total} ({time.time()-start:.0f}s)",
-                                flush=True,
-                            )
-    finally:
-        if pool_ctx is not None:
-            pool_ctx.shutdown(wait=True)
+    if checkpoint_path:
+        _save_partial("complete")
 
     return {"cells": cells, "elapsed_sec": time.time() - start, "n_seeds": n_seeds}
 
@@ -680,9 +831,25 @@ def main():
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--quick-run", action="store_true", help="Full grid, n=30 seeds")
     parser.add_argument("--mini-run", action="store_true", help="Reduced grid, n=25 seeds (desktop-friendly)")
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Full 9x7 grid, all 5 windows, all 3 pairs, n=50 (shape-read + rate measure)",
+    )
     parser.add_argument("--windows", nargs="*", default=None, help="Subset of window keys")
     parser.add_argument("--pairs", nargs="*", default=None, help="Subset of pairs")
     parser.add_argument("--output-dir", type=str, default="")
+    parser.add_argument(
+        "--runtag",
+        type=str,
+        default="",
+        help="Checkpoint/final JSON tag (default: derived from n_seeds/grid/windows)",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Ignore existing partial checkpoint even if runtag matches",
+    )
     args = parser.parse_args()
 
     global PAIRS
@@ -693,6 +860,7 @@ def main():
     exit_grid = EXIT_GRID
     n_seeds = args.n_seeds
     windows = all_window_paths()
+    preview = False
 
     if args.smoke_test:
         width_grid = [9.0]
@@ -700,6 +868,14 @@ def main():
         n_seeds = 2
         windows = {"q1_2024_chop": {PAIRS[0]: window_path(PAIRS[0], "q1_2024_chop")}}
         print("SMOKE TEST: q1_2024_chop / first pair / 2x1 grid / n=2 seeds\n", flush=True)
+    elif args.preview:
+        preview = True
+        n_seeds = PREVIEW_N_SEEDS if args.n_seeds == 500 else args.n_seeds
+        print(
+            f"PREVIEW: full {len(WIDTH_GRID)}x{len(EXIT_GRID)} grid, "
+            f"all {len(WINDOW_META)} windows, all pairs, n={n_seeds} seeds\n",
+            flush=True,
+        )
     elif args.quick_run:
         n_seeds = max(n_seeds, 30) if args.n_seeds == 500 else args.n_seeds
         print(f"QUICK RUN: full {len(WIDTH_GRID)}x{len(EXIT_GRID)} grid, n={n_seeds} seeds\n", flush=True)
@@ -718,17 +894,42 @@ def main():
 
     missing = [str(p) for paths in windows.values() for p in paths.values() if not p.is_file()]
     if missing:
-        print("ERROR: missing CSV(s):")
+        print("ERROR: missing CSV(s):", flush=True)
         for m in missing[:10]:
-            print(" ", m)
+            print(" ", m, flush=True)
         sys.exit(1)
+
+    out_dir = Path(args.output_dir) if args.output_dir else ROOT / "temp" / "width_exit_sweep"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    window_keys = sorted(windows.keys())
+    runtag = args.runtag or build_runtag(n_seeds, width_grid, exit_grid, window_keys, PAIRS, preview)
+    partial_path = out_dir / f"{runtag}_partial.json"
+    final_path = out_dir / f"{runtag}.json"
+
+    resume_cells: dict[str, dict] = {}
+    if not args.fresh and partial_path.is_file():
+        ckpt = load_checkpoint(partial_path)
+        if ckpt and checkpoint_config_matches(ckpt, n_seeds, width_grid, exit_grid, window_keys, PAIRS):
+            resume_cells = ckpt.get("cells", {})
+            print(
+                f"RESUME: loaded {len(resume_cells)} cells from {partial_path.name}",
+                flush=True,
+            )
+        elif ckpt:
+            print(
+                f"WARNING: partial checkpoint config mismatch — starting fresh "
+                f"(use --fresh to silence). path={partial_path}",
+                flush=True,
+            )
 
     n_cells = len(width_grid) * len(exit_grid) * sum(len(v) for v in windows.values())
     print(
-        f"Sweep: {len(width_grid)} widths x {len(exit_grid)} exits x {n_cells // (len(width_grid)*len(exit_grid))} "
-        f"series = {n_cells} cells x {n_seeds} seeds"
+        f"Sweep: {len(width_grid)} widths x {len(exit_grid)} exits x "
+        f"{n_cells // (len(width_grid)*len(exit_grid))} series = {n_cells} cells x {n_seeds} seeds",
+        flush=True,
     )
-    print(f"Workers: {args.workers}\n")
+    print(f"Workers: {args.workers} | runtag: {runtag}\n", flush=True)
 
     payload = run_sweep(
         width_grid,
@@ -737,31 +938,31 @@ def main():
         windows,
         workers=args.workers,
         verbose=True,
+        checkpoint_path=partial_path,
+        resume_cells=resume_cells,
+        runtag=runtag,
     )
 
-    out_dir = Path(args.output_dir) if args.output_dir else ROOT / "temp" / "width_exit_sweep"
-    out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
-    json_path = out_dir / f"width_exit_sweep_n{n_seeds}_{ts}.json"
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump(
-            {
-                "timestamp_utc": ts,
-                "n_seeds": n_seeds,
-                "width_grid": width_grid,
-                "exit_grid": exit_grid,
-                "production_point": [PROD_WIDTH, PROD_EXIT],
-                "knobs": {
-                    "width": "InpDumbStraddlePips",
-                    "exit": "InpExitPips",
-                },
-                "elapsed_sec": payload["elapsed_sec"],
-                "cells": payload["cells"],
-            },
-            fh,
-            indent=2,
-        )
-    print(f"\nWrote JSON: {json_path}")
+    final_doc = {
+        "runtag": runtag,
+        "status": "complete",
+        "timestamp_utc": ts,
+        "n_seeds": n_seeds,
+        "width_grid": width_grid,
+        "exit_grid": exit_grid,
+        "windows": window_keys,
+        "pairs": list(PAIRS),
+        "preview": preview,
+        "production_point": [PROD_WIDTH, PROD_EXIT],
+        "knobs": {"width": "InpDumbStraddlePips", "exit": "InpExitPips"},
+        "elapsed_sec": payload["elapsed_sec"],
+        "cells": payload["cells"],
+    }
+    write_checkpoint(final_path, final_doc)
+    print(f"\nWrote final JSON: {final_path}", flush=True)
+    if partial_path.is_file():
+        print(f"Partial checkpoint retained: {partial_path}", flush=True)
 
     print_verdict(payload, width_grid, exit_grid, out_dir)
 
