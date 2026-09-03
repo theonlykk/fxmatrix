@@ -81,11 +81,19 @@ def adr013_clamp(theoretical, direction, current_mid, half_spread, min_dist=MIN_
 
 def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=None,
                        symbol="GBPUSD", bias_mode=BiasMode.BOTH, spacing_mode="reload_anchor",
-                       point=0.0001, seed=0, sub_steps=100, sigma_for_bridge=None):
+                       point=0.0001, seed=0, sub_steps=100, sigma_for_bridge=None,
+                       entry_mode="signal", straddle_half_width_pips=9.0,
+                       exit_pips=None, track_l0_stats=False):
     """
     bid_theoretical_arr / offer_theoretical_arr: precomputed real-signal levels
     (same length as closes), used ONLY for the flat->Layer-0 re-entry decision.
     Layers 1+ use the existing, already-verified grid mechanics unchanged.
+
+    entry_mode:
+      - "signal": production signal arm (FV term-structure L0 quotes)
+      - "straddle": dumb arm static mid +/- straddle_half_width_pips (InpDumbStraddlePips)
+    exit_pips: overrides module EXIT_PIPS (maps to production InpExitPips).
+    track_l0_stats: record per-L0-layer hold minutes and exit distance when that layer closes.
     """
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
@@ -94,10 +102,18 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
 
     from grid_sim_v6_dynamic_spacing import PAIR_SPREAD_PIPS
     spread_pips = PAIR_SPREAD_PIPS.get(symbol, 0.5)
-    exit_price_dist = pips_to_price(EXIT_PIPS, point)
+    _exit_pips = EXIT_PIPS if exit_pips is None else float(exit_pips)
+    exit_price_dist = pips_to_price(_exit_pips, point)
     half_spread = pips_to_price(spread_pips / 2.0, point)
 
     layers: List[Layer] = []
+    layer_entry_bars: List[int] = []
+    layer_is_l0: List[bool] = []
+    pod_had_add = False
+    l0_hold_mins: List[float] = []
+    l0_exit_dist_pips: List[float] = []
+    l0_had_adds: List[bool] = []
+    n_exits = 0
     current_add_pips = ADD_PIPS_FLOOR
     last_exit_price = None
     pnl_realised_usd = 0.0
@@ -151,12 +167,18 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         # every substep was causing the clamp to "chase" price and never get caught.
         bar_start_quotes = None
         if not layers:
-            bid_lvl = bid_theoretical_arr[i]
-            offer_lvl = offer_theoretical_arr[i]
-            if not (np.isnan(bid_lvl) or np.isnan(offer_lvl)):
-                bid_clamped_fixed = adr013_clamp(bid_lvl, 1, start_price, half_spread)
-                offer_clamped_fixed = adr013_clamp(offer_lvl, -1, start_price, half_spread)
-                bar_start_quotes = (bid_clamped_fixed, offer_clamped_fixed)
+            if entry_mode == "straddle":
+                straddle_dist = pips_to_price(straddle_half_width_pips, point)
+                buy_rest = start_price - straddle_dist
+                sell_rest = start_price + straddle_dist
+                bar_start_quotes = (buy_rest, sell_rest)
+            else:
+                bid_lvl = bid_theoretical_arr[i]
+                offer_lvl = offer_theoretical_arr[i]
+                if not (np.isnan(bid_lvl) or np.isnan(offer_lvl)):
+                    bid_clamped_fixed = adr013_clamp(bid_lvl, 1, start_price, half_spread)
+                    offer_clamped_fixed = adr013_clamp(offer_lvl, -1, start_price, half_spread)
+                    bar_start_quotes = (bid_clamped_fixed, offer_clamped_fixed)
 
         for j in range(0, len(path)):
             mid_now = path[j]
@@ -177,6 +199,9 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                     if filled_dir is not None:
                         layers.append(Layer(entry_price=fill_price, direction=filled_dir,
                                               exit_target_raw=fill_price + filled_dir * exit_price_dist))
+                        layer_entry_bars.append(i)
+                        layer_is_l0.append(True)
+                        pod_had_add = False
                         current_add_pips = ADD_PIPS_FLOOR
                         last_exit_price = None
                         total_trades += 1
@@ -195,6 +220,17 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                            (cur.direction == -1 and price_prev > effective_exit >= price_now))
                 if crossed:
                     closed = layers.pop()
+                    was_l0 = layer_is_l0.pop()
+                    entry_bar = layer_entry_bars.pop()
+                    if track_l0_stats and was_l0:
+                        hold_mins = (i - entry_bar + 1) * 5.0
+                        l0_hold_mins.append(hold_mins)
+                        ep = closed.entry_price
+                        xp = closed.exit_target_raw
+                        dist_pips = abs(xp - ep) / point
+                        l0_exit_dist_pips.append(dist_pips)
+                        l0_had_adds.append(pod_had_add)
+                        pod_had_add = False
                     if spacing_mode in ("reload_anchor", "reload_flat"):
                         last_exit_price = closed.entry_price
                     entry_paid = closed.entry_price + closed.direction * half_spread
@@ -202,6 +238,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                     pnl_raw = (exit_received - entry_paid) * closed.direction
                     pnl_realised_usd += price_diff_to_usd(pnl_raw)
                     total_trades += 1
+                    n_exits += 1
 
             if layers:
                 cur = layers[-1]
@@ -224,6 +261,9 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                 if hit:
                     layers.append(Layer(entry_price=add_target, direction=cur.direction,
                                           exit_target_raw=add_target + cur.direction * exit_price_dist))
+                    layer_entry_bars.append(i)
+                    layer_is_l0.append(False)
+                    pod_had_add = True
                     if spacing_mode in ("reload_anchor", "reload_flat"):
                         last_exit_price = None
                     if len(layers) >= 3:
@@ -255,12 +295,18 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         entry_price = lay.entry_price + lay.direction * half_spread
         unrealised_usd += price_diff_to_usd((close_price - entry_price) * lay.direction)
 
-    return {
+    out = {
         "pnl_realised_usd": pnl_realised_usd, "pnl_unrealised_usd": unrealised_usd,
         "pnl_total_usd": pnl_realised_usd + unrealised_usd, "max_layers": max_layers,
-        "total_trades": total_trades, "drawdown_exceeded_3pct": drawdown_3pct,
+        "total_trades": total_trades, "n_exits": n_exits,
+        "drawdown_exceeded_3pct": drawdown_3pct,
         "drawdown_exceeded_4pct": drawdown_4pct,
     }
+    if track_l0_stats:
+        out["l0_hold_mins"] = l0_hold_mins
+        out["l0_exit_dist_pips"] = l0_exit_dist_pips
+        out["l0_had_adds"] = l0_had_adds
+    return out
 
 
 def test_last_exit_price_cleared_before_new_pod_first_add():
