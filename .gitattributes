@@ -1,0 +1,30 @@
+# Normalize line endings deterministically so working copies match across machines
+# and byte-identical deploy verification stays stable. Values match what is already
+# stored in the repo -> no re-normalization churn on the load-bearing types.
+
+* text=auto
+
+# MQL5 source is stored LF and xcopied to the terminal with byte-identical
+# verification (deploy.ps1). Pin to LF so it is never rewritten.
+*.mqh   text eol=lf
+*.mq5   text eol=lf
+
+# PowerShell / batch are Windows scripts; stored CRLF.
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Docs stored CRLF.
+*.md    text eol=crlf
+
+# Python: LF is the cross-platform norm.
+*.py    text eol=lf
+
+# Binaries - never touch.
+*.ex5   binary
+*.png   binary
+*.jpg   binary
+*.pdf   binary
+*.docx  binary
+*.xlsx  binary
+*.parquet binary
