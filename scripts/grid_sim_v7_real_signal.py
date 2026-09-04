@@ -66,6 +66,13 @@ def precompute_gbpusd_signal(bc_closes, bc_spread_points, point=0.0001):
     offer_theoretical = fv_bc * np.exp(r_bc + dynamic_hs)
     return bid_theoretical, offer_theoretical
 
+def draw_triangular_width_pips(harvest_pips: float, survival_pips: float, rng) -> float:
+    """Right-triangular on [Harvest, Survival], peak at Harvest. Inverse-CDF, no rejection."""
+    u = float(rng.uniform(0.0, 1.0))
+    w = survival_pips - (survival_pips - harvest_pips) * np.sqrt(u)
+    return round(w * 10.0) / 10.0
+
+
 def adr013_clamp(theoretical, direction, current_mid, half_spread, min_dist=MIN_DIST):
     """direction: 1=BUY (clamp vs bid), -1=SELL (clamp vs ask)"""
     current_bid = current_mid - half_spread
@@ -83,6 +90,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                        symbol="GBPUSD", bias_mode=BiasMode.BOTH, spacing_mode="reload_anchor",
                        point=0.0001, seed=0, sub_steps=100, sigma_for_bridge=None,
                        entry_mode="signal", straddle_half_width_pips=9.0,
+                       triangular_harvest_pips=None, triangular_survival_pips=None,
                        exit_pips=None, track_l0_stats=False):
     """
     bid_theoretical_arr / offer_theoretical_arr: precomputed real-signal levels
@@ -92,6 +100,8 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     entry_mode:
       - "signal": production signal arm (FV term-structure L0 quotes)
       - "straddle": dumb arm static mid +/- straddle_half_width_pips (InpDumbStraddlePips)
+      - "triangular": one draw per flat cycle, W ~ Triangular[Harvest, Survival] peak at Harvest
+    triangular_harvest_pips / triangular_survival_pips: required when entry_mode="triangular".
     exit_pips: overrides module EXIT_PIPS (maps to production InpExitPips).
     track_l0_stats: record per-L0-layer hold minutes and exit distance when that layer closes.
     """
@@ -125,6 +135,8 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     drawdown_4pct = False
     max_layers = 0
     total_trades = 0
+    resting_straddle_width_pips = None
+    drawn_widths_pips: List[float] = []
 
     def price_diff_to_usd(price_diff):
         return (price_diff / point) * USD_PER_PIP
@@ -167,7 +179,21 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         # every substep was causing the clamp to "chase" price and never get caught.
         bar_start_quotes = None
         if not layers:
-            if entry_mode == "straddle":
+            if entry_mode == "triangular":
+                if triangular_harvest_pips is None or triangular_survival_pips is None:
+                    raise ValueError("triangular mode requires harvest and survival pips")
+                if resting_straddle_width_pips is None:
+                    resting_straddle_width_pips = draw_triangular_width_pips(
+                        float(triangular_harvest_pips),
+                        float(triangular_survival_pips),
+                        rng,
+                    )
+                    drawn_widths_pips.append(resting_straddle_width_pips)
+                straddle_dist = pips_to_price(resting_straddle_width_pips, point)
+                buy_rest = start_price - straddle_dist
+                sell_rest = start_price + straddle_dist
+                bar_start_quotes = (buy_rest, sell_rest)
+            elif entry_mode == "straddle":
                 straddle_dist = pips_to_price(straddle_half_width_pips, point)
                 buy_rest = start_price - straddle_dist
                 sell_rest = start_price + straddle_dist
@@ -206,6 +232,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         last_exit_price = None
                         total_trades += 1
                         max_layers = max(max_layers, 1)
+                        resting_straddle_width_pips = None
                 continue
 
             if j == 0:
@@ -239,6 +266,8 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                     pnl_realised_usd += price_diff_to_usd(pnl_raw)
                     total_trades += 1
                     n_exits += 1
+                    if not layers:
+                        resting_straddle_width_pips = None
 
             if layers:
                 cur = layers[-1]
@@ -306,6 +335,10 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         out["l0_hold_mins"] = l0_hold_mins
         out["l0_exit_dist_pips"] = l0_exit_dist_pips
         out["l0_had_adds"] = l0_had_adds
+    if entry_mode == "triangular" and drawn_widths_pips:
+        out["mean_drawn_width_pips"] = float(np.mean(drawn_widths_pips))
+        out["median_drawn_width_pips"] = float(np.median(drawn_widths_pips))
+        out["n_width_draws"] = len(drawn_widths_pips)
     return out
 
 
