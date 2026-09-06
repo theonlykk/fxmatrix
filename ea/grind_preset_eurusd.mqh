@@ -13,8 +13,9 @@
 #define GRIND_EURUSD_OPT_MAGIC           22260201UL
 #define GRIND_EURUSD_ALT_MAGIC           22260202UL
 #define GRIND_EURUSD_MAX_LAYERS          12
-#define GRIND_EURUSD_WIDTH_PIPS_PLACE    -1.0
-#define GRIND_EURUSD_EXIT_PIPS_PLACE     -1.0
+#define GRIND_EURUSD_WIDTH_PIPS_PLACE    -1.0   // inject before deploy
+#define GRIND_EURUSD_ADD_PIPS_PLACE      -1.0   // MUST be 2.0 x WIDTH when width injected
+#define GRIND_EURUSD_EXIT_PIPS_PLACE     -1.0   // inject before deploy
 #define GRIND_EURUSD_CAP_LEG_A           "EUR"
 #define GRIND_EURUSD_CAP_LEG_B           "USD"
 #define GRIND_EURUSD_TEL_OPT             "GRIND_EURUSD_OPT"

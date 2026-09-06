@@ -15,6 +15,7 @@
 #define GRIND_GBPUSD_ALT_MAGIC           22260102UL
 #define GRIND_GBPUSD_MAX_LAYERS          12
 #define GRIND_GBPUSD_WIDTH_PIPS_PLACE   -1.0   // inject before deploy
+#define GRIND_GBPUSD_ADD_PIPS_PLACE     -1.0   // MUST be 2.0 x WIDTH when width injected
 #define GRIND_GBPUSD_EXIT_PIPS_PLACE    -1.0   // inject before deploy
 #define GRIND_GBPUSD_CAP_LEG_A           "GBP"
 #define GRIND_GBPUSD_CAP_LEG_B           "USD"

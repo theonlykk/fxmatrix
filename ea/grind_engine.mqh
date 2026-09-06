@@ -281,13 +281,15 @@ int Grind_FindLayerByPosition(GrindSideState &side, const ulong position_id)
 }
 
 //+------------------------------------------------------------------+
-double Grind_ComputeAddTarget(const GrindSideState &side, const bool is_long)
+double Grind_ComputeAddTarget(const GrindSideState &side,
+                              const bool is_long,
+                              const double add_pips)
 {
    const int n = Grind_SideDepth(side);
    if(n <= 0)
       return 0.0;
    const double anchor = side.layers[n - 1].entry_price;
-   return Grind_AddTargetPrice(anchor, GRIND_ADD_PIPS_FLOOR, _Point, is_long ? 1 : -1);
+   return Grind_AddTargetPrice(anchor, add_pips, _Point, is_long ? 1 : -1);
 }
 
 //+------------------------------------------------------------------+
@@ -295,6 +297,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
                          const bool is_long,
                          const ulong magic,
                          const string slot,
+                         const double add_pips,
                          const double deadband_pips,
                          const int max_layers,
                          const double lots)
@@ -304,7 +307,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
       return;
 
    const int next_layer = n;
-   double add_target = Grind_ComputeAddTarget(side, is_long);
+   double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
    if(add_target <= 0.0)
       return;
 
@@ -449,6 +452,7 @@ void Grind_OnTickEngine(const ulong magic,
                         const string slot,
                         const double width_pips,
                         const double exit_pips,
+                        const double add_pips,
                         const double stranded_thresh_pips,
                         const double deadband_pips,
                         const int max_layers,
@@ -492,9 +496,9 @@ void Grind_OnTickEngine(const ulong magic,
    }
 
    if(Grind_SideDepth(g_grind_long) > 0)
-      Grind_EnsureAddNext(g_grind_long, true, magic, slot, deadband_pips, max_layers, lots);
+      Grind_EnsureAddNext(g_grind_long, true, magic, slot, add_pips, deadband_pips, max_layers, lots);
    if(Grind_SideDepth(g_grind_short) > 0)
-      Grind_EnsureAddNext(g_grind_short, false, magic, slot, deadband_pips, max_layers, lots);
+      Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_pips, deadband_pips, max_layers, lots);
 }
 
 //+------------------------------------------------------------------+

@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A (T1–T11)      |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A (T1–T17)      |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -8,10 +8,7 @@
 #property strict
 
 #include "grind_comment.mqh"
-#include "grind_pure.mqh"
-#include "grind_stubs.mqh"
-
-bool g_grind_halted = false;
+#include "grind_engine.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -139,10 +136,56 @@ void Test_T10_FailClosedStub()
 
 void Test_T11_PoisonedDefaults()
 {
-   AssertTrue("T11 width validate", !Grind_ValidateGeometryInputs(-1.0, 3.0, 12, 18.0));
-   AssertTrue("T11 exit validate", !Grind_ValidateGeometryInputs(9.0, -1.0, 12, 18.0));
-   AssertTrue("T11 width OnInit", Grind_TestOnInitGeometryCheck(-1.0, 3.0, 12, 18.0, 22260101UL) == INIT_FAILED);
-   AssertTrue("T11 exit OnInit", Grind_TestOnInitGeometryCheck(9.0, -1.0, 12, 18.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("T11 width validate", !Grind_ValidateGeometryInputs(-1.0, 3.0, 12, 18.0, 10.0));
+   AssertTrue("T11 exit validate", !Grind_ValidateGeometryInputs(9.0, -1.0, 12, 18.0, 10.0));
+   AssertTrue("T11 width OnInit", Grind_TestOnInitGeometryCheck(-1.0, 3.0, 12, 18.0, 10.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("T11 exit OnInit", Grind_TestOnInitGeometryCheck(9.0, -1.0, 12, 18.0, 10.0, 22260101UL) == INIT_FAILED);
+}
+
+void Test_T12_UnconfiguredAddPips()
+{
+   AssertTrue("T12 add validate", !Grind_ValidateGeometryInputs(9.0, 3.0, 12, 18.0, -1.0));
+}
+
+void Test_T13_LongAddTarget()
+{
+   const double point = 0.00001;
+   AssertNear("T13 long add", Grind_AddTargetPrice(1.25000, 10.0, point, 1), 1.24900, 1e-10);
+}
+
+void Test_T14_ShortAddTarget()
+{
+   const double point = 0.00001;
+   AssertNear("T14 short add", Grind_AddTargetPrice(1.25000, 10.0, point, -1), 1.25100, 1e-10);
+}
+
+void Test_T15_IdenticalSpacingAtDepth()
+{
+   const double add_pips = 10.0;
+   const double anchor = 1.25000;
+   const double expected = 1.24900;
+   int depths[3] = {1, 4, 11};
+   for(int d = 0; d < 3; d++) {
+      GrindSideState side;
+      ArrayResize(side.layers, depths[d]);
+      for(int i = 0; i < depths[d]; i++)
+         side.layers[i].entry_price = anchor;
+      const double target = Grind_ComputeAddTarget(side, true, add_pips);
+      AssertNear("T15 depth " + IntegerToString(depths[d]), target, expected, 1e-10);
+   }
+}
+
+void Test_T16_SimulatorParity()
+{
+   const double point = 0.00001;
+   AssertNear("T16 width5", Grind_AddTargetPrice(1.25000, 10.0, point, 1), 1.24900, 1e-10);
+   AssertNear("T16 width2.5", Grind_AddTargetPrice(1.25000, 5.0, point, 1), 1.24950, 1e-10);
+}
+
+void Test_T17_AddWidthRelationship()
+{
+   AssertTrue("T17 mismatch", !Grind_ValidateAddWidthRelationship(5.0, 9.0));
+   AssertTrue("T17 match", Grind_ValidateAddWidthRelationship(5.0, 10.0));
 }
 
 void Test_OrderBudgetArithmetic()
@@ -167,6 +210,12 @@ void OnStart()
    Test_T9_OfflineMarket();
    Test_T10_FailClosedStub();
    Test_T11_PoisonedDefaults();
+   Test_T12_UnconfiguredAddPips();
+   Test_T13_LongAddTarget();
+   Test_T14_ShortAddTarget();
+   Test_T15_IdenticalSpacingAtDepth();
+   Test_T16_SimulatorParity();
+   Test_T17_AddWidthRelationship();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

@@ -6,14 +6,15 @@
 
 #include "grind_comment.mqh"
 
-#define GRIND_ADD_PIPS_FLOOR 9.0
-#define GRIND_FEED_STALE_MS  5000
+#define GRIND_ADD_WIDTH_MULTIPLE 2.0
+#define GRIND_FEED_STALE_MS      5000
 
 //+------------------------------------------------------------------+
 bool Grind_ValidateGeometryInputs(const double width_pips,
                                   const double exit_pips,
                                   const int max_layers,
-                                  const double stranded_thresh_pips)
+                                  const double stranded_thresh_pips,
+                                  const double add_pips)
 {
    if(width_pips <= 0.0)
       return false;
@@ -23,7 +24,16 @@ bool Grind_ValidateGeometryInputs(const double width_pips,
       return false;
    if(stranded_thresh_pips <= 0.0)
       return false;
+   if(add_pips <= 0.0)
+      return false;
    return true;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ValidateAddWidthRelationship(const double width_pips,
+                                        const double add_pips)
+{
+   return (MathAbs(add_pips - GRIND_ADD_WIDTH_MULTIPLE * width_pips) <= 1e-8);
 }
 
 //+------------------------------------------------------------------+
@@ -31,9 +41,11 @@ int Grind_TestOnInitGeometryCheck(const double width_pips,
                                   const double exit_pips,
                                   const int max_layers,
                                   const double stranded_thresh_pips,
+                                  const double add_pips,
                                   const ulong magic)
 {
-   if(!Grind_ValidateGeometryInputs(width_pips, exit_pips, max_layers, stranded_thresh_pips))
+   if(!Grind_ValidateGeometryInputs(width_pips, exit_pips, max_layers,
+                                    stranded_thresh_pips, add_pips))
       return INIT_FAILED;
    if(magic == 0)
       return INIT_FAILED;

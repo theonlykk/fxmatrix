@@ -10,6 +10,7 @@ struct GrindPairPreset
    string slot;
    ulong  magic;
    double width_pips;          // PLACEHOLDER until sweep injects
+   double add_pips;            // MUST be GRIND_ADD_WIDTH_MULTIPLE x width_pips
    double exit_pips;           // PLACEHOLDER until sweep injects
    int    max_layers;
    double stranded_thresh_pips;

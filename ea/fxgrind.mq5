@@ -11,6 +11,7 @@
 input ulong  InpMagic              = 0;
 input string InpSlot               = "OPT";
 input double InpWidthPips          = -1.0;
+input double InpAddPips            = -1.0;
 input double InpExitPips           = -1.0;
 input int    InpMaxLayers          = -1;
 input double InpLots               = 0.01;
@@ -25,8 +26,14 @@ input bool   InpVerboseLog         = true;
 int OnInit()
 {
    if(!Grind_ValidateGeometryInputs(InpWidthPips, InpExitPips,
-                                    InpMaxLayers, InpStrandedThreshPips)) {
-      Print("FATAL: geometry not configured — width/exit/max_layers/stranded must be > 0");
+                                    InpMaxLayers, InpStrandedThreshPips,
+                                    InpAddPips)) {
+      Print("FATAL: geometry not configured — width/add/exit/max_layers/stranded must be > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateAddWidthRelationship(InpWidthPips, InpAddPips)) {
+      Print("FATAL: InpAddPips (", InpAddPips, ") != ",
+            GRIND_ADD_WIDTH_MULTIPLE, " x InpWidthPips (", InpWidthPips, ")");
       return INIT_FAILED;
    }
    if(InpMagic == 0) {
@@ -48,8 +55,8 @@ int OnInit()
 
    if(InpVerboseLog) {
       Print("fxgrind init magic=", InpMagic, " slot=", InpSlot,
-            " width=", InpWidthPips, " exit=", InpExitPips,
-            " max_layers=", InpMaxLayers,
+            " width=", InpWidthPips, " add=", InpAddPips,
+            " exit=", InpExitPips, " max_layers=", InpMaxLayers,
             " halted=", g_grind_halted);
    }
    return INIT_SUCCEEDED;
@@ -72,6 +79,7 @@ void OnTick()
                       InpSlot,
                       InpWidthPips,
                       InpExitPips,
+                      InpAddPips,
                       InpStrandedThreshPips,
                       InpDeadbandPips,
                       InpMaxLayers,
