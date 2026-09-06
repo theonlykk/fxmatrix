@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T35)    |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T35, T19b/c) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -219,6 +219,34 @@ void Test_T18_EmptyBookGenesis()
    AssertTrue("T18 ok", ok);
    AssertTrue("T18 long depth", ArraySize(long_out.layers) == 0);
    AssertTrue("T18 short depth", ArraySize(short_out.layers) == 0);
+}
+
+void Test_T19b_SingleLayerAppend()
+{
+   GrindReconLayerScratch scratch[];
+   int indices[];
+   int count = 0;
+   int idx = -1;
+   const bool ok = Grind_ReconEnsureLayer(scratch, indices, count, 0, idx);
+   AssertTrue("T19b append ok", ok);
+   AssertTrue("T19b count", count == 1);
+   AssertTrue("T19b scratch size", ArraySize(scratch) == 1);
+   AssertTrue("T19b indices size", ArraySize(indices) == 1);
+}
+
+void Test_T19c_AppendUpToMaxLayersParallel()
+{
+   GrindReconLayerScratch scratch[];
+   int indices[];
+   int count = 0;
+   for(int layer = 0; layer < 12; layer++) {
+      int idx = -1;
+      const bool ok = Grind_ReconEnsureLayer(scratch, indices, count, layer, idx);
+      AssertTrue("T19c append " + IntegerToString(layer), ok);
+      AssertTrue("T19c count " + IntegerToString(layer), count == layer + 1);
+      AssertTrue("T19c scratch " + IntegerToString(layer), ArraySize(scratch) == count);
+      AssertTrue("T19c indices " + IntegerToString(layer), ArraySize(indices) == count);
+   }
 }
 
 void Test_T19_ThreeLongLayersRebuild()
@@ -596,6 +624,8 @@ void OnStart()
    Test_T16_SimulatorParity();
    Test_T17_AddWidthRelationship();
    Test_T18_EmptyBookGenesis();
+   Test_T19b_SingleLayerAppend();
+   Test_T19c_AppendUpToMaxLayersParallel();
    Test_T19_ThreeLongLayersRebuild();
    Test_T20_UnparseableCommentHalts();
    Test_T21_NeighbourMagicIgnored();

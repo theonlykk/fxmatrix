@@ -82,10 +82,23 @@ bool Grind_ReconEnsureLayer(GrindReconLayerScratch &layers[],
    if(Grind_ReconFindLayerIdx(layer_indices, layer_count, layer_index, idx_out))
       return true;
 
-   if(layer_count >= 64)
-      return false;
-
    idx_out = layer_count;
+   const int new_size = layer_count + 1;
+
+   ResetLastError();
+   if(ArrayResize(layer_indices, new_size, 20) < 0) {
+      PrintFormat("FATAL: ArrayResize failed for layer_indices, Error: %d",
+                  GetLastError());
+      return false;
+   }
+
+   ResetLastError();
+   if(ArrayResize(layers, new_size, 20) < 0) {
+      PrintFormat("FATAL: ArrayResize failed for layers scratch, Error: %d",
+                  GetLastError());
+      return false;
+   }
+
    layer_indices[layer_count] = layer_index;
    layers[layer_count].layer_index = layer_index;
    layers[layer_count].has_position = false;
