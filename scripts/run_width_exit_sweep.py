@@ -88,6 +88,23 @@ WINDOW_META = {
     "vaccine_rally": {"regime": "stress", "label": "STRESS strong trend"},
     "june_blowup": {"regime": "stress", "label": "STRESS vol spike"},
 }
+# Pre-registered calibration / holdout split (Gate 4). Editable configuration —
+# geometry selection uses calibration windows only; holdout is scored after selection.
+WINDOW_ROLES: dict[str, str] = {
+    "q1_2024_chop": "calibration",
+    "truss_crisis": "calibration",
+    "vaccine_rally": "holdout",
+    "june_blowup": "holdout",
+    "full_quarter": "support",
+}
+CALIBRATION_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "calibration")
+HOLDOUT_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "holdout")
+SUPPORT_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "support")
+
+# FTMO gate limits (5% / 10% of 10k initial) — used for near-miss scoring fractions.
+GATE_A_LIMIT_USD = sim_costs.DEFAULT_INITIAL_BALANCE * sim_costs.DEFAULT_MAX_DAILY_LOSS_FRAC
+GATE_B_LIMIT_USD = sim_costs.DEFAULT_INITIAL_BALANCE * sim_costs.DEFAULT_MAX_TOTAL_LOSS_FRAC
+
 HARVEST_WINDOWS = ("q1_2024_chop", "full_quarter")
 STRESS_WINDOWS = ("truss_crisis", "vaccine_rally", "june_blowup")
 
@@ -407,21 +424,37 @@ def aggregate_seed_results(
         ),
         "disqualified_gate_a": gate_a > 0,
         "disqualified_gate_b": gate_b > 0,
+        "disqualified_gates": gate_a > 0 or gate_b > 0,
     }
 
 
+def is_gate_disqualified(cell: dict) -> bool:
+    """True if Gate A or Gate B breached (hard FTMO disqualification)."""
+    return cell.get("gate_a_breach_rate", 0) > 0 or cell.get("gate_b_breach_rate", 0) > 0
+
+
 def risk_adjusted_score(cell: dict) -> float:
-    """Harvest ranking: realised P&L penalised for dd3; dd4 cells disqualified."""
-    if cell["dd4_rate"] > 0:
+    """
+    Harvest ranking: disqualify on Gate A or Gate B breach (gate_a_breach_rate /
+    gate_b_breach_rate). Soft penalty uses mean_max_daily_equity_drawdown_usd as
+    Gate A near-miss (fraction of 500 USD limit). dd3/dd4 retained as telemetry only.
+    """
+    if is_gate_disqualified(cell):
         return float("-inf")
-    return cell["mean_realised"] - 0.5 * cell["dd3_rate"]
+    near_miss_a = cell.get("mean_max_daily_equity_drawdown_usd", 0.0) / GATE_A_LIMIT_USD
+    return cell["mean_realised"] - 0.5 * near_miss_a
 
 
 def survival_score(cell: dict) -> float:
-    """Survival ranking: prefer zero dd4, then low dd3, then P&L."""
-    if cell["dd4_rate"] > 0:
+    """
+    Survival ranking: disqualify on Gate A or Gate B breach. Soft penalty uses
+    mean_max_absolute_drawdown_usd as Gate B near-miss (fraction of 1000 USD limit).
+    dd3/dd4 retained as telemetry only.
+    """
+    if is_gate_disqualified(cell):
         return float("-inf")
-    return cell["mean_realised"] - 2.0 * cell["dd3_rate"]
+    near_miss_b = cell.get("mean_max_absolute_drawdown_usd", 0.0) / GATE_B_LIMIT_USD
+    return cell["mean_realised"] - 2.0 * near_miss_b
 
 
 def run_sweep(
@@ -529,6 +562,9 @@ def run_sweep(
                 "elapsed_sec": time.time() - start,
                 "production_point": [PROD_WIDTH, PROD_EXIT],
                 "knobs": {"width": "InpDumbStraddlePips", "exit": "InpExitPips"},
+                "window_roles": WINDOW_ROLES,
+                "calibration_windows": list(CALIBRATION_WINDOWS),
+                "holdout_windows": list(HOLDOUT_WINDOWS),
                 "cells": cells,
             },
         )
@@ -602,6 +638,14 @@ def pool_pairs(cells: dict, window_key: str) -> dict[tuple[float, float], dict]:
             "mean_pnl": float(np.mean([r["mean_pnl"] for r in rows])),
             "dd3_rate": float(np.mean([r["dd3_rate"] for r in rows])),
             "dd4_rate": float(np.mean([r["dd4_rate"] for r in rows])),
+            "gate_a_breach_rate": float(max(r["gate_a_breach_rate"] for r in rows)),
+            "gate_b_breach_rate": float(max(r["gate_b_breach_rate"] for r in rows)),
+            "mean_max_daily_equity_drawdown_usd": float(
+                np.mean([r["mean_max_daily_equity_drawdown_usd"] for r in rows])
+            ),
+            "mean_max_absolute_drawdown_usd": float(
+                np.mean([r["mean_max_absolute_drawdown_usd"] for r in rows])
+            ),
             "mean_max_layers": float(np.mean([r["mean_max_layers"] for r in rows])),
             "median_l0_hold_min": float(np.nanmean([r["median_l0_hold_min"] for r in rows])),
             "mean_l0_hold_min": float(np.nanmean([r["mean_l0_hold_min"] for r in rows])),
@@ -611,9 +655,37 @@ def pool_pairs(cells: dict, window_key: str) -> dict[tuple[float, float], dict]:
             "pct_l0_trend_like": float(np.nanmean([r["pct_l0_trend_like"] for r in rows])),
         }
         out[k]["disqualified_dd4"] = out[k]["dd4_rate"] > 0
+        out[k]["disqualified_gates"] = is_gate_disqualified(out[k])
         out[k]["risk_adj"] = risk_adjusted_score(out[k])
         out[k]["survival_score"] = survival_score(out[k])
     return out
+
+
+def pool_windows_mean(
+    cells: dict, window_keys: tuple[str, ...] | list[str]
+) -> dict[tuple[float, float], list[dict]]:
+    """Collect pair-pooled surfaces per window for cross-window aggregation."""
+    pooled: dict[tuple[float, float], list[dict]] = {}
+    for wkey in window_keys:
+        if wkey not in WINDOW_META:
+            continue
+        for k, v in pool_pairs(cells, wkey).items():
+            pooled.setdefault(k, []).append(v)
+    return pooled
+
+
+def select_geometry_from_calibration(
+    cells: dict, window_keys: tuple[str, ...] | list[str], score_key: str = "risk_adj"
+) -> tuple[tuple[float, float] | None, float]:
+    """Pick best cell averaging score_key across calibration windows only."""
+    cal_windows = [w for w in window_keys if WINDOW_ROLES.get(w) == "calibration"]
+    pool = pool_windows_mean(cells, cal_windows)
+    best_k, best_v = None, float("-inf")
+    for k, rows in pool.items():
+        s = float(np.mean([r[score_key] for r in rows]))
+        if np.isfinite(s) and s > best_v:
+            best_k, best_v = k, s
+    return best_k, best_v
 
 
 def rank_production(surface: dict[tuple[float, float], dict], score_key: str) -> dict:
@@ -723,9 +795,19 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
         "  2. Window library STRESS-SKEWED — harvest optimum rests mainly on chop (+ mixed);"
     )
     print("     do NOT pool stress + ranging into one surface.")
+    print(
+        f"  3. Pre-registered split: calibration={list(CALIBRATION_WINDOWS)} "
+        f"holdout={list(HOLDOUT_WINDOWS)} support={list(SUPPORT_WINDOWS)}"
+    )
 
     harvest_surfaces = {w: pool_pairs(cells, w) for w in run_windows if w in HARVEST_WINDOWS}
     stress_surfaces = {w: pool_pairs(cells, w) for w in run_windows if w in STRESS_WINDOWS}
+    calibration_surfaces = {
+        w: pool_pairs(cells, w) for w in run_windows if WINDOW_ROLES.get(w) == "calibration"
+    }
+    holdout_surfaces = {
+        w: pool_pairs(cells, w) for w in run_windows if WINDOW_ROLES.get(w) == "holdout"
+    }
 
     # Per-window summary table
     print("\n" + "=" * 80)
@@ -738,6 +820,8 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
         print(
             f"\n  {wkey} [{WINDOW_META[wkey]['label']}]"
             f"\n    prod 9/3: realised=${prod.get('mean_realised', float('nan')):.2f} "
+            f"gate_a={prod.get('gate_a_breach_rate', float('nan')):.1f}% "
+            f"gate_b={prod.get('gate_b_breach_rate', float('nan')):.1f}% "
             f"dd3={prod.get('dd3_rate', float('nan')):.1f}% dd4={prod.get('dd4_rate', float('nan')):.1f}% "
             f"med_hold={prod.get('median_l0_hold_min', float('nan')):.1f}min "
             f"med_exit={prod.get('median_exit_dist_pips', float('nan')):.1f}p "
@@ -762,18 +846,15 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
             f"DD4 breach rate % — {wkey}",
         )
 
-    # Q1 plateau
+    # Q1 plateau — calibration windows only (pre-registered selection set)
     print("\n" + "=" * 80)
-    print("Q1 — PLATEAU vs PEAK (risk-adjusted, pair-pooled)")
+    print("Q1 — PLATEAU vs PEAK (risk-adjusted, pair-pooled, CALIBRATION only)")
     print("=" * 80)
-    for label, wins in [("RANGING/HARVEST", [w for w in HARVEST_WINDOWS if w in run_windows]),
-                        ("STRESS", [w for w in STRESS_WINDOWS if w in run_windows])]:
-        print(f"\n  [{label}]")
-        for w in wins:
-            surf = harvest_surfaces.get(w) or stress_surfaces.get(w) or {}
-            pl = plateau_analysis(surf, "risk_adj")
-            print(f"    {w}: {pl['verdict']} — top={pl.get('top_cell')} "
-                  f"({pl.get('n_within_5pct_of_top', 0)} cells within 5% of top)")
+    for w in sorted(calibration_surfaces.keys()):
+        surf = calibration_surfaces[w]
+        pl = plateau_analysis(surf, "risk_adj")
+        print(f"    {w}: {pl['verdict']} — top={pl.get('top_cell')} "
+              f"({pl.get('n_within_5pct_of_top', 0)} cells within 5% of top)")
 
     # Q2 where is 9/3
     print("\n" + "=" * 80)
@@ -788,42 +869,47 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
             f"vs best {rk['best_cell']}={rk['best_score']:.2f}"
         )
 
-    # Q3 harvest vs survival optima
+    # Q3 geometry selection — calibration only; holdout scored separately
     print("\n" + "=" * 80)
-    print("Q3 — HARVEST vs SURVIVAL OPTIMUM (pair-pooled)")
+    print("Q3 — GEOMETRY SELECTION (calibration windows only, Gate A/B gated)")
     print("=" * 80)
-    harvest_pool: dict[tuple[float, float], list[dict]] = {}
-    stress_pool: dict[tuple[float, float], list[dict]] = {}
-    for w in run_windows:
-        if w in HARVEST_WINDOWS:
-            for k, v in (harvest_surfaces.get(w) or {}).items():
-                harvest_pool.setdefault(k, []).append(v)
-        if w in STRESS_WINDOWS:
-            for k, v in (stress_surfaces.get(w) or {}).items():
-                stress_pool.setdefault(k, []).append(v)
-
-    def avg_score(pool: dict, k, key):
-        return float(np.mean([r[key] for r in pool[k]]))
-
-    harvest_best, harvest_scr = None, float("-inf")
-    for k in harvest_pool:
-        s = avg_score(harvest_pool, k, "risk_adj")
-        if np.isfinite(s) and s > harvest_scr:
-            harvest_best, harvest_scr = k, s
-
-    survival_best, survival_scr = None, float("-inf")
-    for k in stress_pool:
-        s = avg_score(stress_pool, k, "survival_score")
-        if np.isfinite(s) and s > survival_scr:
-            survival_best, survival_scr = k, s
-
-    agree = harvest_best == survival_best
-    print(f"  HARVEST optimum (avg ranging+mixed risk_adj): {harvest_best} score={harvest_scr:.2f}")
-    print(f"  SURVIVAL optimum (avg stress survival_score): {survival_best} score={survival_scr:.2f}")
+    cal_harvest_best, cal_harvest_scr = select_geometry_from_calibration(
+        cells, run_windows, "risk_adj"
+    )
+    cal_survival_best, cal_survival_scr = select_geometry_from_calibration(
+        cells, run_windows, "survival_score"
+    )
+    print(
+        f"  CALIBRATION harvest optimum (avg risk_adj): "
+        f"{cal_harvest_best} score={cal_harvest_scr:.2f}"
+    )
+    print(
+        f"  CALIBRATION survival optimum (avg survival_score): "
+        f"{cal_survival_best} score={cal_survival_scr:.2f}"
+    )
+    agree = cal_harvest_best == cal_survival_best
     if agree:
-        print("  => AGREE — one geometry harvests and survives (fixed point viable).")
+        print("  => AGREE on calibration set — one geometry harvests and survives.")
     else:
-        print("  => DISAGREE — harvest-optimal != survival-optimal (distribution may earn its keep).")
+        print("  => DISAGREE on calibration set — harvest-optimal != survival-optimal.")
+
+    print("\n" + "=" * 80)
+    print("Q4 — HOLDOUT EVALUATION (out-of-sample, does NOT influence selection)")
+    print("=" * 80)
+    selected = cal_harvest_best
+    if selected is None:
+        print("  No calibration selection — holdout skipped.")
+    else:
+        print(f"  Selected geometry (from calibration): {selected}")
+        for wkey in sorted(holdout_surfaces.keys()):
+            cell = holdout_surfaces[wkey].get(selected, {})
+            print(
+                f"  {wkey}: realised=${cell.get('mean_realised', float('nan')):.2f} "
+                f"gate_a={cell.get('gate_a_breach_rate', float('nan')):.1f}% "
+                f"gate_b={cell.get('gate_b_breach_rate', float('nan')):.1f}% "
+                f"risk_adj={cell.get('risk_adj', float('nan')):.2f} "
+                f"disqualified={cell.get('disqualified_gates', False)}"
+            )
 
     if "q1_2024_chop" in run_windows:
         chop = harvest_surfaces.get("q1_2024_chop", {})
@@ -1218,6 +1304,10 @@ def main():
         "exit_grid": exit_grid,
         "windows": window_keys,
         "pairs": list(PAIRS),
+        "window_roles": WINDOW_ROLES,
+        "calibration_windows": list(CALIBRATION_WINDOWS),
+        "holdout_windows": list(HOLDOUT_WINDOWS),
+        "support_windows": list(SUPPORT_WINDOWS),
         "preview": preview,
         "fast_shape": fast_shape,
         "production_point": [PROD_WIDTH, PROD_EXIT],
@@ -1225,6 +1315,19 @@ def main():
         "elapsed_sec": payload["elapsed_sec"],
         "cells": payload["cells"],
     }
+    cal_best, cal_score = select_geometry_from_calibration(payload["cells"], window_keys, "risk_adj")
+    if cal_best is not None:
+        final_doc["calibration_selection"] = {
+            "geometry": list(cal_best),
+            "score": cal_score,
+            "score_key": "risk_adj",
+        }
+        final_doc["holdout_evaluation"] = {}
+        for wkey in HOLDOUT_WINDOWS:
+            if wkey not in window_keys:
+                continue
+            surf = pool_pairs(payload["cells"], wkey)
+            final_doc["holdout_evaluation"][wkey] = surf.get(cal_best, {})
     write_checkpoint(final_path, final_doc)
     print(f"\nWrote final JSON: {final_path}", flush=True)
     if partial_path.is_file():
