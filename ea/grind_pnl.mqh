@@ -11,8 +11,8 @@
 // on the execution path; derived statelessly via CopyTicksRange on OnTimer.
 #define GRIND_EXIT_PENETRATION_WINDOW_SEC 30
 
-// Daily realised P&L and microstructure counters — reset at TimeServer() day
-// boundary. NOT persisted across restarts (Gate 1 stateless property).
+// Daily realised P&L and microstructure counters — reset at TimeTradeServer()
+// day boundary. NOT persisted across restarts (Gate 1 stateless property).
 double g_grind_realised_pnl_today          = 0.0;
 double g_grind_scalp_pnl_last              = 0.0;
 string g_grind_pnl_day_key                 = "";
@@ -34,7 +34,7 @@ struct GrindPendingExitMeasure
 GrindPendingExitMeasure g_grind_pending_exit_measures[];
 int g_grind_pending_exit_count = 0;
 
-// Unit-test hooks (no PositionsTotal / TimeServer when active).
+// Unit-test hooks (no PositionsTotal / TimeTradeServer when active).
 bool     g_grind_pnl_test_active           = false;
 datetime g_grind_pnl_test_server_time      = 0;
 
@@ -72,7 +72,7 @@ datetime Grind_ReadServerTime()
 {
    if(g_grind_pnl_test_active)
       return g_grind_pnl_test_server_time;
-   return TimeServer();
+   return TimeTradeServer();
 }
 
 //+------------------------------------------------------------------+

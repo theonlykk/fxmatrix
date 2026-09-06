@@ -142,7 +142,7 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     | Field | Composition / semantics |
     |-------|-------------------------|
     | `net_mtm` | Floating inventory MTM — **not** realised performance. Sum over open positions matching `InpMagic` by exact equality: `POSITION_PROFIT + POSITION_SWAP + POSITION_COMMISSION`. `POSITION_PROFIT` alone excludes swap and commission; all three are summed at the call site with an explicit comment. |
-    | `realised_pnl_today` | Net of `DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION` on each completed scalp (EXT / `DEAL_ENTRY_OUT`). Resets daily at the **TimeServer()** day boundary — FTMO trade servers run natively on CE(S)T, so `TimeServer()` handles DST natively and matches the risk-gate day boundary. No hand-rolled GMT offset; no `TimeLocal()`. |
+    | `realised_pnl_today` | Net of `DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION` on each completed scalp (EXT / `DEAL_ENTRY_OUT`). Resets daily at the **TimeTradeServer()** day boundary — FTMO trade servers run natively on CE(S)T, so `TimeTradeServer()` handles DST natively and matches the risk-gate day boundary. No hand-rolled GMT offset; no `TimeLocal()`. |
     | `scalp_pnl_last` | Net P&L of the most recent completed scalp (same three-part composition). |
     | `exit_penetration_pips_last` | Maximum favourable excursion (pips) beyond the exit fill price within `GRIND_EXIT_PENETRATION_WINDOW_SEC` (30 s) after fill. |
     | `exit_penetration_pips_mean` | Running mean of `exit_penetration_pips_last` for the current server day. |
