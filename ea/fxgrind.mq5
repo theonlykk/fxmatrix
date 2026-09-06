@@ -1,12 +1,14 @@
 //+------------------------------------------------------------------+
-//| fxgrind.mq5 — dumb-only market-making EA (Spec A)                |
-//| One codebase, per-pair preset headers, magic 2226xxxx namespace. |
+//| fxgrind.mq5 — dumb-only market-making EA (Spec A/B)              |
+//| One codebase, six .set presets, magic 2226xxxx namespace.        |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.00"
 #property strict
 
 #include "grind_engine.mqh"
+#include "grind_magic_lock.mqh"
+#include "grind_config.mqh"
 
 input ulong  InpMagic              = 0;
 input string InpSlot               = "OPT";
@@ -23,6 +25,7 @@ input double InpCapLegAThresh      = 0.0;
 input double InpCapLegBThresh      = 0.0;
 input string InpTelemetryInstance  = "GRIND_UNKNOWN";
 input bool   InpVerboseLog         = true;
+input string InpConfigWarning      = "GEOMETRY UNSET - DO NOT TRADE";
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -40,6 +43,14 @@ int OnInit()
    }
    if(InpMagic == 0) {
       Print("FATAL: InpMagic must be set from preset");
+      return INIT_FAILED;
+   }
+
+   if(!Grind_MagicLockClaim(InpMagic)) {
+      Print("FATAL: duplicate magic ", InpMagic,
+            " — another fxgrind instance is already running on this magic");
+      Grind_TelemetryCritical(InpTelemetryInstance, "DUPLICATE_MAGIC",
+                              IntegerToString((long)InpMagic));
       return INIT_FAILED;
    }
 
@@ -63,18 +74,31 @@ int OnInit()
 
    Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
 
-   if(InpVerboseLog) {
-      Print("fxgrind init magic=", InpMagic, " slot=", InpSlot,
-            " width=", InpWidthPips, " add=", InpAddPips,
-            " exit=", InpExitPips, " max_layers=", InpMaxLayers,
-            " halted=", g_grind_halted);
-   }
+   Print(Grind_ConfigDumpString(InpMagic,
+                                InpSlot,
+                                _Symbol,
+                                InpWidthPips,
+                                InpAddPips,
+                                InpExitPips,
+                                InpMaxLayers,
+                                InpStrandedThreshPips,
+                                InpDeadbandPips,
+                                InpLots,
+                                InpCapLegA,
+                                InpCapLegB,
+                                InpCapLegAThresh,
+                                InpCapLegBThresh,
+                                InpTelemetryInstance,
+                                InpVerboseLog,
+                                InpConfigWarning));
+
    return INIT_SUCCEEDED;
 }
 
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   Grind_MagicLockRelease(InpMagic);
    if(InpVerboseLog)
       Print("fxgrind deinit reason=", reason);
 }
@@ -124,7 +148,15 @@ void OnTick()
                                       g_grind_cap_own_leg_b,
                                       g_grind_cap_total_leg_a,
                                       g_grind_cap_total_leg_b,
-                                      g_grind_cap_peer_read_failed)
+                                      g_grind_cap_peer_read_failed,
+                                      InpMagic,
+                                      InpSlot,
+                                      InpWidthPips,
+                                      InpAddPips,
+                                      InpExitPips,
+                                      InpMaxLayers,
+                                      InpCapLegA,
+                                      InpCapLegB)
       );
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");

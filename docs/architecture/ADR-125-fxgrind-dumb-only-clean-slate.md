@@ -87,13 +87,25 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     ≤ 0 means cap **off** (machinery runs, nothing blocked); threshold > 0 arms
     the limit. Cap gates **new entries only** — never exits, re-center, or close.
 
+11. **Deploy configuration via MT5 .set files.** The unreachable `grind_preset_*.mqh`
+    headers are deleted. Six committed presets live in `ea/presets/` (GBPUSD/EURUSD/
+    EURGBP × OPT/ALT). Geometry inputs remain poisoned in .set files until the
+    confirmation sweep injects real values. `InpConfigWarning` is a dummy string
+    input serialised into each .set so the geometry warning survives MT5 GUI
+    round-trips (not `;` comments). OnInit prints the full resolved configuration.
+    Duplicate-magic guard: `GRIND2226_MAGIC_LOCK_<magic>` via `GlobalVariableTemp`
+    (session-scoped, not persistent — survives terminal crash without blocking
+    reattach). Claimed after geometry validation, **before** cap Phase-1 publish;
+    released in OnDeinit. Heartbeat telemetry appends magic, slot, geometry, layer
+    cap and cap-leg names at the end of the existing JSON schema.
+
 ## Consequences
 
 - Spec B enables trading after successful reconstruction on a valid book; invalid
   or unparseable books halt in place.
-- Geometry width/exit/add injected from confirmation sweep before deploy;
-  presets carry placeholders only (`InpAddPips` must be recomputed as 2.0 × width
-  whenever width is injected).
+- Geometry width/exit/add injected from confirmation sweep before deploy; `.set`
+  files carry poisoned placeholders until then (`InpAddPips` must be recomputed
+  as 2.0 × width whenever width is injected).
 - MetaEditor GUI compile required; CLI compile not trusted in this project.
 - `desktop_sync.ps1` / `deploy.ps1` header lists must be re-derived from fxgrind
   include graph in a separate task.
@@ -103,5 +115,4 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - ADR-123 (place-once straddle), ADR-124 (re-centering — reserved write-up)
 - ADR-126 (simulation cost model — separate branch)
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
-- `ea/fxgrind.mq5`, `ea/grind_*.mqh` (incl. `grind_recon.mqh`, `grind_cap.mqh`),
-  `ea/fxgrind_tests.mq5`
+- `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`

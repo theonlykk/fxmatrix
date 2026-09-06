@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T31)    |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T35)    |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -9,6 +9,8 @@
 
 #include "grind_comment.mqh"
 #include "grind_engine.mqh"
+#include "grind_magic_lock.mqh"
+#include "grind_config.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -32,6 +34,16 @@ void AssertNear(const string name, const double got, const double expected, cons
 void AssertEqStr(const string name, const string got, const string expected)
 {
    AssertTrue(name, got == expected);
+}
+
+void AssertContains(const string name, const string haystack, const string needle)
+{
+   AssertTrue(name, StringFind(haystack, needle) >= 0);
+}
+
+void Test_SuiteCleanupMagicLocks()
+{
+   Grind_MagicLockReleaseAllKnown();
 }
 
 void Test_T1_CommentConstructor()
@@ -483,6 +495,77 @@ void Test_T31_ThresholdZeroOffStillPublishes()
               GlobalVariableCheck(Grind_CapExposureKey(22260301UL, "EUR")));
 }
 
+void Test_T32_DuplicateMagicFails()
+{
+   const ulong test_magic = 22269901UL;
+   bool first_claim = false;
+   bool duplicate_blocked = false;
+   Grind_MagicLockRelease(test_magic);
+   first_claim = Grind_MagicLockClaim(test_magic);
+   duplicate_blocked = !Grind_MagicLockClaim(test_magic);
+   Grind_MagicLockRelease(test_magic);
+   AssertTrue("T32 first claim", first_claim);
+   AssertTrue("T32 duplicate blocked", duplicate_blocked);
+}
+
+void Test_T33_FreeMagicClaimSucceeds()
+{
+   const ulong test_magic = 22269901UL;
+   bool claim_ok = false;
+   bool key_present = false;
+   Grind_MagicLockRelease(test_magic);
+   claim_ok = Grind_MagicLockClaim(test_magic);
+   key_present = Grind_MagicLockIsClaimed(test_magic);
+   Grind_MagicLockRelease(test_magic);
+   AssertTrue("T33 claim ok", claim_ok);
+   AssertTrue("T33 key present", key_present);
+}
+
+void Test_T34_ReleaseAllowsReclaim()
+{
+   const ulong test_magic = 22269901UL;
+   bool first_claim = false;
+   bool released = false;
+   bool second_claim = false;
+   Grind_MagicLockRelease(test_magic);
+   first_claim = Grind_MagicLockClaim(test_magic);
+   Grind_MagicLockRelease(test_magic);
+   released = !Grind_MagicLockIsClaimed(test_magic);
+   second_claim = Grind_MagicLockClaim(test_magic);
+   Grind_MagicLockRelease(test_magic);
+   AssertTrue("T34 first claim", first_claim);
+   AssertTrue("T34 released", released);
+   AssertTrue("T34 reclaim ok", second_claim);
+}
+
+void Test_T35_ConfigDumpCoversAllInputs()
+{
+   const string dump = Grind_ConfigDumpString(
+      22260101UL, "OPT", "GBPUSD",
+      -1.0, -1.0, -1.0, 12,
+      -1.0, 4.0, 0.01,
+      "GBP", "USD", 0.0, 0.0,
+      "GRIND_GBPUSD_OPT", true,
+      "GEOMETRY UNSET - DO NOT TRADE");
+   AssertContains("T35 InpMagic", dump, "InpMagic=");
+   AssertContains("T35 InpSlot", dump, "InpSlot=");
+   AssertContains("T35 symbol", dump, "symbol=");
+   AssertContains("T35 InpWidthPips", dump, "InpWidthPips=");
+   AssertContains("T35 InpAddPips", dump, "InpAddPips=");
+   AssertContains("T35 InpExitPips", dump, "InpExitPips=");
+   AssertContains("T35 InpMaxLayers", dump, "InpMaxLayers=");
+   AssertContains("T35 InpStrandedThreshPips", dump, "InpStrandedThreshPips=");
+   AssertContains("T35 InpDeadbandPips", dump, "InpDeadbandPips=");
+   AssertContains("T35 InpLots", dump, "InpLots=");
+   AssertContains("T35 InpCapLegA", dump, "InpCapLegA=");
+   AssertContains("T35 InpCapLegB", dump, "InpCapLegB=");
+   AssertContains("T35 InpCapLegAThresh", dump, "InpCapLegAThresh=");
+   AssertContains("T35 InpCapLegBThresh", dump, "InpCapLegBThresh=");
+   AssertContains("T35 InpTelemetryInstance", dump, "InpTelemetryInstance=");
+   AssertContains("T35 InpVerboseLog", dump, "InpVerboseLog=");
+   AssertContains("T35 InpConfigWarning", dump, "InpConfigWarning=");
+}
+
 void Test_OrderBudgetArithmetic()
 {
    AssertTrue("budget 12 side", Grind_RestingOrderBudgetPerSide(12) == 13);
@@ -492,6 +575,7 @@ void Test_OrderBudgetArithmetic()
 
 void OnStart()
 {
+   Test_SuiteCleanupMagicLocks();
    Test_T1_CommentConstructor();
    Test_T2_CommentRoundTrip();
    Test_T3_CommentLength();
@@ -526,6 +610,10 @@ void OnStart()
    Test_T29_CapBlocksNewEntry();
    Test_T30_CapDoesNotBlockNonEntry();
    Test_T31_ThresholdZeroOffStillPublishes();
+   Test_T32_DuplicateMagicFails();
+   Test_T33_FreeMagicClaimSucceeds();
+   Test_T34_ReleaseAllowsReclaim();
+   Test_T35_ConfigDumpCoversAllInputs();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

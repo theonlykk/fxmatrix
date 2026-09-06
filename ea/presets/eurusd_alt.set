@@ -1,0 +1,16 @@
+InpMagic=22260202
+InpSlot=ALT
+InpWidthPips=-1.0
+InpAddPips=-1.0
+InpExitPips=-1.0
+InpMaxLayers=12
+InpLots=0.01
+InpStrandedThreshPips=-1.0
+InpDeadbandPips=4.0
+InpCapLegA=EUR
+InpCapLegB=USD
+InpCapLegAThresh=0.0
+InpCapLegBThresh=0.0
+InpTelemetryInstance=GRIND_EURUSD_ALT
+InpVerboseLog=true
+InpConfigWarning=GEOMETRY UNSET - DO NOT TRADE
