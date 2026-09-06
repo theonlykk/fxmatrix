@@ -52,6 +52,8 @@ spec6 = importlib.util.spec_from_file_location(
 simv6 = importlib.util.module_from_spec(spec6)
 spec6.loader.exec_module(simv6)
 
+import sim_costs
+
 SPACING_MODES = ["reload_anchor", "reload_flat"]
 BIAS_MODES = [
     ("MM_LONG", simv7.BiasMode.LONG_ONLY),
@@ -66,8 +68,7 @@ ALL_WINDOWS = {
     "q1_2024_chop": os.path.join(ROOT, "data", "GBPUSD_q1_2024_chop_oos.csv"),
 }
 STRESS_WINDOWS = ("truss_crisis", "vaccine_rally")
-PIP = 0.0001
-PAIR_SPREAD_PIPS = simv6.PAIR_SPREAD_PIPS.get("GBPUSD", 0.64)
+SYMBOL = "GBPUSD"
 
 
 @contextmanager
@@ -111,14 +112,18 @@ def simulate_instrumented(
     bias_mode,
     spacing_mode,
     seed,
-    pair_spread=PAIR_SPREAD_PIPS,
+    pair_spread=None,
 ):
     """Single-seed fill breakdown (seed=0 reference for per-scalp edge)."""
+    if pair_spread is None:
+        pair_spread = sim_costs.PAIR_SPREAD_PIPS[SYMBOL]
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
     sigma = float(np.std(np.diff(np.log(closes)), ddof=1) * 2.5)
-    exit_dist = simv7.pips_to_price(simv7.EXIT_PIPS, PIP)
-    half_spread = simv7.pips_to_price(pair_spread / 2.0, PIP)
+    exit_dist = sim_costs.pips_to_price(simv7.EXIT_PIPS, SYMBOL)
+    half_spread = sim_costs.half_spread_price(SYMBOL)
+    entry_comm = sim_costs.commission_per_leg_usd(simv7.LOT_SIZE)
+    exit_comm = entry_comm
 
     layers = []
     current_add_pips = simv7.ADD_PIPS_FLOOR
@@ -130,9 +135,6 @@ def simulate_instrumented(
     dd3 = dd4 = False
     max_layers = 0
     l0 = add = reload = exits = 0
-
-    def usd(diff):
-        return (diff / PIP) * simv7.USD_PER_PIP
 
     price_current = closes[0]
     for i in range(n_bars):
@@ -172,6 +174,7 @@ def simulate_instrumented(
                             entry_price=fill_p,
                             direction=filled,
                             exit_target_raw=fill_p + filled * exit_dist,
+                            entry_commission_usd=entry_comm,
                         )
                     )
                     current_add_pips = simv7.ADD_PIPS_FLOOR
@@ -192,9 +195,12 @@ def simulate_instrumented(
                     closed = layers.pop()
                     if spacing_mode in ("reload_anchor", "reload_flat"):
                         last_exit_price = closed.entry_price
-                    entry_paid = closed.entry_price + closed.direction * half_spread
-                    exit_recv = closed.exit_target_raw - closed.direction * half_spread
-                    pnl_realised += usd((exit_recv - entry_paid) * closed.direction)
+                    gross = sim_costs.price_diff_to_usd(
+                        (closed.exit_target_raw - closed.entry_price) * closed.direction,
+                        SYMBOL,
+                        simv7.LOT_SIZE,
+                    )
+                    pnl_realised += gross - exit_comm
                     exits += 1
             if layers:
                 cur = layers[-1]
@@ -204,13 +210,13 @@ def simulate_instrumented(
                     reload_step = min(
                         simv7.ADD_PIPS_CEILING, simv7.ADD_PIPS_FLOOR * depth_mult
                     )
-                    add_target = last_exit_price - cur.direction * simv7.pips_to_price(
-                        reload_step, PIP
+                    add_target = last_exit_price - cur.direction * sim_costs.pips_to_price(
+                        reload_step, SYMBOL
                     )
                     used_reload = True
                 elif spacing_mode == "reload_flat" and last_exit_price is not None:
-                    add_target = last_exit_price - cur.direction * simv7.pips_to_price(
-                        simv7.ADD_PIPS_FLOOR, PIP
+                    add_target = last_exit_price - cur.direction * sim_costs.pips_to_price(
+                        simv7.ADD_PIPS_FLOOR, SYMBOL
                     )
                     used_reload = True
                 else:
@@ -220,8 +226,8 @@ def simulate_instrumented(
                         if (spacing_mode == "flat" or still_shallow)
                         else current_add_pips
                     )
-                    add_target = cur.entry_price - cur.direction * simv7.pips_to_price(
-                        add_pips, PIP
+                    add_target = cur.entry_price - cur.direction * sim_costs.pips_to_price(
+                        add_pips, SYMBOL
                     )
                 eff_add = add_target - cur.direction * half_spread
                 hit = (cur.direction == 1 and pp > eff_add >= pn) or (
@@ -233,6 +239,7 @@ def simulate_instrumented(
                             entry_price=add_target,
                             direction=cur.direction,
                             exit_target_raw=add_target + cur.direction * exit_dist,
+                            entry_commission_usd=entry_comm,
                         )
                     )
                     if spacing_mode in ("reload_anchor", "reload_flat"):
@@ -256,9 +263,15 @@ def simulate_instrumented(
                 current_day = bar_day
         unreal = 0.0
         for lay in layers:
-            cp = end_price - half_spread if lay.direction == 1 else end_price + half_spread
-            ep = lay.entry_price + lay.direction * half_spread
-            unreal += usd((cp - ep) * lay.direction)
+            mark = end_price - half_spread if lay.direction == 1 else end_price + half_spread
+            unreal += sim_costs.layer_unrealised_usd(
+                lay.entry_price,
+                lay.direction,
+                mark,
+                SYMBOL,
+                lay.entry_commission_usd,
+                simv7.LOT_SIZE,
+            )
         equity = 10000.0 + pnl_realised + unreal
         if daily_start > 0:
             dd = (daily_start - equity) / daily_start
@@ -334,9 +347,11 @@ def parallel_seed_runs(
     bias_mode,
     workers: int = 1,
     symbol: str = "GBPUSD",
-    pair_spread: float = PAIR_SPREAD_PIPS,
+    pair_spread: float | None = None,
 ) -> list[dict]:
     """Run n_seeds independent paths; return results in seed order (0..n-1)."""
+    if pair_spread is None:
+        pair_spread = sim_costs.PAIR_SPREAD_PIPS[SYMBOL]
     workers = max(1, min(workers, n_seeds))
     chunk = max(1, math.ceil(n_seeds / (workers * 2)))
     batches = []

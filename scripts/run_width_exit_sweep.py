@@ -36,8 +36,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-import numpy as np
-import pandas as pd
+import sim_costs
 
 # Unbuffered progress when stdout is redirected to a log file.
 if hasattr(sys.stdout, "reconfigure"):
@@ -207,14 +206,18 @@ def print_progress_line(
     )
 
 
-def window_path(pair: str, window_key: str) -> Path:
-    suffix = {
+def _window_file_suffix(window_key: str) -> str:
+    return {
         "q1_2024_chop": "q1_2024_chop_oos",
         "full_quarter": "full_quarter",
         "truss_crisis": "truss_crisis_oos",
         "vaccine_rally": "vaccine_rally_oos",
         "june_blowup": "june_blowup",
     }[window_key]
+
+
+def window_path(pair: str, window_key: str) -> Path:
+    suffix = _window_file_suffix(window_key)
     return ROOT / "data" / f"{pair}_{suffix}.csv"
 
 
@@ -252,6 +255,9 @@ def _worker_cell(payload: dict) -> dict:
     sub_steps = int(payload.get("substeps", DEFAULT_SUBSTEPS))
 
     seed_results: list[dict] = []
+    sim_kwargs = {}
+    if payload.get("gbpusd_closes") is not None:
+        sim_kwargs["gbpusd_closes"] = np.asarray(payload["gbpusd_closes"], dtype=float)
     with patch.dict(sim6.PAIR_SPREAD_PIPS, patched, clear=False):
         for s in range(n_seeds):
             seed_results.append(
@@ -269,6 +275,7 @@ def _worker_cell(payload: dict) -> dict:
                     straddle_half_width_pips=payload["width"],
                     exit_pips=payload["exit_pips"],
                     track_l0_stats=True,
+                    **sim_kwargs,
                 )
             )
 
@@ -294,11 +301,15 @@ def _run_one_cell_local(
     exit_pips: float,
     n_seeds: int,
     substeps: int = DEFAULT_SUBSTEPS,
+    gbpusd_closes=None,
 ) -> dict:
     """In-process single cell (workers=1 path) — identical seed loop to _worker_cell."""
     t0 = time.time()
     dummy = np.zeros_like(closes)
     seed_results = []
+    sim_kwargs = {}
+    if gbpusd_closes is not None:
+        sim_kwargs["gbpusd_closes"] = np.asarray(gbpusd_closes, dtype=float)
     for s in range(n_seeds):
         seed_results.append(
             simv7.simulate_one_path(
@@ -315,6 +326,7 @@ def _run_one_cell_local(
                 straddle_half_width_pips=width,
                 exit_pips=exit_pips,
                 track_l0_stats=True,
+                **sim_kwargs,
             )
         )
     cell = aggregate_seed_results(seed_results, window_hours)
@@ -336,6 +348,8 @@ def aggregate_seed_results(
     max_layers = [r["max_layers"] for r in seed_results]
     dd3 = sum(1 for r in seed_results if r["drawdown_exceeded_3pct"])
     dd4 = sum(1 for r in seed_results if r["drawdown_exceeded_4pct"])
+    gate_a = sum(1 for r in seed_results if r.get("gate_a_daily_loss_breach"))
+    gate_b = sum(1 for r in seed_results if r.get("gate_b_total_loss_breach"))
     n_exits = [r.get("n_exits", 0) for r in seed_results]
 
     all_holds: list[float] = []
@@ -380,6 +394,19 @@ def aggregate_seed_results(
             float(np.mean([not x for x in all_had_adds]) * 100.0) if all_had_adds else float("nan")
         ),
         "disqualified_dd4": dd4 > 0,
+        "gate_a_breach_count": gate_a,
+        "gate_a_breach_rate": gate_a / n * 100.0,
+        "gate_b_breach_count": gate_b,
+        "gate_b_breach_rate": gate_b / n * 100.0,
+        "mean_equity_peak": float(np.mean([r.get("equity_peak", float("nan")) for r in seed_results])),
+        "mean_max_absolute_drawdown_usd": float(
+            np.mean([r.get("max_absolute_drawdown_usd", float("nan")) for r in seed_results])
+        ),
+        "mean_max_daily_equity_drawdown_usd": float(
+            np.mean([r.get("max_daily_equity_drawdown_usd", float("nan")) for r in seed_results])
+        ),
+        "disqualified_gate_a": gate_a > 0,
+        "disqualified_gate_b": gate_b > 0,
     }
 
 
@@ -426,12 +453,18 @@ def run_sweep(
             window_hours = (
                 (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
             )
-            pair_spread = simv6.PAIR_SPREAD_PIPS.get(pair, 0.5)
+            pair_spread = sim_costs.PAIR_SPREAD_PIPS.get(pair, 0.5)
+            gbpusd_closes = None
+            if pair.upper() == "EURGBP":
+                gbpusd_closes = sim_costs.load_aligned_gbpusd_closes(
+                    times, ROOT / "data", _window_file_suffix(wkey)
+                )
             series_cache[(wkey, pair)] = {
                 "closes": closes,
                 "times": times,
                 "window_hours": window_hours,
                 "pair_spread": pair_spread,
+                "gbpusd_closes": gbpusd_closes,
             }
             if verbose:
                 print(
@@ -457,6 +490,7 @@ def run_sweep(
                         "closes": cache["closes"],
                         "times": cache["times"],
                         "window_hours": cache["window_hours"],
+                        "gbpusd_closes": cache.get("gbpusd_closes"),
                         "window": wkey,
                         "regime": WINDOW_META[wkey]["regime"],
                         "cell_key": ck,
@@ -521,6 +555,7 @@ def run_sweep(
                 job["exit_pips"],
                 n_seeds,
                 substeps,
+                gbpusd_closes=cache.get("gbpusd_closes"),
             )
             cells[cell["cell_key"]] = cell
             done += 1

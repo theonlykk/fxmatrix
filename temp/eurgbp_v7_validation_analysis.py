@@ -6,15 +6,18 @@ import os
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 TEMP = ROOT / "temp"
-EURGBP_PAIR_SPREAD = 0.63
-PIP = 0.0001
+sys.path.insert(0, str(SCRIPTS))
+
+sys.path.insert(0, str(SCRIPTS))
+
+import sim_costs
 
 spec7 = importlib.util.spec_from_file_location("simv7", SCRIPTS / "grid_sim_v7_real_signal.py")
 simv7 = importlib.util.module_from_spec(spec7)
@@ -24,6 +27,9 @@ spec6 = importlib.util.spec_from_file_location("simv6", SCRIPTS / "grid_sim_v6_d
 simv6 = importlib.util.module_from_spec(spec6)
 spec6.loader.exec_module(simv6)
 sys.modules["grid_sim_v6_dynamic_spacing"] = simv6  # simulate_one_path imports this name
+
+SYMBOL_EURGBP = "EURGBP"
+SYMBOL_GBPUSD = "GBPUSD"
 
 
 def load_truss() -> "pd.DataFrame":
@@ -40,7 +46,8 @@ def load_truss() -> "pd.DataFrame":
     raise RuntimeError("EURGBP truss CSV missing — run temp/run_eurgbp_truss_export.bat first")
 
 
-def sigma_fv_stats(closes: np.ndarray, label: str) -> dict:
+def sigma_fv_stats(closes: np.ndarray, label: str, symbol: str = SYMBOL_EURGBP) -> dict:
+    pip = sim_costs.get_pair_spec(symbol).pip_size
     n = len(closes)
     sigmas, dynamic_hs = [], []
     for i in range(48, n):
@@ -57,20 +64,32 @@ def sigma_fv_stats(closes: np.ndarray, label: str) -> dict:
         "sigma_fv_median": float(np.median(sig)),
         "sigma_fv_p90": float(np.percentile(sig, 90)),
         "sigma_fv_max": float(sig.max()),
-        "sigma_fv_mean_pips": float(sig.mean() / PIP),
-        "dynamic_hs_mean_pips": float(dhs.mean() / PIP),
-        "dynamic_hs_median_pips": float(np.median(dhs) / PIP),
+        "sigma_fv_mean_pips": float(sig.mean() / pip),
+        "dynamic_hs_mean_pips": float(dhs.mean() / pip),
+        "dynamic_hs_median_pips": float(np.median(dhs) / pip),
         "n_bars": n,
     }
 
 
-def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_mode, seed, pair_spread):
+def simulate_instrumented(
+    closes,
+    bid_arr,
+    offer_arr,
+    times,
+    bias_mode,
+    spacing_mode,
+    seed,
+    symbol=SYMBOL_EURGBP,
+    gbpusd_closes=None,
+):
     """Single-seed run with L0/add/reload/exit breakdown."""
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
     sigma = np.std(np.diff(np.log(closes)), ddof=1) * 2.5
-    exit_dist = simv7.pips_to_price(simv7.EXIT_PIPS, PIP)
-    half_spread = simv7.pips_to_price(pair_spread / 2.0, PIP)
+    exit_dist = sim_costs.pips_to_price(simv7.EXIT_PIPS, symbol)
+    half_spread = sim_costs.half_spread_price(symbol)
+    entry_comm = sim_costs.commission_per_leg_usd(simv7.LOT_SIZE)
+    exit_comm = entry_comm
 
     layers = []
     current_add_pips = simv7.ADD_PIPS_FLOOR
@@ -83,11 +102,14 @@ def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_
     max_layers = 0
     l0 = add = reload = exits = 0
 
-    def usd(diff):
-        return (diff / PIP) * simv7.USD_PER_PIP
+    def conv_rate(bar_i: int) -> float | None:
+        if gbpusd_closes is not None:
+            return float(gbpusd_closes[bar_i])
+        return None
 
     price_current = closes[0]
     for i in range(n_bars):
+        rate = conv_rate(i)
         start_price = price_current
         end_price = closes[i + 1]
         dt = 1.0 / 100
@@ -119,9 +141,14 @@ def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_
                     if filled is None:
                         filled, fill_p = -1, offer_c
                 if filled is not None:
-                    layers.append(simv7.Layer(
-                        entry_price=fill_p, direction=filled,
-                        exit_target_raw=fill_p + filled * exit_dist))
+                    layers.append(
+                        simv7.Layer(
+                            entry_price=fill_p,
+                            direction=filled,
+                            exit_target_raw=fill_p + filled * exit_dist,
+                            entry_commission_usd=entry_comm,
+                        )
+                    )
                     current_add_pips = simv7.ADD_PIPS_FLOOR
                     last_exit_price = None
                     l0 += 1
@@ -141,9 +168,13 @@ def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_
                     closed = layers.pop()
                     if spacing_mode in ("reload_anchor", "reload_flat"):
                         last_exit_price = closed.entry_price
-                    entry_paid = closed.entry_price + closed.direction * half_spread
-                    exit_recv = closed.exit_target_raw - closed.direction * half_spread
-                    pnl_realised += usd((exit_recv - entry_paid) * closed.direction)
+                    gross = sim_costs.price_diff_to_usd(
+                        (closed.exit_target_raw - closed.entry_price) * closed.direction,
+                        symbol,
+                        simv7.LOT_SIZE,
+                        rate,
+                    )
+                    pnl_realised += gross - exit_comm
                     exits += 1
             if layers:
                 cur = layers[-1]
@@ -151,24 +182,31 @@ def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_
                 if spacing_mode == "reload_anchor" and last_exit_price is not None:
                     depth_mult = simv7.WIDEN_RATIO ** (len(layers) // 3)
                     reload_step = min(simv7.ADD_PIPS_CEILING, simv7.ADD_PIPS_FLOOR * depth_mult)
-                    add_target = last_exit_price - cur.direction * simv7.pips_to_price(reload_step, PIP)
+                    add_target = last_exit_price - cur.direction * sim_costs.pips_to_price(reload_step, symbol)
                     used_reload = True
                 elif spacing_mode == "reload_flat" and last_exit_price is not None:
-                    add_target = last_exit_price - cur.direction * simv7.pips_to_price(simv7.ADD_PIPS_FLOOR, PIP)
+                    add_target = last_exit_price - cur.direction * sim_costs.pips_to_price(
+                        simv7.ADD_PIPS_FLOOR, symbol
+                    )
                     used_reload = True
                 else:
                     still_shallow = len(layers) < 3
                     add_pips = simv7.ADD_PIPS_FLOOR if (spacing_mode == "flat" or still_shallow) else current_add_pips
-                    add_target = cur.entry_price - cur.direction * simv7.pips_to_price(add_pips, PIP)
+                    add_target = cur.entry_price - cur.direction * sim_costs.pips_to_price(add_pips, symbol)
                 eff_add = add_target - cur.direction * half_spread
                 hit = (
                     (cur.direction == 1 and pp > eff_add >= pn)
                     or (cur.direction == -1 and pp < eff_add <= pn)
                 )
                 if hit:
-                    layers.append(simv7.Layer(
-                        entry_price=add_target, direction=cur.direction,
-                        exit_target_raw=add_target + cur.direction * exit_dist))
+                    layers.append(
+                        simv7.Layer(
+                            entry_price=add_target,
+                            direction=cur.direction,
+                            exit_target_raw=add_target + cur.direction * exit_dist,
+                            entry_commission_usd=entry_comm,
+                        )
+                    )
                     if used_reload:
                         reload += 1
                     else:
@@ -182,7 +220,6 @@ def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_
         price_current = end_price
         equity = 10000.0 + pnl_realised
         if times is not None:
-            import pandas as pd
             bar_day = pd.Timestamp(times[i + 1]).normalize()
             if bar_day != current_day:
                 daily_start = 10000.0 if current_day == -1 else equity
@@ -194,30 +231,46 @@ def simulate_instrumented(closes, bid_arr, offer_arr, times, bias_mode, spacing_
             if dd >= 0.03:
                 dd3 = True
 
-    return {"l0": l0, "add": add, "reload": reload, "exits": exits,
-            "max_layers": max_layers, "dd3": dd3, "dd4": dd4,
-            "realised": pnl_realised}
+    return {
+        "l0": l0,
+        "add": add,
+        "reload": reload,
+        "exits": exits,
+        "max_layers": max_layers,
+        "dd3": dd3,
+        "dd4": dd4,
+        "realised": pnl_realised,
+    }
 
 
-def run_n_seeds(closes, spread_pts, times, symbol, pair_spread, n_seeds, spacing, mode_name, mode):
-    bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, PIP)
-    patched = dict(simv6.PAIR_SPREAD_PIPS)
-    patched[symbol] = pair_spread
+def run_n_seeds(closes, spread_pts, times, symbol, n_seeds, spacing, mode_name, mode, gbpusd_closes=None):
+    bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, symbol=symbol)
+    sim_kwargs = {}
+    if gbpusd_closes is not None:
+        sim_kwargs["gbpusd_closes"] = np.asarray(gbpusd_closes, dtype=float)
     pnls, realised, unrealised, max_layers, dd3, dd4 = [], [], [], [], [], []
     t0 = time.time()
-    with patch.dict(simv6.PAIR_SPREAD_PIPS, patched, clear=False):
-        for s in range(n_seeds):
-            r = simv7.simulate_one_path(
-                closes, bid_arr, offer_arr, times=times, symbol=symbol,
-                bias_mode=mode, spacing_mode=spacing, seed=s, sub_steps=100)
-            pnls.append(r["pnl_total_usd"])
-            realised.append(r["pnl_realised_usd"])
-            unrealised.append(r["pnl_unrealised_usd"])
-            max_layers.append(r["max_layers"])
-            dd3.append(int(r["drawdown_exceeded_3pct"]))
-            dd4.append(int(r["drawdown_exceeded_4pct"]))
-            if (s + 1) % 100 == 0:
-                print(f"    {symbol} {spacing} {mode_name}: {s+1}/{n_seeds} ({time.time()-t0:.0f}s)", flush=True)
+    for s in range(n_seeds):
+        r = simv7.simulate_one_path(
+            closes,
+            bid_arr,
+            offer_arr,
+            times=times,
+            symbol=symbol,
+            bias_mode=mode,
+            spacing_mode=spacing,
+            seed=s,
+            sub_steps=100,
+            **sim_kwargs,
+        )
+        pnls.append(r["pnl_total_usd"])
+        realised.append(r["pnl_realised_usd"])
+        unrealised.append(r["pnl_unrealised_usd"])
+        max_layers.append(r["max_layers"])
+        dd3.append(int(r["drawdown_exceeded_3pct"]))
+        dd4.append(int(r["drawdown_exceeded_4pct"]))
+        if (s + 1) % 100 == 0:
+            print(f"    {symbol} {spacing} {mode_name}: {s+1}/{n_seeds} ({time.time()-t0:.0f}s)", flush=True)
     return {
         "mean_realised": float(np.mean(realised)),
         "mean_total": float(np.mean(pnls)),
@@ -266,33 +319,55 @@ def print_results(title, results, counts, n_seeds):
         )
 
 
+def _aligned_gbpusd(times, suffix: str) -> np.ndarray | None:
+    path = ROOT / "data" / f"GBPUSD_{suffix}.csv"
+    if not path.is_file():
+        return None
+    gbp = simv6.load_mt5_csv(str(path))
+    eur_t = pd.to_datetime(pd.Series(times))
+    aligned = gbp.set_index("datetime")["CLOSE"].reindex(eur_t.values, method="ffill")
+    if aligned.isna().any():
+        aligned = aligned.bfill()
+    return aligned.to_numpy(dtype=float)
+
+
 def main():
     n_seeds = int(os.environ.get("N_SEEDS", "500"))
+    eurgbp_spread = sim_costs.PAIR_SPREAD_PIPS[SYMBOL_EURGBP]
     print(
         f"Config: WIDEN_RATIO={simv7.WIDEN_RATIO} ADD_PIPS_CEILING={simv7.ADD_PIPS_CEILING} "
         f"EXIT_PIPS={simv7.EXIT_PIPS} QUOTE_SPREAD={simv7.QUOTE_SPREAD} N_SEEDS={n_seeds}",
         flush=True,
     )
-    print(f"EURGBP PAIR_SPREAD_PIPS={EURGBP_PAIR_SPREAD} (was 0.58 placeholder; GBPUSD=0.64)", flush=True)
+    print(f"EURGBP PAIR_SPREAD_PIPS={eurgbp_spread} (from sim_costs; GBPUSD={sim_costs.PAIR_SPREAD_PIPS[SYMBOL_GBPUSD]})", flush=True)
 
     df_fq = simv6.load_mt5_csv(str(ROOT / "data" / "EURGBP_full_quarter.csv"))
     df_truss = load_truss()
     df_gbp_fq = simv6.load_mt5_csv(str(ROOT / "data" / "GBPUSD_full_quarter.csv"))
     df_gbp_truss = simv6.load_mt5_csv(str(ROOT / "data" / "GBPUSD_truss_crisis_oos.csv"))
 
+    gbpusd_fq = _aligned_gbpusd(df_fq["datetime"].values, "full_quarter")
+    gbpusd_truss = _aligned_gbpusd(df_truss["datetime"].values, "truss_crisis_oos")
+
     windows = {
-        "full_quarter": {"EURGBP": (df_fq, EURGBP_PAIR_SPREAD), "GBPUSD": (df_gbp_fq, simv6.PAIR_SPREAD_PIPS["GBPUSD"])},
-        "truss_crisis": {"EURGBP": (df_truss, EURGBP_PAIR_SPREAD), "GBPUSD": (df_gbp_truss, simv6.PAIR_SPREAD_PIPS["GBPUSD"])},
+        "full_quarter": {
+            SYMBOL_EURGBP: (df_fq, gbpusd_fq),
+            SYMBOL_GBPUSD: (df_gbp_fq, None),
+        },
+        "truss_crisis": {
+            SYMBOL_EURGBP: (df_truss, gbpusd_truss),
+            SYMBOL_GBPUSD: (df_gbp_truss, None),
+        },
     }
 
     sigma_stats = []
-    for df, name in [
-        (df_fq, "EURGBP full_quarter"),
-        (df_truss, "EURGBP truss_crisis"),
-        (df_gbp_fq, "GBPUSD full_quarter"),
-        (df_gbp_truss, "GBPUSD truss_crisis"),
+    for df, name, sym in [
+        (df_fq, "EURGBP full_quarter", SYMBOL_EURGBP),
+        (df_truss, "EURGBP truss_crisis", SYMBOL_EURGBP),
+        (df_gbp_fq, "GBPUSD full_quarter", SYMBOL_GBPUSD),
+        (df_gbp_truss, "GBPUSD truss_crisis", SYMBOL_GBPUSD),
     ]:
-        sigma_stats.append(sigma_fv_stats(df["CLOSE"].values.astype(float), name))
+        sigma_stats.append(sigma_fv_stats(df["CLOSE"].values.astype(float), name, sym))
     print_sigma_table(sigma_stats)
 
     ratio_eur_gbp = sigma_stats[0]["sigma_fv_mean"] / sigma_stats[2]["sigma_fv_mean"]
@@ -315,24 +390,41 @@ def main():
 
     for win_name, pairs in windows.items():
         print(f"\n--- Window: {win_name} ---", flush=True)
-        for symbol, (df, pair_spread) in pairs.items():
-            if symbol == "GBPUSD" and not run_gbp_baseline:
+        for symbol, (df, gbpusd_closes) in pairs.items():
+            if symbol == SYMBOL_GBPUSD and not run_gbp_baseline:
                 continue
             closes = df["CLOSE"].values.astype(float)
             spread_pts = df["SPREAD"].values.astype(float)
             times = df["datetime"].values
-            bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, PIP)
-            store = eur_results if symbol == "EURGBP" else gbp_results
-            counts_store = eur_counts if symbol == "EURGBP" else gbp_counts
+            bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, symbol=symbol)
+            store = eur_results if symbol == SYMBOL_EURGBP else gbp_results
+            counts_store = eur_counts if symbol == SYMBOL_EURGBP else gbp_counts
             for spacing in spacing_modes:
                 for mode_name, mode in bias_modes:
                     key = (win_name, spacing, mode_name)
                     print(f"  Running {symbol} {key}...", flush=True)
                     store[key] = run_n_seeds(
-                        closes, spread_pts, times, symbol, pair_spread,
-                        n_seeds, spacing, mode_name, mode)
+                        closes,
+                        spread_pts,
+                        times,
+                        symbol,
+                        n_seeds,
+                        spacing,
+                        mode_name,
+                        mode,
+                        gbpusd_closes=gbpusd_closes,
+                    )
                     counts_store[key] = simulate_instrumented(
-                        closes, bid_arr, offer_arr, times, mode, spacing, 0, pair_spread)
+                        closes,
+                        bid_arr,
+                        offer_arr,
+                        times,
+                        mode,
+                        spacing,
+                        0,
+                        symbol=symbol,
+                        gbpusd_closes=gbpusd_closes,
+                    )
 
     print_results("EURGBP validation", eur_results, eur_counts, n_seeds)
     if run_gbp_baseline:
@@ -340,17 +432,25 @@ def main():
     else:
         print("\n(GBPUSD n=500 baseline omitted — see ADR-091 Section 5a/5d; set RUN_GBP_BASELINE=1 to rerun)", flush=True)
 
-    # Geometry sensitivity on EURGBP full_quarter MM_BOTH reload_flat seed=0
     print("\n=== EXIT_PIPS sensitivity (EURGBP full_quarter, MM_BOTH, reload_flat, seed=0) ===", flush=True)
     closes = df_fq["CLOSE"].values.astype(float)
     spread_pts = df_fq["SPREAD"].values.astype(float)
     times = df_fq["datetime"].values
-    bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, PIP)
+    bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, symbol=SYMBOL_EURGBP)
     for exit_pips in [3.0, 2.0, 1.5]:
         old = simv7.EXIT_PIPS
         simv7.EXIT_PIPS = exit_pips
         r = simulate_instrumented(
-            closes, bid_arr, offer_arr, times, simv7.BiasMode.BOTH, "reload_flat", 0, EURGBP_PAIR_SPREAD)
+            closes,
+            bid_arr,
+            offer_arr,
+            times,
+            simv7.BiasMode.BOTH,
+            "reload_flat",
+            0,
+            symbol=SYMBOL_EURGBP,
+            gbpusd_closes=gbpusd_fq,
+        )
         simv7.EXIT_PIPS = old
         print(
             f"  EXIT_PIPS={exit_pips}: L0={r['l0']} add={r['add']} reload={r['reload']} exits={r['exits']} "
@@ -358,17 +458,25 @@ def main():
             flush=True,
         )
 
-    # WIDEN_RATIO spot check
     print("\n=== WIDEN_RATIO sensitivity (EURGBP truss_crisis, MM_BOTH reload_anchor, seed=0) ===", flush=True)
     closes = df_truss["CLOSE"].values.astype(float)
     spread_pts = df_truss["SPREAD"].values.astype(float)
     times = df_truss["datetime"].values
-    bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, PIP)
+    bid_arr, offer_arr = simv7.precompute_gbpusd_signal(closes, spread_pts, symbol=SYMBOL_EURGBP)
     for widen in [1.304, 1.5, 1.2]:
         old = simv7.WIDEN_RATIO
         simv7.WIDEN_RATIO = widen
         r = simulate_instrumented(
-            closes, bid_arr, offer_arr, times, simv7.BiasMode.BOTH, "reload_anchor", 0, EURGBP_PAIR_SPREAD)
+            closes,
+            bid_arr,
+            offer_arr,
+            times,
+            simv7.BiasMode.BOTH,
+            "reload_anchor",
+            0,
+            symbol=SYMBOL_EURGBP,
+            gbpusd_closes=gbpusd_truss,
+        )
         simv7.WIDEN_RATIO = old
         print(
             f"  WIDEN_RATIO={widen}: max_layers={r['max_layers']} add={r['add']} reload={r['reload']} "
