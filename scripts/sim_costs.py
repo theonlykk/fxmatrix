@@ -21,6 +21,10 @@ DEFAULT_MAX_DAILY_LOSS_FRAC = 0.05  # Gate A: 5% of initial
 DEFAULT_MAX_TOTAL_LOSS_FRAC = 0.10  # Gate B: 10% of initial
 PRAGUE_TZ = "Europe/Prague"
 
+# Increment whenever cost semantics change (pip value, commission, spread-in-P&L,
+# gate definitions). Checkpoints refuse resume when this differs from the stamp.
+COST_MODEL_VERSION = 1
+
 # Per-pair spread (pips) — FILL TIMING ONLY; never multiply into P&L.
 # Values unchanged from grid_sim_v6_dynamic_spacing.PAIR_SPREAD_PIPS (2026-07-18).
 PAIR_SPREAD_PIPS: dict[str, float] = {

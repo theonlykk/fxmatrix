@@ -28,6 +28,7 @@ import importlib.util
 import json
 import math
 import os
+import subprocess
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -430,6 +431,133 @@ def aggregate_seed_results(
     }
 
 
+# Sorted per-cell field names written by aggregate_seed_results + cell metadata.
+CELL_SCHEMA_FIELDS = sorted(
+    [
+        "cell_elapsed_sec",
+        "cell_key",
+        "dd3_count",
+        "dd3_rate",
+        "dd4_count",
+        "dd4_rate",
+        "disqualified_dd4",
+        "disqualified_gate_a",
+        "disqualified_gate_b",
+        "disqualified_gates",
+        "exit_pips",
+        "gate_a_breach_count",
+        "gate_a_breach_rate",
+        "gate_b_breach_count",
+        "gate_b_breach_rate",
+        "harvest_per_hr",
+        "l0_unwind_n",
+        "mean_equity_peak",
+        "mean_exit_dist_pips",
+        "mean_exits",
+        "mean_l0_hold_min",
+        "mean_max_absolute_drawdown_usd",
+        "mean_max_daily_equity_drawdown_usd",
+        "mean_max_layers",
+        "mean_pnl",
+        "mean_realised",
+        "median_exit_dist_pips",
+        "median_l0_hold_min",
+        "median_pnl",
+        "max_max_layers",
+        "pair",
+        "pct_l0_noise_like",
+        "pct_l0_trend_like",
+        "q25_l0_hold_min",
+        "q75_l0_hold_min",
+        "regime",
+        "std_pnl",
+        "width",
+        "window",
+    ]
+)
+
+
+class CheckpointProvenanceError(Exception):
+    """Checkpoint provenance incompatible with the running cost model or schema."""
+
+
+def get_git_commit_short() -> str:
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def build_provenance() -> dict:
+    return {
+        "cost_model_version": sim_costs.COST_MODEL_VERSION,
+        "git_commit": get_git_commit_short(),
+        "schema_fields": list(CELL_SCHEMA_FIELDS),
+    }
+
+
+def validate_checkpoint_provenance(ckpt: dict) -> None:
+    """
+    Raise CheckpointProvenanceError if checkpoint cannot be resumed safely.
+    git_commit alone does not block; cost_model_version and schema must match.
+    """
+    prov = ckpt.get("provenance")
+    if not prov:
+        raise CheckpointProvenanceError("absent")
+
+    ckpt_version = prov.get("cost_model_version")
+    if ckpt_version != sim_costs.COST_MODEL_VERSION:
+        raise CheckpointProvenanceError(
+            f"cost_model_version mismatch (checkpoint={ckpt_version!r}, "
+            f"running={sim_costs.COST_MODEL_VERSION!r})"
+        )
+
+    ckpt_schema = sorted(prov.get("schema_fields") or [])
+    if ckpt_schema != CELL_SCHEMA_FIELDS:
+        raise CheckpointProvenanceError(
+            "schema_fields mismatch (checkpoint schema differs from running schema)"
+        )
+
+    cells = ckpt.get("cells") or {}
+    if cells:
+        sample = next(iter(cells.values()))
+        missing = [f for f in CELL_SCHEMA_FIELDS if f not in sample]
+        if missing:
+            raise CheckpointProvenanceError(
+                f"missing required cell fields: {', '.join(missing)}"
+            )
+
+
+def refuse_checkpoint_provenance(checkpoint_path: Path, err: CheckpointProvenanceError) -> None:
+    ckpt_version = "absent"
+    try:
+        ckpt = load_checkpoint(checkpoint_path)
+        if ckpt and ckpt.get("provenance"):
+            ckpt_version = ckpt["provenance"].get("cost_model_version", "absent")
+    except Exception:
+        pass
+    print(
+        f"ERROR: checkpoint provenance incompatible — refusing resume.\n"
+        f"  path: {checkpoint_path}\n"
+        f"  checkpoint cost_model_version: {ckpt_version}\n"
+        f"  running cost_model_version: {sim_costs.COST_MODEL_VERSION}\n"
+        f"  detail: {err}\n"
+        f"  Pass --fresh to ignore this checkpoint, or move the stale file aside.",
+        flush=True,
+    )
+    sys.exit(1)
+
+
 def is_gate_disqualified(cell: dict) -> bool:
     """True if Gate A or Gate B breached (hard FTMO disqualification)."""
     return cell.get("gate_a_breach_rate", 0) > 0 or cell.get("gate_b_breach_rate", 0) > 0
@@ -549,6 +677,7 @@ def run_sweep(
         write_checkpoint(
             checkpoint_path,
             {
+                "provenance": build_provenance(),
                 "runtag": runtag,
                 "status": status,
                 "n_seeds": n_seeds,
@@ -1254,6 +1383,10 @@ def main():
         if ckpt and checkpoint_config_matches(
             ckpt, n_seeds, width_grid, exit_grid, window_keys, PAIRS, substeps
         ):
+            try:
+                validate_checkpoint_provenance(ckpt)
+            except CheckpointProvenanceError as e:
+                refuse_checkpoint_provenance(partial_path, e)
             resume_cells = ckpt.get("cells", {})
             print(
                 f"RESUME: loaded {len(resume_cells)} cells from {partial_path.name}",
@@ -1270,6 +1403,7 @@ def main():
     bar_counts = collect_bar_counts(windows)
     est_sec = estimate_sweep_runtime(n_cells, n_seeds, substeps, args.workers, bar_counts)
     per_cell_est = estimate_cell_sec(n_seeds, substeps, int(np.mean(bar_counts)) if bar_counts else REF_BARS)
+    provenance = build_provenance()
     print(
         f"Sweep: {len(width_grid)} widths x {len(exit_grid)} exits x "
         f"{n_cells // max(1, len(width_grid)*len(exit_grid))} series = {n_cells} cells",
@@ -1280,7 +1414,17 @@ def main():
         f"workers={args.workers}  ETA ~{format_hms(est_sec)}",
         flush=True,
     )
-    print(f"  runtag: {runtag}\n", flush=True)
+    print(f"  runtag: {runtag}", flush=True)
+    print(
+        f"  cost_model_version: {provenance['cost_model_version']}  "
+        f"git_commit: {provenance['git_commit']}",
+        flush=True,
+    )
+    print(
+        f"  calibration={list(CALIBRATION_WINDOWS)}  "
+        f"holdout={list(HOLDOUT_WINDOWS)}  support={list(SUPPORT_WINDOWS)}\n",
+        flush=True,
+    )
 
     payload = run_sweep(
         width_grid,
@@ -1297,6 +1441,7 @@ def main():
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
     final_doc = {
+        "provenance": build_provenance(),
         "runtag": runtag,
         "status": "complete",
         "timestamp_utc": ts,
