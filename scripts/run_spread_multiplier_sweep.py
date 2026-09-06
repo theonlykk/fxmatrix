@@ -3,7 +3,7 @@
 SpreadMultiplier sweep — n=500 Monte Carlo across all five validated GBPUSD windows.
 
 Varies only L0 quote half-spread vol term: dynamic_hs = QUOTE_SPREAD + sigma * multiplier.
-Exit/add geometry unchanged (fixed InpExitPips / InpAddPipsFloor grid).
+Exit/add geometry: fixed entry-anchored adds at 2.0 x straddle half-width (fxgrind parity).
 
 Usage (full sweep, production baseline):
   python scripts/run_spread_multiplier_sweep.py --spread-multiplier 0.5
@@ -54,7 +54,8 @@ spec6.loader.exec_module(simv6)
 
 import sim_costs
 
-SPACING_MODES = ["reload_anchor", "reload_flat"]
+ADD_GEOMETRY = "entry_anchor_2x_width"
+STRADDLE_HALF_WIDTH_PIPS = 9.0
 BIAS_MODES = [
     ("MM_LONG", simv7.BiasMode.LONG_ONLY),
     ("MM_SHORT", simv7.BiasMode.SHORT_ONLY),
@@ -87,7 +88,7 @@ def precompute_signal(closes: np.ndarray, spread_points: np.ndarray, multiplier:
 
 
 def _result_sort_key(key):
-    spacing_mode, window_name, mode_name = key
+    window_name, mode_name = key
     window_order = {
         "full_quarter": 0,
         "june_blowup": 1,
@@ -96,10 +97,8 @@ def _result_sort_key(key):
         "q1_2024_chop": 4,
     }
     mode_order = {"MM_LONG": 0, "MM_SHORT": 1, "MM_BOTH": 2}
-    spacing_order = {"reload_anchor": 0, "reload_flat": 1}
     return (
         window_order.get(window_name, 99),
-        spacing_order.get(spacing_mode, spacing_mode),
         mode_order.get(mode_name, mode_name),
     )
 
@@ -110,9 +109,9 @@ def simulate_instrumented(
     offer_arr,
     times,
     bias_mode,
-    spacing_mode,
     seed,
     pair_spread=None,
+    straddle_half_width_pips: float = STRADDLE_HALF_WIDTH_PIPS,
 ):
     """Single-seed fill breakdown (seed=0 reference for per-scalp edge)."""
     if pair_spread is None:
@@ -124,10 +123,9 @@ def simulate_instrumented(
     half_spread = sim_costs.half_spread_price(SYMBOL)
     entry_comm = sim_costs.commission_per_leg_usd(simv7.LOT_SIZE)
     exit_comm = entry_comm
+    pod_half_width_pips = float(straddle_half_width_pips)
 
     layers = []
-    current_add_pips = simv7.ADD_PIPS_FLOOR
-    last_exit_price = None
     pnl_realised = 0.0
     equity = 10000.0
     daily_start = 10000.0
@@ -177,8 +175,6 @@ def simulate_instrumented(
                             entry_commission_usd=entry_comm,
                         )
                     )
-                    current_add_pips = simv7.ADD_PIPS_FLOOR
-                    last_exit_price = None
                     l0 += 1
                     max_layers = max(max_layers, 1)
                 continue
@@ -193,8 +189,6 @@ def simulate_instrumented(
                 )
                 if crossed:
                     closed = layers.pop()
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = closed.entry_price
                     gross = sim_costs.price_diff_to_usd(
                         (closed.exit_target_raw - closed.entry_price) * closed.direction,
                         SYMBOL,
@@ -204,31 +198,8 @@ def simulate_instrumented(
                     exits += 1
             if layers:
                 cur = layers[-1]
-                used_reload = False
-                if spacing_mode == "reload_anchor" and last_exit_price is not None:
-                    depth_mult = simv7.WIDEN_RATIO ** (len(layers) // 3)
-                    reload_step = min(
-                        simv7.ADD_PIPS_CEILING, simv7.ADD_PIPS_FLOOR * depth_mult
-                    )
-                    add_target = last_exit_price - cur.direction * sim_costs.pips_to_price(
-                        reload_step, SYMBOL
-                    )
-                    used_reload = True
-                elif spacing_mode == "reload_flat" and last_exit_price is not None:
-                    add_target = last_exit_price - cur.direction * sim_costs.pips_to_price(
-                        simv7.ADD_PIPS_FLOOR, SYMBOL
-                    )
-                    used_reload = True
-                else:
-                    still_shallow = len(layers) < 3
-                    add_pips = (
-                        simv7.ADD_PIPS_FLOOR
-                        if (spacing_mode == "flat" or still_shallow)
-                        else current_add_pips
-                    )
-                    add_target = cur.entry_price - cur.direction * sim_costs.pips_to_price(
-                        add_pips, SYMBOL
-                    )
+                add_pips = simv7.add_pips_from_width(pod_half_width_pips)
+                add_target = simv7.compute_add_target(layers, add_pips, SYMBOL)
                 eff_add = add_target - cur.direction * half_spread
                 hit = (cur.direction == 1 and pp > eff_add >= pn) or (
                     cur.direction == -1 and pp < eff_add <= pn
@@ -242,17 +213,7 @@ def simulate_instrumented(
                             entry_commission_usd=entry_comm,
                         )
                     )
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = None
-                    if used_reload:
-                        reload += 1
-                    else:
-                        add += 1
-                    if len(layers) >= 3:
-                        current_add_pips = min(
-                            simv7.ADD_PIPS_CEILING,
-                            current_add_pips * simv7.WIDEN_RATIO,
-                        )
+                    add += 1
                     max_layers = max(max_layers, len(layers))
 
         price_current = end_price
@@ -329,7 +290,6 @@ def _worker_simulate_batch(payload: dict) -> list[tuple[int, dict]]:
                 times=times,
                 symbol=payload["symbol"].upper(),
                 bias_mode=payload["bias_mode"],
-                spacing_mode=payload["spacing"],
                 seed=int(seed),
                 sub_steps=100,
             )
@@ -343,7 +303,6 @@ def parallel_seed_runs(
     offer,
     times,
     n_seeds: int,
-    spacing_mode: str,
     bias_mode,
     workers: int = 1,
     symbol: str = "GBPUSD",
@@ -365,7 +324,6 @@ def parallel_seed_runs(
         "bid": bid,
         "offer": offer,
         "times": times,
-        "spacing": spacing_mode,
         "bias_mode": int(bias_mode),
     }
     results_by_seed: dict[int, dict] = {}
@@ -412,101 +370,95 @@ def run_sweep(
     spread_multiplier: float,
     n_seeds: int = 500,
     windows: dict | None = None,
-    spacing_modes: list | None = None,
     verbose: bool = True,
     call_log: list | None = None,
     workers: int = 1,
 ) -> dict:
     windows = windows or ALL_WINDOWS
-    spacing_modes = spacing_modes or SPACING_MODES
     start_time = time.time()
     results = {}
     fill_ref = {}
 
-    for spacing_mode in spacing_modes:
-        for window_name, path in windows.items():
-            df = simv6.load_mt5_csv(path)
-            closes = df["CLOSE"].values
-            spread_points = df["SPREAD"].values
-            times = df["datetime"].values
-            bid_arr, offer_arr = precompute_signal(closes, spread_points, spread_multiplier)
-            if verbose:
-                print(
-                    f"Loaded {window_name}: {len(df)} bars, "
-                    f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]}"
-                )
+    for window_name, path in windows.items():
+        df = simv6.load_mt5_csv(path)
+        closes = df["CLOSE"].values
+        spread_points = df["SPREAD"].values
+        times = df["datetime"].values
+        bid_arr, offer_arr = precompute_signal(closes, spread_points, spread_multiplier)
+        if verbose:
+            print(
+                f"Loaded {window_name}: {len(df)} bars, "
+                f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]}"
+            )
 
-            for mode_name, mode in BIAS_MODES:
-                if call_log is not None:
-                    for s in range(n_seeds):
-                        call_log.append((spacing_mode, window_name, mode_name, s))
+        for mode_name, mode in BIAS_MODES:
+            if call_log is not None:
+                for s in range(n_seeds):
+                    call_log.append((window_name, mode_name, s))
 
-                if workers == 1:
-                    seed_results = []
-                    for s in range(n_seeds):
-                        seed_results.append(
-                            simv7.simulate_one_path(
-                                closes,
-                                bid_arr,
-                                offer_arr,
-                                times=times,
-                                symbol="GBPUSD",
-                                bias_mode=mode,
-                                spacing_mode=spacing_mode,
-                                seed=s,
-                                sub_steps=100,
-                            )
+            if workers == 1:
+                seed_results = []
+                for s in range(n_seeds):
+                    seed_results.append(
+                        simv7.simulate_one_path(
+                            closes,
+                            bid_arr,
+                            offer_arr,
+                            times=times,
+                            symbol="GBPUSD",
+                            bias_mode=mode,
+                            seed=s,
+                            sub_steps=100,
                         )
-                        if verbose and (s + 1) % 100 == 0:
-                            elapsed = time.time() - start_time
-                            print(
-                                f"    sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name}: "
-                                f"{s + 1}/{n_seeds} seeds ({elapsed:.0f}s elapsed)",
-                                flush=True,
-                            )
-                else:
-                    if verbose:
+                    )
+                    if verbose and (s + 1) % 100 == 0:
+                        elapsed = time.time() - start_time
                         print(
-                            f"    sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name}: "
-                            f"running {n_seeds} seeds with {workers} workers...",
+                            f"    sm={spread_multiplier} {window_name}/{mode_name}: "
+                            f"{s + 1}/{n_seeds} seeds ({elapsed:.0f}s elapsed)",
                             flush=True,
                         )
-                    seed_results = parallel_seed_runs(
-                        closes,
-                        bid_arr,
-                        offer_arr,
-                        times,
-                        n_seeds,
-                        spacing_mode,
-                        mode,
-                        workers=workers,
+            else:
+                if verbose:
+                    print(
+                        f"    sm={spread_multiplier} {window_name}/{mode_name}: "
+                        f"running {n_seeds} seeds with {workers} workers...",
+                        flush=True,
                     )
-
-                key = (spacing_mode, window_name, mode_name)
-                cell = _aggregate_seed_results(seed_results, n_seeds)
-                results[key] = cell
-                dd3_count = cell["dd3_count"]
-                dd4_count = cell["dd4_count"]
-
-                fill_ref[key] = simulate_instrumented(
+                seed_results = parallel_seed_runs(
                     closes,
                     bid_arr,
                     offer_arr,
                     times,
+                    n_seeds,
                     mode,
-                    spacing_mode,
-                    seed=0,
+                    workers=workers,
                 )
-                if verbose:
-                    elapsed = time.time() - start_time
-                    r = results[key]
-                    f = fill_ref[key]
-                    print(
-                        f"  DONE: sm={spread_multiplier} {spacing_mode}/{window_name}/{mode_name} "
-                        f"realised=${r['mean_realised']:.2f} DD3={dd3_count} DD4={dd4_count} "
-                        f"maxL={r['max_max_layers']} L0(ref)={f['l0']} ({elapsed:.0f}s)\n",
-                        flush=True,
-                    )
+
+            key = (window_name, mode_name)
+            cell = _aggregate_seed_results(seed_results, n_seeds)
+            results[key] = cell
+            dd3_count = cell["dd3_count"]
+            dd4_count = cell["dd4_count"]
+
+            fill_ref[key] = simulate_instrumented(
+                closes,
+                bid_arr,
+                offer_arr,
+                times,
+                mode,
+                seed=0,
+            )
+            if verbose:
+                elapsed = time.time() - start_time
+                r = results[key]
+                f = fill_ref[key]
+                print(
+                    f"  DONE: sm={spread_multiplier} {window_name}/{mode_name} "
+                    f"realised=${r['mean_realised']:.2f} DD3={dd3_count} DD4={dd4_count} "
+                    f"maxL={r['max_max_layers']} L0(ref)={f['l0']} ({elapsed:.0f}s)\n",
+                    flush=True,
+                )
 
     return {"monte_carlo": results, "fill_reference_seed0": fill_ref, "elapsed_sec": time.time() - start_time}
 
@@ -514,7 +466,7 @@ def run_sweep(
 def summarize_by_window(results: dict) -> dict:
     out = {}
     for window in ALL_WINDOWS:
-        cells = [r for (sp, w, _m), r in results.items() if w == window]
+        cells = [r for (w, _m), r in results.items() if w == window]
         if not cells:
             continue
         out[window] = {
@@ -535,17 +487,17 @@ def print_results(payload: dict, spread_multiplier: float, n_seeds: int) -> None
         f"{'=' * 150}\n"
     )
     print(
-        f"{'Window':<14}{'Spacing':<14}{'Mode':<9}"
+        f"{'Window':<14}{'Mode':<9}"
         f"{'MeanReal':<11}{'DD3#':<6}{'DD4#':<6}{'MaxL':<5}"
         f"{'L0s0':<6}{'Adds0':<6}{'Rlds0':<6}{'Exits0':<7}{'PerScalp0':<10}"
         f"{'MnTrades':<9}"
     )
     for key in sorted(results.keys(), key=_result_sort_key):
-        spacing_mode, window_name, mode_name = key
+        window_name, mode_name = key
         r = results[key]
         f = fill_ref[key]
         print(
-            f"{window_name:<14}{spacing_mode:<14}{mode_name:<9}"
+            f"{window_name:<14}{mode_name:<9}"
             f"${r['mean_realised']:<10.2f}{r['dd3_count']:<6}{r['dd4_count']:<6}"
             f"{r['max_max_layers']:<5}"
             f"{f['l0']:<6}{f['add']:<6}{f['reload']:<6}{f['exits']:<7}"
@@ -591,14 +543,13 @@ def test_workers_parity(n_seeds: int = 20, workers_a: int = 1, workers_b: int = 
     spread_points = df["SPREAD"].values
     times = df["datetime"].values
     bid_arr, offer_arr = precompute_signal(closes, spread_points, 0.5)
-    spacing_mode = "reload_anchor"
     _, mode = BIAS_MODES[0]  # MM_LONG
 
     runs_a = parallel_seed_runs(
-        closes, bid_arr, offer_arr, times, n_seeds, spacing_mode, mode, workers=workers_a
+        closes, bid_arr, offer_arr, times, n_seeds, mode, workers=workers_a
     )
     runs_b = parallel_seed_runs(
-        closes, bid_arr, offer_arr, times, n_seeds, spacing_mode, mode, workers=workers_b
+        closes, bid_arr, offer_arr, times, n_seeds, mode, workers=workers_b
     )
     assert len(runs_a) == n_seeds and len(runs_b) == n_seeds
     keys = (
@@ -620,7 +571,6 @@ def test_workers_parity(n_seeds: int = 20, workers_a: int = 1, workers_b: int = 
         0.5,
         n_seeds=n_seeds,
         windows={"full_quarter": path},
-        spacing_modes=["reload_anchor"],
         verbose=False,
         workers=workers_a,
     )
@@ -628,7 +578,6 @@ def test_workers_parity(n_seeds: int = 20, workers_a: int = 1, workers_b: int = 
         0.5,
         n_seeds=n_seeds,
         windows={"full_quarter": path},
-        spacing_modes=["reload_anchor"],
         verbose=False,
         workers=workers_b,
     )
@@ -661,12 +610,11 @@ def test_wiring():
             spread_multiplier=0.25,
             n_seeds=2,
             windows=fake_windows,
-            spacing_modes=SPACING_MODES,
             verbose=False,
             call_log=call_log,
         )
-    assert len(payload["monte_carlo"]) == len(SPACING_MODES) * len(BIAS_MODES)
-    assert len(call_log) == len(SPACING_MODES) * len(BIAS_MODES) * 2
+    assert len(payload["monte_carlo"]) == len(BIAS_MODES)
+    assert len(call_log) == len(BIAS_MODES) * 2
 
 
 def main():
@@ -703,17 +651,16 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"Config: WIDEN_RATIO={simv7.WIDEN_RATIO} ADD_PIPS_CEILING={simv7.ADD_PIPS_CEILING}")
+    print(f"Config: add geometry={ADD_GEOMETRY} GRIND_ADD_WIDTH_MULTIPLE={simv7.GRIND_ADD_WIDTH_MULTIPLE}")
     print(f"QUOTE_SPREAD={simv7.QUOTE_SPREAD} SPREAD_MULTIPLIER(run)={args.spread_multiplier}")
     if args.workers > 1:
         print(f"Workers: {args.workers} (seed-level multiprocessing)")
-    assert simv7.WIDEN_RATIO == 1.304
-    assert simv7.ADD_PIPS_CEILING == 1000.0
+    assert simv7.GRIND_ADD_WIDTH_MULTIPLE == 2.0
 
     if args.smoke_test:
         windows = {"full_quarter": ALL_WINDOWS["full_quarter"]}
         n_seeds = 2
-        print("SMOKE TEST: full_quarter only, n=2 seeds, both spacing modes, all bias modes\n")
+        print("SMOKE TEST: full_quarter only, n=2 seeds, all bias modes\n")
     else:
         windows = ALL_WINDOWS
         if args.windows:
@@ -723,11 +670,11 @@ def main():
                 print(f"ERROR: unknown windows: {missing}")
                 sys.exit(1)
         n_seeds = args.n_seeds
-        n_cells = len(windows) * len(SPACING_MODES) * len(BIAS_MODES)
+        n_cells = len(windows) * len(BIAS_MODES)
         print(
-            f"Full sweep: {len(windows)} windows × 2 spacing × 3 bias = {n_cells} cells × {n_seeds} seeds"
+            f"Full sweep: {len(windows)} windows × 3 bias = {n_cells} cells × {n_seeds} seeds"
         )
-        print("WARNING: Both reload_anchor and reload_flat — expect multi-hour runtime.\n")
+        print(f"Add geometry: {ADD_GEOMETRY} ({simv7.GRIND_ADD_WIDTH_MULTIPLE}x width)\n")
 
     missing = [p for p in windows.values() if not os.path.isfile(p)]
     if missing:

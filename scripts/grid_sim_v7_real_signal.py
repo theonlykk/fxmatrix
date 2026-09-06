@@ -1,7 +1,7 @@
 """
 v7: real term-structure signal for Layer 0 entry (fully verified against
-Cursor's worked examples), combined with the existing, already-tested grid
-mechanics (v6's flat/exponential/reload_anchor spacing for layers 1+).
+Cursor's worked examples), combined with fxgrind-parity grid adds for layers 1+:
+fixed entry-anchored spacing at GRIND_ADD_WIDTH_MULTIPLE x straddle half-width.
 
 Key mechanism, all verified:
 - FV_combined_BC from bars 6/12/48 (weights 0.50/0.30/0.20)
@@ -21,12 +21,8 @@ from typing import List, Optional, Sequence
 
 import sim_costs
 
-ADD_PIPS_FLOOR = 9.0
+GRIND_ADD_WIDTH_MULTIPLE = 2.0
 EXIT_PIPS = 3.0
-WIDEN_RATIO = 1.304  # ADR-B: derived to bound Layer 20 at ~6000 pips (was 1.5)
-ADD_PIPS_CEILING = 1000.0  # ADR-B: raised from 100 - that was a safety patch for the old
-                           # WIDEN_RATIO=1.5 and was silently capping the new r=1.304 curve
-                           # at layer ~13, undermining the whole point of the derivation
 LOT_SIZE = sim_costs.DEFAULT_LOT_SIZE
 QUOTE_SPREAD = 0.0004
 SPREAD_MULTIPLIER = 0.500
@@ -47,6 +43,17 @@ class Layer:
 
 def pips_to_price(pips, symbol="GBPUSD"):
     return sim_costs.pips_to_price(pips, symbol)
+
+
+def add_pips_from_width(straddle_half_width_pips: float) -> float:
+    """Fixed add spacing: GRIND_ADD_WIDTH_MULTIPLE x straddle half-width (fxgrind parity)."""
+    return GRIND_ADD_WIDTH_MULTIPLE * float(straddle_half_width_pips)
+
+
+def compute_add_target(layers: List[Layer], add_pips: float, symbol: str = "GBPUSD") -> float:
+    """Entry-anchored add from previous layer entry (mirrors ea/grind_pure.mqh + grind_engine.mqh)."""
+    cur = layers[-1]
+    return cur.entry_price - cur.direction * pips_to_price(add_pips, symbol)
 
 
 def precompute_gbpusd_signal(bc_closes, bc_spread_points, symbol="GBPUSD"):
@@ -91,7 +98,7 @@ def adr013_clamp(theoretical, direction, current_mid, half_spread, min_dist=MIN_
         return theoretical
 
 def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=None,
-                       symbol="GBPUSD", bias_mode=BiasMode.BOTH, spacing_mode="reload_anchor",
+                       symbol="GBPUSD", bias_mode=BiasMode.BOTH,
                        seed=0, sub_steps=100, sigma_for_bridge=None,
                        entry_mode="signal", straddle_half_width_pips=9.0,
                        triangular_harvest_pips=None, triangular_survival_pips=None,
@@ -104,7 +111,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     """
     bid_theoretical_arr / offer_theoretical_arr: precomputed real-signal levels
     (same length as closes), used ONLY for the flat->Layer-0 re-entry decision.
-    Layers 1+ use the existing, already-verified grid mechanics unchanged.
+    Layers 1+ use fixed entry-anchored adds at 2 x straddle half-width (fxgrind).
 
     gbpusd_closes: optional per-bar GBPUSD close series for EURGBP USD conversion.
     conversion_rate: constant GBPUSD when gbpusd_closes not supplied (required for EURGBP).
@@ -152,8 +159,6 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     l0_exit_dist_pips: List[float] = []
     l0_had_adds: List[bool] = []
     n_exits = 0
-    current_add_pips = ADD_PIPS_FLOOR
-    last_exit_price = None
     pnl_realised_usd = 0.0
     equity_peak = initial_balance
     equity_current = initial_balance
@@ -175,6 +180,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     max_layers = 0
     total_trades = 0
     resting_straddle_width_pips = None
+    pod_half_width_pips: float | None = None
     drawn_widths_pips: List[float] = []
     def _unrealised_gross_and_comm(end_price: float, bar_idx: int) -> tuple[float, float]:
         unrealised = 0.0
@@ -266,6 +272,12 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                             filled_dir = -1
                             fill_price = offer_clamped
                     if filled_dir is not None:
+                        if entry_mode == "triangular" and resting_straddle_width_pips is not None:
+                            pod_half_width_pips = resting_straddle_width_pips
+                        elif entry_mode == "straddle":
+                            pod_half_width_pips = float(straddle_half_width_pips)
+                        else:
+                            pod_half_width_pips = float(straddle_half_width_pips)
                         layers.append(Layer(
                             entry_price=fill_price,
                             direction=filled_dir,
@@ -276,8 +288,6 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         layer_entry_bars.append(i)
                         layer_is_l0.append(True)
                         pod_had_add = False
-                        current_add_pips = ADD_PIPS_FLOOR
-                        last_exit_price = None
                         total_trades += 1
                         max_layers = max(max_layers, 1)
                         resting_straddle_width_pips = None
@@ -306,8 +316,6 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         l0_exit_dist_pips.append(dist_pips)
                         l0_had_adds.append(pod_had_add)
                         pod_had_add = False
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = closed.entry_price
                     rate = _rate_at(i)
                     gross = sim_costs.price_diff_to_usd(
                         (closed.exit_target_raw - closed.entry_price) * closed.direction,
@@ -320,19 +328,12 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                     n_exits += 1
                     if not layers:
                         resting_straddle_width_pips = None
+                        pod_half_width_pips = None
 
             if layers:
                 cur = layers[-1]
-                if spacing_mode == "reload_anchor" and last_exit_price is not None:
-                    depth_mult = WIDEN_RATIO ** (len(layers) // 3)
-                    reload_step = min(ADD_PIPS_CEILING, ADD_PIPS_FLOOR * depth_mult)
-                    add_target = last_exit_price - cur.direction * pips_to_price(reload_step, symbol)
-                elif spacing_mode == "reload_flat" and last_exit_price is not None:
-                    add_target = last_exit_price - cur.direction * pips_to_price(ADD_PIPS_FLOOR, symbol)
-                else:
-                    still_shallow = len(layers) < 3
-                    add_pips_to_use = ADD_PIPS_FLOOR if (spacing_mode == "flat" or still_shallow) else current_add_pips
-                    add_target = cur.entry_price - cur.direction * pips_to_price(add_pips_to_use, symbol)
+                add_pips = add_pips_from_width(pod_half_width_pips)
+                add_target = compute_add_target(layers, add_pips, symbol)
                 effective_add = add_target - cur.direction * half_spread
                 hit = ((cur.direction == 1 and price_prev > effective_add >= price_now) or
                        (cur.direction == -1 and price_prev < effective_add <= price_now))
@@ -347,10 +348,6 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                     layer_entry_bars.append(i)
                     layer_is_l0.append(False)
                     pod_had_add = True
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = None
-                    if len(layers) >= 3:
-                        current_add_pips = min(ADD_PIPS_CEILING, current_add_pips * WIDEN_RATIO)
                     max_layers = max(max_layers, len(layers))
 
         price_current = end_price
@@ -427,58 +424,12 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     return out
 
 
-def test_last_exit_price_cleared_before_new_pod_first_add():
-    """Full pod exit -> new L0 -> first add must use entry-based widening, not stale reload."""
-    symbol = "GBPUSD"
-    stale_prior_pod_exit = 1.2000
-    last_exit_price = stale_prior_pod_exit
-
-    layers: List[Layer] = []
-
-    fill_price = 1.2400
-    layers.append(Layer(entry_price=fill_price, direction=1,
-                        exit_target_raw=fill_price + pips_to_price(EXIT_PIPS, symbol)))
-    current_add_pips = ADD_PIPS_FLOOR
-    last_exit_price = None
-
-    assert last_exit_price is None
-
-    for spacing_mode in ("reload_anchor", "reload_flat"):
-        cur = layers[-1]
-        used_reload = False
-        if spacing_mode == "reload_anchor" and last_exit_price is not None:
-            used_reload = True
-            depth_mult = WIDEN_RATIO ** (len(layers) // 3)
-            reload_step = min(ADD_PIPS_CEILING, ADD_PIPS_FLOOR * depth_mult)
-            add_target = last_exit_price - cur.direction * pips_to_price(reload_step, symbol)
-        elif spacing_mode == "reload_flat" and last_exit_price is not None:
-            used_reload = True
-            add_target = last_exit_price - cur.direction * pips_to_price(ADD_PIPS_FLOOR, symbol)
-        else:
-            still_shallow = len(layers) < 3
-            add_pips_to_use = ADD_PIPS_FLOOR if (spacing_mode == "flat" or still_shallow) else current_add_pips
-            add_target = cur.entry_price - cur.direction * pips_to_price(add_pips_to_use, symbol)
-
-        assert not used_reload, spacing_mode
-        expected = layers[-1].entry_price - pips_to_price(ADD_PIPS_FLOOR, symbol)
-        assert add_target == expected, spacing_mode
-        stale_reload_target = stale_prior_pod_exit - pips_to_price(ADD_PIPS_FLOOR, symbol)
-        assert add_target != stale_reload_target, spacing_mode
-
-
-def test_simulate_one_path_flat_entry_resets_last_exit_price():
-    """Production flat-entry block must clear last_exit_price on new Layer-0 fill."""
-    import inspect
-
-    src = inspect.getsource(simulate_one_path)
-    flat_block = src.split("if filled_dir is not None:", 1)[1].split("continue", 1)[0]
-    assert "last_exit_price = None" in flat_block
-
-
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--test-last-exit":
-        test_last_exit_price_cleared_before_new_pod_first_add()
-        test_simulate_one_path_flat_entry_resets_last_exit_price()
-        print("last_exit_price tests: PASS")
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("test_grid_add", "scripts/test_grid_add_mechanics.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        raise SystemExit(0)

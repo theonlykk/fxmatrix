@@ -7,7 +7,7 @@ Maps to production EA knobs:
   - exit_pips                 ->  InpExitPips          (layer exit target from entry)
 
 Uses grid_sim_v7 straddle entry_mode (touch-fill; no adverse-selection model).
-Add/reload geometry unchanged (ADD_PIPS_FLOOR=9, WIDEN_RATIO=1.304, reload_anchor).
+Add geometry: fixed entry-anchored adds at GRIND_ADD_WIDTH_MULTIPLE (2.0) x straddle half-width.
 
 Usage:
   python scripts/run_width_exit_sweep.py --test-wiring
@@ -81,7 +81,6 @@ PROD_WIDTH = 9.0
 PROD_EXIT = 3.0
 
 PAIRS = ("GBPUSD", "EURUSD", "EURGBP")
-SPACING_MODE = "reload_anchor"
 BIAS_MODE = simv7.BiasMode.BOTH  # dumb straddle works both sides
 
 WINDOW_META = {
@@ -288,7 +287,6 @@ def _worker_cell(payload: dict) -> dict:
                     times=times,
                     symbol=payload["symbol"].upper(),
                     bias_mode=payload["bias_mode"],
-                    spacing_mode=payload["spacing"],
                     seed=s,
                     sub_steps=sub_steps,
                     entry_mode="straddle",
@@ -339,7 +337,6 @@ def _run_one_cell_local(
                 times=times,
                 symbol=pair,
                 bias_mode=BIAS_MODE,
-                spacing_mode=SPACING_MODE,
                 seed=s,
                 sub_steps=substeps,
                 entry_mode="straddle",
@@ -501,6 +498,7 @@ def get_git_commit_short() -> str:
 def build_provenance() -> dict:
     return {
         "cost_model_version": sim_costs.COST_MODEL_VERSION,
+        "grid_add_mechanics": "entry_anchor_2x_width_v1",
         "git_commit": get_git_commit_short(),
         "schema_fields": list(CELL_SCHEMA_FIELDS),
     }
@@ -520,6 +518,13 @@ def validate_checkpoint_provenance(ckpt: dict) -> None:
         raise CheckpointProvenanceError(
             f"cost_model_version mismatch (checkpoint={ckpt_version!r}, "
             f"running={sim_costs.COST_MODEL_VERSION!r})"
+        )
+
+    ckpt_add = prov.get("grid_add_mechanics")
+    if ckpt_add != "entry_anchor_2x_width_v1":
+        raise CheckpointProvenanceError(
+            f"grid_add_mechanics mismatch (checkpoint={ckpt_add!r}, "
+            f"running={'entry_anchor_2x_width_v1'!r})"
         )
 
     ckpt_schema = sorted(prov.get("schema_fields") or [])
@@ -648,7 +653,6 @@ def run_sweep(
                         "pair_spread": cache["pair_spread"],
                         "width": width,
                         "exit_pips": exit_pips,
-                        "spacing": SPACING_MODE,
                         "bias_mode": int(BIAS_MODE),
                         "closes": cache["closes"],
                         "times": cache["times"],
@@ -912,7 +916,7 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
     print("=" * 80)
     print("  straddle_half_width_pips  ->  InpDumbStraddlePips  (dumb L0 at mid +/- pips)")
     print("  exit_pips                 ->  InpExitPips")
-    print("  add spacing unchanged:    ADD_PIPS_FLOOR=9, reload_anchor, WIDEN_RATIO=1.304")
+    print("  add spacing:              fixed entry-anchored, 2.0 x straddle half-width (fxgrind parity)")
     print(f"  production point marked:   width={PROD_WIDTH}, exit={PROD_EXIT}")
     print(f"  n_seeds per cell:          {payload['n_seeds']}")
 
@@ -1195,7 +1199,6 @@ def test_wiring():
             times=times,
             symbol="GBPUSD",
             bias_mode=BIAS_MODE,
-            spacing_mode=SPACING_MODE,
             seed=0,
             entry_mode="straddle",
             straddle_half_width_pips=9.0,

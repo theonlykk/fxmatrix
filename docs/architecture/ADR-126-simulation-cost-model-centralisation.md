@@ -121,3 +121,55 @@ not exist in sweep output.
 - Gemini amendment 2 (dual FTMO absolute USD gates, Prague midnight)
 - `scripts/sim_costs.py`, `scripts/test_sim_costs.py`
 - `docs/architecture/ADR-091-grid-spacing-geometry.md` (geometry evidence base)
+
+---
+
+## Amendment A — Align simulator add mechanics with fxgrind (2026-09-06)
+
+### Context
+
+The Python grid simulator (`grid_sim_v7_real_signal.py`) and the live EA family
+(`feature/fxgrind`) had **two verified divergences** in layer-1+ geometry:
+
+| | Simulator (pre-amendment) | fxgrind (authoritative) |
+|---|---|---|
+| Add anchor | Last **exit** price (reload path) | Previous layer **entry** price |
+| Add spacing | 9 pips floor, widening ×1.304 / 3 layers | Fixed **2.0 × straddle half-width** |
+
+Exit-anchoring makes grid topology depend on arbitrary historical fills and
+path-dependent state not recoverable from open positions alone. Entry-anchoring
+is deterministic and matches Spec B's comment-as-state contract on the EA.
+
+### Decision
+
+1. **EA is authoritative; simulator conforms.** Do not compromise fxgrind for
+   Python convenience.
+
+2. **Add target:** `layers[-1].entry_price ± add_pips` where
+   `add_pips = GRIND_ADD_WIDTH_MULTIPLE × straddle_half_width_pips` and
+   `GRIND_ADD_WIDTH_MULTIPLE = 2.0` (named module constant).
+
+3. **Remove** (not bypass): `WIDEN_RATIO`, `ADD_PIPS_FLOOR`, `ADD_PIPS_CEILING`,
+   `current_add_pips`, `last_exit_price` reload anchor, and `spacing_mode`
+   parameter from `simulate_one_path`. Callers and worker config dicts scrubbed.
+
+4. **L0 root anchor:** first add at depth 1 uses `layers[-1]` = L0 fill entry
+   (layer list populated on L0 fill before any add is computed).
+
+5. **Checkpoint provenance:** `grid_add_mechanics: entry_anchor_2x_width_v1`
+   added to sweep provenance; resume refused on mismatch.
+
+### Consequences
+
+- **All prior sweep results are not comparable** to post-amendment runs — including
+  the aborted `a2b9920_confirm` confirmation sweep — because survival clearances
+  and geometry optima were measured on a different grid than the one being built.
+- Cost model (`sim_costs.py`), commission, spread handling, Gate A/B logic,
+  fill triggers, Brownian bridge, and straddle/exit semantics are **unchanged**.
+- `grid_sim_v4/v5/v6` retain legacy spacing (deprecation candidates; out of scope).
+
+### References (amendment)
+
+- `feature/fxgrind`: `ea/grind_pure.mqh`, `ea/grind_engine.mqh`
+- ADR-125 (fxgrind architecture, `feature/fxgrind` branch)
+- `scripts/test_grid_add_mechanics.py` (T20–T26)

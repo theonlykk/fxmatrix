@@ -45,7 +45,6 @@ ALL_WINDOWS = ("q1_2024_chop", "truss_crisis", "full_quarter")
 DEFAULT_N_SEEDS = 200
 DEFAULT_SUBSTEPS = 20
 BIAS_MODE = simv7.BiasMode.BOTH
-SPACING_MODE = "reload_anchor"
 DEFAULT_CHECKPOINT = ROOT / "temp" / "e7_triangular_gate.json"
 
 
@@ -109,7 +108,6 @@ def run_cell_seeds(
                 times=times,
                 symbol=pair,
                 bias_mode=mod7.BiasMode.BOTH,
-                spacing_mode=SPACING_MODE,
                 seed=base_seed + s,
                 sub_steps=substeps,
                 exit_pips=geom["exit"],

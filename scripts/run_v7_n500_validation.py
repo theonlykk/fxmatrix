@@ -64,7 +64,7 @@ def run_validation(n_seeds=500, windows=None, spacing_modes=None, simulate_fn=No
                     if call_log is not None:
                         call_log.append((spacing_mode, window_name, mode_name, s))
                     result = simulate_fn(closes, bid_arr, offer_arr, times=times, symbol="GBPUSD",
-                                         bias_mode=mode, spacing_mode=spacing_mode,
+                                         bias_mode=mode,
                                          seed=s, sub_steps=100)
                     pnls.append(result["pnl_total_usd"])
                     realised.append(result["pnl_realised_usd"])
@@ -216,9 +216,8 @@ def test_spacing_mode_loop_wiring():
 
 
 def main():
-    print(f"Config check: WIDEN_RATIO={simv7.WIDEN_RATIO}, ADD_PIPS_CEILING={simv7.ADD_PIPS_CEILING}")
-    assert simv7.WIDEN_RATIO == 1.304, "WIDEN_RATIO not set correctly - stop and check the file"
-    assert simv7.ADD_PIPS_CEILING == 1000.0, "ADD_PIPS_CEILING not set correctly - stop and check the file"
+    print(f"Config check: GRIND_ADD_WIDTH_MULTIPLE={simv7.GRIND_ADD_WIDTH_MULTIPLE}")
+    assert simv7.GRIND_ADD_WIDTH_MULTIPLE == 2.0, "GRIND_ADD_WIDTH_MULTIPLE not set correctly"
     print("Config confirmed correct - proceeding.\n")
     print("WARNING: This run executes BOTH reload_anchor and reload_flat (2x single-mode cost).")
     print("Estimated total runtime: ~5.5-6 hours (prior single-mode run ~10,095s elapsed; doubled ~20,190s).\n")
