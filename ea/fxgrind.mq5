@@ -159,6 +159,8 @@ void OnTimer()
       EventSetTimer(TelemetryIntervalSec);
    }
 
+   Grind_ResetDailyPnlIfNewDay();
+   Grind_ProcessPendingExitMicrostructure();
    Grind_EmitHeartbeat();
 
    if(Grind_ApiCounterSoftWarnActive())

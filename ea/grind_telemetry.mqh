@@ -5,6 +5,7 @@
 #define GRIND_TELEMETRY_MQH
 
 #include "grind_api_counter.mqh"
+#include "grind_pnl.mqh"
 
 //+------------------------------------------------------------------+
 bool Grind_TelemetryWebPost(const string url,
@@ -88,6 +89,9 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
                                     const string cap_leg_a_name,
                                     const string cap_leg_b_name)
 {
+   Grind_ResetDailyPnlIfNewDay();
+   const double net_mtm = Grind_ComputeNetFloatingMtm(magic);
+
    return StringFormat(
       "{\"instance_id\":\"%s\",\"open_layers_long\":%d,\"open_layers_short\":%d,"
       "\"fills\":%d,\"scalps\":%d,\"api_count\":%d,\"api_counter_broken\":%s,"
@@ -97,7 +101,10 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       "\"peer_read_failed\":%s,"
       "\"magic\":%s,\"slot\":\"%s\",\"width_pips\":%.4f,\"add_pips\":%.4f,"
       "\"exit_pips\":%.4f,\"max_layers\":%d,"
-      "\"cap_leg_a_name\":\"%s\",\"cap_leg_b_name\":\"%s\"}",
+      "\"cap_leg_a_name\":\"%s\",\"cap_leg_b_name\":\"%s\","
+      "\"net_mtm\":%.4f,\"realised_pnl_today\":%.4f,\"scalp_pnl_last\":%.4f,"
+      "\"exit_penetration_pips_last\":%.4f,\"exit_penetration_pips_mean\":%.4f,"
+      "\"exit_touch_revert_count\":%d}",
       instance_name,
       open_layers_long,
       open_layers_short,
@@ -122,7 +129,13 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       exit_pips,
       max_layers,
       cap_leg_a_name,
-      cap_leg_b_name
+      cap_leg_b_name,
+      net_mtm,
+      g_grind_realised_pnl_today,
+      g_grind_scalp_pnl_last,
+      g_grind_exit_penetration_pips_last,
+      Grind_ExitPenetrationPipsMean(),
+      g_grind_exit_touch_revert_count
    );
 }
 

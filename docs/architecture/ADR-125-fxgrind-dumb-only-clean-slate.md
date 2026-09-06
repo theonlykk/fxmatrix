@@ -11,7 +11,9 @@ Not committed until Khalid clears the two-step commit gate.
 The retired `fxmatrix_v2_*` family combined signal-driven quoting with dumb
 straddle arms, path-dependent add-spacing ratchets, and fragmented cost/risk
 logic. Simulation work (ADR-126) centralised P&L accounting; live deployment
-requires a **clean-slate** dumb-only engine with no fair-value machinery.
+requires a **clean-slate** dumb-only engine. Live P&L telemetry (floating MTM,
+realised daily P&L, exit microstructure) is implemented in `grind_pnl.mqh`
+(Decision 14); simulation accounting remains in ADR-126.
 
 fxgrind replaces two retired families (signal 2026xxxx, old-dumb 2126xxxx) with
 a single parameterised codebase using magic namespace **2226xxxx** only. Six
@@ -133,6 +135,32 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     (no `WebRequest` in OnInit — MQL5 error 4014). `Print("TELEM|"...)` retained
     as journal fallback. Telemetry failure is non-fatal: log and continue.
 
+14. **P&L and exit-microstructure telemetry (`grind_pnl.mqh`).** Heartbeat
+    appends six fields at the end of the existing JSON (append-only; `instance_id`
+    remains first):
+
+    | Field | Composition / semantics |
+    |-------|-------------------------|
+    | `net_mtm` | Floating inventory MTM — **not** realised performance. Sum over open positions matching `InpMagic` by exact equality: `POSITION_PROFIT + POSITION_SWAP + POSITION_COMMISSION`. `POSITION_PROFIT` alone excludes swap and commission; all three are summed at the call site with an explicit comment. |
+    | `realised_pnl_today` | Net of `DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION` on each completed scalp (EXT / `DEAL_ENTRY_OUT`). Resets daily at the **TimeServer()** day boundary — FTMO trade servers run natively on CE(S)T, so `TimeServer()` handles DST natively and matches the risk-gate day boundary. No hand-rolled GMT offset; no `TimeLocal()`. |
+    | `scalp_pnl_last` | Net P&L of the most recent completed scalp (same three-part composition). |
+    | `exit_penetration_pips_last` | Maximum favourable excursion (pips) beyond the exit fill price within `GRIND_EXIT_PENETRATION_WINDOW_SEC` (30 s) after fill. |
+    | `exit_penetration_pips_mean` | Running mean of `exit_penetration_pips_last` for the current server day. |
+    | `exit_touch_revert_count` | Scalps where penetration &lt; one spread width — fills a virtual exit would have missed. |
+
+    **Non-persistence:** `realised_pnl_today`, microstructure counters, and daily
+    accumulators are **not** persisted across restarts (same as fill/scalp counters).
+    A restart resets them; this preserves Gate 1 statelessness.
+
+    **Exit microstructure derivation:** On EXT deal close, the fill timestamp and
+    exit price are queued. `Grind_ProcessPendingExitMicrostructure()` runs on
+    `OnTimer` (after the 30 s window elapses), calling `CopyTicksRange` over
+    `[fill_time, fill_time + 30 s]` to compute maximum favourable excursion
+    statelessly. **Zero additions to OnTick** — the execution thread is not
+    polluted with tick buffers or post-fill watch loops. Touch-and-revert uses
+    spread width captured at fill time; penetration below one spread width
+    increments `exit_touch_revert_count`.
+
 ## Consequences
 
 - Spec B enables trading after successful reconstruction on a valid book; invalid
@@ -151,3 +179,4 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - ADR-126 (simulation cost model — separate branch)
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
+  (T1–T44 including P&L telemetry tests T40–T44)
