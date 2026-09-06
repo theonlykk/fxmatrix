@@ -646,7 +646,8 @@ void Test_T38_HeartbeatSchemaUnchanged()
       false, false, "", true, true,
       0.1, 0.2, 0.3, 0.4, false,
       22260101UL, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
-   AssertContains("T38 instance", hb, "\"instance\":");
+   AssertContains("T38 instance_id", hb, "\"instance_id\":");
+   AssertTrue("T38 no instance key", StringFind(hb, "\"instance\":") < 0);
    AssertContains("T38 open_layers_long", hb, "\"open_layers_long\":");
    AssertContains("T38 open_layers_short", hb, "\"open_layers_short\":");
    AssertContains("T38 fills", hb, "\"fills\":");
