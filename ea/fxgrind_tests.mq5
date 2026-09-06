@@ -759,6 +759,11 @@ void Test_T43_TouchRevertThreshold()
 void Test_T44_HeartbeatSchemaAppendOnly()
 {
    Grind_PnlReset();
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+   // Heartbeat calls Grind_ResetDailyPnlIfNewDay(); seed day key so seeded
+   // accumulator values survive (empty key would trigger a counter wipe).
+   g_grind_pnl_day_key = Grind_ServerDayKey(g_grind_pnl_test_server_time);
    g_grind_realised_pnl_today = 1.23;
    g_grind_scalp_pnl_last = 0.45;
    g_grind_exit_penetration_pips_last = 0.7;
