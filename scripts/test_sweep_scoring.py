@@ -64,6 +64,17 @@ class TestSweepScoring(unittest.TestCase):
         for wkey, role in roles.items():
             self.assertIn(role, ("calibration", "holdout", "support"))
 
+    def test_module_import_and_runtime_helpers(self):
+        """Regression: module-level imports (np/pd) must not break runtime helpers."""
+        est = sweep.estimate_sweep_runtime(
+            n_cells=10,
+            n_seeds=2,
+            substeps=100,
+            workers=1,
+            bar_counts=[24000],
+        )
+        self.assertGreater(est, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

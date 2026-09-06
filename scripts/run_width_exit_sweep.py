@@ -36,6 +36,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import numpy as np
+import pandas as pd
 import sim_costs
 
 # Unbuffered progress when stdout is redirected to a log file.
