@@ -690,14 +690,12 @@ void Test_T40_NetMtmExactMagic()
    g_grind_pnl_test_positions[0].magic = 22260101UL;
    g_grind_pnl_test_positions[0].profit = 1.50;
    g_grind_pnl_test_positions[0].swap = -0.10;
-   g_grind_pnl_test_positions[0].commission = -0.05;
    g_grind_pnl_test_positions[1].magic = 22260102UL;
    g_grind_pnl_test_positions[1].profit = 99.00;
    g_grind_pnl_test_positions[1].swap = 0.0;
-   g_grind_pnl_test_positions[1].commission = 0.0;
 
    const double mtm = Grind_ComputeNetFloatingMtm(22260101UL);
-   AssertNear("T40 net_mtm ours only", mtm, 1.35, 1e-8);
+   AssertNear("T40 net_mtm ours only", mtm, 1.40, 1e-8);
    Grind_PnlReset();
 }
 

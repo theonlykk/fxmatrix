@@ -43,7 +43,6 @@ struct GrindPnlTestPosition
    ulong  magic;
    double profit;
    double swap;
-   double commission;
 };
 
 GrindPnlTestPosition g_grind_pnl_test_positions[];
@@ -93,11 +92,9 @@ string Grind_LocalDayKey(const datetime local_time)
 
 //+------------------------------------------------------------------+
 double Grind_PositionNetMtmParts(const double profit,
-                               const double swap,
-                               const double commission)
+                               const double swap)
 {
-   // POSITION_PROFIT excludes swap and commission — sum all three for net floating MTM.
-   return profit + swap + commission;
+   return profit + swap;
 }
 
 //+------------------------------------------------------------------+
@@ -105,12 +102,11 @@ double Grind_AccumulateNetMtmForMagic(const ulong expected_magic,
                                       const ulong pos_magic,
                                       const double profit,
                                       const double swap,
-                                      const double commission,
                                       double running_sum)
 {
    if(!Grind_MagicMatches((long)pos_magic, expected_magic))
       return running_sum;
-   return running_sum + Grind_PositionNetMtmParts(profit, swap, commission);
+   return running_sum + Grind_PositionNetMtmParts(profit, swap);
 }
 
 //+------------------------------------------------------------------+
@@ -124,7 +120,6 @@ double Grind_ComputeNetFloatingMtm(const ulong magic)
                                               g_grind_pnl_test_positions[i].magic,
                                               g_grind_pnl_test_positions[i].profit,
                                               g_grind_pnl_test_positions[i].swap,
-                                              g_grind_pnl_test_positions[i].commission,
                                               sum);
       return sum;
    }
@@ -137,10 +132,13 @@ double Grind_ComputeNetFloatingMtm(const ulong magic)
          continue;
       if(!Grind_MagicMatches(PositionGetInteger(POSITION_MAGIC), magic))
          continue;
-      // POSITION_PROFIT excludes swap and commission — sum all three for net floating MTM.
+      // net_mtm inventory readout: POSITION_PROFIT (unrealised price P&L) +
+      // POSITION_SWAP (cumulative swap). Commission deliberately excluded —
+      // POSITION_COMMISSION is deprecated; HistorySelectByPosition would
+      // couple to grind_recon/deal-hook history state for sub-dollar gain.
+      // Full commission is captured in realised_pnl_today (DEAL_COMMISSION).
       sum += PositionGetDouble(POSITION_PROFIT)
-           + PositionGetDouble(POSITION_SWAP)
-           + PositionGetDouble(POSITION_COMMISSION);
+           + PositionGetDouble(POSITION_SWAP);
    }
    return sum;
 }
