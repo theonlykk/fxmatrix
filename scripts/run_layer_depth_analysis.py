@@ -5,8 +5,8 @@ Layer-depth profitability analysis — per-layer resolution and P&L by open dept
 Tags each opened layer by stack depth at entry (0=L0, 1=first add, 2=second add, ...).
 Tracks individual resolution: exit hit vs buried-then-resolved vs window-end open.
 
-Production geometry (locked): WIDEN_RATIO=1.304, ADD_PIPS_FLOOR=9.0, EXIT_PIPS=3.0,
-SpreadMultiplier=0.5.
+Production geometry: fixed entry-anchored adds at 2.0 x straddle half-width (fxgrind parity),
+EXIT_PIPS=3.0, SpreadMultiplier=0.5.
 
 Usage (full sweep on Surface, 8 workers):
   python scripts/run_layer_depth_analysis.py --workers 8
@@ -49,7 +49,9 @@ spec6 = importlib.util.spec_from_file_location(
 simv6 = importlib.util.module_from_spec(spec6)
 spec6.loader.exec_module(simv6)
 
-SPACING_MODES = ["reload_anchor", "reload_flat"]
+import sim_costs
+
+STRADDLE_HALF_WIDTH_PIPS = 9.0
 BIAS_MODES = {
     "MM_LONG": simv7.BiasMode.LONG_ONLY,
     "MM_SHORT": simv7.BiasMode.SHORT_ONLY,
@@ -62,8 +64,6 @@ ALL_WINDOWS = {
     "vaccine_rally": os.path.join(ROOT, "data", "GBPUSD_vaccine_rally_oos.csv"),
     "q1_2024_chop": os.path.join(ROOT, "data", "GBPUSD_q1_2024_chop_oos.csv"),
 }
-PIP = 0.0001
-PAIR_SPREAD_PIPS = simv6.PAIR_SPREAD_PIPS.get("GBPUSD", 0.64)
 TREND_HORIZON_BARS = 12  # 1 hour on M5
 
 
@@ -77,6 +77,7 @@ class OpenLayer:
     open_bar: int
     open_substep: float
     was_buried: bool = False
+    entry_commission_usd: float = 0.0
 
 
 @dataclass
@@ -162,12 +163,14 @@ def _trend_metrics(
     if len(segment) == 0:
         return None, None, None
     if direction == 1:
-        adverse = (entry_price - np.min(segment)) / PIP
-        net = (segment[-1] - entry_price) / PIP
+        pip = sim_costs.get_pair_spec("GBPUSD").pip_size
+        adverse = (entry_price - np.min(segment)) / pip
+        net = (segment[-1] - entry_price) / pip
         sustained = net < -3.0
     else:
-        adverse = (np.max(segment) - entry_price) / PIP
-        net = (entry_price - segment[-1]) / PIP
+        pip = sim_costs.get_pair_spec("GBPUSD").pip_size
+        adverse = (np.max(segment) - entry_price) / pip
+        net = (entry_price - segment[-1]) / pip
         sustained = net < -3.0
     return float(adverse), float(net), bool(sustained)
 
@@ -177,29 +180,25 @@ def simulate_layer_outcomes(
     bid_arr: np.ndarray,
     offer_arr: np.ndarray,
     bias_mode: int,
-    spacing_mode: str,
     seed: int,
     symbol: str = "GBPUSD",
     sub_steps: int = 100,
+    straddle_half_width_pips: float = STRADDLE_HALF_WIDTH_PIPS,
 ) -> list[LayerOutcome]:
     """Mirror grid_sim_v7_real_signal path with per-layer outcome tracking."""
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
     sigma = float(np.std(np.diff(np.log(closes)), ddof=1) * 2.5)
-    exit_dist = simv7.pips_to_price(simv7.EXIT_PIPS, PIP)
-    half_spread = simv7.pips_to_price(
-        simv6.PAIR_SPREAD_PIPS.get(symbol, 0.64) / 2.0, PIP
-    )
+    exit_dist = sim_costs.pips_to_price(simv7.EXIT_PIPS, symbol)
+    half_spread = sim_costs.half_spread_price(symbol)
+    entry_comm = sim_costs.commission_per_leg_usd(simv7.LOT_SIZE)
+    exit_comm = entry_comm
+    pod_half_width_pips = float(straddle_half_width_pips)
 
     layers: list[simv7.Layer] = []
     open_meta: list[OpenLayer] = []
     next_id = 0
-    current_add_pips = simv7.ADD_PIPS_FLOOR
-    last_exit_price: float | None = None
     outcomes: list[LayerOutcome] = []
-
-    def usd(diff: float) -> float:
-        return (diff / PIP) * simv7.USD_PER_PIP
 
     def register_open(fill_price: float, direction: int, depth: int, bar_i: int, substep: float) -> None:
         nonlocal next_id
@@ -212,6 +211,7 @@ def simulate_layer_outcomes(
                 exit_target_raw=fill_price + direction * exit_dist,
                 open_bar=bar_i,
                 open_substep=substep,
+                entry_commission_usd=entry_comm,
             )
         )
         layers.append(
@@ -219,6 +219,7 @@ def simulate_layer_outcomes(
                 entry_price=fill_price,
                 direction=direction,
                 exit_target_raw=fill_price + direction * exit_dist,
+                entry_commission_usd=entry_comm,
             )
         )
         next_id += 1
@@ -229,12 +230,15 @@ def simulate_layer_outcomes(
                 open_meta[idx].was_buried = True
 
     def close_top(bar_i: int, substep: float) -> float:
-        """Close top layer; return closed entry price for reload_anchor logic."""
+        """Close top layer; return closed entry price."""
         closed_layer = layers.pop()
         closed_meta = open_meta.pop()
-        entry_paid = closed_meta.entry_price + closed_meta.direction * half_spread
-        exit_recv = closed_meta.exit_target_raw - closed_meta.direction * half_spread
-        pnl = usd((exit_recv - entry_paid) * closed_meta.direction)
+        gross = sim_costs.price_diff_to_usd(
+            (closed_meta.exit_target_raw - closed_meta.entry_price) * closed_meta.direction,
+            symbol,
+            simv7.LOT_SIZE,
+        )
+        pnl = gross - exit_comm
         ttr = (bar_i - closed_meta.open_bar) + (substep - closed_meta.open_substep) / sub_steps
         adv, net, sustained = _trend_metrics(
             closes, closed_meta.open_bar, closed_meta.direction, closed_meta.entry_price
@@ -293,8 +297,6 @@ def simulate_layer_outcomes(
                         filled_dir, fill_p = -1, offer_c
                 if filled_dir is not None:
                     register_open(fill_p, filled_dir, depth=0, bar_i=i, substep=substep)
-                    current_add_pips = simv7.ADD_PIPS_FLOOR
-                    last_exit_price = None
                 continue
 
             if j == 0:
@@ -308,34 +310,12 @@ def simulate_layer_outcomes(
                     cur.direction == -1 and pp > eff_exit >= pn
                 )
                 if crossed:
-                    closed_entry = close_top(i, substep)
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = closed_entry
+                    close_top(i, substep)
 
             if layers:
                 cur = layers[-1]
-                if spacing_mode == "reload_anchor" and last_exit_price is not None:
-                    depth_mult = simv7.WIDEN_RATIO ** (len(layers) // 3)
-                    reload_step = min(
-                        simv7.ADD_PIPS_CEILING, simv7.ADD_PIPS_FLOOR * depth_mult
-                    )
-                    add_target = last_exit_price - cur.direction * simv7.pips_to_price(
-                        reload_step, PIP
-                    )
-                elif spacing_mode == "reload_flat" and last_exit_price is not None:
-                    add_target = last_exit_price - cur.direction * simv7.pips_to_price(
-                        simv7.ADD_PIPS_FLOOR, PIP
-                    )
-                else:
-                    still_shallow = len(layers) < 3
-                    add_pips = (
-                        simv7.ADD_PIPS_FLOOR
-                        if (spacing_mode == "flat" or still_shallow)
-                        else current_add_pips
-                    )
-                    add_target = cur.entry_price - cur.direction * simv7.pips_to_price(
-                        add_pips, PIP
-                    )
+                add_pips = simv7.add_pips_from_width(pod_half_width_pips)
+                add_target = simv7.compute_add_target(layers, add_pips, symbol)
                 eff_add = add_target - cur.direction * half_spread
                 hit = (cur.direction == 1 and pp > eff_add >= pn) or (
                     cur.direction == -1 and pp < eff_add <= pn
@@ -344,25 +324,24 @@ def simulate_layer_outcomes(
                     depth = len(layers)
                     mark_buried(depth)
                     register_open(add_target, cur.direction, depth=depth, bar_i=i, substep=substep)
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = None
-                    if len(layers) >= 3:
-                        current_add_pips = min(
-                            simv7.ADD_PIPS_CEILING,
-                            current_add_pips * simv7.WIDEN_RATIO,
-                        )
 
         price_current = end_price
 
     final_price = closes[-1]
     for lay_meta in open_meta:
-        cp = (
+        mark_price = (
             final_price - half_spread
             if lay_meta.direction == 1
             else final_price + half_spread
         )
-        ep = lay_meta.entry_price + lay_meta.direction * half_spread
-        pnl = usd((cp - ep) * lay_meta.direction)
+        pnl = sim_costs.layer_unrealised_usd(
+            lay_meta.entry_price,
+            lay_meta.direction,
+            mark_price,
+            symbol,
+            lay_meta.entry_commission_usd,
+            simv7.LOT_SIZE,
+        )
         adv, net, sustained = _trend_metrics(
             closes, lay_meta.open_bar, lay_meta.direction, lay_meta.entry_price
         )
@@ -472,8 +451,10 @@ def _worker_batch(payload: dict) -> list[tuple[int, dict]]:
             bid,
             offer,
             bias_mode=payload["bias_mode"],
-            spacing_mode=payload["spacing"],
             seed=int(seed),
+            straddle_half_width_pips=payload.get(
+                "straddle_half_width_pips", STRADDLE_HALF_WIDTH_PIPS
+            ),
         )
         out.append((int(seed), lda.aggregate_outcomes(outcomes)))
     return out
@@ -527,9 +508,9 @@ def parallel_seed_runs(
     bid,
     offer,
     n_seeds: int,
-    spacing_mode: str,
     bias_mode: int,
     workers: int = 1,
+    straddle_half_width_pips: float = STRADDLE_HALF_WIDTH_PIPS,
 ) -> list[dict]:
     workers = max(1, min(workers, n_seeds))
     chunk = max(1, math.ceil(n_seeds / (workers * 2)))
@@ -542,8 +523,8 @@ def parallel_seed_runs(
         "closes": closes,
         "bid": bid,
         "offer": offer,
-        "spacing": spacing_mode,
         "bias_mode": int(bias_mode),
+        "straddle_half_width_pips": float(straddle_half_width_pips),
     }
     results_by_seed: dict[int, dict] = {}
     with ProcessPoolExecutor(max_workers=workers) as pool:
@@ -561,53 +542,57 @@ def parallel_seed_runs(
 def run_analysis(
     n_seeds: int = 500,
     windows: dict | None = None,
-    spacing_modes: list | None = None,
     bias_filter: list[str] | None = None,
     workers: int = 1,
     verbose: bool = True,
+    straddle_half_width_pips: float = STRADDLE_HALF_WIDTH_PIPS,
 ) -> dict:
     windows = windows or ALL_WINDOWS
-    spacing_modes = spacing_modes or SPACING_MODES
     bias_items = [
         (k, v) for k, v in BIAS_MODES.items() if bias_filter is None or k in bias_filter
     ]
     start = time.time()
     results: dict[str, Any] = {}
 
-    for spacing_mode in spacing_modes:
-        for window_name, path in windows.items():
-            df = simv6.load_mt5_csv(path)
-            closes = df["CLOSE"].values
-            spread_pts = df["SPREAD"].values
-            bid, offer = simv7.precompute_gbpusd_signal(closes, spread_pts)
+    for window_name, path in windows.items():
+        df = simv6.load_mt5_csv(path)
+        closes = df["CLOSE"].values
+        spread_pts = df["SPREAD"].values
+        bid, offer = simv7.precompute_gbpusd_signal(closes, spread_pts)
+        if verbose:
+            print(
+                f"Loaded {window_name}: {len(df)} bars, "
+                f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]}"
+            )
+
+        for mode_name, mode in bias_items:
             if verbose:
                 print(
-                    f"Loaded {window_name}: {len(df)} bars, "
-                    f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]}"
+                    f"  {window_name}/{mode_name}: "
+                    f"{n_seeds} seeds, {workers} workers",
+                    flush=True,
                 )
-
-            for mode_name, mode in bias_items:
-                if verbose:
-                    print(
-                        f"  {spacing_mode}/{window_name}/{mode_name}: "
-                        f"{n_seeds} seeds, {workers} workers",
-                        flush=True,
-                    )
-                seed_aggs = parallel_seed_runs(
-                    closes, bid, offer, n_seeds, spacing_mode, mode, workers=workers
+            seed_aggs = parallel_seed_runs(
+                closes,
+                bid,
+                offer,
+                n_seeds,
+                mode,
+                workers=workers,
+                straddle_half_width_pips=straddle_half_width_pips,
+            )
+            key = f"{window_name}|{mode_name}"
+            results[key] = merge_aggregates(seed_aggs)
+            if verbose:
+                d01 = results[key]["depth_0_1"]
+                d2p = results[key]["depth_2_plus"]
+                print(
+                    f"    DONE total_layers={results[key]['total_layers']} "
+                    f"L0-1 mean_pnl=${d01['mean_pnl_usd_per_layer']:.3f} "
+                    f"L2+ mean_pnl=${d2p['mean_pnl_usd_per_layer']:.3f} "
+                    f"L2+ sustained={d2p.get('trend_sustained_rate_pct')}",
+                    flush=True,
                 )
-                key = f"{spacing_mode}|{window_name}|{mode_name}"
-                results[key] = merge_aggregates(seed_aggs)
-                if verbose:
-                    d01 = results[key]["depth_0_1"]
-                    d2p = results[key]["depth_2_plus"]
-                    print(
-                        f"    DONE total_layers={results[key]['total_layers']} "
-                        f"L0-1 mean_pnl=${d01['mean_pnl_usd_per_layer']:.3f} "
-                        f"L2+ mean_pnl=${d2p['mean_pnl_usd_per_layer']:.3f} "
-                        f"L2+ sustained={d2p.get('trend_sustained_rate_pct')}",
-                        flush=True,
-                    )
 
     return {"cells": results, "elapsed_sec": time.time() - start, "n_seeds": n_seeds}
 
@@ -643,7 +628,7 @@ def sanity_check_depth_tagging() -> None:
     spread = df["SPREAD"].values[:500]
     bid, offer = simv7.precompute_gbpusd_signal(closes, spread)
     outcomes = simulate_layer_outcomes(
-        closes, bid, offer, simv7.BiasMode.LONG_ONLY, "reload_flat", seed=42
+        closes, bid, offer, simv7.BiasMode.LONG_ONLY, seed=42
     )
     assert outcomes, "expected at least one layer outcome on real data"
     depths = [o.open_depth for o in outcomes]
@@ -674,12 +659,11 @@ def test_wiring() -> None:
         payload = run_analysis(
             n_seeds=2,
             windows={"smoke": "dummy.csv"},
-            spacing_modes=["reload_flat"],
             bias_filter=["MM_LONG"],
             workers=1,
             verbose=False,
         )
-    assert "reload_flat|smoke|MM_LONG" in payload["cells"]
+    assert "smoke|MM_LONG" in payload["cells"]
     print("test_wiring OK")
 
 
@@ -689,7 +673,6 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--window", type=str, choices=list(ALL_WINDOWS), default=None)
     parser.add_argument("--bias", type=str, choices=list(BIAS_MODES), default=None)
-    parser.add_argument("--spacing", type=str, choices=SPACING_MODES, default=None)
     parser.add_argument("--output", type=str, default=None, help="JSON output path")
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--test-wiring", action="store_true")
@@ -704,7 +687,6 @@ def main() -> int:
         payload = run_analysis(
             n_seeds=2,
             windows={"full_quarter": ALL_WINDOWS["full_quarter"]},
-            spacing_modes=["reload_flat"],
             bias_filter=["MM_LONG"],
             workers=1,
             verbose=True,
@@ -715,13 +697,11 @@ def main() -> int:
     windows = ALL_WINDOWS
     if args.window:
         windows = {args.window: ALL_WINDOWS[args.window]}
-    spacing_modes = [args.spacing] if args.spacing else SPACING_MODES
     bias_filter = [args.bias] if args.bias else None
 
     payload = run_analysis(
         n_seeds=args.n_seeds,
         windows=windows,
-        spacing_modes=spacing_modes,
         bias_filter=bias_filter,
         workers=args.workers,
         verbose=True,

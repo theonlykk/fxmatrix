@@ -34,7 +34,7 @@ for name, mode in [("MM_LONG", simv7.BiasMode.LONG_ONLY),
                      ("MM_SHORT", simv7.BiasMode.SHORT_ONLY),
                      ("MM_BOTH", simv7.BiasMode.BOTH)]:
     result = simv7.simulate_one_path(closes, bid_arr, offer_arr, times=times, symbol="GBPUSD",
-                                       bias_mode=mode, spacing_mode="reload_anchor", seed=0, sub_steps=100)
+                                       bias_mode=mode, seed=0, sub_steps=100)
     print(f"{name}: trades={result['total_trades']}, max_layers={result['max_layers']}, "
           f"P&L=${result['pnl_total_usd']:.2f}, realized=${result['pnl_realised_usd']:.2f}, "
           f"unrealized=${result['pnl_unrealised_usd']:.2f}")

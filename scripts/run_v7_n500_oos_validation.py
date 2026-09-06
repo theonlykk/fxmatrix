@@ -76,7 +76,6 @@ def run_validation(n_seeds=500, windows=None, spacing_modes=None, simulate_fn=No
                         times=times,
                         symbol="GBPUSD",
                         bias_mode=mode,
-                        spacing_mode=spacing_mode,
                         seed=s,
                         sub_steps=100,
                     )
@@ -303,9 +302,8 @@ def main():
     windows = {args.window_label: csv_path}
     n_combos = len(SPACING_MODES) * len(BIAS_MODES)
 
-    print(f"Config check: WIDEN_RATIO={simv7.WIDEN_RATIO}, ADD_PIPS_CEILING={simv7.ADD_PIPS_CEILING}")
-    assert simv7.WIDEN_RATIO == 1.304, "WIDEN_RATIO not set correctly - stop and check the file"
-    assert simv7.ADD_PIPS_CEILING == 1000.0, "ADD_PIPS_CEILING not set correctly - stop and check the file"
+    print(f"Config check: GRIND_ADD_WIDTH_MULTIPLE={simv7.GRIND_ADD_WIDTH_MULTIPLE}")
+    assert simv7.GRIND_ADD_WIDTH_MULTIPLE == 2.0, "GRIND_ADD_WIDTH_MULTIPLE not set correctly"
     print("Config confirmed correct - proceeding.\n")
     print(f"OOS window: {args.window_label} -> {csv_path}")
     print("WARNING: This run executes BOTH reload_anchor and reload_flat (2x single-mode cost).")

@@ -1,7 +1,7 @@
 """
 v7: real term-structure signal for Layer 0 entry (fully verified against
-Cursor's worked examples), combined with the existing, already-tested grid
-mechanics (v6's flat/exponential/reload_anchor spacing for layers 1+).
+Cursor's worked examples), combined with fxgrind-parity grid adds for layers 1+:
+fixed entry-anchored spacing at GRIND_ADD_WIDTH_MULTIPLE x straddle half-width.
 
 Key mechanism, all verified:
 - FV_combined_BC from bars 6/12/48 (weights 0.50/0.30/0.20)
@@ -16,18 +16,14 @@ Key mechanism, all verified:
 """
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Sequence
 
-ADD_PIPS_FLOOR = 9.0
+import sim_costs
+
+GRIND_ADD_WIDTH_MULTIPLE = 2.0
 EXIT_PIPS = 3.0
-WIDEN_RATIO = 1.304  # ADR-B: derived to bound Layer 20 at ~6000 pips (was 1.5)
-ADD_PIPS_CEILING = 1000.0  # ADR-B: raised from 100 - that was a safety patch for the old
-                           # WIDEN_RATIO=1.5 and was silently capping the new r=1.304 curve
-                           # at layer ~13, undermining the whole point of the derivation
-LOT_SIZE = 0.01
-USD_PER_PIP_PER_LOT = 10.0
-USD_PER_PIP = USD_PER_PIP_PER_LOT * (LOT_SIZE / 1.0)
+LOT_SIZE = sim_costs.DEFAULT_LOT_SIZE
 QUOTE_SPREAD = 0.0004
 SPREAD_MULTIPLIER = 0.500
 MIN_DIST = 0.00001  # disclosed assumption: 1 point, standing in for broker stops-level
@@ -42,12 +38,27 @@ class Layer:
     entry_price: float
     direction: int
     exit_target_raw: float = 0.0
+    entry_commission_usd: float = 0.0
 
-def pips_to_price(pips, point=0.0001):
-    return pips * point
 
-def precompute_gbpusd_signal(bc_closes, bc_spread_points, point=0.0001):
+def pips_to_price(pips, symbol="GBPUSD"):
+    return sim_costs.pips_to_price(pips, symbol)
+
+
+def add_pips_from_width(straddle_half_width_pips: float) -> float:
+    """Fixed add spacing: GRIND_ADD_WIDTH_MULTIPLE x straddle half-width (fxgrind parity)."""
+    return GRIND_ADD_WIDTH_MULTIPLE * float(straddle_half_width_pips)
+
+
+def compute_add_target(layers: List[Layer], add_pips: float, symbol: str = "GBPUSD") -> float:
+    """Entry-anchored add from previous layer entry (mirrors ea/grind_pure.mqh + grind_engine.mqh)."""
+    cur = layers[-1]
+    return cur.entry_price - cur.direction * pips_to_price(add_pips, symbol)
+
+
+def precompute_gbpusd_signal(bc_closes, bc_spread_points, symbol="GBPUSD"):
     """Vectorized, one-time computation - verified against Cursor's worked example."""
+    point = sim_costs.get_pair_spec(symbol).point
     n = len(bc_closes)
     fv_bc = np.full(n, np.nan)
     sigma_fv_bc = np.full(n, np.nan)
@@ -87,34 +98,58 @@ def adr013_clamp(theoretical, direction, current_mid, half_spread, min_dist=MIN_
         return theoretical
 
 def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=None,
-                       symbol="GBPUSD", bias_mode=BiasMode.BOTH, spacing_mode="reload_anchor",
-                       point=0.0001, seed=0, sub_steps=100, sigma_for_bridge=None,
+                       symbol="GBPUSD", bias_mode=BiasMode.BOTH,
+                       seed=0, sub_steps=100, sigma_for_bridge=None,
                        entry_mode="signal", straddle_half_width_pips=9.0,
                        triangular_harvest_pips=None, triangular_survival_pips=None,
-                       exit_pips=None, track_l0_stats=False):
+                       exit_pips=None, track_l0_stats=False,
+                       gbpusd_closes: Sequence[float] | None = None,
+                       conversion_rate: float | None = None,
+                       initial_balance: float = sim_costs.DEFAULT_INITIAL_BALANCE,
+                       max_daily_loss_usd: float | None = None,
+                       max_total_loss_usd: float | None = None):
     """
     bid_theoretical_arr / offer_theoretical_arr: precomputed real-signal levels
     (same length as closes), used ONLY for the flat->Layer-0 re-entry decision.
-    Layers 1+ use the existing, already-verified grid mechanics unchanged.
+    Layers 1+ use fixed entry-anchored adds at 2 x straddle half-width (fxgrind).
 
-    entry_mode:
-      - "signal": production signal arm (FV term-structure L0 quotes)
-      - "straddle": dumb arm static mid +/- straddle_half_width_pips (InpDumbStraddlePips)
-      - "triangular": one draw per flat cycle, W ~ Triangular[Harvest, Survival] peak at Harvest
-    triangular_harvest_pips / triangular_survival_pips: required when entry_mode="triangular".
-    exit_pips: overrides module EXIT_PIPS (maps to production InpExitPips).
-    track_l0_stats: record per-L0-layer hold minutes and exit distance when that layer closes.
+    gbpusd_closes: optional per-bar GBPUSD close series for EURGBP USD conversion.
+    conversion_rate: constant GBPUSD when gbpusd_closes not supplied (required for EURGBP).
     """
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
     sigma = sigma_for_bridge if sigma_for_bridge is not None else \
         np.std(np.diff(np.log(closes)), ddof=1) * 2.5
 
-    from grid_sim_v6_dynamic_spacing import PAIR_SPREAD_PIPS
-    spread_pips = PAIR_SPREAD_PIPS.get(symbol, 0.5)
+    symbol = symbol.upper()
+    pair_spec = sim_costs.get_pair_spec(symbol)
+    point = pair_spec.point
+    half_spread = sim_costs.half_spread_price(symbol)
     _exit_pips = EXIT_PIPS if exit_pips is None else float(exit_pips)
-    exit_price_dist = pips_to_price(_exit_pips, point)
-    half_spread = pips_to_price(spread_pips / 2.0, point)
+    exit_price_dist = pips_to_price(_exit_pips, symbol)
+    entry_comm_leg = sim_costs.commission_per_leg_usd(LOT_SIZE)
+    exit_comm_leg = entry_comm_leg
+
+    conversion_policy = "native_usd"
+    conversion_rate_used: float | None = None
+    if pair_spec.quote_currency != "USD":
+        if gbpusd_closes is not None:
+            conversion_policy = "per_bar_gbpusd"
+            conversion_rate_used = float(np.mean(gbpusd_closes))
+        elif conversion_rate is not None:
+            conversion_policy = "constant_gbpusd"
+            conversion_rate_used = float(conversion_rate)
+        else:
+            raise ValueError(
+                f"{symbol} simulation requires gbpusd_closes or conversion_rate"
+            )
+
+    def _rate_at(bar_idx: int) -> float | None:
+        if pair_spec.quote_currency == "USD":
+            return None
+        if gbpusd_closes is not None:
+            return float(gbpusd_closes[bar_idx])
+        return conversion_rate_used
 
     layers: List[Layer] = []
     layer_entry_bars: List[int] = []
@@ -124,30 +159,48 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     l0_exit_dist_pips: List[float] = []
     l0_had_adds: List[bool] = []
     n_exits = 0
-    current_add_pips = ADD_PIPS_FLOOR
-    last_exit_price = None
     pnl_realised_usd = 0.0
-    equity_peak = 10000.0
-    equity_current = 10000.0
-    daily_start_balance = 10000.0
+    equity_peak = initial_balance
+    equity_current = initial_balance
+    max_absolute_drawdown_usd = 0.0
+    max_daily_equity_drawdown_usd = 0.0
+    gate_a_daily_loss_breach = False
+    gate_b_total_loss_breach = False
+    peak_running = initial_balance
+    prague_day = None
+    day_start_equity = initial_balance
+    if max_daily_loss_usd is None:
+        max_daily_loss_usd = initial_balance * sim_costs.DEFAULT_MAX_DAILY_LOSS_FRAC
+    if max_total_loss_usd is None:
+        max_total_loss_usd = initial_balance * sim_costs.DEFAULT_MAX_TOTAL_LOSS_FRAC
+    daily_start_balance = initial_balance
     current_day = -1
     drawdown_3pct = False
     drawdown_4pct = False
     max_layers = 0
     total_trades = 0
     resting_straddle_width_pips = None
+    pod_half_width_pips: float | None = None
     drawn_widths_pips: List[float] = []
-
-    def price_diff_to_usd(price_diff):
-        return (price_diff / point) * USD_PER_PIP
-
-    def compute_equity_usd_at_price(price):
+    def _unrealised_gross_and_comm(end_price: float, bar_idx: int) -> tuple[float, float]:
         unrealised = 0.0
+        sunk_comm = 0.0
+        rate = _rate_at(bar_idx)
         for lay in layers:
-            close_price = price - half_spread if lay.direction == 1 else price + half_spread
-            entry_price = lay.entry_price + lay.direction * half_spread
-            unrealised += price_diff_to_usd((close_price - entry_price) * lay.direction)
-        return 10000.0 + pnl_realised_usd + unrealised
+            # Mark at bid (long) or ask (short); entry is stored limit — no entry spread adjustment.
+            mark_price = end_price - half_spread if lay.direction == 1 else end_price + half_spread
+            unrealised += sim_costs.price_diff_to_usd(
+                (mark_price - lay.entry_price) * lay.direction,
+                symbol,
+                LOT_SIZE,
+                rate,
+            )
+            sunk_comm += lay.entry_commission_usd
+        return unrealised - sunk_comm, sunk_comm
+
+    def compute_equity_usd_at_price(price, bar_idx: int) -> float:
+        unrealised, _ = _unrealised_gross_and_comm(price, bar_idx)
+        return initial_balance + pnl_realised_usd + unrealised
 
     def try_enter_from_flat(bar_idx, mid_price):
         """Work the real-signal-derived resting order(s), per bias_mode."""
@@ -160,6 +213,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         return bid_clamped, offer_clamped
 
     price_current = closes[0]
+    prev_equity = initial_balance
 
     for i in range(n_bars):
         start_price = price_current
@@ -173,10 +227,6 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         bridge = W - t * W[-1]
         path = start_price + (end_price - start_price) * t + sigma * bridge
 
-        # FIX: compute the clamp ONCE per bar (at bar start), not every substep -
-        # the real EA places/updates the resting order once per bar close, then
-        # it rests unchanged while the market moves within the next bar. Recomputing
-        # every substep was causing the clamp to "chase" price and never get caught.
         bar_start_quotes = None
         if not layers:
             if entry_mode == "triangular":
@@ -189,12 +239,12 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         rng,
                     )
                     drawn_widths_pips.append(resting_straddle_width_pips)
-                straddle_dist = pips_to_price(resting_straddle_width_pips, point)
+                straddle_dist = pips_to_price(resting_straddle_width_pips, symbol)
                 buy_rest = start_price - straddle_dist
                 sell_rest = start_price + straddle_dist
                 bar_start_quotes = (buy_rest, sell_rest)
             elif entry_mode == "straddle":
-                straddle_dist = pips_to_price(straddle_half_width_pips, point)
+                straddle_dist = pips_to_price(straddle_half_width_pips, symbol)
                 buy_rest = start_price - straddle_dist
                 sell_rest = start_price + straddle_dist
                 bar_start_quotes = (buy_rest, sell_rest)
@@ -209,7 +259,6 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         for j in range(0, len(path)):
             mid_now = path[j]
 
-            # If flat, check whether our resting bid/offer would be touched
             if not layers:
                 if bar_start_quotes is not None:
                     bid_clamped, offer_clamped = bar_start_quotes
@@ -223,13 +272,22 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                             filled_dir = -1
                             fill_price = offer_clamped
                     if filled_dir is not None:
-                        layers.append(Layer(entry_price=fill_price, direction=filled_dir,
-                                              exit_target_raw=fill_price + filled_dir * exit_price_dist))
+                        if entry_mode == "triangular" and resting_straddle_width_pips is not None:
+                            pod_half_width_pips = resting_straddle_width_pips
+                        elif entry_mode == "straddle":
+                            pod_half_width_pips = float(straddle_half_width_pips)
+                        else:
+                            pod_half_width_pips = float(straddle_half_width_pips)
+                        layers.append(Layer(
+                            entry_price=fill_price,
+                            direction=filled_dir,
+                            exit_target_raw=fill_price + filled_dir * exit_price_dist,
+                            entry_commission_usd=entry_comm_leg,
+                        ))
+                        pnl_realised_usd -= entry_comm_leg
                         layer_entry_bars.append(i)
                         layer_is_l0.append(True)
                         pod_had_add = False
-                        current_add_pips = ADD_PIPS_FLOOR
-                        last_exit_price = None
                         total_trades += 1
                         max_layers = max(max_layers, 1)
                         resting_straddle_width_pips = None
@@ -258,78 +316,102 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         l0_exit_dist_pips.append(dist_pips)
                         l0_had_adds.append(pod_had_add)
                         pod_had_add = False
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = closed.entry_price
-                    entry_paid = closed.entry_price + closed.direction * half_spread
-                    exit_received = exit_target - closed.direction * half_spread
-                    pnl_raw = (exit_received - entry_paid) * closed.direction
-                    pnl_realised_usd += price_diff_to_usd(pnl_raw)
+                    rate = _rate_at(i)
+                    gross = sim_costs.price_diff_to_usd(
+                        (closed.exit_target_raw - closed.entry_price) * closed.direction,
+                        symbol,
+                        LOT_SIZE,
+                        rate,
+                    )
+                    pnl_realised_usd += gross - exit_comm_leg
                     total_trades += 1
                     n_exits += 1
                     if not layers:
                         resting_straddle_width_pips = None
+                        pod_half_width_pips = None
 
             if layers:
                 cur = layers[-1]
-                if spacing_mode == "reload_anchor" and last_exit_price is not None:
-                    depth_mult = WIDEN_RATIO ** (len(layers) // 3)
-                    reload_step = min(ADD_PIPS_CEILING, ADD_PIPS_FLOOR * depth_mult)
-                    add_target = last_exit_price - cur.direction * pips_to_price(reload_step, point)
-                elif spacing_mode == "reload_flat" and last_exit_price is not None:
-                    # Same anchor (just-exited layer's own entry), NO depth scaling -
-                    # always reload at the flat 9-pip floor regardless of current depth,
-                    # per the "optionality/always be optimistic on the reload" argument
-                    add_target = last_exit_price - cur.direction * pips_to_price(ADD_PIPS_FLOOR, point)
-                else:
-                    still_shallow = len(layers) < 3
-                    add_pips_to_use = ADD_PIPS_FLOOR if (spacing_mode == "flat" or still_shallow) else current_add_pips
-                    add_target = cur.entry_price - cur.direction * pips_to_price(add_pips_to_use, point)
+                add_pips = add_pips_from_width(pod_half_width_pips)
+                add_target = compute_add_target(layers, add_pips, symbol)
                 effective_add = add_target - cur.direction * half_spread
                 hit = ((cur.direction == 1 and price_prev > effective_add >= price_now) or
                        (cur.direction == -1 and price_prev < effective_add <= price_now))
                 if hit:
-                    layers.append(Layer(entry_price=add_target, direction=cur.direction,
-                                          exit_target_raw=add_target + cur.direction * exit_price_dist))
+                    layers.append(Layer(
+                        entry_price=add_target,
+                        direction=cur.direction,
+                        exit_target_raw=add_target + cur.direction * exit_price_dist,
+                        entry_commission_usd=entry_comm_leg,
+                    ))
+                    pnl_realised_usd -= entry_comm_leg
                     layer_entry_bars.append(i)
                     layer_is_l0.append(False)
                     pod_had_add = True
-                    if spacing_mode in ("reload_anchor", "reload_flat"):
-                        last_exit_price = None
-                    if len(layers) >= 3:
-                        current_add_pips = min(ADD_PIPS_CEILING, current_add_pips * WIDEN_RATIO)
                     max_layers = max(max_layers, len(layers))
 
         price_current = end_price
-        equity_current = compute_equity_usd_at_price(end_price)
-        equity_peak = max(equity_peak, equity_current)
+        equity_current = compute_equity_usd_at_price(end_price, i + 1)
 
+        # Prague day roll for Gate A and legacy fractional DD (00:00 Europe/Prague)
         if times is not None:
-            bar_day = pd.Timestamp(times[i+1]).normalize()
-            if bar_day != current_day:
-                daily_start_balance = 10000.0 if current_day == -1 else equity_current
-                current_day = bar_day
+            bar_prague = sim_costs.prague_calendar_day(times[i + 1])
+            if prague_day is None:
+                prague_day = bar_prague
+                day_start_equity = initial_balance
+            elif bar_prague != prague_day:
+                prague_day = bar_prague
+                day_start_equity = prev_equity
+            daily_start_balance = day_start_equity
+            current_day = bar_prague
         else:
             if current_day == -1:
-                daily_start_balance = 10000.0
+                daily_start_balance = initial_balance
                 current_day = 0
+                day_start_equity = initial_balance
+            daily_start_balance = day_start_equity
+
+        equity_peak = max(equity_peak, equity_current)
+        peak_running = max(peak_running, equity_current)
+        abs_dd = peak_running - equity_current
+        max_absolute_drawdown_usd = max(max_absolute_drawdown_usd, abs_dd)
+        if abs_dd >= max_total_loss_usd:
+            gate_b_total_loss_breach = True
+
+        daily_dd_usd = day_start_equity - equity_current
+        max_daily_equity_drawdown_usd = max(max_daily_equity_drawdown_usd, daily_dd_usd)
+        if daily_dd_usd >= max_daily_loss_usd:
+            gate_a_daily_loss_breach = True
+
+        prev_equity = equity_current
+
         if daily_start_balance > 0:
             dd = (daily_start_balance - equity_current) / daily_start_balance
-            if dd >= 0.04: drawdown_4pct = True
-            if dd >= 0.03: drawdown_3pct = True
+            if dd >= 0.04:
+                drawdown_4pct = True
+            if dd >= 0.03:
+                drawdown_3pct = True
 
     final_price = closes[-1]
-    unrealised_usd = 0.0
-    for lay in layers:
-        close_price = final_price - half_spread if lay.direction == 1 else final_price + half_spread
-        entry_price = lay.entry_price + lay.direction * half_spread
-        unrealised_usd += price_diff_to_usd((close_price - entry_price) * lay.direction)
+    unrealised_usd, _ = _unrealised_gross_and_comm(final_price, len(closes) - 1)
 
     out = {
-        "pnl_realised_usd": pnl_realised_usd, "pnl_unrealised_usd": unrealised_usd,
-        "pnl_total_usd": pnl_realised_usd + unrealised_usd, "max_layers": max_layers,
-        "total_trades": total_trades, "n_exits": n_exits,
+        "pnl_realised_usd": pnl_realised_usd,
+        "pnl_unrealised_usd": unrealised_usd,
+        "pnl_total_usd": pnl_realised_usd + unrealised_usd,
+        "max_layers": max_layers,
+        "total_trades": total_trades,
+        "n_exits": n_exits,
         "drawdown_exceeded_3pct": drawdown_3pct,
         "drawdown_exceeded_4pct": drawdown_4pct,
+        "equity_peak": equity_peak,
+        "max_absolute_drawdown_usd": max_absolute_drawdown_usd,
+        "max_daily_equity_drawdown_usd": max_daily_equity_drawdown_usd,
+        "gate_a_daily_loss_breach": gate_a_daily_loss_breach,
+        "gate_b_total_loss_breach": gate_b_total_loss_breach,
+        "conversion_policy": conversion_policy,
+        "conversion_rate_used": conversion_rate_used,
+        "initial_balance": initial_balance,
     }
     if track_l0_stats:
         out["l0_hold_mins"] = l0_hold_mins
@@ -342,61 +424,12 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     return out
 
 
-def test_last_exit_price_cleared_before_new_pod_first_add():
-    """Full pod exit -> new L0 -> first add must use entry-based widening, not stale reload."""
-    point = 0.0001
-    stale_prior_pod_exit = 1.2000
-    last_exit_price = stale_prior_pod_exit
-
-    # (a) Full pod exit to flat leaves a stale reload anchor behind.
-    layers: List[Layer] = []
-
-    # (b) Fresh Layer-0 fill for a new pod — same reset as simulate_one_path flat-entry block.
-    fill_price = 1.2400
-    layers.append(Layer(entry_price=fill_price, direction=1,
-                        exit_target_raw=fill_price + pips_to_price(EXIT_PIPS, point)))
-    current_add_pips = ADD_PIPS_FLOOR
-    last_exit_price = None
-
-    assert last_exit_price is None
-
-    # (c) First add of the new pod must not take the reload branch.
-    for spacing_mode in ("reload_anchor", "reload_flat"):
-        cur = layers[-1]
-        used_reload = False
-        if spacing_mode == "reload_anchor" and last_exit_price is not None:
-            used_reload = True
-            depth_mult = WIDEN_RATIO ** (len(layers) // 3)
-            reload_step = min(ADD_PIPS_CEILING, ADD_PIPS_FLOOR * depth_mult)
-            add_target = last_exit_price - cur.direction * pips_to_price(reload_step, point)
-        elif spacing_mode == "reload_flat" and last_exit_price is not None:
-            used_reload = True
-            add_target = last_exit_price - cur.direction * pips_to_price(ADD_PIPS_FLOOR, point)
-        else:
-            still_shallow = len(layers) < 3
-            add_pips_to_use = ADD_PIPS_FLOOR if (spacing_mode == "flat" or still_shallow) else current_add_pips
-            add_target = cur.entry_price - cur.direction * pips_to_price(add_pips_to_use, point)
-
-        assert not used_reload, spacing_mode
-        expected = layers[-1].entry_price - pips_to_price(ADD_PIPS_FLOOR, point)
-        assert add_target == expected, spacing_mode
-        stale_reload_target = stale_prior_pod_exit - pips_to_price(ADD_PIPS_FLOOR, point)
-        assert add_target != stale_reload_target, spacing_mode
-
-
-def test_simulate_one_path_flat_entry_resets_last_exit_price():
-    """Production flat-entry block must clear last_exit_price on new Layer-0 fill."""
-    import inspect
-
-    src = inspect.getsource(simulate_one_path)
-    flat_block = src.split("if filled_dir is not None:", 1)[1].split("continue", 1)[0]
-    assert "last_exit_price = None" in flat_block
-
-
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--test-last-exit":
-        test_last_exit_price_cleared_before_new_pod_first_add()
-        test_simulate_one_path_flat_entry_resets_last_exit_price()
-        print("last_exit_price tests: PASS")
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("test_grid_add", "scripts/test_grid_add_mechanics.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        raise SystemExit(0)
