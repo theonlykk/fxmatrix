@@ -58,7 +58,7 @@ void Grind_ReconResetCounters()
 }
 
 //+------------------------------------------------------------------+
-bool Grind_ReconFindLayerIdx(const int layer_indices[],
+bool Grind_ReconFindLayerIdx(const int &layer_indices[],
                              const int count,
                              const int layer_index,
                              int &idx_out)
@@ -99,7 +99,7 @@ bool Grind_ReconEnsureLayer(GrindReconLayerScratch &layers[],
 }
 
 //+------------------------------------------------------------------+
-bool Grind_ReconLayerIndicesContiguous(const int layer_indices[], const int layer_count)
+bool Grind_ReconLayerIndicesContiguous(const int &layer_indices[], const int layer_count)
 {
    if(layer_count == 0)
       return true;
