@@ -5,39 +5,11 @@
 #define GRIND_ENGINE_MQH
 
 #include "grind_pure.mqh"
-#include "grind_stubs.mqh"
+#include "grind_state.mqh"
+#include "grind_recon.mqh"
+#include "grind_cap.mqh"
 #include "grind_api_counter.mqh"
 #include "grind_telemetry.mqh"
-
-struct GrindLayer
-{
-   double   entry_price;
-   double   exit_target;
-   ulong    position_ticket;
-   ulong    exit_order_ticket;
-   int      layer_index;
-};
-
-struct GrindSideState
-{
-   GrindLayer layers[];
-   ulong    l0_pending_ticket;
-   ulong    add_pending_ticket;
-   bool     cap_warn_emitted;
-};
-
-GrindSideState g_grind_long;
-GrindSideState g_grind_short;
-bool           g_grind_halted = false;
-bool           g_grind_cap_blocked = false;
-long           g_grind_last_feed_tick_msc = 0;
-int            g_grind_fill_count = 0;
-int            g_grind_scalp_count = 0;
-string         g_grind_telemetry_instance = "GRIND_UNKNOWN";
-string         g_grind_cap_leg_a = "";
-string         g_grind_cap_leg_b = "";
-ulong          g_grind_processed_deals[];
-int            g_grind_processed_deal_count = 0;
 
 //+------------------------------------------------------------------+
 double Grind_Normalize(const double price)
@@ -137,12 +109,6 @@ bool Grind_GuardsAllowTrading(const ulong magic, const double lots)
    if(Grind_FeedStaleAfterTick(tick.time_msc, g_grind_last_feed_tick_msc))
       return false;
 
-   if(!Grind_CapAllows(g_grind_cap_leg_a, g_grind_cap_leg_b, lots, 1)) {
-      g_grind_cap_blocked = true;
-      Grind_HaltCritical("CAP_STUB_FAIL_CLOSED");
-      return false;
-   }
-
    return true;
 }
 
@@ -163,6 +129,8 @@ bool Grind_TryPlaceL0(GrindSideState &side,
                       const double lots)
 {
    if(!Grind_CanPlaceEntryLayer(Grind_SideDepth(side), max_layers))
+      return false;
+   if(!Grind_CapAllowsEntry(is_long, lots))
       return false;
 
    if(side.l0_pending_ticket != 0) {
@@ -304,6 +272,8 @@ void Grind_EnsureAddNext(GrindSideState &side,
 {
    const int n = Grind_SideDepth(side);
    if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
+      return;
+   if(!Grind_CapAllowsEntry(is_long, lots))
       return;
 
    const int next_layer = n;

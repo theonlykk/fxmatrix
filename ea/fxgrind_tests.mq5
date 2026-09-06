@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A (T1–T17)      |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T31)    |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -126,12 +126,18 @@ void Test_T9_OfflineMarket()
    AssertTrue("T9 full", Grind_MarketTradeModeFull((long)SYMBOL_TRADE_MODE_FULL));
 }
 
-void Test_T10_FailClosedStub()
+void Test_T10_EmptyBookReconOk()
 {
-   g_grind_halted = false;
-   if(!Grind_ReconstructState())
-      g_grind_halted = true;
-   AssertTrue("T10 halted", g_grind_halted);
+   GrindReconTicket tickets[];
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   const bool ok = Grind_RebuildBookFromTickets(tickets, 0,
+                                                22260101UL, "OPT",
+                                                3.0, 12, 0.00001,
+                                                long_out, short_out, reason);
+   AssertTrue("T10 empty ok", ok);
+   AssertTrue("T10 no halt reason", reason == "");
 }
 
 void Test_T11_PoisonedDefaults()
@@ -188,6 +194,295 @@ void Test_T17_AddWidthRelationship()
    AssertTrue("T17 match", Grind_ValidateAddWidthRelationship(5.0, 10.0));
 }
 
+void Test_T18_EmptyBookGenesis()
+{
+   GrindReconTicket tickets[];
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   const bool ok = Grind_RebuildBookFromTickets(tickets, 0,
+                                                22260101UL, "OPT",
+                                                3.0, 12, 0.00001,
+                                                long_out, short_out, reason);
+   AssertTrue("T18 ok", ok);
+   AssertTrue("T18 long depth", ArraySize(long_out.layers) == 0);
+   AssertTrue("T18 short depth", ArraySize(short_out.layers) == 0);
+}
+
+void Test_T19_ThreeLongLayersRebuild()
+{
+   const ulong magic = 22260101UL;
+   const double point = 0.00001;
+   GrindReconTicket tickets[6];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 1002; tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[2].price = 1.24900; tickets[2].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[3].ticket = 2002; tickets[3].magic = magic;
+   tickets[3].comment = GrindCommentBuild("OPT", "L", 1, "EXT");
+   tickets[3].price = 1.24930; tickets[3].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[4].ticket = 1003; tickets[4].magic = magic;
+   tickets[4].comment = GrindCommentBuild("OPT", "L", 2, "ENT");
+   tickets[4].price = 1.24800; tickets[4].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[5].ticket = 2003; tickets[5].magic = magic;
+   tickets[5].comment = GrindCommentBuild("OPT", "L", 2, "EXT");
+   tickets[5].price = 1.24830; tickets[5].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   const bool ok = Grind_RebuildBookFromTickets(tickets, 6, magic, "OPT",
+                                                3.0, 12, point,
+                                                long_out, short_out, reason);
+   AssertTrue("T19 ok", ok);
+   AssertTrue("T19 depth", ArraySize(long_out.layers) == 3);
+   AssertNear("T19 L0 entry", long_out.layers[0].entry_price, 1.25000, 1e-10);
+   AssertNear("T19 L1 entry", long_out.layers[1].entry_price, 1.24900, 1e-10);
+   AssertNear("T19 L2 entry", long_out.layers[2].entry_price, 1.24800, 1e-10);
+   AssertNear("T19 L0 exit", long_out.layers[0].exit_target, 1.25030, 1e-10);
+   AssertNear("T19 L1 exit", long_out.layers[1].exit_target, 1.24930, 1e-10);
+   AssertNear("T19 L2 exit", long_out.layers[2].exit_target, 1.24830, 1e-10);
+   AssertTrue("T19 L0 idx", long_out.layers[0].layer_index == 0);
+   AssertTrue("T19 L2 idx", long_out.layers[2].layer_index == 2);
+}
+
+void Test_T20_UnparseableCommentHalts()
+{
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 9001;
+   tickets[0].magic = 22260101UL;
+   tickets[0].comment = "GRIND|OPT|L|L03|BADROLE";
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T20 halt", !Grind_RebuildBookFromTickets(tickets, 1,
+                                                        22260101UL, "OPT",
+                                                        3.0, 12, 0.00001,
+                                                        long_out, short_out, reason));
+   AssertEqStr("T20 reason", reason, "UNPARSEABLE_COMMENT");
+}
+
+void Test_T21_NeighbourMagicIgnored()
+{
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 9002;
+   tickets[0].magic = 22260102UL;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T21 ok", Grind_RebuildBookFromTickets(tickets, 1,
+                                                     22260101UL, "OPT",
+                                                     3.0, 12, 0.00001,
+                                                     long_out, short_out, reason));
+   AssertTrue("T21 empty", ArraySize(long_out.layers) == 0);
+}
+
+void Test_T22_NakedPositionHalts()
+{
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = 22260101UL;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T22 halt", !Grind_RebuildBookFromTickets(tickets, 1,
+                                                        22260101UL, "OPT",
+                                                        3.0, 12, 0.00001,
+                                                        long_out, short_out, reason));
+   AssertTrue("T22 I3", StringFind(reason, "I3") >= 0);
+}
+
+void Test_T23_OrphanExitHalts()
+{
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 2001;
+   tickets[0].magic = 22260101UL;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[0].price = 1.25030;
+   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T23 halt", !Grind_RebuildBookFromTickets(tickets, 1,
+                                                        22260101UL, "OPT",
+                                                        3.0, 12, 0.00001,
+                                                        long_out, short_out, reason));
+   AssertTrue("T23 I4", StringFind(reason, "I4") >= 0);
+}
+
+void Test_T24_NonContiguousLayersHalts()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[6];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 1002; tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[2].price = 1.24900; tickets[2].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[3].ticket = 2002; tickets[3].magic = magic;
+   tickets[3].comment = GrindCommentBuild("OPT", "L", 1, "EXT");
+   tickets[3].price = 1.24930; tickets[3].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[4].ticket = 1003; tickets[4].magic = magic;
+   tickets[4].comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   tickets[4].price = 1.24700; tickets[4].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[5].ticket = 2003; tickets[5].magic = magic;
+   tickets[5].comment = GrindCommentBuild("OPT", "L", 3, "EXT");
+   tickets[5].price = 1.24730; tickets[5].kind = GRIND_RECON_TICKET_ORDER;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T24 halt", !Grind_RebuildBookFromTickets(tickets, 6, magic, "OPT",
+                                                        3.0, 12, 0.00001,
+                                                        long_out, short_out, reason));
+   AssertTrue("T24 I5", StringFind(reason, "I5") >= 0);
+}
+
+void Test_T25_ContaminatedCommentRebuilds()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001; tickets[1].magic = magic;
+   tickets[1].comment = "GRIND|OPT|L|L00|EXT[tp]";
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T25 ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                     3.0, 12, 0.00001,
+                                                     long_out, short_out, reason));
+   AssertTrue("T25 depth", ArraySize(long_out.layers) == 1);
+}
+
+void Test_T26_CasSpinlockTimeout()
+{
+   GlobalVariableSet(GRIND_CAP_LOCK_GV, 1.0);
+   g_grind_cap_test_lock_held = true;
+   AssertTrue("T26 timeout", !Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
+   g_grind_cap_test_lock_held = false;
+   GlobalVariableDel(GRIND_CAP_LOCK_GV);
+}
+
+void Test_T27_MissingPeerReadsAsMaxed()
+{
+   g_grind_cap_thresh_a = 1.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_recon_magic = 22260101UL;
+   g_grind_cap_leg_a = "EUR";
+   g_grind_cap_leg_b = "USD";
+   Grind_CapPublishOwnExposure(g_grind_recon_magic, "EUR", "USD");
+   AssertTrue("T27 block entry", !Grind_CapAllowsEntry(true, 0.01));
+   g_grind_cap_thresh_a = 0.0;
+}
+
+void Test_T28_StalePeerBoundary()
+{
+   const string key = Grind_CapExposureKey(22260102UL, "EUR");
+   const string time_key = Grind_CapTimestampKey(key);
+   GlobalVariableSet(key, 0.5);
+   GlobalVariableSet(time_key, (double)(TimeCurrent() - 301));
+   double value = 0.0;
+   bool failed = false;
+   Grind_CapAcquireLock();
+   Grind_CapReadStoredPeer(key, value, failed);
+   Grind_CapReleaseLock();
+   AssertTrue("T28 stale maxed", failed);
+   AssertTrue("T28 stale value", value >= GRIND_CAP_MAXED_VALUE * 0.5);
+
+   GlobalVariableSet(time_key, (double)(TimeCurrent() - 299));
+   value = 0.0;
+   failed = false;
+   Grind_CapAcquireLock();
+   Grind_CapReadStoredPeer(key, value, failed);
+   Grind_CapReleaseLock();
+   AssertTrue("T28 fresh live", !failed);
+   AssertNear("T28 fresh value", value, 0.5, 1e-10);
+
+   GlobalVariableDel(key);
+   GlobalVariableDel(time_key);
+}
+
+void Test_T28b_MissingTimestampMaxed()
+{
+   const string key = Grind_CapExposureKey(22260201UL, "GBP");
+   GlobalVariableSet(key, 0.25);
+   double value = 0.0;
+   bool failed = false;
+   Grind_CapAcquireLock();
+   Grind_CapReadStoredPeer(key, value, failed);
+   Grind_CapReleaseLock();
+   AssertTrue("T28b maxed", failed);
+   AssertTrue("T28b value", value >= GRIND_CAP_MAXED_VALUE * 0.5);
+   GlobalVariableDel(key);
+}
+
+void Test_T29_CapBlocksNewEntry()
+{
+   g_grind_cap_thresh_a = 1.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_recon_magic = 22260101UL;
+   g_grind_cap_leg_a = "EUR";
+   g_grind_cap_leg_b = "USD";
+
+   for(int i = 0; i < 6; i++) {
+      const ulong magic = GRIND_CAP_ALL_MAGICS[i];
+      const string key = Grind_CapExposureKey(magic, "EUR");
+      const string time_key = Grind_CapTimestampKey(key);
+      GlobalVariableSet(key, 0.0);
+      GlobalVariableSet(time_key, (double)TimeCurrent());
+   }
+   const string own_key = Grind_CapExposureKey(22260101UL, "EUR");
+   GlobalVariableSet(own_key, 0.99);
+   GlobalVariableSet(Grind_CapTimestampKey(own_key), (double)TimeCurrent());
+
+   AssertTrue("T29 block", !Grind_CapAllowsEntry(true, 0.02));
+   g_grind_cap_thresh_a = 0.0;
+}
+
+void Test_T30_CapDoesNotBlockNonEntry()
+{
+   g_grind_cap_thresh_a = 1.0;
+   g_grind_recon_magic = 22260101UL;
+   g_grind_cap_leg_a = "EUR";
+   g_grind_cap_leg_b = "USD";
+   AssertTrue("T30 entry blocked", !Grind_CapAllowsEntry(true, 0.01));
+   AssertTrue("T30 exit ok", Grind_CapPermitsNonEntryActions());
+   g_grind_cap_thresh_a = 0.0;
+}
+
+void Test_T31_ThresholdZeroOffStillPublishes()
+{
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_recon_magic = 22260301UL;
+   g_grind_cap_leg_a = "EUR";
+   g_grind_cap_leg_b = "GBP";
+   GlobalVariableDel(Grind_CapExposureKey(22260301UL, "EUR"));
+   AssertTrue("T31 allow entry", Grind_CapAllowsEntry(true, 0.01));
+   AssertTrue("T31 publish", Grind_CapPublishOwnExposure(22260301UL, "EUR", "GBP"));
+   AssertTrue("T31 gv exists",
+              GlobalVariableCheck(Grind_CapExposureKey(22260301UL, "EUR")));
+}
+
 void Test_OrderBudgetArithmetic()
 {
    AssertTrue("budget 12 side", Grind_RestingOrderBudgetPerSide(12) == 13);
@@ -208,7 +503,7 @@ void OnStart()
    Test_T7_Deadband();
    Test_T8_ExactMagic();
    Test_T9_OfflineMarket();
-   Test_T10_FailClosedStub();
+   Test_T10_EmptyBookReconOk();
    Test_T11_PoisonedDefaults();
    Test_T12_UnconfiguredAddPips();
    Test_T13_LongAddTarget();
@@ -216,6 +511,21 @@ void OnStart()
    Test_T15_IdenticalSpacingAtDepth();
    Test_T16_SimulatorParity();
    Test_T17_AddWidthRelationship();
+   Test_T18_EmptyBookGenesis();
+   Test_T19_ThreeLongLayersRebuild();
+   Test_T20_UnparseableCommentHalts();
+   Test_T21_NeighbourMagicIgnored();
+   Test_T22_NakedPositionHalts();
+   Test_T23_OrphanExitHalts();
+   Test_T24_NonContiguousLayersHalts();
+   Test_T25_ContaminatedCommentRebuilds();
+   Test_T26_CasSpinlockTimeout();
+   Test_T27_MissingPeerReadsAsMaxed();
+   Test_T28_StalePeerBoundary();
+   Test_T28b_MissingTimestampMaxed();
+   Test_T29_CapBlocksNewEntry();
+   Test_T30_CapDoesNotBlockNonEntry();
+   Test_T31_ThresholdZeroOffStillPublishes();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

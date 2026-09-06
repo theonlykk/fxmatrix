@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed — 2026-09-06. Spec A of B (engine, presets, placement, caps).
-Spec B (state reconstruction + CAS currency cap) is stubbed fail-closed.
+Proposed — 2026-09-06. Spec A of B (engine, presets, placement, caps) and
+Spec B (comment-only state reconstruction + CAS currency cap) implemented.
 Not committed until Khalid clears the two-step commit gate.
 
 ## Context
@@ -50,9 +50,9 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    EURGBP 18 = 70 per slot, **140 across both slots**. FTMO hard limit 200;
    project soft gate 180.
 
-6. **Halt-in-place.** Spec B stubs (`Grind_ReconstructState`, `Grind_CapAllows`)
-   return false until implemented. EA sets internal halt flag, places nothing,
-   emits CRITICAL telemetry, stays attached. **Never** `ExpertRemove()`.
+6. **Halt-in-place.** On unparseable comments or invariant violations the EA
+   sets `g_grind_halted`, places nothing, emits CRITICAL telemetry naming the
+   specific failure, stays attached. **Never** `ExpertRemove()`.
 
 7. **Configurable add spacing** via `InpAddPips` (poisoned default `-1.0`).
    Fixed spacing at `GRIND_ADD_WIDTH_MULTIPLE` (2.0) × straddle half-width — no
@@ -63,9 +63,34 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    OrderModify. Absolute-pip deadband (ADR-121/122). Offline-market guard.
    Exact magic equality.
 
+8. **Spec B — comment-only state reconstruction.** OnInit rebuilds from open
+   **positions** and resting **orders** with exact magic equality only. No deal
+   history, no 90-day lookback, no CloseBy pairing, no price-geometry inference.
+   The retired `fxmatrix_v2_sre_oninit.mqh` / `fxmatrix_v2_state_reconstruction.mqh`
+   (~2,420 lines) are explicitly rejected. `GrindCommentParse` is the sole layer
+   identity source; unparseable tickets halt. Entry prices and exit targets are
+   read from the broker, never recomputed. Telemetry counters reset to zero.
+   Empty book is valid (genesis / Complete Purge).
+
+9. **Spec B — book invariants (read-only, no auto-repair).** I1–I7 checked at
+   rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
+   contiguous layer indices, exit within `2 × _Point` of entry ± `InpExitPips`,
+   depth ≤ `InpMaxLayers`. Violations halt with named CRITICAL reason.
+
+10. **Spec B — CAS currency cap.** Cross-instance exposure via MT5 GlobalVariables
+    under `GRIND2226_<magic>_<LEG>` plus companion `GRIND2226_<magic>_<LEG>_time`
+    (never packed into one double). Lock `GRIND2226_CAS_LOCK` with backoff/timeout.
+    **Phase 1 (OnInit):** each instance publishes own exposure unconditionally; no
+    peer reads. **Phase 2 (OnTick):** peer reads before new entry placement only.
+    Missing companion timestamp, missing peer key, or timestamp older than 300s
+    reads as MAXED — reversing the retired v2 permissive-zero default. Threshold
+    ≤ 0 means cap **off** (machinery runs, nothing blocked); threshold > 0 arms
+    the limit. Cap gates **new entries only** — never exits, re-center, or close.
+
 ## Consequences
 
-- Until Spec B lands, all fxgrind instances halt at init (fail-closed).
+- Spec B enables trading after successful reconstruction on a valid book; invalid
+  or unparseable books halt in place.
 - Geometry width/exit/add injected from confirmation sweep before deploy;
   presets carry placeholders only (`InpAddPips` must be recomputed as 2.0 × width
   whenever width is injected).
@@ -78,4 +103,5 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - ADR-123 (place-once straddle), ADR-124 (re-centering — reserved write-up)
 - ADR-126 (simulation cost model — separate branch)
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
-- `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/fxgrind_tests.mq5`
+- `ea/fxgrind.mq5`, `ea/grind_*.mqh` (incl. `grind_recon.mqh`, `grind_cap.mqh`),
+  `ea/fxgrind_tests.mq5`

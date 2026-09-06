@@ -19,6 +19,8 @@ input double InpStrandedThreshPips = -1.0;
 input double InpDeadbandPips       = 4.0;
 input string InpCapLegA            = "";
 input string InpCapLegB            = "";
+input double InpCapLegAThresh      = 0.0;
+input double InpCapLegBThresh      = 0.0;
 input string InpTelemetryInstance  = "GRIND_UNKNOWN";
 input bool   InpVerboseLog         = true;
 
@@ -44,14 +46,22 @@ int OnInit()
    g_grind_telemetry_instance = InpTelemetryInstance;
    g_grind_cap_leg_a = InpCapLegA;
    g_grind_cap_leg_b = InpCapLegB;
+   g_grind_cap_thresh_a = InpCapLegAThresh;
+   g_grind_cap_thresh_b = InpCapLegBThresh;
+   g_grind_recon_magic = InpMagic;
+   g_grind_recon_slot = InpSlot;
+   g_grind_recon_exit_pips = InpExitPips;
+   g_grind_recon_max_layers = InpMaxLayers;
    g_grind_halted = false;
    g_grind_cap_blocked = false;
+   g_grind_halt_reason = "";
 
    if(!Grind_ReconstructState()) {
-      g_grind_halted = true;
-      Grind_TelemetryCritical(g_grind_telemetry_instance, "SPEC_B_RECON_STUB");
-      Print("CRITICAL: Grind_ReconstructState stub fail-closed — halted in place");
+      Print("CRITICAL: Grind_ReconstructState failed — halted in place (",
+            g_grind_halt_reason, ")");
    }
+
+   Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
 
    if(InpVerboseLog) {
       Print("fxgrind init magic=", InpMagic, " slot=", InpSlot,
@@ -72,6 +82,15 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   if(!g_grind_halted) {
+      Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
+      if(!Grind_CheckBookInvariants()) {
+         g_grind_halted = true;
+         Grind_TelemetryCritical(g_grind_telemetry_instance, "INVARIANT_FAIL",
+                                 g_grind_halt_reason);
+      }
+   }
+
    if(g_grind_halted)
       return;
 
@@ -97,7 +116,15 @@ void OnTick()
                                       g_grind_fill_count,
                                       g_grind_scalp_count,
                                       g_grind_cap_blocked,
-                                      g_grind_halted)
+                                      g_grind_halted,
+                                      g_grind_halt_reason,
+                                      g_grind_recon_ok,
+                                      g_grind_last_invariant_ok,
+                                      g_grind_cap_own_leg_a,
+                                      g_grind_cap_own_leg_b,
+                                      g_grind_cap_total_leg_a,
+                                      g_grind_cap_total_leg_b,
+                                      g_grind_cap_peer_read_failed)
       );
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
