@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T39)    |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T44)    |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -9,6 +9,7 @@
 
 #include "grind_comment.mqh"
 #include "grind_engine.mqh"
+#include "grind_pnl.mqh"
 #include "grind_magic_lock.mqh"
 #include "grind_config.mqh"
 
@@ -680,6 +681,117 @@ void Test_T39_ConfigDumpTwentyInputs()
    AssertTrue("T39 key helper missing", Grind_ConfigTelemetryKeyStatus("") == "MISSING");
 }
 
+void Test_T40_NetMtmExactMagic()
+{
+   Grind_PnlReset();
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_position_count = 2;
+   ArrayResize(g_grind_pnl_test_positions, 2);
+   g_grind_pnl_test_positions[0].magic = 22260101UL;
+   g_grind_pnl_test_positions[0].profit = 1.50;
+   g_grind_pnl_test_positions[0].swap = -0.10;
+   g_grind_pnl_test_positions[1].magic = 22260102UL;
+   g_grind_pnl_test_positions[1].profit = 99.00;
+   g_grind_pnl_test_positions[1].swap = 0.0;
+
+   const double mtm = Grind_ComputeNetFloatingMtm(22260101UL);
+   AssertNear("T40 net_mtm ours only", mtm, 1.40, 1e-8);
+   Grind_PnlReset();
+}
+
+void Test_T41_RealisedPnlNetAccumulation()
+{
+   Grind_PnlReset();
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+
+   Grind_AccumulateScalpPnl(2.50, -0.30, -0.20);
+   AssertNear("T41 first scalp net", g_grind_scalp_pnl_last, 2.00, 1e-8);
+   AssertNear("T41 daily total", g_grind_realised_pnl_today, 2.00, 1e-8);
+
+   Grind_AccumulateScalpPnl(1.00, 0.10, -0.05);
+   AssertNear("T41 second scalp net", g_grind_scalp_pnl_last, 1.05, 1e-8);
+   AssertNear("T41 daily sum", g_grind_realised_pnl_today, 3.05, 1e-8);
+   Grind_PnlReset();
+}
+
+void Test_T42_DailyResetFollowsServerTime()
+{
+   Grind_PnlReset();
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 23:30:00';
+
+   Grind_AccumulateScalpPnl(4.00, 0.0, 0.0);
+   AssertNear("T42 pre-reset total", g_grind_realised_pnl_today, 4.00, 1e-8);
+
+   const datetime server_new_day = D'2026.09.07 01:00:00';
+   const string server_day = Grind_ServerDayKey(server_new_day);
+   const datetime simulated_us_eastern = server_new_day - 6 * 3600;
+   const string local_day = Grind_LocalDayKey(simulated_us_eastern);
+   AssertTrue("T42 server/local day differ", server_day != local_day);
+   AssertEqStr("T42 server day", server_day, "20260907");
+   AssertEqStr("T42 local day", local_day, "20260906");
+
+   g_grind_pnl_test_server_time = server_new_day;
+   Grind_ResetDailyPnlIfNewDay();
+   AssertNear("T42 reset on server day", g_grind_realised_pnl_today, 0.0, 1e-8);
+   AssertNear("T42 scalp last reset", g_grind_scalp_pnl_last, 0.0, 1e-8);
+   AssertEqStr("T42 day key server", g_grind_pnl_day_key, "20260907");
+   Grind_PnlReset();
+}
+
+void Test_T43_TouchRevertThreshold()
+{
+   Grind_PnlReset();
+   const double spread = 1.5;
+
+   Grind_RecordExitPenetration(0.8, spread);
+   AssertTrue("T43 below spread counts", g_grind_exit_touch_revert_count == 1);
+
+   Grind_RecordExitPenetration(1.5, spread);
+   AssertTrue("T43 at spread excluded", g_grind_exit_touch_revert_count == 1);
+
+   Grind_RecordExitPenetration(2.0, spread);
+   AssertTrue("T43 above spread excluded", g_grind_exit_touch_revert_count == 1);
+   Grind_PnlReset();
+}
+
+void Test_T44_HeartbeatSchemaAppendOnly()
+{
+   Grind_PnlReset();
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+   // Heartbeat calls Grind_ResetDailyPnlIfNewDay(); seed day key so seeded
+   // accumulator values survive (empty key would trigger a counter wipe).
+   g_grind_pnl_day_key = Grind_ServerDayKey(g_grind_pnl_test_server_time);
+   g_grind_realised_pnl_today = 1.23;
+   g_grind_scalp_pnl_last = 0.45;
+   g_grind_exit_penetration_pips_last = 0.7;
+   g_grind_exit_penetration_pips_sum = 1.4;
+   g_grind_exit_penetration_count = 2;
+   g_grind_exit_touch_revert_count = 1;
+
+   const string hb = Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", 1, 2, 3, 4,
+      false, false, "", true, true,
+      0.1, 0.2, 0.3, 0.4, false,
+      22260101UL, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
+
+   AssertTrue("T44 instance_id first",
+              StringFind(hb, "\"instance_id\":") == 1);
+   AssertContains("T44 net_mtm", hb, "\"net_mtm\":");
+   AssertContains("T44 realised_pnl_today", hb, "\"realised_pnl_today\":");
+   AssertContains("T44 scalp_pnl_last", hb, "\"scalp_pnl_last\":");
+   AssertContains("T44 exit_penetration_pips_last", hb, "\"exit_penetration_pips_last\":");
+   AssertContains("T44 exit_penetration_pips_mean", hb, "\"exit_penetration_pips_mean\":");
+   AssertContains("T44 exit_touch_revert_count", hb, "\"exit_touch_revert_count\":");
+   AssertContains("T44 realised value", hb, "\"realised_pnl_today\":1.2300");
+   AssertContains("T44 touch revert value", hb, "\"exit_touch_revert_count\":1");
+   AssertContains("T44 cap_leg_b_name preserved", hb, "\"cap_leg_b_name\":\"USD\"");
+   AssertContains("T44 fills preserved", hb, "\"fills\":3");
+   Grind_PnlReset();
+}
+
 void Test_OrderBudgetArithmetic()
 {
    AssertTrue("budget 12 side", Grind_RestingOrderBudgetPerSide(12) == 13);
@@ -734,6 +846,11 @@ void OnStart()
    Test_T37_ConfigDumpKeyNotLeaked();
    Test_T38_HeartbeatSchemaUnchanged();
    Test_T39_ConfigDumpTwentyInputs();
+   Test_T40_NetMtmExactMagic();
+   Test_T41_RealisedPnlNetAccumulation();
+   Test_T42_DailyResetFollowsServerTime();
+   Test_T43_TouchRevertThreshold();
+   Test_T44_HeartbeatSchemaAppendOnly();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

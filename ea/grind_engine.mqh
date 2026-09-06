@@ -363,6 +363,17 @@ void Grind_HandleSideDealFill(GrindSideState &side,
    }
 
    if(c_role == "EXT" && entry_type == DEAL_ENTRY_OUT) {
+      const double deal_profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
+      const double deal_swap = HistoryDealGetDouble(deal_ticket, DEAL_SWAP);
+      const double deal_commission = HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
+      Grind_AccumulateScalpPnl(deal_profit, deal_swap, deal_commission);
+
+      const datetime fill_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
+      const long fill_time_msc = HistoryDealGetInteger(deal_ticket, DEAL_TIME_MSC);
+      const double spread_pips = Grind_SpreadPipsLive(_Point);
+      Grind_QueueExitMicrostructureMeasure(fill_time, fill_time_msc, deal_price,
+                                           is_long, spread_pips);
+
       int layer_idx = Grind_FindLayerByExitOrder(side, order_ticket);
       if(layer_idx < 0)
          layer_idx = Grind_FindLayerByPosition(side, position_id);
