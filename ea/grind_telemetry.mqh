@@ -89,7 +89,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
                                     const string cap_leg_b_name)
 {
    return StringFormat(
-      "{\"instance\":\"%s\",\"open_layers_long\":%d,\"open_layers_short\":%d,"
+      "{\"instance_id\":\"%s\",\"open_layers_long\":%d,\"open_layers_short\":%d,"
       "\"fills\":%d,\"scalps\":%d,\"api_count\":%d,\"api_counter_broken\":%s,"
       "\"cap_blocked\":%s,\"halted\":%s,\"halt_reason\":\"%s\","
       "\"recon_ok\":%s,\"invariant_ok\":%s,\"cap_leg_a\":%.4f,\"cap_leg_b\":%.4f,"
