@@ -7,6 +7,46 @@
 #include "grind_api_counter.mqh"
 
 //+------------------------------------------------------------------+
+bool Grind_TelemetryWebPost(const string url,
+                            const string api_key,
+                            const string payload,
+                            const bool verbose_log)
+{
+   if(url == "" || api_key == "")
+      return false;
+
+   string headers = "Content-Type: application/json\r\n"
+                  + "Authorization: Bearer " + api_key + "\r\n";
+
+   char post_data[];
+   char result_data[];
+   string result_headers;
+   StringToCharArray(payload, post_data, 0, StringLen(payload));
+
+   int http_status = WebRequest(
+      "POST",
+      url,
+      headers,
+      200,
+      post_data,
+      result_data,
+      result_headers
+   );
+
+   if(verbose_log) {
+      if(http_status == 200)
+         Print("INFO: grind telemetry POST ok url=", url);
+      else if(http_status == -1)
+         Print("INFO: grind telemetry dropped status=-1 url=", url,
+               " — add URL to Tools > Options > Expert Advisors allow list");
+      else
+         Print("INFO: grind telemetry dropped status=", http_status, " url=", url);
+   }
+
+   return (http_status == 200);
+}
+
+//+------------------------------------------------------------------+
 void Grind_TelemetryEmit(const string instance_name,
                          const string event,
                          const string detail_json = "{}")

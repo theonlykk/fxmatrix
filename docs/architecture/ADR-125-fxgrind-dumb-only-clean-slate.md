@@ -122,6 +122,17 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     62% of EURUSD seeds ($932 mean max DD vs $1000 limit) — gate-then-optimise
     earns its place; do not revert to width-3 on majors without re-running gates.
 
+13. **Telemetry transport to pipshed.** Four inputs matching the live v2 contract:
+    `EnableTelemetry` (default false), `TelemetryURL`, `TelemetryAPIKey` (empty in
+    source and .set — operator pastes at attach; **never committed**), and
+    `TelemetryIntervalSec` (60). Not validated at init; telemetry off must not
+    affect trading. `Grind_TelemetryWebPost` ports `V2TelemetryWebPost` (bearer
+    auth, `StringToCharArray` with explicit length, 200ms timeout fixed). HTTP -1
+    logged distinctly as URL-whitelist issue. Heartbeat driven by `OnTimer` with
+    `EventSetTimer(1)` at init swapping to `TelemetryIntervalSec` on first tick
+    (no `WebRequest` in OnInit — MQL5 error 4014). `Print("TELEM|"...)` retained
+    as journal fallback. Telemetry failure is non-fatal: log and continue.
+
 ## Consequences
 
 - Spec B enables trading after successful reconstruction on a valid book; invalid
@@ -130,6 +141,7 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
   retains poisoned defaults for unattached instances. `InpAddPips` must remain
   `2.0 × width` in every preset — init asserts the relationship.
 - MetaEditor GUI compile required; CLI compile not trusted in this project.
+- pipshed URL must be whitelisted in terminal Options; API key entered at attach.
 - `desktop_sync.ps1` / `deploy.ps1` header lists must be re-derived from fxgrind
   include graph in a separate task.
 

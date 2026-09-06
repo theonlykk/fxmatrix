@@ -5,6 +5,12 @@
 #define GRIND_CONFIG_MQH
 
 //+------------------------------------------------------------------+
+string Grind_ConfigTelemetryKeyStatus(const string api_key)
+{
+   return (api_key != "" ? "SET" : "MISSING");
+}
+
+//+------------------------------------------------------------------+
 string Grind_ConfigDumpString(const ulong magic,
                               const string slot,
                               const string symbol,
@@ -21,15 +27,23 @@ string Grind_ConfigDumpString(const ulong magic,
                               const double cap_leg_b_thresh,
                               const string telemetry_instance,
                               const bool verbose_log,
-                              const string config_warning)
+                              const string config_warning,
+                              const bool enable_telemetry,
+                              const string telemetry_url,
+                              const string telemetry_api_key,
+                              const int telemetry_interval_sec)
 {
+   const string tel_on_off = enable_telemetry ? "on" : "off";
+   const string key_status = Grind_ConfigTelemetryKeyStatus(telemetry_api_key);
+
    return StringFormat(
       "fxgrind CONFIG "
       "InpMagic=%s InpSlot=%s symbol=%s "
       "InpWidthPips=%.4f InpAddPips=%.4f InpExitPips=%.4f "
       "InpMaxLayers=%d InpStrandedThreshPips=%.4f InpDeadbandPips=%.4f InpLots=%.4f "
       "InpCapLegA=%s InpCapLegB=%s InpCapLegAThresh=%.4f InpCapLegBThresh=%.4f "
-      "InpTelemetryInstance=%s InpVerboseLog=%s InpConfigWarning=%s",
+      "InpTelemetryInstance=%s InpVerboseLog=%s InpConfigWarning=%s "
+      "telemetry=%s url=%s key=%s interval=%d",
       IntegerToString((long)magic),
       slot,
       symbol,
@@ -46,7 +60,11 @@ string Grind_ConfigDumpString(const ulong magic,
       cap_leg_b_thresh,
       telemetry_instance,
       verbose_log ? "true" : "false",
-      config_warning
+      config_warning,
+      tel_on_off,
+      telemetry_url,
+      key_status,
+      telemetry_interval_sec
    );
 }
 

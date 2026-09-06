@@ -14,3 +14,7 @@ InpCapLegBThresh=0.0
 InpTelemetryInstance=GRIND_EURUSD_OPT
 InpVerboseLog=true
 InpConfigWarning=EURUSD OPT 7/5 sweep ac19a9f
+EnableTelemetry=true
+TelemetryURL=https://pipshed.com/api/telemetry/push
+TelemetryAPIKey=
+TelemetryIntervalSec=60

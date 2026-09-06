@@ -14,3 +14,7 @@ InpCapLegBThresh=0.0
 InpTelemetryInstance=GRIND_GBPUSD_ALT
 InpVerboseLog=true
 InpConfigWarning=GBPUSD ALT 5/7 sweep ac19a9f
+EnableTelemetry=true
+TelemetryURL=https://pipshed.com/api/telemetry/push
+TelemetryAPIKey=
+TelemetryIntervalSec=60

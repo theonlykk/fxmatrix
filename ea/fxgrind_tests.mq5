@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T35, T19b/c) |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T39)    |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -570,11 +570,15 @@ void Test_T35_ConfigDumpCoversAllInputs()
 {
    const string dump = Grind_ConfigDumpString(
       22260101UL, "OPT", "GBPUSD",
-      -1.0, -1.0, -1.0, 12,
-      -1.0, 4.0, 0.01,
+      5.0, 10.0, 5.0, 12,
+      10.0, 4.0, 0.01,
       "GBP", "USD", 0.0, 0.0,
       "GRIND_GBPUSD_OPT", true,
-      "GEOMETRY UNSET - DO NOT TRADE");
+      "GBPUSD OPT 5/5 sweep ac19a9f",
+      true,
+      "https://pipshed.com/api/telemetry/push",
+      "",
+      60);
    AssertContains("T35 InpMagic", dump, "InpMagic=");
    AssertContains("T35 InpSlot", dump, "InpSlot=");
    AssertContains("T35 symbol", dump, "symbol=");
@@ -592,6 +596,87 @@ void Test_T35_ConfigDumpCoversAllInputs()
    AssertContains("T35 InpTelemetryInstance", dump, "InpTelemetryInstance=");
    AssertContains("T35 InpVerboseLog", dump, "InpVerboseLog=");
    AssertContains("T35 InpConfigWarning", dump, "InpConfigWarning=");
+   AssertContains("T35 telemetry", dump, "telemetry=");
+   AssertContains("T35 url", dump, "url=");
+   AssertContains("T35 key", dump, "key=");
+   AssertContains("T35 interval", dump, "interval=");
+}
+
+void Test_T36_TelemetryWebPostEmptyGate()
+{
+   AssertTrue("T36 empty url", !Grind_TelemetryWebPost("", "key", "{}", false));
+   AssertTrue("T36 empty key", !Grind_TelemetryWebPost("https://example.com", "", "{}", false));
+}
+
+void Test_T37_ConfigDumpKeyNotLeaked()
+{
+   const string secret = "supersecret-test-key-xyz";
+   const string dump_set = Grind_ConfigDumpString(
+      22260101UL, "OPT", "GBPUSD",
+      5.0, 10.0, 5.0, 12,
+      10.0, 4.0, 0.01,
+      "GBP", "USD", 0.0, 0.0,
+      "GRIND_GBPUSD_OPT", true,
+      "GBPUSD OPT 5/5 sweep ac19a9f",
+      true,
+      "https://pipshed.com/api/telemetry/push",
+      secret,
+      60);
+   const string dump_missing = Grind_ConfigDumpString(
+      22260101UL, "OPT", "GBPUSD",
+      5.0, 10.0, 5.0, 12,
+      10.0, 4.0, 0.01,
+      "GBP", "USD", 0.0, 0.0,
+      "GRIND_GBPUSD_OPT", true,
+      "GBPUSD OPT 5/5 sweep ac19a9f",
+      true,
+      "https://pipshed.com/api/telemetry/push",
+      "",
+      60);
+   AssertContains("T37 set status", dump_set, "key=SET");
+   AssertContains("T37 missing status", dump_missing, "key=MISSING");
+   AssertTrue("T37 secret absent set", StringFind(dump_set, secret) < 0);
+   AssertTrue("T37 secret absent missing", StringFind(dump_missing, secret) < 0);
+}
+
+void Test_T38_HeartbeatSchemaUnchanged()
+{
+   const string hb = Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", 1, 2, 3, 4,
+      false, false, "", true, true,
+      0.1, 0.2, 0.3, 0.4, false,
+      22260101UL, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
+   AssertContains("T38 instance", hb, "\"instance\":");
+   AssertContains("T38 open_layers_long", hb, "\"open_layers_long\":");
+   AssertContains("T38 open_layers_short", hb, "\"open_layers_short\":");
+   AssertContains("T38 fills", hb, "\"fills\":");
+   AssertContains("T38 scalps", hb, "\"scalps\":");
+   AssertContains("T38 api_count", hb, "\"api_count\":");
+   AssertContains("T38 api_counter_broken", hb, "\"api_counter_broken\":");
+   AssertContains("T38 cap_blocked", hb, "\"cap_blocked\":");
+   AssertContains("T38 halted", hb, "\"halted\":");
+   AssertContains("T38 halt_reason", hb, "\"halt_reason\":");
+   AssertContains("T38 recon_ok", hb, "\"recon_ok\":");
+   AssertContains("T38 invariant_ok", hb, "\"invariant_ok\":");
+   AssertContains("T38 cap_leg_a", hb, "\"cap_leg_a\":");
+   AssertContains("T38 cap_leg_b", hb, "\"cap_leg_b\":");
+   AssertContains("T38 cap_total_leg_a", hb, "\"cap_total_leg_a\":");
+   AssertContains("T38 cap_total_leg_b", hb, "\"cap_total_leg_b\":");
+   AssertContains("T38 peer_read_failed", hb, "\"peer_read_failed\":");
+   AssertContains("T38 magic", hb, "\"magic\":");
+   AssertContains("T38 slot", hb, "\"slot\":");
+   AssertContains("T38 width_pips", hb, "\"width_pips\":");
+   AssertContains("T38 add_pips", hb, "\"add_pips\":");
+   AssertContains("T38 exit_pips", hb, "\"exit_pips\":");
+   AssertContains("T38 max_layers", hb, "\"max_layers\":");
+   AssertContains("T38 cap_leg_a_name", hb, "\"cap_leg_a_name\":");
+   AssertContains("T38 cap_leg_b_name", hb, "\"cap_leg_b_name\":");
+}
+
+void Test_T39_ConfigDumpTwentyInputs()
+{
+   AssertTrue("T39 key helper set", Grind_ConfigTelemetryKeyStatus("abc") == "SET");
+   AssertTrue("T39 key helper missing", Grind_ConfigTelemetryKeyStatus("") == "MISSING");
 }
 
 void Test_OrderBudgetArithmetic()
@@ -644,6 +729,10 @@ void OnStart()
    Test_T33_FreeMagicClaimSucceeds();
    Test_T34_ReleaseAllowsReclaim();
    Test_T35_ConfigDumpCoversAllInputs();
+   Test_T36_TelemetryWebPostEmptyGate();
+   Test_T37_ConfigDumpKeyNotLeaked();
+   Test_T38_HeartbeatSchemaUnchanged();
+   Test_T39_ConfigDumpTwentyInputs();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

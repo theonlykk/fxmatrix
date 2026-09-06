@@ -26,6 +26,47 @@ input double InpCapLegBThresh      = 0.0;
 input string InpTelemetryInstance  = "GRIND_UNKNOWN";
 input bool   InpVerboseLog         = true;
 input string InpConfigWarning      = "GEOMETRY UNSET - DO NOT TRADE";
+input bool   EnableTelemetry      = false;
+input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
+input string TelemetryAPIKey      = "";
+input int    TelemetryIntervalSec = 60;
+
+//+------------------------------------------------------------------+
+string Grind_BuildHeartbeatJson()
+{
+   return Grind_TelemetryHeartbeatJson(g_grind_telemetry_instance,
+                                       Grind_SideDepth(g_grind_long),
+                                       Grind_SideDepth(g_grind_short),
+                                       g_grind_fill_count,
+                                       g_grind_scalp_count,
+                                       g_grind_cap_blocked,
+                                       g_grind_halted,
+                                       g_grind_halt_reason,
+                                       g_grind_recon_ok,
+                                       g_grind_last_invariant_ok,
+                                       g_grind_cap_own_leg_a,
+                                       g_grind_cap_own_leg_b,
+                                       g_grind_cap_total_leg_a,
+                                       g_grind_cap_total_leg_b,
+                                       g_grind_cap_peer_read_failed,
+                                       InpMagic,
+                                       InpSlot,
+                                       InpWidthPips,
+                                       InpAddPips,
+                                       InpExitPips,
+                                       InpMaxLayers,
+                                       InpCapLegA,
+                                       InpCapLegB);
+}
+
+//+------------------------------------------------------------------+
+void Grind_EmitHeartbeat()
+{
+   const string hb_json = Grind_BuildHeartbeatJson();
+   Grind_TelemetryEmit(g_grind_telemetry_instance, "HEARTBEAT", hb_json);
+   if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
+      Grind_TelemetryWebPost(TelemetryURL, TelemetryAPIKey, hb_json, InpVerboseLog);
+}
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -90,17 +131,38 @@ int OnInit()
                                 InpCapLegBThresh,
                                 InpTelemetryInstance,
                                 InpVerboseLog,
-                                InpConfigWarning));
+                                InpConfigWarning,
+                                EnableTelemetry,
+                                TelemetryURL,
+                                TelemetryAPIKey,
+                                TelemetryIntervalSec));
 
+   EventSetTimer(1);
    return INIT_SUCCEEDED;
 }
 
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    Grind_MagicLockRelease(InpMagic);
    if(InpVerboseLog)
       Print("fxgrind deinit reason=", reason);
+}
+
+//+------------------------------------------------------------------+
+void OnTimer()
+{
+   static bool first_run = true;
+   if(first_run) {
+      first_run = false;
+      EventSetTimer(TelemetryIntervalSec);
+   }
+
+   Grind_EmitHeartbeat();
+
+   if(Grind_ApiCounterSoftWarnActive())
+      Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
 }
 
 //+------------------------------------------------------------------+
@@ -127,40 +189,6 @@ void OnTick()
                       InpDeadbandPips,
                       InpMaxLayers,
                       InpLots);
-
-   static datetime last_hb = 0;
-   if(TimeCurrent() - last_hb >= 60) {
-      last_hb = TimeCurrent();
-      Grind_TelemetryEmit(
-         g_grind_telemetry_instance,
-         "HEARTBEAT",
-         Grind_TelemetryHeartbeatJson(g_grind_telemetry_instance,
-                                      Grind_SideDepth(g_grind_long),
-                                      Grind_SideDepth(g_grind_short),
-                                      g_grind_fill_count,
-                                      g_grind_scalp_count,
-                                      g_grind_cap_blocked,
-                                      g_grind_halted,
-                                      g_grind_halt_reason,
-                                      g_grind_recon_ok,
-                                      g_grind_last_invariant_ok,
-                                      g_grind_cap_own_leg_a,
-                                      g_grind_cap_own_leg_b,
-                                      g_grind_cap_total_leg_a,
-                                      g_grind_cap_total_leg_b,
-                                      g_grind_cap_peer_read_failed,
-                                      InpMagic,
-                                      InpSlot,
-                                      InpWidthPips,
-                                      InpAddPips,
-                                      InpExitPips,
-                                      InpMaxLayers,
-                                      InpCapLegA,
-                                      InpCapLegB)
-      );
-      if(Grind_ApiCounterSoftWarnActive())
-         Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
-   }
 }
 
 //+------------------------------------------------------------------+
