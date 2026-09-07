@@ -37,6 +37,8 @@ struct GrindCloseByTestPosition
    long   type;
 };
 
+GrindCloseByTestPosition g_grind_closeby_test_positions[];
+int    g_grind_closeby_test_position_count = 0;
 ulong  g_grind_closeby_test_success_ticket1 = 0;
 ulong  g_grind_closeby_test_success_ticket2 = 0;
 

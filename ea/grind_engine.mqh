@@ -525,10 +525,12 @@ void Grind_HandleSideDealFill(GrindSideState &side,
       side.layers[layer_idx].exit_order_ticket = 0;
       side.layers[layer_idx].exit_position_ticket = position_id;
 
-      GrindCloseByTask &cb_queue = is_long ? g_grind_long_closeby_queue
-                                           : g_grind_short_closeby_queue;
-      if(orig_pos > 0 && position_id > 0)
-         Grind_QueueCloseBy(cb_queue, orig_pos, position_id);
+      if(orig_pos > 0 && position_id > 0) {
+         if(is_long)
+            Grind_QueueCloseBy(g_grind_long_closeby_queue, orig_pos, position_id);
+         else
+            Grind_QueueCloseBy(g_grind_short_closeby_queue, orig_pos, position_id);
+      }
 
       const datetime fill_time = (datetime)Grind_DealGetInteger(deal_ticket, DEAL_TIME);
       const long fill_time_msc = Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
