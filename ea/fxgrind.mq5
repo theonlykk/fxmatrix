@@ -170,6 +170,8 @@ void OnTimer()
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   Grind_ProcessCloseByQueues(InpMagic, InpVerboseLog);
+
    if(!g_grind_halted) {
       Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
       if(!Grind_CheckBookInvariants()) {

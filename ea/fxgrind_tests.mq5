@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T44)    |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T52)    |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -792,6 +792,321 @@ void Test_T44_HeartbeatSchemaAppendOnly()
    Grind_PnlReset();
 }
 
+void Grind_TestAppendDeal(const ulong deal_ticket,
+                          const string comment,
+                          const long entry_type,
+                          const ulong order_ticket,
+                          const ulong position_id,
+                          const double profit,
+                          const double swap,
+                          const double commission)
+{
+   ArrayResize(g_grind_deal_test_records, g_grind_deal_test_count + 1);
+   g_grind_deal_test_records[g_grind_deal_test_count].deal_ticket = deal_ticket;
+   g_grind_deal_test_records[g_grind_deal_test_count].symbol = _Symbol;
+   g_grind_deal_test_records[g_grind_deal_test_count].magic = (long)22260101UL;
+   g_grind_deal_test_records[g_grind_deal_test_count].comment = comment;
+   g_grind_deal_test_records[g_grind_deal_test_count].entry_type = entry_type;
+   g_grind_deal_test_records[g_grind_deal_test_count].order_ticket = order_ticket;
+   g_grind_deal_test_records[g_grind_deal_test_count].position_id = position_id;
+   g_grind_deal_test_records[g_grind_deal_test_count].price = 1.25030;
+   g_grind_deal_test_records[g_grind_deal_test_count].profit = profit;
+   g_grind_deal_test_records[g_grind_deal_test_count].swap = swap;
+   g_grind_deal_test_records[g_grind_deal_test_count].commission = commission;
+   g_grind_deal_test_count++;
+}
+
+void Grind_TestResetSideState()
+{
+   ArrayResize(g_grind_long.layers, 0);
+   ArrayResize(g_grind_short.layers, 0);
+   g_grind_long.l0_pending_ticket = 0;
+   g_grind_long.add_pending_ticket = 0;
+   g_grind_short.l0_pending_ticket = 0;
+   g_grind_short.add_pending_ticket = 0;
+   g_grind_fill_count = 0;
+   g_grind_scalp_count = 0;
+   g_grind_halted = false;
+   ArrayResize(g_grind_processed_deals, 0);
+   g_grind_processed_deal_count = 0;
+}
+
+void Test_T45_ExitFillQueuesCloseByPair()
+{
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25030;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_order_ticket = 2001;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   g_grind_long.layers[0].layer_index = 0;
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9001,
+                        GrindCommentBuild("OPT", "L", 0, "EXT"),
+                        DEAL_ENTRY_IN,
+                        2001,
+                        3002,
+                        0.0, 0.0, 0.0);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9001, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+
+   AssertTrue("T45 queue size", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 1);
+   AssertTrue("T45 ticket1 orig", g_grind_long_closeby_queue[0].ticket1 == 1001);
+   AssertTrue("T45 ticket2 hedge", g_grind_long_closeby_queue[0].ticket2 == 3002);
+   AssertTrue("T45 exit position tracked", g_grind_long.layers[0].exit_position_ticket == 3002);
+
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T46_CloseBySuccessRemovesTaskAndIncrementsScalpOnce()
+{
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestResetSideState();
+
+   g_grind_closeby_test_active = true;
+   g_grind_closeby_test_send_ok = true;
+   g_grind_closeby_test_send_retcode = TRADE_RETCODE_DONE;
+   g_grind_closeby_test_position_count = 2;
+   ArrayResize(g_grind_closeby_test_positions, 2);
+   g_grind_closeby_test_positions[0].ticket = 1001;
+   g_grind_closeby_test_positions[0].symbol = _Symbol;
+   g_grind_closeby_test_positions[0].type = POSITION_TYPE_BUY;
+   g_grind_closeby_test_positions[1].ticket = 3002;
+   g_grind_closeby_test_positions[1].symbol = _Symbol;
+   g_grind_closeby_test_positions[1].type = POSITION_TYPE_SELL;
+
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 1001, 3002);
+   Grind_ProcessCloseByQueue(g_grind_long_closeby_queue, 22260101UL, false);
+   AssertTrue("T46 queue empty", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 0);
+   AssertTrue("T46 send counted", g_grind_closeby_test_send_calls == 1);
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_position_ticket = 3002;
+   g_grind_long.layers[0].layer_index = 0;
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9101, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001, 2.50, -0.30, -0.20);
+   const int scalps_before = g_grind_scalp_count;
+   Grind_HandleSideDealFill(g_grind_long, true, 9101, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertTrue("T46 scalp once", g_grind_scalp_count == scalps_before + 1);
+   AssertTrue("T46 layer removed", Grind_SideDepth(g_grind_long) == 0);
+
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T46b_OutByDealAccumulatesRealisedPnl()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestResetSideState();
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_position_ticket = 3002;
+   g_grind_long.layers[0].layer_index = 0;
+
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9201, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001, 2.50, -0.30, -0.20);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9201, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertNear("T46b realised net", g_grind_realised_pnl_today, 2.00, 1e-8);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T46c_ExitInDoesNotCountScalpOrPnl()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestResetSideState();
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_order_ticket = 2001;
+   g_grind_long.layers[0].layer_index = 0;
+
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9301,
+                        GrindCommentBuild("OPT", "L", 0, "EXT"),
+                        DEAL_ENTRY_IN,
+                        2001,
+                        3002,
+                        5.00, 0.0, 0.0);
+
+   const int scalps_before = g_grind_scalp_count;
+   Grind_HandleSideDealFill(g_grind_long, true, 9301, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertTrue("T46c no scalp", g_grind_scalp_count == scalps_before);
+   AssertNear("T46c no pnl", g_grind_realised_pnl_today, 0.0, 1e-8);
+   AssertTrue("T46c layer kept", Grind_SideDepth(g_grind_long) == 1);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestResetSideState();
+   Grind_CloseByTestReset();
+}
+
+void Test_T47_CloseByExhaustionHaltsCritical()
+{
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+
+   g_grind_closeby_test_active = true;
+   g_grind_closeby_test_send_ok = false;
+   g_grind_closeby_test_send_retcode = TRADE_RETCODE_REJECT;
+   g_grind_closeby_test_position_count = 2;
+   ArrayResize(g_grind_closeby_test_positions, 2);
+   g_grind_closeby_test_positions[0].ticket = 5001;
+   g_grind_closeby_test_positions[0].symbol = _Symbol;
+   g_grind_closeby_test_positions[0].type = POSITION_TYPE_BUY;
+   g_grind_closeby_test_positions[1].ticket = 5002;
+   g_grind_closeby_test_positions[1].symbol = _Symbol;
+   g_grind_closeby_test_positions[1].type = POSITION_TYPE_SELL;
+
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 5001, 5002);
+   for(int i = 0; i < GRIND_CLOSEBY_MAX_RETRIES; i++)
+      Grind_ProcessCloseByQueue(g_grind_long_closeby_queue, 22260101UL, false);
+
+   AssertTrue("T47 halted", g_grind_halted);
+   AssertTrue("T47 queue drained", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 0);
+   AssertContains("T47 critical", g_grind_closeby_test_last_critical, "5001");
+   AssertContains("T47 critical by", g_grind_closeby_test_last_critical, "5002");
+
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T48_BackwardIterationProcessesAllThree()
+{
+   Grind_CloseByTestReset();
+
+   g_grind_closeby_test_active = true;
+   g_grind_closeby_test_send_ok = true;
+   g_grind_closeby_test_send_retcode = TRADE_RETCODE_DONE;
+   g_grind_closeby_test_position_count = 6;
+   ArrayResize(g_grind_closeby_test_positions, 6);
+   for(int i = 0; i < 6; i++) {
+      g_grind_closeby_test_positions[i].ticket = 6000 + (ulong)i;
+      g_grind_closeby_test_positions[i].symbol = _Symbol;
+      g_grind_closeby_test_positions[i].type = (i % 2 == 0)
+                                               ? POSITION_TYPE_BUY
+                                               : POSITION_TYPE_SELL;
+   }
+
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 6000, 6001);
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 6002, 6003);
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 6004, 6005);
+
+   g_grind_closeby_test_success_ticket1 = 6002;
+   g_grind_closeby_test_success_ticket2 = 6003;
+   Grind_ProcessCloseByQueue(g_grind_long_closeby_queue, 22260101UL, false);
+
+   AssertTrue("T48 middle removed", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 2);
+   AssertTrue("T48 first remains", g_grind_long_closeby_queue[0].ticket1 == 6000);
+   AssertTrue("T48 last remains", g_grind_long_closeby_queue[1].ticket1 == 6004);
+   AssertTrue("T48 all three attempted", g_grind_closeby_test_send_calls == 3);
+
+   g_grind_closeby_test_success_ticket1 = 0;
+   g_grind_closeby_test_success_ticket2 = 0;
+   Grind_ProcessCloseByQueue(g_grind_long_closeby_queue, 22260101UL, false);
+   AssertTrue("T48 remainder cleared", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 0);
+
+   Grind_CloseByTestReset();
+}
+
+void Test_T49_InvariantRestingExtOrderPasses()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T49 ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                     3.0, 12, 0.00001,
+                                                     long_out, short_out, reason));
+}
+
+void Test_T50_InvariantOpenExtPositionPasses()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 3002; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T50 ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                     3.0, 12, 0.00001,
+                                                     long_out, short_out, reason));
+}
+
+void Test_T51_InvariantNeitherExitStillHalts()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T51 halt", !Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                                        3.0, 12, 0.00001,
+                                                        long_out, short_out, reason));
+   AssertTrue("T51 I3", StringFind(reason, "I3") >= 0);
+}
+
+void Test_T52_InvariantExtPositionWithEntNotOrphan()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 3002; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("T52 ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                     3.0, 12, 0.00001,
+                                                     long_out, short_out, reason));
+   AssertTrue("T52 not I4", StringFind(reason, "I4") < 0);
+}
+
 void Test_OrderBudgetArithmetic()
 {
    AssertTrue("budget 12 side", Grind_RestingOrderBudgetPerSide(12) == 13);
@@ -851,6 +1166,16 @@ void OnStart()
    Test_T42_DailyResetFollowsServerTime();
    Test_T43_TouchRevertThreshold();
    Test_T44_HeartbeatSchemaAppendOnly();
+   Test_T45_ExitFillQueuesCloseByPair();
+   Test_T46_CloseBySuccessRemovesTaskAndIncrementsScalpOnce();
+   Test_T46b_OutByDealAccumulatesRealisedPnl();
+   Test_T46c_ExitInDoesNotCountScalpOrPnl();
+   Test_T47_CloseByExhaustionHaltsCritical();
+   Test_T48_BackwardIterationProcessesAllThree();
+   Test_T49_InvariantRestingExtOrderPasses();
+   Test_T50_InvariantOpenExtPositionPasses();
+   Test_T51_InvariantNeitherExitStillHalts();
+   Test_T52_InvariantExtPositionWithEntNotOrphan();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

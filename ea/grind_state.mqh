@@ -10,6 +10,7 @@ struct GrindLayer
    double   exit_target;
    ulong    position_ticket;
    ulong    exit_order_ticket;
+   ulong    exit_position_ticket;
    int      layer_index;
 };
 
