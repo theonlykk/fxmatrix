@@ -101,6 +101,11 @@ void Grind_QueueCloseBy(GrindCloseByTask &queue[],
                         const ulong ticket1,
                         const ulong ticket2)
 {
+   for(int i = 0; i < ArraySize(queue); i++) {
+      if(queue[i].ticket1 == ticket1 && queue[i].ticket2 == ticket2)
+         return;
+   }
+
    const int idx = ArraySize(queue);
    ArrayResize(queue, idx + 1);
    queue[idx].ticket1 = ticket1;
@@ -257,6 +262,38 @@ void Grind_ProcessCloseByQueues(const ulong magic, const bool verbose)
 {
    Grind_ProcessCloseByQueue(g_grind_long_closeby_queue, magic, verbose);
    Grind_ProcessCloseByQueue(g_grind_short_closeby_queue, magic, verbose);
+}
+
+//+------------------------------------------------------------------+
+void Grind_DeriveCloseByQueueFromBook(const string slot, const bool verbose)
+{
+   for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
+      const ulong ent_ticket = g_grind_long.layers[i].position_ticket;
+      const ulong ext_ticket = g_grind_long.layers[i].exit_position_ticket;
+      if(ent_ticket == 0 || ext_ticket == 0)
+         continue;
+
+      Grind_QueueCloseBy(g_grind_long_closeby_queue, ent_ticket, ext_ticket);
+      if(verbose)
+         Print("INFO GRIND_RECON | derived CloseBy pair slot=", slot,
+               " side=L layer=", g_grind_long.layers[i].layer_index,
+               " position=", ent_ticket,
+               " position_by=", ext_ticket);
+   }
+
+   for(int i = 0; i < ArraySize(g_grind_short.layers); i++) {
+      const ulong ent_ticket = g_grind_short.layers[i].position_ticket;
+      const ulong ext_ticket = g_grind_short.layers[i].exit_position_ticket;
+      if(ent_ticket == 0 || ext_ticket == 0)
+         continue;
+
+      Grind_QueueCloseBy(g_grind_short_closeby_queue, ent_ticket, ext_ticket);
+      if(verbose)
+         Print("INFO GRIND_RECON | derived CloseBy pair slot=", slot,
+               " side=S layer=", g_grind_short.layers[i].layer_index,
+               " position=", ent_ticket,
+               " position_by=", ext_ticket);
+   }
 }
 
 #endif // GRIND_CLOSEBY_MQH

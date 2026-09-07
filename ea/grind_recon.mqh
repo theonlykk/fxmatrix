@@ -8,6 +8,7 @@
 #include "grind_comment.mqh"
 #include "grind_pure.mqh"
 #include "grind_telemetry.mqh"
+#include "grind_closeby.mqh"
 
 #define GRIND_RECON_TICKET_POSITION 0
 #define GRIND_RECON_TICKET_ORDER    1
@@ -42,6 +43,7 @@ int    g_grind_recon_max_layers = 0;
 string g_grind_halt_reason = "";
 bool   g_grind_last_invariant_ok = true;
 bool   g_grind_recon_ok = false;
+bool   g_grind_recon_verbose = false;
 
 //+------------------------------------------------------------------+
 void Grind_ReconResetSide(GrindSideState &side)
@@ -581,6 +583,8 @@ bool Grind_ReconstructState()
    Grind_ReconResetSide(g_grind_long);
    Grind_ReconResetSide(g_grind_short);
    Grind_ReconResetCounters();
+   ArrayResize(g_grind_long_closeby_queue, 0);
+   ArrayResize(g_grind_short_closeby_queue, 0);
 
    GrindReconTicket tickets[];
    const int count = Grind_ReconCollectBrokerTickets(tickets);
@@ -605,6 +609,7 @@ bool Grind_ReconstructState()
       return false;
    }
 
+   Grind_DeriveCloseByQueueFromBook(g_grind_recon_slot, g_grind_recon_verbose);
    return true;
 }
 
