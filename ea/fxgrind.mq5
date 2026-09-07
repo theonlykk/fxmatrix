@@ -104,6 +104,7 @@ int OnInit()
    g_grind_recon_slot = InpSlot;
    g_grind_recon_exit_pips = InpExitPips;
    g_grind_recon_max_layers = InpMaxLayers;
+   g_grind_recon_verbose = InpVerboseLog;
    g_grind_halted = false;
    g_grind_cap_blocked = false;
    g_grind_halt_reason = "";

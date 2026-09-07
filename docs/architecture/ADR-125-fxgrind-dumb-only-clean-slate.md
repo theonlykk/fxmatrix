@@ -85,8 +85,16 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    `req.position_by` = exit fill leg (newer). Retry limit `GRIND_CLOSEBY_MAX_RETRIES`
    (10); exhaustion with both legs still live halts fail-closed with CRITICAL
    telemetry naming both tickets. CloseBy sends route through `Grind_OrderSendCounted`.
-   The queue is transient (not persisted); Spec B OnInit re-derivation is a
-   separate task.
+   The queue is transient (not persisted). **OnInit derivation (ratified 2026-09-07):**
+   after reconstruction and invariant checks pass, each layer with `has_exit_position`
+   queues `{position_id, exit_position_id}` into the correct per-side array — ticket
+   order mirrors the live deal hook (`Grind_QueueCloseBy(..., orig_pos, position_id)` in
+   `grind_engine.mqh`). Reconstruction must **not** queue when invariants fail. Queueing
+   is idempotent inside `Grind_QueueCloseBy` (duplicate ticket pairs are ignored) so a
+   restart cannot double-queue when the deal hook replays a pre-restart exit fill against
+   an empty dedup array. Verbose init logs each derived pair (slot, side, layer, tickets).
+   No file, GlobalVariable, or deal history — Gate 1 statelessness preserved through the
+   pending-close window.
 
    **Scalp completion and P&L (ratified 2026-09-07):** A scalp completes on
    CloseBy success, not on exit-limit fill. `g_grind_scalp_count` and
@@ -216,5 +224,6 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - ADR-126 (simulation cost model — separate branch)
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
-  (T1–T52 including CloseBy exit tests T45–T52 and P&L telemetry tests T40–T44)
+  (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, and P&L
+  telemetry tests T40–T44)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)

@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T52)    |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58)    |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1107,6 +1107,201 @@ void Test_T52_InvariantExtPositionWithEntNotOrphan()
    AssertTrue("T52 not I4", StringFind(reason, "I4") < 0);
 }
 
+void Test_T53_ReconDerivesCloseByPair()
+{
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 3002; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_POSITION;
+
+   string reason = "";
+   AssertTrue("T53 rebuild ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                             3.0, 12, 0.00001,
+                                                             g_grind_long, g_grind_short,
+                                                             reason));
+   Grind_DeriveCloseByQueueFromBook("OPT", false);
+
+   AssertTrue("T53 one task", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 1);
+   AssertTrue("T53 short empty", Grind_CloseByQueueSize(g_grind_short_closeby_queue) == 0);
+   AssertTrue("T53 ticket1 entry", g_grind_long_closeby_queue[0].ticket1 == 1001);
+   AssertTrue("T53 ticket2 exit", g_grind_long_closeby_queue[0].ticket2 == 3002);
+
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T54_RestingExtOrderQueuesNothing()
+{
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+
+   string reason = "";
+   AssertTrue("T54 rebuild ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                             3.0, 12, 0.00001,
+                                                             g_grind_long, g_grind_short,
+                                                             reason));
+   Grind_DeriveCloseByQueueFromBook("OPT", false);
+
+   AssertTrue("T54 no long queue", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 0);
+   AssertTrue("T54 no short queue", Grind_CloseByQueueSize(g_grind_short_closeby_queue) == 0);
+
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T55_TwoPendingClosePairsQueueTwoTasks()
+{
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[4];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 3002; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[2].ticket = 4001; tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "S", 0, "ENT");
+   tickets[2].price = 1.25100; tickets[2].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[3].ticket = 5002; tickets[3].magic = magic;
+   tickets[3].comment = GrindCommentBuild("OPT", "S", 0, "EXT");
+   tickets[3].price = 1.25070; tickets[3].kind = GRIND_RECON_TICKET_POSITION;
+
+   string reason = "";
+   AssertTrue("T55 rebuild ok", Grind_RebuildBookFromTickets(tickets, 4, magic, "OPT",
+                                                             3.0, 12, 0.00001,
+                                                             g_grind_long, g_grind_short,
+                                                             reason));
+   Grind_DeriveCloseByQueueFromBook("OPT", false);
+
+   AssertTrue("T55 long one", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 1);
+   AssertTrue("T55 short one", Grind_CloseByQueueSize(g_grind_short_closeby_queue) == 1);
+   AssertTrue("T55 long pair", g_grind_long_closeby_queue[0].ticket1 == 1001
+                                && g_grind_long_closeby_queue[0].ticket2 == 3002);
+   AssertTrue("T55 short pair", g_grind_short_closeby_queue[0].ticket1 == 4001
+                                 && g_grind_short_closeby_queue[0].ticket2 == 5002);
+
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T56_InvariantFailQueuesNothing()
+{
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+
+   string reason = "";
+   AssertTrue("T56 halt", !Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                                        3.0, 12, 0.00001,
+                                                        g_grind_long, g_grind_short,
+                                                        reason));
+   AssertTrue("T56 no long queue", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 0);
+   AssertTrue("T56 no short queue", Grind_CloseByQueueSize(g_grind_short_closeby_queue) == 0);
+
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T57_QueueCloseByIdempotent()
+{
+   Grind_CloseByTestReset();
+
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 1001, 3002);
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 1001, 3002);
+
+   AssertTrue("T57 one task", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 1);
+   AssertTrue("T57 ticket1", g_grind_long_closeby_queue[0].ticket1 == 1001);
+   AssertTrue("T57 ticket2", g_grind_long_closeby_queue[0].ticket2 == 3002);
+
+   Grind_CloseByTestReset();
+}
+
+void Test_T57b_RestartSequenceSingleTask()
+{
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 3002; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030; tickets[1].kind = GRIND_RECON_TICKET_POSITION;
+
+   string reason = "";
+   AssertTrue("T57b rebuild ok", Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                               3.0, 12, 0.00001,
+                                                               g_grind_long, g_grind_short,
+                                                               reason));
+   Grind_DeriveCloseByQueueFromBook("OPT", false);
+   AssertTrue("T57b derived one", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 1);
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9701,
+                        GrindCommentBuild("OPT", "L", 0, "EXT"),
+                        DEAL_ENTRY_IN,
+                        2001,
+                        3002,
+                        0.0, 0.0, 0.0);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9701, magic, "OPT",
+                            3.0, 4.0, 12, 0.01);
+
+   AssertTrue("T57b still one", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 1);
+
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_T58_EmptyBookQueuesNothing()
+{
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+
+   GrindReconTicket tickets[];
+   string reason = "";
+   AssertTrue("T58 rebuild ok", Grind_RebuildBookFromTickets(tickets, 0,
+                                                             22260101UL, "OPT",
+                                                             3.0, 12, 0.00001,
+                                                             g_grind_long, g_grind_short,
+                                                             reason));
+   Grind_DeriveCloseByQueueFromBook("OPT", false);
+
+   AssertTrue("T58 no long queue", Grind_CloseByQueueSize(g_grind_long_closeby_queue) == 0);
+   AssertTrue("T58 no short queue", Grind_CloseByQueueSize(g_grind_short_closeby_queue) == 0);
+
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
 void Test_OrderBudgetArithmetic()
 {
    AssertTrue("budget 12 side", Grind_RestingOrderBudgetPerSide(12) == 13);
@@ -1176,6 +1371,13 @@ void OnStart()
    Test_T50_InvariantOpenExtPositionPasses();
    Test_T51_InvariantNeitherExitStillHalts();
    Test_T52_InvariantExtPositionWithEntNotOrphan();
+   Test_T53_ReconDerivesCloseByPair();
+   Test_T54_RestingExtOrderQueuesNothing();
+   Test_T55_TwoPendingClosePairsQueueTwoTasks();
+   Test_T56_InvariantFailQueuesNothing();
+   Test_T57_QueueCloseByIdempotent();
+   Test_T57b_RestartSequenceSingleTask();
+   Test_T58_EmptyBookQueuesNothing();
    Test_OrderBudgetArithmetic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }
