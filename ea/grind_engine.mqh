@@ -9,6 +9,7 @@
 #include "grind_recon.mqh"
 #include "grind_cap.mqh"
 #include "grind_api_counter.mqh"
+#include "grind_closeby.mqh"
 #include "grind_telemetry.mqh"
 
 //+------------------------------------------------------------------+
@@ -208,6 +209,7 @@ void Grind_AppendLayer(GrindSideState &side,
    side.layers[n].position_ticket = position_ticket;
    side.layers[n].layer_index = layer_index;
    side.layers[n].exit_order_ticket = 0;
+   side.layers[n].exit_position_ticket = 0;
    const int dir = is_long ? 1 : -1;
    side.layers[n].exit_target = Grind_ExitPrice(entry_price, exit_pips, _Point, dir);
    g_grind_fill_count++;
@@ -230,6 +232,16 @@ void Grind_RemoveLayerAt(GrindSideState &side, const int layer_idx)
 }
 
 //+------------------------------------------------------------------+
+int Grind_FindLayerByIndex(GrindSideState &side, const int layer_index)
+{
+   for(int i = 0; i < Grind_SideDepth(side); i++) {
+      if(side.layers[i].layer_index == layer_index)
+         return i;
+   }
+   return -1;
+}
+
+//+------------------------------------------------------------------+
 int Grind_FindLayerByExitOrder(GrindSideState &side, const ulong exit_order_ticket)
 {
    for(int i = 0; i < Grind_SideDepth(side); i++)
@@ -243,6 +255,8 @@ int Grind_FindLayerByPosition(GrindSideState &side, const ulong position_id)
 {
    for(int i = 0; i < Grind_SideDepth(side); i++) {
       if(side.layers[i].position_ticket == position_id)
+         return i;
+      if(side.layers[i].exit_position_ticket == position_id)
          return i;
    }
    return -1;
@@ -314,6 +328,118 @@ void Grind_EnsureAddNext(GrindSideState &side,
 }
 
 //+------------------------------------------------------------------+
+// Unit-test hooks for deal fill processing (no HistoryDealSelect when active).
+bool   g_grind_deal_test_active = false;
+
+struct GrindDealTestRecord
+{
+   ulong  deal_ticket;
+   string symbol;
+   long   magic;
+   string comment;
+   long   entry_type;
+   ulong  order_ticket;
+   ulong  position_id;
+   double price;
+   double profit;
+   double swap;
+   double commission;
+};
+
+GrindDealTestRecord g_grind_deal_test_records[];
+int g_grind_deal_test_count = 0;
+
+//+------------------------------------------------------------------+
+void Grind_DealTestReset()
+{
+   g_grind_deal_test_active = false;
+   ArrayResize(g_grind_deal_test_records, 0);
+   g_grind_deal_test_count = 0;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_DealTestFind(const ulong deal_ticket, GrindDealTestRecord &out)
+{
+   for(int i = 0; i < g_grind_deal_test_count; i++) {
+      if(g_grind_deal_test_records[i].deal_ticket == deal_ticket) {
+         out = g_grind_deal_test_records[i];
+         return true;
+      }
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_DealSelect(const ulong deal_ticket)
+{
+   if(g_grind_deal_test_active) {
+      GrindDealTestRecord rec;
+      return Grind_DealTestFind(deal_ticket, rec);
+   }
+   return HistoryDealSelect(deal_ticket);
+}
+
+//+------------------------------------------------------------------+
+string Grind_DealGetString(const ulong deal_ticket, const ENUM_DEAL_PROPERTY_STRING prop)
+{
+   if(g_grind_deal_test_active) {
+      GrindDealTestRecord rec;
+      if(!Grind_DealTestFind(deal_ticket, rec))
+         return "";
+      if(prop == DEAL_SYMBOL)
+         return rec.symbol;
+      if(prop == DEAL_COMMENT)
+         return rec.comment;
+      return "";
+   }
+   return HistoryDealGetString(deal_ticket, prop);
+}
+
+//+------------------------------------------------------------------+
+long Grind_DealGetInteger(const ulong deal_ticket, const ENUM_DEAL_PROPERTY_INTEGER prop)
+{
+   if(g_grind_deal_test_active) {
+      GrindDealTestRecord rec;
+      if(!Grind_DealTestFind(deal_ticket, rec))
+         return 0;
+      if(prop == DEAL_MAGIC)
+         return rec.magic;
+      if(prop == DEAL_ENTRY)
+         return rec.entry_type;
+      if(prop == DEAL_ORDER)
+         return (long)rec.order_ticket;
+      if(prop == DEAL_POSITION_ID)
+         return (long)rec.position_id;
+      if(prop == DEAL_TIME)
+         return (long)rec.deal_ticket;
+      if(prop == DEAL_TIME_MSC)
+         return (long)rec.deal_ticket * 1000;
+      return 0;
+   }
+   return HistoryDealGetInteger(deal_ticket, prop);
+}
+
+//+------------------------------------------------------------------+
+double Grind_DealGetDouble(const ulong deal_ticket, const ENUM_DEAL_PROPERTY_DOUBLE prop)
+{
+   if(g_grind_deal_test_active) {
+      GrindDealTestRecord rec;
+      if(!Grind_DealTestFind(deal_ticket, rec))
+         return 0.0;
+      if(prop == DEAL_PRICE)
+         return rec.price;
+      if(prop == DEAL_PROFIT)
+         return rec.profit;
+      if(prop == DEAL_SWAP)
+         return rec.swap;
+      if(prop == DEAL_COMMISSION)
+         return rec.commission;
+      return 0.0;
+   }
+   return HistoryDealGetDouble(deal_ticket, prop);
+}
+
+//+------------------------------------------------------------------+
 void Grind_HandleSideDealFill(GrindSideState &side,
                               const bool is_long,
                               const ulong deal_ticket,
@@ -326,28 +452,54 @@ void Grind_HandleSideDealFill(GrindSideState &side,
 {
    if(Grind_DealWasProcessed(deal_ticket))
       return;
-   if(!HistoryDealSelect(deal_ticket))
+   if(!Grind_DealSelect(deal_ticket))
       return;
 
-   if(HistoryDealGetString(deal_ticket, DEAL_SYMBOL) != _Symbol)
+   if(Grind_DealGetString(deal_ticket, DEAL_SYMBOL) != _Symbol)
       return;
-   if(!Grind_MagicMatches(HistoryDealGetInteger(deal_ticket, DEAL_MAGIC), magic))
+   if(!Grind_MagicMatches(Grind_DealGetInteger(deal_ticket, DEAL_MAGIC), magic))
       return;
 
-   const string deal_comment = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
+   if(Grind_DealGetString(deal_ticket, DEAL_SYMBOL) != _Symbol)
+      return;
+   if(!Grind_MagicMatches(Grind_DealGetInteger(deal_ticket, DEAL_MAGIC), magic))
+      return;
+
+   const long entry_type = Grind_DealGetInteger(deal_ticket, DEAL_ENTRY);
+   const ulong order_ticket = (ulong)Grind_DealGetInteger(deal_ticket, DEAL_ORDER);
+   const ulong position_id = (ulong)Grind_DealGetInteger(deal_ticket, DEAL_POSITION_ID);
+   const double deal_price = Grind_DealGetDouble(deal_ticket, DEAL_PRICE);
+
+   if(entry_type == DEAL_ENTRY_OUT_BY) {
+      Grind_MarkDealProcessed(deal_ticket);
+
+      for(int i = 0; i < Grind_SideDepth(side); i++) {
+         if(side.layers[i].position_ticket != position_id)
+            continue;
+         if(side.layers[i].exit_position_ticket == 0)
+            continue;
+
+         const double deal_profit = Grind_DealGetDouble(deal_ticket, DEAL_PROFIT);
+         const double deal_swap = Grind_DealGetDouble(deal_ticket, DEAL_SWAP);
+         const double deal_commission = Grind_DealGetDouble(deal_ticket, DEAL_COMMISSION);
+         Grind_AccumulateScalpPnl(deal_profit, deal_swap, deal_commission);
+         Grind_RemoveLayerAt(side, i);
+         return;
+      }
+      return;
+   }
+
+   const string deal_comment = Grind_DealGetString(deal_ticket, DEAL_COMMENT);
    string c_slot, c_side, c_role;
    int c_layer;
    if(!GrindCommentParse(deal_comment, c_slot, c_side, c_layer, c_role))
+      return;
+   if(c_slot != slot)
       return;
    if(is_long && c_side != "L")
       return;
    if(!is_long && c_side != "S")
       return;
-
-   const long entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
-   const ulong order_ticket = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_ORDER);
-   const ulong position_id = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
-   const double deal_price = HistoryDealGetDouble(deal_ticket, DEAL_PRICE);
 
    Grind_MarkDealProcessed(deal_ticket);
 
@@ -362,23 +514,28 @@ void Grind_HandleSideDealFill(GrindSideState &side,
       return;
    }
 
-   if(c_role == "EXT" && entry_type == DEAL_ENTRY_OUT) {
-      const double deal_profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
-      const double deal_swap = HistoryDealGetDouble(deal_ticket, DEAL_SWAP);
-      const double deal_commission = HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
-      Grind_AccumulateScalpPnl(deal_profit, deal_swap, deal_commission);
+   if(c_role == "EXT" && entry_type == DEAL_ENTRY_IN) {
+      int layer_idx = Grind_FindLayerByExitOrder(side, order_ticket);
+      if(layer_idx < 0)
+         layer_idx = Grind_FindLayerByIndex(side, c_layer);
+      if(layer_idx < 0)
+         return;
 
-      const datetime fill_time = (datetime)HistoryDealGetInteger(deal_ticket, DEAL_TIME);
-      const long fill_time_msc = HistoryDealGetInteger(deal_ticket, DEAL_TIME_MSC);
+      const ulong orig_pos = side.layers[layer_idx].position_ticket;
+      side.layers[layer_idx].exit_order_ticket = 0;
+      side.layers[layer_idx].exit_position_ticket = position_id;
+
+      GrindCloseByTask &cb_queue = is_long ? g_grind_long_closeby_queue
+                                           : g_grind_short_closeby_queue;
+      if(orig_pos > 0 && position_id > 0)
+         Grind_QueueCloseBy(cb_queue, orig_pos, position_id);
+
+      const datetime fill_time = (datetime)Grind_DealGetInteger(deal_ticket, DEAL_TIME);
+      const long fill_time_msc = Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
       const double spread_pips = Grind_SpreadPipsLive(_Point);
       Grind_QueueExitMicrostructureMeasure(fill_time, fill_time_msc, deal_price,
                                            is_long, spread_pips);
-
-      int layer_idx = Grind_FindLayerByExitOrder(side, order_ticket);
-      if(layer_idx < 0)
-         layer_idx = Grind_FindLayerByPosition(side, position_id);
-      if(layer_idx >= 0)
-         Grind_RemoveLayerAt(side, layer_idx);
+      return;
    }
 }
 
@@ -468,11 +625,13 @@ void Grind_OnTickEngine(const ulong magic,
    Grind_OnSideCapTransition(g_grind_short, Grind_SideDepth(g_grind_short), max_layers);
 
    for(int i = 0; i < Grind_SideDepth(g_grind_long); i++) {
-      if(g_grind_long.layers[i].exit_order_ticket == 0)
+      if(g_grind_long.layers[i].exit_order_ticket == 0 &&
+         g_grind_long.layers[i].exit_position_ticket == 0)
          Grind_TryPlaceExitForLayer(g_grind_long.layers[i], true, magic, slot, lots);
    }
    for(int i = 0; i < Grind_SideDepth(g_grind_short); i++) {
-      if(g_grind_short.layers[i].exit_order_ticket == 0)
+      if(g_grind_short.layers[i].exit_order_ticket == 0 &&
+         g_grind_short.layers[i].exit_position_ticket == 0)
          Grind_TryPlaceExitForLayer(g_grind_short.layers[i], false, magic, slot, lots);
    }
 

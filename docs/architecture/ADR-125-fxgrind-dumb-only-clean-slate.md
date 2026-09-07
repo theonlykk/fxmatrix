@@ -2,9 +2,10 @@
 
 ## Status
 
-Proposed — 2026-09-06. Spec A of B (engine, presets, placement, caps) and
-Spec B (comment-only state reconstruction + CAS currency cap) implemented.
-Not committed until Khalid clears the two-step commit gate.
+Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B).
+Spec A of B (engine, presets, placement, caps) and Spec B (comment-only state
+reconstruction + CAS currency cap) implemented. CloseBy queue port completes
+the hedging-account exit path (Spec A closeby-exits branch).
 
 ## Context
 
@@ -67,17 +68,53 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 
 8. **Spec B — comment-only state reconstruction.** OnInit rebuilds from open
    **positions** and resting **orders** with exact magic equality only. No deal
-   history, no 90-day lookback, no CloseBy pairing, no price-geometry inference.
+   history, no 90-day lookback, no price-geometry inference.
    The retired `fxmatrix_v2_sre_oninit.mqh` / `fxmatrix_v2_state_reconstruction.mqh`
-   (~2,420 lines) are explicitly rejected. `GrindCommentParse` is the sole layer
-   identity source; unparseable tickets halt. Entry prices and exit targets are
-   read from the broker, never recomputed. Telemetry counters reset to zero.
-   Empty book is valid (genesis / Complete Purge).
+   (~2,420 lines) are explicitly rejected for fxgrind. `GrindCommentParse` is the
+   sole layer identity source; unparseable tickets halt. Entry prices and exit
+   targets are read from the broker, never recomputed. Telemetry counters reset
+   to zero. Empty book is valid (genesis / Complete Purge).
+
+   **CloseBy queue (hedging account, ratified 2026-09-07):** On FTMO hedging,
+   an opposing exit limit fill opens a **new position** (`DEAL_ENTRY_IN`), it does
+   not close the entry leg. fxgrind ports the proven v2 three-part exit:
+   (1) place opposing limit, (2) on fill queue `{entry_ticket, hedge_ticket}`,
+   (3) `TRADE_ACTION_CLOSE_BY` via per-side in-memory retry queues
+   (`g_grind_long_closeby_queue` / `g_grind_short_closeby_queue`) processed every
+   `OnTick`. Ticket order matches v2: `req.position` = original entry leg (older),
+   `req.position_by` = exit fill leg (newer). Retry limit `GRIND_CLOSEBY_MAX_RETRIES`
+   (10); exhaustion with both legs still live halts fail-closed with CRITICAL
+   telemetry naming both tickets. CloseBy sends route through `Grind_OrderSendCounted`.
+   The queue is transient (not persisted); Spec B OnInit re-derivation is a
+   separate task.
+
+   **Scalp completion and P&L (ratified 2026-09-07):** A scalp completes on
+   CloseBy success, not on exit-limit fill. `g_grind_scalp_count` and
+   `realised_pnl_today` increment in the `DEAL_ENTRY_OUT_BY` deal hook on the
+   **entry leg** (`position_id == layer.position_ticket`), net of
+   `DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION`. `DEAL_ENTRY_IN` from an exit
+   fill does not count. The retired `DEAL_ENTRY_OUT` path never fires on hedging
+   CloseBy and must not be used.
+
+   **Note on retired SRE CloseBy pairing:** The original Spec B framing treated
+   v2 CloseBy pairing as avoidable legacy complexity. That was mistaken. On a
+   hedging account it is the necessary second half of the exit model; omitting it
+   left entry layers naked after the first exit fill (observed live 2026-09-07:
+   `I3_SHORT_NAKED` halt on EURGBP OPT/ALT with simultaneous buy/sell positions
+   under magic 22260301). Do not repeat that error.
 
 9. **Spec B — book invariants (read-only, no auto-repair).** I1–I7 checked at
    rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
    contiguous layer indices, exit within `2 × _Point` of entry ± `InpExitPips`,
    depth ≤ `InpMaxLayers`. Violations halt with named CRITICAL reason.
+
+   **Covered-layer amendment (ratified 2026-09-07):** A layer is covered if it
+   has **either** (a) a resting EXT limit order, **or** (b) an open EXT position
+   (filled, awaiting CloseBy), matched by **slot + side + layer index** from the
+   comment (`GrindCommentParse` fields). I3 fires only when a layer has an ENT
+   position and **neither** exit form. I4 orphan-exit fires only when an EXT
+   artifact exists without a matching ENT layer at the same slot/side/layer index.
+   The transient post-fill / pre-CloseBy state is legitimate and must not halt.
 
 10. **Spec B — CAS currency cap.** Cross-instance exposure via MT5 GlobalVariables
     under `GRIND2226_<magic>_<LEG>` plus companion `GRIND2226_<magic>_<LEG>_time`
@@ -142,7 +179,7 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     | Field | Composition / semantics |
     |-------|-------------------------|
     | `net_mtm` | Floating **inventory** readout — not realised performance, not a risk-gate input (gates run on broker equity). Sum over open positions matching `InpMagic` by exact equality: `POSITION_PROFIT + POSITION_SWAP`. `POSITION_PROFIT` is unrealised price P&L; `POSITION_SWAP` is cumulative swap. **Commission deliberately excluded:** `POSITION_COMMISSION` is deprecated in MQL5; entry commission at 0.01 lots is ~$0.03/leg (&lt;$1 across a full grid vs a $500 daily gate); and `HistorySelectByPosition` would mutate shared history-selection state also used by `grind_recon.mqh` and the deal hook — unacceptable coupling on the timer path for a sub-dollar gain. Full commission is captured in `realised_pnl_today` via `DEAL_COMMISSION`; the OPT/ALT comparison runs on that field, not `net_mtm`. |
-    | `realised_pnl_today` | Net of `DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION` on each completed scalp (EXT / `DEAL_ENTRY_OUT`). Resets daily at the **TimeTradeServer()** day boundary — FTMO trade servers run natively on CE(S)T, so `TimeTradeServer()` handles DST natively and matches the risk-gate day boundary. No hand-rolled GMT offset; no `TimeLocal()`. |
+    | `realised_pnl_today` | Net of `DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION` on each completed scalp (`DEAL_ENTRY_OUT_BY` on the entry leg after CloseBy). Resets daily at the **TimeTradeServer()** day boundary — FTMO trade servers run natively on CE(S)T, so `TimeTradeServer()` handles DST natively and matches the risk-gate day boundary. No hand-rolled GMT offset; no `TimeLocal()`. |
     | `scalp_pnl_last` | Net P&L of the most recent completed scalp (same three-part composition). |
     | `exit_penetration_pips_last` | Maximum favourable excursion (pips) beyond the exit fill price within `GRIND_EXIT_PENETRATION_WINDOW_SEC` (30 s) after fill. |
     | `exit_penetration_pips_mean` | Running mean of `exit_penetration_pips_last` for the current server day. |
@@ -152,14 +189,14 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     accumulators are **not** persisted across restarts (same as fill/scalp counters).
     A restart resets them; this preserves Gate 1 statelessness.
 
-    **Exit microstructure derivation:** On EXT deal close, the fill timestamp and
-    exit price are queued. `Grind_ProcessPendingExitMicrostructure()` runs on
-    `OnTimer` (after the 30 s window elapses), calling `CopyTicksRange` over
+    **Exit microstructure derivation:** On EXT limit fill (`DEAL_ENTRY_IN`), the
+    fill timestamp and exit price are queued. `Grind_ProcessPendingExitMicrostructure()`
+    runs on `OnTimer` (after the 30 s window elapses), calling `CopyTicksRange` over
     `[fill_time, fill_time + 30 s]` to compute maximum favourable excursion
-    statelessly. **Zero additions to OnTick** — the execution thread is not
-    polluted with tick buffers or post-fill watch loops. Touch-and-revert uses
-    spread width captured at fill time; penetration below one spread width
-    increments `exit_touch_revert_count`.
+    statelessly. **Zero additions to OnTick** beyond CloseBy queue processing —
+    the execution thread is not polluted with tick buffers or post-fill watch loops.
+    Touch-and-revert uses spread width captured at fill time; penetration below one
+    spread width increments `exit_touch_revert_count`.
 
 ## Consequences
 
@@ -179,4 +216,5 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - ADR-126 (simulation cost model — separate branch)
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
-  (T1–T44 including P&L telemetry tests T40–T44)
+  (T1–T52 including CloseBy exit tests T45–T52 and P&L telemetry tests T40–T44)
+- `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)

@@ -26,9 +26,11 @@ struct GrindReconLayerScratch
    bool     has_position;
    double   entry_price;
    ulong    position_id;
-   bool     has_exit;
+   bool     has_exit_order;
+   bool     has_exit_position;
    double   exit_target;
    ulong    exit_order_ticket;
+   ulong    exit_position_id;
    int      layer_index;
 };
 
@@ -102,11 +104,13 @@ bool Grind_ReconEnsureLayer(GrindReconLayerScratch &layers[],
    layer_indices[layer_count] = layer_index;
    layers[layer_count].layer_index = layer_index;
    layers[layer_count].has_position = false;
-   layers[layer_count].has_exit = false;
+   layers[layer_count].has_exit_order = false;
+   layers[layer_count].has_exit_position = false;
    layers[layer_count].entry_price = 0.0;
    layers[layer_count].exit_target = 0.0;
    layers[layer_count].position_id = 0;
    layers[layer_count].exit_order_ticket = 0;
+   layers[layer_count].exit_position_id = 0;
    layer_count++;
    return true;
 }
@@ -149,6 +153,12 @@ bool Grind_ReconExitMatchesEntry(const double entry,
    const int dir = is_long ? 1 : -1;
    const double expected = Grind_ExitPrice(entry, exit_pips, point, dir);
    return (MathAbs(exit_target - expected) <= 2.0 * point);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ReconLayerHasExitCoverage(const GrindReconLayerScratch &layer)
+{
+   return layer.has_exit_order || layer.has_exit_position;
 }
 
 //+------------------------------------------------------------------+
@@ -195,7 +205,7 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          reason_out = "I3_LONG_NAKED";
          return false;
       }
-      if(!long_layers[i].has_exit) {
+      if(!Grind_ReconLayerHasExitCoverage(long_layers[i])) {
          reason_out = "I3_LONG_NAKED";
          return false;
       }
@@ -212,7 +222,7 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          reason_out = "I3_SHORT_NAKED";
          return false;
       }
-      if(!short_layers[i].has_exit) {
+      if(!Grind_ReconLayerHasExitCoverage(short_layers[i])) {
          reason_out = "I3_SHORT_NAKED";
          return false;
       }
@@ -226,10 +236,18 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
 
    for(int i = 0; i < long_count; i++) {
       int exit_count = 0;
-      for(int j = 0; j < long_count; j++) {
-         if(long_layers[j].has_exit
-            && long_layers[j].exit_order_ticket == long_layers[i].exit_order_ticket)
-            exit_count++;
+      if(long_layers[i].has_exit_order) {
+         for(int j = 0; j < long_count; j++) {
+            if(long_layers[j].has_exit_order
+               && long_layers[j].exit_order_ticket == long_layers[i].exit_order_ticket)
+               exit_count++;
+         }
+      } else if(long_layers[i].has_exit_position) {
+         for(int j = 0; j < long_count; j++) {
+            if(long_layers[j].has_exit_position
+               && long_layers[j].exit_position_id == long_layers[i].exit_position_id)
+               exit_count++;
+         }
       }
       if(exit_count != 1) {
          reason_out = "I1_LONG_EXIT_COUNT";
@@ -239,10 +257,18 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
 
    for(int i = 0; i < short_count; i++) {
       int exit_count = 0;
-      for(int j = 0; j < short_count; j++) {
-         if(short_layers[j].has_exit
-            && short_layers[j].exit_order_ticket == short_layers[i].exit_order_ticket)
-            exit_count++;
+      if(short_layers[i].has_exit_order) {
+         for(int j = 0; j < short_count; j++) {
+            if(short_layers[j].has_exit_order
+               && short_layers[j].exit_order_ticket == short_layers[i].exit_order_ticket)
+               exit_count++;
+         }
+      } else if(short_layers[i].has_exit_position) {
+         for(int j = 0; j < short_count; j++) {
+            if(short_layers[j].has_exit_position
+               && short_layers[j].exit_position_id == short_layers[i].exit_position_id)
+               exit_count++;
+         }
       }
       if(exit_count != 1) {
          reason_out = "I1_SHORT_EXIT_COUNT";
@@ -286,6 +312,8 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
          reason_out = "UNPARSEABLE_COMMENT";
          return false;
       }
+      if(c_slot != slot)
+         continue;
 
       const bool is_long = (c_side == "L");
 
@@ -320,23 +348,57 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
          if(is_long) {
             if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx))
                return false;
-            if(long_scratch[idx].has_exit) {
+            if(long_scratch[idx].has_exit_order || long_scratch[idx].has_exit_position) {
                reason_out = "I2_LONG_EXIT_DUP";
                return false;
             }
-            long_scratch[idx].has_exit = true;
+            long_scratch[idx].has_exit_order = true;
             long_scratch[idx].exit_target = tickets[i].price;
             long_scratch[idx].exit_order_ticket = tickets[i].ticket;
          } else {
             if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx))
                return false;
-            if(short_scratch[idx].has_exit) {
+            if(short_scratch[idx].has_exit_order || short_scratch[idx].has_exit_position) {
                reason_out = "I2_SHORT_EXIT_DUP";
                return false;
             }
-            short_scratch[idx].has_exit = true;
+            short_scratch[idx].has_exit_order = true;
             short_scratch[idx].exit_target = tickets[i].price;
             short_scratch[idx].exit_order_ticket = tickets[i].ticket;
+         }
+         continue;
+      }
+
+      if(c_role == "EXT" && tickets[i].kind == GRIND_RECON_TICKET_POSITION) {
+         int idx = -1;
+         if(is_long) {
+            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx))
+               return false;
+            if(long_scratch[idx].has_exit_position) {
+               reason_out = "I2_LONG_EXIT_DUP";
+               return false;
+            }
+            if(long_scratch[idx].has_exit_order) {
+               long_scratch[idx].has_exit_order = false;
+               long_scratch[idx].exit_order_ticket = 0;
+            }
+            long_scratch[idx].has_exit_position = true;
+            long_scratch[idx].exit_target = tickets[i].price;
+            long_scratch[idx].exit_position_id = tickets[i].ticket;
+         } else {
+            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx))
+               return false;
+            if(short_scratch[idx].has_exit_position) {
+               reason_out = "I2_SHORT_EXIT_DUP";
+               return false;
+            }
+            if(short_scratch[idx].has_exit_order) {
+               short_scratch[idx].has_exit_order = false;
+               short_scratch[idx].exit_order_ticket = 0;
+            }
+            short_scratch[idx].has_exit_position = true;
+            short_scratch[idx].exit_target = tickets[i].price;
+            short_scratch[idx].exit_position_id = tickets[i].ticket;
          }
          continue;
       }
@@ -376,21 +438,21 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
    }
 
    for(int i = 0; i < long_count; i++) {
-      if(long_scratch[i].has_position && !long_scratch[i].has_exit) {
+      if(long_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
          reason_out = "I3_LONG_NAKED";
          return false;
       }
-      if(!long_scratch[i].has_position && long_scratch[i].has_exit) {
+      if(!long_scratch[i].has_position && Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
          reason_out = "I4_LONG_ORPHAN_EXIT";
          return false;
       }
    }
    for(int i = 0; i < short_count; i++) {
-      if(short_scratch[i].has_position && !short_scratch[i].has_exit) {
+      if(short_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
          reason_out = "I3_SHORT_NAKED";
          return false;
       }
-      if(!short_scratch[i].has_position && short_scratch[i].has_exit) {
+      if(!short_scratch[i].has_position && Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
          reason_out = "I4_SHORT_ORPHAN_EXIT";
          return false;
       }
@@ -418,6 +480,7 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
       long_out.layers[n].exit_target = long_scratch[idx].exit_target;
       long_out.layers[n].position_ticket = long_scratch[idx].position_id;
       long_out.layers[n].exit_order_ticket = long_scratch[idx].exit_order_ticket;
+      long_out.layers[n].exit_position_ticket = long_scratch[idx].exit_position_id;
       long_out.layers[n].layer_index = long_scratch[idx].layer_index;
    }
 
@@ -438,6 +501,7 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
       short_out.layers[n].exit_target = short_scratch[idx].exit_target;
       short_out.layers[n].position_ticket = short_scratch[idx].position_id;
       short_out.layers[n].exit_order_ticket = short_scratch[idx].exit_order_ticket;
+      short_out.layers[n].exit_position_ticket = short_scratch[idx].exit_position_id;
       short_out.layers[n].layer_index = short_scratch[idx].layer_index;
    }
 
