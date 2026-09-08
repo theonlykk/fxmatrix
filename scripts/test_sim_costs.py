@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for scripts/sim_costs.py — mandatory regression suite (T1–T8)."""
+"""Unit tests for scripts/sim_costs.py — mandatory regression suite (T1–T8, J1–J8)."""
 from __future__ import annotations
 
 import unittest
@@ -101,6 +101,98 @@ class TestSimCosts(unittest.TestCase):
         )
         self.assertAlmostEqual(gates["max_absolute_drawdown_usd"], 1100.0, places=2)
         self.assertTrue(gates["gate_b_total_loss_breach"])
+
+
+class TestJpyPipParity(unittest.TestCase):
+    """J1–J8: JPY pip-value parity — independently derived expected values."""
+
+    LOTS = 0.01
+    USDJPY_RATE = 153.63
+    # 0.01 lots = 1,000 units; 1 pip = 0.01 JPY → 10 JPY per pip (J2 derivation)
+    JPY_PIP_VALUE = 1_000.0 * 0.01
+    USD_PIP_AT_RATE = JPY_PIP_VALUE / USDJPY_RATE  # 10 / 153.63 ≈ 0.0651
+
+    def test_j1_pip_size_one_pip_not_one_hundred(self):
+        """J1: pip_size 0.01 — a 0.01 price move is ONE pip, not one hundred."""
+        spec = sim_costs.get_pair_spec("USDJPY")
+        self.assertEqual(spec.pip_size, 0.01)
+        pips_one = 0.01 / spec.pip_size
+        self.assertAlmostEqual(pips_one, 1.0, places=9)
+        # If pip_size were wrongly 0.0001, the same move would count as 100 pips.
+        self.assertAlmostEqual(0.01 / 0.0001, 100.0, places=9)
+
+    def test_j2_pip_value_quote_currency_ten_jpy(self):
+        """J2: pip_value_quote_currency at 0.01 lots = 10.0 JPY."""
+        expected = self.JPY_PIP_VALUE
+        actual = sim_costs.pip_value_quote_currency("USDJPY", self.LOTS)
+        self.assertAlmostEqual(actual, expected, places=9)
+        self.assertAlmostEqual(actual, 10.0, places=9)
+
+    def test_j3_pip_value_usd_divides_by_rate(self):
+        """J3: pip_value_usd = 10 / 153.63 ≈ 0.0651 USD (not 0.10 USD-quoted flat)."""
+        expected = self.USD_PIP_AT_RATE
+        actual = sim_costs.pip_value_usd(
+            "USDJPY", self.LOTS, conversion_rate=self.USDJPY_RATE
+        )
+        self.assertAlmostEqual(actual, expected, places=6)
+        self.assertAlmostEqual(round(expected, 4), 0.0651, places=4)
+        self.assertNotAlmostEqual(actual, 0.10, places=2)
+
+    def test_j4_higher_usdjpy_rate_lowers_usd_pip_value(self):
+        """J4: JPY-quoted pairs divide by rate — higher USDJPY → lower USD pip value."""
+        rate_low = 150.0
+        rate_high = 160.0
+        pip_low = self.JPY_PIP_VALUE / rate_low
+        pip_high = self.JPY_PIP_VALUE / rate_high
+        self.assertLess(pip_high, pip_low)
+        actual_low = sim_costs.pip_value_usd("USDJPY", self.LOTS, conversion_rate=rate_low)
+        actual_high = sim_costs.pip_value_usd("USDJPY", self.LOTS, conversion_rate=rate_high)
+        self.assertAlmostEqual(actual_low, pip_low, places=9)
+        self.assertAlmostEqual(actual_high, pip_high, places=9)
+        self.assertLess(actual_high, actual_low)
+
+    def test_j5_three_pip_scalp_net_not_usd_quoted(self):
+        """J5: 3-pip USDJPY scalp nets 0.1353 USD, not 0.24 (USD-quoted answer)."""
+        gross_expected = 3.0 * self.USD_PIP_AT_RATE
+        commission = sim_costs.commission_round_trip_usd(self.LOTS)
+        net_expected = gross_expected - commission
+        self.assertAlmostEqual(round(net_expected, 4), 0.1353, places=4)
+        entry = self.USDJPY_RATE
+        exit_ = entry + 3.0 * 0.01
+        net_actual = sim_costs.pnl(
+            entry, exit_, "USDJPY", self.LOTS, direction=1,
+            conversion_rate=self.USDJPY_RATE,
+        )
+        self.assertAlmostEqual(net_actual, net_expected, places=6)
+        self.assertNotAlmostEqual(round(net_actual, 2), 0.24, places=2)
+
+    def test_j6_omitting_conversion_rate_raises(self):
+        """J6: JPY pair without conversion_rate raises — no silent default."""
+        with self.assertRaises(ValueError) as ctx:
+            sim_costs.pip_value_usd("USDJPY", self.LOTS)
+        self.assertIn("conversion_rate", str(ctx.exception))
+
+    def test_j7_audjpy_same_usd_pip_as_usdjpy(self):
+        """J7: AUDJPY USD pip value equals USDJPY — base currency must not leak."""
+        expected = self.USD_PIP_AT_RATE
+        actual = sim_costs.pip_value_usd(
+            "AUDJPY", self.LOTS, conversion_rate=self.USDJPY_RATE
+        )
+        self.assertAlmostEqual(actual, expected, places=6)
+        self.assertEqual(
+            sim_costs.get_pair_spec("AUDJPY").conversion_pair, "USDJPY"
+        )
+
+    def test_j8_chfjpy_same_usd_pip_as_usdjpy(self):
+        """J8: CHFJPY USD pip value equals USDJPY — base currency must not leak."""
+        expected = self.USD_PIP_AT_RATE
+        actual = sim_costs.pip_value_usd(
+            "CHFJPY", self.LOTS, conversion_rate=self.USDJPY_RATE
+        )
+        self.assertAlmostEqual(actual, expected, places=6)
+        self.assertEqual(
+            sim_costs.get_pair_spec("CHFJPY").conversion_pair, "USDJPY"
+        )
 
 
 if __name__ == "__main__":
