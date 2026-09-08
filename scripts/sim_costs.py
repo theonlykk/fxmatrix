@@ -31,6 +31,11 @@ PAIR_SPREAD_PIPS: dict[str, float] = {
     "EURUSD": 0.18,
     "GBPUSD": 0.64,
     "EURGBP": 0.58,
+    # JPY — single-observation Labor Day session snapshots (FTMO terminal);
+    # re-measure before informing any deployment decision.
+    "USDJPY": 1.1,
+    "AUDJPY": 1.6,
+    "CHFJPY": 2.6,
 }
 
 
@@ -75,15 +80,34 @@ PAIR_SPECS: dict[str, PairSpec] = {
         spread_pips=PAIR_SPREAD_PIPS["EURGBP"],
         conversion_pair="GBPUSD",
     ),
-    # Template for JPY pairs — not yet used in production sweeps.
+    # JPY pairs — point and pip_size both equal one pip in price units (0.01),
+    # not the MT5 tick size (0.001 on three-decimal quotes). See test_sim_costs J1.
     "USDJPY": PairSpec(
         symbol="USDJPY",
         point=0.01,
         pip_size=0.01,
         quote_currency="JPY",
         contract_size=100_000.0,
-        spread_pips=0.30,
+        spread_pips=PAIR_SPREAD_PIPS["USDJPY"],
         conversion_pair=None,
+    ),
+    "AUDJPY": PairSpec(
+        symbol="AUDJPY",
+        point=0.01,
+        pip_size=0.01,
+        quote_currency="JPY",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["AUDJPY"],
+        conversion_pair="USDJPY",
+    ),
+    "CHFJPY": PairSpec(
+        symbol="CHFJPY",
+        point=0.01,
+        pip_size=0.01,
+        quote_currency="JPY",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["CHFJPY"],
+        conversion_pair="USDJPY",
     ),
 }
 
