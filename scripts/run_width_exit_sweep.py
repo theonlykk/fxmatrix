@@ -309,6 +309,7 @@ def _worker_cell(payload: dict) -> dict:
                     straddle_half_width_pips=payload["width"],
                     exit_pips=payload["exit_pips"],
                     track_l0_stats=True,
+                    max_layers=payload["max_layers"],
                     **sim_kwargs,
                 )
             )
@@ -359,6 +360,7 @@ def _run_one_cell_local(
                 straddle_half_width_pips=width,
                 exit_pips=exit_pips,
                 track_l0_stats=True,
+                max_layers=sim_costs.get_pair_max_layers(pair),
                 **sim_kwargs,
             )
         )
@@ -379,6 +381,7 @@ def aggregate_seed_results(
     pnls = [r["pnl_total_usd"] for r in seed_results]
     realised = [r["pnl_realised_usd"] for r in seed_results]
     max_layers = [r["max_layers"] for r in seed_results]
+    cap_reached_count = sum(1 for r in seed_results if r.get("cap_reached"))
     dd3 = sum(1 for r in seed_results if r["drawdown_exceeded_3pct"])
     dd4 = sum(1 for r in seed_results if r["drawdown_exceeded_4pct"])
     gate_a = sum(1 for r in seed_results if r.get("gate_a_daily_loss_breach"))
@@ -411,6 +414,8 @@ def aggregate_seed_results(
         "dd4_rate": dd4 / n * 100.0,
         "mean_max_layers": float(np.mean(max_layers)),
         "max_max_layers": int(np.max(max_layers)),
+        "cap_reached_count": cap_reached_count,
+        "cap_reached_rate": cap_reached_count / n * 100.0,
         "mean_exits": mean_exits,
         "harvest_per_hr": harvest_per_hr,
         "l0_unwind_n": int(len(hold_arr)),
@@ -447,6 +452,8 @@ def aggregate_seed_results(
 # Sorted per-cell field names written by aggregate_seed_results + cell metadata.
 CELL_SCHEMA_FIELDS = sorted(
     [
+        "cap_reached_count",
+        "cap_reached_rate",
         "cell_elapsed_sec",
         "cell_key",
         "dd3_count",
@@ -638,6 +645,7 @@ def run_sweep(
                 (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
             )
             pair_spread = sim_costs.get_pair_spread_pips(pair)
+            pair_max_layers = sim_costs.get_pair_max_layers(pair)
             suffix = _window_file_suffix(wkey)
             conversion_closes, conv_stats = sim_costs.load_aligned_conversion_closes(
                 times, pair, ROOT / "data", suffix, return_stats=True
@@ -679,6 +687,7 @@ def run_sweep(
                         "root": str(ROOT),
                         "symbol": pair.upper(),
                         "pair_spread": cache["pair_spread"],
+                        "max_layers": pair_max_layers,
                         "width": width,
                         "exit_pips": exit_pips,
                         "bias_mode": int(BIAS_MODE),
@@ -1261,6 +1270,7 @@ def test_wiring():
             straddle_half_width_pips=9.0,
             exit_pips=3.0,
             track_l0_stats=True,
+            max_layers=sim_costs.get_pair_max_layers("GBPUSD"),
         )
         assert "mean_realised" not in r
         assert "pnl_realised_usd" in r
@@ -1286,8 +1296,10 @@ def test_straddle_entry_differs_from_signal():
     closes = np.linspace(1.2500, 1.2600, 120)
     spread = np.full(120, 6.4)
     bid, off = simv7.precompute_gbpusd_signal(closes, spread)
+    cap = sim_costs.get_pair_max_layers("GBPUSD")
     r_sig = simv7.simulate_one_path(
-        closes, bid, off, bias_mode=simv7.BiasMode.BOTH, seed=1, entry_mode="signal"
+        closes, bid, off, bias_mode=simv7.BiasMode.BOTH, seed=1, entry_mode="signal",
+        max_layers=cap,
     )
     dummy = np.zeros_like(closes)
     r_dum = simv7.simulate_one_path(
@@ -1299,6 +1311,7 @@ def test_straddle_entry_differs_from_signal():
         entry_mode="straddle",
         straddle_half_width_pips=9.0,
         exit_pips=3.0,
+        max_layers=cap,
     )
     assert r_sig["n_exits"] >= 0 and r_dum["n_exits"] >= 0
 

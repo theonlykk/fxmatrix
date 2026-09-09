@@ -8,6 +8,7 @@ spec6 = importlib.util.spec_from_file_location("simv6", os.path.join(script_dir,
 simv6 = importlib.util.module_from_spec(spec6)
 spec6.loader.exec_module(simv6)
 import numpy as np
+import sim_costs
 
 df = simv6.load_mt5_csv(r"D:\fxmatrix\data\GBPUSD_full_quarter.csv")
 closes = df['CLOSE'].values
@@ -34,6 +35,7 @@ for name, mode in [("MM_LONG", simv7.BiasMode.LONG_ONLY),
                      ("MM_SHORT", simv7.BiasMode.SHORT_ONLY),
                      ("MM_BOTH", simv7.BiasMode.BOTH)]:
     result = simv7.simulate_one_path(closes, bid_arr, offer_arr, times=times, symbol="GBPUSD",
+                                     max_layers=sim_costs.get_pair_max_layers("GBPUSD"),
                                        bias_mode=mode, seed=0, sub_steps=100)
     print(f"{name}: trades={result['total_trades']}, max_layers={result['max_layers']}, "
           f"P&L=${result['pnl_total_usd']:.2f}, realized=${result['pnl_realised_usd']:.2f}, "

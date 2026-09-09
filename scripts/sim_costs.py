@@ -55,6 +55,7 @@ class PairSpec:
     contract_size: float  # units per 1.0 lot
     spread_pips: float
     conversion_pair: str | None = None  # e.g. GBPUSD when quote is GBP
+    max_layers: int | None = None  # production InpMaxLayers; None = not ratified (raises)
 
 
 PAIR_SPECS: dict[str, PairSpec] = {
@@ -66,6 +67,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["EURUSD"],
         conversion_pair=None,
+        max_layers=12,
     ),
     "GBPUSD": PairSpec(
         symbol="GBPUSD",
@@ -75,6 +77,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["GBPUSD"],
         conversion_pair=None,
+        max_layers=12,
     ),
     "EURGBP": PairSpec(
         symbol="EURGBP",
@@ -84,6 +87,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["EURGBP"],
         conversion_pair="GBPUSD",
+        max_layers=8,
     ),
     # JPY pairs — point and pip_size both equal one pip in price units (0.01),
     # not the MT5 tick size (0.001 on three-decimal quotes). See test_sim_costs J1.
@@ -161,6 +165,17 @@ def get_pair_spread_pips(symbol: str) -> float:
             f"Unknown pair {symbol!r}; add spread to PAIR_SPREAD_PIPS in sim_costs.py"
         )
     return PAIR_SPREAD_PIPS[key]
+
+
+def get_pair_max_layers(symbol: str) -> int:
+    """Production layer cap for simulation — raises if pair has no ratified cap."""
+    spec = get_pair_spec(symbol)
+    if spec.max_layers is None:
+        raise ValueError(
+            f"No max_layers cap configured for {symbol!r}; "
+            f"add max_layers to PAIR_SPECS in sim_costs.py (do not default)"
+        )
+    return spec.max_layers
 
 
 def pips_to_price(pips: float, symbol: str) -> float:
