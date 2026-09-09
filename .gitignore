@@ -10,6 +10,7 @@ __pycache__/
 *.pyo
 .ipynb_checkpoints/
 *.ipynb
+!notebooks/*.ipynb
 
 # generated data & runtime logs
 data/
