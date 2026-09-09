@@ -1646,25 +1646,19 @@ void Test_N1_DepthZeroStaleLabelPassesInvariant()
    Grind_TestResetSideState();
 }
 
-void Test_N2_UnparseablePendingAddFailsInvariant()
+void Test_N2_PendingAddWrongKindFailsI8()
 {
-   const ulong magic = 22260101UL;
    GrindReconTicket tickets[1];
    tickets[0].ticket = 9002;
-   tickets[0].magic = magic;
-   tickets[0].comment = "GRIND|OPT|L|BAD";
+   tickets[0].magic = 22260101UL;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
    tickets[0].price = 1.24900;
-   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
 
-   GrindSideState long_out;
-   GrindSideState short_out;
    string reason = "";
    AssertTrue("N2 halt",
-              !Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
-                                            3.0, 12, 0.00001,
-                                            long_out, short_out, reason));
+              !Grind_ReconCheckPendingAddCorrupt(tickets, 1, 9002, reason));
    AssertEqStr("N2 reason", reason, "I8_CORRUPT_PENDING_ADD");
-   Grind_TestResetSideState();
 }
 
 void Test_N3_DuplicateRestingAddFailsAmbiguous()

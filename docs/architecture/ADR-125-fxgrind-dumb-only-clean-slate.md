@@ -158,14 +158,17 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 9. **Spec B — book invariants (read-only, no auto-repair).** I1–I8 checked at
    rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
    contiguous layer indices, exit within `2 × _Point` of entry ± `InpExitPips`,
-   depth ≤ `InpMaxLayers`, and **I8_CORRUPT_PENDING_ADD** — if a pending add
-   (layer > 0) exists, its comment must parse via `GrindCommentParse`. Index
-   mismatch with depth is **not** an invariant (reconciler scope). Duplicate
-   resting entry orders per side remain **`AMBIGUOUS_ADD_LONG` /
-   `AMBIGUOUS_ADD_SHORT`** in the rebuild loop (needs full ticket list; not
-   duplicated in the single-ticket I8 check). Magic mismatch on the tracked
-   ticket is unreachable — enumeration filters exact magic before assignment.
-   Violations halt with named CRITICAL reason.
+   depth ≤ `InpMaxLayers`, and **I8_CORRUPT_PENDING_ADD** — structural corruption
+   of a tracked pending add: `add_pending_ticket` points to a ticket that is not
+   a resting order (`GRIND_RECON_TICKET_ORDER`) or is absent from the enumeration.
+   **Unparseable comments are not I8 scope:** reconstruction halts at
+   `UNPARSEABLE_COMMENT` (main ticket loop, before assignment); on tick the
+   reconciler removes unparseable resting adds without halting. Index mismatch
+   with depth is **not** an invariant (reconciler scope). Duplicate resting
+   entry orders per side remain **`AMBIGUOUS_ADD_LONG` / `AMBIGUOUS_ADD_SHORT`**
+   in the rebuild loop (needs full ticket list; not duplicated in I8). Magic
+   mismatch on the tracked ticket is unreachable — enumeration filters exact
+   magic before assignment. Violations halt with named CRITICAL reason.
 
    **Covered-layer amendment (ratified 2026-09-07):** A layer is covered if it
    has **either** (a) a resting EXT limit order, **or** (b) an open EXT position

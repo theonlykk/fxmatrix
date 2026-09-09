@@ -179,13 +179,6 @@ bool Grind_ReconCheckPendingAddCorrupt(const GrindReconTicket &tickets[],
          reason_out = "I8_CORRUPT_PENDING_ADD";
          return false;
       }
-
-      string c_slot, c_side, c_role;
-      int c_layer;
-      if(!GrindCommentParse(tickets[i].comment, c_slot, c_side, c_layer, c_role)) {
-         reason_out = "I8_CORRUPT_PENDING_ADD";
-         return false;
-      }
       return true;
    }
 
