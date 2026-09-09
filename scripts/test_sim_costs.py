@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for scripts/sim_costs.py — mandatory regression suite (T1–T8, J1–J8)."""
+"""Unit tests for scripts/sim_costs.py — mandatory regression suite (T1–T8, J1–J8, R1–R8)."""
 from __future__ import annotations
 
 import unittest
@@ -193,6 +193,112 @@ class TestJpyPipParity(unittest.TestCase):
         self.assertEqual(
             sim_costs.get_pair_spec("CHFJPY").conversion_pair, "USDJPY"
         )
+
+
+class TestCadChfPipParity(unittest.TestCase):
+    """R1–R8: CAD/CHF ring pip-value parity — independently derived expected values."""
+
+    LOTS = 0.01
+    USDCAD_RATE = 1.38
+    USDCHF_RATE = 0.80
+    GBPUSD_RATE = 1.35
+    # 0.01 lots = 1,000 units; 1 pip = 0.0001 → 0.1 quote currency per pip (R2)
+    QUOTE_PIP_VALUE = 1_000.0 * 0.0001
+
+    def test_r1_audcad_pip_size_one_pip(self):
+        """R1: pip_size 0.0001 — a 0.0001 price move is ONE pip."""
+        spec = sim_costs.get_pair_spec("AUDCAD")
+        self.assertEqual(spec.pip_size, 0.0001)
+        pips_one = 0.0001 / spec.pip_size
+        self.assertAlmostEqual(pips_one, 1.0, places=9)
+
+    def test_r2_audcad_pip_value_quote_currency(self):
+        """R2: pip_value_quote_currency at 0.01 lots = 0.1 CAD."""
+        expected = self.QUOTE_PIP_VALUE
+        actual = sim_costs.pip_value_quote_currency("AUDCAD", self.LOTS)
+        self.assertAlmostEqual(actual, expected, places=9)
+        self.assertAlmostEqual(actual, 0.1, places=9)
+
+    def test_r3_audcad_pip_value_usd_divides_by_usdcad(self):
+        """R3: AUDCAD pip_value_usd = 0.1 / 1.38 ≈ 0.0725 USD (not 0.138)."""
+        expected = self.QUOTE_PIP_VALUE / self.USDCAD_RATE
+        actual = sim_costs.pip_value_usd(
+            "AUDCAD", self.LOTS, conversion_rate=self.USDCAD_RATE
+        )
+        self.assertAlmostEqual(actual, expected, places=6)
+        self.assertAlmostEqual(round(expected, 4), 0.0725, places=4)
+        wrong_multiply = self.QUOTE_PIP_VALUE * self.USDCAD_RATE
+        self.assertAlmostEqual(wrong_multiply, 0.138, places=3)
+        self.assertNotAlmostEqual(actual, wrong_multiply, places=2)
+
+    def test_r4_cadchf_usd_pip_larger_than_chf_pip(self):
+        """R4: CADCHF at USDCHF=0.80 — USD pip 0.125 > CHF pip 0.1 (divide, not multiply)."""
+        chf_pip = sim_costs.pip_value_quote_currency("CADCHF", self.LOTS)
+        usd_pip_expected = self.QUOTE_PIP_VALUE / self.USDCHF_RATE
+        usd_pip_actual = sim_costs.pip_value_usd(
+            "CADCHF", self.LOTS, conversion_rate=self.USDCHF_RATE
+        )
+        self.assertAlmostEqual(chf_pip, 0.1, places=9)
+        self.assertAlmostEqual(usd_pip_expected, 0.125, places=9)
+        self.assertAlmostEqual(usd_pip_actual, usd_pip_expected, places=6)
+        self.assertGreater(usd_pip_actual, chf_pip)
+
+    def test_r5_audchf_equals_cadchf_same_rate(self):
+        """R5: AUDCHF USD pip equals CADCHF — base currency must not leak."""
+        expected = self.QUOTE_PIP_VALUE / self.USDCHF_RATE
+        audchf = sim_costs.pip_value_usd(
+            "AUDCHF", self.LOTS, conversion_rate=self.USDCHF_RATE
+        )
+        cadchf = sim_costs.pip_value_usd(
+            "CADCHF", self.LOTS, conversion_rate=self.USDCHF_RATE
+        )
+        self.assertAlmostEqual(audchf, expected, places=6)
+        self.assertAlmostEqual(cadchf, expected, places=6)
+        self.assertAlmostEqual(audchf, cadchf, places=9)
+
+    def test_r6_higher_usdchf_lowers_usd_pip_value(self):
+        """R6: CHF-quoted pair — higher USDCHF → lower USD pip value."""
+        rate_low = 0.75
+        rate_high = 0.85
+        pip_low = self.QUOTE_PIP_VALUE / rate_low
+        pip_high = self.QUOTE_PIP_VALUE / rate_high
+        self.assertLess(pip_high, pip_low)
+        actual_low = sim_costs.pip_value_usd(
+            "CADCHF", self.LOTS, conversion_rate=rate_low
+        )
+        actual_high = sim_costs.pip_value_usd(
+            "CADCHF", self.LOTS, conversion_rate=rate_high
+        )
+        self.assertAlmostEqual(actual_low, pip_low, places=9)
+        self.assertAlmostEqual(actual_high, pip_high, places=9)
+        self.assertLess(actual_high, actual_low)
+
+    def test_r7_regression_eurgbp_multiplies_usdjpy_divides(self):
+        """R7: EURGBP still multiplies by GBPUSD; USDJPY still divides — byte-identical."""
+        gbp_pip = sim_costs.pip_value_quote_currency("EURGBP", self.LOTS)
+        eurgbp_expected = gbp_pip * self.GBPUSD_RATE
+        eurgbp_actual = sim_costs.pip_value_usd(
+            "EURGBP", self.LOTS, conversion_rate=self.GBPUSD_RATE
+        )
+        self.assertAlmostEqual(eurgbp_actual, eurgbp_expected, places=9)
+        self.assertAlmostEqual(eurgbp_actual, 0.1 * self.GBPUSD_RATE, places=9)
+
+        usdjpy_rate = 150.0
+        jpy_pip = sim_costs.pip_value_quote_currency("USDJPY", self.LOTS)
+        usdjpy_expected = jpy_pip / usdjpy_rate
+        usdjpy_actual = sim_costs.pip_value_usd(
+            "USDJPY", self.LOTS, conversion_rate=usdjpy_rate
+        )
+        self.assertAlmostEqual(usdjpy_actual, usdjpy_expected, places=9)
+        self.assertAlmostEqual(usdjpy_actual, 10.0 / usdjpy_rate, places=9)
+
+    def test_r8_omitting_conversion_rate_raises(self):
+        """R8: new ring pairs without conversion_rate raise — no silent default."""
+        for symbol in ("AUDCAD", "AUDCHF", "CADCHF"):
+            with self.subTest(symbol=symbol):
+                with self.assertRaises(ValueError) as ctx:
+                    sim_costs.pip_value_usd(symbol, self.LOTS)
+                self.assertIn("conversion_rate", str(ctx.exception))
 
 
 if __name__ == "__main__":
