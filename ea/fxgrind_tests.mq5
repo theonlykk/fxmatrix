@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3) |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -364,7 +364,7 @@ void Test_T23_OrphanExitHalts()
    AssertTrue("T23 I4", StringFind(reason, "I4") >= 0);
 }
 
-void Test_T24_NonContiguousLayersHalts()
+void Test_T24_GapIndicesRebuild()
 {
    const ulong magic = 22260101UL;
    GrindReconTicket tickets[6];
@@ -389,10 +389,10 @@ void Test_T24_NonContiguousLayersHalts()
    GrindSideState long_out;
    GrindSideState short_out;
    string reason = "";
-   AssertTrue("T24 halt", !Grind_RebuildBookFromTickets(tickets, 6, magic, "OPT",
-                                                        3.0, 12, 0.00001,
-                                                        long_out, short_out, reason));
-   AssertTrue("T24 I5", StringFind(reason, "I5") >= 0);
+   AssertTrue("T24 ok", Grind_RebuildBookFromTickets(tickets, 6, magic, "OPT",
+                                                     3.0, 12, 0.00001,
+                                                     long_out, short_out, reason));
+   AssertTrue("T24 depth", ArraySize(long_out.layers) == 3);
 }
 
 void Test_T25_ContaminatedCommentRebuilds()
@@ -1968,6 +1968,250 @@ void Test_O3_CapWarnResetOnFlatUnwind()
    Grind_TestResetSideState();
 }
 
+void Grind_TestSetupLongLayers012()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[1].entry_price = 1.24900;
+   g_grind_long.layers[1].layer_index = 1;
+   g_grind_long.layers[1].position_ticket = 1002;
+   g_grind_long.layers[2].entry_price = 1.24800;
+   g_grind_long.layers[2].layer_index = 2;
+   g_grind_long.layers[2].position_ticket = 1003;
+}
+
+void Test_L1_FillLayerCarriesCommentIndex()
+{
+   Grind_TestResetSideState();
+   Grind_AppendLayer(g_grind_long, 1.24700, 1003, 3, 3.0, true);
+   AssertTrue("L1 one layer", Grind_SideDepth(g_grind_long) == 1);
+   AssertTrue("L1 index from comment", g_grind_long.layers[0].layer_index == 3);
+   Grind_TestResetSideState();
+}
+
+void Test_L2_ReconstructionCarriesCommentIndex()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 1003;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   tickets[0].price = 1.24700;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2003;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 3, "EXT");
+   tickets[1].price = 1.24730;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   const bool ok = Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                                3.0, 12, 0.00001,
+                                                long_out, short_out, reason);
+   AssertTrue("L2 ok", ok);
+   if(ok)
+      AssertTrue("L2 index", long_out.layers[0].layer_index == 3);
+   Grind_TestResetSideState();
+}
+
+void Test_L3_RemoveMiddlePreservesIntrinsicIndices()
+{
+   Grind_TestSetupLongLayers012();
+   Grind_RemoveLayerAt(g_grind_long, 1);
+   AssertTrue("L3 count", Grind_SideDepth(g_grind_long) == 2);
+   AssertTrue("L3 idx0", g_grind_long.layers[0].layer_index == 0);
+   AssertTrue("L3 idx2", g_grind_long.layers[1].layer_index == 2);
+   Grind_TestResetSideState();
+}
+
+void Test_L4_SideNextIndexWithGap()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[1].layer_index = 1;
+   g_grind_long.layers[2].layer_index = 4;
+   AssertTrue("L4 next", Grind_SideNextIndex(g_grind_long) == 5);
+   Grind_TestResetSideState();
+}
+
+void Test_L5_SideNextIndexEmpty()
+{
+   Grind_TestResetSideState();
+   AssertTrue("L5 empty", Grind_SideNextIndex(g_grind_long) == 0);
+}
+
+void Test_L6_CapUsesCountNotMaxIndex()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[1].layer_index = 1;
+   g_grind_long.layers[2].layer_index = 4;
+   AssertTrue("L6 count", Grind_SideDepth(g_grind_long) == 3);
+   AssertTrue("L6 cap allows", Grind_CanPlaceEntryLayer(3, 5));
+   Grind_TestResetSideState();
+}
+
+void Test_L7_DeepestLayerArrayIndexOutOfOrder()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].layer_index = 4;
+   g_grind_long.layers[0].entry_price = 1.24600;
+   g_grind_long.layers[1].layer_index = 0;
+   g_grind_long.layers[1].entry_price = 1.25000;
+   g_grind_long.layers[2].layer_index = 1;
+   g_grind_long.layers[2].entry_price = 1.24900;
+   AssertTrue("L7 deepest slot", Grind_FindDeepestLayerArrayIndex(g_grind_long) == 0);
+   AssertNear("L7 anchor",
+              Grind_ComputeAddTarget(g_grind_long, true, 10.0),
+              Grind_AddTargetPrice(1.24600, 10.0, _Point, 1),
+              1e-10);
+   Grind_TestResetSideState();
+   AssertTrue("L7 empty", Grind_FindDeepestLayerArrayIndex(g_grind_long) == -1);
+}
+
+void Test_L7b_FindLayerByIntrinsicIndex()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].layer_index = 4;
+   g_grind_long.layers[0].position_ticket = 1004;
+   g_grind_long.layers[1].layer_index = 0;
+   g_grind_long.layers[1].position_ticket = 1000;
+   g_grind_long.layers[2].layer_index = 1;
+   g_grind_long.layers[2].position_ticket = 1001;
+   AssertTrue("L7b find 0", Grind_FindLayerByIndex(g_grind_long, 0) == 1);
+   AssertTrue("L7b find 4", Grind_FindLayerByIndex(g_grind_long, 4) == 0);
+   AssertTrue("L7b missing", Grind_FindLayerByIndex(g_grind_long, 2) == -1);
+   Grind_TestResetSideState();
+}
+
+void Grind_TestAppendReconLayerPair(GrindReconTicket &tickets[],
+                                    int &count,
+                                    const ulong magic,
+                                    const int layer_index,
+                                    const double entry_price,
+                                    const double exit_price)
+{
+   tickets[count].ticket = (ulong)(1000 + layer_index);
+   tickets[count].magic = magic;
+   tickets[count].comment = GrindCommentBuild("OPT", "L", layer_index, "ENT");
+   tickets[count].price = entry_price;
+   tickets[count].kind = GRIND_RECON_TICKET_POSITION;
+   count++;
+   tickets[count].ticket = (ulong)(2000 + layer_index);
+   tickets[count].magic = magic;
+   tickets[count].comment = GrindCommentBuild("OPT", "L", layer_index, "EXT");
+   tickets[count].price = exit_price;
+   tickets[count].kind = GRIND_RECON_TICKET_ORDER;
+   count++;
+}
+
+bool Grind_TestRebuildLongBook(GrindReconTicket &tickets[],
+                               const int count,
+                               GrindSideState &long_out,
+                               string &reason,
+                               const int max_layers = 12)
+{
+   GrindSideState short_out;
+   return Grind_RebuildBookFromTickets(tickets, count, 22260101UL, "OPT",
+                                       3.0, max_layers, 0.00001,
+                                       long_out, short_out, reason);
+}
+
+void Test_I5a_GapIndices02Pass()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[4];
+   int count = 0;
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 0, 1.25000, 1.25030);
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 2, 1.24800, 1.24830);
+   GrindSideState long_out;
+   string reason = "";
+   AssertTrue("I5a ok", Grind_TestRebuildLongBook(tickets, count, long_out, reason));
+   AssertTrue("I5a depth", ArraySize(long_out.layers) == 2);
+}
+
+void Test_I5b_SoleIndex3Pass()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   int count = 0;
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 3, 1.24700, 1.24730);
+   GrindSideState long_out;
+   string reason = "";
+   AssertTrue("I5b ok", Grind_TestRebuildLongBook(tickets, count, long_out, reason));
+   AssertTrue("I5b depth", ArraySize(long_out.layers) == 1);
+   AssertTrue("I5b index", long_out.layers[0].layer_index == 3);
+}
+
+void Test_I5c_DuplicateIndicesFail()
+{
+   GrindReconLayerScratch layers[2];
+   layers[0].layer_index = 1;
+   layers[1].layer_index = 1;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   AssertTrue("I5c fail",
+              !Grind_ReconCheckInvariants(layers, 2, empty, 0,
+                                         3.0, 0.00001, 12, reason));
+   AssertEqStr("I5c reason", reason, "I5_LONG_CORRUPT_LAYER_INDICES");
+}
+
+void Test_I5d_NegativeIndexFails()
+{
+   GrindReconLayerScratch layers[1];
+   layers[0].layer_index = -1;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   AssertTrue("I5d fail",
+              !Grind_ReconCheckInvariants(layers, 1, empty, 0,
+                                         3.0, 0.00001, 12, reason));
+   AssertEqStr("I5d reason", reason, "I5_LONG_CORRUPT_LAYER_INDICES");
+}
+
+void Test_I5e_HighIndicesNotBoundedByMaxLayers()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[4];
+   int count = 0;
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 3, 1.24700, 1.24730);
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 4, 1.24600, 1.24630);
+   GrindSideState long_out;
+   string reason = "";
+   AssertTrue("I5e 34 ok", Grind_TestRebuildLongBook(tickets, count, long_out, reason, 5));
+
+   count = 0;
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 5, 1.24500, 1.24530);
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 6, 1.24400, 1.24430);
+   AssertTrue("I5e 56 ok", Grind_TestRebuildLongBook(tickets, count, long_out, reason, 5));
+}
+
+void Test_I5f_OutOfOrderTicketProcessingPass()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[4];
+   int count = 0;
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 2, 1.24800, 1.24830);
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 0, 1.25000, 1.25030);
+   GrindSideState long_out;
+   string reason = "";
+   AssertTrue("I5f ok", Grind_TestRebuildLongBook(tickets, count, long_out, reason));
+   AssertTrue("I5f depth", ArraySize(long_out.layers) == 2);
+}
+
+void Test_I5g_L2ReconstructionPasses()
+{
+   Test_L2_ReconstructionCarriesCommentIndex();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -1998,7 +2242,7 @@ void OnStart()
    Test_T21_NeighbourMagicIgnored();
    Test_T22_NakedPositionHalts();
    Test_T23_OrphanExitHalts();
-   Test_T24_NonContiguousLayersHalts();
+   Test_T24_GapIndicesRebuild();
    Test_T25_ContaminatedCommentRebuilds();
    Test_T26_CasSpinlockTimeout();
    Test_T27_MissingPeerReadsAsMaxed();
@@ -2060,5 +2304,20 @@ void OnStart()
    Test_O1_UnwindToFlatKeepsAddPendingTracker();
    Test_O2_ReconcilerClearsTrackerAfterFlatUnwind();
    Test_O3_CapWarnResetOnFlatUnwind();
+   Test_L1_FillLayerCarriesCommentIndex();
+   Test_L2_ReconstructionCarriesCommentIndex();
+   Test_L3_RemoveMiddlePreservesIntrinsicIndices();
+   Test_L4_SideNextIndexWithGap();
+   Test_L5_SideNextIndexEmpty();
+   Test_L6_CapUsesCountNotMaxIndex();
+   Test_L7_DeepestLayerArrayIndexOutOfOrder();
+   Test_L7b_FindLayerByIntrinsicIndex();
+   Test_I5a_GapIndices02Pass();
+   Test_I5b_SoleIndex3Pass();
+   Test_I5c_DuplicateIndicesFail();
+   Test_I5d_NegativeIndexFails();
+   Test_I5e_HighIndicesNotBoundedByMaxLayers();
+   Test_I5f_OutOfOrderTicketProcessingPass();
+   Test_I5g_L2ReconstructionPasses();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

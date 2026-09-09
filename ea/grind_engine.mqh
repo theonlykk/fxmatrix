@@ -384,6 +384,34 @@ int Grind_SideDepth(const GrindSideState &side)
 }
 
 //+------------------------------------------------------------------+
+int Grind_SideNextIndex(const GrindSideState &side)
+{
+   const int n = Grind_SideDepth(side);
+   if(n <= 0)
+      return 0;
+   int max_idx = side.layers[0].layer_index;
+   for(int i = 1; i < n; i++) {
+      if(side.layers[i].layer_index > max_idx)
+         max_idx = side.layers[i].layer_index;
+   }
+   return max_idx + 1;
+}
+
+//+------------------------------------------------------------------+
+int Grind_FindDeepestLayerArrayIndex(const GrindSideState &side)
+{
+   const int n = Grind_SideDepth(side);
+   if(n <= 0)
+      return -1;
+   int best = 0;
+   for(int i = 1; i < n; i++) {
+      if(side.layers[i].layer_index > side.layers[best].layer_index)
+         best = i;
+   }
+   return best;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_TryPlaceL0(GrindSideState &side,
                       const bool is_long,
                       const double target_price,
@@ -530,10 +558,10 @@ double Grind_ComputeAddTarget(const GrindSideState &side,
                               const bool is_long,
                               const double add_pips)
 {
-   const int n = Grind_SideDepth(side);
-   if(n <= 0)
+   const int depth_idx = Grind_FindDeepestLayerArrayIndex(side);
+   if(depth_idx < 0)
       return 0.0;
-   const double anchor = side.layers[n - 1].entry_price;
+   const double anchor = side.layers[depth_idx].entry_price;
    return Grind_AddTargetPrice(anchor, add_pips, _Point, is_long ? 1 : -1);
 }
 
@@ -548,7 +576,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
                          const double lots)
 {
    const int n = Grind_SideDepth(side);
-   const int required_index = n;
+   const int required_index = Grind_SideNextIndex(side);
 
    if(side.add_pending_ticket != 0) {
       if(!Grind_SelectOurOrder(side.add_pending_ticket, magic)) {
@@ -582,7 +610,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
    if(!Grind_CapAllowsEntry(is_long, lots))
       return;
 
-   const int next_layer = n;
+   const int next_layer = required_index;
 
    double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
    if(add_target <= 0.0)
@@ -802,7 +830,9 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          side.add_pending_ticket = 0;
 
       Grind_AppendLayer(side, deal_price, position_id, c_layer, exit_pips, is_long);
-      Grind_TryPlaceExitForLayer(side.layers[Grind_SideDepth(side) - 1], is_long, magic, slot, lots);
+      const int layer_idx = Grind_FindLayerByIndex(side, c_layer);
+      if(layer_idx >= 0)
+         Grind_TryPlaceExitForLayer(side.layers[layer_idx], is_long, magic, slot, lots);
       return;
    }
 

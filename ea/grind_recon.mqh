@@ -118,29 +118,15 @@ bool Grind_ReconEnsureLayer(GrindReconLayerScratch &layers[],
 }
 
 //+------------------------------------------------------------------+
-bool Grind_ReconLayerIndicesContiguous(const int &layer_indices[], const int layer_count)
+bool Grind_ReconLayerIndicesValid(const int &layer_indices[], const int layer_count)
 {
-   if(layer_count == 0)
-      return true;
-
-   int sorted[];
-   ArrayResize(sorted, layer_count);
-   for(int i = 0; i < layer_count; i++)
-      sorted[i] = layer_indices[i];
-
-   for(int i = 0; i < layer_count - 1; i++) {
-      for(int j = i + 1; j < layer_count; j++) {
-         if(sorted[j] < sorted[i]) {
-            const int tmp = sorted[i];
-            sorted[i] = sorted[j];
-            sorted[j] = tmp;
-         }
-      }
-   }
-
    for(int i = 0; i < layer_count; i++) {
-      if(sorted[i] != i)
+      if(layer_indices[i] < 0)
          return false;
+      for(int j = i + 1; j < layer_count; j++) {
+         if(layer_indices[i] == layer_indices[j])
+            return false;
+      }
    }
    return true;
 }
@@ -216,12 +202,12 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
    for(int i = 0; i < short_count; i++)
       short_indices[i] = short_layers[i].layer_index;
 
-   if(!Grind_ReconLayerIndicesContiguous(long_indices, long_count)) {
-      reason_out = "I5_LONG_INDICES";
+   if(!Grind_ReconLayerIndicesValid(long_indices, long_count)) {
+      reason_out = "I5_LONG_CORRUPT_LAYER_INDICES";
       return false;
    }
-   if(!Grind_ReconLayerIndicesContiguous(short_indices, short_count)) {
-      reason_out = "I5_SHORT_INDICES";
+   if(!Grind_ReconLayerIndicesValid(short_indices, short_count)) {
+      reason_out = "I5_SHORT_CORRUPT_LAYER_INDICES";
       return false;
    }
 
@@ -497,46 +483,26 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                          reason_out))
       return false;
 
-   for(int i = 0; i < long_count; i++) {
-      int idx = -1;
-      for(int j = 0; j < long_count; j++) {
-         if(long_scratch[j].layer_index == i) {
-            idx = j;
-            break;
-         }
-      }
-      if(idx < 0)
-         continue;
-
+   for(int j = 0; j < long_count; j++) {
       const int n = ArraySize(long_out.layers);
       ArrayResize(long_out.layers, n + 1);
-      long_out.layers[n].entry_price = long_scratch[idx].entry_price;
-      long_out.layers[n].exit_target = long_scratch[idx].exit_target;
-      long_out.layers[n].position_ticket = long_scratch[idx].position_id;
-      long_out.layers[n].exit_order_ticket = long_scratch[idx].exit_order_ticket;
-      long_out.layers[n].exit_position_ticket = long_scratch[idx].exit_position_id;
-      long_out.layers[n].layer_index = long_scratch[idx].layer_index;
+      long_out.layers[n].entry_price = long_scratch[j].entry_price;
+      long_out.layers[n].exit_target = long_scratch[j].exit_target;
+      long_out.layers[n].position_ticket = long_scratch[j].position_id;
+      long_out.layers[n].exit_order_ticket = long_scratch[j].exit_order_ticket;
+      long_out.layers[n].exit_position_ticket = long_scratch[j].exit_position_id;
+      long_out.layers[n].layer_index = long_scratch[j].layer_index;
    }
 
-   for(int i = 0; i < short_count; i++) {
-      int idx = -1;
-      for(int j = 0; j < short_count; j++) {
-         if(short_scratch[j].layer_index == i) {
-            idx = j;
-            break;
-         }
-      }
-      if(idx < 0)
-         continue;
-
+   for(int j = 0; j < short_count; j++) {
       const int n = ArraySize(short_out.layers);
       ArrayResize(short_out.layers, n + 1);
-      short_out.layers[n].entry_price = short_scratch[idx].entry_price;
-      short_out.layers[n].exit_target = short_scratch[idx].exit_target;
-      short_out.layers[n].position_ticket = short_scratch[idx].position_id;
-      short_out.layers[n].exit_order_ticket = short_scratch[idx].exit_order_ticket;
-      short_out.layers[n].exit_position_ticket = short_scratch[idx].exit_position_id;
-      short_out.layers[n].layer_index = short_scratch[idx].layer_index;
+      short_out.layers[n].entry_price = short_scratch[j].entry_price;
+      short_out.layers[n].exit_target = short_scratch[j].exit_target;
+      short_out.layers[n].position_ticket = short_scratch[j].position_id;
+      short_out.layers[n].exit_order_ticket = short_scratch[j].exit_order_ticket;
+      short_out.layers[n].exit_position_ticket = short_scratch[j].exit_position_id;
+      short_out.layers[n].layer_index = short_scratch[j].layer_index;
    }
 
    return true;
