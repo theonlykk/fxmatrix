@@ -5,7 +5,8 @@
 Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B); amended
 2026-09-08 (stale resting add reconciliation + I8 invariant); amended
 2026-09-09 (narrow I8 — invariant/reconciler boundary); amended
-2026-09-09 (intrinsic layer index — decouple from array position).
+2026-09-09 (intrinsic layer index — decouple from array position); amended
+2026-09-09 (I5 — uniqueness + non-negative, abandon contiguity).
 Spec A of B (engine, presets, placement, caps) and Spec B (comment-only state
 reconstruction + CAS currency cap) implemented. CloseBy queue port completes
 the hedging-account exit path (Spec A closeby-exits branch).
@@ -176,9 +177,18 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    layer while a deeper exit remains unfilled. The side may legitimately hold
    layers 0 and 2 with 1 gone; LIFO/FIFO is not assumed.
 
+   **I5 amendment (ratified 2026-09-09):** Contiguous `0..count-1` indices encoded
+   the monotonic-growth assumption and halted on legitimate gap books (e.g. sole
+   `{3}` after 0–2 unwound, `{0,2}` after middle close). I5 now asserts **uniqueness**
+   and **non-negative** only via `Grind_ReconLayerIndicesValid` (nested loop, no
+   sort). **`max_layers` bounds count, never index** — indices may exceed
+   `max_layers - 1` when the grid refills after partial unwind (e.g. holding
+   `{3,4}` at count 2 with cap 5, next label L05).
+
 9. **Spec B — book invariants (read-only, no auto-repair).** I1–I8 checked at
    rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
-   contiguous layer indices, exit within `2 × _Point` of entry ± `InpExitPips`,
+   unique non-negative layer indices (`I5_*_CORRUPT_LAYER_INDICES`), exit within
+   `2 × _Point` of entry ± `InpExitPips`,
    depth ≤ `InpMaxLayers`, and **I8_CORRUPT_PENDING_ADD** — structural corruption
    of a tracked pending add: `add_pending_ticket` points to a ticket that is not
    a resting order (`GRIND_RECON_TICKET_ORDER`) or is absent from the enumeration.
@@ -301,5 +311,5 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
   (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, P&L
   telemetry tests T40–T44, stale-add tests A1–A8, I8-boundary tests N1–N5,
-  tracker-orphan tests O1–O3, and intrinsic-index tests L1–L7)
+  tracker-orphan tests O1–O3, intrinsic-index tests L1–L7, and I5 gap-index tests I5a–I5h)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)
