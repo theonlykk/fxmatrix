@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6) |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6, M1–M5) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1775,6 +1775,151 @@ void Test_N5_AdoptedStaleRemovedByReconciler()
    g_grind_cap_thresh_b = 0.0;
 }
 
+void Test_M1_DepthZeroStaleAddRemoved()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 9201;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 1, "ENT"),
+                            0.85774, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M1 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("M1 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("M1 ticket cleared", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M2_DepthZeroNoPendingNoOp()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+
+   Grind_EnsureAddNext(g_grind_long, true, 22260101UL, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M2 no remove", g_grind_order_test_remove_calls == 0);
+   AssertTrue("M2 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("M2 no pending", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M3_CapBlockedStillRemovesStaleAdd()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 1.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_recon_magic = 22260101UL;
+   g_grind_cap_leg_a = "EUR";
+   g_grind_cap_leg_b = "USD";
+
+   for(int i = 0; i < 6; i++) {
+      const ulong magic = GRIND_CAP_ALL_MAGICS[i];
+      const string key = Grind_CapExposureKey(magic, "EUR");
+      GlobalVariableSet(key, 0.0);
+      GlobalVariableSet(Grind_CapTimestampKey(key), (double)TimeCurrent());
+   }
+   const string own_key = Grind_CapExposureKey(22260101UL, "EUR");
+   GlobalVariableSet(own_key, 0.99);
+   GlobalVariableSet(Grind_CapTimestampKey(own_key), (double)TimeCurrent());
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 9203;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M3 cap blocked", !Grind_CapAllowsEntry(true, 0.01));
+   AssertTrue("M3 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("M3 no place", g_grind_order_test_place_calls == 0);
+
+   g_grind_cap_thresh_a = 0.0;
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M4_LayerCapReachedStillRemovesStaleAdd()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const int max_layers = 2;
+   ArrayResize(g_grind_long.layers, max_layers);
+   for(int i = 0; i < max_layers; i++) {
+      g_grind_long.layers[i].entry_price = 1.25000 - (double)i * 0.00100;
+      g_grind_long.layers[i].layer_index = i;
+      g_grind_long.layers[i].position_ticket = 1100 + (ulong)i;
+      g_grind_long.layers[i].exit_order_ticket = 0;
+      g_grind_long.layers[i].exit_position_ticket = 0;
+      g_grind_long.layers[i].exit_target = Grind_ExitPrice(g_grind_long.layers[i].entry_price,
+                                                           3.0, _Point, 1);
+   }
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 9204;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 0, "ENT"),
+                            1.24800, (long)ORDER_TYPE_BUY_LIMIT);
+
+   AssertTrue("M4 cap reached", !Grind_CanPlaceEntryLayer(max_layers, max_layers));
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, max_layers, 0.01);
+
+   AssertTrue("M4 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("M4 no place", g_grind_order_test_place_calls == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M5_MatchingLabelAtDepthOneUnchanged()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   Grind_MarketTestSeed(1.24950, 1.24952, 0);
+   const double engine_price = Grind_TestEngineClampedAddPrice(g_grind_long, true, 10.0);
+   const ulong ticket = 9205;
+   g_grind_long.add_pending_ticket = ticket;
+   Grind_TestSeedPendingAdd(ticket, magic,
+                            GrindCommentBuild("OPT", "L", 1, "ENT"),
+                            engine_price, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M5 no remove", g_grind_order_test_remove_calls == 0);
+   AssertTrue("M5 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("M5 ticket kept", g_grind_long.add_pending_ticket == ticket);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -1859,5 +2004,10 @@ void OnStart()
    Test_N3_DuplicateRestingAddFailsAmbiguous();
    Test_N4_ReconstructionAdoptsMismatchedTicket();
    Test_N5_AdoptedStaleRemovedByReconciler();
+   Test_M1_DepthZeroStaleAddRemoved();
+   Test_M2_DepthZeroNoPendingNoOp();
+   Test_M3_CapBlockedStillRemovesStaleAdd();
+   Test_M4_LayerCapReachedStillRemovesStaleAdd();
+   Test_M5_MatchingLabelAtDepthOneUnchanged();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }
