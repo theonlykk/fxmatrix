@@ -90,6 +90,7 @@ class TestGridAddMechanics(unittest.TestCase):
             "root": str(ROOT),
             "symbol": "GBPUSD",
             "pair_spread": 0.18,
+            "max_layers": 12,
             "width": 9.0,
             "exit_pips": 3.0,
             "bias_mode": int(simv7.BiasMode.BOTH),

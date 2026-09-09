@@ -3,6 +3,11 @@ v7: real term-structure signal for Layer 0 entry (fully verified against
 Cursor's worked examples), combined with fxgrind-parity grid adds for layers 1+:
 fixed entry-anchored spacing at GRIND_ADD_WIDTH_MULTIPLE x straddle half-width.
 
+Single-sided inventory model (MM_BOTH): whichever side fills first sets
+direction; len(layers) is the active side depth. max_layers caps new entries
+(L0 and adds) when current_layers >= cap — mirrors ea/grind_pure.mqh
+Grind_CanPlaceEntryLayer (strictly less than).
+
 Key mechanism, all verified:
 - FV_combined_BC from bars 6/12/48 (weights 0.50/0.30/0.20)
 - r_BC uses CURRENT close (production behavior, confirmed - not pure history)
@@ -97,6 +102,11 @@ def adr013_clamp(theoretical, direction, current_mid, half_spread, min_dist=MIN_
             return max(theoretical, current_ask + min_dist)
         return theoretical
 
+def can_place_entry_layer(current_layers: int, max_layers_cap: int) -> bool:
+    """Mirror ea/grind_pure.mqh Grind_CanPlaceEntryLayer — strictly less than cap."""
+    return current_layers < max_layers_cap
+
+
 def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=None,
                        symbol="GBPUSD", bias_mode=BiasMode.BOTH,
                        seed=0, sub_steps=100, sigma_for_bridge=None,
@@ -107,7 +117,8 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                        conversion_rate: float | None = None,
                        initial_balance: float = sim_costs.DEFAULT_INITIAL_BALANCE,
                        max_daily_loss_usd: float | None = None,
-                       max_total_loss_usd: float | None = None):
+                       max_total_loss_usd: float | None = None,
+                       max_layers: int | None = None):
     """
     bid_theoretical_arr / offer_theoretical_arr: precomputed real-signal levels
     (same length as closes), used ONLY for the flat->Layer-0 re-entry decision.
@@ -115,7 +126,18 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
 
     conversion_closes: optional per-bar conversion-pair close series for USD P&L.
     conversion_rate: constant conversion rate when conversion_closes not supplied.
+    max_layers: required layer cap (current_layers < max_layers to open entries).
+    Single-sided model: cap applies to len(layers) — the active side's depth only.
     """
+    if max_layers is None:
+        raise ValueError(
+            "max_layers is required; pass sim_costs.get_pair_max_layers(symbol) "
+            "or an explicit cap — unbounded simulation is not supported"
+        )
+    max_layers_cap = int(max_layers)
+    if max_layers_cap < 0:
+        raise ValueError(f"max_layers must be non-negative, got {max_layers_cap}")
+
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
     sigma = sigma_for_bridge if sigma_for_bridge is not None else \
@@ -177,7 +199,9 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     current_day = -1
     drawdown_3pct = False
     drawdown_4pct = False
-    max_layers = 0
+    peak_layer_depth = 0
+    cap_reached = False
+    layer_directions_seen: set[int] = set()
     total_trades = 0
     resting_straddle_width_pips = None
     pod_half_width_pips: float | None = None
@@ -272,25 +296,31 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                             filled_dir = -1
                             fill_price = offer_clamped
                     if filled_dir is not None:
-                        if entry_mode == "triangular" and resting_straddle_width_pips is not None:
-                            pod_half_width_pips = resting_straddle_width_pips
-                        elif entry_mode == "straddle":
-                            pod_half_width_pips = float(straddle_half_width_pips)
+                        if not can_place_entry_layer(len(layers), max_layers_cap):
+                            cap_reached = True
                         else:
-                            pod_half_width_pips = float(straddle_half_width_pips)
-                        layers.append(Layer(
-                            entry_price=fill_price,
-                            direction=filled_dir,
-                            exit_target_raw=fill_price + filled_dir * exit_price_dist,
-                            entry_commission_usd=entry_comm_leg,
-                        ))
-                        pnl_realised_usd -= entry_comm_leg
-                        layer_entry_bars.append(i)
-                        layer_is_l0.append(True)
-                        pod_had_add = False
-                        total_trades += 1
-                        max_layers = max(max_layers, 1)
-                        resting_straddle_width_pips = None
+                            if entry_mode == "triangular" and resting_straddle_width_pips is not None:
+                                pod_half_width_pips = resting_straddle_width_pips
+                            elif entry_mode == "straddle":
+                                pod_half_width_pips = float(straddle_half_width_pips)
+                            else:
+                                pod_half_width_pips = float(straddle_half_width_pips)
+                            layers.append(Layer(
+                                entry_price=fill_price,
+                                direction=filled_dir,
+                                exit_target_raw=fill_price + filled_dir * exit_price_dist,
+                                entry_commission_usd=entry_comm_leg,
+                            ))
+                            layer_directions_seen.add(filled_dir)
+                            pnl_realised_usd -= entry_comm_leg
+                            layer_entry_bars.append(i)
+                            layer_is_l0.append(True)
+                            pod_had_add = False
+                            total_trades += 1
+                            peak_layer_depth = max(peak_layer_depth, len(layers))
+                            if peak_layer_depth >= max_layers_cap:
+                                cap_reached = True
+                            resting_straddle_width_pips = None
                 continue
 
             if j == 0:
@@ -338,17 +368,23 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                 hit = ((cur.direction == 1 and price_prev > effective_add >= price_now) or
                        (cur.direction == -1 and price_prev < effective_add <= price_now))
                 if hit:
-                    layers.append(Layer(
-                        entry_price=add_target,
-                        direction=cur.direction,
-                        exit_target_raw=add_target + cur.direction * exit_price_dist,
-                        entry_commission_usd=entry_comm_leg,
-                    ))
-                    pnl_realised_usd -= entry_comm_leg
-                    layer_entry_bars.append(i)
-                    layer_is_l0.append(False)
-                    pod_had_add = True
-                    max_layers = max(max_layers, len(layers))
+                    if not can_place_entry_layer(len(layers), max_layers_cap):
+                        cap_reached = True
+                    else:
+                        layers.append(Layer(
+                            entry_price=add_target,
+                            direction=cur.direction,
+                            exit_target_raw=add_target + cur.direction * exit_price_dist,
+                            entry_commission_usd=entry_comm_leg,
+                        ))
+                        layer_directions_seen.add(cur.direction)
+                        pnl_realised_usd -= entry_comm_leg
+                        layer_entry_bars.append(i)
+                        layer_is_l0.append(False)
+                        pod_had_add = True
+                        peak_layer_depth = max(peak_layer_depth, len(layers))
+                        if peak_layer_depth >= max_layers_cap:
+                            cap_reached = True
 
         price_current = end_price
         equity_current = compute_equity_usd_at_price(end_price, i + 1)
@@ -399,7 +435,10 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         "pnl_realised_usd": pnl_realised_usd,
         "pnl_unrealised_usd": unrealised_usd,
         "pnl_total_usd": pnl_realised_usd + unrealised_usd,
-        "max_layers": max_layers,
+        "max_layers": peak_layer_depth,
+        "max_layers_cap": max_layers_cap,
+        "cap_reached": cap_reached,
+        "single_direction": len(layer_directions_seen) <= 1,
         "total_trades": total_trades,
         "n_exits": n_exits,
         "drawdown_exceeded_3pct": drawdown_3pct,
