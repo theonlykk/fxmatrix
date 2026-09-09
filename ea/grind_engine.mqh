@@ -18,12 +18,192 @@ double Grind_Normalize(const double price)
    return NormalizeDouble(price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
 }
 
+// Order-operation unit-test hooks (fxgrind_tests A1–A8).
+bool   g_grind_order_test_active = false;
+bool   g_grind_order_test_send_ok = true;
+uint   g_grind_order_test_send_retcode = TRADE_RETCODE_DONE;
+int    g_grind_order_test_remove_calls = 0;
+int    g_grind_order_test_modify_calls = 0;
+int    g_grind_order_test_place_calls = 0;
+ulong  g_grind_order_test_next_ticket = 9000;
+ulong  g_grind_order_test_last_placed_ticket = 0;
+string g_grind_order_test_last_placed_comment = "";
+double g_grind_order_test_last_placed_price = 0.0;
+string g_grind_order_test_last_critical = "";
+
+struct GrindOrderTestRecord
+{
+   ulong  ticket;
+   long   magic;
+   string comment;
+   double price;
+   long   type;
+};
+
+GrindOrderTestRecord g_grind_order_test_records[];
+int g_grind_order_test_count = 0;
+
+//+------------------------------------------------------------------+
+void Grind_OrderTestReset()
+{
+   g_grind_order_test_active = false;
+   g_grind_order_test_send_ok = true;
+   g_grind_order_test_send_retcode = TRADE_RETCODE_DONE;
+   g_grind_order_test_remove_calls = 0;
+   g_grind_order_test_modify_calls = 0;
+   g_grind_order_test_place_calls = 0;
+   g_grind_order_test_next_ticket = 9000;
+   g_grind_order_test_last_placed_ticket = 0;
+   g_grind_order_test_last_placed_comment = "";
+   g_grind_order_test_last_placed_price = 0.0;
+   g_grind_order_test_last_critical = "";
+   ArrayResize(g_grind_order_test_records, 0);
+   g_grind_order_test_count = 0;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_OrderTestFind(const ulong ticket, GrindOrderTestRecord &out)
+{
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      if(g_grind_order_test_records[i].ticket == ticket) {
+         out = g_grind_order_test_records[i];
+         return true;
+      }
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_OrderTestUpsert(const ulong ticket,
+                           const long magic,
+                           const string comment,
+                           const double price,
+                           const long type)
+{
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      if(g_grind_order_test_records[i].ticket == ticket) {
+         g_grind_order_test_records[i].magic = magic;
+         g_grind_order_test_records[i].comment = comment;
+         g_grind_order_test_records[i].price = price;
+         g_grind_order_test_records[i].type = type;
+         return;
+      }
+   }
+   ArrayResize(g_grind_order_test_records, g_grind_order_test_count + 1);
+   g_grind_order_test_records[g_grind_order_test_count].ticket = ticket;
+   g_grind_order_test_records[g_grind_order_test_count].magic = magic;
+   g_grind_order_test_records[g_grind_order_test_count].comment = comment;
+   g_grind_order_test_records[g_grind_order_test_count].price = price;
+   g_grind_order_test_records[g_grind_order_test_count].type = type;
+   g_grind_order_test_count++;
+}
+
+//+------------------------------------------------------------------+
+void Grind_OrderTestRemove(const ulong ticket)
+{
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      if(g_grind_order_test_records[i].ticket != ticket)
+         continue;
+      for(int j = i; j < g_grind_order_test_count - 1; j++)
+         g_grind_order_test_records[j] = g_grind_order_test_records[j + 1];
+      g_grind_order_test_count--;
+      ArrayResize(g_grind_order_test_records, g_grind_order_test_count);
+      return;
+   }
+}
+
+//+------------------------------------------------------------------+
+bool Grind_OrderEngineSend(MqlTradeRequest &request, MqlTradeResult &result)
+{
+   if(!g_grind_order_test_active)
+      return Grind_OrderSendCounted(request, result);
+
+   if(request.action == TRADE_ACTION_REMOVE) {
+      g_grind_order_test_remove_calls++;
+      result.retcode = g_grind_order_test_send_retcode;
+      if(!g_grind_order_test_send_ok)
+         return false;
+      if(result.retcode == TRADE_RETCODE_DONE)
+         Grind_OrderTestRemove(request.order);
+      return true;
+   }
+
+   if(request.action == TRADE_ACTION_MODIFY) {
+      g_grind_order_test_modify_calls++;
+      result.retcode = g_grind_order_test_send_retcode;
+      if(!g_grind_order_test_send_ok)
+         return false;
+      if(result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_PLACED) {
+         GrindOrderTestRecord rec;
+         if(Grind_OrderTestFind(request.order, rec))
+            Grind_OrderTestUpsert(request.order, rec.magic, rec.comment,
+                                  request.price, rec.type);
+      }
+      return true;
+   }
+
+   if(request.action == TRADE_ACTION_PENDING) {
+      g_grind_order_test_place_calls++;
+      result.retcode = g_grind_order_test_send_retcode;
+      if(!g_grind_order_test_send_ok)
+         return false;
+      if(result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_PLACED) {
+         const ulong ticket = g_grind_order_test_next_ticket++;
+         result.order = ticket;
+         g_grind_order_test_last_placed_ticket = ticket;
+         g_grind_order_test_last_placed_comment = request.comment;
+         g_grind_order_test_last_placed_price = request.price;
+         Grind_OrderTestUpsert(ticket, (long)request.magic, request.comment,
+                               request.price, (long)request.type);
+      }
+      return true;
+   }
+
+   return Grind_OrderSendCounted(request, result);
+}
+
 //+------------------------------------------------------------------+
 bool Grind_SelectOurOrder(const ulong ticket, const ulong magic)
 {
-   if(ticket == 0 || !OrderSelect(ticket))
+   if(ticket == 0)
+      return false;
+   if(g_grind_order_test_active) {
+      GrindOrderTestRecord rec;
+      if(!Grind_OrderTestFind(ticket, rec))
+         return false;
+      return Grind_MagicMatches(rec.magic, magic);
+   }
+   if(!OrderSelect(ticket))
       return false;
    return Grind_MagicMatches(OrderGetInteger(ORDER_MAGIC), magic);
+}
+
+//+------------------------------------------------------------------+
+string Grind_OrderGetComment(const ulong ticket)
+{
+   if(g_grind_order_test_active) {
+      GrindOrderTestRecord rec;
+      if(Grind_OrderTestFind(ticket, rec))
+         return rec.comment;
+      return "";
+   }
+   if(ticket == 0 || !OrderSelect(ticket))
+      return "";
+   return OrderGetString(ORDER_COMMENT);
+}
+
+//+------------------------------------------------------------------+
+double Grind_OrderGetPriceOpen(const ulong ticket)
+{
+   if(g_grind_order_test_active) {
+      GrindOrderTestRecord rec;
+      if(Grind_OrderTestFind(ticket, rec))
+         return rec.price;
+      return 0.0;
+   }
+   if(ticket == 0 || !OrderSelect(ticket))
+      return 0.0;
+   return OrderGetDouble(ORDER_PRICE_OPEN);
 }
 
 //+------------------------------------------------------------------+
@@ -53,7 +233,7 @@ bool Grind_ModifyPendingPrice(const ulong ticket,
    req.type     = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
    req.volume   = OrderGetDouble(ORDER_VOLUME_CURRENT);
 
-   if(!Grind_OrderSendCounted(req, res))
+   if(!Grind_OrderEngineSend(req, res))
       return false;
    return (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_PLACED);
 }
@@ -80,7 +260,7 @@ ulong Grind_PlaceLimit(const ENUM_ORDER_TYPE type,
    req.type_filling = ORDER_FILLING_RETURN;
    req.type_time    = ORDER_TIME_GTC;
 
-   if(!Grind_OrderSendCounted(req, res))
+   if(!Grind_OrderEngineSend(req, res))
       return 0;
    if(res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_PLACED)
       return res.order;
@@ -88,10 +268,43 @@ ulong Grind_PlaceLimit(const ENUM_ORDER_TYPE type,
 }
 
 //+------------------------------------------------------------------+
+bool Grind_CancelPendingOrder(const ulong ticket, const ulong magic)
+{
+   if(ticket == 0)
+      return false;
+   if(!Grind_SelectOurOrder(ticket, magic))
+      return false;
+
+   MqlTradeRequest req;
+   MqlTradeResult  res;
+   ZeroMemory(req);
+   ZeroMemory(res);
+   req.action = TRADE_ACTION_REMOVE;
+   req.order  = ticket;
+
+   if(!Grind_OrderEngineSend(req, res))
+      return false;
+   return (res.retcode == TRADE_RETCODE_DONE);
+}
+
+//+------------------------------------------------------------------+
 void Grind_HaltCritical(const string reason)
 {
    g_grind_halted = true;
+   if(g_grind_order_test_active)
+      g_grind_order_test_last_critical = reason;
    Grind_TelemetryCritical(g_grind_telemetry_instance, reason);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ValidateAddLabelIndex(const int computed_depth, const int label_index)
+{
+   if(computed_depth == label_index)
+      return true;
+   g_grind_halt_reason = "HALT_ADD_INDEX_MISMATCH";
+   const string detail = StringFormat("computed=%d label=%d", computed_depth, label_index);
+   Grind_HaltCritical("HALT_ADD_INDEX_MISMATCH " + detail);
+   return false;
 }
 
 //+------------------------------------------------------------------+
@@ -291,6 +504,26 @@ void Grind_EnsureAddNext(GrindSideState &side,
       return;
 
    const int next_layer = n;
+   const int required_index = n;
+
+   if(side.add_pending_ticket != 0) {
+      if(!Grind_SelectOurOrder(side.add_pending_ticket, magic)) {
+         side.add_pending_ticket = 0;
+      } else {
+         const string resting_comment = Grind_OrderGetComment(side.add_pending_ticket);
+         string c_slot, c_side, c_role;
+         int parsed_layer = -1;
+         const bool label_ok = GrindCommentParse(resting_comment, c_slot, c_side,
+                                                 parsed_layer, c_role)
+                               && parsed_layer == required_index;
+         if(!label_ok) {
+            if(Grind_CancelPendingOrder(side.add_pending_ticket, magic))
+               side.add_pending_ticket = 0;
+            return;
+         }
+      }
+   }
+
    double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
    if(add_target <= 0.0)
       return;
@@ -310,16 +543,15 @@ void Grind_EnsureAddNext(GrindSideState &side,
       return;
 
    if(side.add_pending_ticket != 0) {
-      if(!Grind_SelectOurOrder(side.add_pending_ticket, magic)) {
-         side.add_pending_ticket = 0;
-      } else {
-         const double resting = OrderGetDouble(ORDER_PRICE_OPEN);
-         if(Grind_PriceWithinDeadband(resting, clamped, deadband_pips, _Point))
-            return;
-         Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);
+      const double resting = Grind_OrderGetPriceOpen(side.add_pending_ticket);
+      if(Grind_PriceWithinDeadband(resting, clamped, deadband_pips, _Point))
          return;
-      }
+      Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);
+      return;
    }
+
+   if(!Grind_ValidateAddLabelIndex(required_index, next_layer))
+      return;
 
    const string side_letter = is_long ? "L" : "S";
    const string comment = GrindCommentBuild(slot, side_letter, next_layer, "ENT");

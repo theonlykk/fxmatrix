@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58)    |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1309,6 +1309,300 @@ void Test_OrderBudgetArithmetic()
    AssertTrue("budget eurgbp", Grind_RestingOrderBudgetInstance(8, 8) == 18);
 }
 
+void Grind_TestSetupLongDepth1(const double entry_price)
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = entry_price;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_order_ticket = 0;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   g_grind_long.layers[0].exit_target = Grind_ExitPrice(entry_price, 3.0, _Point, 1);
+}
+
+void Grind_TestSetupShortDepth1(const double entry_price)
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = entry_price;
+   g_grind_short.layers[0].layer_index = 0;
+   g_grind_short.layers[0].position_ticket = 1001;
+   g_grind_short.layers[0].exit_order_ticket = 0;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].exit_target = Grind_ExitPrice(entry_price, 5.0, _Point, -1);
+}
+
+void Grind_TestSeedPendingAdd(const ulong ticket,
+                              const ulong magic,
+                              const string comment,
+                              const double price,
+                              const long type)
+{
+   g_grind_order_test_active = true;
+   Grind_OrderTestUpsert(ticket, (long)magic, comment, price, type);
+}
+
+void Test_A1_StaleLabelDeletesNoPlaceSameTick()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 8101;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("A1 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("A1 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("A1 ticket cleared", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_A2_MatchingLabelDeadbandUnchanged()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const double add_target = Grind_ComputeAddTarget(g_grind_long, true, 10.0);
+   const ulong ticket = 8102;
+   g_grind_long.add_pending_ticket = ticket;
+   Grind_TestSeedPendingAdd(ticket, magic,
+                            GrindCommentBuild("OPT", "L", 1, "ENT"),
+                            add_target, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("A2 no remove", g_grind_order_test_remove_calls == 0);
+   AssertTrue("A2 no modify", g_grind_order_test_modify_calls == 0);
+   AssertTrue("A2 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("A2 ticket kept", g_grind_long.add_pending_ticket == ticket);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_A3_NextTickPlacesFreshAdd()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 8103;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   const double add_target = Grind_ComputeAddTarget(g_grind_long, true, 10.0);
+   AssertTrue("A3 placed once", g_grind_order_test_place_calls == 1);
+   AssertTrue("A3 label L01",
+              g_grind_order_test_last_placed_comment
+              == GrindCommentBuild("OPT", "L", 1, "ENT"));
+   AssertNear("A3 price", g_grind_order_test_last_placed_price, add_target, _Point);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_A4_UnparseableCommentRemoved()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 8104;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            "GRIND|OPT|L|BAD",
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("A4 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("A4 ticket cleared", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_A4b_FailedRemovalKeepsTicket()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 8105;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+   g_grind_order_test_send_ok = false;
+   g_grind_order_test_send_retcode = TRADE_RETCODE_REJECT;
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("A4b remove attempted", g_grind_order_test_remove_calls == 1);
+   AssertTrue("A4b ticket kept", g_grind_long.add_pending_ticket == stale_ticket);
+   AssertTrue("A4b no place", g_grind_order_test_place_calls == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_A5_PlacementGuardHaltsInPlace()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_halted = false;
+   g_grind_halt_reason = "";
+   g_grind_order_test_active = true;
+
+   AssertTrue("A5 guard fails", !Grind_ValidateAddLabelIndex(1, 3));
+   AssertTrue("A5 halted", g_grind_halted);
+   AssertEqStr("A5 reason", g_grind_halt_reason, "HALT_ADD_INDEX_MISMATCH");
+   AssertContains("A5 critical computed",
+                  g_grind_order_test_last_critical, "computed=1");
+   AssertContains("A5 critical label",
+                  g_grind_order_test_last_critical, "label=3");
+   AssertTrue("A5 no place", g_grind_order_test_place_calls == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_A6_InvariantStalePendingAddFails()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[3];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "S", 0, "ENT");
+   tickets[0].price = 1.35666;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "S", 0, "EXT");
+   tickets[1].price = Grind_ExitPrice(1.35666, 5.0, 0.00001, -1);
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 9001;
+   tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "S", 3, "ENT");
+   tickets[2].price = 1.35642;
+   tickets[2].kind = GRIND_RECON_TICKET_ORDER;
+
+   string reason = "";
+   AssertTrue("A6 halt",
+              !Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                            5.0, 12, 0.00001,
+                                            g_grind_long, g_grind_short,
+                                            reason));
+   AssertEqStr("A6 reason", reason, "I8_STALE_PENDING_ADD");
+   Grind_TestResetSideState();
+}
+
+void Test_A7_InvariantMatchingPendingAddPasses()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[3];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 9002;
+   tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[2].price = 1.24900;
+   tickets[2].kind = GRIND_RECON_TICKET_ORDER;
+
+   string reason = "";
+   AssertTrue("A7 ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           g_grind_long, g_grind_short,
+                                           reason));
+   AssertTrue("A7 no reason", reason == "");
+   Grind_TestResetSideState();
+}
+
+void Test_A8_ObservedFailureReproAndFix()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupShortDepth1(1.35666);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 8108;
+   g_grind_short.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "S", 3, "ENT"),
+                            1.35642, (long)ORDER_TYPE_SELL_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_short, false, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+   AssertTrue("A8 tick1 remove", g_grind_order_test_remove_calls == 1);
+   AssertTrue("A8 tick1 no place", g_grind_order_test_place_calls == 0);
+
+   Grind_EnsureAddNext(g_grind_short, false, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+   const double add_target = Grind_ComputeAddTarget(g_grind_short, false, 10.0);
+   AssertTrue("A8 tick2 place", g_grind_order_test_place_calls == 1);
+   AssertTrue("A8 label L01",
+              g_grind_order_test_last_placed_comment
+              == GrindCommentBuild("OPT", "S", 1, "ENT"));
+   AssertNear("A8 price", g_grind_order_test_last_placed_price, add_target, _Point);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -1379,5 +1673,14 @@ void OnStart()
    Test_T57b_RestartSequenceSingleTask();
    Test_T58_EmptyBookQueuesNothing();
    Test_OrderBudgetArithmetic();
+   Test_A1_StaleLabelDeletesNoPlaceSameTick();
+   Test_A2_MatchingLabelDeadbandUnchanged();
+   Test_A3_NextTickPlacesFreshAdd();
+   Test_A4_UnparseableCommentRemoved();
+   Test_A4b_FailedRemovalKeepsTicket();
+   Test_A5_PlacementGuardHaltsInPlace();
+   Test_A6_InvariantStalePendingAddFails();
+   Test_A7_InvariantMatchingPendingAddPasses();
+   Test_A8_ObservedFailureReproAndFix();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }
