@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8) |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6, M1–M5) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1527,7 +1527,7 @@ void Test_A5_PlacementGuardHaltsInPlace()
    g_grind_cap_thresh_b = 0.0;
 }
 
-void Test_A6_InvariantStalePendingAddFails()
+void Test_A6_StaleIndexAdoptedNotInvariant()
 {
    const ulong magic = 22260101UL;
    GrindReconTicket tickets[3];
@@ -1547,13 +1547,15 @@ void Test_A6_InvariantStalePendingAddFails()
    tickets[2].price = 1.35642;
    tickets[2].kind = GRIND_RECON_TICKET_ORDER;
 
+   GrindSideState long_out;
+   GrindSideState short_out;
    string reason = "";
-   AssertTrue("A6 halt",
-              !Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
-                                            5.0, 12, 0.00001,
-                                            g_grind_long, g_grind_short,
-                                            reason));
-   AssertEqStr("A6 reason", reason, "I8_STALE_PENDING_ADD");
+   AssertTrue("A6 ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           5.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertTrue("A6 no reason", reason == "");
+   AssertTrue("A6 adopts stale ticket", short_out.add_pending_ticket == 9001);
    Grind_TestResetSideState();
 }
 
@@ -1620,6 +1622,296 @@ void Test_A8_ObservedFailureReproAndFix()
    Grind_TestResetSideState();
    g_grind_cap_thresh_a = 0.0;
    g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_N1_DepthZeroStaleLabelPassesInvariant()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 9001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[0].price = 0.85774;
+   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N1 ok",
+              Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertTrue("N1 no reason", reason == "");
+   AssertTrue("N1 adopts ticket", long_out.add_pending_ticket == 9001);
+   Grind_TestResetSideState();
+}
+
+void Test_N2_PendingAddWrongKindFailsI8()
+{
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 9002;
+   tickets[0].magic = 22260101UL;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[0].price = 1.24900;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+
+   string reason = "";
+   AssertTrue("N2 halt",
+              !Grind_ReconCheckPendingAddCorrupt(tickets, 1, 9002, reason));
+   AssertEqStr("N2 reason", reason, "I8_CORRUPT_PENDING_ADD");
+}
+
+void Test_N3_DuplicateRestingAddFailsAmbiguous()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 9003;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[0].price = 0.85774;
+   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[1].ticket = 9004;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[1].price = 0.85780;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N3 halt",
+              !Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertEqStr("N3 reason", reason, "AMBIGUOUS_ADD_LONG");
+   Grind_TestResetSideState();
+}
+
+void Test_N4_ReconstructionAdoptsMismatchedTicket()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[3];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 9010;
+   tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   tickets[2].price = 1.24900;
+   tickets[2].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N4 ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertTrue("N4 adopts ticket", long_out.add_pending_ticket == 9010);
+   Grind_TestResetSideState();
+}
+
+void Test_N5_AdoptedStaleRemovedByReconciler()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[3];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 9011;
+   tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   tickets[2].price = 1.24900;
+   tickets[2].kind = GRIND_RECON_TICKET_ORDER;
+
+   string reason = "";
+   AssertTrue("N5 rebuild ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           g_grind_long, g_grind_short,
+                                           reason));
+   AssertTrue("N5 adopted", g_grind_long.add_pending_ticket == 9011);
+
+   Grind_MarketTestSeed(1.24950, 1.24952, 0);
+   Grind_TestSeedPendingAdd(9011, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("N5 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("N5 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("N5 ticket cleared", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_M1_DepthZeroStaleAddRemoved()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 9201;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 1, "ENT"),
+                            0.85774, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M1 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("M1 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("M1 ticket cleared", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M2_DepthZeroNoPendingNoOp()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+
+   Grind_EnsureAddNext(g_grind_long, true, 22260101UL, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M2 no remove", g_grind_order_test_remove_calls == 0);
+   AssertTrue("M2 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("M2 no pending", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M3_CapBlockedStillRemovesStaleAdd()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 1.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_recon_magic = 22260101UL;
+   g_grind_cap_leg_a = "EUR";
+   g_grind_cap_leg_b = "USD";
+
+   for(int i = 0; i < 6; i++) {
+      const ulong magic = GRIND_CAP_ALL_MAGICS[i];
+      const string key = Grind_CapExposureKey(magic, "EUR");
+      GlobalVariableSet(key, 0.0);
+      GlobalVariableSet(Grind_CapTimestampKey(key), (double)TimeCurrent());
+   }
+   const string own_key = Grind_CapExposureKey(22260101UL, "EUR");
+   GlobalVariableSet(own_key, 0.99);
+   GlobalVariableSet(Grind_CapTimestampKey(own_key), (double)TimeCurrent());
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 9203;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M3 cap blocked", !Grind_CapAllowsEntry(true, 0.01));
+   AssertTrue("M3 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("M3 no place", g_grind_order_test_place_calls == 0);
+
+   g_grind_cap_thresh_a = 0.0;
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M4_LayerCapReachedStillRemovesStaleAdd()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const int max_layers = 2;
+   ArrayResize(g_grind_long.layers, max_layers);
+   for(int i = 0; i < max_layers; i++) {
+      g_grind_long.layers[i].entry_price = 1.25000 - (double)i * 0.00100;
+      g_grind_long.layers[i].layer_index = i;
+      g_grind_long.layers[i].position_ticket = 1100 + (ulong)i;
+      g_grind_long.layers[i].exit_order_ticket = 0;
+      g_grind_long.layers[i].exit_position_ticket = 0;
+      g_grind_long.layers[i].exit_target = Grind_ExitPrice(g_grind_long.layers[i].entry_price,
+                                                           3.0, _Point, 1);
+   }
+
+   const ulong magic = 22260101UL;
+   const ulong stale_ticket = 9204;
+   g_grind_long.add_pending_ticket = stale_ticket;
+   Grind_TestSeedPendingAdd(stale_ticket, magic,
+                            GrindCommentBuild("OPT", "L", 0, "ENT"),
+                            1.24800, (long)ORDER_TYPE_BUY_LIMIT);
+
+   AssertTrue("M4 cap reached", !Grind_CanPlaceEntryLayer(max_layers, max_layers));
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, max_layers, 0.01);
+
+   AssertTrue("M4 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("M4 no place", g_grind_order_test_place_calls == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_M5_MatchingLabelAtDepthOneUnchanged()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   Grind_MarketTestSeed(1.24950, 1.24952, 0);
+   const double engine_price = Grind_TestEngineClampedAddPrice(g_grind_long, true, 10.0);
+   const ulong ticket = 9205;
+   g_grind_long.add_pending_ticket = ticket;
+   Grind_TestSeedPendingAdd(ticket, magic,
+                            GrindCommentBuild("OPT", "L", 1, "ENT"),
+                            engine_price, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("M5 no remove", g_grind_order_test_remove_calls == 0);
+   AssertTrue("M5 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("M5 ticket kept", g_grind_long.add_pending_ticket == ticket);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
 }
 
 void OnStart()
@@ -1698,8 +1990,18 @@ void OnStart()
    Test_A4_UnparseableCommentRemoved();
    Test_A4b_FailedRemovalKeepsTicket();
    Test_A5_PlacementGuardHaltsInPlace();
-   Test_A6_InvariantStalePendingAddFails();
+   Test_A6_StaleIndexAdoptedNotInvariant();
    Test_A7_InvariantMatchingPendingAddPasses();
    Test_A8_ObservedFailureReproAndFix();
+   Test_N1_DepthZeroStaleLabelPassesInvariant();
+   Test_N2_PendingAddWrongKindFailsI8();
+   Test_N3_DuplicateRestingAddFailsAmbiguous();
+   Test_N4_ReconstructionAdoptsMismatchedTicket();
+   Test_N5_AdoptedStaleRemovedByReconciler();
+   Test_M1_DepthZeroStaleAddRemoved();
+   Test_M2_DepthZeroNoPendingNoOp();
+   Test_M3_CapBlockedStillRemovesStaleAdd();
+   Test_M4_LayerCapReachedStillRemovesStaleAdd();
+   Test_M5_MatchingLabelAtDepthOneUnchanged();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

@@ -549,12 +549,6 @@ void Grind_EnsureAddNext(GrindSideState &side,
                          const double lots)
 {
    const int n = Grind_SideDepth(side);
-   if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
-      return;
-   if(!Grind_CapAllowsEntry(is_long, lots))
-      return;
-
-   const int next_layer = n;
    const int required_index = n;
 
    if(side.add_pending_ticket != 0) {
@@ -568,12 +562,28 @@ void Grind_EnsureAddNext(GrindSideState &side,
                                                  parsed_layer, c_role)
                                && parsed_layer == required_index;
          if(!label_ok) {
+            if(g_grind_recon_verbose) {
+               string label_txt = "UNPARSEABLE";
+               if(GrindCommentParse(resting_comment, c_slot, c_side, parsed_layer, c_role))
+                  label_txt = StringFormat("L%02d", parsed_layer);
+               Print("INFO: grind reconcile remove stale add ticket=",
+                     side.add_pending_ticket,
+                     " label=", label_txt,
+                     " depth=", required_index);
+            }
             if(Grind_CancelPendingOrder(side.add_pending_ticket, magic))
                side.add_pending_ticket = 0;
             return;
          }
       }
    }
+
+   if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
+      return;
+   if(!Grind_CapAllowsEntry(is_long, lots))
+      return;
+
+   const int next_layer = n;
 
    double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
    if(add_target <= 0.0)
@@ -920,9 +930,9 @@ void Grind_OnTickEngine(const ulong magic,
          Grind_TryPlaceExitForLayer(g_grind_short.layers[i], false, magic, slot, lots);
    }
 
-   if(Grind_SideDepth(g_grind_long) > 0)
+   if(Grind_SideDepth(g_grind_long) > 0 || g_grind_long.add_pending_ticket != 0)
       Grind_EnsureAddNext(g_grind_long, true, magic, slot, add_pips, deadband_pips, max_layers, lots);
-   if(Grind_SideDepth(g_grind_short) > 0)
+   if(Grind_SideDepth(g_grind_short) > 0 || g_grind_short.add_pending_ticket != 0)
       Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_pips, deadband_pips, max_layers, lots);
 }
 

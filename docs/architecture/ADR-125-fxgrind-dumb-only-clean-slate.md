@@ -3,7 +3,8 @@
 ## Status
 
 Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B); amended
-2026-09-08 (stale resting add reconciliation + I8 invariant).
+2026-09-08 (stale resting add reconciliation + I8 invariant); amended
+2026-09-09 (narrow I8 — invariant/reconciler boundary).
 Spec A of B (engine, presets, placement, caps) and Spec B (comment-only state
 reconstruction + CAS currency cap) implemented. CloseBy queue port completes
 the hedging-account exit path (Spec A closeby-exits branch).
@@ -140,12 +141,34 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    computed depth; on divergence halt in place with `HALT_ADD_INDEX_MISMATCH`
    (CRITICAL telemetry naming both indices; no order sent; no `ExpertRemove()`).
 
+   **Invariant/reconciler boundary (ratified 2026-09-09):** An invariant defines
+   a state the system cannot survive; a reconciler defines a state the system
+   expects and heals. They must **never target the same condition.** Label index
+   vs current depth is routine after a completed unwind (e.g. resting `L01` at
+   depth 0) and is healed by `Grind_EnsureAddNext` (`TRADE_ACTION_REMOVE` +
+   replace next tick). Halting on that condition (`I8_STALE_PENDING_ADD`) stopped
+   the EA before the reconciler could run (observed live EURGBP OPT 2026-09-09:
+   recon succeeded, scalp banked, heartbeat invariant halted). Reconstruction
+   **adopts** the broker ticket into `add_pending_ticket` (read-only — no cancel
+   on init); the reconciler removes it on the next tick when depth allows.
+
+   **General rule:** if a condition has a reconciler, the invariant must not
+   assert it. Index matching belongs entirely to the reconciler.
+
 9. **Spec B — book invariants (read-only, no auto-repair).** I1–I8 checked at
    rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
    contiguous layer indices, exit within `2 × _Point` of entry ± `InpExitPips`,
-   depth ≤ `InpMaxLayers`, and **I8_STALE_PENDING_ADD** — if a pending add
-   (layer > 0) exists, its parsed comment layer index must equal that side's
-   current filled depth. Violations halt with named CRITICAL reason.
+   depth ≤ `InpMaxLayers`, and **I8_CORRUPT_PENDING_ADD** — structural corruption
+   of a tracked pending add: `add_pending_ticket` points to a ticket that is not
+   a resting order (`GRIND_RECON_TICKET_ORDER`) or is absent from the enumeration.
+   **Unparseable comments are not I8 scope:** reconstruction halts at
+   `UNPARSEABLE_COMMENT` (main ticket loop, before assignment); on tick the
+   reconciler removes unparseable resting adds without halting. Index mismatch
+   with depth is **not** an invariant (reconciler scope). Duplicate resting
+   entry orders per side remain **`AMBIGUOUS_ADD_LONG` / `AMBIGUOUS_ADD_SHORT`**
+   in the rebuild loop (needs full ticket list; not duplicated in I8). Magic
+   mismatch on the tracked ticket is unreachable — enumeration filters exact
+   magic before assignment. Violations halt with named CRITICAL reason.
 
    **Covered-layer amendment (ratified 2026-09-07):** A layer is covered if it
    has **either** (a) a resting EXT limit order, **or** (b) an open EXT position
@@ -256,5 +279,5 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
   (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, P&L
-  telemetry tests T40–T44, and stale-add tests A1–A8)
+  telemetry tests T40–T44, stale-add tests A1–A8, and I8-boundary tests N1–N5)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)
