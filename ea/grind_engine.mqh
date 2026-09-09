@@ -568,6 +568,15 @@ void Grind_EnsureAddNext(GrindSideState &side,
                                                  parsed_layer, c_role)
                                && parsed_layer == required_index;
          if(!label_ok) {
+            if(g_grind_recon_verbose) {
+               string label_txt = "UNPARSEABLE";
+               if(GrindCommentParse(resting_comment, c_slot, c_side, parsed_layer, c_role))
+                  label_txt = StringFormat("L%02d", parsed_layer);
+               Print("INFO: grind reconcile remove stale add ticket=",
+                     side.add_pending_ticket,
+                     " label=", label_txt,
+                     " depth=", required_index);
+            }
             if(Grind_CancelPendingOrder(side.add_pending_ticket, magic))
                side.add_pending_ticket = 0;
             return;

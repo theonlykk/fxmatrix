@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8) |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1527,7 +1527,7 @@ void Test_A5_PlacementGuardHaltsInPlace()
    g_grind_cap_thresh_b = 0.0;
 }
 
-void Test_A6_InvariantStalePendingAddFails()
+void Test_A6_StaleIndexAdoptedNotInvariant()
 {
    const ulong magic = 22260101UL;
    GrindReconTicket tickets[3];
@@ -1547,13 +1547,15 @@ void Test_A6_InvariantStalePendingAddFails()
    tickets[2].price = 1.35642;
    tickets[2].kind = GRIND_RECON_TICKET_ORDER;
 
+   GrindSideState long_out;
+   GrindSideState short_out;
    string reason = "";
-   AssertTrue("A6 halt",
-              !Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
-                                            5.0, 12, 0.00001,
-                                            g_grind_long, g_grind_short,
-                                            reason));
-   AssertEqStr("A6 reason", reason, "I8_STALE_PENDING_ADD");
+   AssertTrue("A6 ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           5.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertTrue("A6 no reason", reason == "");
+   AssertTrue("A6 adopts stale ticket", short_out.add_pending_ticket == 9001);
    Grind_TestResetSideState();
 }
 
@@ -1615,6 +1617,157 @@ void Test_A8_ObservedFailureReproAndFix()
               g_grind_order_test_last_placed_comment
               == GrindCommentBuild("OPT", "S", 1, "ENT"));
    AssertNear("A8 price", g_grind_order_test_last_placed_price, engine_price, _Point);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+}
+
+void Test_N1_DepthZeroStaleLabelPassesInvariant()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 9001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[0].price = 0.85774;
+   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N1 ok",
+              Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertTrue("N1 no reason", reason == "");
+   AssertTrue("N1 adopts ticket", long_out.add_pending_ticket == 9001);
+   Grind_TestResetSideState();
+}
+
+void Test_N2_UnparseablePendingAddFailsInvariant()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 9002;
+   tickets[0].magic = magic;
+   tickets[0].comment = "GRIND|OPT|L|BAD";
+   tickets[0].price = 1.24900;
+   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N2 halt",
+              !Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertEqStr("N2 reason", reason, "I8_CORRUPT_PENDING_ADD");
+   Grind_TestResetSideState();
+}
+
+void Test_N3_DuplicateRestingAddFailsAmbiguous()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   tickets[0].ticket = 9003;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[0].price = 0.85774;
+   tickets[0].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[1].ticket = 9004;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[1].price = 0.85780;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N3 halt",
+              !Grind_RebuildBookFromTickets(tickets, 2, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertEqStr("N3 reason", reason, "AMBIGUOUS_ADD_LONG");
+   Grind_TestResetSideState();
+}
+
+void Test_N4_ReconstructionAdoptsMismatchedTicket()
+{
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[3];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 9010;
+   tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   tickets[2].price = 1.24900;
+   tickets[2].kind = GRIND_RECON_TICKET_ORDER;
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("N4 ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertTrue("N4 adopts ticket", long_out.add_pending_ticket == 9010);
+   Grind_TestResetSideState();
+}
+
+void Test_N5_AdoptedStaleRemovedByReconciler()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[3];
+   tickets[0].ticket = 1001;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001;
+   tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25030;
+   tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 9011;
+   tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   tickets[2].price = 1.24900;
+   tickets[2].kind = GRIND_RECON_TICKET_ORDER;
+
+   string reason = "";
+   AssertTrue("N5 rebuild ok",
+              Grind_RebuildBookFromTickets(tickets, 3, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           g_grind_long, g_grind_short,
+                                           reason));
+   AssertTrue("N5 adopted", g_grind_long.add_pending_ticket == 9011);
+
+   Grind_MarketTestSeed(1.24950, 1.24952, 0);
+   Grind_TestSeedPendingAdd(9011, magic,
+                            GrindCommentBuild("OPT", "L", 3, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("N5 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("N5 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("N5 ticket cleared", g_grind_long.add_pending_ticket == 0);
 
    Grind_OrderTestReset();
    Grind_TestResetSideState();
@@ -1698,8 +1851,13 @@ void OnStart()
    Test_A4_UnparseableCommentRemoved();
    Test_A4b_FailedRemovalKeepsTicket();
    Test_A5_PlacementGuardHaltsInPlace();
-   Test_A6_InvariantStalePendingAddFails();
+   Test_A6_StaleIndexAdoptedNotInvariant();
    Test_A7_InvariantMatchingPendingAddPasses();
    Test_A8_ObservedFailureReproAndFix();
+   Test_N1_DepthZeroStaleLabelPassesInvariant();
+   Test_N2_UnparseablePendingAddFailsInvariant();
+   Test_N3_DuplicateRestingAddFailsAmbiguous();
+   Test_N4_ReconstructionAdoptsMismatchedTicket();
+   Test_N5_AdoptedStaleRemovedByReconciler();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

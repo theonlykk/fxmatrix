@@ -164,11 +164,10 @@ bool Grind_ReconLayerHasExitCoverage(const GrindReconLayerScratch &layer)
 }
 
 //+------------------------------------------------------------------+
-bool Grind_ReconCheckPendingAddLabel(const GrindReconTicket &tickets[],
-                                     const int ticket_count,
-                                     const ulong add_pending_ticket,
-                                     const int side_depth,
-                                     string &reason_out)
+bool Grind_ReconCheckPendingAddCorrupt(const GrindReconTicket &tickets[],
+                                       const int ticket_count,
+                                       const ulong add_pending_ticket,
+                                       string &reason_out)
 {
    if(add_pending_ticket == 0)
       return true;
@@ -176,20 +175,21 @@ bool Grind_ReconCheckPendingAddLabel(const GrindReconTicket &tickets[],
    for(int i = 0; i < ticket_count; i++) {
       if(tickets[i].ticket != add_pending_ticket)
          continue;
-      if(tickets[i].kind != GRIND_RECON_TICKET_ORDER)
-         break;
+      if(tickets[i].kind != GRIND_RECON_TICKET_ORDER) {
+         reason_out = "I8_CORRUPT_PENDING_ADD";
+         return false;
+      }
 
       string c_slot, c_side, c_role;
       int c_layer;
-      if(!GrindCommentParse(tickets[i].comment, c_slot, c_side, c_layer, c_role)
-         || c_layer != side_depth) {
-         reason_out = "I8_STALE_PENDING_ADD";
+      if(!GrindCommentParse(tickets[i].comment, c_slot, c_side, c_layer, c_role)) {
+         reason_out = "I8_CORRUPT_PENDING_ADD";
          return false;
       }
       return true;
    }
 
-   reason_out = "I8_STALE_PENDING_ADD";
+   reason_out = "I8_CORRUPT_PENDING_ADD";
    return false;
 }
 
@@ -495,13 +495,13 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                  exit_pips, point, max_layers, reason_out))
       return false;
 
-   if(!Grind_ReconCheckPendingAddLabel(tickets, ticket_count,
-                                       long_out.add_pending_ticket, long_count,
-                                       reason_out))
+   if(!Grind_ReconCheckPendingAddCorrupt(tickets, ticket_count,
+                                         long_out.add_pending_ticket,
+                                         reason_out))
       return false;
-   if(!Grind_ReconCheckPendingAddLabel(tickets, ticket_count,
-                                       short_out.add_pending_ticket, short_count,
-                                       reason_out))
+   if(!Grind_ReconCheckPendingAddCorrupt(tickets, ticket_count,
+                                         short_out.add_pending_ticket,
+                                         reason_out))
       return false;
 
    for(int i = 0; i < long_count; i++) {
