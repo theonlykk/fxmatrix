@@ -96,7 +96,7 @@ class TestGridAddMechanics(unittest.TestCase):
             "closes": closes.tolist(),
             "times": times.tolist(),
             "window_hours": 1.0,
-            "gbpusd_closes": None,
+            "conversion_closes": None,
             "window": "q1_2024_chop",
             "regime": "ranging",
             "cell_key": "q1_2024_chop|GBPUSD|9|3",

@@ -103,7 +103,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                        entry_mode="signal", straddle_half_width_pips=9.0,
                        triangular_harvest_pips=None, triangular_survival_pips=None,
                        exit_pips=None, track_l0_stats=False,
-                       gbpusd_closes: Sequence[float] | None = None,
+                       conversion_closes: Sequence[float] | None = None,
                        conversion_rate: float | None = None,
                        initial_balance: float = sim_costs.DEFAULT_INITIAL_BALANCE,
                        max_daily_loss_usd: float | None = None,
@@ -113,8 +113,8 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     (same length as closes), used ONLY for the flat->Layer-0 re-entry decision.
     Layers 1+ use fixed entry-anchored adds at 2 x straddle half-width (fxgrind).
 
-    gbpusd_closes: optional per-bar GBPUSD close series for EURGBP USD conversion.
-    conversion_rate: constant GBPUSD when gbpusd_closes not supplied (required for EURGBP).
+    conversion_closes: optional per-bar conversion-pair close series for USD P&L.
+    conversion_rate: constant conversion rate when conversion_closes not supplied.
     """
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
@@ -133,22 +133,22 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     conversion_policy = "native_usd"
     conversion_rate_used: float | None = None
     if pair_spec.quote_currency != "USD":
-        if gbpusd_closes is not None:
-            conversion_policy = "per_bar_gbpusd"
-            conversion_rate_used = float(np.mean(gbpusd_closes))
+        if conversion_closes is not None:
+            conversion_policy = "per_bar_conversion"
+            conversion_rate_used = float(np.mean(conversion_closes))
         elif conversion_rate is not None:
-            conversion_policy = "constant_gbpusd"
+            conversion_policy = "constant_conversion"
             conversion_rate_used = float(conversion_rate)
         else:
             raise ValueError(
-                f"{symbol} simulation requires gbpusd_closes or conversion_rate"
+                f"{symbol} simulation requires conversion_closes or conversion_rate"
             )
 
     def _rate_at(bar_idx: int) -> float | None:
         if pair_spec.quote_currency == "USD":
             return None
-        if gbpusd_closes is not None:
-            return float(gbpusd_closes[bar_idx])
+        if conversion_closes is not None:
+            return float(conversion_closes[bar_idx])
         return conversion_rate_used
 
     layers: List[Layer] = []
