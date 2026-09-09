@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6, M1–M5) |
+//| fxgrind_tests.mq5 — unit tests for fxgrind Spec A/B (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1914,6 +1914,60 @@ void Test_M5_MatchingLabelAtDepthOneUnchanged()
    Grind_TestResetSideState();
 }
 
+void Test_O1_UnwindToFlatKeepsAddPendingTracker()
+{
+   Grind_TestSetupLongDepth1(1.25000);
+   const ulong ticket = 9301;
+   g_grind_long.add_pending_ticket = ticket;
+
+   Grind_RemoveLayerAt(g_grind_long, 0);
+
+   AssertTrue("O1 depth 0", Grind_SideDepth(g_grind_long) == 0);
+   AssertTrue("O1 tracker kept", g_grind_long.add_pending_ticket == ticket);
+
+   Grind_TestResetSideState();
+}
+
+void Test_O2_ReconcilerClearsTrackerAfterFlatUnwind()
+{
+   Grind_OrderTestReset();
+   Grind_TestSetupLongDepth1(1.25000);
+   const ulong magic = 22260101UL;
+   const ulong ticket = 9302;
+   g_grind_long.add_pending_ticket = ticket;
+   Grind_RemoveLayerAt(g_grind_long, 0);
+
+   Grind_TestSeedPendingAdd(ticket, magic,
+                            GrindCommentBuild("OPT", "L", 1, "ENT"),
+                            1.24900, (long)ORDER_TYPE_BUY_LIMIT);
+
+   Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
+                       10.0, 4.0, 12, 0.01);
+
+   AssertTrue("O2 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("O2 tracker cleared", g_grind_long.add_pending_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_O3_CapWarnResetOnFlatUnwind()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.cap_warn_emitted = true;
+
+   Grind_RemoveLayerAt(g_grind_long, 0);
+
+   AssertTrue("O3 depth 0", Grind_SideDepth(g_grind_long) == 0);
+   AssertTrue("O3 cap warn reset", !g_grind_long.cap_warn_emitted);
+
+   Grind_TestResetSideState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -2003,5 +2057,8 @@ void OnStart()
    Test_M3_CapBlockedStillRemovesStaleAdd();
    Test_M4_LayerCapReachedStillRemovesStaleAdd();
    Test_M5_MatchingLabelAtDepthOneUnchanged();
+   Test_O1_UnwindToFlatKeepsAddPendingTracker();
+   Test_O2_ReconcilerClearsTrackerAfterFlatUnwind();
+   Test_O3_CapWarnResetOnFlatUnwind();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }
