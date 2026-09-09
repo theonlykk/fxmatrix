@@ -275,8 +275,8 @@ def _worker_cell(payload: dict) -> dict:
 
     seed_results: list[dict] = []
     sim_kwargs = {}
-    if payload.get("gbpusd_closes") is not None:
-        sim_kwargs["gbpusd_closes"] = np.asarray(payload["gbpusd_closes"], dtype=float)
+    if payload.get("conversion_closes") is not None:
+        sim_kwargs["conversion_closes"] = np.asarray(payload["conversion_closes"], dtype=float)
     with patch.dict(sim6.PAIR_SPREAD_PIPS, patched, clear=False):
         for s in range(n_seeds):
             seed_results.append(
@@ -319,15 +319,15 @@ def _run_one_cell_local(
     exit_pips: float,
     n_seeds: int,
     substeps: int = DEFAULT_SUBSTEPS,
-    gbpusd_closes=None,
+    conversion_closes=None,
 ) -> dict:
     """In-process single cell (workers=1 path) — identical seed loop to _worker_cell."""
     t0 = time.time()
     dummy = np.zeros_like(closes)
     seed_results = []
     sim_kwargs = {}
-    if gbpusd_closes is not None:
-        sim_kwargs["gbpusd_closes"] = np.asarray(gbpusd_closes, dtype=float)
+    if conversion_closes is not None:
+        sim_kwargs["conversion_closes"] = np.asarray(conversion_closes, dtype=float)
     for s in range(n_seeds):
         seed_results.append(
             simv7.simulate_one_path(
@@ -621,24 +621,36 @@ def run_sweep(
             window_hours = (
                 (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
             )
-            pair_spread = sim_costs.PAIR_SPREAD_PIPS.get(pair, 0.5)
-            gbpusd_closes = None
-            if pair.upper() == "EURGBP":
-                gbpusd_closes = sim_costs.load_aligned_gbpusd_closes(
-                    times, ROOT / "data", _window_file_suffix(wkey)
+            pair_spread = sim_costs.get_pair_spread_pips(pair)
+            suffix = _window_file_suffix(wkey)
+            conversion_closes, conv_stats = sim_costs.load_aligned_conversion_closes(
+                times, pair, ROOT / "data", suffix, return_stats=True
+            )
+            if conversion_closes is not None:
+                assert len(conversion_closes) == len(closes), (
+                    f"{wkey}/{pair}: conversion length {len(conversion_closes)} "
+                    f"!= primary {len(closes)}"
                 )
             series_cache[(wkey, pair)] = {
                 "closes": closes,
                 "times": times,
                 "window_hours": window_hours,
                 "pair_spread": pair_spread,
-                "gbpusd_closes": gbpusd_closes,
+                "conversion_closes": conversion_closes,
+                "conversion_stats": conv_stats,
             }
             if verbose:
+                conv_note = ""
+                if conv_stats:
+                    conv_note = (
+                        f"  conv={conv_stats.get('conversion_pair')} "
+                        f"ffill={conv_stats.get('forward_filled', 0)} "
+                        f"bfill={conv_stats.get('back_filled_leading', 0)}"
+                    )
                 print(
                     f"Loaded {wkey}/{pair}: {len(df)} bars, "
                     f"{df['datetime'].iloc[0]} -> {df['datetime'].iloc[-1]} "
-                    f"({window_hours:.1f}h)",
+                    f"({window_hours:.1f}h){conv_note}",
                     flush=True,
                 )
             for width in width_grid:
@@ -657,7 +669,7 @@ def run_sweep(
                         "closes": cache["closes"],
                         "times": cache["times"],
                         "window_hours": cache["window_hours"],
-                        "gbpusd_closes": cache.get("gbpusd_closes"),
+                        "conversion_closes": cache.get("conversion_closes"),
                         "window": wkey,
                         "regime": WINDOW_META[wkey]["regime"],
                         "cell_key": ck,
@@ -726,7 +738,7 @@ def run_sweep(
                 job["exit_pips"],
                 n_seeds,
                 substeps,
-                gbpusd_closes=cache.get("gbpusd_closes"),
+                conversion_closes=cache.get("conversion_closes"),
             )
             cells[cell["cell_key"]] = cell
             done += 1

@@ -153,6 +153,16 @@ def get_pair_spec(symbol: str) -> PairSpec:
     return PAIR_SPECS[key]
 
 
+def get_pair_spread_pips(symbol: str) -> float:
+    """Spread constant for fill timing — raises on unknown pair (no silent default)."""
+    key = symbol.upper()
+    if key not in PAIR_SPREAD_PIPS:
+        raise KeyError(
+            f"Unknown pair {symbol!r}; add spread to PAIR_SPREAD_PIPS in sim_costs.py"
+        )
+    return PAIR_SPREAD_PIPS[key]
+
+
 def pips_to_price(pips: float, symbol: str) -> float:
     spec = get_pair_spec(symbol)
     return pips * spec.pip_size
@@ -359,24 +369,91 @@ def resolve_conversion_rate(
     symbol: str,
     bar_index: int,
     conversion_rate: float | None,
-    gbpusd_closes: Sequence[float] | None,
+    conversion_closes: Sequence[float] | None,
 ) -> tuple[float | None, str]:
     """
-    Return (rate, policy_label) for EURGBP USD conversion at bar_index.
+    Return (rate, policy_label) for quote-to-USD conversion at bar_index.
     USD pairs: (None, 'native_usd').
-    EURGBP: per-bar GBPUSD close if series provided, else constant conversion_rate.
-    Raises if EURGBP and neither source supplied.
+    Non-USD: per-bar conversion close if series provided, else constant conversion_rate.
+    Raises if non-USD and neither source supplied.
     """
     spec = get_pair_spec(symbol)
     if spec.quote_currency == "USD":
         return None, "native_usd"
-    if gbpusd_closes is not None:
-        return float(gbpusd_closes[bar_index]), "per_bar_gbpusd"
+    if conversion_closes is not None:
+        return float(conversion_closes[bar_index]), "per_bar_conversion"
     if conversion_rate is not None:
-        return float(conversion_rate), "constant_gbpusd"
+        return float(conversion_rate), "constant_conversion"
     raise ValueError(
-        f"{symbol} requires gbpusd_closes per-bar series or explicit conversion_rate"
+        f"{symbol} requires conversion_closes per-bar series or explicit conversion_rate"
     )
+
+
+def _align_closes_to_primary(
+    primary_times: Sequence,
+    conversion_df: pd.DataFrame,
+) -> tuple[np.ndarray, dict[str, int]]:
+    """Reindex conversion CLOSE onto primary timestamps: ffill, then bfill leading gaps."""
+    primary_t = pd.to_datetime(pd.Series(primary_times))
+    conv = conversion_df.copy()
+    conv["datetime"] = pd.to_datetime(conv["datetime"])
+    conv_indexed = conv.set_index("datetime")["CLOSE"]
+    aligned_raw = conv_indexed.reindex(primary_t.values)
+    missing_before = aligned_raw.isna()
+    after_ffill = aligned_raw.ffill()
+    leading_bfill = after_ffill.isna()
+    aligned = after_ffill.bfill()
+    if aligned.isna().any():
+        raise ValueError("conversion alignment left NaN after ffill/bfill")
+    n_primary = len(primary_t)
+    if len(aligned) != n_primary:
+        raise RuntimeError(
+            f"alignment length mismatch: primary={n_primary} aligned={len(aligned)}"
+        )
+    stats = {
+        "primary_bars": n_primary,
+        "matched_exact": int((~missing_before).sum()),
+        "forward_filled": int(missing_before.sum() - leading_bfill.sum()),
+        "back_filled_leading": int(leading_bfill.sum()),
+    }
+    return aligned.to_numpy(dtype=float), stats
+
+
+def load_aligned_conversion_closes(
+    primary_times: Sequence,
+    symbol: str,
+    data_root: str | Path,
+    window_suffix: str,
+    *,
+    return_stats: bool = False,
+) -> np.ndarray | None | tuple[np.ndarray | None, dict[str, int]]:
+    """
+    Load conversion-pair closes aligned to primary bar timestamps.
+
+    Looks up conversion_pair from PairSpec. USD-quoted pairs return None.
+    Raises FileNotFoundError if conversion_pair is set but the CSV is missing.
+    """
+    spec = get_pair_spec(symbol)
+    if spec.conversion_pair is None:
+        empty: dict[str, int] = {}
+        return (None, empty) if return_stats else None
+
+    root = Path(data_root)
+    conv_pair = spec.conversion_pair
+    path = root / f"{conv_pair}_{window_suffix}.csv"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{symbol} requires conversion pair {conv_pair}; file not found: {path}"
+        )
+    from grid_sim_v6_dynamic_spacing import load_mt5_csv
+
+    conv_df = load_mt5_csv(str(path))
+    aligned, stats = _align_closes_to_primary(primary_times, conv_df)
+    assert len(aligned) == len(primary_times)
+    stats["conversion_pair"] = conv_pair  # type: ignore[assignment]
+    if return_stats:
+        return aligned, stats
+    return aligned
 
 
 def load_aligned_gbpusd_closes(
@@ -385,19 +462,12 @@ def load_aligned_gbpusd_closes(
     window_suffix: str,
 ) -> np.ndarray | None:
     """
-    Load GBPUSD closes aligned to EURGBP bar timestamps for the same window suffix.
-    Returns None if GBPUSD file missing.
+    Legacy EURGBP wrapper. Returns None if GBPUSD file missing (historical behaviour).
     """
-    root = Path(data_root)
-    path = root / f"GBPUSD_{window_suffix}.csv"
-    if not path.is_file():
+    try:
+        result = load_aligned_conversion_closes(
+            eurgbp_times, "EURGBP", data_root, window_suffix, return_stats=False
+        )
+        return result
+    except FileNotFoundError:
         return None
-    from grid_sim_v6_dynamic_spacing import load_mt5_csv
-
-    gbp = load_mt5_csv(str(path))
-    eur_t = pd.to_datetime(pd.Series(eurgbp_times))
-    gbp_t = pd.to_datetime(gbp["datetime"])
-    aligned = gbp.set_index("datetime")["CLOSE"].reindex(eur_t.values, method="ffill")
-    if aligned.isna().any():
-        aligned = aligned.bfill()
-    return aligned.to_numpy(dtype=float)
