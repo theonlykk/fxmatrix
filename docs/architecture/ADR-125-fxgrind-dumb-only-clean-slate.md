@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B).
+Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B); amended
+2026-09-08 (stale resting add reconciliation + I8 invariant).
 Spec A of B (engine, presets, placement, caps) and Spec B (comment-only state
 reconstruction + CAS currency cap) implemented. CloseBy queue port completes
 the hedging-account exit path (Spec A closeby-exits branch).
@@ -111,10 +112,40 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    `I3_SHORT_NAKED` halt on EURGBP OPT/ALT with simultaneous buy/sell positions
    under magic 22260301). Do not repeat that error.
 
-9. **Spec B — book invariants (read-only, no auto-repair).** I1–I7 checked at
+   **Stale resting add (ratified 2026-09-08):** `Grind_EnsureAddNext` derives the
+   next add layer index from **current filled depth** (`Grind_SideDepth`) at
+   placement time. The resting add order keeps whatever comment label it was born
+   with; `OrderModify` cannot change comments. The pending add was **never
+   cancelled** anywhere in the codebase — only set, cleared on fill, or forgotten.
+   The engine implicitly assumed the ladder only ever grows. When CloseBy scalps
+   unwind interior layers (possible only after the 2026-09-07 exit fix), depth
+   drops while a stale add (e.g. `L03` at depth 1) remains at the broker →
+   non-contiguous indices (`I5_*`) or duplicate adds (`AMBIGUOUS_ADD_*`). Observed
+   live on GRIND_GBPUSD_OPT (magic 22260101) and EURGBP OPT 2026-09-08.
+
+   **General lesson:** fixing one mechanism can expose a latent defect in another
+   that it was masking. The exit path and the add path had never been exercised
+   together until CloseBy unwinds became real.
+
+   **Idempotent reconciliation (no depth-change memory):** every tick, if a resting
+   add exists, parse its comment via `GrindCommentParse` and compare the layer
+   index to current depth. On mismatch or unparseable comment: cancel via
+   `TRADE_ACTION_REMOVE` through `Grind_OrderSendCounted` (MQL5 — not MQL4
+   `OrderDelete`); clear `add_pending_ticket` **only on successful removal**;
+   return without placing on that tick. Failed removal leaves the ticket tracked
+   for retry. Next tick places a fresh add with correct label and price. Matching
+   label: existing deadband/modify behaviour unchanged.
+
+   **Placement guard:** immediately before add placement, assert label index ==
+   computed depth; on divergence halt in place with `HALT_ADD_INDEX_MISMATCH`
+   (CRITICAL telemetry naming both indices; no order sent; no `ExpertRemove()`).
+
+9. **Spec B — book invariants (read-only, no auto-repair).** I1–I8 checked at
    rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
    contiguous layer indices, exit within `2 × _Point` of entry ± `InpExitPips`,
-   depth ≤ `InpMaxLayers`. Violations halt with named CRITICAL reason.
+   depth ≤ `InpMaxLayers`, and **I8_STALE_PENDING_ADD** — if a pending add
+   (layer > 0) exists, its parsed comment layer index must equal that side's
+   current filled depth. Violations halt with named CRITICAL reason.
 
    **Covered-layer amendment (ratified 2026-09-07):** A layer is covered if it
    has **either** (a) a resting EXT limit order, **or** (b) an open EXT position
@@ -224,6 +255,6 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - ADR-126 (simulation cost model — separate branch)
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
-  (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, and P&L
-  telemetry tests T40–T44)
+  (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, P&L
+  telemetry tests T40–T44, and stale-add tests A1–A8)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)

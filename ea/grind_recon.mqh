@@ -164,6 +164,36 @@ bool Grind_ReconLayerHasExitCoverage(const GrindReconLayerScratch &layer)
 }
 
 //+------------------------------------------------------------------+
+bool Grind_ReconCheckPendingAddLabel(const GrindReconTicket &tickets[],
+                                     const int ticket_count,
+                                     const ulong add_pending_ticket,
+                                     const int side_depth,
+                                     string &reason_out)
+{
+   if(add_pending_ticket == 0)
+      return true;
+
+   for(int i = 0; i < ticket_count; i++) {
+      if(tickets[i].ticket != add_pending_ticket)
+         continue;
+      if(tickets[i].kind != GRIND_RECON_TICKET_ORDER)
+         break;
+
+      string c_slot, c_side, c_role;
+      int c_layer;
+      if(!GrindCommentParse(tickets[i].comment, c_slot, c_side, c_layer, c_role)
+         || c_layer != side_depth) {
+         reason_out = "I8_STALE_PENDING_ADD";
+         return false;
+      }
+      return true;
+   }
+
+   reason_out = "I8_STALE_PENDING_ADD";
+   return false;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int long_count,
                                 const GrindReconLayerScratch &short_layers[],
@@ -463,6 +493,15 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
    if(!Grind_ReconCheckInvariants(long_scratch, long_count,
                                  short_scratch, short_count,
                                  exit_pips, point, max_layers, reason_out))
+      return false;
+
+   if(!Grind_ReconCheckPendingAddLabel(tickets, ticket_count,
+                                       long_out.add_pending_ticket, long_count,
+                                       reason_out))
+      return false;
+   if(!Grind_ReconCheckPendingAddLabel(tickets, ticket_count,
+                                       short_out.add_pending_ticket, short_count,
+                                       reason_out))
       return false;
 
    for(int i = 0; i < long_count; i++) {
