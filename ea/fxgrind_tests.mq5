@@ -1343,6 +1343,22 @@ void Grind_TestSeedPendingAdd(const ulong ticket,
    Grind_OrderTestUpsert(ticket, (long)magic, comment, price, type);
 }
 
+double Grind_TestEngineClampedAddPrice(const GrindSideState &side,
+                                       const bool is_long,
+                                       const double add_pips)
+{
+   const double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
+   const double bid = Grind_MarketBid();
+   const double ask = Grind_MarketAsk();
+   const long stops = Grind_MarketStopsLevel();
+   double clamped = add_target;
+   if(is_long)
+      Grind_Adr013ClampBuy(add_target, bid, _Point, stops, clamped);
+   else
+      Grind_Adr013ClampSell(add_target, bid, ask, _Point, stops, clamped);
+   return Grind_Normalize(clamped);
+}
+
 void Test_A1_StaleLabelDeletesNoPlaceSameTick()
 {
    Grind_OrderTestReset();
@@ -1378,12 +1394,13 @@ void Test_A2_MatchingLabelDeadbandUnchanged()
    g_grind_cap_thresh_b = 0.0;
 
    const ulong magic = 22260101UL;
-   const double add_target = Grind_ComputeAddTarget(g_grind_long, true, 10.0);
+   Grind_MarketTestSeed(1.24950, 1.24952, 0);
+   const double engine_price = Grind_TestEngineClampedAddPrice(g_grind_long, true, 10.0);
    const ulong ticket = 8102;
    g_grind_long.add_pending_ticket = ticket;
    Grind_TestSeedPendingAdd(ticket, magic,
                             GrindCommentBuild("OPT", "L", 1, "ENT"),
-                            add_target, (long)ORDER_TYPE_BUY_LIMIT);
+                            engine_price, (long)ORDER_TYPE_BUY_LIMIT);
 
    Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
                        10.0, 4.0, 12, 0.01);
@@ -1407,6 +1424,7 @@ void Test_A3_NextTickPlacesFreshAdd()
    g_grind_cap_thresh_b = 0.0;
 
    const ulong magic = 22260101UL;
+   Grind_MarketTestSeed(1.24950, 1.24952, 0);
    const ulong stale_ticket = 8103;
    g_grind_long.add_pending_ticket = stale_ticket;
    Grind_TestSeedPendingAdd(stale_ticket, magic,
@@ -1418,12 +1436,12 @@ void Test_A3_NextTickPlacesFreshAdd()
    Grind_EnsureAddNext(g_grind_long, true, magic, "OPT",
                        10.0, 4.0, 12, 0.01);
 
-   const double add_target = Grind_ComputeAddTarget(g_grind_long, true, 10.0);
+   const double engine_price = Grind_TestEngineClampedAddPrice(g_grind_long, true, 10.0);
    AssertTrue("A3 placed once", g_grind_order_test_place_calls == 1);
    AssertTrue("A3 label L01",
               g_grind_order_test_last_placed_comment
               == GrindCommentBuild("OPT", "L", 1, "ENT"));
-   AssertNear("A3 price", g_grind_order_test_last_placed_price, add_target, _Point);
+   AssertNear("A3 price", g_grind_order_test_last_placed_price, engine_price, _Point);
 
    Grind_OrderTestReset();
    Grind_TestResetSideState();
@@ -1577,6 +1595,7 @@ void Test_A8_ObservedFailureReproAndFix()
    g_grind_cap_thresh_b = 0.0;
 
    const ulong magic = 22260101UL;
+   Grind_MarketTestSeed(1.35650, 1.35670, 0);
    const ulong stale_ticket = 8108;
    g_grind_short.add_pending_ticket = stale_ticket;
    Grind_TestSeedPendingAdd(stale_ticket, magic,
@@ -1590,12 +1609,12 @@ void Test_A8_ObservedFailureReproAndFix()
 
    Grind_EnsureAddNext(g_grind_short, false, magic, "OPT",
                        10.0, 4.0, 12, 0.01);
-   const double add_target = Grind_ComputeAddTarget(g_grind_short, false, 10.0);
+   const double engine_price = Grind_TestEngineClampedAddPrice(g_grind_short, false, 10.0);
    AssertTrue("A8 tick2 place", g_grind_order_test_place_calls == 1);
    AssertTrue("A8 label L01",
               g_grind_order_test_last_placed_comment
               == GrindCommentBuild("OPT", "S", 1, "ENT"));
-   AssertNear("A8 price", g_grind_order_test_last_placed_price, add_target, _Point);
+   AssertNear("A8 price", g_grind_order_test_last_placed_price, engine_price, _Point);
 
    Grind_OrderTestReset();
    Grind_TestResetSideState();
