@@ -497,46 +497,26 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                          reason_out))
       return false;
 
-   for(int i = 0; i < long_count; i++) {
-      int idx = -1;
-      for(int j = 0; j < long_count; j++) {
-         if(long_scratch[j].layer_index == i) {
-            idx = j;
-            break;
-         }
-      }
-      if(idx < 0)
-         continue;
-
+   for(int j = 0; j < long_count; j++) {
       const int n = ArraySize(long_out.layers);
       ArrayResize(long_out.layers, n + 1);
-      long_out.layers[n].entry_price = long_scratch[idx].entry_price;
-      long_out.layers[n].exit_target = long_scratch[idx].exit_target;
-      long_out.layers[n].position_ticket = long_scratch[idx].position_id;
-      long_out.layers[n].exit_order_ticket = long_scratch[idx].exit_order_ticket;
-      long_out.layers[n].exit_position_ticket = long_scratch[idx].exit_position_id;
-      long_out.layers[n].layer_index = long_scratch[idx].layer_index;
+      long_out.layers[n].entry_price = long_scratch[j].entry_price;
+      long_out.layers[n].exit_target = long_scratch[j].exit_target;
+      long_out.layers[n].position_ticket = long_scratch[j].position_id;
+      long_out.layers[n].exit_order_ticket = long_scratch[j].exit_order_ticket;
+      long_out.layers[n].exit_position_ticket = long_scratch[j].exit_position_id;
+      long_out.layers[n].layer_index = long_scratch[j].layer_index;
    }
 
-   for(int i = 0; i < short_count; i++) {
-      int idx = -1;
-      for(int j = 0; j < short_count; j++) {
-         if(short_scratch[j].layer_index == i) {
-            idx = j;
-            break;
-         }
-      }
-      if(idx < 0)
-         continue;
-
+   for(int j = 0; j < short_count; j++) {
       const int n = ArraySize(short_out.layers);
       ArrayResize(short_out.layers, n + 1);
-      short_out.layers[n].entry_price = short_scratch[idx].entry_price;
-      short_out.layers[n].exit_target = short_scratch[idx].exit_target;
-      short_out.layers[n].position_ticket = short_scratch[idx].position_id;
-      short_out.layers[n].exit_order_ticket = short_scratch[idx].exit_order_ticket;
-      short_out.layers[n].exit_position_ticket = short_scratch[idx].exit_position_id;
-      short_out.layers[n].layer_index = short_scratch[idx].layer_index;
+      short_out.layers[n].entry_price = short_scratch[j].entry_price;
+      short_out.layers[n].exit_target = short_scratch[j].exit_target;
+      short_out.layers[n].position_ticket = short_scratch[j].position_id;
+      short_out.layers[n].exit_order_ticket = short_scratch[j].exit_order_ticket;
+      short_out.layers[n].exit_position_ticket = short_scratch[j].exit_position_id;
+      short_out.layers[n].layer_index = short_scratch[j].layer_index;
    }
 
    return true;

@@ -4,7 +4,8 @@
 
 Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B); amended
 2026-09-08 (stale resting add reconciliation + I8 invariant); amended
-2026-09-09 (narrow I8 — invariant/reconciler boundary).
+2026-09-09 (narrow I8 — invariant/reconciler boundary); amended
+2026-09-09 (intrinsic layer index — decouple from array position).
 Spec A of B (engine, presets, placement, caps) and Spec B (comment-only state
 reconstruction + CAS currency cap) implemented. CloseBy queue port completes
 the hedging-account exit path (Spec A closeby-exits branch).
@@ -114,8 +115,8 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    under magic 22260301). Do not repeat that error.
 
    **Stale resting add (ratified 2026-09-08):** `Grind_EnsureAddNext` derives the
-   next add layer index from **current filled depth** (`Grind_SideDepth`) at
-   placement time. The resting add order keeps whatever comment label it was born
+   next add layer index from **`Grind_SideNextIndex`** (`max(layer_index)+1`, not
+   array count) at placement time. The resting add order keeps whatever comment label it was born
    with; `OrderModify` cannot change comments. The pending add was **never
    cancelled** anywhere in the codebase — only set, cleared on fill, or forgotten.
    The engine implicitly assumed the ladder only ever grows. When CloseBy scalps
@@ -130,7 +131,7 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 
    **Idempotent reconciliation (no depth-change memory):** every tick, if a resting
    add exists, parse its comment via `GrindCommentParse` and compare the layer
-   index to current depth. On mismatch or unparseable comment: cancel via
+   index to `Grind_SideNextIndex`. On mismatch or unparseable comment: cancel via
    `TRADE_ACTION_REMOVE` through `Grind_OrderSendCounted` (MQL5 — not MQL4
    `OrderDelete`); clear `add_pending_ticket` **only on successful removal**;
    return without placing on that tick. Failed removal leaves the ticket tracked
@@ -138,7 +139,7 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
    label: existing deadband/modify behaviour unchanged.
 
    **Placement guard:** immediately before add placement, assert label index ==
-   computed depth; on divergence halt in place with `HALT_ADD_INDEX_MISMATCH`
+   `Grind_SideNextIndex`; on divergence halt in place with `HALT_ADD_INDEX_MISMATCH`
    (CRITICAL telemetry naming both indices; no order sent; no `ExpertRemove()`).
 
    **Invariant/reconciler boundary (ratified 2026-09-09):** An invariant defines
@@ -154,6 +155,26 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 
    **General rule:** if a condition has a reconciler, the invariant must not
    assert it. Index matching belongs entirely to the reconciler.
+
+   **Intrinsic layer index (ratified 2026-09-09):** `GrindLayer.layer_index` is
+   parsed from the order/position comment at fill and reconstruction and travels
+   with the struct through array shifts. **Array position is meaningless** for
+   layer identity. Using `ArraySize` or slot position as the index produced
+   defects #2–#4 (stale add labels, orphan trackers, duplicate resting entries)
+   when `Grind_RemoveLayerAt` shifted slots without updating broker comments.
+   A per-tick layer reconciler (separate task) depends on this decoupling first.
+
+   **Three meanings of "depth" (ratified 2026-09-09):**
+   - **COUNT** (`Grind_SideDepth`): `ArraySize(layers)` — cap, loops, telemetry
+     `open_layers_*` (unchanged: counts, not max index).
+   - **NEXT INDEX** (`Grind_SideNextIndex`): `max(layer_index) + 1` (0 when
+     empty) — labels the next add and feeds pending-add reconciliation.
+   - **DEEPEST LAYER** (`Grind_FindDeepestLayerArrayIndex`): array index of the
+     layer with highest `layer_index`; `-1` when empty — anchors add geometry.
+
+   **Middle layer close (ratified 2026-09-09):** A retracement may close an inner
+   layer while a deeper exit remains unfilled. The side may legitimately hold
+   layers 0 and 2 with 1 gone; LIFO/FIFO is not assumed.
 
 9. **Spec B — book invariants (read-only, no auto-repair).** I1–I8 checked at
    rebuild and on heartbeat: paired exits, no naked positions, no orphan exits,
@@ -279,5 +300,6 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
   (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, P&L
-  telemetry tests T40–T44, stale-add tests A1–A8, and I8-boundary tests N1–N5)
+  telemetry tests T40–T44, stale-add tests A1–A8, I8-boundary tests N1–N5,
+  tracker-orphan tests O1–O3, and intrinsic-index tests L1–L7)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)
