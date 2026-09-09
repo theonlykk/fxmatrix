@@ -36,6 +36,11 @@ PAIR_SPREAD_PIPS: dict[str, float] = {
     "USDJPY": 1.1,
     "AUDJPY": 1.6,
     "CHFJPY": 2.6,
+    # CAD/CHF ring — median SPREAD (MT5 points ÷ 10) from data/*_m5.csv,
+    # sample 2015-01-02 through 2026-09-07 (~867k M5 bars each); measured, not assumed.
+    "AUDCAD": 0.90,
+    "AUDCHF": 0.80,
+    "CADCHF": 1.10,
 }
 
 
@@ -109,6 +114,35 @@ PAIR_SPECS: dict[str, PairSpec] = {
         spread_pips=PAIR_SPREAD_PIPS["CHFJPY"],
         conversion_pair="USDJPY",
     ),
+    # CAD/CHF ring — point and pip_size both equal one pip in price units (0.0001),
+    # not the MT5 tick size (0.00001 on five-decimal quotes).
+    "AUDCAD": PairSpec(
+        symbol="AUDCAD",
+        point=0.0001,
+        pip_size=0.0001,
+        quote_currency="CAD",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["AUDCAD"],
+        conversion_pair="USDCAD",
+    ),
+    "AUDCHF": PairSpec(
+        symbol="AUDCHF",
+        point=0.0001,
+        pip_size=0.0001,
+        quote_currency="CHF",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["AUDCHF"],
+        conversion_pair="USDCHF",
+    ),
+    "CADCHF": PairSpec(
+        symbol="CADCHF",
+        point=0.0001,
+        pip_size=0.0001,
+        quote_currency="CHF",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["CADCHF"],
+        conversion_pair="USDCHF",
+    ),
 }
 
 
@@ -161,7 +195,8 @@ def pip_value_usd(
     """
     USD value of one pip at `lots`.
     USD-quoted pairs: exactly 10 USD per lot (0.10 at 0.01 lots).
-    EURGBP: GBP pip value × GBPUSD rate; conversion_rate required.
+    EURGBP: GBP pip value × GBPUSD rate (multiply); conversion_rate required.
+    JPY/CAD/CHF quotes: divide by USDJPY/USDCAD/USDCHF (inverse-quoted vs USD).
     """
     spec = get_pair_spec(symbol)
     quote_val = pip_value_quote_currency(symbol, lots)
@@ -171,12 +206,24 @@ def pip_value_usd(
         if conversion_rate is None:
             raise ValueError(f"{symbol} requires conversion_rate (USDJPY) for pip_value_usd")
         return quote_val / conversion_rate
-    if conversion_rate is None:
-        raise ValueError(
-            f"{symbol} requires conversion_rate (GBPUSD) for pip_value_usd; "
-            "pass per-bar rate or explicit constant — never silent default"
-        )
-    return quote_val * conversion_rate
+    if spec.quote_currency in ("CAD", "CHF"):
+        conv = spec.conversion_pair
+        if conversion_rate is None:
+            raise ValueError(
+                f"{symbol} requires conversion_rate ({conv}) for pip_value_usd"
+            )
+        return quote_val / conversion_rate
+    if spec.quote_currency == "GBP":
+        if conversion_rate is None:
+            raise ValueError(
+                f"{symbol} requires conversion_rate (GBPUSD) for pip_value_usd; "
+                "pass per-bar rate or explicit constant — never silent default"
+            )
+        return quote_val * conversion_rate
+    raise ValueError(
+        f"{symbol}: unknown quote_currency {spec.quote_currency!r} — "
+        "add explicit rule in pip_value_usd"
+    )
 
 
 def price_diff_to_usd(
