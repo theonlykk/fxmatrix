@@ -1994,7 +1994,7 @@ void OnStart()
    Test_A7_InvariantMatchingPendingAddPasses();
    Test_A8_ObservedFailureReproAndFix();
    Test_N1_DepthZeroStaleLabelPassesInvariant();
-   Test_N2_UnparseablePendingAddFailsInvariant();
+   Test_N2_PendingAddWrongKindFailsI8();
    Test_N3_DuplicateRestingAddFailsAmbiguous();
    Test_N4_ReconstructionAdoptsMismatchedTicket();
    Test_N5_AdoptedStaleRemovedByReconciler();
