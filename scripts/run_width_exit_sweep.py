@@ -80,7 +80,7 @@ REF_BARS = 24007
 PROD_WIDTH = 9.0
 PROD_EXIT = 3.0
 
-PAIRS = ("GBPUSD", "EURUSD", "EURGBP")
+PAIRS = ("GBPUSD", "EURUSD", "EURGBP", "AUDCAD", "AUDCHF", "CADCHF")
 BIAS_MODE = simv7.BiasMode.BOTH  # dumb straddle works both sides
 
 WINDOW_META = {
@@ -89,6 +89,11 @@ WINDOW_META = {
     "truss_crisis": {"regime": "stress", "label": "STRESS trending crisis"},
     "vaccine_rally": {"regime": "stress", "label": "STRESS strong trend"},
     "june_blowup": {"regime": "stress", "label": "STRESS vol spike"},
+    "calib_chop_2020q3": {"regime": "ranging", "label": "RANGING calib chop 2020-07-10..2020-10-08"},
+    "calib_stress_2022q1": {"regime": "stress", "label": "STRESS calib 2022-02-01..2022-05-01"},
+    "holdout_chop_2026q2": {"regime": "ranging", "label": "RANGING holdout chop 2026-04-24..2026-07-23"},
+    "holdout_stress_2020q1": {"regime": "stress", "label": "STRESS holdout 2020-02-01..2020-05-01"},
+    "holdout_tail_2015q1": {"regime": "stress", "label": "STRESS tail survival-only 2015-01-02..2015-03-01"},
 }
 # Pre-registered calibration / holdout split (Gate 4). Editable configuration —
 # geometry selection uses calibration windows only; holdout is scored after selection.
@@ -98,6 +103,11 @@ WINDOW_ROLES: dict[str, str] = {
     "vaccine_rally": "holdout",
     "june_blowup": "holdout",
     "full_quarter": "support",
+    "calib_chop_2020q3": "calibration",
+    "calib_stress_2022q1": "calibration",
+    "holdout_chop_2026q2": "holdout",
+    "holdout_stress_2020q1": "holdout",
+    "holdout_tail_2015q1": "holdout",
 }
 CALIBRATION_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "calibration")
 HOLDOUT_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "holdout")
@@ -225,14 +235,20 @@ def print_progress_line(
     )
 
 
+# Legacy harvest windows use mangled CSV suffixes; ring windows map key -> itself.
+_LEGACY_WINDOW_FILE_SUFFIX = {
+    "q1_2024_chop": "q1_2024_chop_oos",
+    "full_quarter": "full_quarter",
+    "truss_crisis": "truss_crisis_oos",
+    "vaccine_rally": "vaccine_rally_oos",
+    "june_blowup": "june_blowup",
+}
+
+
 def _window_file_suffix(window_key: str) -> str:
-    return {
-        "q1_2024_chop": "q1_2024_chop_oos",
-        "full_quarter": "full_quarter",
-        "truss_crisis": "truss_crisis_oos",
-        "vaccine_rally": "vaccine_rally_oos",
-        "june_blowup": "june_blowup",
-    }[window_key]
+    if window_key not in WINDOW_META:
+        raise KeyError(f"unknown window key: {window_key!r}")
+    return _LEGACY_WINDOW_FILE_SUFFIX.get(window_key, window_key)
 
 
 def window_path(pair: str, window_key: str) -> Path:
@@ -1187,6 +1203,35 @@ def filter_windows(keys: tuple[str, ...] | list[str], pairs: tuple[str, ...]) ->
     return {k: {p: window_path(p, k) for p in pairs} for k in keys}
 
 
+def report_missing_csvs(windows: dict[str, dict[str, Path]]) -> list[str]:
+    missing: list[str] = []
+    for wkey, pair_paths in sorted(windows.items()):
+        for pair, path in sorted(pair_paths.items()):
+            if not path.is_file():
+                missing.append(f"{wkey}/{pair} -> {path}")
+    return missing
+
+
+def dry_run_resolve(windows: dict[str, dict[str, Path]], pairs: tuple[str, ...]) -> int:
+    """Print every (window, pair) path and exit. Returns 0 if all exist, 1 otherwise."""
+    print(f"DRY-RUN: {len(windows)} window(s) x {len(pairs)} pair(s) = "
+          f"{sum(len(v) for v in windows.values())} CSV path(s)\n", flush=True)
+    missing = report_missing_csvs(windows)
+    for wkey in sorted(windows.keys()):
+        for pair in sorted(windows[wkey].keys()):
+            path = windows[wkey][pair]
+            suffix = _window_file_suffix(wkey)
+            status = "OK" if path.is_file() else "MISSING"
+            print(f"  [{status}] {wkey}/{pair}  suffix={suffix}  ->  {path}", flush=True)
+    if missing:
+        print(f"\nERROR: {len(missing)} missing CSV(s):", flush=True)
+        for line in missing:
+            print(f"  {line}", flush=True)
+        return 1
+    print("\nDRY-RUN complete — all paths exist.", flush=True)
+    return 0
+
+
 def collect_bar_counts(windows: dict[str, dict[str, Path]]) -> list[int]:
     counts = []
     for paths in windows.values():
@@ -1259,6 +1304,8 @@ def test_straddle_entry_differs_from_signal():
 
 
 def main():
+    global PAIRS
+
     parser = argparse.ArgumentParser(description="2D width x exit dumb-straddle Monte Carlo sweep")
     parser.add_argument("--n-seeds", type=int, default=DEFAULT_N_SEEDS)
     parser.add_argument("--substeps", type=int, default=DEFAULT_SUBSTEPS,
@@ -1270,7 +1317,7 @@ def main():
     parser.add_argument(
         "--preview",
         action="store_true",
-        help="Full 9x7 grid, all 5 windows, all 3 pairs, n=50 (shape-read + rate measure)",
+        help="Full 9x7 grid, all windows, all pairs, n=50 (shape-read + rate measure)",
     )
     parser.add_argument(
         "--fast-shape",
@@ -1279,8 +1326,25 @@ def main():
     )
     parser.add_argument("--widths", type=str, default=None, help="Comma widths, e.g. 3,6,9,13,18")
     parser.add_argument("--exits", type=str, default=None, help="Comma exits, e.g. 1,2,3,5,8")
-    parser.add_argument("--windows", nargs="*", default=None, help="Subset of window keys")
-    parser.add_argument("--pairs", nargs="*", default=None, help="Subset of pairs")
+    parser.add_argument(
+        "--windows",
+        nargs="*",
+        default=None,
+        choices=list(WINDOW_META.keys()),
+        help="Subset of window keys",
+    )
+    parser.add_argument(
+        "--pairs",
+        nargs="*",
+        default=None,
+        choices=list(PAIRS),
+        help="Subset of pairs",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print resolved CSV path per (window, pair) and exit without simulating",
+    )
     parser.add_argument("--output-dir", type=str, default="")
     parser.add_argument(
         "--runtag",
@@ -1295,7 +1359,10 @@ def main():
     )
     args = parser.parse_args()
 
-    global PAIRS
+    if args.windows is not None and len(args.windows) == 0:
+        parser.error("--windows requires at least one window key when the flag is present")
+    if args.pairs is not None and len(args.pairs) == 0:
+        parser.error("--pairs requires at least one pair when the flag is present")
 
     width_grid = WIDTH_GRID
     exit_grid = EXIT_GRID
@@ -1362,24 +1429,23 @@ def main():
         width_grid = parse_float_list(args.widths)
     if args.exits:
         exit_grid = parse_float_list(args.exits)
-    if args.pairs:
+    if args.pairs is not None:
         PAIRS = tuple(p.upper() for p in args.pairs)
-        if args.windows:
-            windows = filter_windows(args.windows, PAIRS)
-        elif fast_shape:
-            windows = filter_windows(FAST_SHAPE_WINDOWS, PAIRS)
-        else:
-            windows = filter_windows(WINDOW_META.keys(), PAIRS)
-    elif args.windows:
-        windows = {k: all_window_paths()[k] for k in args.windows if k in WINDOW_META}
-        # restrict to current PAIRS
-        windows = {k: {p: v[p] for p in PAIRS if p in v} for k, v in windows.items()}
+    if args.windows is not None:
+        windows = filter_windows(args.windows, PAIRS)
+    elif args.pairs is not None and fast_shape:
+        windows = filter_windows(FAST_SHAPE_WINDOWS, PAIRS)
+    elif args.pairs is not None:
+        windows = filter_windows(WINDOW_META.keys(), PAIRS)
 
-    missing = [str(p) for paths in windows.values() for p in paths.values() if not p.is_file()]
+    if args.dry_run:
+        sys.exit(dry_run_resolve(windows, PAIRS))
+
+    missing = report_missing_csvs(windows)
     if missing:
-        print("ERROR: missing CSV(s):", flush=True)
-        for m in missing[:10]:
-            print(" ", m, flush=True)
+        print(f"ERROR: {len(missing)} missing CSV(s):", flush=True)
+        for line in missing:
+            print(f"  {line}", flush=True)
         sys.exit(1)
 
     out_dir = Path(args.output_dir) if args.output_dir else ROOT / "temp" / "width_exit_sweep"
