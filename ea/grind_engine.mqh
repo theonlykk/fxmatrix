@@ -490,7 +490,6 @@ void Grind_RemoveLayerAt(GrindSideState &side, const int layer_idx)
    ArrayResize(side.layers, n - 1);
    g_grind_scalp_count++;
    if(Grind_SideDepth(side) == 0) {
-      side.add_pending_ticket = 0;
       side.cap_warn_emitted = false;
    }
 }
