@@ -36,6 +36,7 @@ from typing import Any
 DEFAULT_CSV = Path("data/local/deals_dump_20260910_2246.csv")
 SCALP_CLOSED_URL = "https://pipshed.com/api/telemetry/scalp_closed"
 TODAY_SCALPS_URL = "https://pipshed.com/api/telemetry/today_scalps"
+USER_AGENT = "fxmatrix-backfill/1.0"
 
 GRIND_MAGIC_PREFIX = "2226"
 
@@ -242,14 +243,31 @@ def pair_scalps(deals: list[dict[str, str]]) -> list[ScalpRecord]:
     return scalps
 
 
+def api_auth_headers(token: str, *, content_type: str | None = None) -> dict[str, str]:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": USER_AGENT,
+    }
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    return headers
+
+
 def api_get_json(url: str, token: str) -> Any:
     request = urllib.request.Request(
         url,
-        headers={"Authorization": f"Bearer {token}"},
+        headers=api_auth_headers(token),
         method="GET",
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        print(f"GET {url} -> HTTP {exc.code}", file=sys.stderr)
+        if body:
+            print(body, file=sys.stderr)
+        raise
 
 
 def api_post_json(url: str, token: str, payload: dict[str, Any]) -> tuple[int, str]:
@@ -257,10 +275,7 @@ def api_post_json(url: str, token: str, payload: dict[str, Any]) -> tuple[int, s
     request = urllib.request.Request(
         url,
         data=body,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
+        headers=api_auth_headers(token, content_type="application/json"),
         method="POST",
     )
     try:
