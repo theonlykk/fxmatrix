@@ -7,6 +7,7 @@
 #include "grind_api_counter.mqh"
 #include "grind_pnl.mqh"
 #include "grind_recon_failure.mqh"
+#include "grind_mae.mqh"
 
 // Unit-test hook: intercept WebRequest when active (fxgrind_tests).
 bool   g_grind_telemetry_test_active = false;
@@ -168,7 +169,9 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       "\"cap_leg_a_name\":\"%s\",\"cap_leg_b_name\":\"%s\","
       "\"net_mtm\":%.4f,\"realised_pnl_today\":%.4f,\"scalp_pnl_last\":%.4f,"
       "\"exit_penetration_pips_last\":%.4f,\"exit_penetration_pips_mean\":%.4f,"
-      "\"exit_touch_revert_count\":%d",
+      "\"exit_touch_revert_count\":%d,"
+      "\"account_balance\":%s,\"account_equity\":%s,"
+      "\"intraday_mae\":%s",
       instance_name,
       open_layers_long,
       open_layers_short,
@@ -200,7 +203,10 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       g_grind_scalp_pnl_last,
       g_grind_exit_penetration_pips_last,
       Grind_ExitPenetrationPipsMean(),
-      g_grind_exit_touch_revert_count
+      g_grind_exit_touch_revert_count,
+      Grind_MaeAccountBalanceJson(),
+      Grind_MaeAccountEquityJson(),
+      Grind_MaeIntradayMaeJson(instance_name)
    );
 
    const string detail = Grind_HeartbeatBuildLayerDetailJson(magic, digits);

@@ -1,5 +1,6 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5, F1–F7) |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, AccFigA1–AccFigA6, N1–N6, |
+//| M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5, F1–F7)              |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -1435,6 +1436,165 @@ void Test_F7_WorstCaseSizeMeasured()
    AssertContains("F7 recon_failure in heartbeat", full_with_recon, "\"recon_failure\":{");
    AssertContains("F7 layers in heartbeat", full_with_recon, ",\"layers\":");
    AssertEqStr("F7 cleared after measure", g_grind_recon_failure_json, "");
+}
+
+void Grind_TestResetMaeState()
+{
+   Grind_MaeReset();
+   GlobalVariableDel(GRIND_MAE_REPORTER_HEARTBEAT_GV);
+   GlobalVariableDel(GRIND_MAE_REPORTER_MAGIC_GV);
+   GlobalVariableDel(GRIND_MAE_REPORTER_CLAIM_LOCK_GV);
+   GlobalVariableDel(Grind_MaeAnchorGvKey("20260909"));
+   GlobalVariableDel(Grind_MaeAnchorGvKey("20260910"));
+   GlobalVariableDel(Grind_MaeEquityLowGvKey("20260909"));
+   GlobalVariableDel(Grind_MaeEquityLowGvKey("20260910"));
+}
+
+void Test_AccFigA1_DesignatedEmitsBalanceEquity()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_mae_test_balance = 10000.0;
+   g_grind_mae_test_equity = 10050.0;
+   g_grind_mae_test_server_time = StringToTime("2026.09.10 12:00:00");
+   Grind_MaeInit();
+   Grind_MaeOnTimer();
+
+   AssertTrue("AccFigA1 designated claims",
+              Grind_MaeClaimReporterForHeartbeat(22260101UL, 60));
+   const string hb_designated = Grind_TestSampleHeartbeatJson();
+   AssertContains("AccFigA1 balance", hb_designated, "\"account_balance\":10000.00");
+   AssertContains("AccFigA1 equity", hb_designated, "\"account_equity\":10050.00");
+   AssertContains("AccFigA1 mae day key", hb_designated, "\"mae_day_key\":\"20260910\"");
+
+   AssertFalse("AccFigA1 non-designated blocked",
+               Grind_MaeClaimReporterForHeartbeat(22260102UL, 60));
+   const string hb_other = Grind_TestSampleHeartbeatJson();
+   AssertContains("AccFigA1 other balance null", hb_other, "\"account_balance\":null");
+   AssertContains("AccFigA1 other equity null", hb_other, "\"account_equity\":null");
+   AssertContains("AccFigA1 other mae null", hb_other, "\"mae_equity_low\":null");
+   Grind_TestResetMaeState();
+}
+
+void Test_AccFigA2_ExactlyOneLeaseHolder()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_mae_test_server_time = StringToTime("2026.09.10 12:00:00");
+   GlobalVariableTemp(GRIND_MAE_REPORTER_HEARTBEAT_GV);
+   GlobalVariableTemp(GRIND_MAE_REPORTER_MAGIC_GV);
+   GlobalVariableSet(GRIND_MAE_REPORTER_HEARTBEAT_GV,
+                     (double)(g_grind_mae_test_server_time - 200));
+
+   AssertTrue("AccFigA2 first claims", Grind_MaeClaimReporterForHeartbeat(22260101UL, 60));
+   AssertFalse("AccFigA2 second blocked", Grind_MaeClaimReporterForHeartbeat(22260102UL, 60));
+   AssertTrue("AccFigA2 holder magic",
+              (ulong)GlobalVariableGet(GRIND_MAE_REPORTER_MAGIC_GV) == 22260101UL);
+   Grind_TestResetMaeState();
+}
+
+void Test_AccFigA2b_LeaseTakeoverAfterStale()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_mae_test_balance = 10000.0;
+   g_grind_mae_test_equity = 10000.0;
+   const datetime start = StringToTime("2026.09.10 12:00:00");
+   g_grind_mae_test_server_time = start;
+   Grind_MaeInit();
+
+   AssertTrue("AccFigA2b first holder", Grind_MaeClaimReporterForHeartbeat(22260101UL, 60));
+   g_grind_mae_test_server_time = start + 100;
+   AssertTrue("AccFigA2b takeover claims", Grind_MaeClaimReporterForHeartbeat(22260201UL, 60));
+   AssertTrue("AccFigA2b new holder magic",
+              (ulong)GlobalVariableGet(GRIND_MAE_REPORTER_MAGIC_GV) == 22260201UL);
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("AccFigA2b reports balance", hb, "\"account_balance\":10000.00");
+   Grind_TestResetMaeState();
+}
+
+void Test_AccFigA2c_FreshLeaseForcesNull()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_mae_test_server_time = StringToTime("2026.09.10 12:00:00");
+   AssertTrue("AccFigA2c holder claims", Grind_MaeClaimReporterForHeartbeat(22260101UL, 60));
+   AssertFalse("AccFigA2c challenger blocked", Grind_MaeClaimReporterForHeartbeat(22260102UL, 60));
+   AssertFalse("AccFigA2c challenger not reporter", g_grind_mae_is_reporter);
+   Grind_TestResetMaeState();
+}
+
+void Test_AccFigA3_EquityLowTracksDownOnly()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   Grind_MaeCoreUpdate("20260910", 10050.0, 10000.0);
+   Grind_MaeCoreUpdate("20260910", 10020.0, 10000.0);
+   AssertTrue("AccFigA3 low holds min", g_grind_mae_equity_low == 10020.0);
+   Grind_MaeCoreUpdate("20260910", 10080.0, 10000.0);
+   AssertTrue("AccFigA3 higher equity ignored", g_grind_mae_equity_low == 10020.0);
+   Grind_TestResetMaeState();
+}
+
+void Test_AccFigA4_DayKeyRollsOnServerTime()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = StringToTime("2026.09.09 23:59:00");
+   g_grind_mae_test_server_time = g_grind_pnl_test_server_time;
+
+   Grind_MaeCoreUpdate("20260909", 9900.0, 10000.0);
+   AssertTrue("AccFigA4 prior day low tracked", g_grind_mae_equity_low == 9900.0);
+
+   g_grind_pnl_test_server_time = StringToTime("2026.09.10 00:05:00");
+   g_grind_mae_test_server_time = g_grind_pnl_test_server_time;
+   Grind_MaeCoreUpdate(Grind_ServerDayKey(g_grind_mae_test_server_time),
+                       10100.0, 10100.0);
+   AssertTrue("AccFigA4 new day resets low", g_grind_mae_equity_low == 10100.0);
+   AssertEqStr("AccFigA4 new day key", g_grind_mae_day_key, "20260910");
+   Grind_TestResetMaeState();
+   g_grind_pnl_test_active = false;
+}
+
+void Test_AccFigA5_ReloadPreservesEquityLow()
+{
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_mae_test_server_time = StringToTime("2026.09.10 12:00:00");
+   Grind_MaeCoreUpdate("20260910", 9920.0, 10000.0);
+   AssertTrue("AccFigA5 persisted gv", Grind_MaeEquityLowGvPresent("20260910"));
+
+   g_grind_mae_day_key = "";
+   g_grind_mae_equity_low = 0.0;
+   Grind_MaeInit();
+   AssertTrue("AccFigA5 reload recovers low", g_grind_mae_equity_low == 9920.0);
+   Grind_TestResetMaeState();
+}
+
+void Test_AccFigA6_DistToFloorMatchesV2Logic()
+{
+   const double anchor = 10000.0;
+   const double frac = 0.045;
+   const double floor = Grind_MaeDailyFloorValue(anchor, frac);
+   AssertTrue("AccFigA6 floor value", MathAbs(floor - 9550.0) < 0.01);
+   const double dist = Grind_MaeDistToFloor(9600.0, anchor, frac);
+   AssertTrue("AccFigA6 dist to floor", MathAbs(dist - 50.0) < 0.01);
+   AssertTrue("AccFigA6 matches v2 formula",
+              MathAbs(dist - (9600.0 - anchor * (1.0 - frac))) < 0.01);
+
+   Grind_TestResetMaeState();
+   g_grind_mae_test_active = true;
+   g_grind_mae_test_balance = 10000.0;
+   g_grind_mae_test_equity = 9990.0;
+   g_grind_mae_test_server_time = StringToTime("2026.09.10 12:00:00");
+   Grind_MaeInit();
+   Grind_MaeOnTimer();
+   Grind_MaeClaimReporterForHeartbeat(22260101UL, 60);
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("AccFigA6 mae equity low", hb, "\"mae_equity_low\":9990.00");
+   AssertContains("AccFigA6 mae dist", hb, "\"mae_equity_low_dist_to_floor\":");
+   Grind_TestResetMaeState();
 }
 
 void Test_D8_RestingEntriesFromBrokerEnumeration()
@@ -3282,5 +3442,13 @@ void OnStart()
    Test_F5_UnparseableCommentVerbatimSideHintNull();
    Test_F6_TruncationAtFortyPlusTickets();
    Test_F7_WorstCaseSizeMeasured();
+   Test_AccFigA1_DesignatedEmitsBalanceEquity();
+   Test_AccFigA2_ExactlyOneLeaseHolder();
+   Test_AccFigA2b_LeaseTakeoverAfterStale();
+   Test_AccFigA2c_FreshLeaseForcesNull();
+   Test_AccFigA3_EquityLowTracksDownOnly();
+   Test_AccFigA4_DayKeyRollsOnServerTime();
+   Test_AccFigA5_ReloadPreservesEquityLow();
+   Test_AccFigA6_DistToFloorMatchesV2Logic();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }
