@@ -105,6 +105,10 @@ int OnInit()
    g_grind_recon_exit_pips = InpExitPips;
    g_grind_recon_max_layers = InpMaxLayers;
    g_grind_recon_verbose = InpVerboseLog;
+   Grind_ScalpTelemetryConfigure(EnableTelemetry,
+                                 TelemetryURL,
+                                 TelemetryAPIKey,
+                                 InpVerboseLog);
    g_grind_halted = false;
    g_grind_cap_blocked = false;
    g_grind_halt_reason = "";
@@ -162,6 +166,7 @@ void OnTimer()
 
    Grind_ResetDailyPnlIfNewDay();
    Grind_ProcessPendingExitMicrostructure();
+   Grind_DrainScalpEventQueue();
    Grind_EmitHeartbeat();
 
    if(Grind_ApiCounterSoftWarnActive())

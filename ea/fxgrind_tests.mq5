@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h) |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -40,6 +40,11 @@ void AssertEqStr(const string name, const string got, const string expected)
 void AssertContains(const string name, const string haystack, const string needle)
 {
    AssertTrue(name, StringFind(haystack, needle) >= 0);
+}
+
+void AssertNotContains(const string name, const string haystack, const string needle)
+{
+   AssertTrue(name, StringFind(haystack, needle) < 0);
 }
 
 void Test_SuiteCleanupMagicLocks()
@@ -987,7 +992,9 @@ void Grind_TestAppendDeal(const ulong deal_ticket,
                           const ulong position_id,
                           const double profit,
                           const double swap,
-                          const double commission)
+                          const double commission,
+                          const double price = 1.25030,
+                          const datetime deal_time = D'2026.09.06 14:30:00')
 {
    ArrayResize(g_grind_deal_test_records, g_grind_deal_test_count + 1);
    g_grind_deal_test_records[g_grind_deal_test_count].deal_ticket = deal_ticket;
@@ -997,10 +1004,11 @@ void Grind_TestAppendDeal(const ulong deal_ticket,
    g_grind_deal_test_records[g_grind_deal_test_count].entry_type = entry_type;
    g_grind_deal_test_records[g_grind_deal_test_count].order_ticket = order_ticket;
    g_grind_deal_test_records[g_grind_deal_test_count].position_id = position_id;
-   g_grind_deal_test_records[g_grind_deal_test_count].price = 1.25030;
+   g_grind_deal_test_records[g_grind_deal_test_count].price = price;
    g_grind_deal_test_records[g_grind_deal_test_count].profit = profit;
    g_grind_deal_test_records[g_grind_deal_test_count].swap = swap;
    g_grind_deal_test_records[g_grind_deal_test_count].commission = commission;
+   g_grind_deal_test_records[g_grind_deal_test_count].deal_time = deal_time;
    g_grind_deal_test_count++;
 }
 
@@ -1017,6 +1025,23 @@ void Grind_TestResetSideState()
    g_grind_halted = false;
    ArrayResize(g_grind_processed_deals, 0);
    g_grind_processed_deal_count = 0;
+   Grind_ScalpEventReset();
+}
+
+void Grind_TestSetupScalpCloseLongLayer(const ulong entry_pos,
+                                        const ulong exit_pos,
+                                        const int layer_index,
+                                        const double entry_price,
+                                        const double exit_price)
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = entry_price;
+   g_grind_long.layers[0].exit_target = exit_price;
+   g_grind_long.layers[0].position_ticket = entry_pos;
+   g_grind_long.layers[0].exit_position_ticket = exit_pos;
+   g_grind_long.layers[0].layer_index = layer_index;
+   g_grind_telemetry_instance = "GRIND_TEST_OPT";
 }
 
 void Test_T45_ExitFillQueuesCloseByPair()
@@ -2400,6 +2425,225 @@ void Test_I5g_L2ReconstructionPasses()
    Test_L2_ReconstructionCarriesCommentIndex();
 }
 
+void Test_S1_CloseByPairEmitsOneScalpEvent()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9101, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001,
+                        2.50, -0.30, -0.20, 1.25030);
+   Grind_TestAppendDeal(9102, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 3002,
+                        0.00, 0.00, 0.00, 1.25030);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9101, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   Grind_HandleSideDealFill(g_grind_long, true, 9102, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   Grind_HandleSideDealFill(g_grind_short, false, 9101, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   Grind_HandleSideDealFill(g_grind_short, false, 9102, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+
+   AssertTrue("S1 one queued", Grind_ScalpEventQueueSize() == 1);
+   AssertTrue("S1 no post yet", g_grind_telemetry_test_post_calls == 0);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_S1b_DealHandlerQueuesWithoutWebRequest()
+{
+   Grind_DealTestReset();
+   Grind_TelemetryTestReset();
+   g_grind_telemetry_test_active = true;
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9201, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001,
+                        1.00, 0.0, 0.0, 1.25030);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9201, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+
+   AssertTrue("S1b queue grew", Grind_ScalpEventQueueSize() == 1);
+   AssertTrue("S1b no send on deal path", g_grind_telemetry_test_post_calls == 0);
+
+   Grind_DrainScalpEventQueue();
+   AssertTrue("S1b queue drained", Grind_ScalpEventQueueSize() == 0);
+   AssertTrue("S1b send on timer drain", g_grind_telemetry_test_post_calls == 1);
+
+   Grind_DealTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_S2_ScalpPayloadNineFields()
+{
+   const datetime close_time = D'2026.09.06 14:30:00';
+   const string payload = Grind_BuildScalpClosedPayload(
+      "GRIND_GBPUSD_OPT",
+      "GBPUSD",
+      "LONG",
+      1.25000,
+      1.25030,
+      2,
+      3,
+      2.00,
+      close_time
+   );
+
+   AssertContains("S2 close_time", payload, "\"close_time\":\"2026-09-06T14:30:00Z\"");
+   AssertContains("S2 instrument", payload, "\"instrument\":\"GBPUSD\"");
+   AssertContains("S2 direction", payload, "\"direction\":\"LONG\"");
+   AssertContains("S2 entry_price", payload, "\"entry_price\":1.25000");
+   AssertContains("S2 exit_price", payload, "\"exit_price\":1.25030");
+   AssertContains("S2 layer_depth", payload, "\"layer_depth\":2");
+   AssertContains("S2 stack_depth", payload, "\"stack_depth\":3");
+   AssertContains("S2 gross_pnl", payload, "\"gross_pnl\":2.00");
+   AssertContains("S2 instance_id", payload, "\"instance_id\":\"GRIND_GBPUSD_OPT\"");
+   AssertNotContains("S2 no pips", payload, "\"pips\"");
+}
+
+void Test_S3_DirectionIsEntrySide()
+{
+   Grind_DealTestReset();
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9301, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001,
+                        1.00, 0.0, 0.0, 1.25030);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9301, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertContains("S3 long entry side", Grind_ScalpEventQueuePeek(), "\"direction\":\"LONG\"");
+
+   Grind_DealTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_position_ticket = 4002;
+   g_grind_short.layers[0].layer_index = 0;
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9302, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 2001,
+                        1.00, 0.0, 0.0, 1.25970);
+
+   Grind_HandleSideDealFill(g_grind_short, false, 9302, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertContains("S3 short entry side", Grind_ScalpEventQueuePeek(), "\"direction\":\"SHORT\"");
+
+   Grind_DealTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_S4_LayerDepthUsesIntrinsicIndex()
+{
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 2);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[1].entry_price = 1.24800;
+   g_grind_long.layers[1].position_ticket = 1003;
+   g_grind_long.layers[1].exit_position_ticket = 3004;
+   g_grind_long.layers[1].layer_index = 2;
+
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9401, "#1003 by #3004", DEAL_ENTRY_OUT_BY, 0, 1003,
+                        1.00, 0.0, 0.0, 1.24830);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9401, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertContains("S4 intrinsic layer_depth", Grind_ScalpEventQueuePeek(), "\"layer_depth\":2");
+   AssertContains("S4 stack before removal", Grind_ScalpEventQueuePeek(), "\"stack_depth\":2");
+
+   Grind_DealTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_S5_FailedPostDoesNotBlockScalpAccounting()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   g_grind_telemetry_test_active = true;
+   g_grind_telemetry_test_force_fail = true;
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9501, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001,
+                        2.50, -0.30, -0.20, 1.25030);
+
+   const int scalps_before = g_grind_scalp_count;
+   Grind_HandleSideDealFill(g_grind_long, true, 9501, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertTrue("S5 scalp incremented", g_grind_scalp_count == scalps_before + 1);
+   AssertNear("S5 realised pnl kept", g_grind_realised_pnl_today, 2.00, 1e-8);
+   AssertTrue("S5 event queued", Grind_ScalpEventQueueSize() == 1);
+
+   Grind_DrainScalpEventQueue();
+   AssertTrue("S5 failed post logged not thrown", g_grind_telemetry_test_post_calls == 1);
+   AssertTrue("S5 not halted", !g_grind_halted);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_S6_GrossPnlMatchesRealisedPnlToday()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+
+   g_grind_pnl_test_active = true;
+   g_grind_pnl_test_server_time = D'2026.09.06 12:00:00';
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9601, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001,
+                        2.50, -0.30, -0.20, 1.25030);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9601, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+
+   AssertContains("S6 gross_pnl net", Grind_ScalpEventQueuePeek(), "\"gross_pnl\":2.00");
+   AssertNear("S6 matches realised", g_grind_realised_pnl_today, 2.00, 1e-8);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -2516,5 +2760,12 @@ void OnStart()
    Test_I5e_HighIndicesNotBoundedByMaxLayers();
    Test_I5f_OutOfOrderTicketProcessingPass();
    Test_I5g_L2ReconstructionPasses();
+   Test_S1_CloseByPairEmitsOneScalpEvent();
+   Test_S1b_DealHandlerQueuesWithoutWebRequest();
+   Test_S2_ScalpPayloadNineFields();
+   Test_S3_DirectionIsEntrySide();
+   Test_S4_LayerDepthUsesIntrinsicIndex();
+   Test_S5_FailedPostDoesNotBlockScalpAccounting();
+   Test_S6_GrossPnlMatchesRealisedPnlToday();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

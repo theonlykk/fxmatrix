@@ -664,6 +664,7 @@ struct GrindDealTestRecord
    double profit;
    double swap;
    double commission;
+   datetime deal_time;
 };
 
 GrindDealTestRecord g_grind_deal_test_records[];
@@ -731,9 +732,9 @@ long Grind_DealGetInteger(const ulong deal_ticket, const ENUM_DEAL_PROPERTY_INTE
       if(prop == DEAL_POSITION_ID)
          return (long)rec.position_id;
       if(prop == DEAL_TIME)
-         return (long)rec.deal_ticket;
+         return (long)rec.deal_time;
       if(prop == DEAL_TIME_MSC)
-         return (long)rec.deal_ticket * 1000;
+         return (long)rec.deal_time * 1000;
       return 0;
    }
    return HistoryDealGetInteger(deal_ticket, prop);
@@ -793,6 +794,8 @@ void Grind_HandleSideDealFill(GrindSideState &side,
    if(entry_type == DEAL_ENTRY_OUT_BY) {
       Grind_MarkDealProcessed(deal_ticket);
 
+      // CloseBy emits two OUT_BY deals (entry + exit positions). Only the deal
+      // whose position_id matches the layer's entry position completes a scalp.
       for(int i = 0; i < Grind_SideDepth(side); i++) {
          if(side.layers[i].position_ticket != position_id)
             continue;
@@ -802,7 +805,20 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          const double deal_profit = Grind_DealGetDouble(deal_ticket, DEAL_PROFIT);
          const double deal_swap = Grind_DealGetDouble(deal_ticket, DEAL_SWAP);
          const double deal_commission = Grind_DealGetDouble(deal_ticket, DEAL_COMMISSION);
-         Grind_AccumulateScalpPnl(deal_profit, deal_swap, deal_commission);
+         const double net_pnl = Grind_AccumulateScalpPnl(deal_profit, deal_swap, deal_commission);
+         const int stack_depth = Grind_SideDepth(side);
+         const int layer_depth = side.layers[i].layer_index;
+         const double entry_price = side.layers[i].entry_price;
+         const datetime close_time = (datetime)Grind_DealGetInteger(deal_ticket, DEAL_TIME);
+         Grind_QueueScalpClosedEvent(g_grind_telemetry_instance,
+                                     _Symbol,
+                                     is_long ? "LONG" : "SHORT",
+                                     entry_price,
+                                     deal_price,
+                                     layer_depth,
+                                     stack_depth,
+                                     net_pnl,
+                                     close_time);
          Grind_RemoveLayerAt(side, i);
          return;
       }
