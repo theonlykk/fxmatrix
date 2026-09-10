@@ -7,6 +7,14 @@
 #include "grind_api_counter.mqh"
 #include "grind_pnl.mqh"
 
+// Forward declarations — defined in grind_heartbeat_detail.mqh (included at end of grind_engine).
+string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits);
+void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
+                                            const int digits,
+                                            const ulong magic,
+                                            int &detail_chars_out,
+                                            int &full_chars_out);
+
 //+------------------------------------------------------------------+
 bool Grind_TelemetryWebPost(const string url,
                             const string api_key,
@@ -56,6 +64,27 @@ void Grind_TelemetryEmit(const string instance_name,
 }
 
 //+------------------------------------------------------------------+
+void Grind_TelemetryEmitHeartbeat(const string instance_name,
+                                  const string full_json)
+{
+   const string prefix = "TELEM|" + instance_name + "|HEARTBEAT|";
+   const int line_len = StringLen(prefix) + StringLen(full_json);
+
+   if(line_len >= 4096) {
+      const int layers_pos = StringFind(full_json, ",\"layers\":");
+      if(layers_pos >= 0) {
+         const string scalar_json = StringSubstr(full_json, 0, layers_pos) + "}";
+         const string detail_json = "{" + StringSubstr(full_json, layers_pos + 1);
+         Print(prefix, scalar_json);
+         Print("TELEM|", instance_name, "|HEARTBEAT_DETAIL|", detail_json);
+         return;
+      }
+   }
+
+   Print(prefix, full_json);
+}
+
+//+------------------------------------------------------------------+
 void Grind_TelemetryCritical(const string instance_name,
                              const string event,
                              const string detail = "")
@@ -91,8 +120,9 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
 {
    Grind_ResetDailyPnlIfNewDay();
    const double net_mtm = Grind_ComputeNetFloatingMtm(magic);
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
 
-   return StringFormat(
+   const string core = StringFormat(
       "{\"instance_id\":\"%s\",\"open_layers_long\":%d,\"open_layers_short\":%d,"
       "\"fills\":%d,\"scalps\":%d,\"api_count\":%d,\"api_counter_broken\":%s,"
       "\"cap_blocked\":%s,\"halted\":%s,\"halt_reason\":\"%s\","
@@ -104,7 +134,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       "\"cap_leg_a_name\":\"%s\",\"cap_leg_b_name\":\"%s\","
       "\"net_mtm\":%.4f,\"realised_pnl_today\":%.4f,\"scalp_pnl_last\":%.4f,"
       "\"exit_penetration_pips_last\":%.4f,\"exit_penetration_pips_mean\":%.4f,"
-      "\"exit_touch_revert_count\":%d}",
+      "\"exit_touch_revert_count\":%d",
       instance_name,
       open_layers_long,
       open_layers_short,
@@ -137,6 +167,9 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       Grind_ExitPenetrationPipsMean(),
       g_grind_exit_touch_revert_count
    );
+
+   const string detail = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
+   return core + "," + detail + "}";
 }
 
 #endif // GRIND_TELEMETRY_MQH

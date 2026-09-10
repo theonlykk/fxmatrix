@@ -985,4 +985,6 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                             exit_pips, deadband_pips, max_layers, lots);
 }
 
+#include "grind_heartbeat_detail.mqh"
+
 #endif // GRIND_ENGINE_MQH

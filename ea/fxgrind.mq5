@@ -63,7 +63,7 @@ string Grind_BuildHeartbeatJson()
 void Grind_EmitHeartbeat()
 {
    const string hb_json = Grind_BuildHeartbeatJson();
-   Grind_TelemetryEmit(g_grind_telemetry_instance, "HEARTBEAT", hb_json);
+   Grind_TelemetryEmitHeartbeat(g_grind_telemetry_instance, hb_json);
    if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
       Grind_TelemetryWebPost(TelemetryURL, TelemetryAPIKey, hb_json, InpVerboseLog);
 }
