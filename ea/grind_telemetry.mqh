@@ -18,6 +18,7 @@ bool   g_grind_telemetry_test_force_fail = false;
 
 // Forward declarations — defined in grind_heartbeat_detail.mqh (included at end of grind_engine).
 string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits);
+string Grind_HeartbeatBuildBookJson(const ulong magic, const int digits);
 void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
                                             const int digits,
                                             const ulong magic,
@@ -31,7 +32,11 @@ void Grind_HeartbeatJournalSplitLineLengths(const string instance_name,
                                             int &unsplit_line_chars_out,
                                             int &scalar_line_chars_out,
                                             int &detail_line_chars_out,
-                                            bool &split_would_fire_out);
+                                            bool &split_would_fire_out,
+                                            int &book_line_chars_out);
+
+void Grind_HeartbeatPrintBookJournal(const string instance_name,
+                                     const string book_value);
 
 //+------------------------------------------------------------------+
 void Grind_TelemetryTestReset()
@@ -108,9 +113,23 @@ void Grind_TelemetryEmitHeartbeat(const string instance_name,
    if(line_len >= 4096) {
       const int layers_pos = StringFind(full_json, ",\"layers\":");
       if(layers_pos >= 0) {
+         const int book_pos = StringFind(full_json, ",\"book\":");
          const string scalar_json = StringSubstr(full_json, 0, layers_pos) + "}";
-         const string detail_json = "{" + StringSubstr(full_json, layers_pos + 1);
          Print(prefix, scalar_json);
+
+         if(book_pos >= 0) {
+            const string detail_body = StringSubstr(full_json, layers_pos + 1,
+                                                   book_pos - layers_pos - 1);
+            const string detail_json = "{" + detail_body + "}";
+            Print("TELEM|", instance_name, "|HEARTBEAT_DETAIL|", detail_json);
+            const int book_key_pos = StringFind(full_json, "\"book\":");
+            const string book_value = StringSubstr(full_json, book_key_pos,
+                                                   StringLen(full_json) - book_key_pos - 1);
+            Grind_HeartbeatPrintBookJournal(instance_name, book_value);
+            return;
+         }
+
+         const string detail_json = "{" + StringSubstr(full_json, layers_pos + 1);
          Print("TELEM|", instance_name, "|HEARTBEAT_DETAIL|", detail_json);
          return;
       }
@@ -210,7 +229,8 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
    );
 
    const string detail = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
-   return core + "," + detail + "}";
+   const string book = Grind_HeartbeatBuildBookJson(magic, digits);
+   return core + "," + detail + "," + book + "}";
 }
 
 #include "grind_scalp_events.mqh"

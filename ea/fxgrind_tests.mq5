@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, AccFigA1–AccFigA6, N1–N6, |
-//| M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5, F1–F7)              |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, AccFigA1–AccFigA6, B1–B6, |
+//| N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5, F1–F7)       |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -888,6 +888,7 @@ void Grind_TestResetLayerDetailState()
    Grind_TestResetSideState();
    Grind_OrderTestReset();
    Grind_HeartbeatTestReset();
+   Grind_BookTestReset();
 }
 
 void Test_D1_ThreeLayersEmitDetail()
@@ -1595,6 +1596,212 @@ void Test_AccFigA6_DistToFloorMatchesV2Logic()
    AssertContains("AccFigA6 mae equity low", hb, "\"mae_equity_low\":9990.00");
    AssertContains("AccFigA6 mae dist", hb, "\"mae_equity_low_dist_to_floor\":");
    Grind_TestResetMaeState();
+}
+
+string Grind_TestBookHeartbeatJson(const ulong magic = 22260101UL)
+{
+   return Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", 0, 0, 0, 0,
+      false, false, "", true, true,
+      0.0, 0.0, 0.0, 0.0, false,
+      magic, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
+}
+
+void Test_B1_BookEmitsAllBrokerRows()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const ulong magic = 22260101UL;
+   const long msc0 = (long)StringToTime("2026.09.10 16:42:08") * 1000L + 100L;
+   const long msc1 = (long)StringToTime("2026.09.10 16:43:15") * 1000L + 200L;
+   Grind_BookTestUpsertPosition(7001UL, (long)magic,
+                                GrindCommentBuild("OPT", "L", 0, "ENT"),
+                                1.25010, POSITION_TYPE_BUY, msc0, -0.42);
+   Grind_BookTestUpsertPosition(7002UL, (long)magic,
+                                GrindCommentBuild("OPT", "S", 1, "ENT"),
+                                1.26020, POSITION_TYPE_SELL, msc1, 0.18);
+   Grind_BookTestUpsertOrder(8001UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 0, "ENT"),
+                             1.24910, ORDER_TYPE_BUY_LIMIT,
+                             msc0 + 50L);
+   Grind_BookTestUpsertOrder(8002UL, (long)magic,
+                             GrindCommentBuild("OPT", "S", 0, "ENT"),
+                             1.26110, ORDER_TYPE_SELL_LIMIT,
+                             msc1 + 50L);
+   Grind_BookTestUpsertOrder(8003UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 1, "ENT"),
+                             1.24810, ORDER_TYPE_BUY_LIMIT,
+                             msc1 + 150L);
+
+   const string hb = Grind_TestBookHeartbeatJson(magic);
+   AssertContains("B1 pos ticket 7001", hb, "\"ticket\":7001");
+   AssertContains("B1 pos ticket 7002", hb, "\"ticket\":7002");
+   AssertContains("B1 order ticket 8001", hb, "\"ticket\":8001");
+   AssertContains("B1 order ticket 8002", hb, "\"ticket\":8002");
+   AssertContains("B1 order ticket 8003", hb, "\"ticket\":8003");
+   AssertContains("B1 pos type BUY", hb, "\"type\":\"BUY\"");
+   AssertContains("B1 pos type SELL", hb, "\"type\":\"SELL\"");
+   AssertContains("B1 order type BUY_LIMIT", hb, "\"type\":\"BUY_LIMIT\"");
+   AssertContains("B1 order type SELL_LIMIT", hb, "\"type\":\"SELL_LIMIT\"");
+   AssertContains("B1 pos price", hb, "\"price\":1.25010");
+   AssertContains("B1 pos comment", hb, GrindCommentBuild("OPT", "L", 0, "ENT"));
+   AssertContains("B1 pos profit", hb, "\"profit\":-0.42");
+   AssertContains("B1 open_time_msc", hb, "\"open_time_msc\":");
+   AssertContains("B1 open_time string", hb, "\"open_time\":\"2026.09.10");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B2_UntrackedOrderAppearsInBook()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const ulong magic = 22260101UL;
+   const string dup_comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   Grind_BookTestUpsertOrder(8801UL, (long)magic, dup_comment,
+                             1.24800, ORDER_TYPE_BUY_LIMIT,
+                             (long)StringToTime("2026.09.10 10:00:00") * 1000L + 500L);
+   g_grind_long.add_pending_ticket = 8802UL;
+
+   const string hb = Grind_TestBookHeartbeatJson(magic);
+   AssertContains("B2 untracked in book", hb, "\"ticket\":8801");
+   AssertContains("B2 untracked comment", hb, dup_comment);
+   AssertNotContains("B2 tracker not required", hb, "\"ticket\":8802");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B3_SiblingMagicExcludedFromBook()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const ulong magic = 22260101UL;
+   const ulong sibling = 22260102UL;
+   Grind_BookTestUpsertOrder(8901UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 0, "ENT"),
+                             1.24900, ORDER_TYPE_BUY_LIMIT, 1000L);
+   Grind_BookTestUpsertOrder(8902UL, (long)sibling,
+                             GrindCommentBuild("OPT", "L", 0, "ENT"),
+                             1.24900, ORDER_TYPE_BUY_LIMIT, 2000L);
+
+   const string hb = Grind_TestBookHeartbeatJson(magic);
+   AssertContains("B3 own magic", hb, "\"ticket\":8901");
+   AssertNotContains("B3 sibling excluded", hb, "\"ticket\":8902");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B4_EmptyBookEmitsEmptyArrays()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const string hb = Grind_TestBookHeartbeatJson();
+   AssertContains("B4 empty positions", hb, "\"positions\":[]");
+   AssertContains("B4 empty orders", hb, "\"orders\":[]");
+   AssertNotContains("B4 positions not null", hb, "\"positions\":null");
+   AssertNotContains("B4 orders not null", hb, "\"orders\":null");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B5_OpenTimeFormatAndMscInteger()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const ulong magic = 22260101UL;
+   const long msc = (long)StringToTime("2026.09.10 16:42:08") * 1000L + 456L;
+   Grind_BookTestUpsertOrder(8701UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 0, "ENT"),
+                             1.24900, ORDER_TYPE_BUY_LIMIT, msc);
+
+   const string hb = Grind_TestBookHeartbeatJson(magic);
+   AssertContains("B5 open_time formatted", hb, "\"open_time\":\"2026.09.10 16:42:08\"");
+   AssertContains("B5 open_time_msc raw", hb, "\"open_time_msc\":" + IntegerToString(msc));
+   AssertNotContains("B5 msc not quoted float", hb, "\"open_time_msc\":\"" + IntegerToString(msc) + "\"");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B5b_TypeShortStringsNoMqlPrefix()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const ulong magic = 22260101UL;
+   Grind_BookTestUpsertOrder(8601UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 0, "ENT"),
+                             1.24900, ORDER_TYPE_BUY_LIMIT, 1000L);
+
+   const string hb = Grind_TestBookHeartbeatJson(magic);
+   AssertContains("B5b short type", hb, "\"type\":\"BUY_LIMIT\"");
+   AssertNotContains("B5b no mql prefix", hb, "ORDER_TYPE_BUY_LIMIT");
+   AssertNotContains("B5b no position prefix", hb, "POSITION_TYPE");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B5c_SameSecondOrderingByMsc()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_book_test_active = true;
+   const ulong magic = 22260101UL;
+   const long base = (long)StringToTime("2026.09.10 16:42:08") * 1000L;
+   Grind_BookTestUpsertOrder(8502UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 1, "ENT"),
+                             1.24800, ORDER_TYPE_BUY_LIMIT, base + 850L);
+   Grind_BookTestUpsertOrder(8501UL, (long)magic,
+                             GrindCommentBuild("OPT", "L", 0, "ENT"),
+                             1.24900, ORDER_TYPE_BUY_LIMIT, base + 120L);
+
+   const string hb = Grind_TestBookHeartbeatJson(magic);
+   const int pos8501 = StringFind(hb, "\"ticket\":8501");
+   const int pos8502 = StringFind(hb, "\"ticket\":8502");
+   const int msc8501 = StringFind(hb, "\"open_time_msc\":" + IntegerToString(base + 120L));
+   const int msc8502 = StringFind(hb, "\"open_time_msc\":" + IntegerToString(base + 850L));
+   AssertTrue("B5c both tickets present", pos8501 >= 0 && pos8502 >= 0);
+   AssertTrue("B5c both msc distinct", msc8501 >= 0 && msc8502 >= 0 && msc8501 != msc8502);
+   AssertContains("B5c same second open_time", hb, "\"open_time\":\"2026.09.10 16:42:08\"");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_B6_WorstCaseBookSplitPostComplete()
+{
+   Grind_TestResetLayerDetailState();
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   const string instance = "GRIND_GBPUSD_OPT";
+   const ulong magic = 22260101UL;
+   int detail_chars = 0;
+   int full_chars = 0;
+   string detail_json = "";
+   string full_json = "";
+   int unsplit = 0;
+   int scalar = 0;
+   int detail = 0;
+   int book_line = 0;
+   bool split = false;
+
+   Grind_HeartbeatMeasureWorstCasePayload(12, digits, magic,
+                                          detail_chars, full_chars,
+                                          detail_json, full_json);
+   Grind_HeartbeatJournalSplitLineLengths(instance, full_json,
+                                          unsplit, scalar, detail, split, book_line);
+
+   const int book_pos = StringFind(full_json, "\"book\":");
+   int book_chars = 0;
+   if(book_pos >= 0)
+      book_chars = StringLen(full_json) - book_pos;
+
+   Print("B6 full heartbeat chars=", full_chars,
+         " book field chars=", book_chars,
+         " journal unsplit chars=", unsplit,
+         " journal scalar line chars=", scalar,
+         " journal detail line chars=", detail,
+         " journal book line chars=", book_line,
+         " split=", split ? "yes" : "no");
+
+   AssertTrue("B6 split fires", split);
+   AssertTrue("B6 book substantial", book_chars > 3000);
+   AssertTrue("B6 scalar under Print limit", scalar < 4096);
+   AssertTrue("B6 detail under Print limit", detail < 4096);
+   AssertTrue("B6 book line under Print limit", book_line < 4096);
+   AssertContains("B6 POST complete layers", full_json, ",\"layers\":");
+   AssertContains("B6 POST complete book", full_json, "\"book\":");
+   AssertContains("B6 POST complete positions", full_json, "\"positions\":[");
+   AssertContains("B6 POST complete orders", full_json, "\"orders\":[");
+   Grind_TestResetLayerDetailState();
 }
 
 void Test_D8_RestingEntriesFromBrokerEnumeration()
@@ -3450,5 +3657,13 @@ void OnStart()
    Test_AccFigA4_DayKeyRollsOnServerTime();
    Test_AccFigA5_ReloadPreservesEquityLow();
    Test_AccFigA6_DistToFloorMatchesV2Logic();
+   Test_B1_BookEmitsAllBrokerRows();
+   Test_B2_UntrackedOrderAppearsInBook();
+   Test_B3_SiblingMagicExcludedFromBook();
+   Test_B4_EmptyBookEmitsEmptyArrays();
+   Test_B5_OpenTimeFormatAndMscInteger();
+   Test_B5b_TypeShortStringsNoMqlPrefix();
+   Test_B5c_SameSecondOrderingByMsc();
+   Test_B6_WorstCaseBookSplitPostComplete();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }
