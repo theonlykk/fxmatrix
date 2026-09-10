@@ -6,7 +6,8 @@ Accepted — 2026-09-07 (CloseBy hedging exit fix, Spec A of B); amended
 2026-09-08 (stale resting add reconciliation + I8 invariant); amended
 2026-09-09 (narrow I8 — invariant/reconciler boundary); amended
 2026-09-09 (intrinsic layer index — decouple from array position); amended
-2026-09-09 (I5 — uniqueness + non-negative, abandon contiguity).
+2026-09-09 (I5 — uniqueness + non-negative, abandon contiguity); amended
+2026-09-10 (CAS lock bootstrap — `GlobalVariableTemp` before acquire).
 Spec A of B (engine, presets, placement, caps) and Spec B (comment-only state
 reconstruction + CAS currency cap) implemented. CloseBy queue port completes
 the hedging-account exit path (Spec A closeby-exits branch).
@@ -212,6 +213,26 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 10. **Spec B — CAS currency cap.** Cross-instance exposure via MT5 GlobalVariables
     under `GRIND2226_<magic>_<LEG>` plus companion `GRIND2226_<magic>_<LEG>_time`
     (never packed into one double). Lock `GRIND2226_CAS_LOCK` with backoff/timeout.
+
+    **CAS lock bootstrap (ratified 2026-09-10):** `Grind_CapTryAcquireLock` calls
+    `GlobalVariableTemp(GRIND2226_CAS_LOCK)` before the acquire loop. Without this,
+    `GlobalVariableSetOnCondition(..., 1.0, 0.0)` fails forever when the variable
+    is absent — observed live on a fresh FTMO terminal after restart (CAS timeout
+    every tick until the operator created the key at 0.0 by hand). The release path
+    already used `GlobalVariableSet`, which creates if absent; only acquire could
+    not bootstrap. **`GlobalVariableTemp` is mandatory:** it creates at 0.0 atomically
+    when absent and leaves the value unchanged when present (including 1.0 held by
+    another instance). A check-then-set sequence is forbidden — concurrent OnInit
+    would overwrite a held lock and destroy mutual exclusion. Acquire bootstraps via
+    temp; release continues to use `GlobalVariableSet` on the same key — deliberate
+    asymmetry so the runtime lock clears on terminal restart rather than bricking
+    the fleet after a crash. Precedent: `Grind_MagicLockClaim` in
+    `grind_magic_lock.mqh`.
+
+    **General lesson (fourth this week):** a code path that has never run is not a
+    path that works. Prior cycles had already created the lock; a terminal restart
+    cleared the temp namespace and exposed the defect for the first time — alongside
+    CloseBy derivation, depth-0 reconciler, and phantom-layer close.
     **Phase 1 (OnInit):** each instance publishes own exposure unconditionally; no
     peer reads. **Phase 2 (OnTick):** peer reads before new entry placement only.
     Missing companion timestamp, missing peer key, or timestamp older than 300s
@@ -345,5 +366,6 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
   (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, P&L
   telemetry tests T40–T44, layer-detail heartbeat tests D1–D9, stale-add tests
   A1–A8, I8-boundary tests N1–N5, tracker-orphan tests O1–O3, intrinsic-index
-  tests L1–L7, and I5 gap-index tests I5a–I5h)
+  tests L1–L7, I5 gap-index tests I5a–I5h, scalp telemetry tests S1–S6, and CAS
+  lock bootstrap tests C1–C6)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)

@@ -46,6 +46,10 @@ string Grind_CapTimestampKey(const string exposure_key)
 //+------------------------------------------------------------------+
 bool Grind_CapTryAcquireLock(const int max_retries)
 {
+   // Bootstrap via GlobalVariableTemp: creates at 0.0 if absent; if present, value
+   // unchanged (including 1.0 held by another instance). Acquire uses temp; release
+   // uses GlobalVariableSet deliberately — same key, clears on terminal restart.
+   GlobalVariableTemp(GRIND_CAP_LOCK_GV);
    int retries = 0;
    while(!GlobalVariableSetOnCondition(GRIND_CAP_LOCK_GV, 1.0, 0.0)) {
       if(g_grind_cap_test_lock_held) {
