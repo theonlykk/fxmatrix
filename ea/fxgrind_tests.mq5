@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6) |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -881,6 +881,7 @@ void Grind_TestResetLayerDetailState()
 {
    Grind_TestResetSideState();
    Grind_OrderTestReset();
+   Grind_HeartbeatTestReset();
 }
 
 void Test_D1_ThreeLayersEmitDetail()
@@ -992,8 +993,11 @@ void Test_D7_WorstCasePayloadMeasured()
    const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    int detail_chars = 0;
    int full_chars = 0;
+   string detail_json = "";
+   string full_json = "";
    Grind_HeartbeatMeasureWorstCasePayload(12, digits, 22260101UL,
-                                         detail_chars, full_chars);
+                                         detail_chars, full_chars,
+                                         detail_json, full_json);
    const int journal_chars = StringLen("TELEM|GRIND_GBPUSD_OPT|HEARTBEAT|") + full_chars;
 
    Print("D7 worst-case detail field chars=", detail_chars,
@@ -1004,6 +1008,113 @@ void Test_D7_WorstCasePayloadMeasured()
    AssertTrue("D7 detail non-empty", detail_chars > 0);
    AssertTrue("D7 full heartbeat longer than detail block", full_chars > detail_chars);
    AssertTrue("D7 journal line length recorded", journal_chars > 0);
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_R1_LayerCommentRawFromBroker()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_heartbeat_test_active = true;
+   const string broker_comment = GrindCommentBuild("OPT", "L", 3, "ENT");
+   Grind_HeartbeatTestUpsertPosition(7001UL, (long)22260101UL, broker_comment);
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].layer_index = 1;
+   g_grind_long.layers[0].position_ticket = 7001UL;
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("R1 structured index", hb, "\"layer_index\":1");
+   AssertContains("R1 raw broker comment", hb, "\"comment\":\"GRIND|OPT|L|L03|ENT\"");
+   AssertNotContains("R1 not reconstructed L01", hb, "\"comment\":\"GRIND|OPT|L|L01|ENT\"");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_R2_PendingCommentsNullWhenAbsent()
+{
+   Grind_TestResetLayerDetailState();
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("R2 l0 long comment null", hb, "\"l0_pending_long_comment\":null");
+   AssertContains("R2 l0 short comment null", hb, "\"l0_pending_short_comment\":null");
+   AssertContains("R2 add long comment null", hb, "\"add_pending_long_comment\":null");
+   AssertContains("R2 add short comment null", hb, "\"add_pending_short_comment\":null");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_R3_NoTicketsInCommentHeartbeatJson()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_heartbeat_test_active = true;
+   g_grind_order_test_active = true;
+   Grind_HeartbeatTestUpsertPosition(555001UL, (long)22260101UL,
+                                    GrindCommentBuild("OPT", "L", 0, "ENT"));
+   Grind_OrderTestUpsert(555004UL, (long)22260101UL,
+                         GrindCommentBuild("OPT", "L", 0, "ENT"),
+                         1.25000, ORDER_TYPE_BUY_LIMIT);
+   Grind_OrderTestUpsert(555005UL, (long)22260101UL,
+                         GrindCommentBuild("OPT", "L", 1, "ENT"),
+                         1.24900, ORDER_TYPE_BUY_LIMIT);
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].position_ticket = 555001UL;
+   g_grind_long.layers[0].exit_order_ticket = 555002UL;
+   g_grind_long.layers[0].exit_position_ticket = 555003UL;
+   g_grind_long.l0_pending_ticket = 555004UL;
+   g_grind_long.add_pending_ticket = 555005UL;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertTrue("R3 no position ticket", StringFind(hb, "555001") < 0);
+   AssertTrue("R3 no exit order ticket", StringFind(hb, "555002") < 0);
+   AssertTrue("R3 no exit position ticket", StringFind(hb, "555003") < 0);
+   AssertTrue("R3 no l0 pending ticket", StringFind(hb, "555004") < 0);
+   AssertTrue("R3 no add pending ticket", StringFind(hb, "555005") < 0);
+   AssertContains("R3 comment field present", hb, "\"comment\":\"GRIND|OPT|L|L00|ENT\"");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_R4_WorstCaseCommentsTriggerJournalSplit()
+{
+   Grind_TestResetLayerDetailState();
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   int detail_chars = 0;
+   int full_chars = 0;
+   string detail_json = "";
+   string full_json = "";
+   Grind_HeartbeatMeasureWorstCasePayload(12, digits, 22260101UL,
+                                         detail_chars, full_chars,
+                                         detail_json, full_json);
+   const string instance = "GRIND_GBPUSD_OPT";
+   const int journal_chars = StringLen("TELEM|" + instance + "|HEARTBEAT|") + full_chars;
+
+   Print("R4 worst-case detail chars=", detail_chars,
+         " full heartbeat chars=", full_chars,
+         " journal line chars=", journal_chars);
+
+   AssertTrue("R4 layer comments present", StringFind(full_json, "\"comment\":\"GRIND|") >= 0);
+   AssertTrue("R4 pending comments present", StringFind(full_json, "\"l0_pending_long_comment\":") >= 0);
+   AssertTrue("R4 journal exceeds Print limit", journal_chars >= 4096);
+   AssertTrue("R4 split would fire", Grind_HeartbeatWouldJournalSplit(instance, full_json));
+   AssertTrue("R4 POST body complete", StringFind(full_json, ",\"layers\":") >= 0);
+   AssertTrue("R4 POST body has pending comments",
+              StringFind(full_json, "\"add_pending_short_comment\":") >= 0);
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_R4b_FailedPositionSelectEmitsNullComment()
+{
+   Grind_TestResetLayerDetailState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].position_ticket = 999999UL;
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("R4b phantom comment null", hb, "\"comment\":null");
    Grind_TestResetLayerDetailState();
 }
 
@@ -2838,5 +2949,10 @@ void OnStart()
    Test_S4_LayerDepthUsesIntrinsicIndex();
    Test_S5_FailedPostDoesNotBlockScalpAccounting();
    Test_S6_GrossPnlMatchesRealisedPnlToday();
+   Test_R1_LayerCommentRawFromBroker();
+   Test_R2_PendingCommentsNullWhenAbsent();
+   Test_R3_NoTicketsInCommentHeartbeatJson();
+   Test_R4_WorstCaseCommentsTriggerJournalSplit();
+   Test_R4b_FailedPositionSelectEmitsNullComment();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

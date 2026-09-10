@@ -20,7 +20,9 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
                                             const int digits,
                                             const ulong magic,
                                             int &detail_chars_out,
-                                            int &full_chars_out);
+                                            int &full_chars_out,
+                                            string &detail_json_out,
+                                            string &full_json_out);
 
 //+------------------------------------------------------------------+
 void Grind_TelemetryTestReset()
