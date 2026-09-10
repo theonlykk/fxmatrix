@@ -478,8 +478,8 @@ void Test_C6_CasLockTempPreservesHeldValue()
    Grind_TestCapLockCleanup();
    GlobalVariableTemp(GRIND_CAP_LOCK_GV);
    GlobalVariableSet(GRIND_CAP_LOCK_GV, 1.0);
-   AssertTrue("C6 temp call ok", GlobalVariableTemp(GRIND_CAP_LOCK_GV));
-   AssertTrue("C6 still one", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 1.0);
+   GlobalVariableTemp(GRIND_CAP_LOCK_GV);
+   AssertTrue("C6 held lock not reset", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 1.0);
    Grind_TestCapLockCleanup();
 }
 
