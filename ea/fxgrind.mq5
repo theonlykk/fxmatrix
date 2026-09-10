@@ -62,6 +62,7 @@ string Grind_BuildHeartbeatJson()
 //+------------------------------------------------------------------+
 void Grind_EmitHeartbeat()
 {
+   Grind_MaeClaimReporterForHeartbeat(InpMagic, TelemetryIntervalSec);
    const string hb_json = Grind_BuildHeartbeatJson();
    Grind_TelemetryEmitHeartbeat(g_grind_telemetry_instance, hb_json);
    if(EnableTelemetry && TelemetryURL != "" && TelemetryAPIKey != "")
@@ -118,6 +119,7 @@ int OnInit()
             g_grind_halt_reason, ")");
    }
 
+   Grind_MaeInit();
    Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
 
    Print(Grind_ConfigDumpString(InpMagic,
@@ -165,6 +167,7 @@ void OnTimer()
    }
 
    Grind_ResetDailyPnlIfNewDay();
+   Grind_MaeOnTimer();
    Grind_ProcessPendingExitMicrostructure();
    Grind_DrainScalpEventQueue();
    Grind_EmitHeartbeat();
