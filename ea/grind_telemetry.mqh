@@ -7,6 +7,13 @@
 #include "grind_api_counter.mqh"
 #include "grind_pnl.mqh"
 
+// Unit-test hook: intercept WebRequest when active (fxgrind_tests).
+bool   g_grind_telemetry_test_active = false;
+int    g_grind_telemetry_test_post_calls = 0;
+string g_grind_telemetry_test_last_url = "";
+string g_grind_telemetry_test_last_payload = "";
+bool   g_grind_telemetry_test_force_fail = false;
+
 // Forward declarations — defined in grind_heartbeat_detail.mqh (included at end of grind_engine).
 string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits);
 void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
@@ -16,6 +23,16 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
                                             int &full_chars_out);
 
 //+------------------------------------------------------------------+
+void Grind_TelemetryTestReset()
+{
+   g_grind_telemetry_test_active = false;
+   g_grind_telemetry_test_post_calls = 0;
+   g_grind_telemetry_test_last_url = "";
+   g_grind_telemetry_test_last_payload = "";
+   g_grind_telemetry_test_force_fail = false;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_TelemetryWebPost(const string url,
                             const string api_key,
                             const string payload,
@@ -23,6 +40,13 @@ bool Grind_TelemetryWebPost(const string url,
 {
    if(url == "" || api_key == "")
       return false;
+
+   if(g_grind_telemetry_test_active) {
+      g_grind_telemetry_test_post_calls++;
+      g_grind_telemetry_test_last_url = url;
+      g_grind_telemetry_test_last_payload = payload;
+      return !g_grind_telemetry_test_force_fail;
+   }
 
    string headers = "Content-Type: application/json\r\n"
                   + "Authorization: Bearer " + api_key + "\r\n";
@@ -171,5 +195,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
    const string detail = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
    return core + "," + detail + "}";
 }
+
+#include "grind_scalp_events.mqh"
 
 #endif // GRIND_TELEMETRY_MQH
