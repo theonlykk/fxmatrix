@@ -264,6 +264,8 @@ string Grind_HeartbeatLayersJson(const ulong magic, const int digits)
    return json;
 }
 
+#include "grind_heartbeat_book.mqh"
+
 //+------------------------------------------------------------------+
 string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits)
 {
@@ -371,6 +373,47 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
    Grind_OrderTestUpsert(9104UL, (long)magic, GrindCommentBuild("OPT", "S", 11, "ENT"),
                          1.26210, ORDER_TYPE_SELL_LIMIT);
 
+   const bool saved_book_test = g_grind_book_test_active;
+   const int saved_book_pos_count = g_grind_book_test_position_count;
+   const int saved_book_ord_count = g_grind_book_test_order_count;
+   GrindBookTestPosition saved_book_positions[];
+   GrindBookTestOrder saved_book_orders[];
+   ArrayResize(saved_book_positions, saved_book_pos_count);
+   ArrayResize(saved_book_orders, saved_book_ord_count);
+   for(int i = 0; i < saved_book_pos_count; i++)
+      saved_book_positions[i] = g_grind_book_test_positions[i];
+   for(int i = 0; i < saved_book_ord_count; i++)
+      saved_book_orders[i] = g_grind_book_test_orders[i];
+
+   Grind_BookTestReset();
+   g_grind_book_test_active = true;
+   const int book_positions = per_side * 2 + 2;
+   const int book_orders = per_side * 2 + 2;
+   const long base_msc = (long)StringToTime("2026.09.10 12:00:00") * 1000L;
+   for(int i = 0; i < book_positions; i++) {
+      const string side = (i % 2 == 0 ? "L" : "S");
+      const int layer = i % per_side;
+      Grind_BookTestUpsertPosition(
+         10000UL + (ulong)i,
+         (long)magic,
+         GrindCommentBuild("OPT", side, layer, "ENT"),
+         1.25000 + i * 0.00010,
+         (i % 2 == 0 ? POSITION_TYPE_BUY : POSITION_TYPE_SELL),
+         base_msc + (long)i,
+         -0.50 - i * 0.01);
+   }
+   for(int i = 0; i < book_orders; i++) {
+      const string side = (i % 2 == 0 ? "L" : "S");
+      const int layer = i % per_side;
+      Grind_BookTestUpsertOrder(
+         20000UL + (ulong)i,
+         (long)magic,
+         GrindCommentBuild("OPT", side, layer, "ENT"),
+         1.24900 - i * 0.00010,
+         (i % 2 == 0 ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT),
+         base_msc + 5000L + (long)i * 2L);
+   }
+
    detail_json_out = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
    detail_chars_out = StringLen(detail_json_out);
 
@@ -396,6 +439,188 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
    g_grind_order_test_count = saved_order_count;
    for(int i = 0; i < saved_order_count; i++)
       g_grind_order_test_records[i] = saved_orders[i];
+
+   Grind_BookTestReset();
+   g_grind_book_test_active = saved_book_test;
+   ArrayResize(g_grind_book_test_positions, saved_book_pos_count);
+   g_grind_book_test_position_count = saved_book_pos_count;
+   for(int i = 0; i < saved_book_pos_count; i++)
+      g_grind_book_test_positions[i] = saved_book_positions[i];
+   ArrayResize(g_grind_book_test_orders, saved_book_ord_count);
+   g_grind_book_test_order_count = saved_book_ord_count;
+   for(int i = 0; i < saved_book_ord_count; i++)
+      g_grind_book_test_orders[i] = saved_book_orders[i];
+}
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatSplitBookArrayRows(const string array_inner, string &rows_out[])
+{
+   ArrayResize(rows_out, 0);
+   if(array_inner == "")
+      return;
+
+   int start = 0;
+   for(int i = 0; i < StringLen(array_inner) - 2; i++) {
+      if(StringGetCharacter(array_inner, i) == '}' &&
+         StringGetCharacter(array_inner, i + 1) == ',' &&
+         StringGetCharacter(array_inner, i + 2) == '{') {
+         const int n = ArraySize(rows_out);
+         ArrayResize(rows_out, n + 1);
+         rows_out[n] = StringSubstr(array_inner, start, i - start + 1);
+         start = i + 2;
+         i += 2;
+      }
+   }
+
+   const int n = ArraySize(rows_out);
+   ArrayResize(rows_out, n + 1);
+   rows_out[n] = StringSubstr(array_inner, start);
+}
+
+//+------------------------------------------------------------------+
+string Grind_HeartbeatBookArrayInnerJson(const string array_key, const string rows_json)
+{
+   return "\"" + array_key + "\":[" + rows_json + "]";
+}
+
+//+------------------------------------------------------------------+
+int Grind_HeartbeatBookArrayJournalLineChars(const string instance_name,
+                                             const string event_tag,
+                                             const string array_key,
+                                             const string rows_json)
+{
+   const string prefix = "TELEM|" + instance_name + "|" + event_tag + "|";
+   const string body = Grind_HeartbeatBookArrayInnerJson(array_key, rows_json);
+   return StringLen(prefix) + StringLen("{" + body + "}");
+}
+
+//+------------------------------------------------------------------+
+int Grind_HeartbeatBookArrayJournalMaxLineChars(const string instance_name,
+                                                const string event_tag,
+                                                const string array_key,
+                                                const string array_body)
+{
+   const int open_bracket = StringFind(array_body, "[");
+   const int close_bracket = StringFind(array_body, "]", open_bracket + 1);
+   if(open_bracket < 0 || close_bracket <= open_bracket)
+      return Grind_HeartbeatBookArrayJournalLineChars(instance_name, event_tag,
+                                                      array_key, "");
+
+   const string array_inner = StringSubstr(array_body, open_bracket + 1,
+                                           close_bracket - open_bracket - 1);
+   string rows[];
+   Grind_HeartbeatSplitBookArrayRows(array_inner, rows);
+   const int row_count = ArraySize(rows);
+   if(row_count == 0)
+      return Grind_HeartbeatBookArrayJournalLineChars(instance_name, event_tag,
+                                                      array_key, "");
+
+   const int chunk_rows = 20;
+   int max_line = 0;
+   for(int start_row = 0; start_row < row_count; start_row += chunk_rows) {
+      string batch = rows[start_row];
+      for(int j = start_row + 1; j < start_row + chunk_rows && j < row_count; j++)
+         batch += "," + rows[j];
+      const int line = Grind_HeartbeatBookArrayJournalLineChars(
+         instance_name, event_tag, array_key, batch);
+      if(line > max_line)
+         max_line = line;
+   }
+   return max_line;
+}
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatPrintBookArrayJournal(const string instance_name,
+                                          const string event_tag,
+                                          const string array_key,
+                                          const string array_body)
+{
+   const int open_bracket = StringFind(array_body, "[");
+   const int close_bracket = StringFind(array_body, "]", open_bracket + 1);
+   if(open_bracket < 0 || close_bracket <= open_bracket) {
+      const string prefix = "TELEM|" + instance_name + "|" + event_tag + "|";
+      Print(prefix, "{" + array_body + "}");
+      return;
+   }
+
+   const string array_inner = StringSubstr(array_body, open_bracket + 1,
+                                           close_bracket - open_bracket - 1);
+   string rows[];
+   Grind_HeartbeatSplitBookArrayRows(array_inner, rows);
+   const int row_count = ArraySize(rows);
+   const string prefix = "TELEM|" + instance_name + "|" + event_tag + "|";
+   if(row_count == 0) {
+      Print(prefix, "{" + Grind_HeartbeatBookArrayInnerJson(array_key, "") + "}");
+      return;
+   }
+
+   const int chunk_rows = 20;
+   int chunk = 1;
+   for(int start_row = 0; start_row < row_count; start_row += chunk_rows) {
+      string batch = rows[start_row];
+      for(int j = start_row + 1; j < start_row + chunk_rows && j < row_count; j++)
+         batch += "," + rows[j];
+      const string tag = (chunk == 1 ? event_tag : event_tag + "_" + IntegerToString(chunk));
+      Print("TELEM|", instance_name, "|", tag, "|",
+            "{" + Grind_HeartbeatBookArrayInnerJson(array_key, batch) + "}");
+      chunk++;
+   }
+}
+
+//+------------------------------------------------------------------+
+int Grind_HeartbeatBookJournalMaxLineChars(const string instance_name,
+                                           const string book_value)
+{
+   const string book_prefix = "TELEM|" + instance_name + "|HEARTBEAT_BOOK|";
+   const string book_json = "{" + book_value + "}";
+   const int combined = StringLen(book_prefix) + StringLen(book_json);
+   if(combined < 4096)
+      return combined;
+
+   const int pos_key = StringFind(book_value, "\"positions\":");
+   const int ord_key = StringFind(book_value, "\"orders\":");
+   if(pos_key < 0 || ord_key < 0 || ord_key <= pos_key)
+      return combined;
+
+   string positions_body = StringSubstr(book_value, pos_key, ord_key - pos_key);
+   while(StringLen(positions_body) > 0 &&
+         StringGetCharacter(positions_body, StringLen(positions_body) - 1) == ',')
+      positions_body = StringSubstr(positions_body, 0, StringLen(positions_body) - 1);
+   const string orders_body = StringSubstr(book_value, ord_key);
+   const int pos_line = Grind_HeartbeatBookArrayJournalMaxLineChars(
+      instance_name, "HEARTBEAT_BOOK_POS", "positions", positions_body);
+   const int ord_line = Grind_HeartbeatBookArrayJournalMaxLineChars(
+      instance_name, "HEARTBEAT_BOOK_ORD", "orders", orders_body);
+   return (pos_line > ord_line ? pos_line : ord_line);
+}
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatPrintBookJournal(const string instance_name,
+                                     const string book_value)
+{
+   const string book_prefix = "TELEM|" + instance_name + "|HEARTBEAT_BOOK|";
+   const string book_json = "{" + book_value + "}";
+   if(StringLen(book_prefix) + StringLen(book_json) < 4096) {
+      Print(book_prefix, book_json);
+      return;
+   }
+
+   const int pos_key = StringFind(book_value, "\"positions\":");
+   const int ord_key = StringFind(book_value, "\"orders\":");
+   if(pos_key < 0 || ord_key < 0 || ord_key <= pos_key) {
+      Print(book_prefix, book_json);
+      return;
+   }
+
+   string positions_body = StringSubstr(book_value, pos_key, ord_key - pos_key);
+   while(StringLen(positions_body) > 0 &&
+         StringGetCharacter(positions_body, StringLen(positions_body) - 1) == ',')
+      positions_body = StringSubstr(positions_body, 0, StringLen(positions_body) - 1);
+   const string orders_body = StringSubstr(book_value, ord_key);
+   Grind_HeartbeatPrintBookArrayJournal(instance_name, "HEARTBEAT_BOOK_POS",
+                                        "positions", positions_body);
+   Grind_HeartbeatPrintBookArrayJournal(instance_name, "HEARTBEAT_BOOK_ORD",
+                                        "orders", orders_body);
 }
 
 //+------------------------------------------------------------------+
@@ -414,13 +639,15 @@ void Grind_HeartbeatJournalSplitLineLengths(const string instance_name,
                                             int &unsplit_line_chars_out,
                                             int &scalar_line_chars_out,
                                             int &detail_line_chars_out,
-                                            bool &split_would_fire_out)
+                                            bool &split_would_fire_out,
+                                            int &book_line_chars_out)
 {
    const string hb_prefix = "TELEM|" + instance_name + "|HEARTBEAT|";
    unsplit_line_chars_out = StringLen(hb_prefix) + StringLen(full_json);
    split_would_fire_out = Grind_HeartbeatWouldJournalSplit(instance_name, full_json);
    scalar_line_chars_out = unsplit_line_chars_out;
    detail_line_chars_out = 0;
+   book_line_chars_out = 0;
    if(!split_would_fire_out)
       return;
 
@@ -428,11 +655,25 @@ void Grind_HeartbeatJournalSplitLineLengths(const string instance_name,
    if(layers_pos < 0)
       return;
 
+   const int book_pos = StringFind(full_json, ",\"book\":");
    const string scalar_json = StringSubstr(full_json, 0, layers_pos) + "}";
-   const string detail_json = "{" + StringSubstr(full_json, layers_pos + 1);
    scalar_line_chars_out = StringLen(hb_prefix) + StringLen(scalar_json);
+
+   if(book_pos < 0) {
+      const string detail_json = "{" + StringSubstr(full_json, layers_pos + 1);
+      detail_line_chars_out = StringLen("TELEM|" + instance_name + "|HEARTBEAT_DETAIL|")
+                              + StringLen(detail_json);
+      return;
+   }
+
+   const string detail_body = StringSubstr(full_json, layers_pos + 1, book_pos - layers_pos - 1);
+   const string detail_json = "{" + detail_body + "}";
    detail_line_chars_out = StringLen("TELEM|" + instance_name + "|HEARTBEAT_DETAIL|")
                            + StringLen(detail_json);
+   const int book_key_pos = StringFind(full_json, "\"book\":");
+   const string book_value = StringSubstr(full_json, book_key_pos,
+                                          StringLen(full_json) - book_key_pos - 1);
+   book_line_chars_out = Grind_HeartbeatBookJournalMaxLineChars(instance_name, book_value);
 }
 
 #endif // GRIND_HEARTBEAT_DETAIL_MQH

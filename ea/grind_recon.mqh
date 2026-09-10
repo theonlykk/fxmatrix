@@ -503,11 +503,13 @@ void Grind_ReconFailureMeasureWorstCaseCombined(const int ticket_count,
                                           detail_chars, full_heartbeat_chars_out,
                                           detail_json, full_json_out);
 
+   int journal_book_line_chars = 0;
    Grind_HeartbeatJournalSplitLineLengths(instance_name, full_json_out,
                                           journal_unsplit_chars_out,
                                           journal_scalar_line_chars_out,
                                           journal_detail_line_chars_out,
-                                          split_would_fire_out);
+                                          split_would_fire_out,
+                                          journal_book_line_chars);
 
    Grind_ReconFailureClear();
 }
