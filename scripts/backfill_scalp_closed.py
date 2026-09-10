@@ -285,41 +285,31 @@ def api_post_json(url: str, token: str, payload: dict[str, Any]) -> tuple[int, s
         return exc.code, exc.read().decode("utf-8", errors="replace")
 
 
-def normalize_existing_scalp(raw: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "instance_id": raw.get("instance_id", ""),
-        "close_time": raw.get("close_time", ""),
-        "entry_price": float(raw.get("entry_price", 0.0)),
-        "exit_price": float(raw.get("exit_price", 0.0)),
-    }
+def existing_scalp_keys(records: list[dict[str, Any]]) -> set[tuple[str, str]]:
+    keys: set[tuple[str, str]] = set()
+    for row in records:
+        instance_id = row.get("instance_id", "")
+        close_time = row.get("close_time", "")
+        if instance_id and close_time:
+            keys.add((instance_id, close_time))
+    return keys
 
 
-def scalp_already_present(candidate: ScalpRecord, existing: list[dict[str, Any]]) -> bool:
-    for row in existing:
-        if row.get("instance_id") != candidate.instance_id:
-            continue
-        if row.get("close_time") == candidate.close_time:
-            return True
-        entry = float(row.get("entry_price", 0.0))
-        exit_price = float(row.get("exit_price", 0.0))
-        if (
-            abs(entry - candidate.entry_price) < 1e-5
-            and abs(exit_price - candidate.exit_price) < 1e-5
-        ):
-            return True
-    return False
+def scalp_already_present(
+    candidate: ScalpRecord,
+    existing_keys: set[tuple[str, str]],
+) -> bool:
+    return (candidate.instance_id, candidate.close_time) in existing_keys
 
 
 def fetch_existing_scalps(token: str) -> list[dict[str, Any]]:
     payload = api_get_json(TODAY_SCALPS_URL, token)
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict):
-        for key in ("scalps", "items", "data", "today_scalps"):
-            value = payload.get(key)
-            if isinstance(value, list):
-                return value
-    raise ValueError(f"Unexpected today_scalps response shape: {type(payload)}")
+    if not isinstance(payload, dict):
+        raise ValueError(f"Unexpected today_scalps response shape: {type(payload)}")
+    records = payload.get("records")
+    if not isinstance(records, list):
+        raise ValueError("today_scalps response missing records list")
+    return records
 
 
 def print_report(
@@ -343,11 +333,13 @@ def print_report(
         f"OUT_BY bad group size={skipped['out_by_bad_group_size']}",
     )
     print(f"Grind scalps paired (unique ENT positions): {len(all_scalps)}")
+    dedup_count = len(all_scalps) - len(to_post)
     if existing is not None:
-        print(f"Already in today_scalps panel: {len(existing)} fetched, "
-              f"{len(all_scalps) - len(to_post)} matched/skipped")
+        print(f"Already in today_scalps panel: {len(existing)} records fetched")
+        print(f"Dedup skipped (instance_id + close_time match): {dedup_count}")
     else:
         print("Already in today_scalps panel: unknown (no API token)")
+        print("Dedup skipped: unknown (no API token)")
     print(f"Would post: {len(to_post)}")
     print(f"Summed gross_pnl of new scalps: {sum(s.gross_pnl for s in to_post):.2f}")
     print(f"Summed gross_pnl of all paired scalps: {sum(s.gross_pnl for s in all_scalps):.2f}")
@@ -440,12 +432,14 @@ def main() -> int:
         print("PIPSHED_API_TOKEN is required for --post", file=sys.stderr)
         return 1
 
+    existing_keys: set[tuple[str, str]] | None = None
     to_post = all_scalps
     if existing is not None:
+        existing_keys = existing_scalp_keys(existing)
         to_post = [
             scalp
             for scalp in all_scalps
-            if not scalp_already_present(scalp, existing)
+            if not scalp_already_present(scalp, existing_keys)
         ]
 
     existing_count = len(existing) if existing is not None else None
