@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6) |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -419,13 +419,78 @@ void Test_T25_ContaminatedCommentRebuilds()
    AssertTrue("T25 depth", ArraySize(long_out.layers) == 1);
 }
 
+void Grind_TestCapLockCleanup()
+{
+   if(GlobalVariableCheck(GRIND_CAP_LOCK_GV))
+      GlobalVariableDel(GRIND_CAP_LOCK_GV);
+   g_grind_cap_test_lock_held = false;
+}
+
+void Test_C1_CasLockAcquireWhenAbsent()
+{
+   Grind_TestCapLockCleanup();
+   AssertTrue("C1 acquire absent", Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
+   AssertTrue("C1 lock held", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 1.0);
+   Grind_CapReleaseLock();
+   Grind_TestCapLockCleanup();
+}
+
+void Test_C2_CasLockAcquireWhenZero()
+{
+   Grind_TestCapLockCleanup();
+   AssertTrue("C2 temp bootstrap", GlobalVariableTemp(GRIND_CAP_LOCK_GV));
+   AssertTrue("C2 starts zero", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 0.0);
+   AssertTrue("C2 acquire", Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
+   Grind_CapReleaseLock();
+   Grind_TestCapLockCleanup();
+}
+
+void Test_C3_CasLockHeldTimesOutWithoutReset()
+{
+   Grind_TestCapLockCleanup();
+   GlobalVariableTemp(GRIND_CAP_LOCK_GV);
+   GlobalVariableSet(GRIND_CAP_LOCK_GV, 1.0);
+   AssertTrue("C3 timeout", !Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
+   AssertTrue("C3 still held", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 1.0);
+   Grind_TestCapLockCleanup();
+}
+
+void Test_C4_CasLockAcquireReleaseLeavesZero()
+{
+   Grind_TestCapLockCleanup();
+   AssertTrue("C4 acquire", Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
+   Grind_CapReleaseLock();
+   AssertTrue("C4 released zero", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 0.0);
+   Grind_TestCapLockCleanup();
+}
+
+void Test_C5_CasLockDoubleAcquireFails()
+{
+   Grind_TestCapLockCleanup();
+   AssertTrue("C5 first acquire", Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
+   AssertTrue("C5 second fails", !Grind_CapTryAcquireLock(0));
+   Grind_CapReleaseLock();
+   Grind_TestCapLockCleanup();
+}
+
+void Test_C6_CasLockTempPreservesHeldValue()
+{
+   Grind_TestCapLockCleanup();
+   GlobalVariableTemp(GRIND_CAP_LOCK_GV);
+   GlobalVariableSet(GRIND_CAP_LOCK_GV, 1.0);
+   AssertTrue("C6 temp call ok", GlobalVariableTemp(GRIND_CAP_LOCK_GV));
+   AssertTrue("C6 still one", GlobalVariableGet(GRIND_CAP_LOCK_GV) == 1.0);
+   Grind_TestCapLockCleanup();
+}
+
 void Test_T26_CasSpinlockTimeout()
 {
+   Grind_TestCapLockCleanup();
+   GlobalVariableTemp(GRIND_CAP_LOCK_GV);
    GlobalVariableSet(GRIND_CAP_LOCK_GV, 1.0);
    g_grind_cap_test_lock_held = true;
    AssertTrue("T26 timeout", !Grind_CapTryAcquireLock(GRIND_CAP_CAS_MAX_RETRIES));
-   g_grind_cap_test_lock_held = false;
-   GlobalVariableDel(GRIND_CAP_LOCK_GV);
+   Grind_TestCapLockCleanup();
 }
 
 void Test_T27_MissingPeerReadsAsMaxed()
@@ -2676,6 +2741,12 @@ void OnStart()
    Test_T23_OrphanExitHalts();
    Test_T24_GapIndicesRebuild();
    Test_T25_ContaminatedCommentRebuilds();
+   Test_C1_CasLockAcquireWhenAbsent();
+   Test_C2_CasLockAcquireWhenZero();
+   Test_C3_CasLockHeldTimesOutWithoutReset();
+   Test_C4_CasLockAcquireReleaseLeavesZero();
+   Test_C5_CasLockDoubleAcquireFails();
+   Test_C6_CasLockTempPreservesHeldValue();
    Test_T26_CasSpinlockTimeout();
    Test_T27_MissingPeerReadsAsMaxed();
    Test_T28_StalePeerBoundary();
