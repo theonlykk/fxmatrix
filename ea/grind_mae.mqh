@@ -330,17 +330,16 @@ string Grind_MaeAccountEquityJson()
 string Grind_MaeIntradayMaeJson(const string instance_name)
 {
    if(!g_grind_mae_is_reporter) {
-      return StringFormat(
-         "{\"mae_day_key\":null,\"mae_equity_low\":null,"
-         "\"mae_equity_low_dist_to_floor\":null,\"source_instance\":null}");
+      return "{\"mae_day_key\":null,\"mae_equity_low\":null,"
+             "\"mae_equity_low_dist_to_floor\":null,\"source_instance\":null}";
    }
 
    return StringFormat(
-      "{\"mae_day_key\":\"%s\",\"mae_equity_low\":%.2f,"
-      "\"mae_equity_low_dist_to_floor\":%.2f,\"source_instance\":\"%s\"}",
+      "{\"mae_day_key\":\"%s\",\"mae_equity_low\":%s,"
+      "\"mae_equity_low_dist_to_floor\":%s,\"source_instance\":\"%s\"}",
       g_grind_mae_day_key,
-      g_grind_mae_equity_low,
-      g_grind_mae_equity_low_dist_to_floor,
+      DoubleToString(g_grind_mae_equity_low, 2),
+      DoubleToString(g_grind_mae_equity_low_dist_to_floor, 2),
       instance_name);
 }
 
