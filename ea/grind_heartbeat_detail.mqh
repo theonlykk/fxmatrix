@@ -9,6 +9,134 @@
 #include "grind_comment.mqh"
 #include "grind_pure.mqh"
 
+// Unit-test hooks for position comment reads (no PositionSelectByTicket when active).
+bool   g_grind_heartbeat_test_active = false;
+
+struct GrindHeartbeatTestPosition
+{
+   ulong  ticket;
+   long   magic;
+   string comment;
+};
+
+GrindHeartbeatTestPosition g_grind_heartbeat_test_positions[];
+int g_grind_heartbeat_test_position_count = 0;
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatTestReset()
+{
+   g_grind_heartbeat_test_active = false;
+   ArrayResize(g_grind_heartbeat_test_positions, 0);
+   g_grind_heartbeat_test_position_count = 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatTestUpsertPosition(const ulong ticket,
+                                       const long magic,
+                                       const string comment)
+{
+   for(int i = 0; i < g_grind_heartbeat_test_position_count; i++) {
+      if(g_grind_heartbeat_test_positions[i].ticket == ticket) {
+         g_grind_heartbeat_test_positions[i].magic = magic;
+         g_grind_heartbeat_test_positions[i].comment = comment;
+         return;
+      }
+   }
+   ArrayResize(g_grind_heartbeat_test_positions, g_grind_heartbeat_test_position_count + 1);
+   g_grind_heartbeat_test_positions[g_grind_heartbeat_test_position_count].ticket = ticket;
+   g_grind_heartbeat_test_positions[g_grind_heartbeat_test_position_count].magic = magic;
+   g_grind_heartbeat_test_positions[g_grind_heartbeat_test_position_count].comment = comment;
+   g_grind_heartbeat_test_position_count++;
+}
+
+//+------------------------------------------------------------------+
+string Grind_HeartbeatJsonEscape(const string raw)
+{
+   string out = "";
+   for(int i = 0; i < StringLen(raw); i++) {
+      const ushort ch = StringGetCharacter(raw, i);
+      if(ch == '\\')
+         out += "\\\\";
+      else if(ch == '"')
+         out += "\\\"";
+      else
+         out += ShortToString(ch);
+   }
+   return out;
+}
+
+//+------------------------------------------------------------------+
+string Grind_HeartbeatQuotedCommentJson(const string comment)
+{
+   return "\"" + Grind_HeartbeatJsonEscape(comment) + "\"";
+}
+
+//+------------------------------------------------------------------+
+bool Grind_HeartbeatPositionComment(const ulong position_ticket,
+                                    const ulong magic,
+                                    string &comment_out)
+{
+   comment_out = "";
+   if(position_ticket == 0)
+      return false;
+
+   if(g_grind_heartbeat_test_active) {
+      for(int i = 0; i < g_grind_heartbeat_test_position_count; i++) {
+         if(g_grind_heartbeat_test_positions[i].ticket != position_ticket)
+            continue;
+         if(!Grind_MagicMatches(g_grind_heartbeat_test_positions[i].magic, magic))
+            return false;
+         comment_out = g_grind_heartbeat_test_positions[i].comment;
+         return true;
+      }
+      return false;
+   }
+
+   if(!PositionSelectByTicket(position_ticket))
+      return false;
+   if(!Grind_MagicMatches(PositionGetInteger(POSITION_MAGIC), magic))
+      return false;
+   comment_out = PositionGetString(POSITION_COMMENT);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_HeartbeatOrderComment(const ulong ticket,
+                                 const ulong magic,
+                                 string &comment_out)
+{
+   comment_out = "";
+   if(ticket == 0)
+      return false;
+
+   if(g_grind_order_test_active) {
+      GrindOrderTestRecord rec;
+      if(!Grind_OrderTestFind(ticket, rec))
+         return false;
+      if(!Grind_MagicMatches(rec.magic, magic))
+         return false;
+      comment_out = rec.comment;
+      return true;
+   }
+
+   if(!OrderSelect(ticket))
+      return false;
+   if(!Grind_MagicMatches(OrderGetInteger(ORDER_MAGIC), magic))
+      return false;
+   comment_out = OrderGetString(ORDER_COMMENT);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+string Grind_HeartbeatNullableCommentJson(const ulong ticket,
+                                          const ulong magic)
+{
+   string comment = "";
+   if(!Grind_HeartbeatOrderComment(ticket, magic, comment))
+      return "null";
+   return Grind_HeartbeatQuotedCommentJson(comment);
+}
+
 //+------------------------------------------------------------------+
 bool Grind_HeartbeatOrderPrice(const ulong ticket,
                                const ulong magic,
@@ -96,7 +224,7 @@ int Grind_HeartbeatCountRestingEntries(const ulong magic,
 }
 
 //+------------------------------------------------------------------+
-string Grind_HeartbeatLayersJson(const int digits)
+string Grind_HeartbeatLayersJson(const ulong magic, const int digits)
 {
    string json = "[";
    bool first = true;
@@ -111,16 +239,23 @@ string Grind_HeartbeatLayersJson(const int digits)
             json += ",";
          first = false;
 
+         string comment_json = "null";
+         string broker_comment = "";
+         if(Grind_HeartbeatPositionComment(layer.position_ticket, magic, broker_comment))
+            comment_json = Grind_HeartbeatQuotedCommentJson(broker_comment);
+
          json += StringFormat(
             "{\"layer_index\":%d,\"side\":\"%s\","
             "\"entry_price\":%s,\"exit_target\":%s,"
-            "\"has_exit_order\":%s,\"has_exit_position\":%s}",
+            "\"has_exit_order\":%s,\"has_exit_position\":%s,"
+            "\"comment\":%s}",
             layer.layer_index,
             side_letter,
             DoubleToString(layer.entry_price, digits),
             DoubleToString(layer.exit_target, digits),
             (layer.exit_order_ticket != 0 ? "true" : "false"),
-            (layer.exit_position_ticket != 0 ? "true" : "false")
+            (layer.exit_position_ticket != 0 ? "true" : "false"),
+            comment_json
          );
       }
    }
@@ -134,14 +269,20 @@ string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits)
 {
    return StringFormat(
       "\"layers\":%s,"
-      "\"l0_pending_long\":%s,\"l0_pending_short\":%s,"
-      "\"add_pending_long\":%s,\"add_pending_short\":%s,"
+      "\"l0_pending_long\":%s,\"l0_pending_long_comment\":%s,"
+      "\"l0_pending_short\":%s,\"l0_pending_short_comment\":%s,"
+      "\"add_pending_long\":%s,\"add_pending_long_comment\":%s,"
+      "\"add_pending_short\":%s,\"add_pending_short_comment\":%s,"
       "\"resting_entries_long\":%d,\"resting_entries_short\":%d",
-      Grind_HeartbeatLayersJson(digits),
+      Grind_HeartbeatLayersJson(magic, digits),
       Grind_HeartbeatNullablePriceJson(g_grind_long.l0_pending_ticket, magic, digits),
+      Grind_HeartbeatNullableCommentJson(g_grind_long.l0_pending_ticket, magic),
       Grind_HeartbeatNullablePriceJson(g_grind_short.l0_pending_ticket, magic, digits),
+      Grind_HeartbeatNullableCommentJson(g_grind_short.l0_pending_ticket, magic),
       Grind_HeartbeatNullablePriceJson(g_grind_long.add_pending_ticket, magic, digits),
+      Grind_HeartbeatNullableCommentJson(g_grind_long.add_pending_ticket, magic),
       Grind_HeartbeatNullablePriceJson(g_grind_short.add_pending_ticket, magic, digits),
+      Grind_HeartbeatNullableCommentJson(g_grind_short.add_pending_ticket, magic),
       Grind_HeartbeatCountRestingEntries(magic, "L"),
       Grind_HeartbeatCountRestingEntries(magic, "S")
    );
@@ -152,13 +293,36 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
                                             const int digits,
                                             const ulong magic,
                                             int &detail_chars_out,
-                                            int &full_chars_out)
+                                            int &full_chars_out,
+                                            string &detail_json_out,
+                                            string &full_json_out)
 {
    detail_chars_out = 0;
    full_chars_out = 0;
+   detail_json_out = "";
+   full_json_out = "";
 
    GrindSideState saved_long = g_grind_long;
    GrindSideState saved_short = g_grind_short;
+   const bool saved_heartbeat_test = g_grind_heartbeat_test_active;
+   const int saved_heartbeat_count = g_grind_heartbeat_test_position_count;
+   GrindHeartbeatTestPosition saved_positions[];
+   ArrayResize(saved_positions, saved_heartbeat_count);
+   for(int i = 0; i < saved_heartbeat_count; i++)
+      saved_positions[i] = g_grind_heartbeat_test_positions[i];
+
+   const bool saved_order_test = g_grind_order_test_active;
+   const int saved_order_count = g_grind_order_test_count;
+   GrindOrderTestRecord saved_orders[];
+   ArrayResize(saved_orders, saved_order_count);
+   for(int i = 0; i < saved_order_count; i++)
+      saved_orders[i] = g_grind_order_test_records[i];
+
+   Grind_HeartbeatTestReset();
+   g_grind_heartbeat_test_active = true;
+   g_grind_order_test_active = true;
+   ArrayResize(g_grind_order_test_records, 0);
+   g_grind_order_test_count = 0;
 
    ArrayResize(g_grind_long.layers, 0);
    ArrayResize(g_grind_short.layers, 0);
@@ -170,35 +334,78 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
    const int per_side = max_layers_cap;
    ArrayResize(g_grind_long.layers, per_side);
    for(int i = 0; i < per_side; i++) {
+      const ulong pos_ticket = 8000UL + (ulong)i;
+      const string comment = GrindCommentBuild("OPT", "L", i, "ENT");
       g_grind_long.layers[i].layer_index = i;
       g_grind_long.layers[i].entry_price = 1.25000 + i * 0.00010;
       g_grind_long.layers[i].exit_target = 1.25050 + i * 0.00010;
+      g_grind_long.layers[i].position_ticket = pos_ticket;
       g_grind_long.layers[i].exit_order_ticket = 1;
       g_grind_long.layers[i].exit_position_ticket = 1;
+      Grind_HeartbeatTestUpsertPosition(pos_ticket, (long)magic, comment);
    }
 
    ArrayResize(g_grind_short.layers, per_side);
    for(int i = 0; i < per_side; i++) {
+      const ulong pos_ticket = 9000UL + (ulong)i;
+      const string comment = GrindCommentBuild("OPT", "S", i, "ENT");
       g_grind_short.layers[i].layer_index = i;
       g_grind_short.layers[i].entry_price = 1.26000 + i * 0.00010;
       g_grind_short.layers[i].exit_target = 1.26050 + i * 0.00010;
+      g_grind_short.layers[i].position_ticket = pos_ticket;
       g_grind_short.layers[i].exit_order_ticket = 1;
       g_grind_short.layers[i].exit_position_ticket = 0;
+      Grind_HeartbeatTestUpsertPosition(pos_ticket, (long)magic, comment);
    }
 
-   const string detail = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
-   detail_chars_out = StringLen(detail);
+   g_grind_long.l0_pending_ticket = 9101UL;
+   g_grind_long.add_pending_ticket = 9102UL;
+   g_grind_short.l0_pending_ticket = 9103UL;
+   g_grind_short.add_pending_ticket = 9104UL;
+   Grind_OrderTestUpsert(9101UL, (long)magic, GrindCommentBuild("OPT", "L", 0, "ENT"),
+                         1.24910, ORDER_TYPE_BUY_LIMIT);
+   Grind_OrderTestUpsert(9102UL, (long)magic, GrindCommentBuild("OPT", "L", 11, "ENT"),
+                         1.24810, ORDER_TYPE_BUY_LIMIT);
+   Grind_OrderTestUpsert(9103UL, (long)magic, GrindCommentBuild("OPT", "S", 0, "ENT"),
+                         1.26110, ORDER_TYPE_SELL_LIMIT);
+   Grind_OrderTestUpsert(9104UL, (long)magic, GrindCommentBuild("OPT", "S", 11, "ENT"),
+                         1.26210, ORDER_TYPE_SELL_LIMIT);
+
+   detail_json_out = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
+   detail_chars_out = StringLen(detail_json_out);
 
    // Full heartbeat while the 24-layer book is still populated — same window as detail.
-   const string full = Grind_TelemetryHeartbeatJson(
+   full_json_out = Grind_TelemetryHeartbeatJson(
       "GRIND_GBPUSD_OPT", per_side, per_side, 3, 4,
       false, false, "", true, true,
       0.1, 0.2, 0.3, 0.4, false,
       magic, "OPT", 5.0, 10.0, 5.0, max_layers_cap, "GBP", "USD");
-   full_chars_out = StringLen(full);
+   full_chars_out = StringLen(full_json_out);
 
    g_grind_long = saved_long;
    g_grind_short = saved_short;
+   Grind_HeartbeatTestReset();
+   g_grind_heartbeat_test_active = saved_heartbeat_test;
+   ArrayResize(g_grind_heartbeat_test_positions, saved_heartbeat_count);
+   g_grind_heartbeat_test_position_count = saved_heartbeat_count;
+   for(int i = 0; i < saved_heartbeat_count; i++)
+      g_grind_heartbeat_test_positions[i] = saved_positions[i];
+
+   g_grind_order_test_active = saved_order_test;
+   ArrayResize(g_grind_order_test_records, saved_order_count);
+   g_grind_order_test_count = saved_order_count;
+   for(int i = 0; i < saved_order_count; i++)
+      g_grind_order_test_records[i] = saved_orders[i];
+}
+
+//+------------------------------------------------------------------+
+bool Grind_HeartbeatWouldJournalSplit(const string instance_name,
+                                      const string full_json)
+{
+   const string prefix = "TELEM|" + instance_name + "|HEARTBEAT|";
+   if(StringLen(prefix) + StringLen(full_json) < 4096)
+      return false;
+   return (StringFind(full_json, ",\"layers\":") >= 0);
 }
 
 #endif // GRIND_HEARTBEAT_DETAIL_MQH
