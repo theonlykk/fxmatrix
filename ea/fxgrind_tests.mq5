@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5) |
+//| fxgrind_tests.mq5 — unit tests (T1–T58, A1–A8, N1–N6, M1–M5, O1–O3, L1–L7, I5a–I5h, S1–S6, C1–C6, R1–R5, F1–F7) |
 //| Run in Strategy Tester or as script. No live trading.            |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
@@ -25,6 +25,11 @@ void AssertTrue(const string name, const bool condition)
    } else {
       Print("FAIL | ", name);
    }
+}
+
+void AssertFalse(const string name, const bool condition)
+{
+   AssertTrue(name, !condition);
 }
 
 void AssertNear(const string name, const double got, const double expected, const double tol)
@@ -1116,6 +1121,320 @@ void Test_R4b_FailedPositionSelectEmitsNullComment()
    const string hb = Grind_TestSampleHeartbeatJson();
    AssertContains("R4b phantom comment null", hb, "\"comment\":null");
    Grind_TestResetLayerDetailState();
+}
+
+void Grind_TestAppendReconTicket(GrindReconTicket &tickets[],
+                                 int &count,
+                                 const ulong magic,
+                                 const ulong ticket,
+                                 const int kind,
+                                 const string comment,
+                                 const double price)
+{
+   ArrayResize(tickets, count + 1);
+   tickets[count].ticket = ticket;
+   tickets[count].magic = magic;
+   tickets[count].comment = comment;
+   tickets[count].price = price;
+   tickets[count].kind = kind;
+   count++;
+}
+
+int Grind_TestCountJsonSubstrings(const string haystack, const string needle)
+{
+   int found = 0;
+   int pos = 0;
+   while((pos = StringFind(haystack, needle, pos)) >= 0) {
+      found++;
+      pos += StringLen(needle);
+   }
+   return found;
+}
+
+void Test_F1_I3RejectionEmitsReconFailureWithAllTickets()
+{
+   Grind_ReconFailureClear();
+   Grind_TestResetSideState();
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[];
+   int count = 0;
+   Grind_TestAppendReconTicket(tickets, count, magic, 1001UL, GRIND_RECON_TICKET_POSITION,
+                               GrindCommentBuild("OPT", "L", 0, "ENT"), 1.25000);
+   Grind_TestAppendReconTicket(tickets, count, magic, 9001UL, GRIND_RECON_TICKET_ORDER,
+                               GrindCommentBuild("OPT", "S", 0, "ENT"), 1.24000);
+   Grind_TestAppendReconTicket(tickets, count, magic, 9002UL, GRIND_RECON_TICKET_ORDER,
+                               GrindCommentBuild("OPT", "S", 1, "ENT"), 1.23900);
+   Grind_TestAppendReconTicket(tickets, count, magic, 9101UL, GRIND_RECON_TICKET_ORDER,
+                               GrindCommentBuild("OPT", "L", 1, "ENT"), 1.24900);
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F1 fails",
+               Grind_RebuildBookFromTickets(tickets, count, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertEqStr("F1 reason", reason, "I3_LONG_NAKED");
+   AssertTrue("F1 json set", g_grind_recon_failure_json != "");
+   AssertContains("F1 reason in json", g_grind_recon_failure_json, "\"reason\":\"I3_LONG_NAKED\"");
+   AssertContains("F1 ticket count", g_grind_recon_failure_json, "\"ticket_count\":4");
+   AssertContains("F1 truncated false", g_grind_recon_failure_json, "\"truncated\":false");
+   AssertContains("F1 long ent comment", g_grind_recon_failure_json,
+                  GrindCommentBuild("OPT", "L", 0, "ENT"));
+   AssertContains("F1 short ent 0", g_grind_recon_failure_json,
+                  GrindCommentBuild("OPT", "S", 0, "ENT"));
+   AssertContains("F1 short ent 1", g_grind_recon_failure_json,
+                  GrindCommentBuild("OPT", "S", 1, "ENT"));
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("F1 heartbeat recon_failure", hb, "\"recon_failure\":{");
+   AssertContains("F1 heartbeat reason", hb, "\"reason\":\"I3_LONG_NAKED\"");
+   Grind_ReconFailureClear();
+}
+
+void Test_F2_MorningFailureScenario()
+{
+   Grind_ReconFailureClear();
+   const ulong magic = 22260401UL;
+   GrindReconTicket tickets[];
+   int count = 0;
+   Grind_TestAppendReconTicket(tickets, count, magic, 2001UL, GRIND_RECON_TICKET_POSITION,
+                               GrindCommentBuild("OPT", "L", 0, "ENT"), 1.00080);
+   Grind_TestAppendReconTicket(tickets, count, magic, 9001UL, GRIND_RECON_TICKET_ORDER,
+                               GrindCommentBuild("OPT", "S", 0, "ENT"), 0.99971);
+   Grind_TestAppendReconTicket(tickets, count, magic, 9002UL, GRIND_RECON_TICKET_ORDER,
+                               GrindCommentBuild("OPT", "S", 1, "ENT"), 0.99862);
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F2 fails",
+               Grind_RebuildBookFromTickets(tickets, count, magic, "OPT",
+                                            5.0, 8, 0.00001,
+                                            long_out, short_out, reason));
+   AssertEqStr("F2 reason", reason, "I3_LONG_NAKED");
+   AssertContains("F2 ticket count", g_grind_recon_failure_json, "\"ticket_count\":3");
+   AssertContains("F2 offending long ent", g_grind_recon_failure_json,
+                  "\"offending_comment\":\"" + GrindCommentBuild("OPT", "L", 0, "ENT") + "\"");
+   AssertContains("F2 long ent row", g_grind_recon_failure_json,
+                  GrindCommentBuild("OPT", "L", 0, "ENT"));
+   AssertContains("F2 short ent 0", g_grind_recon_failure_json,
+                  GrindCommentBuild("OPT", "S", 0, "ENT"));
+   AssertContains("F2 short ent 1", g_grind_recon_failure_json,
+                  GrindCommentBuild("OPT", "S", 1, "ENT"));
+   AssertContains("F2 price long", g_grind_recon_failure_json, "\"price\":1.00080");
+   AssertContains("F2 price short0", g_grind_recon_failure_json, "\"price\":0.99971");
+   AssertContains("F2 price short1", g_grind_recon_failure_json, "\"price\":0.99862");
+   Grind_ReconFailureClear();
+}
+
+void Test_F3_SuccessClearsReconFailure()
+{
+   g_grind_recon_failure_json = "{\"reason\":\"STALE\"}";
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[2];
+   int count = 0;
+   Grind_TestAppendReconLayerPair(tickets, count, magic, 0, 1.25000, 1.25030);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("F3 ok",
+              Grind_RebuildBookFromTickets(tickets, count, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertEqStr("F3 json cleared", g_grind_recon_failure_json, "");
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("F3 heartbeat null", hb, "\"recon_failure\":null");
+}
+
+void Test_F3b_FailThenSuccessClearsGlobal()
+{
+   Grind_ReconFailureClear();
+   const ulong magic = 22260101UL;
+   GrindReconTicket bad[1];
+   bad[0].ticket = 1001UL;
+   bad[0].magic = magic;
+   bad[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   bad[0].price = 1.25000;
+   bad[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F3b fail",
+               Grind_RebuildBookFromTickets(bad, 1, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertTrue("F3b json after fail", StringLen(g_grind_recon_failure_json) > 0);
+
+   GrindReconTicket good[2];
+   int count = 0;
+   Grind_TestAppendReconLayerPair(good, count, magic, 0, 1.25000, 1.25030);
+   AssertTrue("F3b ok",
+              Grind_RebuildBookFromTickets(good, count, magic, "OPT",
+                                           3.0, 12, 0.00001,
+                                           long_out, short_out, reason));
+   AssertEqStr("F3b json empty", g_grind_recon_failure_json, "");
+   AssertTrue("F3b strlen zero", StringLen(g_grind_recon_failure_json) == 0);
+}
+
+void Test_F3c_CaptureSurvivesSeparateHeartbeat()
+{
+   Grind_ReconFailureClear();
+   const ulong magic = 22260101UL;
+   GrindReconTicket bad[1];
+   bad[0].ticket = 1001UL;
+   bad[0].magic = magic;
+   bad[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   bad[0].price = 1.25000;
+   bad[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F3c fail",
+               Grind_RebuildBookFromTickets(bad, 1, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   const string captured = g_grind_recon_failure_json;
+   AssertTrue("F3c captured", captured != "");
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("F3c heartbeat has failure", hb, "\"recon_failure\":{");
+   AssertContains("F3c heartbeat reason", hb, "\"reason\":\"I3_LONG_NAKED\"");
+   Grind_ReconFailureClear();
+}
+
+void Test_F4_NoTicketNumbersInJson()
+{
+   Grind_ReconFailureClear();
+   const ulong magic = 22260101UL;
+   const ulong secret_ticket = 87654321UL;
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = secret_ticket;
+   tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F4 fails",
+               Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertNotContains("F4 global no ticket", g_grind_recon_failure_json, "87654321");
+   AssertNotContains("F4 no ticket key", g_grind_recon_failure_json, "\"ticket\":");
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertNotContains("F4 heartbeat no ticket", hb, "87654321");
+   Grind_ReconFailureClear();
+}
+
+void Test_F5_UnparseableCommentVerbatimSideHintNull()
+{
+   Grind_ReconFailureClear();
+   const ulong magic = 22260101UL;
+   const string bad_comment = "BROKEN|NOT|GRIND";
+   GrindReconTicket tickets[1];
+   tickets[0].ticket = 5001UL;
+   tickets[0].magic = magic;
+   tickets[0].comment = bad_comment;
+   tickets[0].price = 1.25000;
+   tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F5 fails",
+               Grind_RebuildBookFromTickets(tickets, 1, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertEqStr("F5 reason", reason, "UNPARSEABLE_COMMENT");
+   AssertContains("F5 verbatim", g_grind_recon_failure_json, bad_comment);
+   AssertContains("F5 side_hint null", g_grind_recon_failure_json, "\"side_hint\":null");
+   AssertContains("F5 offending", g_grind_recon_failure_json,
+                  "\"offending_comment\":\"" + bad_comment + "\"");
+   Grind_ReconFailureClear();
+}
+
+void Test_F6_TruncationAtFortyPlusTickets()
+{
+   Grind_ReconFailureClear();
+   const ulong magic = 22260101UL;
+   GrindReconTicket tickets[];
+   int count = 0;
+   Grind_TestAppendReconTicket(tickets, count, magic, 1001UL, GRIND_RECON_TICKET_POSITION,
+                               GrindCommentBuild("OPT", "L", 0, "ENT"), 1.25000);
+   for(int i = 0; i < 40; i++) {
+      Grind_TestAppendReconTicket(tickets, count, magic,
+                                  9000UL + (ulong)i,
+                                  GRIND_RECON_TICKET_ORDER,
+                                  GrindCommentBuild("OPT", "S", i, "ENT"),
+                                  1.24000 - i * 0.00010);
+   }
+
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertFalse("F6 fails",
+               Grind_RebuildBookFromTickets(tickets, count, magic, "OPT",
+                                            3.0, 12, 0.00001,
+                                            long_out, short_out, reason));
+   AssertContains("F6 truncated true", g_grind_recon_failure_json, "\"truncated\":true");
+   AssertContains("F6 ticket count 41", g_grind_recon_failure_json, "\"ticket_count\":41");
+   AssertTrue("F6 emit 40 rows",
+              Grind_TestCountJsonSubstrings(g_grind_recon_failure_json, "\"kind\":") == 40);
+   Grind_ReconFailureClear();
+}
+
+void Test_F7_WorstCaseSizeMeasured()
+{
+   Grind_ReconFailureClear();
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   const string instance = "GRIND_GBPUSD_OPT";
+   const ulong magic = 22260101UL;
+
+   int recon_only = 0;
+   Grind_ReconFailureMeasureWorstCase(41, recon_only);
+
+   int recon_chars = 0;
+   int full_chars = 0;
+   int journal_unsplit = 0;
+   int journal_scalar = 0;
+   int journal_detail = 0;
+   bool split = false;
+   string detail_json = "";
+   string full_json = "";
+   int detail_chars = 0;
+   int full_no_recon = 0;
+   string full_with_recon = "";
+
+   Grind_ReconFailureMeasureWorstCaseCombined(41, 12, digits, magic, instance,
+                                              recon_chars, full_chars,
+                                              journal_unsplit, journal_scalar,
+                                              journal_detail, split,
+                                              full_with_recon);
+
+   Grind_HeartbeatMeasureWorstCasePayload(12, digits, magic,
+                                          detail_chars, full_no_recon,
+                                          detail_json, full_json);
+
+   Print("F7 recon_failure field chars=", recon_chars,
+         " (41 tickets, 40 emitted, truncated=true)",
+         " full heartbeat chars=", full_chars,
+         " delta vs no-recon=", full_chars - full_no_recon,
+         " journal unsplit chars=", journal_unsplit,
+         " journal scalar line chars=", journal_scalar,
+         " journal detail line chars=", journal_detail,
+         " scalar exceeds Print limit=", journal_scalar >= 4096 ? "yes" : "no",
+         " split=", split ? "yes" : "no",
+         " (4096 MQL5 Print limit)");
+
+   AssertTrue("F7 recon_failure chars positive", recon_chars > 0);
+   AssertTrue("F7 recon isolate matches combined", recon_chars == recon_only);
+   AssertTrue("F7 heartbeat grows with recon", full_chars > full_no_recon);
+   AssertTrue("F7 unsplit exceeds Print limit", journal_unsplit >= 4096);
+   AssertTrue("F7 split fires", split);
+   AssertTrue("F7 detail line under Print limit", journal_detail < 4096);
+   AssertTrue("F7 scalar line measured", journal_scalar > journal_detail);
+   AssertContains("F7 recon_failure in heartbeat", full_with_recon, "\"recon_failure\":{");
+   AssertContains("F7 layers in heartbeat", full_with_recon, ",\"layers\":");
+   AssertEqStr("F7 cleared after measure", g_grind_recon_failure_json, "");
 }
 
 void Test_D8_RestingEntriesFromBrokerEnumeration()
@@ -2954,5 +3273,14 @@ void OnStart()
    Test_R3_NoTicketsInCommentHeartbeatJson();
    Test_R4_WorstCaseCommentsTriggerJournalSplit();
    Test_R4b_FailedPositionSelectEmitsNullComment();
+   Test_F1_I3RejectionEmitsReconFailureWithAllTickets();
+   Test_F2_MorningFailureScenario();
+   Test_F3_SuccessClearsReconFailure();
+   Test_F3b_FailThenSuccessClearsGlobal();
+   Test_F3c_CaptureSurvivesSeparateHeartbeat();
+   Test_F4_NoTicketNumbersInJson();
+   Test_F5_UnparseableCommentVerbatimSideHintNull();
+   Test_F6_TruncationAtFortyPlusTickets();
+   Test_F7_WorstCaseSizeMeasured();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
 }

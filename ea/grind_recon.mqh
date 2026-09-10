@@ -7,8 +7,11 @@
 #include "grind_state.mqh"
 #include "grind_comment.mqh"
 #include "grind_pure.mqh"
+#include "grind_recon_failure.mqh"
 #include "grind_telemetry.mqh"
 #include "grind_closeby.mqh"
+
+#define GRIND_RECON_FAILURE_MAX_EMIT 40
 
 #define GRIND_RECON_TICKET_POSITION 0
 #define GRIND_RECON_TICKET_ORDER    1
@@ -291,18 +294,239 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
 }
 
 //+------------------------------------------------------------------+
-bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
-                                  const int ticket_count,
-                                  const ulong magic,
-                                  const string slot,
-                                  const double exit_pips,
-                                  const int max_layers,
-                                  const double point,
-                                  GrindSideState &long_out,
-                                  GrindSideState &short_out,
-                                  string &reason_out)
+string Grind_ReconFailureJsonEscape(const string raw)
+{
+   string out = "";
+   for(int i = 0; i < StringLen(raw); i++) {
+      const ushort ch = StringGetCharacter(raw, i);
+      if(ch == '\\')
+         out += "\\\\";
+      else if(ch == '"')
+         out += "\\\"";
+      else
+         out += ShortToString(ch);
+   }
+   return out;
+}
+
+//+------------------------------------------------------------------+
+string Grind_ReconFailureSideHintJson(const string comment)
+{
+   string slot = "";
+   string side = "";
+   string role = "";
+   int layer = 0;
+   if(!GrindCommentParse(comment, slot, side, layer, role))
+      return "null";
+   return "\"" + side + "\"";
+}
+
+//+------------------------------------------------------------------+
+string Grind_ReconFailureKindLabel(const int kind)
+{
+   if(kind == GRIND_RECON_TICKET_POSITION)
+      return "POSITION";
+   return "ORDER";
+}
+
+//+------------------------------------------------------------------+
+string Grind_ReconFailureFindTicketComment(const GrindReconTicket &tickets[],
+                                           const int ticket_count,
+                                           const ulong ticket_id)
+{
+   for(int i = 0; i < ticket_count; i++) {
+      if(tickets[i].ticket == ticket_id)
+         return tickets[i].comment;
+   }
+   return "";
+}
+
+//+------------------------------------------------------------------+
+void Grind_ReconFailureCapture(const GrindReconTicket &tickets[],
+                               const int ticket_count,
+                               const string reason,
+                               const string offending_comment = "")
+{
+   const int emit_count = MathMin(ticket_count, GRIND_RECON_FAILURE_MAX_EMIT);
+   const bool truncated = (ticket_count > GRIND_RECON_FAILURE_MAX_EMIT);
+
+   string json = StringFormat(
+      "{\"reason\":\"%s\",\"ticket_count\":%d,\"truncated\":%s",
+      Grind_ReconFailureJsonEscape(reason),
+      ticket_count,
+      truncated ? "true" : "false");
+
+   if(offending_comment != "")
+      json += StringFormat(",\"offending_comment\":\"%s\"",
+                           Grind_ReconFailureJsonEscape(offending_comment));
+
+   json += ",\"tickets\":[";
+   for(int i = 0; i < emit_count; i++) {
+      if(i > 0)
+         json += ",";
+      json += StringFormat(
+         "{\"kind\":\"%s\",\"comment\":\"%s\",\"price\":%.5f,\"side_hint\":%s}",
+         Grind_ReconFailureKindLabel(tickets[i].kind),
+         Grind_ReconFailureJsonEscape(tickets[i].comment),
+         tickets[i].price,
+         Grind_ReconFailureSideHintJson(tickets[i].comment)
+      );
+   }
+   json += "]}";
+
+   g_grind_recon_failure_json = json;
+}
+
+//+------------------------------------------------------------------+
+string Grind_ReconFailureOffendingForReason(const GrindReconTicket &tickets[],
+                                            const int ticket_count,
+                                            const string reason,
+                                            const GrindReconLayerScratch &long_layers[],
+                                            const int long_count,
+                                            const GrindReconLayerScratch &short_layers[],
+                                            const int short_count)
+{
+   if(reason == "I3_LONG_NAKED" || reason == "I6_LONG_EXIT") {
+      for(int i = 0; i < long_count; i++) {
+         if(!long_layers[i].has_position)
+            continue;
+         if(reason == "I3_LONG_NAKED" && Grind_ReconLayerHasExitCoverage(long_layers[i]))
+            continue;
+         const string found = Grind_ReconFailureFindTicketComment(
+            tickets, ticket_count, long_layers[i].position_id);
+         if(found != "")
+            return found;
+      }
+   }
+
+   if(reason == "I3_SHORT_NAKED" || reason == "I6_SHORT_EXIT") {
+      for(int i = 0; i < short_count; i++) {
+         if(!short_layers[i].has_position)
+            continue;
+         if(reason == "I3_SHORT_NAKED" && Grind_ReconLayerHasExitCoverage(short_layers[i]))
+            continue;
+         const string found = Grind_ReconFailureFindTicketComment(
+            tickets, ticket_count, short_layers[i].position_id);
+         if(found != "")
+            return found;
+      }
+   }
+
+   if(reason == "I4_LONG_ORPHAN_EXIT") {
+      for(int i = 0; i < long_count; i++) {
+         if(long_layers[i].has_position || !Grind_ReconLayerHasExitCoverage(long_layers[i]))
+            continue;
+         if(long_layers[i].has_exit_order)
+            return Grind_ReconFailureFindTicketComment(
+               tickets, ticket_count, long_layers[i].exit_order_ticket);
+         return Grind_ReconFailureFindTicketComment(
+            tickets, ticket_count, long_layers[i].exit_position_id);
+      }
+   }
+
+   if(reason == "I4_SHORT_ORPHAN_EXIT") {
+      for(int i = 0; i < short_count; i++) {
+         if(short_layers[i].has_position || !Grind_ReconLayerHasExitCoverage(short_layers[i]))
+            continue;
+         if(short_layers[i].has_exit_order)
+            return Grind_ReconFailureFindTicketComment(
+               tickets, ticket_count, short_layers[i].exit_order_ticket);
+         return Grind_ReconFailureFindTicketComment(
+            tickets, ticket_count, short_layers[i].exit_position_id);
+      }
+   }
+
+   return "";
+}
+
+//+------------------------------------------------------------------+
+void Grind_ReconFailureMeasureWorstCase(const int ticket_count,
+                                        int &json_chars_out)
+{
+   json_chars_out = 0;
+
+   GrindReconTicket tickets[];
+   ArrayResize(tickets, ticket_count);
+   for(int i = 0; i < ticket_count; i++) {
+      tickets[i].ticket = 10000UL + (ulong)i;
+      tickets[i].magic = 22260101UL;
+      tickets[i].comment = GrindCommentBuild("OPT", (i % 2 == 0 ? "L" : "S"), i % 12, "ENT");
+      tickets[i].price = 1.25000 + i * 0.00001;
+      tickets[i].kind = (i % 3 == 0 ? GRIND_RECON_TICKET_ORDER : GRIND_RECON_TICKET_POSITION);
+   }
+
+   Grind_ReconFailureCapture(tickets, ticket_count, "I3_LONG_NAKED",
+                             GrindCommentBuild("OPT", "L", 0, "ENT"));
+   json_chars_out = StringLen(g_grind_recon_failure_json);
+   Grind_ReconFailureClear();
+}
+
+//+------------------------------------------------------------------+
+void Grind_ReconFailureMeasureWorstCaseCombined(const int ticket_count,
+                                                const int max_layers_cap,
+                                                const int digits,
+                                                const ulong magic,
+                                                const string instance_name,
+                                                int &recon_failure_chars_out,
+                                                int &full_heartbeat_chars_out,
+                                                int &journal_unsplit_chars_out,
+                                                int &journal_scalar_line_chars_out,
+                                                int &journal_detail_line_chars_out,
+                                                bool &split_would_fire_out,
+                                                string &full_json_out)
+{
+   recon_failure_chars_out = 0;
+   full_heartbeat_chars_out = 0;
+   journal_unsplit_chars_out = 0;
+   journal_scalar_line_chars_out = 0;
+   journal_detail_line_chars_out = 0;
+   split_would_fire_out = false;
+   full_json_out = "";
+
+   GrindReconTicket tickets[];
+   ArrayResize(tickets, ticket_count);
+   for(int i = 0; i < ticket_count; i++) {
+      tickets[i].ticket = 10000UL + (ulong)i;
+      tickets[i].magic = magic;
+      tickets[i].comment = GrindCommentBuild("OPT", (i % 2 == 0 ? "L" : "S"), i % 12, "ENT");
+      tickets[i].price = 1.25000 + i * 0.00001;
+      tickets[i].kind = (i % 3 == 0 ? GRIND_RECON_TICKET_ORDER : GRIND_RECON_TICKET_POSITION);
+   }
+
+   Grind_ReconFailureCapture(tickets, ticket_count, "I3_LONG_NAKED",
+                             GrindCommentBuild("OPT", "L", 0, "ENT"));
+   recon_failure_chars_out = StringLen(g_grind_recon_failure_json);
+
+   int detail_chars = 0;
+   string detail_json = "";
+   Grind_HeartbeatMeasureWorstCasePayload(max_layers_cap, digits, magic,
+                                          detail_chars, full_heartbeat_chars_out,
+                                          detail_json, full_json_out);
+
+   Grind_HeartbeatJournalSplitLineLengths(instance_name, full_json_out,
+                                          journal_unsplit_chars_out,
+                                          journal_scalar_line_chars_out,
+                                          journal_detail_line_chars_out,
+                                          split_would_fire_out);
+
+   Grind_ReconFailureClear();
+}
+
+//+------------------------------------------------------------------+
+bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
+                                       const int ticket_count,
+                                       const ulong magic,
+                                       const string slot,
+                                       const double exit_pips,
+                                       const int max_layers,
+                                       const double point,
+                                       GrindSideState &long_out,
+                                       GrindSideState &short_out,
+                                       string &reason_out,
+                                       string &offending_comment_out)
 {
    reason_out = "";
+   offending_comment_out = "";
    Grind_ReconResetSide(long_out);
    Grind_ReconResetSide(short_out);
 
@@ -321,6 +545,7 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
       int c_layer;
       if(!GrindCommentParse(tickets[i].comment, c_slot, c_side, c_layer, c_role)) {
          reason_out = "UNPARSEABLE_COMMENT";
+         offending_comment_out = tickets[i].comment;
          return false;
       }
       if(c_slot != slot)
@@ -331,20 +556,26 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
       if(c_role == "ENT" && tickets[i].kind == GRIND_RECON_TICKET_POSITION) {
          int idx = -1;
          if(is_long) {
-            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx))
+            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx)) {
+               reason_out = "FATAL_LAYER_RESIZE";
                return false;
+            }
             if(long_scratch[idx].has_position) {
                reason_out = "I5_LONG_DUP";
+               offending_comment_out = tickets[i].comment;
                return false;
             }
             long_scratch[idx].has_position = true;
             long_scratch[idx].entry_price = tickets[i].price;
             long_scratch[idx].position_id = tickets[i].ticket;
          } else {
-            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx))
+            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx)) {
+               reason_out = "FATAL_LAYER_RESIZE";
                return false;
+            }
             if(short_scratch[idx].has_position) {
                reason_out = "I5_SHORT_DUP";
+               offending_comment_out = tickets[i].comment;
                return false;
             }
             short_scratch[idx].has_position = true;
@@ -357,8 +588,10 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
       if(c_role == "EXT" && tickets[i].kind == GRIND_RECON_TICKET_ORDER) {
          int idx = -1;
          if(is_long) {
-            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx))
+            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx)) {
+               reason_out = "FATAL_LAYER_RESIZE";
                return false;
+            }
             if(long_scratch[idx].has_exit_order || long_scratch[idx].has_exit_position) {
                reason_out = "I2_LONG_EXIT_DUP";
                return false;
@@ -367,8 +600,10 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
             long_scratch[idx].exit_target = tickets[i].price;
             long_scratch[idx].exit_order_ticket = tickets[i].ticket;
          } else {
-            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx))
+            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx)) {
+               reason_out = "FATAL_LAYER_RESIZE";
                return false;
+            }
             if(short_scratch[idx].has_exit_order || short_scratch[idx].has_exit_position) {
                reason_out = "I2_SHORT_EXIT_DUP";
                return false;
@@ -383,8 +618,10 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
       if(c_role == "EXT" && tickets[i].kind == GRIND_RECON_TICKET_POSITION) {
          int idx = -1;
          if(is_long) {
-            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx))
+            if(!Grind_ReconEnsureLayer(long_scratch, long_indices, long_count, c_layer, idx)) {
+               reason_out = "FATAL_LAYER_RESIZE";
                return false;
+            }
             if(long_scratch[idx].has_exit_position) {
                reason_out = "I2_LONG_EXIT_DUP";
                return false;
@@ -397,8 +634,10 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
             long_scratch[idx].exit_target = tickets[i].price;
             long_scratch[idx].exit_position_id = tickets[i].ticket;
          } else {
-            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx))
+            if(!Grind_ReconEnsureLayer(short_scratch, short_indices, short_count, c_layer, idx)) {
+               reason_out = "FATAL_LAYER_RESIZE";
                return false;
+            }
             if(short_scratch[idx].has_exit_position) {
                reason_out = "I2_SHORT_EXIT_DUP";
                return false;
@@ -419,12 +658,14 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
             if(is_long) {
                if(long_out.l0_pending_ticket != 0) {
                   reason_out = "AMBIGUOUS_L0_LONG";
+                  offending_comment_out = tickets[i].comment;
                   return false;
                }
                long_out.l0_pending_ticket = tickets[i].ticket;
             } else {
                if(short_out.l0_pending_ticket != 0) {
                   reason_out = "AMBIGUOUS_L0_SHORT";
+                  offending_comment_out = tickets[i].comment;
                   return false;
                }
                short_out.l0_pending_ticket = tickets[i].ticket;
@@ -433,12 +674,14 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
             if(is_long) {
                if(long_out.add_pending_ticket != 0) {
                   reason_out = "AMBIGUOUS_ADD_LONG";
+                  offending_comment_out = tickets[i].comment;
                   return false;
                }
                long_out.add_pending_ticket = tickets[i].ticket;
             } else {
                if(short_out.add_pending_ticket != 0) {
                   reason_out = "AMBIGUOUS_ADD_SHORT";
+                  offending_comment_out = tickets[i].comment;
                   return false;
                }
                short_out.add_pending_ticket = tickets[i].ticket;
@@ -451,6 +694,8 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
    for(int i = 0; i < long_count; i++) {
       if(long_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
          reason_out = "I3_LONG_NAKED";
+         offending_comment_out = Grind_ReconFailureFindTicketComment(
+            tickets, ticket_count, long_scratch[i].position_id);
          return false;
       }
       if(!long_scratch[i].has_position && Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
@@ -461,6 +706,8 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
    for(int i = 0; i < short_count; i++) {
       if(short_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
          reason_out = "I3_SHORT_NAKED";
+         offending_comment_out = Grind_ReconFailureFindTicketComment(
+            tickets, ticket_count, short_scratch[i].position_id);
          return false;
       }
       if(!short_scratch[i].has_position && Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
@@ -471,8 +718,13 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
 
    if(!Grind_ReconCheckInvariants(long_scratch, long_count,
                                  short_scratch, short_count,
-                                 exit_pips, point, max_layers, reason_out))
+                                 exit_pips, point, max_layers, reason_out)) {
+      if(offending_comment_out == "")
+         offending_comment_out = Grind_ReconFailureOffendingForReason(
+            tickets, ticket_count, reason_out,
+            long_scratch, long_count, short_scratch, short_count);
       return false;
+   }
 
    if(!Grind_ReconCheckPendingAddCorrupt(tickets, ticket_count,
                                          long_out.add_pending_ticket,
@@ -506,6 +758,33 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
    }
 
    return true;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
+                                  const int ticket_count,
+                                  const ulong magic,
+                                  const string slot,
+                                  const double exit_pips,
+                                  const int max_layers,
+                                  const double point,
+                                  GrindSideState &long_out,
+                                  GrindSideState &short_out,
+                                  string &reason_out)
+{
+   string offending = "";
+   const bool ok = Grind_RebuildBookFromTicketsInner(tickets, ticket_count,
+                                                     magic, slot,
+                                                     exit_pips, max_layers, point,
+                                                     long_out, short_out,
+                                                     reason_out, offending);
+   if(ok) {
+      Grind_ReconFailureClear();
+      return true;
+   }
+
+   Grind_ReconFailureCapture(tickets, ticket_count, reason_out, offending);
+   return false;
 }
 
 //+------------------------------------------------------------------+
