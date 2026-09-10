@@ -6,6 +6,7 @@
 
 #include "grind_api_counter.mqh"
 #include "grind_pnl.mqh"
+#include "grind_recon_failure.mqh"
 
 // Unit-test hook: intercept WebRequest when active (fxgrind_tests).
 bool   g_grind_telemetry_test_active = false;
@@ -23,6 +24,13 @@ void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
                                             int &full_chars_out,
                                             string &detail_json_out,
                                             string &full_json_out);
+
+void Grind_HeartbeatJournalSplitLineLengths(const string instance_name,
+                                            const string full_json,
+                                            int &unsplit_line_chars_out,
+                                            int &scalar_line_chars_out,
+                                            int &detail_line_chars_out,
+                                            bool &split_would_fire_out);
 
 //+------------------------------------------------------------------+
 void Grind_TelemetryTestReset()
@@ -152,7 +160,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       "{\"instance_id\":\"%s\",\"open_layers_long\":%d,\"open_layers_short\":%d,"
       "\"fills\":%d,\"scalps\":%d,\"api_count\":%d,\"api_counter_broken\":%s,"
       "\"cap_blocked\":%s,\"halted\":%s,\"halt_reason\":\"%s\","
-      "\"recon_ok\":%s,\"invariant_ok\":%s,\"cap_leg_a\":%.4f,\"cap_leg_b\":%.4f,"
+      "\"recon_ok\":%s,\"invariant_ok\":%s,\"recon_failure\":%s,\"cap_leg_a\":%.4f,\"cap_leg_b\":%.4f,"
       "\"cap_total_leg_a\":%.4f,\"cap_total_leg_b\":%.4f,"
       "\"peer_read_failed\":%s,"
       "\"magic\":%s,\"slot\":\"%s\",\"width_pips\":%.4f,\"add_pips\":%.4f,"
@@ -173,6 +181,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       halt_reason,
       recon_ok ? "true" : "false",
       invariant_ok ? "true" : "false",
+      Grind_ReconFailureHeartbeatField(),
       cap_leg_a,
       cap_leg_b,
       cap_total_leg_a,

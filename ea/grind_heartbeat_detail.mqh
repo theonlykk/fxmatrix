@@ -408,4 +408,31 @@ bool Grind_HeartbeatWouldJournalSplit(const string instance_name,
    return (StringFind(full_json, ",\"layers\":") >= 0);
 }
 
+//+------------------------------------------------------------------+
+void Grind_HeartbeatJournalSplitLineLengths(const string instance_name,
+                                            const string full_json,
+                                            int &unsplit_line_chars_out,
+                                            int &scalar_line_chars_out,
+                                            int &detail_line_chars_out,
+                                            bool &split_would_fire_out)
+{
+   const string hb_prefix = "TELEM|" + instance_name + "|HEARTBEAT|";
+   unsplit_line_chars_out = StringLen(hb_prefix) + StringLen(full_json);
+   split_would_fire_out = Grind_HeartbeatWouldJournalSplit(instance_name, full_json);
+   scalar_line_chars_out = unsplit_line_chars_out;
+   detail_line_chars_out = 0;
+   if(!split_would_fire_out)
+      return;
+
+   const int layers_pos = StringFind(full_json, ",\"layers\":");
+   if(layers_pos < 0)
+      return;
+
+   const string scalar_json = StringSubstr(full_json, 0, layers_pos) + "}";
+   const string detail_json = "{" + StringSubstr(full_json, layers_pos + 1);
+   scalar_line_chars_out = StringLen(hb_prefix) + StringLen(scalar_json);
+   detail_line_chars_out = StringLen("TELEM|" + instance_name + "|HEARTBEAT_DETAIL|")
+                           + StringLen(detail_json);
+}
+
 #endif // GRIND_HEARTBEAT_DETAIL_MQH
