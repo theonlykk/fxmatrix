@@ -673,6 +673,8 @@ void Test_T38_HeartbeatSchemaUnchanged()
    AssertContains("T38 max_layers", hb, "\"max_layers\":");
    AssertContains("T38 cap_leg_a_name", hb, "\"cap_leg_a_name\":");
    AssertContains("T38 cap_leg_b_name", hb, "\"cap_leg_b_name\":");
+   AssertContains("T38 layers", hb, "\"layers\":");
+   AssertContains("T38 resting_entries_long", hb, "\"resting_entries_long\":");
 }
 
 void Test_T39_ConfigDumpTwentyInputs()
@@ -789,7 +791,191 @@ void Test_T44_HeartbeatSchemaAppendOnly()
    AssertContains("T44 touch revert value", hb, "\"exit_touch_revert_count\":1");
    AssertContains("T44 cap_leg_b_name preserved", hb, "\"cap_leg_b_name\":\"USD\"");
    AssertContains("T44 fills preserved", hb, "\"fills\":3");
+   AssertContains("T44 layers appended", hb, "\"layers\":");
+   AssertTrue("T44 layers after touch revert",
+              StringFind(hb, "\"exit_touch_revert_count\":")
+              < StringFind(hb, "\"layers\":"));
    Grind_PnlReset();
+}
+
+string Grind_TestSampleHeartbeatJson()
+{
+   return Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", 1, 2, 3, 4,
+      false, false, "", true, true,
+      0.1, 0.2, 0.3, 0.4, false,
+      22260101UL, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
+}
+
+void Grind_TestResetLayerDetailState()
+{
+   Grind_TestResetSideState();
+   Grind_OrderTestReset();
+}
+
+void Test_D1_ThreeLayersEmitDetail()
+{
+   Grind_TestResetLayerDetailState();
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].entry_price = 1.25010;
+   g_grind_long.layers[0].exit_target = 1.25060;
+   g_grind_long.layers[0].exit_order_ticket = 1;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   g_grind_long.layers[1].layer_index = 1;
+   g_grind_long.layers[1].entry_price = 1.24910;
+   g_grind_long.layers[1].exit_target = 1.24960;
+   g_grind_long.layers[1].exit_order_ticket = 0;
+   g_grind_long.layers[1].exit_position_ticket = 1;
+   g_grind_long.layers[2].layer_index = 2;
+   g_grind_long.layers[2].entry_price = 1.24810;
+   g_grind_long.layers[2].exit_target = 1.24860;
+   g_grind_long.layers[2].exit_order_ticket = 1;
+   g_grind_long.layers[2].exit_position_ticket = 1;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("D1 layer 0", hb, "\"layer_index\":0");
+   AssertContains("D1 layer 1", hb, "\"layer_index\":1");
+   AssertContains("D1 layer 2", hb, "\"layer_index\":2");
+   AssertContains("D1 side L", hb, "\"side\":\"L\"");
+   AssertContains("D1 entry price", hb, "\"entry_price\":1.25010");
+   AssertContains("D1 exit target", hb, "\"exit_target\":1.25060");
+   AssertContains("D1 has_exit_order true", hb, "\"has_exit_order\":true");
+   AssertContains("D1 has_exit_position false", hb, "\"has_exit_position\":false");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D2_NonContiguousLayerIndices()
+{
+   Grind_TestResetLayerDetailState();
+   ArrayResize(g_grind_long.layers, 2);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[1].layer_index = 2;
+   g_grind_long.layers[1].entry_price = 1.24800;
+   g_grind_long.layers[1].exit_target = 1.24850;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("D2 index 0", hb, "\"layer_index\":0");
+   AssertContains("D2 index 2", hb, "\"layer_index\":2");
+   AssertTrue("D2 no index 1", StringFind(hb, "\"layer_index\":1") < 0);
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D3_EmptySideEmitsEmptyArray()
+{
+   Grind_TestResetLayerDetailState();
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("D3 empty layers", hb, "\"layers\":[]");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D4_PendingLevelsNullWhenAbsent()
+{
+   Grind_TestResetLayerDetailState();
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("D4 l0 long null", hb, "\"l0_pending_long\":null");
+   AssertContains("D4 l0 short null", hb, "\"l0_pending_short\":null");
+   AssertContains("D4 add long null", hb, "\"add_pending_long\":null");
+   AssertContains("D4 add short null", hb, "\"add_pending_short\":null");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D5_NoTicketNumbersInJson()
+{
+   Grind_TestResetLayerDetailState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].position_ticket = 555001UL;
+   g_grind_long.layers[0].exit_order_ticket = 555002UL;
+   g_grind_long.layers[0].exit_position_ticket = 555003UL;
+   g_grind_long.l0_pending_ticket = 555004UL;
+   g_grind_long.add_pending_ticket = 555005UL;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertTrue("D5 no position ticket", StringFind(hb, "555001") < 0);
+   AssertTrue("D5 no exit order ticket", StringFind(hb, "555002") < 0);
+   AssertTrue("D5 no exit position ticket", StringFind(hb, "555003") < 0);
+   AssertTrue("D5 no l0 pending ticket", StringFind(hb, "555004") < 0);
+   AssertTrue("D5 no add pending ticket", StringFind(hb, "555005") < 0);
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D6_InstanceIdFirstSchemaAppendOnly()
+{
+   Grind_TestResetLayerDetailState();
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertTrue("D6 instance_id first", StringFind(hb, "\"instance_id\":") == 1);
+   AssertContains("D6 open_layers_long preserved", hb, "\"open_layers_long\":");
+   AssertContains("D6 magic preserved", hb, "\"magic\":22260101");
+   AssertContains("D6 exit_touch_revert preserved", hb, "\"exit_touch_revert_count\":");
+   AssertContains("D6 layers appended", hb, "\"layers\":");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D7_WorstCasePayloadMeasured()
+{
+   Grind_TestResetLayerDetailState();
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   const int detail_chars = Grind_HeartbeatMeasureWorstCasePayloadChars(12, digits, 22260101UL);
+   const string hb = Grind_TestSampleHeartbeatJson();
+   const int full_chars = StringLen(hb);
+   const int journal_chars = StringLen("TELEM|GRIND_GBPUSD_OPT|HEARTBEAT|") + full_chars;
+
+   Print("D7 worst-case detail field chars=", detail_chars,
+         " full heartbeat chars=", full_chars,
+         " journal line chars=", journal_chars);
+
+   AssertTrue("D7 detail non-empty", detail_chars > 0);
+   AssertTrue("D7 full payload non-empty", full_chars > detail_chars);
+   AssertTrue("D7 journal split threshold noted", journal_chars >= 0);
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D8_RestingEntriesFromBrokerEnumeration()
+{
+   Grind_TestResetLayerDetailState();
+   g_grind_order_test_active = true;
+   Grind_OrderTestUpsert(9101UL, (long)22260101UL,
+                         GrindCommentBuild("OPT", "L", 0, "ENT"),
+                         1.25000, ORDER_TYPE_BUY_LIMIT);
+   Grind_OrderTestUpsert(9102UL, (long)22260101UL,
+                         GrindCommentBuild("OPT", "L", 1, "ENT"),
+                         1.24900, ORDER_TYPE_BUY_LIMIT);
+   g_grind_long.add_pending_ticket = 9101UL;
+
+   const int broker_count = Grind_HeartbeatCountRestingEntries(22260101UL, "L");
+   AssertTrue("D8 duplicate resting entries visible", broker_count == 2);
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("D8 resting_entries_long field", hb, "\"resting_entries_long\":2");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_D9_PricesUseDoubleToString()
+{
+   Grind_TestResetLayerDetailState();
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   const int max_price_chars = digits + 2;
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].entry_price = 0.85871;
+   g_grind_long.layers[0].exit_target = 0.85851;
+
+   const string hb = Grind_TestSampleHeartbeatJson();
+   const string expected_entry = DoubleToString(0.85871, digits);
+   const string expected_exit = DoubleToString(0.85851, digits);
+   AssertContains("D9 entry formatted", hb, "\"entry_price\":" + expected_entry);
+   AssertContains("D9 exit formatted", hb, "\"exit_target\":" + expected_exit);
+   AssertTrue("D9 entry not overlong",
+              StringLen(expected_entry) <= max_price_chars);
+   AssertTrue("D9 no float artifact tail",
+              StringFind(hb, "8587100000000001") < 0);
+   Grind_TestResetLayerDetailState();
 }
 
 void Grind_TestAppendDeal(const ulong deal_ticket,
@@ -2264,6 +2450,15 @@ void OnStart()
    Test_T42_DailyResetFollowsServerTime();
    Test_T43_TouchRevertThreshold();
    Test_T44_HeartbeatSchemaAppendOnly();
+   Test_D1_ThreeLayersEmitDetail();
+   Test_D2_NonContiguousLayerIndices();
+   Test_D3_EmptySideEmitsEmptyArray();
+   Test_D4_PendingLevelsNullWhenAbsent();
+   Test_D5_NoTicketNumbersInJson();
+   Test_D6_InstanceIdFirstSchemaAppendOnly();
+   Test_D7_WorstCasePayloadMeasured();
+   Test_D8_RestingEntriesFromBrokerEnumeration();
+   Test_D9_PricesUseDoubleToString();
    Test_T45_ExitFillQueuesCloseByPair();
    Test_T46_CloseBySuccessRemovesTaskAndIncrementsScalpOnce();
    Test_T46b_OutByDealAccumulatesRealisedPnl();

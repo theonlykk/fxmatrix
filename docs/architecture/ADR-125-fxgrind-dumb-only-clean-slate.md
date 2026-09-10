@@ -291,6 +291,39 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
     Touch-and-revert uses spread width captured at fill time; penetration below one
     spread width increments `exit_touch_revert_count`.
 
+15. **Per-layer price detail in heartbeat (`grind_heartbeat_detail.mqh`).** The
+    flat heartbeat payload was sufficient for reconstruction but insufficient for
+    observability — every state question last cycle (phantom layers, stale adds,
+    duplicate labels) required a terminal screenshot because telemetry carried
+    layer **counts** only, not prices. v2 published `layer_detail[]` with
+    entry/exit prices per layer; grind now closes the same gap.
+
+    **Append-only schema** (after `exit_touch_revert_count`; `instance_id` remains
+    first). pipshed stores the payload verbatim and ignores unknown keys until the
+    dashboard reads them — no ingestion-path field-set validation.
+
+    | Field | Semantics |
+    |-------|-----------|
+    | `layers` | Array of open layers (long then short). Each entry: `layer_index`, `side` (`L`/`S`), `entry_price`, `exit_target`, `has_exit_order`, `has_exit_position`. Prices via `DoubleToString(price, _Digits)` — never `%f` or raw concatenation. |
+    | `l0_pending_long` / `l0_pending_short` | Resting L0 straddle price, or JSON `null` when no order or order does not select. |
+    | `add_pending_long` / `add_pending_short` | Resting add price, or `null` when absent. |
+    | `resting_entries_long` / `resting_entries_short` | **Broker-side** count of resting pending orders with parsed comment role `ENT` on that side — enumerated via `OrdersTotal()` + `OrderGetTicket()` with magic check **before** comment parse. **Not** derived from `l0_pending_ticket` / `add_pending_ticket`; exposes EA/broker disagreement (e.g. duplicate `L01` entries invisible to the tracker). Reporting only — no halt, no reconciliation action. |
+
+    **Tickets deliberately excluded:** order/position ticket numbers are not emitted
+    because the public status endpoint would expose broker identifiers. Coverage
+    flags (`has_exit_order`, `has_exit_position`) carry the diagnostic value.
+
+    **Journal `Print` limit:** MQL5 truncates at 4096 characters. Worst case at
+    cap (12 layers × 2 sides = 24 layer entries) is ~3–4 kB for the detail block;
+    full heartbeat may exceed the journal line limit. `Grind_TelemetryEmitHeartbeat`
+    splits into `HEARTBEAT` (scalar fields) + `HEARTBEAT_DETAIL` (layer block) when
+    needed. The HTTP POST body is always the complete JSON — unaffected by Print limit.
+
+    Tests D1–D9 in `ea/fxgrind_tests.mq5` cover layer serialisation, non-contiguous
+    indices, empty arrays, null pending levels, no-ticket policy, schema append-only,
+    worst-case size measurement, broker-side resting-entry count, and
+    `DoubleToString` price formatting.
+
 ## Consequences
 
 - Spec B enables trading after successful reconstruction on a valid book; invalid
@@ -310,6 +343,7 @@ No stop-losses. Risk via 0.01 lots, per-pair layer caps, and account currency ca
 - `ea/fxmatrix_v2_engine.mqh` :1396-1462 (re-center reference behaviour)
 - `ea/fxgrind.mq5`, `ea/grind_*.mqh`, `ea/presets/*.set`, `ea/fxgrind_tests.mq5`
   (T1–T58 including CloseBy exit tests T45–T52, recon derivation T53–T58, P&L
-  telemetry tests T40–T44, stale-add tests A1–A8, I8-boundary tests N1–N5,
-  tracker-orphan tests O1–O3, intrinsic-index tests L1–L7, and I5 gap-index tests I5a–I5h)
+  telemetry tests T40–T44, layer-detail heartbeat tests D1–D9, stale-add tests
+  A1–A8, I8-boundary tests N1–N5, tracker-orphan tests O1–O3, intrinsic-index
+  tests L1–L7, and I5 gap-index tests I5a–I5h)
 - `ea/fxmatrix_v2_exits.mqh` :370–491 (CloseBy queue reference — read only)
