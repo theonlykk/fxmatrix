@@ -148,10 +148,15 @@ string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits)
 }
 
 //+------------------------------------------------------------------+
-int Grind_HeartbeatMeasureWorstCasePayloadChars(const int max_layers_cap,
-                                                const int digits,
-                                                const ulong magic)
+void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
+                                            const int digits,
+                                            const ulong magic,
+                                            int &detail_chars_out,
+                                            int &full_chars_out)
 {
+   detail_chars_out = 0;
+   full_chars_out = 0;
+
    GrindSideState saved_long = g_grind_long;
    GrindSideState saved_short = g_grind_short;
 
@@ -182,12 +187,18 @@ int Grind_HeartbeatMeasureWorstCasePayloadChars(const int max_layers_cap,
    }
 
    const string detail = Grind_HeartbeatBuildLayerDetailJson(magic, digits);
-   const int detail_len = StringLen(detail);
+   detail_chars_out = StringLen(detail);
+
+   // Full heartbeat while the 24-layer book is still populated — same window as detail.
+   const string full = Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", per_side, per_side, 3, 4,
+      false, false, "", true, true,
+      0.1, 0.2, 0.3, 0.4, false,
+      magic, "OPT", 5.0, 10.0, 5.0, max_layers_cap, "GBP", "USD");
+   full_chars_out = StringLen(full);
 
    g_grind_long = saved_long;
    g_grind_short = saved_short;
-
-   return detail_len;
 }
 
 #endif // GRIND_HEARTBEAT_DETAIL_MQH

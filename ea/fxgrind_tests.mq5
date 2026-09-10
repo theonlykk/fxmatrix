@@ -920,18 +920,20 @@ void Test_D7_WorstCasePayloadMeasured()
 {
    Grind_TestResetLayerDetailState();
    const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
-   const int detail_chars = Grind_HeartbeatMeasureWorstCasePayloadChars(12, digits, 22260101UL);
-   const string hb = Grind_TestSampleHeartbeatJson();
-   const int full_chars = StringLen(hb);
+   int detail_chars = 0;
+   int full_chars = 0;
+   Grind_HeartbeatMeasureWorstCasePayload(12, digits, 22260101UL,
+                                         detail_chars, full_chars);
    const int journal_chars = StringLen("TELEM|GRIND_GBPUSD_OPT|HEARTBEAT|") + full_chars;
 
    Print("D7 worst-case detail field chars=", detail_chars,
          " full heartbeat chars=", full_chars,
-         " journal line chars=", journal_chars);
+         " journal line chars=", journal_chars,
+         " (4096 Print limit; split when line >= 4096)");
 
    AssertTrue("D7 detail non-empty", detail_chars > 0);
-   AssertTrue("D7 full payload non-empty", full_chars > detail_chars);
-   AssertTrue("D7 journal split threshold noted", journal_chars >= 0);
+   AssertTrue("D7 full heartbeat longer than detail block", full_chars > detail_chars);
+   AssertTrue("D7 journal line length recorded", journal_chars > 0);
    Grind_TestResetLayerDetailState();
 }
 

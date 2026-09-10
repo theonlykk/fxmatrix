@@ -9,9 +9,11 @@
 
 // Forward declarations — defined in grind_heartbeat_detail.mqh (included at end of grind_engine).
 string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits);
-int Grind_HeartbeatMeasureWorstCasePayloadChars(const int max_layers_cap,
-                                                const int digits,
-                                                const ulong magic);
+void Grind_HeartbeatMeasureWorstCasePayload(const int max_layers_cap,
+                                            const int digits,
+                                            const ulong magic,
+                                            int &detail_chars_out,
+                                            int &full_chars_out);
 
 //+------------------------------------------------------------------+
 bool Grind_TelemetryWebPost(const string url,
