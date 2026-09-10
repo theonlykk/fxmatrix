@@ -120,6 +120,9 @@ PAIR_SPECS: dict[str, PairSpec] = {
     ),
     # CAD/CHF ring — point and pip_size both equal one pip in price units (0.0001),
     # not the MT5 tick size (0.00001 on five-decimal quotes).
+    # max_layers=8: cross pairs, matching EURGBP cap; at 8 layers worst-case ladder
+    # loss is below EURGBP live (AUDCAD $288, AUDCHF/CADCHF $479 vs EURGBP $517
+    # at a 500-pip excursion).
     "AUDCAD": PairSpec(
         symbol="AUDCAD",
         point=0.0001,
@@ -128,6 +131,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["AUDCAD"],
         conversion_pair="USDCAD",
+        max_layers=8,
     ),
     "AUDCHF": PairSpec(
         symbol="AUDCHF",
@@ -137,6 +141,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["AUDCHF"],
         conversion_pair="USDCHF",
+        max_layers=8,
     ),
     "CADCHF": PairSpec(
         symbol="CADCHF",
@@ -146,6 +151,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["CADCHF"],
         conversion_pair="USDCHF",
+        max_layers=8,
     ),
 }
 

@@ -121,10 +121,16 @@ class TestSimLayerCap(unittest.TestCase):
         r = _run_straddle(closes, max_layers=8, seed=3)
         self.assertTrue(r["single_direction"])
 
-    def test_ring_pair_cap_raises(self):
-        """Ring pairs have no ratified cap — get_pair_max_layers must raise."""
+    def test_ring_pair_cap_is_eight(self):
+        """K8: ring cross pairs ratified at max_layers=8 (matches EURGBP)."""
+        for symbol in ("AUDCAD", "AUDCHF", "CADCHF"):
+            with self.subTest(symbol=symbol):
+                self.assertEqual(sim_costs.get_pair_max_layers(symbol), 8)
+
+    def test_uncapped_pair_raises(self):
+        """K9: pairs without a ratified cap still raise."""
         with self.assertRaises(ValueError):
-            sim_costs.get_pair_max_layers("AUDCAD")
+            sim_costs.get_pair_max_layers("USDJPY")
 
 
 if __name__ == "__main__":
