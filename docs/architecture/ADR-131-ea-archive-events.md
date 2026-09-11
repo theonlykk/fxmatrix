@@ -63,7 +63,7 @@ sets `session_id = <magic>-<anchor_ms>`, and anchors `ea_time_ms` to
 - **Positive:** Timer stays at 1 s; telemetry interval gating uses tick math.
 - **Negative:** WebRequest blocks up to ~200 ms once per 2 s off the tick path.
 - **Negative:** DEINIT flush is best effort: WebRequest during deinitialisation
-  is not guaranteed to complete.
+  is not guaranteed to complete. Superseded for DEINIT by ADR-133.
 - **Negative:** Part 2 markers (QUARANTINE, STRAY_L0, CLOSEBY, RECON) not yet
   emitted.
 

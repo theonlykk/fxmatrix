@@ -156,6 +156,23 @@ int OnInit()
                                 TelemetryAPIKey,
                                 TelemetryIntervalSec));
 
+   int prev_reason = -1;
+   datetime prev_time = 0;
+   long prev_anchor = 0;
+   if(Grind_ArchiveReadPendingDeinit(InpMagic, prev_reason, prev_time, prev_anchor)) {
+      const string deinit_fields = Grind_ArchiveConfigFields(
+         "DEINIT", prev_reason, _Symbol, InpSlot, GRIND_EA_BUILD,
+         (long)AccountInfoInteger(ACCOUNT_LOGIN),
+         InpWidthPips, InpAddPips, InpExitPips, InpMaxLayers, InpLots,
+         InpDeadbandPips, InpStrandedThreshPips,
+         InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
+         InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
+         EnableTelemetry, TelemetryIntervalSec) +
+         "," + Grind_ArchiveDeinitExtraFields(prev_time, InpMagic, prev_anchor);
+      Grind_ArchiveEnqueue("config_event", deinit_fields);
+      Grind_ArchiveClearPendingDeinit(InpMagic);
+   }
+
    const string init_fields = Grind_ArchiveConfigFields(
       "INIT", 0, _Symbol, InpSlot, GRIND_EA_BUILD,
       (long)AccountInfoInteger(ACCOUNT_LOGIN),
@@ -173,16 +190,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
-   const string deinit_fields = Grind_ArchiveConfigFields(
-      "DEINIT", reason, _Symbol, InpSlot, GRIND_EA_BUILD,
-      (long)AccountInfoInteger(ACCOUNT_LOGIN),
-      InpWidthPips, InpAddPips, InpExitPips, InpMaxLayers, InpLots,
-      InpDeadbandPips, InpStrandedThreshPips,
-      InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
-      InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
-      EnableTelemetry, TelemetryIntervalSec);
-   Grind_ArchiveEnqueue("config_event", deinit_fields);
-   Grind_ArchiveFlush(true);
+   Grind_ArchiveRecordDeinit(InpMagic, reason, TimeCurrent(), g_grind_archive_anchor_ms);
 
    EventKillTimer();
    Grind_MagicLockRelease(InpMagic);

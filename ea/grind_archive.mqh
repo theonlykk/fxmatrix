@@ -491,11 +491,20 @@ void Grind_ArchiveMarker(const string level,
 }
 
 //+------------------------------------------------------------------+
+string Grind_ArchiveDeinitGvName(const string suffix, const ulong magic)
+{
+   return "GRIND_DEINIT_" + suffix + "_" + IntegerToString((long)magic);
+}
+
+//+------------------------------------------------------------------+
 void Grind_ArchiveRecordDeinit(const ulong magic,
                                const int reason,
                                const datetime broker_now,
                                const long anchor_ms)
 {
+   GlobalVariableSet(Grind_ArchiveDeinitGvName("REASON", magic), (double)reason);
+   GlobalVariableSet(Grind_ArchiveDeinitGvName("TIME", magic), (double)broker_now);
+   GlobalVariableSet(Grind_ArchiveDeinitGvName("ANCHOR", magic), (double)anchor_ms);
 }
 
 //+------------------------------------------------------------------+
@@ -504,12 +513,31 @@ bool Grind_ArchiveReadPendingDeinit(const ulong magic,
                                     datetime &broker_time,
                                     long &anchor_ms)
 {
-   return false;
+   const string reason_name = Grind_ArchiveDeinitGvName("REASON", magic);
+   if(!GlobalVariableCheck(reason_name))
+      return false;
+
+   reason = (int)GlobalVariableGet(reason_name);
+
+   const string time_name = Grind_ArchiveDeinitGvName("TIME", magic);
+   broker_time = 0;
+   if(GlobalVariableCheck(time_name))
+      broker_time = (datetime)GlobalVariableGet(time_name);
+
+   const string anchor_name = Grind_ArchiveDeinitGvName("ANCHOR", magic);
+   anchor_ms = 0;
+   if(GlobalVariableCheck(anchor_name))
+      anchor_ms = (long)GlobalVariableGet(anchor_name);
+
+   return true;
 }
 
 //+------------------------------------------------------------------+
 void Grind_ArchiveClearPendingDeinit(const ulong magic)
 {
+   GlobalVariableDel(Grind_ArchiveDeinitGvName("REASON", magic));
+   GlobalVariableDel(Grind_ArchiveDeinitGvName("TIME", magic));
+   GlobalVariableDel(Grind_ArchiveDeinitGvName("ANCHOR", magic));
 }
 
 //+------------------------------------------------------------------+
@@ -517,7 +545,17 @@ string Grind_ArchiveDeinitExtraFields(const datetime broker_time,
                                       const ulong magic,
                                       const long anchor_ms)
 {
-   return "";
+   string time_val = "null";
+   if(broker_time != 0)
+      time_val = "\"" + Grind_ArchiveBrokerTime(broker_time) + "\"";
+
+   string session_val = "null";
+   if(anchor_ms != 0)
+      session_val = "\"" + IntegerToString((long)magic) + "-" +
+                    IntegerToString(anchor_ms) + "\"";
+
+   return "\"deinit_time_broker\":" + time_val +
+          ",\"prev_session_id\":" + session_val;
 }
 
 //+------------------------------------------------------------------+
