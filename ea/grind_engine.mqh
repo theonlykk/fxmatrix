@@ -480,6 +480,9 @@ void Grind_ReconcileStrayL0(GrindSideState &side,
       return;
 
    if(Grind_SelectOurOrder(side.l0_pending_ticket, magic)) {
+      Grind_ArchiveMarker("WARN", "STRAY_L0_CANCEL", "", side.l0_pending_ticket,
+                          StringFormat("{\"side\":\"%s\",\"depth\":%d}",
+                                       is_long ? "L" : "S", Grind_SideDepth(side)));
       Print("WARN GRIND_STRAY_L0 cancel side=", is_long ? "L" : "S",
             " ticket=", side.l0_pending_ticket,
             " depth=", Grind_SideDepth(side));
@@ -491,6 +494,8 @@ void Grind_ReconcileStrayL0(GrindSideState &side,
    if(Grind_SelectOurPosition(side.l0_pending_ticket, magic))
       return;
 
+   Grind_ArchiveMarker("INFO", "STRAY_L0_CLEARED_GONE", "", side.l0_pending_ticket,
+                       StringFormat("{\"side\":\"%s\"}", is_long ? "L" : "S"));
    Print("INFO GRIND_STRAY_L0 cleared-gone side=", is_long ? "L" : "S",
          " ticket=", side.l0_pending_ticket);
    side.l0_pending_ticket = 0;
@@ -907,6 +912,9 @@ void Grind_HandleSideDealFill(GrindSideState &side,
 
       if(c_layer == 0 && side.l0_pending_ticket != 0 &&
          side.l0_pending_ticket != order_ticket) {
+         Grind_ArchiveMarker("WARN", "STRAY_L0_CANCEL_ON_FILL", "", side.l0_pending_ticket,
+                             StringFormat("{\"side\":\"%s\",\"filled_order\":%I64u}",
+                                          is_long ? "L" : "S", order_ticket));
          Print("WARN GRIND_STRAY_L0 cancel on fill side=", is_long ? "L" : "S",
                " stray=", side.l0_pending_ticket, " filled_order=", order_ticket);
          if(Grind_CancelPendingOrder(side.l0_pending_ticket, magic))

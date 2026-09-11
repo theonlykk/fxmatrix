@@ -216,11 +216,17 @@ void Grind_ProcessCloseByQueue(GrindCloseByTask &queue[],
       }
 
       if(sym != sym2) {
-         Print("ERROR GRIND_CLOSEBY inconsistent symbols ticket1=", queue[i].ticket1,
-               " sym1=", sym, " ticket2=", queue[i].ticket2,
+         const ulong mismatch_t1 = queue[i].ticket1;
+         const ulong mismatch_t2 = queue[i].ticket2;
+         Print("ERROR GRIND_CLOSEBY inconsistent symbols ticket1=", mismatch_t1,
+               " sym1=", sym, " ticket2=", mismatch_t2,
                " sym2=", sym2, " — removing task and halting.");
          ArrayRemove(queue, i, 1);
+         g_grind_halt_reason = "CLOSEBY_SYMBOL_MISMATCH";
          g_grind_halted = true;
+         Grind_TelemetryCritical(g_grind_telemetry_instance, "CLOSEBY_SYMBOL_MISMATCH",
+                                 StringFormat("ticket1=%I64u ticket2=%I64u",
+                                              mismatch_t1, mismatch_t2));
          return;
       }
 
@@ -274,6 +280,10 @@ void Grind_DeriveCloseByQueueFromBook(const string slot, const bool verbose)
          continue;
 
       Grind_QueueCloseBy(g_grind_long_closeby_queue, ent_ticket, ext_ticket);
+      Grind_ArchiveMarker("INFO", "RECON_DERIVED_CLOSEBY", slot, 0,
+                          StringFormat("{\"side\":\"L\",\"layer\":%d,\"position\":%I64u,\"position_by\":%I64u}",
+                                       g_grind_long.layers[i].layer_index,
+                                       ent_ticket, ext_ticket));
       if(verbose)
          Print("INFO GRIND_RECON | derived CloseBy pair slot=", slot,
                " side=L layer=", g_grind_long.layers[i].layer_index,
@@ -288,6 +298,10 @@ void Grind_DeriveCloseByQueueFromBook(const string slot, const bool verbose)
          continue;
 
       Grind_QueueCloseBy(g_grind_short_closeby_queue, ent_ticket, ext_ticket);
+      Grind_ArchiveMarker("INFO", "RECON_DERIVED_CLOSEBY", slot, 0,
+                          StringFormat("{\"side\":\"S\",\"layer\":%d,\"position\":%I64u,\"position_by\":%I64u}",
+                                       g_grind_short.layers[i].layer_index,
+                                       ent_ticket, ext_ticket));
       if(verbose)
          Print("INFO GRIND_RECON | derived CloseBy pair slot=", slot,
                " side=S layer=", g_grind_short.layers[i].layer_index,

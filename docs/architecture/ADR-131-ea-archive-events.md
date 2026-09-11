@@ -1,6 +1,6 @@
 # ADR-131: EA Archive Events Part 1 (Transport, Send/Fill/Config/Critical)
 
-**Status:** Proposed (pending live verification)  
+**Status:** Accepted (2026-09-11; DEINIT flush pending live verification)  
 **Date:** 2026-09-11  
 **Context:** pipshed ADR-130 (a34795d) exposes POST /api/telemetry/action
 with idempotent Postgres shadow tables. Gemini rulings R1-R8 define five tables,

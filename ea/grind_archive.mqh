@@ -375,7 +375,7 @@ string Grind_ArchiveFillLogFields(const ulong deal,
    }
 
    string slippage = "null";
-   if(order_price_open > 0.0 && point > 0.0 &&
+   if(entry_type == "IN" && order_price_open > 0.0 && point > 0.0 &&
       (deal_type == "BUY" || deal_type == "SELL")) {
       double raw = 0.0;
       if(deal_type == "BUY")
@@ -477,6 +477,17 @@ string Grind_ArchiveEaEventFields(const string level,
           ",\"reason\":" + Grind_ArchiveJsonStringOrNull(reason) +
           ",\"ticket\":" + Grind_ArchiveJsonUlong(ticket) +
           ",\"detail\":" + detail;
+}
+
+//+------------------------------------------------------------------+
+void Grind_ArchiveMarker(const string level,
+                         const string code,
+                         const string reason,
+                         const ulong ticket,
+                         const string detail_json)
+{
+   const string fields = Grind_ArchiveEaEventFields(level, code, reason, ticket, detail_json);
+   Grind_ArchiveEnqueue("ea_event", fields);
 }
 
 //+------------------------------------------------------------------+
