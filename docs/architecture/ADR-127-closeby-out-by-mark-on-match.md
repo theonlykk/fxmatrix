@@ -1,6 +1,6 @@
 # ADR-127: Mark CloseBy OUT_BY deals processed only on layer match
 
-Status: Proposed (pending operator verification)
+Status: Accepted (verified live 2026-09-11)
 Date: 2026-09-11
 
 ## Context
@@ -35,6 +35,9 @@ whose exit_position_ticket is set.
 - 2026-09-10: all 13 SHORT scalps absent from live emission (backfilled).
 - 2026-09-11 03:11Z: four phantom short layers on EURUSD_OPT, EURUSD_ALT and
   GBPUSD_ALT, each matching a short CloseBy with no emitted event.
+- 2026-09-11 after deploy of e486bb9: four SHORT scalps (EURGBP_OPT 09:00:57,
+  EURGBP_ALT 09:15:24, EURGBP_OPT 13:01:14, EURGBP_ALT 15:13:07 broker time)
+  emitted with non-null stack_depth and no phantom layers.
 
 ## Tests
 CB1-CB4 in fxgrind_tests.mq5 drive CloseBy pairs through
