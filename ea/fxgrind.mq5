@@ -31,6 +31,10 @@ input string TelemetryURL         = "https://pipshed.com/api/telemetry/push";
 input string TelemetryAPIKey      = "";
 input int    TelemetryIntervalSec = 60;
 
+#define GRIND_EA_BUILD ("fxgrind " + TimeToString(__DATETIME__, TIME_DATE|TIME_SECONDS))
+
+ulong g_grind_last_telemetry_tick = 0;
+
 //+------------------------------------------------------------------+
 string Grind_BuildHeartbeatJson()
 {
@@ -110,6 +114,13 @@ int OnInit()
                                  TelemetryURL,
                                  TelemetryAPIKey,
                                  InpVerboseLog);
+   Grind_ArchiveConfigure(EnableTelemetry,
+                          TelemetryURL,
+                          TelemetryAPIKey,
+                          InpTelemetryInstance,
+                          InpMagic,
+                          InpVerboseLog);
+   g_grind_last_telemetry_tick = 0;
    g_grind_halted = false;
    g_grind_cap_blocked = false;
    g_grind_halt_reason = "";
@@ -145,6 +156,16 @@ int OnInit()
                                 TelemetryAPIKey,
                                 TelemetryIntervalSec));
 
+   const string init_fields = Grind_ArchiveConfigFields(
+      "INIT", 0, _Symbol, InpSlot, GRIND_EA_BUILD,
+      (long)AccountInfoInteger(ACCOUNT_LOGIN),
+      InpWidthPips, InpAddPips, InpExitPips, InpMaxLayers, InpLots,
+      InpDeadbandPips, InpStrandedThreshPips,
+      InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
+      InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
+      EnableTelemetry, TelemetryIntervalSec);
+   Grind_ArchiveEnqueue("config_event", init_fields);
+
    EventSetTimer(1);
    return INIT_SUCCEEDED;
 }
@@ -152,6 +173,17 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   const string deinit_fields = Grind_ArchiveConfigFields(
+      "DEINIT", reason, _Symbol, InpSlot, GRIND_EA_BUILD,
+      (long)AccountInfoInteger(ACCOUNT_LOGIN),
+      InpWidthPips, InpAddPips, InpExitPips, InpMaxLayers, InpLots,
+      InpDeadbandPips, InpStrandedThreshPips,
+      InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
+      InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
+      EnableTelemetry, TelemetryIntervalSec);
+   Grind_ArchiveEnqueue("config_event", deinit_fields);
+   Grind_ArchiveFlush(true);
+
    EventKillTimer();
    Grind_MagicLockRelease(InpMagic);
    if(InpVerboseLog)
@@ -161,20 +193,20 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTimer()
 {
-   static bool first_run = true;
-   if(first_run) {
-      first_run = false;
-      EventSetTimer(TelemetryIntervalSec);
-   }
+   Grind_ArchiveFlush(false);
 
    Grind_ResetDailyPnlIfNewDay();
    Grind_MaeOnTimer();
    Grind_ProcessPendingExitMicrostructure();
    Grind_DrainScalpEventQueue();
-   Grind_EmitHeartbeat();
 
-   if(Grind_ApiCounterSoftWarnActive())
-      Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
+   const ulong now_tick = GetTickCount64();
+   if(Grind_TimerTelemetryDue(now_tick, g_grind_last_telemetry_tick, TelemetryIntervalSec)) {
+      Grind_EmitHeartbeat();
+      if(Grind_ApiCounterSoftWarnActive())
+         Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
+      g_grind_last_telemetry_tick = now_tick;
+   }
 }
 
 //+------------------------------------------------------------------+

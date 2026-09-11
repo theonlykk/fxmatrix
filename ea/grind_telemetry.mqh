@@ -16,6 +16,7 @@ int    g_grind_telemetry_test_post_calls = 0;
 string g_grind_telemetry_test_last_url = "";
 string g_grind_telemetry_test_last_payload = "";
 bool   g_grind_telemetry_test_force_fail = false;
+int    g_grind_telemetry_test_force_status = 0;
 
 // Forward declarations — defined in grind_heartbeat_detail.mqh (included at end of grind_engine).
 string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits);
@@ -47,22 +48,27 @@ void Grind_TelemetryTestReset()
    g_grind_telemetry_test_last_url = "";
    g_grind_telemetry_test_last_payload = "";
    g_grind_telemetry_test_force_fail = false;
+   g_grind_telemetry_test_force_status = 0;
 }
 
 //+------------------------------------------------------------------+
-bool Grind_TelemetryWebPost(const string url,
-                            const string api_key,
-                            const string payload,
-                            const bool verbose_log)
+int Grind_TelemetryWebPostStatus(const string url,
+                                 const string api_key,
+                                 const string payload,
+                                 const bool verbose_log)
 {
    if(url == "" || api_key == "")
-      return false;
+      return -1;
 
    if(g_grind_telemetry_test_active) {
       g_grind_telemetry_test_post_calls++;
       g_grind_telemetry_test_last_url = url;
       g_grind_telemetry_test_last_payload = payload;
-      return !g_grind_telemetry_test_force_fail;
+      if(g_grind_telemetry_test_force_status != 0)
+         return g_grind_telemetry_test_force_status;
+      if(g_grind_telemetry_test_force_fail)
+         return -1;
+      return 200;
    }
 
    string headers = "Content-Type: application/json\r\n"
@@ -93,8 +99,19 @@ bool Grind_TelemetryWebPost(const string url,
          Print("INFO: grind telemetry dropped status=", http_status, " url=", url);
    }
 
-   return (http_status == 200);
+   return http_status;
 }
+
+//+------------------------------------------------------------------+
+bool Grind_TelemetryWebPost(const string url,
+                            const string api_key,
+                            const string payload,
+                            const bool verbose_log)
+{
+   return (Grind_TelemetryWebPostStatus(url, api_key, payload, verbose_log) == 200);
+}
+
+#include "grind_archive_flush.mqh"
 
 //+------------------------------------------------------------------+
 void Grind_TelemetryEmit(const string instance_name,
@@ -144,8 +161,20 @@ void Grind_TelemetryCritical(const string instance_name,
                              const string event,
                              const string detail = "")
 {
-   string detail_json = "{\"detail\":\"" + detail + "\"}";
+   string detail_json = "{\"detail\":\"" + Grind_JsonEscape(detail) + "\"}";
    Grind_TelemetryEmit(instance_name, "CRITICAL_" + event, detail_json);
+
+   const string archive_detail = "{\"halt_reason\":\"" +
+                                 Grind_JsonEscape(g_grind_halt_reason) +
+                                 "\",\"recon_failure\":" +
+                                 Grind_ReconFailureHeartbeatField() + "}";
+   const string fields = Grind_ArchiveEaEventFields("CRITICAL",
+                                                    event,
+                                                    detail,
+                                                    0,
+                                                    archive_detail);
+   Grind_ArchiveEnqueue("ea_event", fields);
+   Grind_ArchiveFlush(true);
 }
 
 //+------------------------------------------------------------------+

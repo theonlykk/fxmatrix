@@ -1056,6 +1056,71 @@ void Grind_OnTickEngine(const ulong magic,
 }
 
 //+------------------------------------------------------------------+
+void Grind_ArchiveRecordFill(const ulong deal_ticket, const ulong magic)
+{
+   if(!g_grind_archive_enabled)
+      return;
+   if(!Grind_DealSelect(deal_ticket))
+      return;
+   if(Grind_DealGetString(deal_ticket, DEAL_SYMBOL) != _Symbol)
+      return;
+   if(!Grind_MagicMatches(Grind_DealGetInteger(deal_ticket, DEAL_MAGIC), magic))
+      return;
+
+   const ulong order_ticket = (ulong)Grind_DealGetInteger(deal_ticket, DEAL_ORDER);
+   const ulong position_id = (ulong)Grind_DealGetInteger(deal_ticket, DEAL_POSITION_ID);
+   const long entry_type = Grind_DealGetInteger(deal_ticket, DEAL_ENTRY);
+   const string comment = Grind_DealGetString(deal_ticket, DEAL_COMMENT);
+
+   string deal_type_str = "SELL";
+   if(g_grind_deal_test_active) {
+      string c_slot, c_side, c_role;
+      int c_layer;
+      if(GrindCommentParse(comment, c_slot, c_side, c_layer, c_role))
+         deal_type_str = (c_side == "L") ? "BUY" : "SELL";
+   } else {
+      deal_type_str = Grind_ArchiveDealTypeLabel(
+         HistoryDealGetInteger(deal_ticket, DEAL_TYPE));
+   }
+
+   const double deal_price = Grind_DealGetDouble(deal_ticket, DEAL_PRICE);
+   const double profit = Grind_DealGetDouble(deal_ticket, DEAL_PROFIT);
+   const double swap = Grind_DealGetDouble(deal_ticket, DEAL_SWAP);
+   const double commission = Grind_DealGetDouble(deal_ticket, DEAL_COMMISSION);
+   const datetime deal_time = (datetime)Grind_DealGetInteger(deal_ticket, DEAL_TIME);
+   const long deal_time_msc = Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
+   double volume = 0.0;
+   if(!g_grind_deal_test_active)
+      volume = HistoryDealGetDouble(deal_ticket, DEAL_VOLUME);
+
+   double order_price_open = 0.0;
+   if(!g_grind_deal_test_active && order_ticket > 0 && HistoryOrderSelect(order_ticket))
+      order_price_open = HistoryOrderGetDouble(ORDER_PRICE_OPEN);
+
+   const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   const string fields = Grind_ArchiveFillLogFields(
+      deal_ticket,
+      order_ticket,
+      position_id,
+      Grind_ArchiveEntryTypeLabel(entry_type),
+      deal_type_str,
+      comment,
+      deal_price,
+      order_price_open,
+      volume,
+      profit,
+      swap,
+      commission,
+      deal_time,
+      deal_time_msc,
+      g_grind_halted,
+      g_grind_quarantined,
+      point,
+      magic);
+   Grind_ArchiveEnqueue("fill_log", fields);
+}
+
+//+------------------------------------------------------------------+
 void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                                     const ulong magic,
                                     const string slot,
@@ -1064,6 +1129,8 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                                     const int max_layers,
                                     const double lots)
 {
+   if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
+      Grind_ArchiveRecordFill(trans.deal, magic);
    if(g_grind_halted)
       return;
    if(trans.type != TRADE_TRANSACTION_DEAL_ADD)

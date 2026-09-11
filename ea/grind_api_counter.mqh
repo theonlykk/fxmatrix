@@ -4,6 +4,8 @@
 #ifndef GRIND_API_COUNTER_MQH
 #define GRIND_API_COUNTER_MQH
 
+#include "grind_archive.mqh"
+
 #define GRIND_DAILY_API_COUNT_GV "GRIND_DAILY_API_COUNT"
 #define GRIND_DAILY_API_DATE_GV  "GRIND_DAILY_API_DATE"
 #define GRIND_DAILY_API_LIMIT    2000
@@ -73,8 +75,19 @@ bool Grind_ApiCounterSoftWarnActive()
 //+------------------------------------------------------------------+
 bool Grind_OrderSendCounted(MqlTradeRequest &request, MqlTradeResult &result)
 {
+   const ulong t0 = GetTickCount64();
    const bool ok = OrderSend(request, result);
+   const long duration_ms = (long)(GetTickCount64() - t0);
    Grind_ApiCounterIncrement();
+   if(g_grind_archive_enabled) {
+      const string fields = Grind_ArchiveSendLogFields(request,
+                                                       result,
+                                                       ok,
+                                                       duration_ms,
+                                                       TimeCurrent(),
+                                                       g_grind_archive_magic);
+      Grind_ArchiveEnqueue("send_log", fields);
+   }
    return ok;
 }
 
