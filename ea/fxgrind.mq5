@@ -183,6 +183,8 @@ int OnInit()
       EnableTelemetry, TelemetryIntervalSec);
    Grind_ArchiveEnqueue("config_event", init_fields);
 
+   Grind_CarryEmitSnapshot(_Symbol, InpMagic);
+
    EventSetTimer(1);
    return INIT_SUCCEEDED;
 }
@@ -210,6 +212,8 @@ void OnTimer()
       Grind_ProcessPendingExitMicrostructure();
       Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();
+      if(Grind_CarryGateDue(InpMagic, TimeCurrent()))
+         Grind_CarryEmitSnapshot(_Symbol, InpMagic);
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
       g_grind_last_telemetry_tick = now_tick;
