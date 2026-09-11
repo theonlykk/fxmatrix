@@ -112,6 +112,7 @@ bool Grind_TelemetryWebPost(const string url,
 }
 
 #include "grind_archive_flush.mqh"
+#include "grind_carry.mqh"
 
 //+------------------------------------------------------------------+
 void Grind_TelemetryEmit(const string instance_name,

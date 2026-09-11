@@ -4838,6 +4838,123 @@ void Test_FP7_ResolveFromSentMap()
    Grind_TestResetSideState();
 }
 
+void Test_CS1_GateOncePerDay()
+{
+   const ulong magic = 99991001UL;
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   AssertTrue("CS1 first", Grind_CarryGateDue(magic, D'2026.09.14 23:50'));
+   AssertFalse("CS1 same day", Grind_CarryGateDue(magic, D'2026.09.14 23:58'));
+   AssertTrue("CS1 next day", Grind_CarryGateDue(magic, D'2026.09.15 23:51'));
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+}
+
+void Test_CS2_GateOutsideWindow()
+{
+   const ulong magic = 99991002UL;
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   AssertFalse("CS2 day", Grind_CarryGateDue(magic, D'2026.09.14 17:00'));
+   AssertFalse("CS2 before", Grind_CarryGateDue(magic, D'2026.09.14 23:49'));
+   AssertTrue("CS2 stored", Grind_CarryGateStoredDay(magic) == -1);
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+}
+
+void Test_CS3_GatePersistsInGv()
+{
+   const ulong magic = 99991003UL;
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   AssertTrue("CS3 first", Grind_CarryGateDue(magic, D'2026.09.14 23:50'));
+   AssertFalse("CS3 second", Grind_CarryGateDue(magic, D'2026.09.14 23:55'));
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+}
+
+void Test_CS4_SwapMultiplier()
+{
+   Grind_CarryGateReset(99991004UL);
+   Grind_CarryTestReset();
+   AssertTrue("CS4 wed", Grind_CarrySwapMultiplier(3) == 3);
+   AssertTrue("CS4 tue", Grind_CarrySwapMultiplier(2) == 1);
+   Grind_CarryGateReset(99991004UL);
+   Grind_CarryTestReset();
+}
+
+void Test_CS5_ShiftPips()
+{
+   Grind_CarryGateReset(99991005UL);
+   Grind_CarryTestReset();
+   AssertNear("CS5 x1", Grind_CarryShiftPips(-8.76, 1, 5), -0.876);
+   AssertNear("CS5 x3", Grind_CarryShiftPips(-8.76, 3, 5), -2.628);
+   AssertNear("CS5 pos", Grind_CarryShiftPips(0.37, 1, 5), 0.037);
+   Grind_CarryGateReset(99991005UL);
+   Grind_CarryTestReset();
+}
+
+void Test_CS6_EligibleLayers()
+{
+   Grind_CarryGateReset(99991006UL);
+   Grind_CarryTestReset();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 2);
+   g_grind_long.layers[0].position_ticket = 7001;
+   g_grind_long.layers[1].position_ticket = 7002;
+   Grind_CarryTestSetOpenTime(7001UL, D'2026.09.13 22:00');
+   Grind_CarryTestSetOpenTime(7002UL, D'2026.09.14 00:30');
+   AssertTrue("CS6 one", Grind_CarryEligibleLayers(g_grind_long,
+                                                   D'2026.09.14 00:00') == 1);
+   AssertTrue("CS6 zero", Grind_CarryEligibleLayers(g_grind_long,
+                                                    D'2026.09.13 00:00') == 0);
+   Grind_CarryGateReset(99991006UL);
+   Grind_CarryTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_CS7_EmitSnapshot()
+{
+   Grind_CarryGateReset(99991007UL);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_carry_test_snapshot_active = true;
+   g_grind_carry_test_swap_long = -8.76;
+   g_grind_carry_test_swap_short = 0.37;
+   g_grind_carry_test_multiplier = 3;
+   g_grind_carry_test_digits = 5;
+   Grind_CarryEmitSnapshot("EURUSD", 22260101UL);
+   AssertTrue("CS7 count", Grind_ArchiveQueueCount() == 1);
+   AssertContains("CS7 code", Grind_ArchiveQueuePeek(0), "\"code\":\"CARRY_SNAPSHOT\"");
+   AssertContains("CS7 swap_long", Grind_ArchiveQueuePeek(0), "\"swap_long\":-8.76");
+   AssertContains("CS7 long_pips", Grind_ArchiveQueuePeek(0), "\"long_pips\":-2.628");
+   Grind_CarryGateReset(99991007UL);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+}
+
+void Test_CS8_EmitSnapshotMultTodayTomorrow()
+{
+   Grind_CarryGateReset(99991008UL);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_carry_test_snapshot_active = true;
+   g_grind_carry_test_swap_long = -8.76;
+   g_grind_carry_test_swap_short = 0.37;
+   g_grind_carry_test_multiplier = 3;
+   g_grind_carry_test_digits = 5;
+   g_grind_carry_test_mult_today = 1;
+   g_grind_carry_test_mult_tomorrow = 3;
+   Grind_CarryEmitSnapshot("EURUSD", 22260101UL);
+   AssertContains("CS8 today", Grind_ArchiveQueuePeek(0), "\"mult_today\":1");
+   AssertContains("CS8 tomorrow", Grind_ArchiveQueuePeek(0), "\"mult_tomorrow\":3");
+   Grind_CarryGateReset(99991008UL);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -5065,6 +5182,14 @@ void OnStart()
    Test_FP5_NoteSendResult();
    Test_FP6_FillLogNullOrderPrice();
    Test_FP7_ResolveFromSentMap();
+   Test_CS1_GateOncePerDay();
+   Test_CS2_GateOutsideWindow();
+   Test_CS3_GatePersistsInGv();
+   Test_CS4_SwapMultiplier();
+   Test_CS5_ShiftPips();
+   Test_CS6_EligibleLayers();
+   Test_CS7_EmitSnapshot();
+   Test_CS8_EmitSnapshotMultTodayTomorrow();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
