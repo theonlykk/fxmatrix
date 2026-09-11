@@ -4476,6 +4476,202 @@ void Test_AR20_ArchiveDisabledWithoutKey()
    Grind_ArchiveTestReset();
 }
 
+void Test_PM1_QuarantineMarkers()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_QuarantineReset();
+   Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000);
+   AssertTrue("PM1 count enter", Grind_ArchiveQueueCount() == 1);
+   AssertContains("PM1 enter code", Grind_ArchiveQueuePeek(0), "\"code\":\"QUARANTINE_ENTER\"");
+   AssertContains("PM1 enter reason", Grind_ArchiveQueuePeek(0), "\"reason\":\"I3_LONG_NAKED\"");
+   Grind_QuarantineStep(true, "", 1500);
+   AssertContains("PM1 release code", Grind_ArchiveQueuePeek(1), "\"code\":\"QUARANTINE_RELEASE\"");
+   AssertContains("PM1 release ms", Grind_ArchiveQueuePeek(1), "\"ms\":500");
+   Grind_QuarantineStep(false, "I3_LONG_NAKED", 2000);
+   Grind_QuarantineStep(false, "I3_LONG_NAKED", 4000);
+   Grind_QuarantineStep(false, "I3_LONG_NAKED", 5000);
+   AssertContains("PM1 halt code",
+                  Grind_ArchiveQueuePeek(Grind_ArchiveQueueCount() - 1),
+                  "\"code\":\"QUARANTINE_HALT\"");
+   AssertContains("PM1 halt level",
+                  Grind_ArchiveQueuePeek(Grind_ArchiveQueueCount() - 1),
+                  "\"level\":\"CRITICAL\"");
+   AssertTrue("PM1 count total", Grind_ArchiveQueueCount() == 4);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_QuarantineReset();
+}
+
+void Test_PM2_StrayL0CancelMarker()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_order_ticket = 3001;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].layer_index = 0;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26100,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_ReconcileStrayL0(g_grind_short, false, magic);
+   AssertTrue("PM2 count", Grind_ArchiveQueueCount() == 1);
+   AssertContains("PM2 code", Grind_ArchiveQueuePeek(0), "\"code\":\"STRAY_L0_CANCEL\"");
+   AssertContains("PM2 ticket", Grind_ArchiveQueuePeek(0), "\"ticket\":6001");
+   AssertContains("PM2 level", Grind_ArchiveQueuePeek(0), "\"level\":\"WARN\"");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PM3_StrayL0ClearedGoneMarker()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_order_ticket = 3001;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].layer_index = 0;
+   g_grind_short.l0_pending_ticket = 7002;
+   Grind_ReconcileStrayL0(g_grind_short, false, magic);
+   AssertTrue("PM3 count", Grind_ArchiveQueueCount() == 1);
+   AssertContains("PM3 code", Grind_ArchiveQueuePeek(0), "\"code\":\"STRAY_L0_CLEARED_GONE\"");
+   AssertContains("PM3 ticket", Grind_ArchiveQueuePeek(0), "\"ticket\":7002");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PM4_StrayL0CancelOnFillMarker()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26100,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9902, "GRIND|OPT|S|L00|ENT", DEAL_ENTRY_IN, 5001, 5001,
+                        0.0, 0.0, 0.0, 1.26000);
+   Grind_TestDispatchDeal(9902);
+   AssertTrue("PM4 count", Grind_ArchiveQueueCount() == 2);
+   AssertContains("PM4 code", Grind_ArchiveQueuePeek(1), "\"code\":\"STRAY_L0_CANCEL_ON_FILL\"");
+   AssertContains("PM4 ticket", Grind_ArchiveQueuePeek(1), "\"ticket\":6001");
+   AssertContains("PM4 filled", Grind_ArchiveQueuePeek(1), "\"filled_order\":5001");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PM5_DerivedCloseByMarker()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_order_ticket = 0;
+   g_grind_long.layers[0].exit_position_ticket = 3002;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_DeriveCloseByQueueFromBook("OPT", false);
+   AssertTrue("PM5 count", Grind_ArchiveQueueCount() == 1);
+   AssertContains("PM5 code", Grind_ArchiveQueuePeek(0), "\"code\":\"RECON_DERIVED_CLOSEBY\"");
+   AssertContains("PM5 position_by", Grind_ArchiveQueuePeek(0), "\"position_by\":3002");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PM6_SlippageNullForOutBy()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   const string fields_a = Grind_ArchiveFillLogFields(
+      1, 1, 1, "OUT_BY", "SELL", "GRIND|ALT|S|L00|ENT",
+      0.85821, 0.85742, 0.01, 0, 0, 0,
+      D'2026.09.11 15:30:14', 0, false, false, 0.00001, 22260101UL);
+   AssertContains("PM6 out_by slippage", fields_a, "\"slippage_pips\":null");
+   const string fields_b = Grind_ArchiveFillLogFields(
+      2, 2, 2, "IN", "BUY", "GRIND|ALT|S|L00|ENT",
+      0.85742, 0.85741, 0.01, 0, 0, 0,
+      D'2026.09.11 15:30:14', 0, false, false, 0.00001, 22260101UL);
+   AssertContains("PM6 in slippage", fields_b, "\"slippage_pips\":-0.1");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_PM7_CloseBySymbolMismatchCritical()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_CloseByTestReset();
+   g_grind_telemetry_test_active = true;
+   g_grind_closeby_test_active = true;
+   g_grind_halted = false;
+   g_grind_halt_reason = "";
+   g_grind_closeby_test_position_count = 2;
+   ArrayResize(g_grind_closeby_test_positions, 2);
+   g_grind_closeby_test_positions[0].ticket = 5001;
+   g_grind_closeby_test_positions[0].symbol = _Symbol;
+   g_grind_closeby_test_positions[0].type = POSITION_TYPE_BUY;
+   g_grind_closeby_test_positions[1].ticket = 5002;
+   g_grind_closeby_test_positions[1].symbol = "GBPJPY";
+   g_grind_closeby_test_positions[1].type = POSITION_TYPE_SELL;
+   Grind_QueueCloseBy(g_grind_long_closeby_queue, 5001, 5002);
+   Grind_ProcessCloseByQueue(g_grind_long_closeby_queue, 22260101UL, false);
+   AssertTrue("PM7 halted", g_grind_halted);
+   AssertContains("PM7 code", g_grind_telemetry_test_last_payload,
+                  "\"code\":\"CLOSEBY_SYMBOL_MISMATCH\"");
+   AssertContains("PM7 level", g_grind_telemetry_test_last_payload,
+                  "\"level\":\"CRITICAL\"");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_CloseByTestReset();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -4684,6 +4880,13 @@ void OnStart()
    Test_AR18_BatchRejected();
    Test_AR19_NonFiniteDealPrice();
    Test_AR20_ArchiveDisabledWithoutKey();
+   Test_PM1_QuarantineMarkers();
+   Test_PM2_StrayL0CancelMarker();
+   Test_PM3_StrayL0ClearedGoneMarker();
+   Test_PM4_StrayL0CancelOnFillMarker();
+   Test_PM5_DerivedCloseByMarker();
+   Test_PM6_SlippageNullForOutBy();
+   Test_PM7_CloseBySymbolMismatchCritical();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
