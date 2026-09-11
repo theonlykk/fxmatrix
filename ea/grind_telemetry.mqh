@@ -8,6 +8,7 @@
 #include "grind_pnl.mqh"
 #include "grind_recon_failure.mqh"
 #include "grind_mae.mqh"
+#include "grind_quarantine.mqh"
 
 // Unit-test hook: intercept WebRequest when active (fxgrind_tests).
 bool   g_grind_telemetry_test_active = false;

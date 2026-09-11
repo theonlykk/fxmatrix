@@ -3676,6 +3676,205 @@ void Test_CB4_DispatcherRepeatDeliveryCountsOnce()
    Grind_TestResetSideState();
 }
 
+void Test_Q1_TransientReleased()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q1 step1 quarantine",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q1 quarantined", g_grind_quarantined);
+   AssertTrue("Q1 step2 ok",
+              Grind_QuarantineStep(true, "", 1091) == GRIND_INV_OK);
+   AssertFalse("Q1 released", g_grind_quarantined);
+   AssertTrue("Q1 episodes", g_grind_quarantine_episodes == 1);
+   Grind_QuarantineReset();
+}
+
+void Test_Q2_PersistentHaltsWhenBothThresholdsMet()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q2 step1",
+              Grind_QuarantineStep(false, "I3_SHORT_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q2 step2",
+              Grind_QuarantineStep(false, "I3_SHORT_NAKED", 2000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q2 step3 halt",
+              Grind_QuarantineStep(false, "I3_SHORT_NAKED", 4000) == GRIND_INV_HALT);
+   Grind_QuarantineReset();
+}
+
+void Test_Q3_TimeWithoutChecksDoesNotHalt()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q3 step1",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q3 step2 quarantine",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 60000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q3 step3 halt",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 60010) == GRIND_INV_HALT);
+   Grind_QuarantineReset();
+}
+
+void Test_Q4_ChecksWithoutTimeDoNotHalt()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q4 step1",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q4 step2",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1010) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q4 step3",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1020) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q4 step4",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1030) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q4 checks", g_grind_quarantine_checks == 4);
+   Grind_QuarantineReset();
+}
+
+void Test_Q5_NonQuarantinableHaltsImmediately()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q5 halt",
+              Grind_QuarantineStep(false, "I5_SHORT_DUP", 1000) == GRIND_INV_HALT);
+   AssertFalse("Q5 not quarantined", g_grind_quarantined);
+   AssertTrue("Q5 no episodes", g_grind_quarantine_episodes == 0);
+   Grind_QuarantineReset();
+}
+
+void Test_Q6_NonQuarantinableDuringQuarantineHalts()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q6 enter",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q6 halt",
+              Grind_QuarantineStep(false, "I6_LONG_EXIT", 1010) == GRIND_INV_HALT);
+   Grind_QuarantineReset();
+}
+
+void Test_Q7_PassResetsClockAndChecks()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q7 step1",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q7 step2",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 2000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q7 pass",
+              Grind_QuarantineStep(true, "", 2500) == GRIND_INV_OK);
+   AssertTrue("Q7 reenter",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 3000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q7 start reset", g_grind_quarantine_start_ms == 3000);
+   AssertTrue("Q7 checks reset", g_grind_quarantine_checks == 1);
+   AssertTrue("Q7 episodes", g_grind_quarantine_episodes == 2);
+   AssertTrue("Q7 step4 quarantine",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 5000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q7 step5 halt",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 6500) == GRIND_INV_HALT);
+   Grind_QuarantineReset();
+}
+
+void Test_Q8_QuarantinableSet()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q8 I2_LONG_EXIT_DUP",
+              Grind_IsQuarantinableReason("I2_LONG_EXIT_DUP"));
+   AssertTrue("Q8 I2_SHORT_EXIT_DUP",
+              Grind_IsQuarantinableReason("I2_SHORT_EXIT_DUP"));
+   AssertTrue("Q8 I3_LONG_NAKED",
+              Grind_IsQuarantinableReason("I3_LONG_NAKED"));
+   AssertTrue("Q8 I3_SHORT_NAKED",
+              Grind_IsQuarantinableReason("I3_SHORT_NAKED"));
+   AssertTrue("Q8 I4_LONG_ORPHAN_EXIT",
+              Grind_IsQuarantinableReason("I4_LONG_ORPHAN_EXIT"));
+   AssertTrue("Q8 I4_SHORT_ORPHAN_EXIT",
+              Grind_IsQuarantinableReason("I4_SHORT_ORPHAN_EXIT"));
+   AssertFalse("Q8 I1_LONG_EXIT_COUNT",
+               Grind_IsQuarantinableReason("I1_LONG_EXIT_COUNT"));
+   AssertFalse("Q8 I5_LONG_DUP",
+               Grind_IsQuarantinableReason("I5_LONG_DUP"));
+   AssertFalse("Q8 I5_SHORT_CORRUPT_LAYER_INDICES",
+               Grind_IsQuarantinableReason("I5_SHORT_CORRUPT_LAYER_INDICES"));
+   AssertFalse("Q8 I6_SHORT_EXIT",
+               Grind_IsQuarantinableReason("I6_SHORT_EXIT"));
+   AssertFalse("Q8 I7_LONG_DEPTH",
+               Grind_IsQuarantinableReason("I7_LONG_DEPTH"));
+   AssertFalse("Q8 I8_CORRUPT_PENDING_ADD",
+               Grind_IsQuarantinableReason("I8_CORRUPT_PENDING_ADD"));
+   AssertFalse("Q8 AMBIGUOUS_L0_LONG",
+               Grind_IsQuarantinableReason("AMBIGUOUS_L0_LONG"));
+   AssertFalse("Q8 FATAL_LAYER_RESIZE",
+               Grind_IsQuarantinableReason("FATAL_LAYER_RESIZE"));
+   AssertFalse("Q8 HALT_ADD_INDEX_MISMATCH",
+               Grind_IsQuarantinableReason("HALT_ADD_INDEX_MISMATCH"));
+   AssertFalse("Q8 empty", Grind_IsQuarantinableReason(""));
+   Grind_QuarantineReset();
+}
+
+void Test_Q9_ReasonChangeKeepsClock()
+{
+   Grind_QuarantineReset();
+   AssertTrue("Q9 step1",
+              Grind_QuarantineStep(false, "I3_LONG_NAKED", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q9 step2",
+              Grind_QuarantineStep(false, "I3_SHORT_NAKED", 2000) == GRIND_INV_QUARANTINE);
+   AssertTrue("Q9 step3 halt",
+              Grind_QuarantineStep(false, "I4_LONG_ORPHAN_EXIT", 4000) == GRIND_INV_HALT);
+   AssertEqStr("Q9 reason", g_grind_quarantine_reason, "I4_LONG_ORPHAN_EXIT");
+   Grind_QuarantineReset();
+}
+
+void Test_Q10_RetryMissingExitsOnlyUncovered()
+{
+   Grind_QuarantineReset();
+   Grind_TestResetSideState();
+   Grind_OrderTestReset();
+   g_grind_order_test_active = true;
+
+   ArrayResize(g_grind_long.layers, 3);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_order_ticket = 0;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[1].entry_price = 1.24900;
+   g_grind_long.layers[1].exit_target = 1.24950;
+   g_grind_long.layers[1].position_ticket = 1002;
+   g_grind_long.layers[1].exit_order_ticket = 7001;
+   g_grind_long.layers[1].exit_position_ticket = 0;
+   g_grind_long.layers[1].layer_index = 1;
+   g_grind_long.layers[2].entry_price = 1.24800;
+   g_grind_long.layers[2].exit_target = 1.24850;
+   g_grind_long.layers[2].position_ticket = 1003;
+   g_grind_long.layers[2].exit_order_ticket = 0;
+   g_grind_long.layers[2].exit_position_ticket = 7002;
+   g_grind_long.layers[2].layer_index = 2;
+
+   Grind_RetryMissingExits(22260101UL, "OPT", 0.01);
+
+   AssertTrue("Q10 place once", g_grind_order_test_place_calls == 1);
+   AssertTrue("Q10 layer0 exit", g_grind_long.layers[0].exit_order_ticket > 0);
+   AssertTrue("Q10 layer1 unchanged", g_grind_long.layers[1].exit_order_ticket == 7001);
+   AssertTrue("Q10 layer2 unchanged", g_grind_long.layers[2].exit_order_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_QuarantineReset();
+}
+
+void Test_Q11_HeartbeatCarriesQuarantine()
+{
+   Grind_QuarantineReset();
+   g_grind_quarantined = true;
+   g_grind_quarantine_reason = "I3_LONG_NAKED";
+   g_grind_quarantine_episodes = 2;
+   const string hb = Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", 1, 2, 3, 4,
+      false, false, "", true, true,
+      0.1, 0.2, 0.3, 0.4, false,
+      22260101UL, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
+   AssertContains("Q11 quarantined", hb, "\"quarantined\":true");
+   AssertContains("Q11 quarantine_reason", hb, "\"quarantine_reason\":\"I3_LONG_NAKED\"");
+   AssertContains("Q11 quarantine_episodes", hb, "\"quarantine_episodes\":2");
+   Grind_QuarantineReset();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -3809,6 +4008,17 @@ void OnStart()
    Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
    Test_CB3_DispatcherShortCloseLeavesLongLayer();
    Test_CB4_DispatcherRepeatDeliveryCountsOnce();
+   Test_Q1_TransientReleased();
+   Test_Q2_PersistentHaltsWhenBothThresholdsMet();
+   Test_Q3_TimeWithoutChecksDoesNotHalt();
+   Test_Q4_ChecksWithoutTimeDoNotHalt();
+   Test_Q5_NonQuarantinableHaltsImmediately();
+   Test_Q6_NonQuarantinableDuringQuarantineHalts();
+   Test_Q7_PassResetsClockAndChecks();
+   Test_Q8_QuarantinableSet();
+   Test_Q9_ReasonChangeKeepsClock();
+   Test_Q10_RetryMissingExitsOnlyUncovered();
+   Test_Q11_HeartbeatCarriesQuarantine();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();

@@ -926,6 +926,13 @@ void Grind_TryRecenterOppositeL0(GrindSideState &opposite_side,
 }
 
 //+------------------------------------------------------------------+
+void Grind_RetryMissingExits(const ulong magic,
+                             const string slot,
+                             const double lots)
+{
+}
+
+//+------------------------------------------------------------------+
 void Grind_OnTickEngine(const ulong magic,
                         const string slot,
                         const double width_pips,
