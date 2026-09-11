@@ -792,15 +792,15 @@ void Grind_HandleSideDealFill(GrindSideState &side,
    const double deal_price = Grind_DealGetDouble(deal_ticket, DEAL_PRICE);
 
    if(entry_type == DEAL_ENTRY_OUT_BY) {
-      Grind_MarkDealProcessed(deal_ticket);
-
-      // CloseBy emits two OUT_BY deals (entry + exit positions). Only the deal
-      // whose position_id matches the layer's entry position completes a scalp.
+      // Both sides see every deal. Only the side whose layer owns this deal's
+      // position marks it processed and completes the scalp.
       for(int i = 0; i < Grind_SideDepth(side); i++) {
          if(side.layers[i].position_ticket != position_id)
             continue;
          if(side.layers[i].exit_position_ticket == 0)
             continue;
+
+         Grind_MarkDealProcessed(deal_ticket);
 
          const double deal_profit = Grind_DealGetDouble(deal_ticket, DEAL_PROFIT);
          const double deal_swap = Grind_DealGetDouble(deal_ticket, DEAL_SWAP);
