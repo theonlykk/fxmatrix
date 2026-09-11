@@ -23,10 +23,11 @@ a little profit.
 
 ### Swap multiplier
 
-`Grind_CarrySwapMultiplier(day_of_week)` reads per-day
-`SYMBOL_SWAP_MULTIPLIER_*` when the broker publishes them; if zero or absent,
-falls back to `SYMBOL_SWAP_ROLLOVER3DAYS` (3 on that weekday, 1 elsewhere).
-Returns 1 when nothing is readable.
+This build does not expose `SYMBOL_SWAP_MULTIPLIER_*`, so
+`Grind_CarrySwapMultiplier(day_of_week)` derives the weekly table from
+`SYMBOL_SWAP_ROLLOVER3DAYS`: multiplier 3 on that weekday, 1 on Mon-Fri
+elsewhere, 0 on Saturday and Sunday (no broker charge row). Test override
+`g_grind_carry_test_rollover_*` supplies the rollover day in CS4.
 
 ### Shift and eligibility
 

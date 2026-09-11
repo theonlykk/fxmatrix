@@ -4877,6 +4877,8 @@ void Test_CS4_SwapMultiplier()
 {
    Grind_CarryGateReset(99991004UL);
    Grind_CarryTestReset();
+   g_grind_carry_test_rollover_active = true;
+   g_grind_carry_test_rollover_day = 3;
    AssertTrue("CS4 wed", Grind_CarrySwapMultiplier(3) == 3);
    AssertTrue("CS4 tue", Grind_CarrySwapMultiplier(2) == 1);
    Grind_CarryGateReset(99991004UL);

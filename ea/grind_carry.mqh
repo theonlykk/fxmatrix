@@ -20,6 +20,9 @@ int      g_grind_carry_test_digits = 0;
 int      g_grind_carry_test_mult_today = 0;
 int      g_grind_carry_test_mult_tomorrow = 0;
 
+bool     g_grind_carry_test_rollover_active = false;
+int      g_grind_carry_test_rollover_day = 3;
+
 ulong    g_grind_carry_eligible_magic = 0;
 
 //+------------------------------------------------------------------+
@@ -35,6 +38,8 @@ void Grind_CarryTestReset()
    g_grind_carry_test_digits = 0;
    g_grind_carry_test_mult_today = 0;
    g_grind_carry_test_mult_tomorrow = 0;
+   g_grind_carry_test_rollover_active = false;
+   g_grind_carry_test_rollover_day = 3;
 }
 
 //+------------------------------------------------------------------+
@@ -66,33 +71,20 @@ bool Grind_CarryTestGetOpenTime(const ulong ticket, datetime &open_time)
 }
 
 //+------------------------------------------------------------------+
-ENUM_SYMBOL_INFO_INTEGER Grind_CarrySwapMultiplierProperty(const int day_of_week)
-{
-   switch(day_of_week) {
-      case 0: return SYMBOL_SWAP_MULTIPLIER_SUNDAY;
-      case 1: return SYMBOL_SWAP_MULTIPLIER_MONDAY;
-      case 2: return SYMBOL_SWAP_MULTIPLIER_TUESDAY;
-      case 3: return SYMBOL_SWAP_MULTIPLIER_WEDNESDAY;
-      case 4: return SYMBOL_SWAP_MULTIPLIER_THURSDAY;
-      case 5: return SYMBOL_SWAP_MULTIPLIER_FRIDAY;
-      case 6: return SYMBOL_SWAP_MULTIPLIER_SATURDAY;
-   }
-   return SYMBOL_SWAP_ROLLOVER3DAYS;
-}
-
-//+------------------------------------------------------------------+
 int Grind_CarrySwapMultiplier(const int day_of_week)
 {
    if(day_of_week < 0 || day_of_week > 6)
       return 1;
 
-   const long per_day = SymbolInfoInteger(_Symbol,
-                                          Grind_CarrySwapMultiplierProperty(day_of_week));
-   if(per_day > 0)
-      return (int)per_day;
+   int rollover3days;
+   if(g_grind_carry_test_rollover_active)
+      rollover3days = g_grind_carry_test_rollover_day;
+   else
+      rollover3days = (int)SymbolInfoInteger(_Symbol, SYMBOL_SWAP_ROLLOVER3DAYS);
 
-   const int rollover = (int)SymbolInfoInteger(_Symbol, SYMBOL_SWAP_ROLLOVER3DAYS);
-   if(rollover >= 0 && rollover <= 6 && day_of_week == rollover)
+   if(day_of_week == 0 || day_of_week == 6)
+      return 0;
+   if(day_of_week == rollover3days)
       return 3;
    return 1;
 }
