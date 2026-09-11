@@ -4672,6 +4672,74 @@ void Test_PM7_CloseBySymbolMismatchCritical()
    Grind_CloseByTestReset();
 }
 
+void Test_DI1_RecordReadRoundTrip()
+{
+   const ulong magic = 99990001UL;
+   Grind_ArchiveClearPendingDeinit(magic);
+   int r = -1;
+   datetime t = 0;
+   long a = 0;
+   Grind_ArchiveRecordDeinit(magic, 2, D'2026.09.11 19:37:39', 1789140000000);
+   AssertTrue("DI1 read", Grind_ArchiveReadPendingDeinit(magic, r, t, a));
+   AssertTrue("DI1 reason", r == 2);
+   AssertTrue("DI1 time", t == D'2026.09.11 19:37:39');
+   AssertTrue("DI1 anchor", a == 1789140000000);
+   Grind_ArchiveClearPendingDeinit(magic);
+}
+
+void Test_DI2_ClearRemovesGlobals()
+{
+   const ulong magic = 99990001UL;
+   Grind_ArchiveClearPendingDeinit(magic);
+   Grind_ArchiveRecordDeinit(magic, 2, D'2026.09.11 19:37:39', 1789140000000);
+   Grind_ArchiveClearPendingDeinit(magic);
+   int r = -1;
+   datetime t = 0;
+   long a = 0;
+   AssertFalse("DI2 read", Grind_ArchiveReadPendingDeinit(magic, r, t, a));
+   AssertFalse("DI2 gv",
+               GlobalVariableCheck("GRIND_DEINIT_REASON_99990001"));
+   Grind_ArchiveClearPendingDeinit(magic);
+}
+
+void Test_DI3_ReadAbsentReturnsFalse()
+{
+   const ulong magic = 99990002UL;
+   Grind_ArchiveClearPendingDeinit(magic);
+   int r = -1;
+   datetime t = 0;
+   long a = 0;
+   AssertFalse("DI3 read", Grind_ArchiveReadPendingDeinit(magic, r, t, a));
+   Grind_ArchiveClearPendingDeinit(magic);
+}
+
+void Test_DI4_DeinitExtraFields()
+{
+   const ulong magic = 99990004UL;
+   Grind_ArchiveClearPendingDeinit(magic);
+   const string fields = Grind_ArchiveDeinitExtraFields(D'2026.09.11 19:37:39',
+                                                        22260101UL,
+                                                        1789140000000);
+   AssertContains("DI4 time", fields,
+                  "\"deinit_time_broker\":\"2026-09-11 19:37:39\"");
+   AssertContains("DI4 session", fields,
+                  "\"prev_session_id\":\"22260101-1789140000000\"");
+   Grind_ArchiveClearPendingDeinit(magic);
+}
+
+void Test_DI5_AnchorExactRoundTrip()
+{
+   const ulong magic = 99990003UL;
+   Grind_ArchiveClearPendingDeinit(magic);
+   int r = -1;
+   datetime t = 0;
+   long a = 0;
+   Grind_ArchiveRecordDeinit(magic, 5, D'2026.09.11 20:00:00', 1789140000123);
+   Grind_ArchiveReadPendingDeinit(magic, r, t, a);
+   AssertTrue("DI5 anchor", a == 1789140000123);
+   Grind_ArchiveClearPendingDeinit(magic);
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -4887,6 +4955,11 @@ void OnStart()
    Test_PM5_DerivedCloseByMarker();
    Test_PM6_SlippageNullForOutBy();
    Test_PM7_CloseBySymbolMismatchCritical();
+   Test_DI1_RecordReadRoundTrip();
+   Test_DI2_ClearRemovesGlobals();
+   Test_DI3_ReadAbsentReturnsFalse();
+   Test_DI4_DeinitExtraFields();
+   Test_DI5_AnchorExactRoundTrip();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();

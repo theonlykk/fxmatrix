@@ -491,6 +491,36 @@ void Grind_ArchiveMarker(const string level,
 }
 
 //+------------------------------------------------------------------+
+void Grind_ArchiveRecordDeinit(const ulong magic,
+                               const int reason,
+                               const datetime broker_now,
+                               const long anchor_ms)
+{
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ArchiveReadPendingDeinit(const ulong magic,
+                                    int &reason,
+                                    datetime &broker_time,
+                                    long &anchor_ms)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_ArchiveClearPendingDeinit(const ulong magic)
+{
+}
+
+//+------------------------------------------------------------------+
+string Grind_ArchiveDeinitExtraFields(const datetime broker_time,
+                                      const ulong magic,
+                                      const long anchor_ms)
+{
+   return "";
+}
+
+//+------------------------------------------------------------------+
 bool Grind_TimerTelemetryDue(const ulong now_tick,
                              const ulong last_tick,
                              const int interval_sec)
