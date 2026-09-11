@@ -195,13 +195,12 @@ void OnTimer()
 {
    Grind_ArchiveFlush(false);
 
-   Grind_ResetDailyPnlIfNewDay();
-   Grind_MaeOnTimer();
-   Grind_ProcessPendingExitMicrostructure();
-   Grind_DrainScalpEventQueue();
-
    const ulong now_tick = GetTickCount64();
    if(Grind_TimerTelemetryDue(now_tick, g_grind_last_telemetry_tick, TelemetryIntervalSec)) {
+      Grind_ResetDailyPnlIfNewDay();
+      Grind_MaeOnTimer();
+      Grind_ProcessPendingExitMicrostructure();
+      Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");

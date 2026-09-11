@@ -4461,6 +4461,21 @@ void Test_AR19_NonFiniteDealPrice()
    Grind_TelemetryTestReset();
 }
 
+void Test_AR20_ArchiveDisabledWithoutKey()
+{
+   Grind_ArchiveTestReset();
+   Grind_ArchiveConfigureAt(true,
+                             "https://pipshed.com/api/telemetry/push",
+                             "",
+                             "GRIND_TEST_OPT",
+                             22260101UL,
+                             1789140000000,
+                             1000,
+                             false);
+   AssertFalse("AR20 disabled", g_grind_archive_enabled);
+   Grind_ArchiveTestReset();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -4668,6 +4683,7 @@ void OnStart()
    Test_AR17_TimerTelemetryDue();
    Test_AR18_BatchRejected();
    Test_AR19_NonFiniteDealPrice();
+   Test_AR20_ArchiveDisabledWithoutKey();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();

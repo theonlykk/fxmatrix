@@ -1,6 +1,6 @@
 # ADR-131: EA Archive Events Part 1 (Transport, Send/Fill/Config/Critical)
 
-**Status:** Accepted  
+**Status:** Proposed (pending live verification)  
 **Date:** 2026-09-11  
 **Context:** pipshed ADR-130 (a34795d) exposes POST /api/telemetry/action
 with idempotent Postgres shadow tables. Gemini rulings R1-R8 define five tables,
@@ -62,7 +62,8 @@ sets `session_id = <magic>-<anchor_ms>`, and anchors `ea_time_ms` to
   blocking the queue indefinitely.
 - **Positive:** Timer stays at 1 s; telemetry interval gating uses tick math.
 - **Negative:** WebRequest blocks up to ~200 ms once per 2 s off the tick path.
-- **Negative:** DEINIT flush is best effort (timer may already be killed).
+- **Negative:** DEINIT flush is best effort: WebRequest during deinitialisation
+  is not guaranteed to complete.
 - **Negative:** Part 2 markers (QUARANTINE, STRAY_L0, CLOSEBY, RECON) not yet
   emitted.
 

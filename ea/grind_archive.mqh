@@ -57,7 +57,7 @@ void Grind_ArchiveConfigureAt(const bool enabled,
                               const ulong anchor_tick,
                               const bool verbose)
 {
-   g_grind_archive_enabled = enabled;
+   g_grind_archive_enabled = enabled && telemetry_url != "" && api_key != "";
    g_grind_archive_api_key = api_key;
    g_grind_archive_instance_id = instance;
    g_grind_archive_magic = magic;
