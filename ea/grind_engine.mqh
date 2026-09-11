@@ -1095,7 +1095,7 @@ void Grind_ArchiveRecordFill(const ulong deal_ticket, const ulong magic)
 
    double order_price_open = 0.0;
    if(!g_grind_deal_test_active && order_ticket > 0 && HistoryOrderSelect(order_ticket))
-      order_price_open = HistoryOrderGetDouble(ORDER_PRICE_OPEN);
+      order_price_open = HistoryOrderGetDouble(order_ticket, ORDER_PRICE_OPEN);
 
    const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    const string fields = Grind_ArchiveFillLogFields(
