@@ -4740,6 +4740,104 @@ void Test_DI5_AnchorExactRoundTrip()
    Grind_ArchiveClearPendingDeinit(magic);
 }
 
+void AssertNear(const string name, const double got, const double expected)
+{
+   AssertTrue(name, MathAbs(got - expected) < 1e-9);
+}
+
+void Test_FP1_RememberLookup()
+{
+   Grind_ArchiveTestReset();
+   Grind_ArchiveRememberOrderPrice(539592770UL, 1.16277);
+   AssertNear("FP1 lookup", Grind_ArchiveLookupSentPrice(539592770UL), 1.16277);
+   Grind_ArchiveTestReset();
+}
+
+void Test_FP2_RememberOverwrite()
+{
+   Grind_ArchiveTestReset();
+   Grind_ArchiveRememberOrderPrice(1001UL, 0.85700);
+   Grind_ArchiveRememberOrderPrice(1001UL, 0.85722);
+   AssertNear("FP2 lookup", Grind_ArchiveLookupSentPrice(1001UL), 0.85722);
+   Grind_ArchiveTestReset();
+}
+
+void Test_FP3_LookupAbsent()
+{
+   Grind_ArchiveTestReset();
+   AssertNear("FP3 lookup", Grind_ArchiveLookupSentPrice(424242UL), 0.0);
+   Grind_ArchiveTestReset();
+}
+
+void Test_FP4_RingEviction()
+{
+   Grind_ArchiveTestReset();
+   g_grind_archive_price_max = 3;
+   Grind_ArchiveRememberOrderPrice(1UL, 1.1);
+   Grind_ArchiveRememberOrderPrice(2UL, 1.2);
+   Grind_ArchiveRememberOrderPrice(3UL, 1.3);
+   Grind_ArchiveRememberOrderPrice(4UL, 1.4);
+   AssertNear("FP4 evicted", Grind_ArchiveLookupSentPrice(1UL), 0.0);
+   AssertNear("FP4 kept", Grind_ArchiveLookupSentPrice(4UL), 1.4);
+   Grind_ArchiveTestReset();
+}
+
+void Test_FP5_NoteSendResult()
+{
+   Grind_ArchiveTestReset();
+   MqlTradeRequest req;
+   MqlTradeResult res;
+   ZeroMemory(req);
+   ZeroMemory(res);
+   req.action = TRADE_ACTION_PENDING;
+   req.price = 1.2;
+   res.order = 777;
+   res.retcode = 10009;
+   Grind_ArchiveNoteSendResult(req, res, true);
+   AssertNear("FP5 pending", Grind_ArchiveLookupSentPrice(777UL), 1.2);
+   req.action = TRADE_ACTION_MODIFY;
+   req.order = 777;
+   req.price = 1.3;
+   res.retcode = 10009;
+   Grind_ArchiveNoteSendResult(req, res, true);
+   AssertNear("FP5 modify", Grind_ArchiveLookupSentPrice(777UL), 1.3);
+   req.price = 1.4;
+   res.retcode = 10006;
+   Grind_ArchiveNoteSendResult(req, res, false);
+   AssertNear("FP5 failed modify", Grind_ArchiveLookupSentPrice(777UL), 1.3);
+   Grind_ArchiveTestReset();
+}
+
+void Test_FP6_FillLogNullOrderPrice()
+{
+   Grind_ArchiveTestReset();
+   const string fields = Grind_ArchiveFillLogFields(
+      2, 2, 2, "IN", "BUY", "GRIND|ALT|S|L00|ENT",
+      0.85742, 0.0, 0.01, 0, 0, 0,
+      D'2026.09.11 15:30:14', 0, false, false, 0.00001, 22260101UL);
+   AssertContains("FP6 order null", fields, "\"order_price_open\":null");
+   AssertContains("FP6 slippage null", fields, "\"slippage_pips\":null");
+   Grind_ArchiveTestReset();
+}
+
+void Test_FP7_ResolveFromSentMap()
+{
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_TestResetSideState();
+   g_grind_halted = true;
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9920, "GRIND|OPT|S|L00|ENT", DEAL_ENTRY_IN, 8801, 8801,
+                        0.0, 0.0, 0.0, 1.26000);
+   Grind_ArchiveRememberOrderPrice(8801UL, 1.25990);
+   Grind_TestDispatchDeal(9920);
+   AssertContains("FP7 order", Grind_ArchiveQueuePeek(0), "\"order_price_open\":1.25990");
+   AssertContains("FP7 slippage", Grind_ArchiveQueuePeek(0), "\"slippage_pips\":1.0");
+   Grind_ArchiveTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -4960,6 +5058,13 @@ void OnStart()
    Test_DI3_ReadAbsentReturnsFalse();
    Test_DI4_DeinitExtraFields();
    Test_DI5_AnchorExactRoundTrip();
+   Test_FP1_RememberLookup();
+   Test_FP2_RememberOverwrite();
+   Test_FP3_LookupAbsent();
+   Test_FP4_RingEviction();
+   Test_FP5_NoteSendResult();
+   Test_FP6_FillLogNullOrderPrice();
+   Test_FP7_ResolveFromSentMap();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();

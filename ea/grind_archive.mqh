@@ -25,6 +25,12 @@ bool   g_grind_archive_verbose = false;
 bool   g_grind_archive_test_tick_active = false;
 ulong  g_grind_archive_test_tick = 0;
 
+ulong  g_grind_archive_price_tickets[];
+double g_grind_archive_price_values[];
+int    g_grind_archive_price_count = 0;
+int    g_grind_archive_price_max = 512;
+int    g_grind_archive_price_next = 0;
+
 //+------------------------------------------------------------------+
 void Grind_ArchiveTestReset()
 {
@@ -45,6 +51,11 @@ void Grind_ArchiveTestReset()
    g_grind_archive_verbose = false;
    g_grind_archive_test_tick_active = false;
    g_grind_archive_test_tick = 0;
+   ArrayResize(g_grind_archive_price_tickets, 0);
+   ArrayResize(g_grind_archive_price_values, 0);
+   g_grind_archive_price_count = 0;
+   g_grind_archive_price_max = 512;
+   g_grind_archive_price_next = 0;
 }
 
 //+------------------------------------------------------------------+
@@ -556,6 +567,24 @@ string Grind_ArchiveDeinitExtraFields(const datetime broker_time,
 
    return "\"deinit_time_broker\":" + time_val +
           ",\"prev_session_id\":" + session_val;
+}
+
+//+------------------------------------------------------------------+
+void Grind_ArchiveRememberOrderPrice(const ulong ticket, const double price)
+{
+}
+
+//+------------------------------------------------------------------+
+double Grind_ArchiveLookupSentPrice(const ulong ticket)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_ArchiveNoteSendResult(const MqlTradeRequest &req,
+                                 const MqlTradeResult &res,
+                                 const bool ok)
+{
 }
 
 //+------------------------------------------------------------------+

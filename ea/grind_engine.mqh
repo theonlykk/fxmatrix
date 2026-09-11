@@ -1064,6 +1064,12 @@ void Grind_OnTickEngine(const ulong magic,
 }
 
 //+------------------------------------------------------------------+
+double Grind_ArchiveResolveOrderPrice(const ulong order_ticket)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
 void Grind_ArchiveRecordFill(const ulong deal_ticket, const ulong magic)
 {
    if(!g_grind_archive_enabled)
