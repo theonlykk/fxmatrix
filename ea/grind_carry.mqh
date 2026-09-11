@@ -233,7 +233,8 @@ string Grind_CarrySnapshotFields(const string symbol,
                                  const double accrued_swap_long,
                                  const double accrued_swap_short)
 {
-   return "\"symbol\":" + Grind_ArchiveJsonStringOrNull(symbol) +
+   return "{" +
+          "\"symbol\":" + Grind_ArchiveJsonStringOrNull(symbol) +
           ",\"swap_mode\":" + IntegerToString(swap_mode) +
           ",\"swap_long\":" + Grind_ArchiveJsonDouble(swap_long, 4) +
           ",\"swap_short\":" + Grind_ArchiveJsonDouble(swap_short, 4) +
@@ -254,7 +255,8 @@ string Grind_CarrySnapshotFields(const string symbol,
           ",\"mult_today\":" + IntegerToString(mult_today) +
           ",\"mult_tomorrow\":" + IntegerToString(mult_tomorrow) +
           ",\"accrued_swap_long\":" + Grind_ArchiveJsonDouble(accrued_swap_long, 2) +
-          ",\"accrued_swap_short\":" + Grind_ArchiveJsonDouble(accrued_swap_short, 2);
+          ",\"accrued_swap_short\":" + Grind_ArchiveJsonDouble(accrued_swap_short, 2) +
+          "}";
 }
 
 //+------------------------------------------------------------------+

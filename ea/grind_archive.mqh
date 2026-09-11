@@ -19,6 +19,7 @@ string g_grind_archive_queue[];
 int    g_grind_archive_queue_max = 5000;
 int    g_grind_archive_dropped = 0;
 int    g_grind_archive_rejected = 0;
+string g_grind_archive_rejected_types = "";
 long   g_grind_archive_last_flush_ms = 0;
 bool   g_grind_archive_verbose = false;
 
@@ -47,6 +48,7 @@ void Grind_ArchiveTestReset()
    g_grind_archive_queue_max = 5000;
    g_grind_archive_dropped = 0;
    g_grind_archive_rejected = 0;
+   g_grind_archive_rejected_types = "";
    g_grind_archive_last_flush_ms = 0;
    g_grind_archive_verbose = false;
    g_grind_archive_test_tick_active = false;
@@ -79,6 +81,7 @@ void Grind_ArchiveConfigureAt(const bool enabled,
    ArrayResize(g_grind_archive_queue, 0);
    g_grind_archive_dropped = 0;
    g_grind_archive_rejected = 0;
+   g_grind_archive_rejected_types = "";
    g_grind_archive_last_flush_ms = 0;
 
    string action_url = telemetry_url;
@@ -303,6 +306,41 @@ int Grind_ArchiveDropped()
 int Grind_ArchiveRejected()
 {
    return g_grind_archive_rejected;
+}
+
+//+------------------------------------------------------------------+
+string Grind_ArchiveEventTypeFromJson(const string event_json)
+{
+   const int pos = StringFind(event_json, "\"type\":\"");
+   if(pos < 0)
+      return "unknown";
+   const int start = pos + 8;
+   const int end = StringFind(event_json, "\"", start);
+   if(end < 0)
+      return "unknown";
+   return StringSubstr(event_json, start, end - start);
+}
+
+//+------------------------------------------------------------------+
+void Grind_ArchiveAppendRejectedType(const string event_json)
+{
+   const string event_type = Grind_ArchiveEventTypeFromJson(event_json);
+   int existing = 0;
+   if(g_grind_archive_rejected_types != "") {
+      for(int i = 0; i < StringLen(g_grind_archive_rejected_types); i++) {
+         if(StringGetCharacter(g_grind_archive_rejected_types, i) == ',')
+            existing++;
+      }
+      existing++;
+   }
+   if(existing >= 20) {
+      if(StringFind(g_grind_archive_rejected_types, "...") < 0)
+         g_grind_archive_rejected_types += ",...";
+      return;
+   }
+   if(g_grind_archive_rejected_types != "")
+      g_grind_archive_rejected_types += ",";
+   g_grind_archive_rejected_types += event_type;
 }
 
 //+------------------------------------------------------------------+

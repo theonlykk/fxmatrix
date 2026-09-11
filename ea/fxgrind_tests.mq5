@@ -4444,6 +4444,8 @@ void Test_AR18_BatchRejected()
                   "\"code\":\"TELEMETRY_BATCH_REJECTED\"");
    AssertContains("AR18 rejected", g_grind_telemetry_test_last_payload,
                   "\"rejected\":3");
+   AssertContains("AR18 types", g_grind_telemetry_test_last_payload,
+                  "\"types\":\"ea_event");
    Grind_ArchiveTestReset();
    Grind_TelemetryTestReset();
 }
@@ -4931,6 +4933,8 @@ void Test_CS7_EmitSnapshot()
    AssertContains("CS7 code", Grind_ArchiveQueuePeek(0), "\"code\":\"CARRY_SNAPSHOT\"");
    AssertContains("CS7 swap_long", Grind_ArchiveQueuePeek(0), "\"swap_long\":-8.76");
    AssertContains("CS7 long_pips", Grind_ArchiveQueuePeek(0), "\"long_pips\":-2.628");
+   AssertContains("CS7 detail object", Grind_ArchiveQueuePeek(0),
+                  "\"detail\":{\"symbol\":");
    Grind_CarryGateReset(99991007UL);
    Grind_CarryTestReset();
    Grind_ArchiveTestReset();
@@ -4954,6 +4958,21 @@ void Test_CS8_EmitSnapshotMultTodayTomorrow()
    AssertContains("CS8 tomorrow", Grind_ArchiveQueuePeek(0), "\"mult_tomorrow\":3");
    Grind_CarryGateReset(99991008UL);
    Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+}
+
+void Test_CS9_DetailJsonObjectOrNull()
+{
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_ArchiveMarker("INFO", "T", "", 0, "{\"a\":1}");
+   AssertContains("CS9 braced", Grind_ArchiveQueuePeek(0),
+                  "\"detail\":{\"a\":1}");
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_ArchiveMarker("INFO", "T", "", 0, "");
+   AssertContains("CS9 null", Grind_ArchiveQueuePeek(0),
+                  "\"detail\":null");
    Grind_ArchiveTestReset();
 }
 
@@ -5192,6 +5211,7 @@ void OnStart()
    Test_CS6_EligibleLayers();
    Test_CS7_EmitSnapshot();
    Test_CS8_EmitSnapshotMultTodayTomorrow();
+   Test_CS9_DetailJsonObjectOrNull();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();

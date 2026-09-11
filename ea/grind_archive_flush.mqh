@@ -23,11 +23,14 @@ void Grind_ArchiveFlush(const bool force)
 
    if(g_grind_archive_rejected > 0) {
       const string rejected_detail = "{\"rejected\":" +
-                                     IntegerToString(g_grind_archive_rejected) + "}";
+                                     IntegerToString(g_grind_archive_rejected) +
+                                     ",\"types\":\"" +
+                                     Grind_JsonEscape(g_grind_archive_rejected_types) + "\"}";
       const string rejected_fields = Grind_ArchiveEaEventFields(
          "ERROR", "TELEMETRY_BATCH_REJECTED", "", 0, rejected_detail);
       Grind_ArchiveEnqueue("ea_event", rejected_fields);
       g_grind_archive_rejected = 0;
+      g_grind_archive_rejected_types = "";
    }
 
    const int count = Grind_ArchiveQueueCount();
@@ -67,6 +70,8 @@ void Grind_ArchiveFlush(const bool force)
    }
 
    if(status == 400) {
+      for(int i = 0; i < batch; i++)
+         Grind_ArchiveAppendRejectedType(g_grind_archive_queue[i]);
       Grind_ArchiveQueueRemoveFront(batch);
       g_grind_archive_rejected += batch;
       Print("ERROR: archive batch rejected by server count=", batch,
