@@ -9,6 +9,8 @@
 #property strict
 
 #include "grind_comment.mqh"
+#include "grind_archive.mqh"
+#include "grind_archive_flush.mqh"
 #include "grind_engine.mqh"
 #include "grind_pnl.mqh"
 #include "grind_magic_lock.mqh"
@@ -4075,6 +4077,390 @@ void Test_SB8_ReconcileLeavesEmptySideL0()
    Grind_TestResetSideState();
 }
 
+void Grind_ArchiveTestConfigureCommon()
+{
+   Grind_ArchiveConfigureAt(true,
+                             "https://pipshed.com/api/telemetry/push",
+                             "test-key",
+                             "GRIND_TEST_OPT",
+                             22260101UL,
+                             1789140000000,
+                             1000,
+                             false);
+   g_grind_archive_test_tick_active = true;
+   g_grind_archive_test_tick = 1500;
+}
+
+void Test_AR1_ArchiveNowMs()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   AssertTrue("AR1 now_ms", Grind_ArchiveNowMs() == 1789140000500);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR2_ArchiveBrokerTime()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   AssertEqStr("AR2 broker_time",
+               Grind_ArchiveBrokerTime(D'2026.09.11 15:30:14'),
+               "2026-09-11 15:30:14");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR3_JsonEscape()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   AssertEqStr("AR3 escape", Grind_JsonEscape("a\"b\\c\n"), "a\\\"b\\\\c\\n");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR4_EnqueueSeq()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   const string f0 = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+   Grind_ArchiveEnqueue("ea_event", f0);
+   const string f1 = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+   Grind_ArchiveEnqueue("ea_event", f1);
+   AssertTrue("AR4 count", Grind_ArchiveQueueCount() == 2);
+   AssertContains("AR4 type0", Grind_ArchiveQueuePeek(0), "\"type\":\"ea_event\"");
+   AssertContains("AR4 seq0", Grind_ArchiveQueuePeek(0), "\"seq\":0");
+   AssertContains("AR4 seq1", Grind_ArchiveQueuePeek(1), "\"seq\":1");
+   AssertContains("AR4 ea0", Grind_ArchiveQueuePeek(0), "\"ea_time_ms\":1789140000500");
+   AssertContains("AR4 ea1", Grind_ArchiveQueuePeek(1), "\"ea_time_ms\":1789140000500");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR5_QueueCap()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_archive_queue_max = 3;
+   for(int i = 0; i < 5; i++) {
+      const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+      Grind_ArchiveEnqueue("ea_event", fields);
+   }
+   AssertTrue("AR5 count", Grind_ArchiveQueueCount() == 3);
+   AssertTrue("AR5 dropped", Grind_ArchiveDropped() == 2);
+   AssertContains("AR5 seq2", Grind_ArchiveQueuePeek(0), "\"seq\":2");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR6_FlushBatch()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   for(int i = 0; i < 3; i++) {
+      const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+      Grind_ArchiveEnqueue("ea_event", fields);
+   }
+   g_grind_archive_test_tick = 3000;
+   Grind_ArchiveFlush(false);
+   AssertTrue("AR6 post_calls", g_grind_telemetry_test_post_calls == 1);
+   AssertTrue("AR6 url", StringFind(g_grind_telemetry_test_last_url,
+                                    "/api/telemetry/action") >= 0);
+   AssertContains("AR6 instance", g_grind_telemetry_test_last_payload,
+                  "\"instance_id\":\"GRIND_TEST_OPT\"");
+   AssertContains("AR6 session", g_grind_telemetry_test_last_payload,
+                  "\"session_id\":\"22260101-1789140000000\"");
+   AssertContains("AR6 events", g_grind_telemetry_test_last_payload, "\"events\":[");
+   AssertTrue("AR6 count", Grind_ArchiveQueueCount() == 0);
+   AssertTrue("AR6 no trailing comma",
+              StringFind(g_grind_telemetry_test_last_payload, ",]") < 0);
+   AssertTrue("AR6 ends", StringFind(g_grind_telemetry_test_last_payload,
+                                     "]}") == StringLen(g_grind_telemetry_test_last_payload) - 2);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR7_FlushRetry()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   for(int i = 0; i < 3; i++) {
+      const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+      Grind_ArchiveEnqueue("ea_event", fields);
+   }
+   g_grind_archive_test_tick = 3000;
+   g_grind_telemetry_test_force_fail = true;
+   Grind_ArchiveFlush(false);
+   AssertTrue("AR7 fail post", g_grind_telemetry_test_post_calls == 1);
+   AssertTrue("AR7 fail count", Grind_ArchiveQueueCount() == 3);
+   g_grind_telemetry_test_force_fail = false;
+   g_grind_archive_test_tick = 6000;
+   Grind_ArchiveFlush(false);
+   AssertTrue("AR7 retry count", Grind_ArchiveQueueCount() == 0);
+   AssertTrue("AR7 retry post", g_grind_telemetry_test_post_calls == 2);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR8_FlushThrottle()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+   Grind_ArchiveEnqueue("ea_event", fields);
+   g_grind_archive_test_tick = 10000;
+   Grind_ArchiveFlush(false);
+   AssertTrue("AR8 first post", g_grind_telemetry_test_post_calls == 1);
+   Grind_ArchiveEnqueue("ea_event", fields);
+   g_grind_archive_test_tick = 11999;
+   Grind_ArchiveFlush(false);
+   AssertTrue("AR8 throttled", g_grind_telemetry_test_post_calls == 1);
+   Grind_ArchiveFlush(true);
+   AssertTrue("AR8 forced", g_grind_telemetry_test_post_calls == 2);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR9_FlushBatch200()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   for(int i = 0; i < 250; i++) {
+      const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+      Grind_ArchiveEnqueue("ea_event", fields);
+   }
+   g_grind_archive_test_tick = 3000;
+   Grind_ArchiveFlush(false);
+   int type_count = 0;
+   int pos = 0;
+   while((pos = StringFind(g_grind_telemetry_test_last_payload, "\"type\":", pos)) >= 0) {
+      type_count++;
+      pos++;
+   }
+   AssertTrue("AR9 batch200", type_count == 200);
+   AssertTrue("AR9 remain50", Grind_ArchiveQueueCount() == 50);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR10_DroppedWarn()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   g_grind_archive_queue_max = 3;
+   for(int i = 0; i < 5; i++) {
+      const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+      Grind_ArchiveEnqueue("ea_event", fields);
+   }
+   g_grind_archive_test_tick = 3000;
+   Grind_ArchiveFlush(false);
+   AssertContains("AR10 code", g_grind_telemetry_test_last_payload,
+                  "\"code\":\"TELEMETRY_QUEUE_DROPPED\"");
+   AssertContains("AR10 dropped", g_grind_telemetry_test_last_payload,
+                  "\"dropped\":2");
+   AssertTrue("AR10 cleared", Grind_ArchiveDropped() == 0);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR11_SendLogFields()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   MqlTradeRequest req;
+   MqlTradeResult res;
+   ZeroMemory(req);
+   ZeroMemory(res);
+   req.action = TRADE_ACTION_PENDING;
+   req.type = ORDER_TYPE_SELL_LIMIT;
+   req.price = 1.16277;
+   req.volume = 0.01;
+   req.magic = 22260201;
+   req.comment = "GRIND|OPT|S|L00|ENT";
+   res.retcode = 10009;
+   res.order = 539592770;
+   const string fields = Grind_ArchiveSendLogFields(req, res, true, 25325,
+                                                    D'2026.09.11 15:30:14',
+                                                    22260201UL);
+   AssertContains("AR11 action", fields, "\"action\":\"PENDING\"");
+   AssertContains("AR11 order_type", fields, "\"order_type\":\"ORDER_TYPE_SELL_LIMIT\"");
+   AssertContains("AR11 side", fields, "\"side\":\"S\"");
+   AssertContains("AR11 layer", fields, "\"layer_index\":0");
+   AssertContains("AR11 role", fields, "\"role\":\"ENT\"");
+   AssertContains("AR11 price", fields, "\"requested_price\":1.16277");
+   AssertContains("AR11 retcode", fields, "\"retcode\":10009");
+   AssertContains("AR11 order", fields, "\"result_order\":539592770");
+   AssertContains("AR11 duration", fields, "\"duration_ms\":25325");
+   AssertContains("AR11 ok", fields, "\"ok\":true");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR12_FillSlippage()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   const string fields_a = Grind_ArchiveFillLogFields(
+      1, 1, 1, "IN", "SELL", "GRIND|OPT|S|L00|ENT",
+      1.16282, 1.16277, 0.01, 0, 0, 0,
+      D'2026.09.11 15:30:14', 0, false, false, 0.00001, 22260101UL);
+   AssertContains("AR12 slippage_a", fields_a, "\"slippage_pips\":0.5");
+   AssertContains("AR12 halted_a", fields_a, "\"halted_at_receipt\":false");
+   const string fields_b = Grind_ArchiveFillLogFields(
+      2, 2, 2, "IN", "SELL", "GRIND|OPT|S|L00|ENT",
+      1.16231, 1.16244, 0.01, 0, 0, 0,
+      D'2026.09.11 15:30:14', 0, false, false, 0.00001, 22260101UL);
+   AssertContains("AR12 slippage_b", fields_b, "\"slippage_pips\":-1.3");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR13_FillWhileHalted()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_halted = true;
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9910, "GRIND|OPT|S|L00|ENT", DEAL_ENTRY_IN, 9910, 9910,
+                        0, 0, 0, 1.26000);
+   Grind_TestDispatchDeal(9910);
+   AssertTrue("AR13 count", Grind_ArchiveQueueCount() == 1);
+   AssertContains("AR13 ticket", Grind_ArchiveQueuePeek(0), "\"deal_ticket\":9910");
+   AssertContains("AR13 halted", Grind_ArchiveQueuePeek(0), "\"halted_at_receipt\":true");
+   AssertTrue("AR13 layers", ArraySize(g_grind_short.layers) == 0);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_AR14_FillWrongMagic()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9911, "GRIND|OPT|S|L00|ENT", DEAL_ENTRY_IN, 9911, 9911,
+                        0, 0, 0, 1.26000);
+   MqlTradeTransaction trans;
+   ZeroMemory(trans);
+   trans.type = TRADE_TRANSACTION_DEAL_ADD;
+   trans.deal = 9911;
+   Grind_OnTradeTransactionEngine(trans, 22260999UL, "OPT", 3.0, 4.0, 12, 0.01);
+   AssertTrue("AR14 count", Grind_ArchiveQueueCount() == 0);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_AR15_ConfigInitFields()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   const string fields = Grind_ArchiveConfigFields(
+      "INIT", 0, "EURUSD", "OPT", "fxgrind 2026.09.11 15:30:14",
+      12345, 10.0, 5.0, 3.0, 12, 0.01, 4.0, 2.0,
+      "EURUSD", "GBPUSD", 1.0, 2.0,
+      "GRIND_TEST_OPT", false, "warn", true, 60);
+   AssertContains("AR15 event", fields, "\"event\":\"INIT\"");
+   AssertContains("AR15 symbol", fields, "\"symbol\":\"EURUSD\"");
+   AssertContains("AR15 build", fields, "\"ea_build\":\"fxgrind ");
+   AssertNotContains("AR15 no key", fields, "api_key");
+   AssertNotContains("AR15 no url", fields, "telemetry_url");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR16_CriticalFlush()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   Grind_TelemetryCritical("GRIND_TEST_OPT", "INVARIANT_FAIL", "I3_LONG_NAKED");
+   AssertTrue("AR16 post", g_grind_telemetry_test_post_calls >= 1);
+   AssertContains("AR16 code", g_grind_telemetry_test_last_payload,
+                  "\"code\":\"INVARIANT_FAIL\"");
+   AssertContains("AR16 level", g_grind_telemetry_test_last_payload,
+                  "\"level\":\"CRITICAL\"");
+   AssertContains("AR16 reason", g_grind_telemetry_test_last_payload,
+                  "\"reason\":\"I3_LONG_NAKED\"");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR17_TimerTelemetryDue()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   AssertTrue("AR17 first", Grind_TimerTelemetryDue(1000, 0, 60));
+   AssertFalse("AR17 not yet", Grind_TimerTelemetryDue(60999, 1000, 60));
+   AssertTrue("AR17 due", Grind_TimerTelemetryDue(61000, 1000, 60));
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR18_BatchRejected()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_telemetry_test_active = true;
+   for(int i = 0; i < 3; i++) {
+      const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+      Grind_ArchiveEnqueue("ea_event", fields);
+   }
+   g_grind_archive_test_tick = 3000;
+   g_grind_telemetry_test_force_status = 400;
+   Grind_ArchiveFlush(false);
+   AssertTrue("AR18 post", g_grind_telemetry_test_post_calls == 1);
+   AssertTrue("AR18 cleared", Grind_ArchiveQueueCount() == 0);
+   g_grind_telemetry_test_force_status = 0;
+   const string fields = Grind_ArchiveEaEventFields("INFO", "T", "", 0, "");
+   Grind_ArchiveEnqueue("ea_event", fields);
+   g_grind_archive_test_tick = 6000;
+   Grind_ArchiveFlush(false);
+   AssertContains("AR18 code", g_grind_telemetry_test_last_payload,
+                  "\"code\":\"TELEMETRY_BATCH_REJECTED\"");
+   AssertContains("AR18 rejected", g_grind_telemetry_test_last_payload,
+                  "\"rejected\":3");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
+void Test_AR19_NonFiniteDealPrice()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   const string fields = Grind_ArchiveFillLogFields(
+      1, 1, 1, "IN", "SELL", "GRIND|OPT|S|L00|ENT",
+      MathSqrt(-1.0), 1.16277, 0.01, 0, 0, 0,
+      D'2026.09.11 15:30:14', 0, false, false, 0.00001, 22260101UL);
+   AssertContains("AR19 null price", fields, "\"deal_price\":null");
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -4263,6 +4649,25 @@ void OnStart()
    Test_SB7_ReconcileUnselectableStray();
    Test_SB8_ReconcileLeavesEmptySideL0();
    Test_SB9_ExitRefusesOverwrite();
+   Test_AR1_ArchiveNowMs();
+   Test_AR2_ArchiveBrokerTime();
+   Test_AR3_JsonEscape();
+   Test_AR4_EnqueueSeq();
+   Test_AR5_QueueCap();
+   Test_AR6_FlushBatch();
+   Test_AR7_FlushRetry();
+   Test_AR8_FlushThrottle();
+   Test_AR9_FlushBatch200();
+   Test_AR10_DroppedWarn();
+   Test_AR11_SendLogFields();
+   Test_AR12_FillSlippage();
+   Test_AR13_FillWhileHalted();
+   Test_AR14_FillWrongMagic();
+   Test_AR15_ConfigInitFields();
+   Test_AR16_CriticalFlush();
+   Test_AR17_TimerTelemetryDue();
+   Test_AR18_BatchRejected();
+   Test_AR19_NonFiniteDealPrice();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
