@@ -93,6 +93,17 @@ struct GrindOrderTestRecord
 GrindOrderTestRecord g_grind_order_test_records[];
 int g_grind_order_test_count = 0;
 
+ulong g_grind_position_test_tickets[];
+int   g_grind_position_test_count = 0;
+
+//+------------------------------------------------------------------+
+void Grind_PositionTestAdd(const ulong ticket)
+{
+   ArrayResize(g_grind_position_test_tickets, g_grind_position_test_count + 1);
+   g_grind_position_test_tickets[g_grind_position_test_count] = ticket;
+   g_grind_position_test_count++;
+}
+
 //+------------------------------------------------------------------+
 void Grind_OrderTestReset()
 {
@@ -110,6 +121,8 @@ void Grind_OrderTestReset()
    g_grind_order_test_last_critical = "";
    ArrayResize(g_grind_order_test_records, 0);
    g_grind_order_test_count = 0;
+   ArrayResize(g_grind_position_test_tickets, 0);
+   g_grind_position_test_count = 0;
 }
 
 //+------------------------------------------------------------------+
@@ -260,6 +273,15 @@ double Grind_OrderGetPriceOpen(const ulong ticket)
 //+------------------------------------------------------------------+
 bool Grind_SelectOurPosition(const ulong ticket, const ulong magic)
 {
+   if(g_grind_order_test_active) {
+      if(ticket == 0)
+         return false;
+      for(int i = 0; i < g_grind_position_test_count; i++) {
+         if(g_grind_position_test_tickets[i] == ticket)
+            return true;
+      }
+      return false;
+   }
    if(ticket == 0 || !PositionSelectByTicket(ticket))
       return false;
    return Grind_MagicMatches(PositionGetInteger(POSITION_MAGIC), magic);
@@ -443,6 +465,13 @@ bool Grind_TryPlaceL0(GrindSideState &side,
    const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
    side.l0_pending_ticket = Grind_PlaceLimit(otype, target_price, lots, magic, comment);
    return (side.l0_pending_ticket > 0);
+}
+
+//+------------------------------------------------------------------+
+void Grind_ReconcileStrayL0(GrindSideState &side,
+                            const bool is_long,
+                            const ulong magic)
+{
 }
 
 //+------------------------------------------------------------------+

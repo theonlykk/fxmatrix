@@ -3875,6 +3875,241 @@ void Test_Q11_HeartbeatCarriesQuarantine()
    Grind_QuarantineReset();
 }
 
+void Test_SB1_TryPlaceL0KeepsFilledTicket()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 5001;
+   Grind_PositionTestAdd(5001);
+   const bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26050, magic, "OPT",
+                                   4.0, 12, 0.01);
+   AssertFalse("SB1 r", r);
+   AssertTrue("SB1 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("SB1 ticket kept", g_grind_short.l0_pending_ticket == 5001);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB2_TryPlaceL0ReplacesGoneTicket()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 5001;
+   const bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26050, magic, "OPT",
+                                   4.0, 12, 0.01);
+   AssertTrue("SB2 r", r);
+   AssertTrue("SB2 place once", g_grind_order_test_place_calls == 1);
+   AssertTrue("SB2 new ticket", g_grind_short.l0_pending_ticket == 9000);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB3_EnsureAddNextKeepsFilledTicket()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestSetupShortDepth1(1.35666);
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   Grind_MarketTestSeed(1.35650, 1.35670, 0);
+   const ulong magic = 22260101UL;
+   g_grind_short.add_pending_ticket = 5002;
+   Grind_PositionTestAdd(5002);
+   Grind_EnsureAddNext(g_grind_short, false, magic, "OPT", 10.0, 4.0, 12, 0.01);
+   AssertTrue("SB3 no place", g_grind_order_test_place_calls == 0);
+   AssertTrue("SB3 ticket kept", g_grind_short.add_pending_ticket == 5002);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB4_EntExitGoesToFilledPosition()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_order_ticket = 3001;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].layer_index = 0;
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9901, "GRIND|OPT|S|L00|ENT", DEAL_ENTRY_IN, 2002, 2002,
+                        0.0, 0.0, 0.0, 1.26050);
+   Grind_TestDispatchDeal(9901);
+   AssertTrue("SB4 depth", ArraySize(g_grind_short.layers) == 2);
+   AssertTrue("SB4 new exit", g_grind_short.layers[1].exit_order_ticket == 9000);
+   AssertTrue("SB4 old exit", g_grind_short.layers[0].exit_order_ticket == 3001);
+   AssertTrue("SB4 place once", g_grind_order_test_place_calls == 1);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB5_EntL0FillCancelsStrayL0()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26100,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9902, "GRIND|OPT|S|L00|ENT", DEAL_ENTRY_IN, 5001, 5001,
+                        0.0, 0.0, 0.0, 1.26000);
+   Grind_TestDispatchDeal(9902);
+   AssertTrue("SB5 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("SB5 l0 cleared", g_grind_short.l0_pending_ticket == 0);
+   AssertTrue("SB5 depth", ArraySize(g_grind_short.layers) == 1);
+   AssertTrue("SB5 exit", g_grind_short.layers[0].exit_order_ticket == 9000);
+   AssertTrue("SB5 place once", g_grind_order_test_place_calls == 1);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB6_ReconcileCancelsSelectableStray()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_order_ticket = 3001;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].layer_index = 0;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26100,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_ReconcileStrayL0(g_grind_short, false, magic);
+   AssertTrue("SB6 remove once", g_grind_order_test_remove_calls == 1);
+   AssertTrue("SB6 l0 cleared", g_grind_short.l0_pending_ticket == 0);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB7_ReconcileUnselectableStray()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].position_ticket = 1001;
+   g_grind_long.layers[0].exit_order_ticket = 3002;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.l0_pending_ticket = 7001;
+   Grind_PositionTestAdd(7001);
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_order_ticket = 3001;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].layer_index = 0;
+   g_grind_short.l0_pending_ticket = 7002;
+   Grind_ReconcileStrayL0(g_grind_long, true, magic);
+   Grind_ReconcileStrayL0(g_grind_short, false, magic);
+   AssertTrue("SB7 long kept", g_grind_long.l0_pending_ticket == 7001);
+   AssertTrue("SB7 short cleared", g_grind_short.l0_pending_ticket == 0);
+   AssertTrue("SB7 no remove", g_grind_order_test_remove_calls == 0);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB8_ReconcileLeavesEmptySideL0()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26100,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_ReconcileStrayL0(g_grind_short, false, magic);
+   AssertTrue("SB8 no remove", g_grind_order_test_remove_calls == 0);
+   AssertTrue("SB8 l0 kept", g_grind_short.l0_pending_ticket == 6001);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_SB9_ExitRefusesOverwrite()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   GrindLayer a;
+   a.entry_price = 1.26000;
+   a.exit_target = 1.25950;
+   a.position_ticket = 2001;
+   a.exit_order_ticket = 3001;
+   a.exit_position_ticket = 0;
+   a.layer_index = 0;
+   GrindLayer b;
+   b.entry_price = 1.25900;
+   b.exit_target = 1.25850;
+   b.position_ticket = 2002;
+   b.exit_order_ticket = 0;
+   b.exit_position_ticket = 4001;
+   b.layer_index = 1;
+   const bool ra = Grind_TryPlaceExitForLayer(a, false, magic, "OPT", 0.01);
+   const bool rb = Grind_TryPlaceExitForLayer(b, false, magic, "OPT", 0.01);
+   AssertFalse("SB9 ra", ra);
+   AssertTrue("SB9 a exit", a.exit_order_ticket == 3001);
+   AssertFalse("SB9 rb", rb);
+   AssertTrue("SB9 b exit", b.exit_order_ticket == 0);
+   AssertTrue("SB9 no place", g_grind_order_test_place_calls == 0);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -4019,6 +4254,15 @@ void OnStart()
    Test_Q9_ReasonChangeKeepsClock();
    Test_Q10_RetryMissingExitsOnlyUncovered();
    Test_Q11_HeartbeatCarriesQuarantine();
+   Test_SB1_TryPlaceL0KeepsFilledTicket();
+   Test_SB2_TryPlaceL0ReplacesGoneTicket();
+   Test_SB3_EnsureAddNextKeepsFilledTicket();
+   Test_SB4_EntExitGoesToFilledPosition();
+   Test_SB5_EntL0FillCancelsStrayL0();
+   Test_SB6_ReconcileCancelsSelectableStray();
+   Test_SB7_ReconcileUnselectableStray();
+   Test_SB8_ReconcileLeavesEmptySideL0();
+   Test_SB9_ExitRefusesOverwrite();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
