@@ -450,6 +450,8 @@ bool Grind_TryPlaceL0(GrindSideState &side,
 
    if(side.l0_pending_ticket != 0) {
       if(!Grind_SelectOurOrder(side.l0_pending_ticket, magic)) {
+         if(Grind_SelectOurPosition(side.l0_pending_ticket, magic))
+            return false;
          side.l0_pending_ticket = 0;
       } else {
          const double resting = OrderGetDouble(ORDER_PRICE_OPEN);
@@ -472,6 +474,26 @@ void Grind_ReconcileStrayL0(GrindSideState &side,
                             const bool is_long,
                             const ulong magic)
 {
+   if(Grind_SideDepth(side) == 0)
+      return;
+   if(side.l0_pending_ticket == 0)
+      return;
+
+   if(Grind_SelectOurOrder(side.l0_pending_ticket, magic)) {
+      Print("WARN GRIND_STRAY_L0 cancel side=", is_long ? "L" : "S",
+            " ticket=", side.l0_pending_ticket,
+            " depth=", Grind_SideDepth(side));
+      if(Grind_CancelPendingOrder(side.l0_pending_ticket, magic))
+         side.l0_pending_ticket = 0;
+      return;
+   }
+
+   if(Grind_SelectOurPosition(side.l0_pending_ticket, magic))
+      return;
+
+   Print("INFO GRIND_STRAY_L0 cleared-gone side=", is_long ? "L" : "S",
+         " ticket=", side.l0_pending_ticket);
+   side.l0_pending_ticket = 0;
 }
 
 //+------------------------------------------------------------------+
@@ -481,6 +503,8 @@ bool Grind_TryPlaceExitForLayer(GrindLayer &layer,
                                 const string slot,
                                 const double lots)
 {
+   if(layer.exit_order_ticket != 0 || layer.exit_position_ticket != 0)
+      return false;
    const string side_letter = is_long ? "L" : "S";
    const string comment = GrindCommentBuild(slot, side_letter, layer.layer_index, "EXT");
    const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_SELL_LIMIT : ORDER_TYPE_BUY_LIMIT;
@@ -609,6 +633,8 @@ void Grind_EnsureAddNext(GrindSideState &side,
 
    if(side.add_pending_ticket != 0) {
       if(!Grind_SelectOurOrder(side.add_pending_ticket, magic)) {
+         if(Grind_SelectOurPosition(side.add_pending_ticket, magic))
+            return;
          side.add_pending_ticket = 0;
       } else {
          const string resting_comment = Grind_OrderGetComment(side.add_pending_ticket);
@@ -875,9 +901,17 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          side.add_pending_ticket = 0;
 
       Grind_AppendLayer(side, deal_price, position_id, c_layer, exit_pips, is_long);
-      const int layer_idx = Grind_FindLayerByIndex(side, c_layer);
+      const int layer_idx = Grind_FindLayerByPosition(side, position_id);
       if(layer_idx >= 0)
          Grind_TryPlaceExitForLayer(side.layers[layer_idx], is_long, magic, slot, lots);
+
+      if(c_layer == 0 && side.l0_pending_ticket != 0 &&
+         side.l0_pending_ticket != order_ticket) {
+         Print("WARN GRIND_STRAY_L0 cancel on fill side=", is_long ? "L" : "S",
+               " stray=", side.l0_pending_ticket, " filled_order=", order_ticket);
+         if(Grind_CancelPendingOrder(side.l0_pending_ticket, magic))
+            side.l0_pending_ticket = 0;
+      }
       return;
    }
 
@@ -984,6 +1018,9 @@ void Grind_OnTickEngine(const ulong magic,
 {
    if(!Grind_GuardsAllowTrading(magic, lots))
       return;
+
+   Grind_ReconcileStrayL0(g_grind_long, true, magic);
+   Grind_ReconcileStrayL0(g_grind_short, false, magic);
 
    const double bid = Grind_MarketBid();
    const double ask = Grind_MarketAsk();
