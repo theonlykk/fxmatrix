@@ -1066,7 +1066,23 @@ void Grind_OnTickEngine(const ulong magic,
 //+------------------------------------------------------------------+
 double Grind_ArchiveResolveOrderPrice(const ulong order_ticket)
 {
-   return 0.0;
+   if(order_ticket == 0)
+      return 0.0;
+
+   if(!g_grind_order_test_active && !g_grind_deal_test_active) {
+      if(HistoryOrderSelect(order_ticket)) {
+         const double history_price = HistoryOrderGetDouble(order_ticket, ORDER_PRICE_OPEN);
+         if(history_price > 0.0)
+            return history_price;
+      }
+      if(OrderSelect(order_ticket)) {
+         const double live_price = OrderGetDouble(ORDER_PRICE_OPEN);
+         if(live_price > 0.0)
+            return live_price;
+      }
+   }
+
+   return Grind_ArchiveLookupSentPrice(order_ticket);
 }
 
 //+------------------------------------------------------------------+
@@ -1107,9 +1123,7 @@ void Grind_ArchiveRecordFill(const ulong deal_ticket, const ulong magic)
    if(!g_grind_deal_test_active)
       volume = HistoryDealGetDouble(deal_ticket, DEAL_VOLUME);
 
-   double order_price_open = 0.0;
-   if(!g_grind_deal_test_active && order_ticket > 0 && HistoryOrderSelect(order_ticket))
-      order_price_open = HistoryOrderGetDouble(order_ticket, ORDER_PRICE_OPEN);
+   const double order_price_open = Grind_ArchiveResolveOrderPrice(order_ticket);
 
    const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    const string fields = Grind_ArchiveFillLogFields(

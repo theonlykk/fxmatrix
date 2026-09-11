@@ -80,6 +80,7 @@ bool Grind_OrderSendCounted(MqlTradeRequest &request, MqlTradeResult &result)
    const long duration_ms = (long)(GetTickCount64() - t0);
    Grind_ApiCounterIncrement();
    if(g_grind_archive_enabled) {
+      Grind_ArchiveNoteSendResult(request, result, ok);
       const string fields = Grind_ArchiveSendLogFields(request,
                                                        result,
                                                        ok,

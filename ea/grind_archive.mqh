@@ -406,7 +406,8 @@ string Grind_ArchiveFillLogFields(const ulong deal,
           ",\"layer_index\":" + layer_index +
           ",\"role\":" + role +
           ",\"deal_price\":" + Grind_ArchiveJsonDouble(deal_price, 5) +
-          ",\"order_price_open\":" + Grind_ArchiveJsonDouble(order_price_open > 0 ? order_price_open : 0.0, 5) +
+          ",\"order_price_open\":" + (order_price_open > 0.0 ?
+                                      Grind_ArchiveJsonDouble(order_price_open, 5) : "null") +
           ",\"slippage_pips\":" + slippage +
           ",\"volume\":" + Grind_ArchiveJsonDouble(volume > 0 ? volume : 0.0, 2) +
           ",\"profit\":" + Grind_ArchiveJsonDouble(profit, 2) +
@@ -570,14 +571,52 @@ string Grind_ArchiveDeinitExtraFields(const datetime broker_time,
 }
 
 //+------------------------------------------------------------------+
+int Grind_ArchiveFindPriceTicket(const ulong ticket)
+{
+   for(int i = 0; i < g_grind_archive_price_count; i++) {
+      if(g_grind_archive_price_tickets[i] == ticket)
+         return i;
+   }
+   return -1;
+}
+
+//+------------------------------------------------------------------+
 void Grind_ArchiveRememberOrderPrice(const ulong ticket, const double price)
 {
+   if(ticket == 0 || price <= 0.0)
+      return;
+
+   const int idx = Grind_ArchiveFindPriceTicket(ticket);
+   if(idx >= 0) {
+      g_grind_archive_price_values[idx] = price;
+      return;
+   }
+
+   if(g_grind_archive_price_count < g_grind_archive_price_max) {
+      const int n = g_grind_archive_price_count;
+      ArrayResize(g_grind_archive_price_tickets, n + 1);
+      ArrayResize(g_grind_archive_price_values, n + 1);
+      g_grind_archive_price_tickets[n] = ticket;
+      g_grind_archive_price_values[n] = price;
+      g_grind_archive_price_count = n + 1;
+      return;
+   }
+
+   const int slot = g_grind_archive_price_next;
+   g_grind_archive_price_tickets[slot] = ticket;
+   g_grind_archive_price_values[slot] = price;
+   g_grind_archive_price_next = (slot + 1) % g_grind_archive_price_max;
 }
 
 //+------------------------------------------------------------------+
 double Grind_ArchiveLookupSentPrice(const ulong ticket)
 {
-   return 0.0;
+   if(ticket == 0)
+      return 0.0;
+   const int idx = Grind_ArchiveFindPriceTicket(ticket);
+   if(idx < 0)
+      return 0.0;
+   return g_grind_archive_price_values[idx];
 }
 
 //+------------------------------------------------------------------+
@@ -585,6 +624,15 @@ void Grind_ArchiveNoteSendResult(const MqlTradeRequest &req,
                                  const MqlTradeResult &res,
                                  const bool ok)
 {
+   if(!ok)
+      return;
+   if(res.retcode != 10008 && res.retcode != 10009)
+      return;
+
+   if(req.action == TRADE_ACTION_PENDING)
+      Grind_ArchiveRememberOrderPrice(res.order, req.price);
+   else if(req.action == TRADE_ACTION_MODIFY)
+      Grind_ArchiveRememberOrderPrice(req.order, req.price);
 }
 
 //+------------------------------------------------------------------+
