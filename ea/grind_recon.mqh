@@ -44,6 +44,7 @@ string g_grind_recon_slot = "";
 double g_grind_recon_exit_pips = 0.0;
 int    g_grind_recon_max_layers = 0;
 string g_grind_halt_reason = "";
+string g_grind_invariant_reason = "";
 bool   g_grind_last_invariant_ok = true;
 bool   g_grind_recon_ok = false;
 bool   g_grind_recon_verbose = false;
@@ -851,7 +852,9 @@ bool Grind_CheckBookInvariants()
                                                 long_tmp, short_tmp, reason);
    g_grind_last_invariant_ok = ok;
    if(!ok)
-      g_grind_halt_reason = reason;
+      g_grind_invariant_reason = reason;
+   else
+      g_grind_invariant_reason = "";
    return ok;
 }
 

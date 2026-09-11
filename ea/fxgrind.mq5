@@ -113,6 +113,7 @@ int OnInit()
    g_grind_halted = false;
    g_grind_cap_blocked = false;
    g_grind_halt_reason = "";
+   Grind_QuarantineReset();
 
    if(!Grind_ReconstructState()) {
       Print("CRITICAL: Grind_ReconstructState failed — halted in place (",
@@ -183,8 +184,11 @@ void OnTick()
 
    if(!g_grind_halted) {
       Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
-      if(!Grind_CheckBookInvariants()) {
+      const bool ok = Grind_CheckBookInvariants();
+      const int action = Grind_QuarantineStep(ok, g_grind_invariant_reason, GetTickCount64());
+      if(action == GRIND_INV_HALT) {
          g_grind_halted = true;
+         g_grind_halt_reason = g_grind_invariant_reason;
          Grind_TelemetryCritical(g_grind_telemetry_instance, "INVARIANT_FAIL",
                                  g_grind_halt_reason);
       }
@@ -192,6 +196,12 @@ void OnTick()
 
    if(g_grind_halted)
       return;
+
+   if(g_grind_quarantined) {
+      if(Grind_GuardsAllowTrading(InpMagic, InpLots))
+         Grind_RetryMissingExits(InpMagic, InpSlot, InpLots);
+      return;
+   }
 
    Grind_OnTickEngine(InpMagic,
                       InpSlot,

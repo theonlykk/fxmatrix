@@ -181,7 +181,9 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       "{\"instance_id\":\"%s\",\"open_layers_long\":%d,\"open_layers_short\":%d,"
       "\"fills\":%d,\"scalps\":%d,\"api_count\":%d,\"api_counter_broken\":%s,"
       "\"cap_blocked\":%s,\"halted\":%s,\"halt_reason\":\"%s\","
-      "\"recon_ok\":%s,\"invariant_ok\":%s,\"recon_failure\":%s,\"cap_leg_a\":%.4f,\"cap_leg_b\":%.4f,"
+      "\"recon_ok\":%s,\"invariant_ok\":%s,"
+      "\"quarantined\":%s,\"quarantine_reason\":\"%s\",\"quarantine_episodes\":%d,"
+      "\"recon_failure\":%s,\"cap_leg_a\":%.4f,\"cap_leg_b\":%.4f,"
       "\"cap_total_leg_a\":%.4f,\"cap_total_leg_b\":%.4f,"
       "\"peer_read_failed\":%s,"
       "\"magic\":%s,\"slot\":\"%s\",\"width_pips\":%.4f,\"add_pips\":%.4f,"
@@ -204,6 +206,9 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       halt_reason,
       recon_ok ? "true" : "false",
       invariant_ok ? "true" : "false",
+      g_grind_quarantined ? "true" : "false",
+      g_grind_quarantine_reason,
+      g_grind_quarantine_episodes,
       Grind_ReconFailureHeartbeatField(),
       cap_leg_a,
       cap_leg_b,

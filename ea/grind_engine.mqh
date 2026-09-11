@@ -930,6 +930,16 @@ void Grind_RetryMissingExits(const ulong magic,
                              const string slot,
                              const double lots)
 {
+   for(int i = 0; i < Grind_SideDepth(g_grind_long); i++) {
+      if(g_grind_long.layers[i].exit_order_ticket == 0 &&
+         g_grind_long.layers[i].exit_position_ticket == 0)
+         Grind_TryPlaceExitForLayer(g_grind_long.layers[i], true, magic, slot, lots);
+   }
+   for(int i = 0; i < Grind_SideDepth(g_grind_short); i++) {
+      if(g_grind_short.layers[i].exit_order_ticket == 0 &&
+         g_grind_short.layers[i].exit_position_ticket == 0)
+         Grind_TryPlaceExitForLayer(g_grind_short.layers[i], false, magic, slot, lots);
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -971,16 +981,7 @@ void Grind_OnTickEngine(const ulong magic,
    Grind_OnSideCapTransition(g_grind_long, Grind_SideDepth(g_grind_long), max_layers);
    Grind_OnSideCapTransition(g_grind_short, Grind_SideDepth(g_grind_short), max_layers);
 
-   for(int i = 0; i < Grind_SideDepth(g_grind_long); i++) {
-      if(g_grind_long.layers[i].exit_order_ticket == 0 &&
-         g_grind_long.layers[i].exit_position_ticket == 0)
-         Grind_TryPlaceExitForLayer(g_grind_long.layers[i], true, magic, slot, lots);
-   }
-   for(int i = 0; i < Grind_SideDepth(g_grind_short); i++) {
-      if(g_grind_short.layers[i].exit_order_ticket == 0 &&
-         g_grind_short.layers[i].exit_position_ticket == 0)
-         Grind_TryPlaceExitForLayer(g_grind_short.layers[i], false, magic, slot, lots);
-   }
+   Grind_RetryMissingExits(magic, slot, lots);
 
    if(Grind_SideDepth(g_grind_long) > 0 || g_grind_long.add_pending_ticket != 0)
       Grind_EnsureAddNext(g_grind_long, true, magic, slot, add_pips, deadband_pips, max_layers, lots);
