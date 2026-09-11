@@ -3506,6 +3506,176 @@ void Test_S6_GrossPnlMatchesRealisedPnlToday()
    Grind_TestResetSideState();
 }
 
+void Grind_TestDispatchDeal(const ulong deal_ticket)
+{
+   MqlTradeTransaction trans;
+   ZeroMemory(trans);
+   trans.type = TRADE_TRANSACTION_DEAL_ADD;
+   trans.deal = deal_ticket;
+   Grind_OnTradeTransactionEngine(trans, 22260101UL, "OPT", 3.0, 4.0, 12, 0.01);
+}
+
+void Grind_TestSetupShortCloseByLayer()
+{
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_position_ticket = 4002;
+   g_grind_short.layers[0].layer_index = 0;
+}
+
+void Test_CB1_DispatcherShortCloseByEmitsAndRemoves()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_TestSetupShortCloseByLayer();
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   g_grind_telemetry_instance = "GRIND_TEST_OPT";
+   g_grind_deal_test_active = true;
+
+   Grind_TestAppendDeal(9801, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 2001,
+                        1.00, -0.10, -0.20, 1.25950);
+   Grind_TestAppendDeal(9802, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 4002,
+                        0.00, 0.00, 0.00, 1.25950);
+
+   Grind_TestDispatchDeal(9801);
+   Grind_TestDispatchDeal(9802);
+
+   const string peek = Grind_ScalpEventQueuePeek();
+   AssertTrue("CB1 queue size", Grind_ScalpEventQueueSize() == 1);
+   AssertContains("CB1 direction SHORT", peek, "\"direction\":\"SHORT\"");
+   AssertContains("CB1 layer_depth 0", peek, "\"layer_depth\":0");
+   AssertContains("CB1 stack_depth 1", peek, "\"stack_depth\":1");
+   AssertContains("CB1 gross_pnl", peek, "\"gross_pnl\":0.70");
+   AssertNear("CB1 scalp_pnl_last", g_grind_scalp_pnl_last, 0.70, 1e-9);
+   AssertTrue("CB1 short flat", ArraySize(g_grind_short.layers) == 0);
+   AssertTrue("CB1 long flat", ArraySize(g_grind_long.layers) == 0);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_CB2_DispatcherLongCloseByEmitsAndRemoves()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   g_grind_telemetry_instance = "GRIND_TEST_OPT";
+   g_grind_deal_test_active = true;
+
+   Grind_TestAppendDeal(9811, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 1001,
+                        2.50, -0.30, -0.20, 1.25030);
+   Grind_TestAppendDeal(9812, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 3002,
+                        0.00, 0.00, 0.00, 1.25030);
+
+   Grind_TestDispatchDeal(9811);
+   Grind_TestDispatchDeal(9812);
+
+   const string peek = Grind_ScalpEventQueuePeek();
+   AssertTrue("CB2 queue size", Grind_ScalpEventQueueSize() == 1);
+   AssertContains("CB2 direction LONG", peek, "\"direction\":\"LONG\"");
+   AssertContains("CB2 stack_depth 1", peek, "\"stack_depth\":1");
+   AssertContains("CB2 gross_pnl", peek, "\"gross_pnl\":2.00");
+   AssertTrue("CB2 long flat", ArraySize(g_grind_long.layers) == 0);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_CB3_DispatcherShortCloseLeavesLongLayer()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_TestSetupScalpCloseLongLayer(1001, 3002, 0, 1.25000, 1.25030);
+   g_grind_long.layers[0].exit_position_ticket = 0;
+   ArrayResize(g_grind_short.layers, 1);
+   g_grind_short.layers[0].entry_price = 1.26000;
+   g_grind_short.layers[0].exit_target = 1.25950;
+   g_grind_short.layers[0].position_ticket = 2001;
+   g_grind_short.layers[0].exit_position_ticket = 4002;
+   g_grind_short.layers[0].layer_index = 0;
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   g_grind_telemetry_instance = "GRIND_TEST_OPT";
+   g_grind_deal_test_active = true;
+
+   Grind_TestAppendDeal(9801, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 2001,
+                        1.00, -0.10, -0.20, 1.25950);
+   Grind_TestAppendDeal(9802, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 4002,
+                        0.00, 0.00, 0.00, 1.25950);
+
+   Grind_TestDispatchDeal(9801);
+   Grind_TestDispatchDeal(9802);
+
+   const string peek = Grind_ScalpEventQueuePeek();
+   AssertTrue("CB3 queue size", Grind_ScalpEventQueueSize() == 1);
+   AssertContains("CB3 direction SHORT", peek, "\"direction\":\"SHORT\"");
+   AssertContains("CB3 stack_depth 1", peek, "\"stack_depth\":1");
+   AssertTrue("CB3 short flat", ArraySize(g_grind_short.layers) == 0);
+   AssertTrue("CB3 long depth", ArraySize(g_grind_long.layers) == 1);
+   AssertTrue("CB3 long ticket", g_grind_long.layers[0].position_ticket == 1001);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
+void Test_CB4_DispatcherRepeatDeliveryCountsOnce()
+{
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_TestSetupShortCloseByLayer();
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   g_grind_telemetry_instance = "GRIND_TEST_OPT";
+   g_grind_deal_test_active = true;
+
+   Grind_TestAppendDeal(9801, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 2001,
+                        1.00, -0.10, -0.20, 1.25950);
+   Grind_TestAppendDeal(9802, "#2001 by #4002", DEAL_ENTRY_OUT_BY, 0, 4002,
+                        0.00, 0.00, 0.00, 1.25950);
+
+   Grind_TestDispatchDeal(9801);
+   Grind_TestDispatchDeal(9802);
+   Grind_TestDispatchDeal(9801);
+   Grind_TestDispatchDeal(9802);
+
+   AssertTrue("CB4 queue size", Grind_ScalpEventQueueSize() == 1);
+   AssertNear("CB4 realised once", g_grind_realised_pnl_today, 0.70, 1e-9);
+   AssertTrue("CB4 short flat", ArraySize(g_grind_short.layers) == 0);
+
+   Grind_DealTestReset();
+   Grind_PnlReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -3635,6 +3805,10 @@ void OnStart()
    Test_S4_LayerDepthUsesIntrinsicIndex();
    Test_S5_FailedPostDoesNotBlockScalpAccounting();
    Test_S6_GrossPnlMatchesRealisedPnlToday();
+   Test_CB1_DispatcherShortCloseByEmitsAndRemoves();
+   Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
+   Test_CB3_DispatcherShortCloseLeavesLongLayer();
+   Test_CB4_DispatcherRepeatDeliveryCountsOnce();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
