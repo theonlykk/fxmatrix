@@ -118,6 +118,12 @@ bool Grind_CarryPositionOpenTime(const ulong ticket,
 }
 
 //+------------------------------------------------------------------+
+int Grind_CarryOpenLayers(const GrindSideState &side)
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
 int Grind_CarryEligibleLayers(const GrindSideState &side,
                               const datetime broker_midnight)
 {

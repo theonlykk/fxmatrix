@@ -4976,6 +4976,21 @@ void Test_CS9_DetailJsonObjectOrNull()
    Grind_ArchiveTestReset();
 }
 
+void Test_CS10_OpenLayers()
+{
+   Grind_CarryTestReset();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 2);
+   g_grind_long.layers[0].position_ticket = 7001;
+   g_grind_long.layers[1].position_ticket = 7002;
+   Grind_CarryTestSetOpenTime(7001UL, D'2026.09.13 22:00');
+   Grind_CarryTestSetOpenTime(7002UL, D'2026.09.14 00:30');
+   AssertTrue("CS10 all open", Grind_CarryOpenLayers(g_grind_long) == 2);
+   AssertTrue("CS10 empty side", Grind_CarryOpenLayers(g_grind_short) == 0);
+   Grind_CarryTestReset();
+   Grind_TestResetSideState();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -5212,6 +5227,7 @@ void OnStart()
    Test_CS7_EmitSnapshot();
    Test_CS8_EmitSnapshotMultTodayTomorrow();
    Test_CS9_DetailJsonObjectOrNull();
+   Test_CS10_OpenLayers();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
