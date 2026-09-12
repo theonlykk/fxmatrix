@@ -25,6 +25,8 @@ int      g_grind_carry_test_rollover_day = 3;
 
 ulong    g_grind_carry_eligible_magic = 0;
 
+bool Grind_SelectOurPosition(const ulong ticket, const ulong magic);
+
 //+------------------------------------------------------------------+
 void Grind_CarryTestReset()
 {
@@ -120,22 +122,17 @@ bool Grind_CarryPositionOpenTime(const ulong ticket,
 //+------------------------------------------------------------------+
 int Grind_CarryOpenLayers(const GrindSideState &side)
 {
-   return 0;
-}
-
-//+------------------------------------------------------------------+
-int Grind_CarryEligibleLayers(const GrindSideState &side,
-                              const datetime broker_midnight)
-{
    int count = 0;
    for(int i = 0; i < ArraySize(side.layers); i++) {
       const ulong ticket = side.layers[i].position_ticket;
       if(ticket == 0)
          continue;
       datetime open_time = 0;
-      if(!Grind_CarryPositionOpenTime(ticket, g_grind_carry_eligible_magic, open_time))
+      if(Grind_CarryTestGetOpenTime(ticket, open_time)) {
+         count++;
          continue;
-      if(open_time < broker_midnight)
+      }
+      if(Grind_SelectOurPosition(ticket, g_grind_carry_eligible_magic))
          count++;
    }
    return count;
@@ -157,17 +154,6 @@ double Grind_CarryAccruedSwapSide(const GrindSideState &side, const ulong magic)
       total += PositionGetDouble(POSITION_SWAP);
    }
    return total;
-}
-
-//+------------------------------------------------------------------+
-datetime Grind_CarryBrokerMidnight(const datetime now)
-{
-   MqlDateTime dt;
-   TimeToStruct(now, dt);
-   dt.hour = 0;
-   dt.min = 0;
-   dt.sec = 0;
-   return StructToTime(dt);
 }
 
 //+------------------------------------------------------------------+
@@ -268,7 +254,7 @@ string Grind_CarrySnapshotFields(const string symbol,
 //+------------------------------------------------------------------+
 void Grind_CarryEmitSnapshot(const string symbol, const ulong magic)
 {
-   const datetime now = TimeCurrent();
+   const datetime now = TimeTradeServer();
    MqlDateTime dt;
    TimeToStruct(now, dt);
 
@@ -311,10 +297,9 @@ void Grind_CarryEmitSnapshot(const string symbol, const ulong magic)
 
    const double long_pips = Grind_CarryShiftPips(swap_long, multiplier, digits);
    const double short_pips = Grind_CarryShiftPips(swap_short, multiplier, digits);
-   const datetime broker_midnight = Grind_CarryBrokerMidnight(now);
    g_grind_carry_eligible_magic = magic;
-   const int eligible_long = Grind_CarryEligibleLayers(g_grind_long, broker_midnight);
-   const int eligible_short = Grind_CarryEligibleLayers(g_grind_short, broker_midnight);
+   const int eligible_long = Grind_CarryOpenLayers(g_grind_long);
+   const int eligible_short = Grind_CarryOpenLayers(g_grind_short);
    const bool trade_mode_full = Grind_MarketTradeModeFull(
       SymbolInfoInteger(symbol, SYMBOL_TRADE_MODE));
    const double accrued_swap_long = Grind_CarryAccruedSwapSide(g_grind_long, magic);

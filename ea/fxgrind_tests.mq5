@@ -4898,25 +4898,6 @@ void Test_CS5_ShiftPips()
    Grind_CarryTestReset();
 }
 
-void Test_CS6_EligibleLayers()
-{
-   Grind_CarryGateReset(99991006UL);
-   Grind_CarryTestReset();
-   Grind_TestResetSideState();
-   ArrayResize(g_grind_long.layers, 2);
-   g_grind_long.layers[0].position_ticket = 7001;
-   g_grind_long.layers[1].position_ticket = 7002;
-   Grind_CarryTestSetOpenTime(7001UL, D'2026.09.13 22:00');
-   Grind_CarryTestSetOpenTime(7002UL, D'2026.09.14 00:30');
-   AssertTrue("CS6 one", Grind_CarryEligibleLayers(g_grind_long,
-                                                   D'2026.09.14 00:00') == 1);
-   AssertTrue("CS6 zero", Grind_CarryEligibleLayers(g_grind_long,
-                                                    D'2026.09.13 00:00') == 0);
-   Grind_CarryGateReset(99991006UL);
-   Grind_CarryTestReset();
-   Grind_TestResetSideState();
-}
-
 void Test_CS7_EmitSnapshot()
 {
    Grind_CarryGateReset(99991007UL);
@@ -5223,7 +5204,6 @@ void OnStart()
    Test_CS3_GatePersistsInGv();
    Test_CS4_SwapMultiplier();
    Test_CS5_ShiftPips();
-   Test_CS6_EligibleLayers();
    Test_CS7_EmitSnapshot();
    Test_CS8_EmitSnapshotMultTodayTomorrow();
    Test_CS9_DetailJsonObjectOrNull();

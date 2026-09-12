@@ -212,7 +212,7 @@ void OnTimer()
       Grind_ProcessPendingExitMicrostructure();
       Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();
-      if(Grind_CarryGateDue(InpMagic, TimeCurrent()))
+      if(Grind_CarryGateDue(InpMagic, TimeTradeServer()))
          Grind_CarryEmitSnapshot(_Symbol, InpMagic);
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");

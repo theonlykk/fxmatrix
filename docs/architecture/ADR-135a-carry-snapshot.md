@@ -14,6 +14,24 @@ close (23:50-23:59 broker), not after broker midnight. A clamped exit at a
 gapped open can lock in a loss; a missed fill in the dead minutes costs only
 a little profit.
 
+## Live findings (2026-09-12 amendment)
+
+1. **Clock.** `TimeCurrent()` is the last quote time and freezes when quotes
+   stop. At 01:34 broker time on Saturday the EA still believed it was Friday
+   23:xx and reported Friday's swap multiplier. Gate and snapshot day-of-week
+   / multiplier derivation now use `TimeTradeServer()` (same clock as
+   `grind_mae.mqh` and `grind_pnl.mqh`). ADR-135b will use the same server
+   clock for session staleness checks.
+2. **Eligibility.** Counting only layers opened before broker midnight is
+   correct for a post-midnight pass, not for the pre-close window when every
+   open layer is about to be charged. Live proof: EURGBP reported 2 eligible
+   longs while the arm held 5 (L02-L04 opened that same day). Snapshot counts
+   now use `Grind_CarryOpenLayers` (all open position-backed layers).
+
+Emitted JSON field names `eligible_long` and `eligible_short` are unchanged;
+pipshed's carry view and `archive_counts.py --carry` read those keys. Only
+the meaning changes: layers open at the time of the snapshot.
+
 ## Decision
 
 ### Module
@@ -29,18 +47,20 @@ This build does not expose `SYMBOL_SWAP_MULTIPLIER_*`, so
 elsewhere, 0 on Saturday and Sunday (no broker charge row). Test override
 `g_grind_carry_test_rollover_*` supplies the rollover day in CS4.
 
-### Shift and eligibility
+### Shift and open-layer count
 
 - `Grind_CarryShiftPips`: signed swap_points * multiplier / pip_div (10 for
   3/5-digit, 1 otherwise).
-- `Grind_CarryEligibleLayers`: layers with position opened strictly before
-  broker midnight (test hook injects open times).
+- `Grind_CarryOpenLayers`: count of layers with a non-zero position ticket.
+  Live mode requires `Grind_SelectOurPosition`; test mode counts carry test
+  fixtures (injected open times). Emitted as `eligible_long` / `eligible_short`.
 
 ### Day gate (GlobalVariable)
 
 - Window: broker hour 23, minute >= 50.
 - `Grind_CarryGateDue(magic, now)`: once per broker day-of-year inside window;
-  persists `GRIND_CARRY_DAY_<magic>`.
+  persists `GRIND_CARRY_DAY_<magic>`. `fxgrind.mq5` passes `TimeTradeServer()`
+  as `now`.
 - GV read/write only inside the window (except test Reset).
 
 ### Snapshot
@@ -53,7 +73,9 @@ POSITION_SWAP sums per side. No flush, no OrderSend.
 ### Wiring (fxgrind.mq5 only)
 
 - OnInit after INIT config_event: one snapshot (no gate).
-- OnTimer inside `Grind_TimerTelemetryDue`, after heartbeat: gate + snapshot.
+- OnTimer inside `Grind_TimerTelemetryDue`, after heartbeat: gate +
+  snapshot. Gate clock is `TimeTradeServer()`; snapshot multiplier uses the
+  same server clock inside `Grind_CarryEmitSnapshot`.
 
 ## Consequences
 
@@ -71,6 +93,6 @@ POSITION_SWAP sums per side. No flush, no OrderSend.
 
 ## Tests
 
-CS1-CS8 in `ea/fxgrind_tests.mq5`: gate once per day, outside window,
-GV persistence, swap multiplier, shift pips, eligible layers, emit snapshot,
-mult_today/tomorrow fields.
+CS1-CS5, CS7-CS10 in `ea/fxgrind_tests.mq5`: gate once per day, outside
+window, GV persistence, swap multiplier, shift pips, emit snapshot,
+mult_today/tomorrow fields, open-layer count.
