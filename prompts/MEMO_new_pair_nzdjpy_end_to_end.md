@@ -16,6 +16,14 @@ and Surface steps; you cannot.
 **Exists:** `sim_costs.py` has specs for USDJPY, AUDJPY and CHFJPY, so the
 JPY pip-value branch is written and parity-tested.
 
+**Also exists (CORRECTION, verified 2026-09-12):** the conversion loader is
+generic. `load_aligned_conversion_closes(primary_times, symbol, data_root,
+window_suffix)` reads `conversion_pair` from the spec, returns None for
+USD-quoted pairs, and RAISES if a conversion pair is configured but its CSV
+is missing. The 2026-09-07 handoff recorded "something will have to supply
+the USDJPY series" as an open gap; that gap is CLOSED in code. You still
+need the USDJPY export (Stage 2c), but no loader change.
+
 **Critical caveat: it has NEVER been tested against real market data.** The
 parity tests used synthetic values. NZDJPY will be among the first JPY pairs to
 touch a real series here. Treat any JPY result with more suspicion than an
@@ -103,6 +111,15 @@ available. AUDCAD gave 867,913 bars from 2015.01.02.
 a per-bar `SPREAD` column in MT5 POINTS. Take the median across the series and
 divide appropriately for a three-decimal quote. State the figure and the sample
 period, and comment in source that it is measured.
+
+**While you are there, RE-MEASURE the three existing JPY spreads.** Stage 0
+says JPY specs exist, which is true, but `PAIR_SPREAD_PIPS` carries USDJPY
+1.1, AUDJPY 1.6 and CHFJPY 2.6 as single-observation Labor Day snapshots,
+commented in source as "re-measure before informing any deployment
+decision". Any JPY sweep inherits them. The CAD/CHF ring values (0.90 /
+0.80 / 1.10) are measured medians over ~867k bars and are the pattern to
+follow. Replace the three provisional constants in the same commit as the
+NZDJPY spec, and state the sample period in the comment.
 
 **This matters:** measured spreads for the AUD/CAD/CHF ring came out at
 0.90/0.80/1.10 pips against assumed constants that were wrong by a factor of
@@ -204,9 +221,21 @@ be the first.
 
 **6c. Sanity-check the P&L magnitude by hand.**
 
-    mean_exits x exit_pips x pip_value_usd - (mean_exits x 0.06)
+    mean_exits x exit_pips x pip_value_usd - (mean_exits x commission)
 
-against the reported `mean_realised`. For AUDCAD this tied to within $0.40 and
+against the reported `mean_realised`.
+
+**Commission is now a measured figure, not an estimate.** FTMO's symbol
+specification reads `2.5 USD per lot, in and out`, which at 0.01 lots is
+**0.05 USD per round trip**. Earlier versions of this check used 0.06; use
+0.05 and say where it came from.
+
+**The simulator does NOT model financing.** Carry is charged per night held
+and is material: measured on 2026-09-11, a week-held AUDCHF short costs
+-7.47 pips against a 5-pip exit target. NZDJPY's own carry must be read
+from the symbol specification (Swap long / Swap short, in points, divided by
+10 for pips on a three-decimal quote) and stated alongside the sweep result.
+A sweep that looks profitable before financing may not be after it. For AUDCAD this tied to within $0.40 and
 confirmed the conversion was right. **For a JPY pair this check matters more
 than usual**, because the conversion direction has never been exercised on real
 data.
@@ -298,6 +327,41 @@ placed orders before it was caught.
 **9d.** After attaching, read the fleet from the status endpoint and confirm
 both instances show the right geometry, `recon_ok`, and nothing halted.
 
+**9e.** Confirm NZDJPY appears in the pipshed carry table
+(`/api/g/<token>/carry/<segment>`) with `swap_mode` 1 and non-zero pips on a
+weekday. Every fleet pair so far quotes swap in POINTS; if NZDJPY does not,
+STOP and report -- the carry maths assumes points mode.
+
+---
+
+## STAGE 10 -- VALIDATE THE COST MODEL AGAINST LIVE FILLS (NEW)
+
+This stage did not exist when the ring pairs were added. The archive
+(ADR-130/131/134) now records every send and every fill with its limit
+price, so a pair's assumed costs can be CHECKED after deployment instead of
+being trusted indefinitely.
+
+After roughly one week live:
+
+**10a. Spread.** Compare the measured spread from Stage 3b against what the
+live book actually shows. The status endpoint reports live bid/ask per
+instance; the archive's `send_logs` records every requested price.
+
+**10b. Slippage.** Query `fill_logs WHERE entry_type='IN'` for NZDJPY and
+compare `deal_price` against `order_price_open`. A passive limit should fill
+at its price; the fleet has already recorded fills 0.1 pips WORSE than the
+resting limit, which the simulator's touch-fill model cannot produce.
+
+**10c. Commission.** `fill_logs.commission` carries the real figure per
+deal. Confirm 0.05 USD per round trip at 0.01 lots.
+
+**10d. Financing.** Two consecutive CARRY_SNAPSHOT rows give what the broker
+actually charged overnight. Compare against the quoted rate used in 6c.
+
+**If any of these disagree with the sweep's assumptions, correct
+`sim_costs.py` and note the correction in the ADR.** A cost model that has
+never been checked against live fills is an assumption, not a measurement.
+
 ---
 
 ## WHAT TO REPORT BACK AT EACH STAGE
@@ -311,7 +375,16 @@ Stage 6: the hand-checked P&L, cap saturation, your reading of the result.
 Stage 7: proposed Arm A and Arm B with reasoning.
 Stage 8: both preset files in full.
 
-**Stop and ask if anything surprises you.** The previous chat is still open and
-the operator will relay questions. A JPY pair is new ground for this simulator
-and a result that looks too good is more likely a conversion error than an
-opportunity.
+**Stop and ask if anything surprises you.** A JPY pair is new ground for this
+simulator and a result that looks too good is more likely a conversion error
+than an opportunity.
+
+Stage 9: config dump per instance, status read.
+Stage 10: the four live-versus-assumed comparisons, after a week.
+
+---
+
+**Revised 2026-09-12:** conversion-loader gap corrected (Stage 0), JPY
+spread re-measurement added (Stage 3b), commission figure measured and
+financing noted (Stage 6c), carry-table check added (Stage 9e), and Stage 10
+added for live cost-model validation.
