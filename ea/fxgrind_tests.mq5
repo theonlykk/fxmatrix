@@ -4381,7 +4381,7 @@ void Test_AR15_ConfigInitFields()
       "INIT", 0, "EURUSD", "OPT", "fxgrind 2026.09.11 15:30:14",
       12345, 10.0, 5.0, 3.0, 12, 0.01, 4.0, 2.0,
       "EURUSD", "GBPUSD", 1.0, 2.0,
-      "GRIND_TEST_OPT", false, "warn", true, 60);
+      "GRIND_TEST_OPT", false, "warn", true, 60, false);
    AssertContains("AR15 event", fields, "\"event\":\"INIT\"");
    AssertContains("AR15 symbol", fields, "\"symbol\":\"EURUSD\"");
    AssertContains("AR15 build", fields, "\"ea_build\":\"fxgrind ");

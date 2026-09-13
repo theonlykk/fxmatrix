@@ -907,7 +907,8 @@ void Grind_CarryOnTimerStep(const string symbol,
          g_grind_carry_exit_snapshot_emitted = true;
       }
    }
-   Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now);
+   if(enable_carry_pass)
+      Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now);
 }
 
 //+------------------------------------------------------------------+

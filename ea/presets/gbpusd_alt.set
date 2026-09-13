@@ -7,6 +7,7 @@ InpMaxLayers=12
 InpLots=0.01
 InpStrandedThreshPips=10.0
 InpDeadbandPips=4.0
+InpEnableCarryPass=false
 InpCapLegA=GBP
 InpCapLegB=USD
 InpCapLegAThresh=0.0
