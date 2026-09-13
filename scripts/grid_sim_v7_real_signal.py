@@ -182,6 +182,11 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     l0_had_adds: List[bool] = []
     n_exits = 0
     pnl_realised_usd = 0.0
+    carry_usd_total = 0.0
+    layers_crossing_rollover = 0
+    layers_total = 0
+    rollover_units_total = 0.0
+    carry_modelled = times is not None
     equity_peak = initial_balance
     equity_current = initial_balance
     max_absolute_drawdown_usd = 0.0
@@ -353,7 +358,30 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         LOT_SIZE,
                         rate,
                     )
-                    pnl_realised_usd += gross - exit_comm_leg
+                    carry_leg = 0.0
+                    rollover_units = 0.0
+                    if times is not None:
+                        open_dt = pd.Timestamp(times[entry_bar])
+                        close_dt = pd.Timestamp(times[i + 1])
+                        carry_leg = sim_costs.carry_usd(
+                            symbol,
+                            closed.direction,
+                            open_dt,
+                            close_dt,
+                            LOT_SIZE,
+                            rate,
+                        )
+                        rollover_units = sim_costs.rollover_charge_units(
+                            open_dt, close_dt
+                        )
+                    else:
+                        carry_modelled = False
+                    pnl_realised_usd += gross - exit_comm_leg + carry_leg
+                    carry_usd_total += carry_leg
+                    layers_total += 1
+                    rollover_units_total += rollover_units
+                    if rollover_units > 0.0:
+                        layers_crossing_rollover += 1
                     total_trades += 1
                     n_exits += 1
                     if not layers:
@@ -451,6 +479,13 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
         "conversion_policy": conversion_policy,
         "conversion_rate_used": conversion_rate_used,
         "initial_balance": initial_balance,
+        "carry_usd_total": carry_usd_total,
+        "layers_crossing_rollover": layers_crossing_rollover,
+        "layers_total": layers_total,
+        "mean_rollovers_per_layer": (
+            rollover_units_total / layers_total if layers_total else 0.0
+        ),
+        "carry_modelled": carry_modelled,
     }
     if track_l0_stats:
         out["l0_hold_mins"] = l0_hold_mins

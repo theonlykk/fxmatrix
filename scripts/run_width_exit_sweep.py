@@ -402,11 +402,25 @@ def aggregate_seed_results(
     hold_arr = np.asarray(all_holds, dtype=float)
     dist_arr = np.asarray(all_exit_dist, dtype=float)
 
+    carry_totals = [r.get("carry_usd_total", 0.0) for r in seed_results]
+    layers_cross = sum(r.get("layers_crossing_rollover", 0) for r in seed_results)
+    layers_all = sum(r.get("layers_total", 0) for r in seed_results)
+    mean_rollovers = [
+        r.get("mean_rollovers_per_layer", 0.0) for r in seed_results
+    ]
+    carry_modelled = all(r.get("carry_modelled", True) for r in seed_results)
+
     n = len(seed_results)
     return {
         "mean_pnl": float(np.mean(pnls)),
         "median_pnl": float(np.median(pnls)),
         "mean_realised": float(np.mean(realised)),
+        "mean_carry_usd": float(np.mean(carry_totals)),
+        "pct_layers_crossing": (
+            layers_cross / layers_all * 100.0 if layers_all else 0.0
+        ),
+        "mean_rollovers_per_layer": float(np.mean(mean_rollovers)),
+        "carry_modelled": carry_modelled,
         "std_pnl": float(np.std(pnls)),
         "dd3_count": dd3,
         "dd4_count": dd4,
@@ -480,6 +494,10 @@ CELL_SCHEMA_FIELDS = sorted(
         "mean_max_layers",
         "mean_pnl",
         "mean_realised",
+        "mean_carry_usd",
+        "mean_rollovers_per_layer",
+        "pct_layers_crossing",
+        "carry_modelled",
         "median_exit_dist_pips",
         "median_l0_hold_min",
         "median_pnl",

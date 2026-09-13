@@ -25,7 +25,7 @@ PRAGUE_TZ = "Europe/Prague"
 
 # Increment whenever cost semantics change (pip value, commission, spread-in-P&L,
 # gate definitions). Checkpoints refuse resume when this differs from the stamp.
-COST_MODEL_VERSION = 1
+COST_MODEL_VERSION = 2
 
 # Per-pair spread (pips) — FILL TIMING ONLY; never multiply into P&L.
 # Values unchanged from grid_sim_v6_dynamic_spacing.PAIR_SPREAD_PIPS (2026-07-18).
@@ -601,14 +601,26 @@ def _rollover_charge_dates(open_dt: datetime, close_dt: datetime):
         d += timedelta(days=1)
 
 
+def rollover_charge_units(open_dt: datetime, close_dt: datetime) -> float:
+    """Sum of rollover_multiplier over chargeable calendar days (broker time)."""
+    return float(
+        sum(rollover_multiplier(d) for d in _rollover_charge_dates(open_dt, close_dt))
+    )
+
+
 def carry_pips(
     symbol: str,
     direction: int,
     open_dt: datetime,
     close_dt: datetime,
 ) -> float:
-    """Signed carry in pips over rollover crossings (stub: returns 0.0)."""
-    return 0.0
+    """Signed carry in pips over rollover crossings between open and close."""
+    pts = swap_points(symbol, direction)
+    div = _swap_pip_div(symbol)
+    total = 0.0
+    for d in _rollover_charge_dates(open_dt, close_dt):
+        total += rollover_multiplier(d) * pts / div
+    return total
 
 
 def carry_usd(
@@ -619,8 +631,13 @@ def carry_usd(
     lots: float = DEFAULT_LOT_SIZE,
     conversion_rate: float | None = None,
 ) -> float:
-    """Signed carry in USD (stub: returns 0.0)."""
-    return 0.0
+    """Signed carry in USD; reuses price_diff_to_usd for quote conversion."""
+    pips = carry_pips(symbol, direction, open_dt, close_dt)
+    if pips == 0.0:
+        return 0.0
+    return price_diff_to_usd(
+        pips_to_price(pips, symbol), symbol, lots, conversion_rate
+    )
 
 
 def load_aligned_gbpusd_closes(
