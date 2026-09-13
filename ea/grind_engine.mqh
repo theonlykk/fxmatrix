@@ -23,6 +23,7 @@ bool   g_grind_market_test_active = false;
 double g_grind_market_test_bid = 0.0;
 double g_grind_market_test_ask = 0.0;
 long   g_grind_market_test_stops_level = 0;
+long   g_grind_market_test_freeze_level = 0;
 
 //+------------------------------------------------------------------+
 void Grind_MarketTestReset()
@@ -31,17 +32,20 @@ void Grind_MarketTestReset()
    g_grind_market_test_bid = 0.0;
    g_grind_market_test_ask = 0.0;
    g_grind_market_test_stops_level = 0;
+   g_grind_market_test_freeze_level = 0;
 }
 
 //+------------------------------------------------------------------+
 void Grind_MarketTestSeed(const double bid,
                           const double ask,
-                          const long stops_level = 0)
+                          const long stops_level = 0,
+                          const long freeze_level = 0)
 {
    g_grind_market_test_active = true;
    g_grind_market_test_bid = bid;
    g_grind_market_test_ask = ask;
    g_grind_market_test_stops_level = stops_level;
+   g_grind_market_test_freeze_level = freeze_level;
 }
 
 //+------------------------------------------------------------------+
@@ -66,6 +70,14 @@ long Grind_MarketStopsLevel()
    if(g_grind_market_test_active)
       return g_grind_market_test_stops_level;
    return (long)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
+}
+
+//+------------------------------------------------------------------+
+long Grind_MarketFreezeLevel()
+{
+   if(g_grind_market_test_active)
+      return g_grind_market_test_freeze_level;
+   return (long)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL);
 }
 
 // Order-operation unit-test hooks (fxgrind_tests A1–A8).

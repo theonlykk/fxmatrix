@@ -25,7 +25,39 @@ int      g_grind_carry_test_rollover_day = 3;
 
 ulong    g_grind_carry_eligible_magic = 0;
 
+#define GRIND_CARRY_PASS_CHUNK 2
+#define GRIND_CARRY_RETRY_MAX  3
+#define GRIND_CARRY_TICK_FRESH_SEC 120
+
+datetime g_grind_carry_test_server_time = 0;
+datetime g_grind_carry_test_tick_time = 0;
+double   g_grind_carry_test_tick_bid = 0.0;
+double   g_grind_carry_test_tick_ask = 0.0;
+long     g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+bool     g_grind_carry_test_tick_active = false;
+
+ulong    g_grind_carry_test_pos_tickets[];
+double   g_grind_carry_test_pos_swap[];
+double   g_grind_carry_test_pos_volume[];
+int      g_grind_carry_test_pos_count = 0;
+
+bool     g_grind_carry_exit_pass_active = false;
+bool     g_grind_carry_exit_snapshot_emitted = false;
+int      g_grind_carry_exit_work_count = 0;
+int      g_grind_carry_exit_work_cursor = 0;
+int      g_grind_carry_exit_shifted = 0;
+int      g_grind_carry_exit_clamped = 0;
+int      g_grind_carry_exit_skipped = 0;
+int      g_grind_carry_exit_failed = 0;
+
+ulong    g_grind_carry_exit_retry_tickets[];
+int      g_grind_carry_exit_retry_attempts[];
+int      g_grind_carry_exit_retry_count = 0;
+
 bool Grind_SelectOurPosition(const ulong ticket, const ulong magic);
+bool Grind_ModifyPendingPrice(const ulong ticket,
+                              const double new_price,
+                              const ulong magic);
 
 //+------------------------------------------------------------------+
 void Grind_CarryTestReset()
@@ -42,6 +74,70 @@ void Grind_CarryTestReset()
    g_grind_carry_test_mult_tomorrow = 0;
    g_grind_carry_test_rollover_active = false;
    g_grind_carry_test_rollover_day = 3;
+   g_grind_carry_test_server_time = 0;
+   g_grind_carry_test_tick_time = 0;
+   g_grind_carry_test_tick_bid = 0.0;
+   g_grind_carry_test_tick_ask = 0.0;
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   g_grind_carry_test_tick_active = false;
+   ArrayResize(g_grind_carry_test_pos_tickets, 0);
+   ArrayResize(g_grind_carry_test_pos_swap, 0);
+   ArrayResize(g_grind_carry_test_pos_volume, 0);
+   g_grind_carry_test_pos_count = 0;
+   g_grind_carry_exit_pass_active = false;
+   g_grind_carry_exit_snapshot_emitted = false;
+   g_grind_carry_exit_work_count = 0;
+   g_grind_carry_exit_work_cursor = 0;
+   g_grind_carry_exit_shifted = 0;
+   g_grind_carry_exit_clamped = 0;
+   g_grind_carry_exit_skipped = 0;
+   g_grind_carry_exit_failed = 0;
+   ArrayResize(g_grind_carry_exit_retry_tickets, 0);
+   ArrayResize(g_grind_carry_exit_retry_attempts, 0);
+   g_grind_carry_exit_retry_count = 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryTestSetPosition(const ulong ticket,
+                                const double swap,
+                                const double volume,
+                                const datetime open_time)
+{
+   for(int i = 0; i < g_grind_carry_test_pos_count; i++) {
+      if(g_grind_carry_test_pos_tickets[i] == ticket) {
+         g_grind_carry_test_pos_swap[i] = swap;
+         g_grind_carry_test_pos_volume[i] = volume;
+         Grind_CarryTestSetOpenTime(ticket, open_time);
+         return;
+      }
+   }
+   ArrayResize(g_grind_carry_test_pos_tickets, g_grind_carry_test_pos_count + 1);
+   ArrayResize(g_grind_carry_test_pos_swap, g_grind_carry_test_pos_count + 1);
+   ArrayResize(g_grind_carry_test_pos_volume, g_grind_carry_test_pos_count + 1);
+   g_grind_carry_test_pos_tickets[g_grind_carry_test_pos_count] = ticket;
+   g_grind_carry_test_pos_swap[g_grind_carry_test_pos_count] = swap;
+   g_grind_carry_test_pos_volume[g_grind_carry_test_pos_count] = volume;
+   g_grind_carry_test_pos_count++;
+   Grind_CarryTestSetOpenTime(ticket, open_time);
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryTestSeedTick(const datetime tick_time,
+                             const double bid,
+                             const double ask)
+{
+   g_grind_carry_test_tick_active = true;
+   g_grind_carry_test_tick_time = tick_time;
+   g_grind_carry_test_tick_bid = bid;
+   g_grind_carry_test_tick_ask = ask;
+}
+
+//+------------------------------------------------------------------+
+datetime Grind_CarryServerTime()
+{
+   if(g_grind_carry_test_server_time > 0)
+      return g_grind_carry_test_server_time;
+   return TimeTradeServer();
 }
 
 //+------------------------------------------------------------------+
@@ -249,6 +345,198 @@ string Grind_CarrySnapshotFields(const string symbol,
           ",\"accrued_swap_long\":" + Grind_ArchiveJsonDouble(accrued_swap_long, 2) +
           ",\"accrued_swap_short\":" + Grind_ArchiveJsonDouble(accrued_swap_short, 2) +
           "}";
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryShiftedExitPrice(const double formula_exit,
+                                   const int direction,
+                                   const double accrued_pips,
+                                   const double pip_size)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarryLedgerToPips(const double swap_account,
+                             const double volume,
+                             const double tick_value,
+                             const double tick_size,
+                             const double pip_size,
+                             double &pips_out)
+{
+   pips_out = 0.0;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryPendingPips(const double swap_points,
+                              const int mult_tomorrow,
+                              const int digits)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryPipSize(const int digits, const double point)
+{
+   if(digits == 3 || digits == 5)
+      return 10.0 * point;
+   return point;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarrySignGuardBlocks(const double entry,
+                                const double new_exit,
+                                const bool is_long)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarryClampLongExit(const double theoretical,
+                              const double bid,
+                              const double ask,
+                              const double point,
+                              const long stops_level,
+                              const long freeze_level,
+                              double &out_price)
+{
+   out_price = theoretical;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarryClampShortExit(const double theoretical,
+                               const double bid,
+                               const double ask,
+                               const double point,
+                               const long stops_level,
+                               const long freeze_level,
+                               double &out_price)
+{
+   out_price = theoretical;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+string Grind_CarryShiftGvName(const ulong position_ticket)
+{
+   return "GRIND_CARRY_SHIFT_" + IntegerToString((long)position_ticket);
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryShiftGet(const ulong position_ticket)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryShiftSet(const ulong position_ticket, const double shift_price)
+{
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryShiftDelete(const ulong position_ticket)
+{
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarryShiftWithinBound(const ulong position_ticket,
+                                 const double shift_price,
+                                 const datetime open_time,
+                                 const double nightly_max_pips)
+{
+   return true;
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryShiftGetValidated(const ulong position_ticket,
+                                    const datetime open_time,
+                                    const double nightly_max_pips)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryGateMarkDone(const ulong magic, const datetime now)
+{
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarrySessionReady(const string symbol)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+int Grind_CarryRolloversCrossed(const datetime open_time, const datetime now)
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryPointsNativePips(const double swap_points,
+                                   const int rollovers_crossed,
+                                   const int digits)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryExitPassReset()
+{
+   g_grind_carry_exit_pass_active = false;
+   g_grind_carry_exit_snapshot_emitted = false;
+   g_grind_carry_exit_work_count = 0;
+   g_grind_carry_exit_work_cursor = 0;
+   g_grind_carry_exit_shifted = 0;
+   g_grind_carry_exit_clamped = 0;
+   g_grind_carry_exit_skipped = 0;
+   g_grind_carry_exit_failed = 0;
+   ArrayResize(g_grind_carry_exit_retry_tickets, 0);
+   ArrayResize(g_grind_carry_exit_retry_attempts, 0);
+   g_grind_carry_exit_retry_count = 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryPruneShiftGvs(const ulong magic)
+{
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarryExitShiftLayer(const ulong position_ticket,
+                               const ulong exit_order_ticket,
+                               const double entry_price,
+                               const double formula_exit,
+                               const bool is_long,
+                               const int layer_index,
+                               const ulong magic,
+                               const string symbol,
+                               const double exit_pips,
+                               bool &clamped_out,
+                               bool &sign_guard_skipped_out,
+                               uint &retcode_out)
+{
+   clamped_out = false;
+   sign_guard_skipped_out = false;
+   retcode_out = 0;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+int Grind_CarryExitPassStep(const string symbol,
+                            const ulong magic,
+                            const double exit_pips,
+                            const datetime now)
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryExitPassOnWindowClose(const string symbol,
+                                      const ulong magic,
+                                      const datetime now)
+{
 }
 
 //+------------------------------------------------------------------+

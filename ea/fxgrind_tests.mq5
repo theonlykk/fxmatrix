@@ -4972,6 +4972,314 @@ void Test_CS10_OpenLayers()
    Grind_TestResetSideState();
 }
 
+void Test_CX1_ShiftDirectionMath()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const double pip = 1.0;
+   AssertNear("CX1 long cost", Grind_CarryShiftedExitPrice(105.0, 1, -2.0, pip), 107.0, 1e-10);
+   AssertNear("CX1 short credit", Grind_CarryShiftedExitPrice(105.0, -1, 0.5, pip), 105.5, 1e-10);
+   AssertNear("CX1 long credit", Grind_CarryShiftedExitPrice(105.0, 1, 0.5, pip), 104.5, 1e-10);
+   AssertNear("CX1 short cost", Grind_CarryShiftedExitPrice(105.0, -1, -1.0, pip), 104.0, 1e-10);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX2_LedgerConversion()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   double pips = 0.0;
+   AssertTrue("CX2 valid", Grind_CarryLedgerToPips(-0.10, 0.01, 1.0, 0.00001, 0.0001, pips));
+   AssertNear("CX2 pips", pips, -1.0, 1e-10);
+   AssertFalse("CX2 zero vol", Grind_CarryLedgerToPips(-0.10, 0.0, 1.0, 0.00001, 0.0001, pips));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX3_PendingUsesTomorrowMult()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const double pending = Grind_CarryPendingPips(-7.06, 1, 5);
+   AssertNear("CX3 pending", pending, -0.706, 1e-10);
+   AssertFalse("CX3 not zero", MathAbs(pending) < 1e-12);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX4_SignGuard()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const double entry = 100.0;
+   const double formula = 105.0;
+   const double pip = 1.0;
+   const double new_exit = Grind_CarryShiftedExitPrice(formula, 1, 6.0, pip);
+   AssertTrue("CX4 blocks", Grind_CarrySignGuardBlocks(entry, new_exit, true));
+   AssertFalse("CX4 ok side", Grind_CarrySignGuardBlocks(entry, formula, true));
+   AssertFalse("CX4 short ok", Grind_CarrySignGuardBlocks(110.0, 105.0, false));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX5_ClampLongExit()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const double point = 0.00001;
+   const double bid = 1.25000;
+   const double ask = 1.25020;
+   Grind_MarketTestSeed(bid, ask, 0, 0);
+   const double theoretical = 1.25010;
+   double out_price = 0.0;
+   const bool clamped = Grind_CarryClampLongExit(theoretical, bid, ask, point, 0, 0, out_price);
+   AssertTrue("CX5 clamped flag", clamped);
+   AssertTrue("CX5 passive", !Grind_SellLimitMarketable(out_price, bid));
+   AssertTrue("CX5 at ask+distance", out_price >= ask + point - 1e-12);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_MarketTestReset();
+}
+
+void Test_CX6_I6ShiftTolerance()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const double point = 0.00001;
+   const double entry = 1.25000;
+   const double exit_pips = 5.0;
+   const double shift = 0.00070;
+   AssertTrue("CX6 accept shifted",
+              Grind_ReconExitMatchesEntry(entry, 1.25120, exit_pips, point, true, shift));
+   AssertFalse("CX6 reject shifted",
+               Grind_ReconExitMatchesEntry(entry, 1.25200, exit_pips, point, true, shift));
+   AssertTrue("CX6 accept zero",
+              Grind_ReconExitMatchesEntry(entry, 1.25050, exit_pips, point, true, 0.0));
+   AssertFalse("CX6 reject zero",
+               Grind_ReconExitMatchesEntry(entry, 1.25120, exit_pips, point, true, 0.0));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX7_ShiftGvLifecycle()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const ulong pos = 88001UL;
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryShiftSet(pos, 0.00050);
+   AssertNear("CX7 stored", Grind_CarryShiftGet(pos), 0.00050, 1e-12);
+   Grind_CarryShiftDelete(pos);
+   AssertNear("CX7 gone", Grind_CarryShiftGet(pos), 0.0, 1e-12);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX8_CorruptGvBound()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const ulong pos = 88002UL;
+   const datetime open_time = D'2026.08.01 12:00';
+   const double nightly_max = 3.0;
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryShiftSet(pos, 5.0);
+   AssertFalse("CX8 corrupt", Grind_CarryShiftWithinBound(pos, 5.0, open_time, nightly_max));
+   const double shift = Grind_CarryShiftGetValidated(pos, open_time, nightly_max);
+   AssertNear("CX8 deleted", shift, 0.0, 1e-12);
+   const double point = 0.00001;
+   AssertFalse("CX8 i6 reject",
+               Grind_ReconExitMatchesEntry(1.25000, 1.25120, 5.0, point, true, shift));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX9_GateAfterCompletion()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const ulong magic = 99992001UL;
+   Grind_CarryGateReset(magic);
+   AssertTrue("CX9 due", Grind_CarryGateDue(magic, D'2026.09.14 23:50'));
+   AssertTrue("CX9 unstored", Grind_CarryGateStoredDay(magic) == -1);
+   Grind_CarryGateMarkDone(magic, D'2026.09.14 23:50');
+   AssertFalse("CX9 marked", Grind_CarryGateDue(magic, D'2026.09.14 23:55'));
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX10_SessionGuard()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   g_grind_carry_test_server_time = D'2026.09.14 23:55:00';
+   Grind_CarryTestSeedTick(D'2026.09.14 23:50:00', 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   AssertFalse("CX10 stale", Grind_CarrySessionReady(_Symbol));
+   Grind_CarryTestSeedTick(D'2026.09.14 23:55:00', 0.0, 0.0);
+   AssertFalse("CX10 bid0", Grind_CarrySessionReady(_Symbol));
+   Grind_CarryTestSeedTick(D'2026.09.14 23:55:00', 1.25000, 1.25020);
+   AssertTrue("CX10 healthy", Grind_CarrySessionReady(_Symbol));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX11_FeedTickUnchanged()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   g_grind_last_feed_tick_msc = 123456789;
+   g_grind_carry_test_server_time = D'2026.09.14 23:55:00';
+   Grind_CarryTestSeedTick(D'2026.09.14 23:55:00', 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   Grind_CarryExitPassStep(_Symbol, 22260101UL, 5.0, g_grind_carry_test_server_time);
+   AssertTrue("CX11 feed msc", g_grind_last_feed_tick_msc == 123456789);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_CX12_Chunking()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   const ulong magic = 99992012UL;
+   Grind_CarryGateReset(magic);
+   g_grind_carry_test_server_time = D'2026.09.14 23:50:00';
+   Grind_CarryTestSeedTick(g_grind_carry_test_server_time, 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   g_grind_order_test_active = true;
+   ArrayResize(g_grind_long.layers, 5);
+   for(int i = 0; i < 5; i++) {
+      g_grind_long.layers[i].entry_price = 1.25000;
+      g_grind_long.layers[i].exit_target = 1.25050;
+      g_grind_long.layers[i].position_ticket = 9001 + (ulong)i;
+      g_grind_long.layers[i].exit_order_ticket = 9101 + (ulong)i;
+      g_grind_long.layers[i].layer_index = i;
+      Grind_CarryTestSetPosition(9001UL + (ulong)i, -0.10, 0.01, D'2026.09.01 12:00');
+      Grind_OrderTestUpsert(9101UL + (ulong)i, (long)magic, "GRIND|OPT|L|L0" + IntegerToString(i) + "|EXT",
+                           1.25050, (long)ORDER_TYPE_SELL_LIMIT);
+      Grind_PositionTestAdd(9001UL + (ulong)i);
+   }
+   g_grind_carry_eligible_magic = magic;
+   AssertTrue("CX12 call1", Grind_CarryExitPassStep(_Symbol, magic, 5.0, g_grind_carry_test_server_time) == 2);
+   AssertTrue("CX12 call2", Grind_CarryExitPassStep(_Symbol, magic, 5.0, g_grind_carry_test_server_time) == 2);
+   AssertTrue("CX12 call3", Grind_CarryExitPassStep(_Symbol, magic, 5.0, g_grind_carry_test_server_time) == 1);
+   AssertFalse("CX12 gate done", Grind_CarryGateDue(magic, g_grind_carry_test_server_time));
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_CX13_IncompletePass()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   const ulong magic = 99992013UL;
+   Grind_CarryGateReset(magic);
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_carry_test_server_time = D'2026.09.14 23:50:00';
+   Grind_CarryTestSeedTick(g_grind_carry_test_server_time, 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   g_grind_order_test_active = true;
+   ArrayResize(g_grind_long.layers, 4);
+   for(int i = 0; i < 4; i++) {
+      g_grind_long.layers[i].entry_price = 1.25000;
+      g_grind_long.layers[i].exit_target = 1.25050;
+      g_grind_long.layers[i].position_ticket = 9201 + (ulong)i;
+      g_grind_long.layers[i].exit_order_ticket = 9301 + (ulong)i;
+      g_grind_long.layers[i].layer_index = i;
+      Grind_CarryTestSetPosition(9201UL + (ulong)i, -0.10, 0.01, D'2026.09.01 12:00');
+      Grind_OrderTestUpsert(9301UL + (ulong)i, (long)magic, "GRIND|OPT|L|L0" + IntegerToString(i) + "|EXT",
+                           1.25050, (long)ORDER_TYPE_SELL_LIMIT);
+      Grind_PositionTestAdd(9201UL + (ulong)i);
+   }
+   g_grind_carry_eligible_magic = magic;
+   Grind_CarryExitPassStep(_Symbol, magic, 5.0, g_grind_carry_test_server_time);
+   Grind_CarryExitPassOnWindowClose(_Symbol, magic, D'2026.09.15 00:05:00');
+   AssertTrue("CX13 gate open", Grind_CarryGateDue(magic, D'2026.09.14 23:58'));
+   AssertContains("CX13 incomplete", Grind_ArchiveQueuePeek(Grind_ArchiveQueueCount() - 1),
+                  "\"code\":\"CARRY_PASS_INCOMPLETE\"");
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_CX14_TelemetryShape()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestConfigureCommon();
+   const ulong magic = 99992014UL;
+   Grind_CarryGateReset(magic);
+   g_grind_carry_test_server_time = D'2026.09.14 23:55:00';
+   Grind_CarryTestSeedTick(g_grind_carry_test_server_time, 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   g_grind_order_test_active = true;
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].position_ticket = 9401;
+   g_grind_long.layers[0].exit_order_ticket = 9501;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_CarryTestSetPosition(9401UL, -0.10, 0.01, D'2026.09.01 12:00');
+   Grind_OrderTestUpsert(9501UL, (long)magic, "GRIND|OPT|L|L00|EXT",
+                        1.25050, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_PositionTestAdd(9401UL);
+   g_grind_carry_eligible_magic = magic;
+   Grind_CarryExitPassStep(_Symbol, magic, 5.0, g_grind_carry_test_server_time);
+   string row = "";
+   for(int i = 0; i < Grind_ArchiveQueueCount(); i++) {
+      const string peek = Grind_ArchiveQueuePeek(i);
+      if(StringFind(peek, "\"code\":\"CARRY_EXIT_SHIFT\"") >= 0) {
+         row = peek;
+         break;
+      }
+   }
+   AssertContains("CX14 code", row, "\"code\":\"CARRY_EXIT_SHIFT\"");
+   AssertContains("CX14 ticket", row, "\"detail\":{\"position_ticket\":");
+   AssertContains("CX14 clamped", row, "\"clamped\":");
+   AssertContains("CX14 native", row, "\"points_native_pips\":");
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
 void Test_SB9_ExitRefusesOverwrite()
 {
    Grind_OrderTestReset();
@@ -5208,6 +5516,20 @@ void OnStart()
    Test_CS8_EmitSnapshotMultTodayTomorrow();
    Test_CS9_DetailJsonObjectOrNull();
    Test_CS10_OpenLayers();
+   Test_CX1_ShiftDirectionMath();
+   Test_CX2_LedgerConversion();
+   Test_CX3_PendingUsesTomorrowMult();
+   Test_CX4_SignGuard();
+   Test_CX5_ClampLongExit();
+   Test_CX6_I6ShiftTolerance();
+   Test_CX7_ShiftGvLifecycle();
+   Test_CX8_CorruptGvBound();
+   Test_CX9_GateAfterCompletion();
+   Test_CX10_SessionGuard();
+   Test_CX11_FeedTickUnchanged();
+   Test_CX12_Chunking();
+   Test_CX13_IncompletePass();
+   Test_CX14_TelemetryShape();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();
