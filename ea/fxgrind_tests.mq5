@@ -5315,6 +5315,100 @@ void Test_SB9_ExitRefusesOverwrite()
    Grind_TestResetSideState();
 }
 
+void Test_PO1_TryPlaceL0IgnoresNoiseMove()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   const bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26100, magic, "OPT",
+                                   4.0, 12, 0.01);
+   GrindOrderTestRecord rec;
+   Grind_OrderTestFind(6001, rec);
+   AssertFalse("PO1 r", r);
+   AssertTrue("PO1 no modify", g_grind_order_test_modify_calls == 0);
+   AssertTrue("PO1 price kept", MathAbs(rec.price - 1.26050) < 1e-12);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PO2_TryPlaceL0IgnoresLargeNoiseMove()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_TryPlaceL0(g_grind_short, false, 1.26550, magic, "OPT", 4.0, 12, 0.01);
+   GrindOrderTestRecord rec;
+   Grind_OrderTestFind(6001, rec);
+   AssertTrue("PO2 no modify", g_grind_order_test_modify_calls == 0);
+   AssertTrue("PO2 ticket kept", g_grind_short.l0_pending_ticket == 6001);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PO3_TryPlaceL0PlacesWhenEmpty()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 0;
+   Grind_TryPlaceL0(g_grind_short, false, 1.26100, magic, "OPT", 4.0, 12, 0.01);
+   AssertTrue("PO3 place once", g_grind_order_test_place_calls == 1);
+   AssertTrue("PO3 ticket set", g_grind_short.l0_pending_ticket == 9000);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PO4_RecenterOppositeL0StillWorks()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   Grind_TestSetupLongDepth1(1.24900);
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   const double mid = 1.25000;
+   const double width_pips = 5.0;
+   const double stranded_thresh_pips = 10.0;
+   const double expected = Grind_StraddleSellPrice(mid, width_pips, _Point);
+   Grind_MarketTestSeed(1.24998, 1.25002, 0);
+   Grind_TryRecenterOppositeL0(g_grind_short, false, mid, magic, "OPT",
+                               width_pips, stranded_thresh_pips, 4.0);
+   GrindOrderTestRecord rec;
+   Grind_OrderTestFind(6001, rec);
+   AssertTrue("PO4 modify once", g_grind_order_test_modify_calls == 1);
+   AssertTrue("PO4 recentred", MathAbs(rec.price - expected) < 1e-12);
+   AssertTrue("PO4 ticket kept", g_grind_short.l0_pending_ticket == 6001);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -5468,6 +5562,10 @@ void OnStart()
    Test_SB7_ReconcileUnselectableStray();
    Test_SB8_ReconcileLeavesEmptySideL0();
    Test_SB9_ExitRefusesOverwrite();
+   Test_PO1_TryPlaceL0IgnoresNoiseMove();
+   Test_PO2_TryPlaceL0IgnoresLargeNoiseMove();
+   Test_PO3_TryPlaceL0PlacesWhenEmpty();
+   Test_PO4_RecenterOppositeL0StillWorks();
    Test_AR1_ArchiveNowMs();
    Test_AR2_ArchiveBrokerTime();
    Test_AR3_JsonEscape();
