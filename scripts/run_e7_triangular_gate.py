@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+from importlib_util import exec_module_from_spec
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
@@ -23,15 +24,13 @@ sys.path.insert(0, str(SCRIPT_DIR))
 spec6 = importlib.util.spec_from_file_location(
     "simv6", SCRIPT_DIR / "grid_sim_v6_dynamic_spacing.py"
 )
-simv6 = importlib.util.module_from_spec(spec6)
-spec6.loader.exec_module(simv6)
+simv6 = exec_module_from_spec(spec6)
 sys.modules["grid_sim_v6_dynamic_spacing"] = simv6
 
 spec7 = importlib.util.spec_from_file_location(
     "simv7", SCRIPT_DIR / "grid_sim_v7_real_signal.py"
 )
-simv7 = importlib.util.module_from_spec(spec7)
-spec7.loader.exec_module(simv7)
+simv7 = exec_module_from_spec(spec7)
 
 from run_width_exit_sweep import aggregate_seed_results, risk_adjusted_score, survival_score, window_path
 
@@ -54,14 +53,12 @@ def _load_sim_modules(root: Path) -> tuple[Any, Any]:
     spec7 = importlib.util.spec_from_file_location(
         "simv7", script_dir / "grid_sim_v7_real_signal.py"
     )
-    mod7 = importlib.util.module_from_spec(spec7)
-    spec7.loader.exec_module(mod7)
+    mod7 = exec_module_from_spec(spec7)
 
     spec6 = importlib.util.spec_from_file_location(
         "simv6", script_dir / "grid_sim_v6_dynamic_spacing.py"
     )
-    mod6 = importlib.util.module_from_spec(spec6)
-    spec6.loader.exec_module(mod6)
+    mod6 = exec_module_from_spec(spec6)
     sys.modules["grid_sim_v6_dynamic_spacing"] = mod6
     return mod7, mod6
 

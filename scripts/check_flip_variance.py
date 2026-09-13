@@ -1,9 +1,9 @@
 import importlib.util
 import os
+from importlib_util import exec_module_from_spec
 script_dir = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("simv5", os.path.join(script_dir, "grid_sim_v5_real_data.py"))
-simv5 = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(simv5)
+simv5 = exec_module_from_spec(spec)
 import numpy as np
 
 df = simv5.load_mt5_csv(r"D:\fxmatrix\data\GBPUSD_full_quarter.csv")

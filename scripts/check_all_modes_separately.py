@@ -1,9 +1,9 @@
 import importlib.util
 import os
+from importlib_util import exec_module_from_spec
 script_dir = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("simv6", os.path.join(script_dir, "grid_sim_v6_dynamic_spacing.py"))
-simv6 = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(simv6)
+simv6 = exec_module_from_spec(spec)
 import numpy as np
 
 WINDOWS = {

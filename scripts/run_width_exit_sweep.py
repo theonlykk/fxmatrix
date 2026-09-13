@@ -40,6 +40,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import sim_costs
+from importlib_util import exec_module_from_spec
 
 # Unbuffered progress when stdout is redirected to a log file.
 if hasattr(sys.stdout, "reconfigure"):
@@ -54,13 +55,11 @@ ROOT = SCRIPT_DIR.parent
 spec7 = importlib.util.spec_from_file_location(
     "simv7", SCRIPT_DIR / "grid_sim_v7_real_signal.py"
 )
-simv7 = importlib.util.module_from_spec(spec7)
-spec7.loader.exec_module(simv7)
+simv7 = exec_module_from_spec(spec7)
 spec6 = importlib.util.spec_from_file_location(
     "simv6", SCRIPT_DIR / "grid_sim_v6_dynamic_spacing.py"
 )
-simv6 = importlib.util.module_from_spec(spec6)
-spec6.loader.exec_module(simv6)
+simv6 = exec_module_from_spec(spec6)
 
 # --- sweep grid (production point width=9, exit=3 marked on every surface) ---
 WIDTH_GRID = [3, 5, 7, 9, 11, 13, 15, 18, 22]
@@ -271,13 +270,11 @@ def _worker_cell(payload: dict) -> dict:
     spec7 = _ilu.spec_from_file_location(
         "simv7", Path(payload["root"]) / "scripts" / "grid_sim_v7_real_signal.py"
     )
-    sim7 = _ilu.module_from_spec(spec7)
-    spec7.loader.exec_module(sim7)
+    sim7 = exec_module_from_spec(spec7)
     spec6 = _ilu.spec_from_file_location(
         "simv6", Path(payload["root"]) / "scripts" / "grid_sim_v6_dynamic_spacing.py"
     )
-    sim6 = _ilu.module_from_spec(spec6)
-    spec6.loader.exec_module(sim6)
+    sim6 = exec_module_from_spec(spec6)
     sys.modules["grid_sim_v6_dynamic_spacing"] = sim6
 
     patched = dict(sim6.PAIR_SPREAD_PIPS)
