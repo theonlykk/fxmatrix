@@ -3888,7 +3888,7 @@ void Test_SB1_TryPlaceL0KeepsFilledTicket()
    g_grind_short.l0_pending_ticket = 5001;
    Grind_PositionTestAdd(5001);
    const bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26050, magic, "OPT",
-                                   4.0, 12, 0.01);
+                                   12, 0.01);
    AssertFalse("SB1 r", r);
    AssertTrue("SB1 no place", g_grind_order_test_place_calls == 0);
    AssertTrue("SB1 ticket kept", g_grind_short.l0_pending_ticket == 5001);
@@ -3908,7 +3908,7 @@ void Test_SB2_TryPlaceL0ReplacesGoneTicket()
    const ulong magic = 22260101UL;
    g_grind_short.l0_pending_ticket = 5001;
    const bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26050, magic, "OPT",
-                                   4.0, 12, 0.01);
+                                   12, 0.01);
    AssertTrue("SB2 r", r);
    AssertTrue("SB2 place once", g_grind_order_test_place_calls == 1);
    AssertTrue("SB2 new ticket", g_grind_short.l0_pending_ticket == 9000);
@@ -5327,7 +5327,7 @@ void Test_PO1_TryPlaceL0IgnoresNoiseMove()
    Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
                          (long)ORDER_TYPE_SELL_LIMIT);
    const bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26100, magic, "OPT",
-                                   4.0, 12, 0.01);
+                                   12, 0.01);
    GrindOrderTestRecord rec;
    Grind_OrderTestFind(6001, rec);
    AssertFalse("PO1 r", r);
@@ -5350,7 +5350,7 @@ void Test_PO2_TryPlaceL0IgnoresLargeNoiseMove()
    g_grind_short.l0_pending_ticket = 6001;
    Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
                          (long)ORDER_TYPE_SELL_LIMIT);
-   Grind_TryPlaceL0(g_grind_short, false, 1.26550, magic, "OPT", 4.0, 12, 0.01);
+   Grind_TryPlaceL0(g_grind_short, false, 1.26550, magic, "OPT", 12, 0.01);
    GrindOrderTestRecord rec;
    Grind_OrderTestFind(6001, rec);
    AssertTrue("PO2 no modify", g_grind_order_test_modify_calls == 0);
@@ -5370,7 +5370,7 @@ void Test_PO3_TryPlaceL0PlacesWhenEmpty()
    g_grind_cap_thresh_b = 0.0;
    const ulong magic = 22260101UL;
    g_grind_short.l0_pending_ticket = 0;
-   Grind_TryPlaceL0(g_grind_short, false, 1.26100, magic, "OPT", 4.0, 12, 0.01);
+   Grind_TryPlaceL0(g_grind_short, false, 1.26100, magic, "OPT", 12, 0.01);
    AssertTrue("PO3 place once", g_grind_order_test_place_calls == 1);
    AssertTrue("PO3 ticket set", g_grind_short.l0_pending_ticket == 9000);
    Grind_DealTestReset();

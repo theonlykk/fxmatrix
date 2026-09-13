@@ -451,7 +451,6 @@ bool Grind_TryPlaceL0(GrindSideState &side,
                       const double target_price,
                       const ulong magic,
                       const string slot,
-                      const double deadband_pips,
                       const int max_layers,
                       const double lots)
 {
@@ -466,11 +465,9 @@ bool Grind_TryPlaceL0(GrindSideState &side,
             return false;
          side.l0_pending_ticket = 0;
       } else {
-         const double resting = OrderGetDouble(ORDER_PRICE_OPEN);
-         if(Grind_PriceWithinDeadband(resting, target_price, deadband_pips, _Point))
-            return false;
-         Grind_ModifyPendingPrice(side.l0_pending_ticket, target_price, magic);
-         return true;
+         // ADR-123 place-once: our L0 is resting; leave it untouched.
+         // Re-centering is ADR-124's job and is fill-triggered.
+         return false;
       }
    }
 
@@ -1053,9 +1050,9 @@ void Grind_OnTickEngine(const ulong magic,
    Grind_Adr013ClampSell(sell_target, bid, ask, _Point, stops, sell_target);
 
    if(Grind_SideDepth(g_grind_long) == 0 && Grind_BuyLimitMarketable(buy_target, ask))
-      Grind_TryPlaceL0(g_grind_long, true, buy_target, magic, slot, deadband_pips, max_layers, lots);
+      Grind_TryPlaceL0(g_grind_long, true, buy_target, magic, slot, max_layers, lots);
    if(Grind_SideDepth(g_grind_short) == 0 && Grind_SellLimitMarketable(sell_target, bid))
-      Grind_TryPlaceL0(g_grind_short, false, sell_target, magic, slot, deadband_pips, max_layers, lots);
+      Grind_TryPlaceL0(g_grind_short, false, sell_target, magic, slot, max_layers, lots);
 
    if(Grind_SideDepth(g_grind_long) > 0 && Grind_SideDepth(g_grind_short) == 0)
       Grind_TryRecenterOppositeL0(g_grind_short, false, mid, magic, slot,
