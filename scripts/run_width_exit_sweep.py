@@ -79,7 +79,21 @@ REF_BARS = 24007
 PROD_WIDTH = 9.0
 PROD_EXIT = 3.0
 
-PAIRS = ("GBPUSD", "EURUSD", "EURGBP", "AUDCAD", "AUDCHF", "CADCHF")
+PAIRS = (
+    "GBPUSD",
+    "EURUSD",
+    "EURGBP",
+    "AUDCAD",
+    "AUDCHF",
+    "CADCHF",
+    "NZDJPY",
+    "CHFJPY",
+    "AUDJPY",
+    "CADJPY",
+    "NZDCAD",
+    "NZDCHF",
+    "AUDNZD",
+)
 BIAS_MODE = simv7.BiasMode.BOTH  # dumb straddle works both sides
 
 WINDOW_META = {

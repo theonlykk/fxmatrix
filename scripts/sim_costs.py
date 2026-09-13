@@ -109,6 +109,12 @@ PAIR_SPECS: dict[str, PairSpec] = {
         spread_pips=PAIR_SPREAD_PIPS["USDJPY"],
         conversion_pair=None,
     ),
+    # Ring extension JPY crosses -- max_layers=8: all six extension pairs are cross
+    # pairs, matching the existing EURGBP and CAD/CHF ring cap of 8, chosen for
+    # consistency of worst-case ladder depth; ratified for RESEARCH ONLY on
+    # 2026-09-12; live deployment requires its own ratification because margin per
+    # lot varies materially across these pairs (CHFJPY ~4,082 USD/lot versus
+    # NZDCAD ~1,938 USD/lot, from the FTMO Specification panels).
     "AUDJPY": PairSpec(
         symbol="AUDJPY",
         point=0.01,
@@ -117,6 +123,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["AUDJPY"],
         conversion_pair="USDJPY",
+        max_layers=8,
     ),
     "CHFJPY": PairSpec(
         symbol="CHFJPY",
@@ -126,6 +133,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["CHFJPY"],
         conversion_pair="USDJPY",
+        max_layers=8,
     ),
     "NZDJPY": PairSpec(
         symbol="NZDJPY",
@@ -135,6 +143,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["NZDJPY"],
         conversion_pair="USDJPY",
+        max_layers=8,
     ),
     "CADJPY": PairSpec(
         symbol="CADJPY",
@@ -144,6 +153,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["CADJPY"],
         conversion_pair="USDJPY",
+        max_layers=8,
     ),
     # CAD/CHF ring — point and pip_size both equal one pip in price units (0.0001),
     # not the MT5 tick size (0.00001 on five-decimal quotes).
@@ -181,7 +191,8 @@ PAIR_SPECS: dict[str, PairSpec] = {
         max_layers=8,
     ),
     # NZD crosses — point is MT5 tick (0.00001 on five-decimal quotes); pip_size
-    # is one pip in price units (0.0001). max_layers unset until geometry ratified.
+    # is one pip in price units (0.0001). max_layers=8: see ring extension comment
+    # on the JPY crosses above (RESEARCH ONLY, 2026-09-12).
     "NZDCAD": PairSpec(
         symbol="NZDCAD",
         point=0.00001,
@@ -190,6 +201,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["NZDCAD"],
         conversion_pair="USDCAD",
+        max_layers=8,
     ),
     "NZDCHF": PairSpec(
         symbol="NZDCHF",
@@ -199,7 +211,10 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["NZDCHF"],
         conversion_pair="USDCHF",
+        max_layers=8,
     ),
+    # AUDNZD — max_layers=8: cross pair, matching EURGBP / ring cap; RESEARCH ONLY
+    # 2026-09-12 (see JPY extension comment above for margin caveat).
     "AUDNZD": PairSpec(
         symbol="AUDNZD",
         point=0.00001,
@@ -208,6 +223,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["AUDNZD"],
         conversion_pair="NZDUSD",
+        max_layers=8,
     ),
 }
 
@@ -282,7 +298,8 @@ def pip_value_usd(
     """
     USD value of one pip at `lots`.
     USD-quoted pairs: exactly 10 USD per lot (0.10 at 0.01 lots).
-    EURGBP: GBP pip value × GBPUSD rate (multiply); conversion_rate required.
+    EURGBP: GBP pip value x GBPUSD rate (multiply); conversion_rate required.
+    AUDNZD: NZD pip value x NZDUSD rate (multiply); conversion_rate required.
     JPY/CAD/CHF quotes: divide by USDJPY/USDCAD/USDCHF (inverse-quoted vs USD).
     """
     spec = get_pair_spec(symbol)
@@ -304,6 +321,13 @@ def pip_value_usd(
         if conversion_rate is None:
             raise ValueError(
                 f"{symbol} requires conversion_rate (GBPUSD) for pip_value_usd; "
+                "pass per-bar rate or explicit constant — never silent default"
+            )
+        return quote_val * conversion_rate
+    if spec.quote_currency == "NZD":
+        if conversion_rate is None:
+            raise ValueError(
+                f"{symbol} requires conversion_rate (NZDUSD) for pip_value_usd; "
                 "pass per-bar rate or explicit constant — never silent default"
             )
         return quote_val * conversion_rate

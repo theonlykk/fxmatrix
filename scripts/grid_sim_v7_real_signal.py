@@ -348,7 +348,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         l0_hold_mins.append(hold_mins)
                         ep = closed.entry_price
                         xp = closed.exit_target_raw
-                        dist_pips = abs(xp - ep) / point
+                        dist_pips = abs(xp - ep) / pair_spec.pip_size
                         l0_exit_dist_pips.append(dist_pips)
                         l0_had_adds.append(pod_had_add)
                         pod_had_add = False
