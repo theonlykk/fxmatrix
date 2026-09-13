@@ -93,6 +93,7 @@ PAIRS = (
     "CADJPY",
     "NZDCAD",
     "NZDCHF",
+    "AUDNZD",
 )
 BIAS_MODE = simv7.BiasMode.BOTH  # dumb straddle works both sides
 
