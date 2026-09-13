@@ -195,6 +195,41 @@ class TestJpyPipParity(unittest.TestCase):
         )
 
 
+class TestNzdPipParity(unittest.TestCase):
+    """T_NZD_1–T_NZD_4: AUDNZD (quote-NZD) pip-value parity — multiply by NZDUSD."""
+
+    LOTS = 0.01
+    NZDUSD_RATE = 0.5800
+
+    def test_t_nzd_1_pip_value_usd_at_rate(self):
+        """T_NZD_1: AUDNZD pip_value_usd at 0.5800 = 0.058 USD."""
+        actual = sim_costs.pip_value_usd(
+            "AUDNZD", self.LOTS, conversion_rate=self.NZDUSD_RATE
+        )
+        self.assertAlmostEqual(actual, 0.058, places=9)
+
+    def test_t_nzd_2_omitting_conversion_rate_raises(self):
+        """T_NZD_2: AUDNZD without conversion_rate raises, naming NZDUSD."""
+        with self.assertRaises(ValueError) as ctx:
+            sim_costs.pip_value_usd("AUDNZD", self.LOTS)
+        self.assertIn("NZDUSD", str(ctx.exception))
+
+    def test_t_nzd_3_multiply_not_divide(self):
+        """T_NZD_3: below-1.0 rate → USD pip value less than NZD (multiply branch)."""
+        usd_pip = sim_costs.pip_value_usd(
+            "AUDNZD", self.LOTS, conversion_rate=self.NZDUSD_RATE
+        )
+        nzd_pip = sim_costs.pip_value_quote_currency("AUDNZD", self.LOTS)
+        self.assertLess(usd_pip, nzd_pip)
+
+    def test_t_nzd_4_three_pip_move(self):
+        """T_NZD_4: 0.0003 price diff = 3 pips → 0.174 USD gross."""
+        gross = sim_costs.price_diff_to_usd(
+            0.0003, "AUDNZD", self.LOTS, conversion_rate=self.NZDUSD_RATE
+        )
+        self.assertAlmostEqual(gross, 0.174, places=9)
+
+
 class TestCadChfPipParity(unittest.TestCase):
     """R1–R8: CAD/CHF ring pip-value parity — independently derived expected values."""
 
