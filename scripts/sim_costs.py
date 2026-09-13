@@ -31,16 +31,23 @@ PAIR_SPREAD_PIPS: dict[str, float] = {
     "EURUSD": 0.18,
     "GBPUSD": 0.64,
     "EURGBP": 0.58,
-    # JPY — single-observation Labor Day session snapshots (FTMO terminal);
-    # re-measure before informing any deployment decision.
-    "USDJPY": 1.1,
-    "AUDJPY": 1.6,
-    "CHFJPY": 2.6,
+    # JPY — recent median SPREAD (MT5 points / 10) from data/*_m5.csv,
+    # last 250k M5 bars per symbol, sample through 2026-09-11; measured, not assumed.
+    "USDJPY": 0.40,
+    "AUDJPY": 0.80,
+    "CHFJPY": 1.30,
+    "NZDJPY": 1.00,
+    "CADJPY": 1.20,
     # CAD/CHF ring — median SPREAD (MT5 points ÷ 10) from data/*_m5.csv,
     # sample 2015-01-02 through 2026-09-07 (~867k M5 bars each); measured, not assumed.
     "AUDCAD": 0.90,
     "AUDCHF": 0.80,
     "CADCHF": 1.10,
+    # NZD extension — recent median SPREAD (MT5 points / 10) from data/*_m5.csv,
+    # last 250k M5 bars per symbol, sample through 2026-09-11; measured, not assumed.
+    "NZDCAD": 1.10,
+    "NZDCHF": 1.00,
+    "AUDNZD": 0.60,
 }
 
 
@@ -111,11 +118,29 @@ PAIR_SPECS: dict[str, PairSpec] = {
     ),
     "CHFJPY": PairSpec(
         symbol="CHFJPY",
-        point=0.01,
+        point=0.001,
         pip_size=0.01,
         quote_currency="JPY",
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["CHFJPY"],
+        conversion_pair="USDJPY",
+    ),
+    "NZDJPY": PairSpec(
+        symbol="NZDJPY",
+        point=0.001,
+        pip_size=0.01,
+        quote_currency="JPY",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["NZDJPY"],
+        conversion_pair="USDJPY",
+    ),
+    "CADJPY": PairSpec(
+        symbol="CADJPY",
+        point=0.001,
+        pip_size=0.01,
+        quote_currency="JPY",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["CADJPY"],
         conversion_pair="USDJPY",
     ),
     # CAD/CHF ring — point and pip_size both equal one pip in price units (0.0001),
@@ -152,6 +177,35 @@ PAIR_SPECS: dict[str, PairSpec] = {
         spread_pips=PAIR_SPREAD_PIPS["CADCHF"],
         conversion_pair="USDCHF",
         max_layers=8,
+    ),
+    # NZD crosses — point is MT5 tick (0.00001 on five-decimal quotes); pip_size
+    # is one pip in price units (0.0001). max_layers unset until geometry ratified.
+    "NZDCAD": PairSpec(
+        symbol="NZDCAD",
+        point=0.00001,
+        pip_size=0.0001,
+        quote_currency="CAD",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["NZDCAD"],
+        conversion_pair="USDCAD",
+    ),
+    "NZDCHF": PairSpec(
+        symbol="NZDCHF",
+        point=0.00001,
+        pip_size=0.0001,
+        quote_currency="CHF",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["NZDCHF"],
+        conversion_pair="USDCHF",
+    ),
+    "AUDNZD": PairSpec(
+        symbol="AUDNZD",
+        point=0.00001,
+        pip_size=0.0001,
+        quote_currency="NZD",
+        contract_size=100_000.0,
+        spread_pips=PAIR_SPREAD_PIPS["AUDNZD"],
+        conversion_pair="NZDUSD",
     ),
 }
 
