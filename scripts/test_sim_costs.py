@@ -30,12 +30,12 @@ class TestSimCosts(unittest.TestCase):
         self.assertNotAlmostEqual(gross, 0.30, places=2)
 
     def test_t3_commission_round_trip(self):
-        """T3: 3-pip GBPUSD scalp nets 0.24 after 0.06 commission."""
+        """T3: 3-pip GBPUSD scalp nets 0.25 after 0.05 commission."""
         entry = 1.2500
         exit_ = entry + 3 * 0.0001
         net = sim_costs.pnl(entry, exit_, "GBPUSD", 0.01, direction=1)
-        self.assertAlmostEqual(net, 0.24, places=6)
-        self.assertAlmostEqual(sim_costs.commission_round_trip_usd(0.01), 0.06, places=6)
+        self.assertAlmostEqual(net, 0.25, places=6)
+        self.assertAlmostEqual(sim_costs.commission_round_trip_usd(0.01), 0.05, places=6)
 
     def test_t4_no_spread_in_pnl(self):
         """T4: pnl identical for different spread constants, same prices."""
@@ -152,11 +152,11 @@ class TestJpyPipParity(unittest.TestCase):
         self.assertLess(actual_high, actual_low)
 
     def test_j5_three_pip_scalp_net_not_usd_quoted(self):
-        """J5: 3-pip USDJPY scalp nets 0.1353 USD, not 0.24 (USD-quoted answer)."""
+        """J5: 3-pip USDJPY scalp nets 0.1453 USD, not 0.24 (USD-quoted answer)."""
         gross_expected = 3.0 * self.USD_PIP_AT_RATE
         commission = sim_costs.commission_round_trip_usd(self.LOTS)
         net_expected = gross_expected - commission
-        self.assertAlmostEqual(round(net_expected, 4), 0.1353, places=4)
+        self.assertAlmostEqual(round(net_expected, 4), 0.1453, places=4)
         entry = self.USDJPY_RATE
         exit_ = entry + 3.0 * 0.01
         net_actual = sim_costs.pnl(
@@ -299,6 +299,74 @@ class TestCadChfPipParity(unittest.TestCase):
                 with self.assertRaises(ValueError) as ctx:
                     sim_costs.pip_value_usd(symbol, self.LOTS)
                 self.assertIn("conversion_rate", str(ctx.exception))
+
+
+class TestCarrySwap(unittest.TestCase):
+    """SC1-SC8: rollover carry model (swap points per crossing)."""
+
+    def test_sc1_same_day_no_crossing(self):
+        """SC1: 19-minute layer, no date change -> 0.0 pips."""
+        open_dt = datetime(2026, 9, 14, 10, 0, 0)
+        close_dt = datetime(2026, 9, 14, 10, 19, 0)
+        pips = sim_costs.carry_pips("EURUSD", 1, open_dt, close_dt)
+        self.assertAlmostEqual(pips, 0.0, places=9)
+
+    def test_sc2_midnight_crossing_one_day(self):
+        """SC2: 23:58->00:03 one crossing; EURUSD long = -0.876 pips."""
+        open_dt = datetime(2026, 9, 14, 23, 58, 0)
+        close_dt = datetime(2026, 9, 15, 0, 3, 0)
+        pips = sim_costs.carry_pips("EURUSD", 1, open_dt, close_dt)
+        self.assertAlmostEqual(pips, -0.876, places=6)
+
+    def test_sc3_wednesday_triple_swap(self):
+        """SC3: Tue->Wed crossing; multiplier 3 -> EURUSD long = -2.628 pips."""
+        open_dt = datetime(2026, 9, 15, 12, 0, 0)
+        close_dt = datetime(2026, 9, 16, 12, 0, 0)
+        pips = sim_costs.carry_pips("EURUSD", 1, open_dt, close_dt)
+        self.assertAlmostEqual(pips, -2.628, places=6)
+
+    def test_sc4_weekend_skip(self):
+        """SC4: Fri->Mon; Sat/Sun zero, Mon one -> -0.876 not -2.628."""
+        open_dt = datetime(2026, 9, 11, 12, 0, 0)
+        close_dt = datetime(2026, 9, 14, 12, 0, 0)
+        pips = sim_costs.carry_pips("EURUSD", 1, open_dt, close_dt)
+        self.assertAlmostEqual(pips, -0.876, places=6)
+        self.assertNotAlmostEqual(pips, -2.628, places=6)
+
+    def test_sc5_sign_long_vs_short(self):
+        """SC5: AUDCHF long positive (+0.271); short negative (-1.067)."""
+        open_dt = datetime(2026, 9, 14, 10, 0, 0)
+        close_dt = datetime(2026, 9, 15, 10, 0, 0)
+        long_pips = sim_costs.carry_pips("AUDCHF", 1, open_dt, close_dt)
+        short_pips = sim_costs.carry_pips("AUDCHF", -1, open_dt, close_dt)
+        self.assertAlmostEqual(long_pips, +0.271, places=6)
+        self.assertAlmostEqual(short_pips, -1.067, places=6)
+
+    def test_sc6_jpy_pip_div(self):
+        """SC6: NZDJPY long one crossing = +0.118 pips (points/10)."""
+        open_dt = datetime(2026, 9, 14, 10, 0, 0)
+        close_dt = datetime(2026, 9, 15, 10, 0, 0)
+        pips = sim_costs.carry_pips("NZDJPY", 1, open_dt, close_dt)
+        self.assertAlmostEqual(pips, +0.118, places=6)
+
+    def test_sc7_unknown_symbol_raises(self):
+        """SC7: unknown symbol raises."""
+        open_dt = datetime(2026, 9, 14, 10, 0, 0)
+        close_dt = datetime(2026, 9, 15, 10, 0, 0)
+        with self.assertRaises(KeyError):
+            sim_costs.carry_pips("FAKEPAIR", 1, open_dt, close_dt)
+
+    def test_sc8_carry_usd_matches_price_diff(self):
+        """SC8: carry_usd equals price_diff_to_usd(pips_to_price(...)) within 1e-9."""
+        open_dt = datetime(2026, 9, 14, 23, 58, 0)
+        close_dt = datetime(2026, 9, 15, 0, 3, 0)
+        lots = 0.01
+        carry = sim_costs.carry_usd("EURUSD", 1, open_dt, close_dt, lots)
+        pips = sim_costs.carry_pips("EURUSD", 1, open_dt, close_dt)
+        expected = sim_costs.price_diff_to_usd(
+            sim_costs.pips_to_price(pips, "EURUSD"), "EURUSD", lots
+        )
+        self.assertAlmostEqual(carry, expected, places=9)
 
 
 if __name__ == "__main__":

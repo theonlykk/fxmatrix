@@ -2,11 +2,12 @@
 Central simulation cost and unit-conversion model for grid_sim v7 family.
 
 Spread constants are used for FILL TIMING ONLY — never in P&L.
-Commission defaults match FTMO-style USD account: 3.00 USD per lot per side.
+Commission defaults match FTMO-style USD account: 2.50 USD per lot per side.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -15,7 +16,8 @@ import pandas as pd
 
 # Default account / broker parameters
 DEFAULT_LOT_SIZE = 0.01
-DEFAULT_COMMISSION_USD_PER_LOT_PER_SIDE = 3.00
+# FTMO Specification panels, all symbols checked, 2026-09-11 snapshot.
+DEFAULT_COMMISSION_USD_PER_LOT_PER_SIDE = 2.50
 DEFAULT_INITIAL_BALANCE = 10_000.0
 DEFAULT_MAX_DAILY_LOSS_FRAC = 0.05  # Gate A: 5% of initial
 DEFAULT_MAX_TOTAL_LOSS_FRAC = 0.10  # Gate B: 10% of initial
@@ -529,6 +531,96 @@ def load_aligned_conversion_closes(
     if return_stats:
         return aligned, stats
     return aligned
+
+
+# FTMO Specification swap panels, 2026-09-11 snapshot (long, short) in MT5 points.
+# Rates drift; revisit when broker table changes.
+PAIR_SWAP_POINTS: dict[str, tuple[float, float]] = {
+    "EURUSD": (-8.76, +0.37),
+    "GBPUSD": (-4.34, -5.63),
+    "EURGBP": (-7.06, +0.18),
+    "AUDCAD": (+1.53, -9.16),
+    "AUDCHF": (+2.71, -10.67),
+    "CADCHF": (+0.98, -6.74),
+    "NZDJPY": (+1.18, -6.67),
+    "CHFJPY": (-10.31, +1.49),
+    "AUDJPY": (+3.43, -14.29),
+    "CADJPY": (+0.87, -6.74),
+    "NZDCAD": (-0.72, -3.34),
+    "NZDCHF": (+1.09, -6.52),
+    "AUDNZD": (+1.45, -9.08),
+    "USDJPY": (+2.41, -16.87),
+}
+
+# FTMO weekly table: Mon 1, Tue 1, Wed 3, Thu 1, Fri 1 (Python Mon=0 -> Wed=2).
+# Whether x3 is charged entering or leaving Wednesday is being settled empirically
+# on 2026-09-16; revisit TRIPLE_SWAP_WEEKDAY then.
+TRIPLE_SWAP_WEEKDAY = 2
+
+
+def swap_points(symbol: str, direction: int) -> float:
+    """Signed MT5 swap points for one rollover (long or short side)."""
+    key = symbol.upper()
+    if key not in PAIR_SWAP_POINTS:
+        raise KeyError(
+            f"Unknown pair {symbol!r}; add swap to PAIR_SWAP_POINTS in sim_costs.py"
+        )
+    long_pts, short_pts = PAIR_SWAP_POINTS[key]
+    return long_pts if direction > 0 else short_pts
+
+
+def rollover_multiplier(d: date) -> int:
+    """0 on Sat/Sun, 3 on triple-swap weekday, else 1."""
+    wd = d.weekday()
+    if wd >= 5:
+        return 0
+    if wd == TRIPLE_SWAP_WEEKDAY:
+        return 3
+    return 1
+
+
+def _swap_pip_div(symbol: str) -> int:
+    """MT5 swap points to pips divisor: 10 on 3- and 5-digit quotes, else 1."""
+    spec = get_pair_spec(symbol)
+    if abs(spec.point - 0.001) < 1e-12 and abs(spec.pip_size - 0.01) < 1e-12:
+        return 10
+    if abs(spec.point - 0.00001) < 1e-12:
+        return 10
+    if spec.quote_currency == "JPY" and abs(spec.point - spec.pip_size) < 1e-12:
+        return 1
+    return 10
+
+
+def _rollover_charge_dates(open_dt: datetime, close_dt: datetime):
+    """Calendar dates d with open_dt.date() < d <= close_dt.date() (broker time)."""
+    open_d = pd.Timestamp(open_dt).date()
+    close_d = pd.Timestamp(close_dt).date()
+    d = open_d + timedelta(days=1)
+    while d <= close_d:
+        yield d
+        d += timedelta(days=1)
+
+
+def carry_pips(
+    symbol: str,
+    direction: int,
+    open_dt: datetime,
+    close_dt: datetime,
+) -> float:
+    """Signed carry in pips over rollover crossings (stub: returns 0.0)."""
+    return 0.0
+
+
+def carry_usd(
+    symbol: str,
+    direction: int,
+    open_dt: datetime,
+    close_dt: datetime,
+    lots: float = DEFAULT_LOT_SIZE,
+    conversion_rate: float | None = None,
+) -> float:
+    """Signed carry in USD (stub: returns 0.0)."""
+    return 0.0
 
 
 def load_aligned_gbpusd_closes(
