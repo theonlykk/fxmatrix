@@ -9,13 +9,13 @@ from pathlib import Path
 import numpy as np
 
 import sim_costs
+from importlib_util import exec_module_from_spec
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location(
     "simv7", SCRIPT_DIR / "grid_sim_v7_real_signal.py"
 )
-simv7 = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(simv7)
+simv7 = exec_module_from_spec(spec)
 
 
 def _run_straddle(

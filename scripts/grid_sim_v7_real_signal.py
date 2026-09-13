@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
 import sim_costs
+from importlib_util import exec_module_from_spec
 
 GRIND_ADD_WIDTH_MULTIPLE = 2.0
 EXIT_PIPS = 3.0
@@ -504,6 +505,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
         import importlib.util
         spec = importlib.util.spec_from_file_location("test_grid_add", "scripts/test_grid_add_mechanics.py")
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = exec_module_from_spec(spec)
         raise SystemExit(0)

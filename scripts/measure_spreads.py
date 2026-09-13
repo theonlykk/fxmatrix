@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from importlib_util import exec_module_from_spec
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_ROOT = SCRIPT_DIR.parent / "data"
@@ -43,8 +44,7 @@ def load_window_meta() -> dict[str, dict]:
     spec = importlib.util.spec_from_file_location(
         "run_width_exit_sweep", SCRIPT_DIR / "run_width_exit_sweep.py"
     )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    mod = exec_module_from_spec(spec)
     return dict(mod.WINDOW_META)
 
 
@@ -66,8 +66,7 @@ def load_mt5_csv(path: Path) -> pd.DataFrame:
     spec = importlib.util.spec_from_file_location(
         "simv6", SCRIPT_DIR / "grid_sim_v6_dynamic_spacing.py"
     )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    mod = exec_module_from_spec(spec)
     return mod.load_mt5_csv(str(path))
 
 

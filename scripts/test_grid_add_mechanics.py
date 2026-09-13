@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from importlib_util import exec_module_from_spec
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
@@ -15,14 +16,12 @@ ROOT = SCRIPT_DIR.parent
 spec7 = importlib.util.spec_from_file_location(
     "simv7", SCRIPT_DIR / "grid_sim_v7_real_signal.py"
 )
-simv7 = importlib.util.module_from_spec(spec7)
-spec7.loader.exec_module(simv7)
+simv7 = exec_module_from_spec(spec7)
 
 spec_sweep = importlib.util.spec_from_file_location(
     "run_width_exit_sweep", SCRIPT_DIR / "run_width_exit_sweep.py"
 )
-sweep = importlib.util.module_from_spec(spec_sweep)
-spec_sweep.loader.exec_module(sweep)
+sweep = exec_module_from_spec(spec_sweep)
 
 
 class TestGridAddMechanics(unittest.TestCase):

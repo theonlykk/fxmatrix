@@ -1,12 +1,11 @@
 import importlib.util
 import os
+from importlib_util import exec_module_from_spec
 script_dir = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("simv7", os.path.join(script_dir, "grid_sim_v7_real_signal.py"))
-simv7 = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(simv7)
+simv7 = exec_module_from_spec(spec)
 spec6 = importlib.util.spec_from_file_location("simv6", os.path.join(script_dir, "grid_sim_v6_dynamic_spacing.py"))
-simv6 = importlib.util.module_from_spec(spec6)
-spec6.loader.exec_module(simv6)
+simv6 = exec_module_from_spec(spec6)
 import numpy as np
 import sim_costs
 

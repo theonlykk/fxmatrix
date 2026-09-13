@@ -37,6 +37,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+from importlib_util import exec_module_from_spec
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)
@@ -44,13 +45,11 @@ ROOT = os.path.dirname(SCRIPT_DIR)
 spec7 = importlib.util.spec_from_file_location(
     "simv7", os.path.join(SCRIPT_DIR, "grid_sim_v7_real_signal.py")
 )
-simv7 = importlib.util.module_from_spec(spec7)
-spec7.loader.exec_module(simv7)
+simv7 = exec_module_from_spec(spec7)
 spec6 = importlib.util.spec_from_file_location(
     "simv6", os.path.join(SCRIPT_DIR, "grid_sim_v6_dynamic_spacing.py")
 )
-simv6 = importlib.util.module_from_spec(spec6)
-spec6.loader.exec_module(simv6)
+simv6 = exec_module_from_spec(spec6)
 
 import sim_costs
 
@@ -264,13 +263,11 @@ def _worker_simulate_batch(payload: dict) -> list[tuple[int, dict]]:
     spec7 = _ilu.spec_from_file_location(
         "simv7", root / "scripts" / "grid_sim_v7_real_signal.py"
     )
-    sim7 = _ilu.module_from_spec(spec7)
-    spec7.loader.exec_module(sim7)
+    sim7 = exec_module_from_spec(spec7)
     spec6 = _ilu.spec_from_file_location(
         "simv6", root / "scripts" / "grid_sim_v6_dynamic_spacing.py"
     )
-    sim6 = _ilu.module_from_spec(spec6)
-    spec6.loader.exec_module(sim6)
+    sim6 = exec_module_from_spec(spec6)
     sys.modules["grid_sim_v6_dynamic_spacing"] = sim6
 
     patched = dict(sim6.PAIR_SPREAD_PIPS)

@@ -29,11 +29,14 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+
 import numpy as np
 import pandas as pd
+from importlib_util import exec_module_from_spec
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_ROOT = SCRIPT_DIR.parent / "data"
@@ -47,10 +50,10 @@ MT5_COLUMNS = ("datetime", "OPEN", "HIGH", "LOW", "CLOSE", "SPREAD")
 
 
 def _load_sim_costs():
+    if "sim_costs" in sys.modules:
+        return sys.modules["sim_costs"]
     spec = importlib.util.spec_from_file_location("sim_costs", SCRIPT_DIR / "sim_costs.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return exec_module_from_spec(spec)
 
 
 @dataclass(frozen=True)
@@ -151,8 +154,7 @@ def load_mt5_csv(path: str | Path) -> pd.DataFrame:
     spec = importlib.util.spec_from_file_location(
         "simv6", SCRIPT_DIR / "grid_sim_v6_dynamic_spacing.py"
     )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    mod = exec_module_from_spec(spec)
     return mod.load_mt5_csv(str(path))
 
 
