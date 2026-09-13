@@ -2,8 +2,8 @@
 """
 Slice the five pre-registered AUD/CAD/CHF ring windows from continuous M5 CSVs.
 
-Produces 25 files: 5 windows x (AUDCAD, AUDCHF, CADCHF, USDCAD, USDCHF).
-Ring pairs are sliced verbatim -- no forward-fill, no dropped bars.
+Produces 5 x (N primary pairs + unique conversion pairs) files per window.
+Primary pairs are sliced verbatim -- no forward-fill, no dropped bars.
 Conversion series are left-joined onto their primary pair's timestamps and
 forward-filled (back-filled at window start if needed).
 
@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,17 +38,19 @@ import pandas as pd
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_ROOT = SCRIPT_DIR.parent / "data"
 
-RING_PAIRS = ("AUDCAD", "AUDCHF", "CADCHF")
-CONVERSION_FOR_PRIMARY = {"AUDCAD": "USDCAD", "AUDCHF": "USDCHF", "CADCHF": "USDCHF"}
-OUTPUT_SYMBOLS = (*RING_PAIRS, "USDCAD", "USDCHF")
-
-# Ten-year medians from sim_costs (MT5 points / 10 = pips) for spread comparison.
-TEN_YEAR_MEDIAN_PIPS = {"AUDCAD": 0.90, "AUDCHF": 0.80, "CADCHF": 1.10, "USDCAD": None, "USDCHF": None}
+DEFAULT_RING_PAIRS = ("AUDCAD", "AUDCHF", "CADCHF")
 
 SNB_DEPEG = pd.Timestamp("2015-01-15 00:00:00")
 GAP_THRESHOLD_DAYS = 4
 
 MT5_COLUMNS = ("datetime", "OPEN", "HIGH", "LOW", "CLOSE", "SPREAD")
+
+
+def _load_sim_costs():
+    spec = importlib.util.spec_from_file_location("sim_costs", SCRIPT_DIR / "sim_costs.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,46 @@ WINDOWS: tuple[WindowDef, ...] = (
         "SNB de-peg; start = dataset origin, ~12d pre-event.",
     ),
 )
+
+
+def resolve_ring_pairs(pairs: list[str] | None) -> tuple[str, ...]:
+    if not pairs:
+        return DEFAULT_RING_PAIRS
+    return tuple(p.upper() for p in pairs)
+
+
+def resolve_conversion_for_primary(ring_pairs: tuple[str, ...]) -> dict[str, str]:
+    sim_costs = _load_sim_costs()
+    out: dict[str, str] = {}
+    for sym in ring_pairs:
+        spec = sim_costs.get_pair_spec(sym)
+        if spec.conversion_pair:
+            out[sym] = spec.conversion_pair
+    return out
+
+
+def resolve_output_symbols(ring_pairs: tuple[str, ...]) -> tuple[str, ...]:
+    sim_costs = _load_sim_costs()
+    conversion_pairs: list[str] = []
+    seen: set[str] = set()
+    for sym in ring_pairs:
+        spec = sim_costs.get_pair_spec(sym)
+        conv = spec.conversion_pair
+        if conv and conv not in seen:
+            conversion_pairs.append(conv)
+            seen.add(conv)
+    return ring_pairs + tuple(conversion_pairs)
+
+
+def conversion_index_primary(
+    conversion_pair: str,
+    ring_pairs: tuple[str, ...],
+    conversion_for_primary: dict[str, str],
+) -> str:
+    primaries = [p for p in ring_pairs if conversion_for_primary.get(p) == conversion_pair]
+    if not primaries:
+        raise KeyError(f"No primary maps to conversion pair {conversion_pair!r}")
+    return primaries[-1]
 
 
 def load_mt5_csv(path: str | Path) -> pd.DataFrame:
@@ -195,13 +236,18 @@ def find_gaps(times: pd.Series, threshold_days: int = GAP_THRESHOLD_DAYS) -> lis
 def process_window(
     window: WindowDef,
     frames: dict[str, pd.DataFrame],
+    ring_pairs: tuple[str, ...],
+    conversion_for_primary: dict[str, str],
+    output_symbols: tuple[str, ...],
     data_root: Path,
     write: bool,
 ) -> dict:
     """Slice all symbols for one window. Returns report dict."""
     report: dict = {"window": window, "symbols": {}, "alignment": {}, "gaps": {}}
 
-    primaries = {sym: slice_primary(frames[sym], window.start, window.end) for sym in RING_PAIRS}
+    primaries = {
+        sym: slice_primary(frames[sym], window.start, window.end) for sym in ring_pairs
+    }
 
     for sym, pdf in primaries.items():
         report["symbols"][sym] = {
@@ -212,42 +258,29 @@ def process_window(
         }
         report["gaps"][sym] = find_gaps(pdf["datetime"]) if len(pdf) else []
 
-    # USDCAD aligned to AUDCAD
-    usdcad_aligned, usdcad_stats = align_conversion_to_primary(
-        primaries["AUDCAD"], frames["USDCAD"]
-    )
-    report["alignment"]["USDCAD"] = {
-        "indexed_to": "AUDCAD",
-        **usdcad_stats,
-        "timestamps_match_audcad": True,
-    }
+    outputs: dict[str, pd.DataFrame] = dict(primaries)
 
-    # USDCHF aligned to CADCHF (illiquid CHF cross; primary time index)
-    usdchf_cad, usdchf_cad_stats = align_conversion_to_primary(
-        primaries["CADCHF"], frames["USDCHF"]
-    )
-    # Also report what AUDCHF join would need (same USDCHF source, different index)
-    usdchf_aud, usdchf_aud_stats = align_conversion_to_primary(
-        primaries["AUDCHF"], frames["USDCHF"]
-    )
-    aud_ts = set(primaries["AUDCHF"]["datetime"])
-    cad_ts = set(primaries["CADCHF"]["datetime"])
-    ts_diff = len(aud_ts.symmetric_difference(cad_ts))
-    report["alignment"]["USDCHF"] = {
-        "indexed_to": "CADCHF",
-        "output_file_index": "CADCHF",
-        **usdchf_cad_stats,
-        "audchf_vs_cadchf_timestamp_diff": ts_diff,
-        "audchf_ffill_if_reindexed": usdchf_aud_stats["forward_filled"],
-    }
-
-    outputs: dict[str, pd.DataFrame] = {
-        "AUDCAD": primaries["AUDCAD"],
-        "AUDCHF": primaries["AUDCHF"],
-        "CADCHF": primaries["CADCHF"],
-        "USDCAD": usdcad_aligned,
-        "USDCHF": usdchf_cad,
-    }
+    conversion_pairs = [s for s in output_symbols if s not in ring_pairs]
+    for conv in conversion_pairs:
+        index_primary = conversion_index_primary(conv, ring_pairs, conversion_for_primary)
+        aligned, stats = align_conversion_to_primary(primaries[index_primary], frames[conv])
+        outputs[conv] = aligned
+        report["alignment"][conv] = {
+            "indexed_to": index_primary,
+            **stats,
+        }
+        if conv == "USDCHF" and "AUDCHF" in ring_pairs and "CADCHF" in ring_pairs:
+            usdchf_aud, usdchf_aud_stats = align_conversion_to_primary(
+                primaries["AUDCHF"], frames["USDCHF"]
+            )
+            aud_ts = set(primaries["AUDCHF"]["datetime"])
+            cad_ts = set(primaries["CADCHF"]["datetime"])
+            ts_diff = len(aud_ts.symmetric_difference(cad_ts))
+            report["alignment"][conv]["audchf_vs_cadchf_timestamp_diff"] = ts_diff
+            report["alignment"][conv]["audchf_ffill_if_reindexed"] = usdchf_aud_stats[
+                "forward_filled"
+            ]
+            report["alignment"][conv]["output_file_index"] = index_primary
 
     for sym, df in outputs.items():
         if sym not in report["symbols"]:
@@ -271,7 +304,7 @@ def process_window(
             report["symbols"][sym]["path"] = str(path)
 
     if window.name == "holdout_tail_2015q1":
-        for sym in RING_PAIRS:
+        for sym in ring_pairs:
             pdf = primaries[sym]
             pre = int((pdf["datetime"] < SNB_DEPEG).sum())
             post = int((pdf["datetime"] >= SNB_DEPEG).sum())
@@ -281,11 +314,23 @@ def process_window(
     return report
 
 
-def print_report(reports: list[dict]) -> None:
+def print_report(
+    reports: list[dict],
+    ring_pairs: tuple[str, ...],
+    output_symbols: tuple[str, ...],
+) -> None:
+    sim_costs = _load_sim_costs()
+    ref_medians = {
+        sym: sim_costs.PAIR_SPREAD_PIPS.get(sym) for sym in output_symbols
+    }
+
     print("=" * 72)
     print("WINDOW SLICE REPORT")
     print("=" * 72)
-    print(f"  Windows: {len(WINDOWS)}  Symbols: {len(OUTPUT_SYMBOLS)}  Files: {len(WINDOWS) * len(OUTPUT_SYMBOLS)}")
+    print(
+        f"  Windows: {len(WINDOWS)}  Symbols: {len(output_symbols)}  "
+        f"Files: {len(WINDOWS) * len(output_symbols)}"
+    )
 
     print("\n--- Event window date constants ---")
     for w in WINDOWS:
@@ -298,21 +343,21 @@ def print_report(reports: list[dict]) -> None:
         print(f"WINDOW: {w.name}  ({w.role} / {w.kind})  [{w.start.date()}, {w.end.date()})")
         print("=" * 72)
 
-        ring_bars = [rep["symbols"][s]["bars"] for s in RING_PAIRS]
+        ring_bars = [rep["symbols"][s]["bars"] for s in ring_pairs]
         if max(ring_bars) - min(ring_bars) > 50:
-            print(f"  NOTE: ring pair bar counts differ: {dict(zip(RING_PAIRS, ring_bars))}")
+            print(f"  NOTE: ring pair bar counts differ: {dict(zip(ring_pairs, ring_bars))}")
 
         print(f"\n  {'Symbol':<10} {'Bars':>8} {'First':<20} {'Last':<20} {'Med spread':>12}")
-        for sym in OUTPUT_SYMBOLS:
+        for sym in output_symbols:
             s = rep["symbols"][sym]
             med = s["median_spread_pips"]
             med_s = f"{med:.2f} pips" if med is not None else "n/a"
-            ref = TEN_YEAR_MEDIAN_PIPS.get(sym)
+            ref = ref_medians.get(sym)
             flag = ""
             if ref and med and med > ref * 1.5:
-                flag = f"  HIGH vs 10y {ref:.2f}"
+                flag = f"  HIGH vs ref {ref:.2f}"
             elif ref and med and med < ref * 0.5:
-                flag = f"  LOW vs 10y {ref:.2f}"
+                flag = f"  LOW vs ref {ref:.2f}"
             print(
                 f"  {sym:<10} {s['bars']:>8} {str(s['first']):<20} {str(s['last']):<20} "
                 f"{med_s:>12}{flag}"
@@ -326,7 +371,7 @@ def print_report(reports: list[dict]) -> None:
                 f"bfill_leading={info['back_filled_leading']}  "
                 f"primary_bars={info['primary_bars']}"
             )
-            if conv == "USDCHF":
+            if conv == "USDCHF" and "audchf_vs_cadchf_timestamp_diff" in info:
                 print(
                     f"      AUDCHF/CADCHF timestamp diff={info['audchf_vs_cadchf_timestamp_diff']}; "
                     f"AUDCHF-indexed ffill would be {info['audchf_ffill_if_reindexed']}"
@@ -336,7 +381,7 @@ def print_report(reports: list[dict]) -> None:
                     "USDCHF onto AUDCHF timestamps at load (same ffill policy)."
                 )
 
-        for sym in RING_PAIRS:
+        for sym in ring_pairs:
             gaps = rep["gaps"].get(sym, [])
             if gaps:
                 print(f"\n  Gaps > {GAP_THRESHOLD_DAYS}d in {sym}: {len(gaps)}")
@@ -345,7 +390,7 @@ def print_report(reports: list[dict]) -> None:
 
         if w.name == "holdout_tail_2015q1":
             print("\n  SNB de-peg split (2015-01-15):")
-            for sym in RING_PAIRS:
+            for sym in ring_pairs:
                 s = rep["symbols"][sym]
                 print(
                     f"    {sym}: pre={s.get('pre_depeg_bars', 0)} bars  "
@@ -357,17 +402,34 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Slice pre-registered ring windows")
     parser.add_argument("--data-root", type=Path, default=DATA_ROOT)
     parser.add_argument("--dry-run", action="store_true", help="Report only, do not write CSVs")
+    parser.add_argument(
+        "pairs",
+        nargs="*",
+        help=f"Primary pairs to slice (default: {', '.join(DEFAULT_RING_PAIRS)})",
+    )
     args = parser.parse_args()
 
-    frames = {sym: load_continuous(sym, args.data_root) for sym in OUTPUT_SYMBOLS}
+    ring_pairs = resolve_ring_pairs(args.pairs)
+    conversion_for_primary = resolve_conversion_for_primary(ring_pairs)
+    output_symbols = resolve_output_symbols(ring_pairs)
+
+    frames = {sym: load_continuous(sym, args.data_root) for sym in output_symbols}
     reports = [
-        process_window(w, frames, args.data_root, write=not args.dry_run)
+        process_window(
+            w,
+            frames,
+            ring_pairs,
+            conversion_for_primary,
+            output_symbols,
+            args.data_root,
+            write=not args.dry_run,
+        )
         for w in WINDOWS
     ]
-    print_report(reports)
+    print_report(reports, ring_pairs, output_symbols)
 
     if not args.dry_run:
-        n_files = len(WINDOWS) * len(OUTPUT_SYMBOLS)
+        n_files = len(WINDOWS) * len(output_symbols)
         print(f"\n  Wrote {n_files} files to {args.data_root}/")
         print("  Format verified via load_mt5_csv reload check per file.")
 
