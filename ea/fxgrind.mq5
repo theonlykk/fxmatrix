@@ -131,6 +131,7 @@ int OnInit()
             g_grind_halt_reason, ")");
    }
 
+   Grind_CarryPruneShiftGvs(InpMagic);
    Grind_MaeInit();
    Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
 
@@ -212,8 +213,14 @@ void OnTimer()
       Grind_ProcessPendingExitMicrostructure();
       Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();
-      if(Grind_CarryGateDue(InpMagic, TimeTradeServer()))
-         Grind_CarryEmitSnapshot(_Symbol, InpMagic);
+      const datetime carry_now = TimeTradeServer();
+      if(Grind_CarryGateDue(InpMagic, carry_now)) {
+         if(!g_grind_carry_exit_snapshot_emitted) {
+            Grind_CarryEmitSnapshot(_Symbol, InpMagic);
+            g_grind_carry_exit_snapshot_emitted = true;
+         }
+      }
+      Grind_CarryExitPassStep(_Symbol, InpMagic, InpExitPips, carry_now);
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
       g_grind_last_telemetry_tick = now_tick;

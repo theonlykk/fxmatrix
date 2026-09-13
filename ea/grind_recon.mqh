@@ -25,6 +25,8 @@ struct GrindReconTicket
    int    kind;
 };
 
+double Grind_CarryShiftGetForRecon(const ulong position_id);
+
 struct GrindReconLayerScratch
 {
    bool     has_position;
@@ -144,7 +146,7 @@ bool Grind_ReconExitMatchesEntry(const double entry,
                                  const double shift = 0.0)
 {
    const int dir = is_long ? 1 : -1;
-   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir);
+   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + shift;
    return (MathAbs(exit_target - expected) <= 2.0 * point);
 }
 
@@ -225,9 +227,10 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          reason_out = "I3_LONG_NAKED";
          return false;
       }
+      const double long_shift = Grind_CarryShiftGetForRecon(long_layers[i].position_id);
       if(!Grind_ReconExitMatchesEntry(long_layers[i].entry_price,
                                      long_layers[i].exit_target,
-                                     exit_pips, point, true)) {
+                                     exit_pips, point, true, long_shift)) {
          reason_out = "I6_LONG_EXIT";
          return false;
       }
@@ -242,9 +245,10 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          reason_out = "I3_SHORT_NAKED";
          return false;
       }
+      const double short_shift = Grind_CarryShiftGetForRecon(short_layers[i].position_id);
       if(!Grind_ReconExitMatchesEntry(short_layers[i].entry_price,
                                      short_layers[i].exit_target,
-                                     exit_pips, point, false)) {
+                                     exit_pips, point, false, short_shift)) {
          reason_out = "I6_SHORT_EXIT";
          return false;
       }

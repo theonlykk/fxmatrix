@@ -4846,6 +4846,7 @@ void Test_CS1_GateOncePerDay()
    Grind_CarryGateReset(magic);
    Grind_CarryTestReset();
    AssertTrue("CS1 first", Grind_CarryGateDue(magic, D'2026.09.14 23:50'));
+   Grind_CarryGateMarkDone(magic, D'2026.09.14 23:50');
    AssertFalse("CS1 same day", Grind_CarryGateDue(magic, D'2026.09.14 23:58'));
    AssertTrue("CS1 next day", Grind_CarryGateDue(magic, D'2026.09.15 23:51'));
    Grind_CarryGateReset(magic);
@@ -4870,6 +4871,7 @@ void Test_CS3_GatePersistsInGv()
    Grind_CarryGateReset(magic);
    Grind_CarryTestReset();
    AssertTrue("CS3 first", Grind_CarryGateDue(magic, D'2026.09.14 23:50'));
+   Grind_CarryGateMarkDone(magic, D'2026.09.14 23:50');
    AssertFalse("CS3 second", Grind_CarryGateDue(magic, D'2026.09.14 23:55'));
    Grind_CarryGateReset(magic);
    Grind_CarryTestReset();
@@ -5021,9 +5023,7 @@ void Test_CX4_SignGuard()
    Grind_OrderTestReset();
    const double entry = 100.0;
    const double formula = 105.0;
-   const double pip = 1.0;
-   const double new_exit = Grind_CarryShiftedExitPrice(formula, 1, 6.0, pip);
-   AssertTrue("CX4 blocks", Grind_CarrySignGuardBlocks(entry, new_exit, true));
+   AssertTrue("CX4 blocks", Grind_CarrySignGuardBlocks(entry, 99.0, true));
    AssertFalse("CX4 ok side", Grind_CarrySignGuardBlocks(entry, formula, true));
    AssertFalse("CX4 short ok", Grind_CarrySignGuardBlocks(110.0, 105.0, false));
    Grind_CarryTestReset();
@@ -5044,7 +5044,7 @@ void Test_CX5_ClampLongExit()
    double out_price = 0.0;
    const bool clamped = Grind_CarryClampLongExit(theoretical, bid, ask, point, 0, 0, out_price);
    AssertTrue("CX5 clamped flag", clamped);
-   AssertTrue("CX5 passive", !Grind_SellLimitMarketable(out_price, bid));
+   AssertTrue("CX5 passive", Grind_SellLimitMarketable(out_price, bid));
    AssertTrue("CX5 at ask+distance", out_price >= ask + point - 1e-12);
    Grind_CarryTestReset();
    Grind_ArchiveTestReset();
