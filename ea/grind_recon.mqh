@@ -345,11 +345,19 @@ bool Grind_ReconExitMatchesEntry(const double entry,
                                  const double exit_pips,
                                  const double point,
                                  const bool is_long,
-                                 const double shift = 0.0)
+                                 const double shift = 0.0,
+                                 const bool exit_is_filled = false)
 {
    const int dir = is_long ? 1 : -1;
    const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + shift;
-   return (MathAbs(exit_target - expected) <= 2.0 * point + GRIND_PRICE_EPS);
+   const double diff = exit_target - expected;
+   if(exit_is_filled) {
+      if(is_long && diff >= 0.0)
+         return true;
+      if(!is_long && diff <= 0.0)
+         return true;
+   }
+   return (MathAbs(diff) <= 2.0 * point + GRIND_PRICE_EPS);
 }
 
 //+------------------------------------------------------------------+
@@ -432,10 +440,13 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                     long_layers[i].position_id);
       }
       const double long_shift = Grind_CarryShiftGetForRecon(long_layers[i].position_id);
+      const bool long_exit_filled = long_layers[i].has_exit_position;
       if(!Grind_ReconExitMatchesEntry(long_layers[i].entry_price,
                                      long_layers[i].exit_target,
-                                     exit_pips, point, true, long_shift)) {
-         return Grind_InvariantFail(reason_out, "I6_LONG_EXIT",
+                                     exit_pips, point, true, long_shift,
+                                     long_exit_filled)) {
+         const string i6_reason = long_exit_filled ? "I6_LONG_EXIT_FILL_ADVERSE" : "I6_LONG_EXIT";
+         return Grind_InvariantFail(reason_out, i6_reason,
                                     Grind_InvariantDetailI6(long_layers[i], true, exit_pips, point,
                                                             long_shift),
                                     long_layers[i].position_id);
@@ -454,10 +465,13 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                     short_layers[i].position_id);
       }
       const double short_shift = Grind_CarryShiftGetForRecon(short_layers[i].position_id);
+      const bool short_exit_filled = short_layers[i].has_exit_position;
       if(!Grind_ReconExitMatchesEntry(short_layers[i].entry_price,
                                      short_layers[i].exit_target,
-                                     exit_pips, point, false, short_shift)) {
-         return Grind_InvariantFail(reason_out, "I6_SHORT_EXIT",
+                                     exit_pips, point, false, short_shift,
+                                     short_exit_filled)) {
+         const string i6_reason = short_exit_filled ? "I6_SHORT_EXIT_FILL_ADVERSE" : "I6_SHORT_EXIT";
+         return Grind_InvariantFail(reason_out, i6_reason,
                                     Grind_InvariantDetailI6(short_layers[i], false, exit_pips, point,
                                                             short_shift),
                                     short_layers[i].position_id);

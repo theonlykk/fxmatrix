@@ -38,6 +38,8 @@ bool Grind_IsQuarantinableReason(const string reason)
       return true;
    if(reason == "I4_LONG_ORPHAN_EXIT" || reason == "I4_SHORT_ORPHAN_EXIT")
       return true;
+   if(reason == "I6_LONG_EXIT_FILL_ADVERSE" || reason == "I6_SHORT_EXIT_FILL_ADVERSE")
+      return true;
    return false;
 }
 
