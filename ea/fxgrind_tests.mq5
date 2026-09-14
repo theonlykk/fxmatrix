@@ -603,6 +603,102 @@ void Test_T30_CapDoesNotBlockNonEntry()
    g_grind_cap_thresh_a = 0.0;
 }
 
+void Test_CM1_CapMagicsCoverFleet()
+{
+   const ulong expected[12] =
+   {
+      22260101UL, 22260102UL,
+      22260201UL, 22260202UL,
+      22260301UL, 22260302UL,
+      22260401UL, 22260402UL,
+      22260501UL, 22260502UL,
+      22260601UL, 22260602UL
+   };
+
+   AssertTrue("CM1 array size 12", ArraySize(GRIND_CAP_ALL_MAGICS) == 12);
+   for(int i = 0; i < 12; i++) {
+      bool found = false;
+      for(int j = 0; j < ArraySize(GRIND_CAP_ALL_MAGICS); j++) {
+         if(GRIND_CAP_ALL_MAGICS[j] == expected[i]) {
+            found = true;
+            break;
+         }
+      }
+      AssertTrue("CM1 magic " + IntegerToString((long)expected[i]), found);
+   }
+
+   bool dup = false;
+   for(int i = 0; i < ArraySize(GRIND_CAP_ALL_MAGICS); i++) {
+      for(int j = i + 1; j < ArraySize(GRIND_CAP_ALL_MAGICS); j++) {
+         if(GRIND_CAP_ALL_MAGICS[i] == GRIND_CAP_ALL_MAGICS[j])
+            dup = true;
+      }
+   }
+   AssertTrue("CM1 no duplicates", !dup);
+}
+
+void Test_CM2_CapSumIteratesAllMagics()
+{
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_recon_magic = 22260101UL;
+
+   const ulong expected[12] =
+   {
+      22260101UL, 22260102UL,
+      22260201UL, 22260202UL,
+      22260301UL, 22260302UL,
+      22260401UL, 22260402UL,
+      22260501UL, 22260502UL,
+      22260601UL, 22260602UL
+   };
+
+   string keys[12];
+   string time_keys[12];
+   for(int i = 0; i < 12; i++) {
+      const ulong magic = expected[i];
+      keys[i] = Grind_CapExposureKey(magic, "CHF");
+      time_keys[i] = Grind_CapTimestampKey(keys[i]);
+      GlobalVariableSet(keys[i], 0.01 * (i + 1));
+      GlobalVariableSet(time_keys[i], (double)TimeCurrent());
+   }
+
+   double total = 0.0;
+   bool peer_failed = true;
+   Grind_CapSumLegExposure("CHF", 22260101UL, total, peer_failed);
+   AssertNear("CM2 total", total, 0.78, 1e-9);
+   AssertFalse("CM2 peer_failed", peer_failed);
+
+   for(int i = 0; i < 12; i++) {
+      GlobalVariableDel(keys[i]);
+      GlobalVariableDel(time_keys[i]);
+   }
+}
+
+void Test_CM3_MagicLockReleasesAllFleetMagics()
+{
+   const ulong expected[12] =
+   {
+      22260101UL, 22260102UL,
+      22260201UL, 22260202UL,
+      22260301UL, 22260302UL,
+      22260401UL, 22260402UL,
+      22260501UL, 22260502UL,
+      22260601UL, 22260602UL
+   };
+
+   for(int i = 0; i < 12; i++)
+      Grind_MagicLockClaim(expected[i]);
+   Grind_MagicLockClaim(22269901UL);
+
+   Grind_MagicLockReleaseAllKnown();
+
+   for(int i = 0; i < 12; i++)
+      AssertFalse("CM3 released " + IntegerToString((long)expected[i]),
+                  Grind_MagicLockIsClaimed(expected[i]));
+   AssertFalse("CM3 released 22269901", Grind_MagicLockIsClaimed(22269901UL));
+}
+
 void Test_T31_ThresholdZeroOffStillPublishes()
 {
    g_grind_cap_thresh_a = 0.0;
@@ -5872,6 +5968,9 @@ void OnStart()
    Test_T28b_MissingTimestampMaxed();
    Test_T29_CapBlocksNewEntry();
    Test_T30_CapDoesNotBlockNonEntry();
+   Test_CM1_CapMagicsCoverFleet();
+   Test_CM2_CapSumIteratesAllMagics();
+   Test_CM3_MagicLockReleasesAllFleetMagics();
    Test_T31_ThresholdZeroOffStillPublishes();
    Test_T32_DuplicateMagicFails();
    Test_T33_FreeMagicClaimSucceeds();
