@@ -5567,6 +5567,69 @@ void Test_FB4_I6BoundaryWithShift()
    Grind_TestResetLayerDetailState();
 }
 
+// Commit 1 stub: delegates to production until ADR-140 wires exit_is_filled.
+bool Test_SL_ExitMatches(const double entry,
+                         const double exit_target,
+                         const double exit_pips,
+                         const double point,
+                         const bool is_long,
+                         const bool exit_is_filled,
+                         const double shift = 0.0)
+{
+   return Grind_ReconExitMatchesEntry(entry, exit_target, exit_pips, point, is_long, shift);
+}
+
+void Test_SL1_I6LiveFillLongGbpusd()
+{
+   const double point = 0.00001;
+   AssertTrue("SL1 live fill accepts better",
+              Test_SL_ExitMatches(1.34762, 1.34826, 7.0, point, true, true));
+   AssertFalse("SL1 resting order rejects",
+               Test_SL_ExitMatches(1.34762, 1.34826, 7.0, point, true, false));
+}
+
+void Test_SL2_I6LargeFavourableFillLong()
+{
+   const double point = 0.00001;
+   AssertTrue("SL2 large favour filled",
+              Test_SL_ExitMatches(1.34762, 1.34900, 7.0, point, true, true));
+   AssertFalse("SL2 large favour unfilled",
+               Test_SL_ExitMatches(1.34762, 1.34900, 7.0, point, true, false));
+}
+
+void Test_SL3_I6AdverseFillLong()
+{
+   const double point = 0.00001;
+   const double entry = 1.34762;
+   const double exit_pips = 7.0;
+   AssertFalse("SL3 adverse twelve below",
+               Test_SL_ExitMatches(entry, 1.34820, exit_pips, point, true, true));
+   AssertTrue("SL3 adverse two below",
+              Test_SL_ExitMatches(entry, 1.34830, exit_pips, point, true, true));
+}
+
+void Test_SL4_I6FillShortMirrored()
+{
+   const double point = 0.00001;
+   AssertTrue("SL4 filled two below",
+              Test_SL_ExitMatches(0.58531, 0.58479, 5.0, point, false, true));
+   AssertTrue("SL4 filled large favour",
+              Test_SL_ExitMatches(0.58531, 0.58400, 5.0, point, false, true));
+   AssertFalse("SL4 filled fourteen adverse",
+               Test_SL_ExitMatches(0.58531, 0.58495, 5.0, point, false, true));
+   AssertTrue("SL4 filled two adverse",
+              Test_SL_ExitMatches(0.58531, 0.58483, 5.0, point, false, true));
+}
+
+void Test_SL5_I6UnfilledRegression()
+{
+   const double point = 0.00001;
+   AssertTrue("SL5 unfilled boundary below",
+              Grind_ReconExitMatchesEntry(0.58531, 0.58479, 5.0, point, false));
+   AssertFalse("SL5 unfilled three below",
+               Grind_ReconExitMatchesEntry(0.58531, 0.58478, 5.0, point, false));
+}
+
 void OnStart()
 {
    Test_SuiteResetGlobals();
@@ -5729,6 +5792,11 @@ void OnStart()
    Test_FB2_I6RejectsRealBreachShort();
    Test_FB3_I6BoundaryLong();
    Test_FB4_I6BoundaryWithShift();
+   Test_SL1_I6LiveFillLongGbpusd();
+   Test_SL2_I6LargeFavourableFillLong();
+   Test_SL3_I6AdverseFillLong();
+   Test_SL4_I6FillShortMirrored();
+   Test_SL5_I6UnfilledRegression();
    Test_AR1_ArchiveNowMs();
    Test_AR2_ArchiveBrokerTime();
    Test_AR3_JsonEscape();
