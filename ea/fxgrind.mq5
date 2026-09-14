@@ -19,6 +19,7 @@ input int    InpMaxLayers          = -1;
 input double InpLots               = 0.01;
 input double InpStrandedThreshPips = -1.0;
 input double InpDeadbandPips       = 4.0;
+input bool   InpEnableCarryPass    = false;   // ADR-135b carry exit shift
 input string InpCapLegA            = "";
 input string InpCapLegB            = "";
 input double InpCapLegAThresh      = 0.0;
@@ -168,7 +169,7 @@ int OnInit()
          InpDeadbandPips, InpStrandedThreshPips,
          InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
          InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
-         EnableTelemetry, TelemetryIntervalSec) +
+         EnableTelemetry, TelemetryIntervalSec, InpEnableCarryPass) +
          "," + Grind_ArchiveDeinitExtraFields(prev_time, InpMagic, prev_anchor);
       Grind_ArchiveEnqueue("config_event", deinit_fields);
       Grind_ArchiveClearPendingDeinit(InpMagic);
@@ -181,7 +182,7 @@ int OnInit()
       InpDeadbandPips, InpStrandedThreshPips,
       InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
       InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
-      EnableTelemetry, TelemetryIntervalSec);
+      EnableTelemetry, TelemetryIntervalSec, InpEnableCarryPass);
    Grind_ArchiveEnqueue("config_event", init_fields);
 
    Grind_CarryEmitSnapshot(_Symbol, InpMagic);
@@ -214,13 +215,7 @@ void OnTimer()
       Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();
       const datetime carry_now = TimeTradeServer();
-      if(Grind_CarryGateDue(InpMagic, carry_now)) {
-         if(!g_grind_carry_exit_snapshot_emitted) {
-            Grind_CarryEmitSnapshot(_Symbol, InpMagic);
-            g_grind_carry_exit_snapshot_emitted = true;
-         }
-      }
-      Grind_CarryExitPassStep(_Symbol, InpMagic, InpExitPips, carry_now);
+      Grind_CarryOnTimerStep(_Symbol, InpMagic, InpExitPips, InpEnableCarryPass, carry_now);
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
       g_grind_last_telemetry_tick = now_tick;

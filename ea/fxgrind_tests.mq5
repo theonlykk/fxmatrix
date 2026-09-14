@@ -4381,7 +4381,7 @@ void Test_AR15_ConfigInitFields()
       "INIT", 0, "EURUSD", "OPT", "fxgrind 2026.09.11 15:30:14",
       12345, 10.0, 5.0, 3.0, 12, 0.01, 4.0, 2.0,
       "EURUSD", "GBPUSD", 1.0, 2.0,
-      "GRIND_TEST_OPT", false, "warn", true, 60);
+      "GRIND_TEST_OPT", false, "warn", true, 60, false);
    AssertContains("AR15 event", fields, "\"event\":\"INIT\"");
    AssertContains("AR15 symbol", fields, "\"symbol\":\"EURUSD\"");
    AssertContains("AR15 build", fields, "\"ea_build\":\"fxgrind ");
@@ -5236,6 +5236,95 @@ void Test_CX13_IncompletePass()
    Grind_TestResetSideState();
 }
 
+void Test_CX15_CarryPassToggle()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestConfigureCommon();
+   const ulong magic = 99992015UL;
+   const ulong exit_ticket = 9501UL;
+   const double exit_before = 1.25050;
+   Grind_CarryGateReset(magic);
+   g_grind_carry_exit_snapshot_emitted = false;
+   g_grind_carry_test_server_time = D'2026.09.14 23:50:00';
+   Grind_CarryTestSeedTick(g_grind_carry_test_server_time, 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   g_grind_order_test_active = true;
+   g_grind_carry_test_snapshot_active = true;
+   g_grind_carry_test_swap_long = -8.76;
+   g_grind_carry_test_swap_short = 0.37;
+   g_grind_carry_test_multiplier = 1;
+   g_grind_carry_test_digits = 5;
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = exit_before;
+   g_grind_long.layers[0].position_ticket = 9401;
+   g_grind_long.layers[0].exit_order_ticket = exit_ticket;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_CarryTestSetPosition(9401UL, -0.10, 0.01, D'2026.09.01 12:00');
+   Grind_OrderTestUpsert(exit_ticket, (long)magic, "GRIND|OPT|L|L00|EXT",
+                        exit_before, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_PositionTestAdd(9401UL);
+   g_grind_carry_eligible_magic = magic;
+   Grind_CarryOnTimerStep(_Symbol, magic, 5.0, false, g_grind_carry_test_server_time);
+   bool has_shift_off = false;
+   bool has_snapshot_off = false;
+   for(int i = 0; i < Grind_ArchiveQueueCount(); i++) {
+      const string peek = Grind_ArchiveQueuePeek(i);
+      if(StringFind(peek, "\"code\":\"CARRY_EXIT_SHIFT\"") >= 0)
+         has_shift_off = true;
+      if(StringFind(peek, "\"code\":\"CARRY_SNAPSHOT\"") >= 0)
+         has_snapshot_off = true;
+   }
+   GrindOrderTestRecord rec_off;
+   Grind_OrderTestFind(exit_ticket, rec_off);
+   AssertTrue("CX15 off guarded",
+              !has_shift_off && MathAbs(rec_off.price - exit_before) < 1e-12);
+   AssertTrue("CX15 off snapshot", has_snapshot_off);
+
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_CarryGateReset(magic);
+   g_grind_carry_exit_snapshot_emitted = false;
+   g_grind_carry_test_server_time = D'2026.09.14 23:50:00';
+   Grind_CarryTestSeedTick(g_grind_carry_test_server_time, 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+   g_grind_order_test_active = true;
+   g_grind_carry_test_snapshot_active = true;
+   g_grind_carry_test_swap_long = -8.76;
+   g_grind_carry_test_swap_short = 0.37;
+   g_grind_carry_test_multiplier = 1;
+   g_grind_carry_test_digits = 5;
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].exit_target = exit_before;
+   g_grind_long.layers[0].position_ticket = 9401;
+   g_grind_long.layers[0].exit_order_ticket = exit_ticket;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_CarryTestSetPosition(9401UL, -0.10, 0.01, D'2026.09.01 12:00');
+   Grind_OrderTestUpsert(exit_ticket, (long)magic, "GRIND|OPT|L|L00|EXT",
+                        exit_before, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_PositionTestAdd(9401UL);
+   g_grind_carry_eligible_magic = magic;
+   Grind_CarryOnTimerStep(_Symbol, magic, 5.0, true, g_grind_carry_test_server_time);
+   bool has_shift_on = false;
+   for(int j = 0; j < Grind_ArchiveQueueCount(); j++) {
+      if(StringFind(Grind_ArchiveQueuePeek(j), "\"code\":\"CARRY_EXIT_SHIFT\"") >= 0)
+         has_shift_on = true;
+   }
+   AssertTrue("CX15 on shift", has_shift_on);
+   Grind_CarryGateReset(magic);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
 void Test_CX14_TelemetryShape()
 {
    Grind_CarryTestReset();
@@ -5628,6 +5717,7 @@ void OnStart()
    Test_CX12_Chunking();
    Test_CX13_IncompletePass();
    Test_CX14_TelemetryShape();
+   Test_CX15_CarryPassToggle();
    Test_R1_LayerCommentRawFromBroker();
    Test_R2_PendingCommentsNullWhenAbsent();
    Test_R3_NoTicketsInCommentHeartbeatJson();

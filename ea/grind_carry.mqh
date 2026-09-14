@@ -895,6 +895,23 @@ bool Grind_CarryExitShiftLayer(const ulong position_ticket,
 }
 
 //+------------------------------------------------------------------+
+void Grind_CarryOnTimerStep(const string symbol,
+                            const ulong magic,
+                            const double exit_pips,
+                            const bool enable_carry_pass,
+                            const datetime carry_now)
+{
+   if(Grind_CarryGateDue(magic, carry_now)) {
+      if(!g_grind_carry_exit_snapshot_emitted) {
+         Grind_CarryEmitSnapshot(symbol, magic);
+         g_grind_carry_exit_snapshot_emitted = true;
+      }
+   }
+   if(enable_carry_pass)
+      Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now);
+}
+
+//+------------------------------------------------------------------+
 int Grind_CarryExitPassStep(const string symbol,
                             const ulong magic,
                             const double exit_pips,

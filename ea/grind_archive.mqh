@@ -479,7 +479,8 @@ string Grind_ArchiveConfigFields(const string event,
                                  const bool verbose_log,
                                  const string config_warning,
                                  const bool enable_telemetry,
-                                 const int telemetry_interval_sec)
+                                 const int telemetry_interval_sec,
+                                 const bool enable_carry_pass)
 {
    string deinit = "null";
    if(deinit_reason != 0)
@@ -507,7 +508,8 @@ string Grind_ArchiveConfigFields(const string event,
           ",\"verbose_log\":" + Grind_ArchiveJsonBool(verbose_log) +
           ",\"config_warning\":" + Grind_ArchiveJsonStringOrNull(config_warning) +
           ",\"enable_telemetry\":" + Grind_ArchiveJsonBool(enable_telemetry) +
-          ",\"telemetry_interval_sec\":" + IntegerToString(telemetry_interval_sec);
+          ",\"telemetry_interval_sec\":" + IntegerToString(telemetry_interval_sec) +
+          ",\"enable_carry_pass\":" + Grind_ArchiveJsonBool(enable_carry_pass);
 }
 
 //+------------------------------------------------------------------+
