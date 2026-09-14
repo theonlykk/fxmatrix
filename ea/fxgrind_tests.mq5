@@ -55,6 +55,21 @@ void AssertNotContains(const string name, const string haystack, const string ne
    AssertTrue(name, StringFind(haystack, needle) < 0);
 }
 
+int Test_SuiteResetGlobals()
+{
+   int deleted = 0;
+   const int total = GlobalVariablesTotal();
+   for(int i = total - 1; i >= 0; i--) {
+      const string name = GlobalVariableName(i);
+      if(StringFind(name, "GRIND") == 0) {
+         if(GlobalVariableDel(name))
+            deleted++;
+      }
+   }
+   Print("SUITE: cleared ", deleted, " GRIND GlobalVariables");
+   return deleted;
+}
+
 void Test_SuiteCleanupMagicLocks()
 {
    Grind_MagicLockReleaseAllKnown();
@@ -5554,6 +5569,7 @@ void Test_FB4_I6BoundaryWithShift()
 
 void OnStart()
 {
+   Test_SuiteResetGlobals();
    Test_SuiteCleanupMagicLocks();
    Test_T1_CommentConstructor();
    Test_T2_CommentRoundTrip();
@@ -5807,4 +5823,5 @@ void OnStart()
    Test_B5c_SameSecondOrderingByMsc();
    Test_B6_WorstCaseBookSplitPostComplete();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
+   Test_SuiteResetGlobals();
 }
