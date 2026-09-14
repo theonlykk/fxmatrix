@@ -23,13 +23,16 @@ void Grind_MagicLockRelease(const ulong magic)
 //+------------------------------------------------------------------+
 void Grind_MagicLockReleaseAllKnown()
 {
-   const ulong magics[6] =
+   const ulong magics[12] =
    {
       22260101UL, 22260102UL,
       22260201UL, 22260202UL,
-      22260301UL, 22260302UL
+      22260301UL, 22260302UL,
+      22260401UL, 22260402UL,
+      22260501UL, 22260502UL,
+      22260601UL, 22260602UL
    };
-   for(int i = 0; i < 6; i++)
+   for(int i = 0; i < ArraySize(magics); i++)
       Grind_MagicLockRelease(magics[i]);
    Grind_MagicLockRelease(22269901UL);
 }

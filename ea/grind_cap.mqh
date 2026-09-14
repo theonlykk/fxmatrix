@@ -14,12 +14,15 @@
 #define GRIND_CAP_MAXED_VALUE       1.0e12
 #define GRIND_CAP_CAS_MAX_RETRIES   50
 
-// All six fxgrind instance magics (2226xxxx namespace).
-const ulong GRIND_CAP_ALL_MAGICS[6] =
+// All twelve live fxgrind instance magics (2226xxxx namespace).
+const ulong GRIND_CAP_ALL_MAGICS[12] =
 {
    22260101UL, 22260102UL,
    22260201UL, 22260202UL,
-   22260301UL, 22260302UL
+   22260301UL, 22260302UL,
+   22260401UL, 22260402UL,
+   22260501UL, 22260502UL,
+   22260601UL, 22260602UL
 };
 
 double g_grind_cap_thresh_a = 0.0;
@@ -200,7 +203,7 @@ bool Grind_CapSumLegExposure(const string leg,
    if(!Grind_CapAcquireLock())
       return false;
 
-   for(int i = 0; i < 6; i++) {
+   for(int i = 0; i < ArraySize(GRIND_CAP_ALL_MAGICS); i++) {
       const ulong magic = GRIND_CAP_ALL_MAGICS[i];
       const string key = Grind_CapExposureKey(magic, leg);
       double peer_value = 0.0;

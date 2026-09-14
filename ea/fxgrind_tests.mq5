@@ -577,7 +577,7 @@ void Test_T29_CapBlocksNewEntry()
    g_grind_cap_leg_a = "EUR";
    g_grind_cap_leg_b = "USD";
 
-   for(int i = 0; i < 6; i++) {
+   for(int i = 0; i < ArraySize(GRIND_CAP_ALL_MAGICS); i++) {
       const ulong magic = GRIND_CAP_ALL_MAGICS[i];
       const string key = Grind_CapExposureKey(magic, "EUR");
       const string time_key = Grind_CapTimestampKey(key);
@@ -3008,7 +3008,7 @@ void Test_M3_CapBlockedStillRemovesStaleAdd()
    g_grind_cap_leg_a = "EUR";
    g_grind_cap_leg_b = "USD";
 
-   for(int i = 0; i < 6; i++) {
+   for(int i = 0; i < ArraySize(GRIND_CAP_ALL_MAGICS); i++) {
       const ulong magic = GRIND_CAP_ALL_MAGICS[i];
       const string key = Grind_CapExposureKey(magic, "EUR");
       GlobalVariableSet(key, 0.0);
