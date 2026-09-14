@@ -30,6 +30,11 @@ long           g_grind_last_feed_tick_msc = 0;
 int            g_grind_fill_count = 0;
 int            g_grind_scalp_count = 0;
 string         g_grind_telemetry_instance = "GRIND_UNKNOWN";
+
+string Grind_LogTag()
+{
+   return "[" + g_grind_telemetry_instance + "] ";
+}
 string         g_grind_cap_leg_a = "";
 string         g_grind_cap_leg_b = "";
 ulong          g_grind_processed_deals[];

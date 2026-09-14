@@ -5693,11 +5693,8 @@ void Test_IV6_JsonShapeAndArchiveInfo()
               StringGetCharacter(g_grind_invariant_detail, detail_len - 1) == '}');
    Grind_ArchiveTestReset();
    Grind_ArchiveTestConfigureCommon();
-   string archive_detail = "";
-   if(g_grind_invariant_detail != "")
-      archive_detail = "{\"info\":" + g_grind_invariant_detail + "}";
-   Grind_ArchiveMarker("CRITICAL", "INVARIANT_FAIL", g_grind_invariant_reason,
-                       541545776UL, archive_detail);
+   g_grind_invariant_marker_ticket = 541545776UL;
+   Grind_InvariantEmitArchive(g_grind_invariant_reason);
    AssertContains("IV6 archive info", Grind_ArchiveQueuePeek(0),
                   "\"info\":{\"layer_index\":");
    Grind_ArchiveTestReset();

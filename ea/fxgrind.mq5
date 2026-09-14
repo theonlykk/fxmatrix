@@ -235,7 +235,8 @@ void OnTick()
          g_grind_halted = true;
          g_grind_halt_reason = g_grind_invariant_reason;
          Grind_TelemetryCritical(g_grind_telemetry_instance, "INVARIANT_FAIL",
-                                 g_grind_halt_reason);
+                                 g_grind_halt_reason, g_grind_invariant_detail);
+         Grind_InvariantEmitArchive(g_grind_halt_reason);
       }
    }
 

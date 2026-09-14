@@ -9,6 +9,7 @@
 #include "grind_pure.mqh"
 #include "grind_recon_failure.mqh"
 #include "grind_telemetry.mqh"
+#include "grind_archive.mqh"
 #include "grind_closeby.mqh"
 
 #define GRIND_RECON_FAILURE_MAX_EMIT 40
@@ -52,6 +53,205 @@ ulong  g_grind_invariant_marker_ticket = 0;
 bool   g_grind_last_invariant_ok = true;
 bool   g_grind_recon_ok = false;
 bool   g_grind_recon_verbose = false;
+
+//+------------------------------------------------------------------+
+string Grind_InvariantJsonDouble(const double value, const int digits)
+{
+   return DoubleToString(value, digits);
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantJsonUlong(const ulong ticket)
+{
+   return IntegerToString((long)ticket);
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantJsonString(const string value)
+{
+   string out = "";
+   for(int i = 0; i < StringLen(value); i++) {
+      const ushort ch = StringGetCharacter(value, i);
+      if(ch == '\\')
+         out += "\\\\";
+      else if(ch == '"')
+         out += "\\\"";
+      else
+         out += ShortToString(ch);
+   }
+   return "\"" + out + "\"";
+}
+
+//+------------------------------------------------------------------+
+int Grind_InvariantDiffPoints(const double diff, const double point)
+{
+   if(point <= 0.0)
+      return 0;
+   return (int)MathRound(diff / point);
+}
+
+//+------------------------------------------------------------------+
+void Grind_InvariantDetailReset()
+{
+   g_grind_invariant_detail = "";
+   g_grind_invariant_marker_ticket = 0;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_InvariantFail(string &reason_out,
+                         const string reason,
+                         const string detail,
+                         const ulong marker_ticket = 0)
+{
+   reason_out = reason;
+   g_grind_invariant_reason = reason;
+   g_grind_invariant_detail = detail;
+   g_grind_invariant_marker_ticket = marker_ticket;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI6(const GrindReconLayerScratch &layer,
+                               const bool is_long,
+                               const double exit_pips,
+                               const double point,
+                               const double carry_shift)
+{
+   const int dir = is_long ? 1 : -1;
+   const double expected = Grind_ExitPrice(layer.entry_price, exit_pips, point, dir) + carry_shift;
+   const double diff = layer.exit_target - expected;
+   string exit_is = "null";
+   ulong exit_ticket = 0;
+   if(layer.has_exit_position) {
+      exit_is = "\"POSITION\"";
+      exit_ticket = layer.exit_position_id;
+   } else if(layer.has_exit_order) {
+      exit_is = "\"ORDER\"";
+      exit_ticket = layer.exit_order_ticket;
+   }
+   return StringFormat(
+      "{\"layer_index\":%d,\"side\":\"%s\",\"entry\":%s,\"exit_target\":%s,"
+      "\"expected\":%s,\"diff_points\":%d,\"tolerance_points\":2,"
+      "\"carry_shift\":%s,\"exit_is\":%s,\"position_ticket\":%s,\"exit_ticket\":%s}",
+      layer.layer_index,
+      is_long ? "L" : "S",
+      Grind_InvariantJsonDouble(layer.entry_price, 5),
+      Grind_InvariantJsonDouble(layer.exit_target, 5),
+      Grind_InvariantJsonDouble(expected, 5),
+      Grind_InvariantDiffPoints(diff, point),
+      Grind_InvariantJsonDouble(carry_shift, 5),
+      exit_is,
+      Grind_InvariantJsonUlong(layer.position_id),
+      Grind_InvariantJsonUlong(exit_ticket));
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI3(const GrindReconLayerScratch &layer,
+                               const bool is_long,
+                               const string failed_test)
+{
+   string entry_json = "null";
+   if(layer.has_position)
+      entry_json = Grind_InvariantJsonDouble(layer.entry_price, 5);
+   return StringFormat(
+      "{\"layer_index\":%d,\"side\":\"%s\",\"entry\":%s,\"position_ticket\":%s,"
+      "\"failed_test\":%s}",
+      layer.layer_index,
+      is_long ? "L" : "S",
+      entry_json,
+      Grind_InvariantJsonUlong(layer.position_id),
+      Grind_InvariantJsonString(failed_test));
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI7(const bool is_long,
+                               const int depth_found,
+                               const int max_layers)
+{
+   return StringFormat("{\"side\":\"%s\",\"depth_found\":%d,\"max_layers\":%d}",
+                       is_long ? "L" : "S", depth_found, max_layers);
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI5Corrupt(const bool is_long,
+                                      const int &indices[],
+                                      const int count)
+{
+   string arr = "[";
+   for(int i = 0; i < count; i++) {
+      if(i > 0)
+         arr += ",";
+      arr += IntegerToString(indices[i]);
+   }
+   arr += "]";
+   return StringFormat("{\"side\":\"%s\",\"layer_indices\":%s}",
+                       is_long ? "L" : "S", arr);
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI5Dup(const bool is_long,
+                                  const int layer_index,
+                                  const ulong existing_ticket,
+                                  const ulong new_ticket)
+{
+   return StringFormat(
+      "{\"side\":\"%s\",\"layer_index\":%d,\"existing_ticket\":%s,\"new_ticket\":%s}",
+      is_long ? "L" : "S",
+      layer_index,
+      Grind_InvariantJsonUlong(existing_ticket),
+      Grind_InvariantJsonUlong(new_ticket));
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI2Dup(const bool is_long,
+                                  const int layer_index,
+                                  const ulong incoming_ticket,
+                                  const ulong held_ticket,
+                                  const string dup_site)
+{
+   return StringFormat(
+      "{\"layer_index\":%d,\"side\":\"%s\",\"incoming_ticket\":%s,"
+      "\"held_ticket\":%s,\"dup_site\":%s}",
+      layer_index,
+      is_long ? "L" : "S",
+      Grind_InvariantJsonUlong(incoming_ticket),
+      Grind_InvariantJsonUlong(held_ticket),
+      Grind_InvariantJsonString(dup_site));
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI1(const int layer_index,
+                               const bool is_long,
+                               const int exit_count)
+{
+   return StringFormat("{\"layer_index\":%d,\"side\":\"%s\",\"exit_count\":%d,\"expected\":1}",
+                       layer_index, is_long ? "L" : "S", exit_count);
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI4(const int layer_index, const bool is_long)
+{
+   return StringFormat("{\"layer_index\":%d,\"side\":\"%s\",\"failed_test\":\"orphan_exit\"}",
+                       layer_index, is_long ? "L" : "S");
+}
+
+//+------------------------------------------------------------------+
+string Grind_InvariantDetailI8(const ulong pending_ticket, const string failure_kind)
+{
+   return StringFormat("{\"pending_add_ticket\":%s,\"failure_kind\":%s}",
+                       Grind_InvariantJsonUlong(pending_ticket),
+                       Grind_InvariantJsonString(failure_kind));
+}
+
+//+------------------------------------------------------------------+
+void Grind_InvariantEmitArchive(const string reason)
+{
+   string archive_detail = "";
+   if(g_grind_invariant_detail != "")
+      archive_detail = "{\"info\":" + g_grind_invariant_detail + "}";
+   Grind_ArchiveMarker("CRITICAL", "INVARIANT_FAIL", reason,
+                       g_grind_invariant_marker_ticket, archive_detail);
+}
 
 //+------------------------------------------------------------------+
 void Grind_ReconResetSide(GrindSideState &side)
@@ -171,14 +371,14 @@ bool Grind_ReconCheckPendingAddCorrupt(const GrindReconTicket &tickets[],
       if(tickets[i].ticket != add_pending_ticket)
          continue;
       if(tickets[i].kind != GRIND_RECON_TICKET_ORDER) {
-         reason_out = "I8_CORRUPT_PENDING_ADD";
-         return false;
+         return Grind_InvariantFail(reason_out, "I8_CORRUPT_PENDING_ADD",
+                                    Grind_InvariantDetailI8(add_pending_ticket, "not_order"));
       }
       return true;
    }
 
-   reason_out = "I8_CORRUPT_PENDING_ADD";
-   return false;
+   return Grind_InvariantFail(reason_out, "I8_CORRUPT_PENDING_ADD",
+                              Grind_InvariantDetailI8(add_pending_ticket, "ticket_not_found"));
 }
 
 //+------------------------------------------------------------------+
@@ -192,14 +392,15 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 string &reason_out)
 {
    reason_out = "";
+   Grind_InvariantDetailReset();
 
    if(long_count > max_layers) {
-      reason_out = "I7_LONG_DEPTH";
-      return false;
+      return Grind_InvariantFail(reason_out, "I7_LONG_DEPTH",
+                                 Grind_InvariantDetailI7(true, long_count, max_layers));
    }
    if(short_count > max_layers) {
-      reason_out = "I7_SHORT_DEPTH";
-      return false;
+      return Grind_InvariantFail(reason_out, "I7_SHORT_DEPTH",
+                                 Grind_InvariantDetailI7(false, short_count, max_layers));
    }
 
    int long_indices[];
@@ -212,47 +413,54 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       short_indices[i] = short_layers[i].layer_index;
 
    if(!Grind_ReconLayerIndicesValid(long_indices, long_count)) {
-      reason_out = "I5_LONG_CORRUPT_LAYER_INDICES";
-      return false;
+      return Grind_InvariantFail(reason_out, "I5_LONG_CORRUPT_LAYER_INDICES",
+                                 Grind_InvariantDetailI5Corrupt(true, long_indices, long_count));
    }
    if(!Grind_ReconLayerIndicesValid(short_indices, short_count)) {
-      reason_out = "I5_SHORT_CORRUPT_LAYER_INDICES";
-      return false;
+      return Grind_InvariantFail(reason_out, "I5_SHORT_CORRUPT_LAYER_INDICES",
+                                 Grind_InvariantDetailI5Corrupt(false, short_indices, short_count));
    }
 
    for(int i = 0; i < long_count; i++) {
       if(!long_layers[i].has_position) {
-         reason_out = "I3_LONG_NAKED";
-         return false;
+         return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
+                                    Grind_InvariantDetailI3(long_layers[i], true, "no_position"));
       }
       if(!Grind_ReconLayerHasExitCoverage(long_layers[i])) {
-         reason_out = "I3_LONG_NAKED";
-         return false;
+         return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
+                                    Grind_InvariantDetailI3(long_layers[i], true, "no_exit_coverage"),
+                                    long_layers[i].position_id);
       }
       const double long_shift = Grind_CarryShiftGetForRecon(long_layers[i].position_id);
       if(!Grind_ReconExitMatchesEntry(long_layers[i].entry_price,
                                      long_layers[i].exit_target,
                                      exit_pips, point, true, long_shift)) {
-         reason_out = "I6_LONG_EXIT";
-         return false;
+         return Grind_InvariantFail(reason_out, "I6_LONG_EXIT",
+                                    Grind_InvariantDetailI6(long_layers[i], true, exit_pips, point,
+                                                            long_shift),
+                                    long_layers[i].position_id);
       }
    }
 
    for(int i = 0; i < short_count; i++) {
       if(!short_layers[i].has_position) {
-         reason_out = "I3_SHORT_NAKED";
-         return false;
+         return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
+                                    Grind_InvariantDetailI3(short_layers[i], false, "no_position"));
       }
       if(!Grind_ReconLayerHasExitCoverage(short_layers[i])) {
-         reason_out = "I3_SHORT_NAKED";
-         return false;
+         return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
+                                    Grind_InvariantDetailI3(short_layers[i], false,
+                                                             "no_exit_coverage"),
+                                    short_layers[i].position_id);
       }
       const double short_shift = Grind_CarryShiftGetForRecon(short_layers[i].position_id);
       if(!Grind_ReconExitMatchesEntry(short_layers[i].entry_price,
                                      short_layers[i].exit_target,
                                      exit_pips, point, false, short_shift)) {
-         reason_out = "I6_SHORT_EXIT";
-         return false;
+         return Grind_InvariantFail(reason_out, "I6_SHORT_EXIT",
+                                    Grind_InvariantDetailI6(short_layers[i], false, exit_pips, point,
+                                                            short_shift),
+                                    short_layers[i].position_id);
       }
    }
 
@@ -272,8 +480,10 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          }
       }
       if(exit_count != 1) {
-         reason_out = "I1_LONG_EXIT_COUNT";
-         return false;
+         return Grind_InvariantFail(reason_out, "I1_LONG_EXIT_COUNT",
+                                    Grind_InvariantDetailI1(long_layers[i].layer_index, true,
+                                                            exit_count),
+                                    long_layers[i].position_id);
       }
    }
 
@@ -293,11 +503,14 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          }
       }
       if(exit_count != 1) {
-         reason_out = "I1_SHORT_EXIT_COUNT";
-         return false;
+         return Grind_InvariantFail(reason_out, "I1_SHORT_EXIT_COUNT",
+                                    Grind_InvariantDetailI1(short_layers[i].layer_index, false,
+                                                            exit_count),
+                                    short_layers[i].position_id);
       }
    }
 
+   Grind_InvariantDetailReset();
    return true;
 }
 
@@ -571,9 +784,12 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                return false;
             }
             if(long_scratch[idx].has_position) {
-               reason_out = "I5_LONG_DUP";
                offending_comment_out = tickets[i].comment;
-               return false;
+               return Grind_InvariantFail(reason_out, "I5_LONG_DUP",
+                                          Grind_InvariantDetailI5Dup(true, c_layer,
+                                                                     long_scratch[idx].position_id,
+                                                                     tickets[i].ticket),
+                                          long_scratch[idx].position_id);
             }
             long_scratch[idx].has_position = true;
             long_scratch[idx].entry_price = tickets[i].price;
@@ -584,9 +800,12 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                return false;
             }
             if(short_scratch[idx].has_position) {
-               reason_out = "I5_SHORT_DUP";
                offending_comment_out = tickets[i].comment;
-               return false;
+               return Grind_InvariantFail(reason_out, "I5_SHORT_DUP",
+                                          Grind_InvariantDetailI5Dup(false, c_layer,
+                                                                     short_scratch[idx].position_id,
+                                                                     tickets[i].ticket),
+                                          short_scratch[idx].position_id);
             }
             short_scratch[idx].has_position = true;
             short_scratch[idx].entry_price = tickets[i].price;
@@ -603,8 +822,17 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                return false;
             }
             if(long_scratch[idx].has_exit_order || long_scratch[idx].has_exit_position) {
-               reason_out = "I2_LONG_EXIT_DUP";
-               return false;
+               ulong held_ticket = 0;
+               if(long_scratch[idx].has_exit_order)
+                  held_ticket = long_scratch[idx].exit_order_ticket;
+               else
+                  held_ticket = long_scratch[idx].exit_position_id;
+               return Grind_InvariantFail(reason_out, "I2_LONG_EXIT_DUP",
+                                          Grind_InvariantDetailI2Dup(true, c_layer,
+                                                                     tickets[i].ticket,
+                                                                     held_ticket,
+                                                                     "order_scan"),
+                                          long_scratch[idx].position_id);
             }
             long_scratch[idx].has_exit_order = true;
             long_scratch[idx].exit_target = tickets[i].price;
@@ -615,8 +843,17 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                return false;
             }
             if(short_scratch[idx].has_exit_order || short_scratch[idx].has_exit_position) {
-               reason_out = "I2_SHORT_EXIT_DUP";
-               return false;
+               ulong held_ticket = 0;
+               if(short_scratch[idx].has_exit_order)
+                  held_ticket = short_scratch[idx].exit_order_ticket;
+               else
+                  held_ticket = short_scratch[idx].exit_position_id;
+               return Grind_InvariantFail(reason_out, "I2_SHORT_EXIT_DUP",
+                                          Grind_InvariantDetailI2Dup(false, c_layer,
+                                                                     tickets[i].ticket,
+                                                                     held_ticket,
+                                                                     "order_scan"),
+                                          short_scratch[idx].position_id);
             }
             short_scratch[idx].has_exit_order = true;
             short_scratch[idx].exit_target = tickets[i].price;
@@ -633,8 +870,12 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                return false;
             }
             if(long_scratch[idx].has_exit_position) {
-               reason_out = "I2_LONG_EXIT_DUP";
-               return false;
+               return Grind_InvariantFail(reason_out, "I2_LONG_EXIT_DUP",
+                                          Grind_InvariantDetailI2Dup(true, c_layer,
+                                                                     tickets[i].ticket,
+                                                                     long_scratch[idx].exit_position_id,
+                                                                     "position_scan"),
+                                          long_scratch[idx].position_id);
             }
             if(long_scratch[idx].has_exit_order) {
                long_scratch[idx].has_exit_order = false;
@@ -649,8 +890,12 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                return false;
             }
             if(short_scratch[idx].has_exit_position) {
-               reason_out = "I2_SHORT_EXIT_DUP";
-               return false;
+               return Grind_InvariantFail(reason_out, "I2_SHORT_EXIT_DUP",
+                                          Grind_InvariantDetailI2Dup(false, c_layer,
+                                                                     tickets[i].ticket,
+                                                                     short_scratch[idx].exit_position_id,
+                                                                     "position_scan"),
+                                          short_scratch[idx].position_id);
             }
             if(short_scratch[idx].has_exit_order) {
                short_scratch[idx].has_exit_order = false;
@@ -703,26 +948,30 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
 
    for(int i = 0; i < long_count; i++) {
       if(long_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
-         reason_out = "I3_LONG_NAKED";
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, long_scratch[i].position_id);
-         return false;
+         return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
+                                    Grind_InvariantDetailI3(long_scratch[i], true,
+                                                            "no_exit_coverage"),
+                                    long_scratch[i].position_id);
       }
       if(!long_scratch[i].has_position && Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
-         reason_out = "I4_LONG_ORPHAN_EXIT";
-         return false;
+         return Grind_InvariantFail(reason_out, "I4_LONG_ORPHAN_EXIT",
+                                    Grind_InvariantDetailI4(long_scratch[i].layer_index, true));
       }
    }
    for(int i = 0; i < short_count; i++) {
       if(short_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
-         reason_out = "I3_SHORT_NAKED";
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, short_scratch[i].position_id);
-         return false;
+         return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
+                                    Grind_InvariantDetailI3(short_scratch[i], false,
+                                                            "no_exit_coverage"),
+                                    short_scratch[i].position_id);
       }
       if(!short_scratch[i].has_position && Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
-         reason_out = "I4_SHORT_ORPHAN_EXIT";
-         return false;
+         return Grind_InvariantFail(reason_out, "I4_SHORT_ORPHAN_EXIT",
+                                    Grind_InvariantDetailI4(short_scratch[i].layer_index, false));
       }
    }
 
@@ -858,10 +1107,12 @@ bool Grind_CheckBookInvariants()
                                                 _Point,
                                                 long_tmp, short_tmp, reason);
    g_grind_last_invariant_ok = ok;
-   if(!ok)
+   if(!ok) {
       g_grind_invariant_reason = reason;
-   else
+   } else {
       g_grind_invariant_reason = "";
+      Grind_InvariantDetailReset();
+   }
    return ok;
 }
 

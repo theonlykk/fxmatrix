@@ -160,9 +160,14 @@ void Grind_TelemetryEmitHeartbeat(const string instance_name,
 //+------------------------------------------------------------------+
 void Grind_TelemetryCritical(const string instance_name,
                              const string event,
-                             const string detail = "")
+                             const string detail = "",
+                             const string info_json = "")
 {
-   string detail_json = "{\"detail\":\"" + Grind_JsonEscape(detail) + "\"}";
+   string detail_json;
+   if(info_json != "")
+      detail_json = "{\"detail\":\"" + Grind_JsonEscape(detail) + "\",\"info\":" + info_json + "}";
+   else
+      detail_json = "{\"detail\":\"" + Grind_JsonEscape(detail) + "\"}";
    Grind_TelemetryEmit(instance_name, "CRITICAL_" + event, detail_json);
 
    const string archive_detail = "{\"halt_reason\":\"" +
