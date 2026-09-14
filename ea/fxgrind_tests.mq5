@@ -5498,6 +5498,60 @@ void Test_PO4_RecenterOppositeL0StillWorks()
    Grind_TestResetSideState();
 }
 
+void Test_FB1_I6LiveBoundaryShort()
+{
+   Grind_TestResetLayerDetailState();
+   const double point = 0.00001;
+   AssertTrue("FB1 live below",
+              Grind_ReconExitMatchesEntry(0.58531, 0.58479, 5.0, point, false));
+   AssertTrue("FB1 live above",
+              Grind_ReconExitMatchesEntry(0.58531, 0.58483, 5.0, point, false));
+}
+
+void Test_FB2_I6RejectsRealBreachShort()
+{
+   Grind_TestResetLayerDetailState();
+   const double point = 0.00001;
+   AssertFalse("FB2 three below",
+               Grind_ReconExitMatchesEntry(0.58531, 0.58478, 5.0, point, false));
+   AssertFalse("FB2 three above",
+               Grind_ReconExitMatchesEntry(0.58531, 0.58484, 5.0, point, false));
+}
+
+void Test_FB3_I6BoundaryLong()
+{
+   Grind_TestResetLayerDetailState();
+   const double point = 0.00001;
+   const double entry = 1.35169;
+   const double exit_pips = 7.0;
+   AssertTrue("FB3 two below",
+              Grind_ReconExitMatchesEntry(entry, 1.35237, exit_pips, point, true));
+   AssertTrue("FB3 two above",
+              Grind_ReconExitMatchesEntry(entry, 1.35241, exit_pips, point, true));
+   AssertFalse("FB3 three below",
+               Grind_ReconExitMatchesEntry(entry, 1.35236, exit_pips, point, true));
+   AssertFalse("FB3 three above",
+               Grind_ReconExitMatchesEntry(entry, 1.35242, exit_pips, point, true));
+}
+
+void Test_FB4_I6BoundaryWithShift()
+{
+   Grind_TestResetLayerDetailState();
+   const double point = 0.00001;
+   const double shift = 0.00070;
+   AssertTrue("FB4 shift accept",
+              Grind_ReconExitMatchesEntry(1.25000, 1.25118, 5.0, point, true, shift));
+   AssertFalse("FB4 shift reject",
+               Grind_ReconExitMatchesEntry(1.25000, 1.25123, 5.0, point, true, shift));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestResetLayerDetailState();
+}
+
 void OnStart()
 {
    Test_SuiteCleanupMagicLocks();
@@ -5655,6 +5709,10 @@ void OnStart()
    Test_PO2_TryPlaceL0IgnoresLargeNoiseMove();
    Test_PO3_TryPlaceL0PlacesWhenEmpty();
    Test_PO4_RecenterOppositeL0StillWorks();
+   Test_FB1_I6LiveBoundaryShort();
+   Test_FB2_I6RejectsRealBreachShort();
+   Test_FB3_I6BoundaryLong();
+   Test_FB4_I6BoundaryWithShift();
    Test_AR1_ArchiveNowMs();
    Test_AR2_ArchiveBrokerTime();
    Test_AR3_JsonEscape();
