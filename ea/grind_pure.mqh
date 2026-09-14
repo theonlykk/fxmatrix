@@ -9,6 +9,13 @@
 #define GRIND_ADD_WIDTH_MULTIPLE 2.0
 #define GRIND_FEED_STALE_MS      5000
 
+// Absolute price epsilon for boundary comparisons. A difference of
+// exactly N * point can evaluate as marginally greater in binary
+// (0.58481 - 0.58479 = 2.0000000000020002e-05 vs 2e-05), which halted
+// an instance on 2026-09-14. 1e-9 is far below one point on any symbol
+// we trade (smallest point = 0.00001) so it cannot mask a real breach.
+#define GRIND_PRICE_EPS          1e-9
+
 //+------------------------------------------------------------------+
 bool Grind_ValidateGeometryInputs(const double width_pips,
                                   const double exit_pips,

@@ -147,7 +147,7 @@ bool Grind_ReconExitMatchesEntry(const double entry,
 {
    const int dir = is_long ? 1 : -1;
    const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + shift;
-   return (MathAbs(exit_target - expected) <= 2.0 * point);
+   return (MathAbs(exit_target - expected) <= 2.0 * point + GRIND_PRICE_EPS);
 }
 
 //+------------------------------------------------------------------+
