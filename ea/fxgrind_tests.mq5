@@ -5700,6 +5700,133 @@ void Test_IV6_JsonShapeAndArchiveInfo()
    Grind_ArchiveTestReset();
 }
 
+void Test_EF1_I6LiveFavourableFillLong()
+{
+   const double point = 0.00001;
+   const double entry = 1.34969;
+   const double exit_pips = 7.0;
+   GrindReconLayerScratch filled[1];
+   Grind_TestInitLayerScratch(filled[0], 2, entry, 541545776UL);
+   filled[0].has_exit_position = true;
+   filled[0].exit_position_id = 541583361UL;
+   filled[0].exit_target = 1.35044;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   AssertTrue("EF1 filled pass",
+              Grind_ReconCheckInvariants(filled, 1, empty, 0, exit_pips, point, 12, reason));
+
+   GrindReconLayerScratch resting[1];
+   Grind_TestInitLayerScratch(resting[0], 2, entry, 541545776UL);
+   resting[0].has_exit_order = true;
+   resting[0].exit_order_ticket = 999;
+   resting[0].exit_target = 1.35044;
+   g_grind_invariant_reason = "";
+   AssertFalse("EF1 resting fail",
+               Grind_ReconCheckInvariants(resting, 1, empty, 0, exit_pips, point, 12, reason));
+   AssertEqStr("EF1 resting reason", g_grind_invariant_reason, "I6_LONG_EXIT");
+}
+
+void Test_EF2_I6LargeFavourableFillLong()
+{
+   const double point = 0.00001;
+   const double entry = 1.34969;
+   const double exit_pips = 7.0;
+   GrindReconLayerScratch filled[1];
+   Grind_TestInitLayerScratch(filled[0], 2, entry, 541545776UL);
+   filled[0].has_exit_position = true;
+   filled[0].exit_position_id = 541583361UL;
+   filled[0].exit_target = 1.35200;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   AssertTrue("EF2 filled pass",
+              Grind_ReconCheckInvariants(filled, 1, empty, 0, exit_pips, point, 12, reason));
+
+   GrindReconLayerScratch resting[1];
+   Grind_TestInitLayerScratch(resting[0], 2, entry, 541545776UL);
+   resting[0].has_exit_order = true;
+   resting[0].exit_order_ticket = 999;
+   resting[0].exit_target = 1.35200;
+   AssertFalse("EF2 resting fail",
+               Grind_ReconCheckInvariants(resting, 1, empty, 0, exit_pips, point, 12, reason));
+}
+
+void Test_EF3_I6ShortFillMirror()
+{
+   const double point = 0.00001;
+   const double entry = 0.58531;
+   const double exit_pips = 5.0;
+   GrindReconLayerScratch layers[1];
+   layers[0].layer_index = 0;
+   layers[0].has_position = true;
+   layers[0].entry_price = entry;
+   layers[0].position_id = 1001;
+   layers[0].has_exit_order = false;
+   layers[0].has_exit_position = true;
+   layers[0].exit_position_id = 2001;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+
+   layers[0].exit_target = 0.58479;
+   AssertTrue("EF3 two below pass",
+              Grind_ReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+
+   layers[0].exit_target = 0.58400;
+   AssertTrue("EF3 large favour pass",
+              Grind_ReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+
+   layers[0].exit_target = 0.58495;
+   AssertFalse("EF3 fourteen adverse fail",
+               Grind_ReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+}
+
+void Test_EF4_I6AdverseFillQuarantinable()
+{
+   const double point = 0.00001;
+   const double entry = 1.34969;
+   const double exit_pips = 7.0;
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 2, entry, 541545776UL);
+   layers[0].has_exit_position = true;
+   layers[0].exit_position_id = 541583361UL;
+   layers[0].exit_target = 1.35027;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("EF4 fails",
+               Grind_ReconCheckInvariants(layers, 1, empty, 0, exit_pips, point, 12, reason));
+   AssertEqStr("EF4 reason", g_grind_invariant_reason, "I6_LONG_EXIT_FILL_ADVERSE");
+   AssertTrue("EF4 quarantinable", Grind_IsQuarantinableReason(g_grind_invariant_reason));
+}
+
+void Test_EF5_I6RestingMismatchHardHalt()
+{
+   const double point = 0.00001;
+   const double entry = 1.34969;
+   const double exit_pips = 7.0;
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 2, entry, 541545776UL);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = 999;
+   layers[0].exit_target = 1.35027;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("EF5 fails",
+               Grind_ReconCheckInvariants(layers, 1, empty, 0, exit_pips, point, 12, reason));
+   AssertEqStr("EF5 reason", g_grind_invariant_reason, "I6_LONG_EXIT");
+   AssertFalse("EF5 not quarantinable", Grind_IsQuarantinableReason(g_grind_invariant_reason));
+}
+
+void Test_EF6_QuarantineFillAdversePath()
+{
+   Grind_QuarantineReset();
+   AssertTrue("EF6 quarantine enter",
+              Grind_QuarantineStep(false, "I6_LONG_EXIT_FILL_ADVERSE", 1000) == GRIND_INV_QUARANTINE);
+   AssertTrue("EF6 release on pass",
+              Grind_QuarantineStep(true, "", 2000) == GRIND_INV_OK);
+   Grind_QuarantineReset();
+}
+
 void OnStart()
 {
    Test_SuiteResetGlobals();
@@ -5868,6 +5995,12 @@ void OnStart()
    Test_IV4_I7LongDepthDetail();
    Test_IV5_InvariantDetailClearsOnPass();
    Test_IV6_JsonShapeAndArchiveInfo();
+   Test_EF1_I6LiveFavourableFillLong();
+   Test_EF2_I6LargeFavourableFillLong();
+   Test_EF3_I6ShortFillMirror();
+   Test_EF4_I6AdverseFillQuarantinable();
+   Test_EF5_I6RestingMismatchHardHalt();
+   Test_EF6_QuarantineFillAdversePath();
    Test_AR1_ArchiveNowMs();
    Test_AR2_ArchiveBrokerTime();
    Test_AR3_JsonEscape();
