@@ -5567,6 +5567,142 @@ void Test_FB4_I6BoundaryWithShift()
    Grind_TestResetLayerDetailState();
 }
 
+void Grind_TestInitLayerScratch(GrindReconLayerScratch &layer,
+                                const int layer_index,
+                                const double entry,
+                                const ulong position_id)
+{
+   layer.has_position = true;
+   layer.entry_price = entry;
+   layer.position_id = position_id;
+   layer.has_exit_order = false;
+   layer.has_exit_position = false;
+   layer.exit_target = 0.0;
+   layer.exit_order_ticket = 0;
+   layer.exit_position_id = 0;
+   layer.layer_index = layer_index;
+}
+
+void Test_IV1_I6LongExitOrderDetail()
+{
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 4, 1.34762, 541545776UL);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = 999;
+   layers[0].exit_target = 1.34700;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_detail = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("IV1 fails",
+               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+   AssertEqStr("IV1 reason", g_grind_invariant_reason, "I6_LONG_EXIT");
+   AssertContains("IV1 exit_is order", g_grind_invariant_detail, "\"exit_is\":\"ORDER\"");
+}
+
+void Test_IV2_I6LongExitPositionLiveCase()
+{
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 4, 1.34762, 541545776UL);
+   layers[0].has_exit_position = true;
+   layers[0].exit_position_id = 541583361UL;
+   layers[0].exit_target = 1.34826;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_detail = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("IV2 fails",
+               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+   AssertContains("IV2 exit_is position", g_grind_invariant_detail, "\"exit_is\":\"POSITION\"");
+   AssertContains("IV2 diff_points", g_grind_invariant_detail, "\"diff_points\":-6");
+   AssertContains("IV2 exit_ticket", g_grind_invariant_detail, "\"exit_ticket\":541583361");
+}
+
+void Test_IV3_I3LongNakedDetail()
+{
+   GrindReconLayerScratch layers[1];
+   layers[0].layer_index = 2;
+   layers[0].has_position = false;
+   layers[0].entry_price = 1.25000;
+   layers[0].position_id = 0;
+   layers[0].has_exit_order = false;
+   layers[0].has_exit_position = false;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_detail = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("IV3 fails",
+               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+   AssertEqStr("IV3 reason", g_grind_invariant_reason, "I3_LONG_NAKED");
+   AssertContains("IV3 failed test", g_grind_invariant_detail, "\"failed_test\":\"no_position\"");
+}
+
+void Test_IV4_I7LongDepthDetail()
+{
+   GrindReconLayerScratch layers[13];
+   for(int i = 0; i < 13; i++) {
+      Grind_TestInitLayerScratch(layers[i], i, 1.25000 + i * 0.00010, (ulong)(1000 + i));
+      layers[i].has_exit_order = true;
+      layers[i].exit_order_ticket = (ulong)(2000 + i);
+      layers[i].exit_target = layers[i].entry_price + 0.00070;
+   }
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_detail = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("IV4 fails",
+               Grind_ReconCheckInvariants(layers, 13, empty, 0, 7.0, 0.00001, 12, reason));
+   AssertEqStr("IV4 reason", g_grind_invariant_reason, "I7_LONG_DEPTH");
+   AssertContains("IV4 depth found", g_grind_invariant_detail, "\"depth_found\":13");
+   AssertContains("IV4 max layers", g_grind_invariant_detail, "\"max_layers\":12");
+}
+
+void Test_IV5_InvariantDetailClearsOnPass()
+{
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, 1.25000, 1001UL);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = 2001;
+   layers[0].exit_target = 1.25070;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_detail = "{\"stale\":true}";
+   g_grind_invariant_reason = "STALE";
+   AssertTrue("IV5 pass",
+              Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+   AssertEqStr("IV5 detail cleared", g_grind_invariant_detail, "");
+}
+
+void Test_IV6_JsonShapeAndArchiveInfo()
+{
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 4, 1.34762, 541545776UL);
+   layers[0].has_exit_position = true;
+   layers[0].exit_position_id = 541583361UL;
+   layers[0].exit_target = 1.34826;
+   GrindReconLayerScratch empty[];
+   string reason = "";
+   g_grind_invariant_detail = "";
+   g_grind_invariant_reason = "";
+   AssertFalse("IV6 fails",
+               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+   const int detail_len = StringLen(g_grind_invariant_detail);
+   AssertTrue("IV6 starts brace", detail_len > 0 && StringGetCharacter(g_grind_invariant_detail, 0) == '{');
+   AssertTrue("IV6 ends brace",
+              detail_len > 0 &&
+              StringGetCharacter(g_grind_invariant_detail, detail_len - 1) == '}');
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   string archive_detail = "";
+   if(g_grind_invariant_detail != "")
+      archive_detail = "{\"info\":" + g_grind_invariant_detail + "}";
+   Grind_ArchiveMarker("CRITICAL", "INVARIANT_FAIL", g_grind_invariant_reason,
+                       541545776UL, archive_detail);
+   AssertContains("IV6 archive info", Grind_ArchiveQueuePeek(0),
+                  "\"info\":{\"layer_index\":");
+   Grind_ArchiveTestReset();
+}
+
 void OnStart()
 {
    Test_SuiteResetGlobals();
@@ -5729,6 +5865,12 @@ void OnStart()
    Test_FB2_I6RejectsRealBreachShort();
    Test_FB3_I6BoundaryLong();
    Test_FB4_I6BoundaryWithShift();
+   Test_IV1_I6LongExitOrderDetail();
+   Test_IV2_I6LongExitPositionLiveCase();
+   Test_IV3_I3LongNakedDetail();
+   Test_IV4_I7LongDepthDetail();
+   Test_IV5_InvariantDetailClearsOnPass();
+   Test_IV6_JsonShapeAndArchiveInfo();
    Test_AR1_ArchiveNowMs();
    Test_AR2_ArchiveBrokerTime();
    Test_AR3_JsonEscape();
