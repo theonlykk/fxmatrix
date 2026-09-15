@@ -81,3 +81,17 @@ topology should replace 0.40 with a derived constant.
   fleet-wide halts.
 - Operators must keep the leg table in sync with preset and magic-list
   changes (ADR-143 fleet table).
+
+## Superseded test expectation
+
+`Test_CM2_CapSumIteratesAllMagics` (ADR-143) asserted that summing the
+CHF leg over twelve seeded magics totalled 0.78, because the sum
+iterated every magic regardless of leg membership. Leg isolation
+supersedes that contract: only the four CHF carriers contribute, so the
+expected total is 0.42. The test is renamed
+`Test_CM2_CapSumIteratesLegCarryingMagics` and all twelve magics remain
+seeded so it now proves the eight non-carriers are excluded.
+
+This is a deliberate supersession by a ratified decision, not a test
+adjusted to pass. The new value is derived from
+`GRIND_CAP_MAGIC_LEG_B`, not observed from output.

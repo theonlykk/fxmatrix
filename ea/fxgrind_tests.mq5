@@ -637,7 +637,7 @@ void Test_CM1_CapMagicsCoverFleet()
    AssertTrue("CM1 no duplicates", !dup);
 }
 
-void Test_CM2_CapSumIteratesAllMagics()
+void Test_CM2_CapSumIteratesLegCarryingMagics()
 {
    g_grind_cap_thresh_a = 0.0;
    g_grind_cap_thresh_b = 0.0;
@@ -663,10 +663,16 @@ void Test_CM2_CapSumIteratesAllMagics()
       GlobalVariableSet(time_keys[i], (double)TimeCurrent());
    }
 
+   // ADR-149 leg isolation: only CHF-carrying magics contribute.
+   // All twelve are seeded deliberately so this proves the eight
+   // non-CHF magics are EXCLUDED. CHF carriers are indices 8-11
+   // (22260501, 22260502, 22260601, 22260602):
+   //   0.09 + 0.10 + 0.11 + 0.12 = 0.42
+   // Superseded ADR-143 expectation was 0.78 (all twelve summed).
    double total = 0.0;
    bool peer_failed = true;
    Grind_CapSumLegExposure("CHF", 22260101UL, total, peer_failed);
-   AssertNear("CM2 total", total, 0.78, 1e-9);
+   AssertNear("CM2 total", total, 0.42, 1e-9);
    AssertFalse("CM2 peer_failed", peer_failed);
 
    for(int i = 0; i < 12; i++) {
@@ -6165,7 +6171,7 @@ void OnStart()
    Test_T29_CapBlocksNewEntry();
    Test_T30_CapDoesNotBlockNonEntry();
    Test_CM1_CapMagicsCoverFleet();
-   Test_CM2_CapSumIteratesAllMagics();
+   Test_CM2_CapSumIteratesLegCarryingMagics();
    Test_CM3_MagicLockReleasesAllFleetMagics();
    Test_CL1_ArmedHealthyFleetAllowsEntry();
    Test_CL2_StaleUnrelatedPeerDoesNotBlock();
