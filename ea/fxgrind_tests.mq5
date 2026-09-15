@@ -1073,6 +1073,27 @@ void Test_D4_PendingLevelsNullWhenAbsent()
    Grind_TestResetLayerDetailState();
 }
 
+void Test_BI1_SharedResetLeavesBookHarnessActive()
+{
+   Grind_TestResetLayerDetailState();
+   AssertTrue("BI1 book harness active", g_grind_book_test_active);
+}
+
+void Test_BI2_SharedResetLeavesBookEmpty()
+{
+   Grind_TestResetLayerDetailState();
+   AssertTrue("BI2 position count zero", g_grind_book_test_position_count == 0);
+   AssertTrue("BI2 order count zero", g_grind_book_test_order_count == 0);
+}
+
+void Test_BI3_OrderCommentZeroTicketDoesNotHitTerminal()
+{
+   Grind_OrderTestReset();
+   string comment = "";
+   AssertFalse("BI3 zero ticket no terminal",
+               Grind_HeartbeatOrderComment(0, 22260101UL, comment));
+}
+
 void Test_D5_NoTicketNumbersInJson()
 {
    Grind_TestResetLayerDetailState();
@@ -5989,6 +6010,9 @@ void OnStart()
    Test_D2_NonContiguousLayerIndices();
    Test_D3_EmptySideEmitsEmptyArray();
    Test_D4_PendingLevelsNullWhenAbsent();
+   Test_BI1_SharedResetLeavesBookHarnessActive();
+   Test_BI2_SharedResetLeavesBookEmpty();
+   Test_BI3_OrderCommentZeroTicketDoesNotHitTerminal();
    Test_D5_NoTicketNumbersInJson();
    Test_D6_InstanceIdFirstSchemaAppendOnly();
    Test_D7_WorstCasePayloadMeasured();
