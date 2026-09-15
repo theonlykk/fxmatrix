@@ -1002,6 +1002,8 @@ void Grind_TestResetLayerDetailState()
    Grind_OrderTestReset();
    Grind_HeartbeatTestReset();
    Grind_BookTestReset();
+   // Inactive book harness falls through to the live terminal PositionsTotal().
+   g_grind_book_test_active = true;
 }
 
 void Test_D1_ThreeLayersEmitDetail()
