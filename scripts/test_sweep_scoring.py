@@ -108,6 +108,21 @@ class TestSweepScoring(unittest.TestCase):
         )
         self.assertGreater(est, 0.0)
 
+    def test_calib_tail_window_registered(self):
+        self.assertIn("calib_tail_2015q1", sweep.WINDOW_META)
+        self.assertEqual(sweep.WINDOW_ROLES["calib_tail_2015q1"], "calibration")
+        self.assertIn("calib_tail_2015q1", sweep.CALIBRATION_WINDOWS)
+
+    def test_calib_tail_resolves_to_existing_slice(self):
+        calib_path = sweep.window_path("AUDCHF", "calib_tail_2015q1")
+        holdout_path = sweep.window_path("AUDCHF", "holdout_tail_2015q1")
+        self.assertEqual(calib_path, holdout_path)
+        self.assertTrue(str(calib_path).endswith("AUDCHF_holdout_tail_2015q1.csv"))
+
+    def test_holdout_tail_role_unchanged(self):
+        self.assertEqual(sweep.WINDOW_ROLES["holdout_tail_2015q1"], "holdout")
+        self.assertIn("holdout_tail_2015q1", sweep.HOLDOUT_WINDOWS)
+
 
 class TestCheckpointProvenance(unittest.TestCase):
     def test_t15_matching_provenance_resumes(self):
