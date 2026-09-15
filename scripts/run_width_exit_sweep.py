@@ -892,6 +892,80 @@ def select_geometry_from_calibration(
     return best_k, best_v
 
 
+def select_barbell_per_pair(
+    cells: dict, window_keys: tuple[str, ...] | list[str], score_key: str = "risk_adj"
+) -> dict[str, dict[str, tuple[tuple[float, float] | None, float]]]:
+    """Per-pair, per-regime geometry selection for regime-paired arms.
+
+    Returns {pair: {regime: (cell, score)}} where cell is
+    (width, exit_pips) and regime is WINDOW_META[w]["regime"].
+
+    Only calibration-role windows are considered. Windows are grouped by
+    regime, scores are averaged within a regime group, and the best
+    finite-scoring cell is chosen per pair per regime. A regime with no
+    calibration windows present, or with no finite-scoring cell, maps to
+    (None, float("-inf")).
+    """
+    cal_windows = [w for w in window_keys if WINDOW_ROLES.get(w) == "calibration"]
+    regime_windows: dict[str, list[str]] = {}
+    for w in cal_windows:
+        if w not in WINDOW_META:
+            continue
+        regime = WINDOW_META[w]["regime"]
+        regime_windows.setdefault(regime, []).append(w)
+
+    all_regimes = sorted({WINDOW_META[w]["regime"] for w in CALIBRATION_WINDOWS})
+    pairs: set[str] = set()
+    for c in cells.values():
+        if c["window"] in cal_windows:
+            pairs.add(c["pair"])
+
+    out: dict[str, dict[str, tuple[tuple[float, float] | None, float]]] = {}
+    for pair in sorted(pairs):
+        pair_out: dict[str, tuple[tuple[float, float] | None, float]] = {}
+        for regime in all_regimes:
+            wins = regime_windows.get(regime, [])
+            if not wins:
+                pair_out[regime] = (None, float("-inf"))
+                continue
+            wins_set = set(wins)
+            by_cell: dict[tuple[float, float], dict[str, dict]] = {}
+            for c in cells.values():
+                if c["pair"] != pair or c["window"] not in wins_set:
+                    continue
+                k = (c["width"], c["exit_pips"])
+                by_cell.setdefault(k, {})[c["window"]] = c
+            best_k = None
+            best_v = float("-inf")
+            for k in sorted(by_cell.keys()):
+                window_cells = by_cell[k]
+                if len(window_cells) != len(wins):
+                    continue
+                scores: list[float] = []
+                for w in wins:
+                    cell = window_cells[w]
+                    if score_key in cell:
+                        s = float(cell[score_key])
+                    elif score_key == "risk_adj":
+                        s = float(risk_adjusted_score(cell))
+                    elif score_key == "survival_score":
+                        s = float(survival_score(cell))
+                    else:
+                        s = float(cell[score_key])
+                    scores.append(s)
+                if not all(np.isfinite(s) for s in scores):
+                    continue
+                avg = float(np.mean(scores))
+                if avg > best_v:
+                    best_k, best_v = k, avg
+            if best_k is None:
+                pair_out[regime] = (None, float("-inf"))
+            else:
+                pair_out[regime] = (best_k, best_v)
+        out[pair] = pair_out
+    return out
+
+
 def rank_production(surface: dict[tuple[float, float], dict], score_key: str) -> dict:
     scored = [(k, v[score_key]) for k, v in surface.items() if np.isfinite(v[score_key])]
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -1114,6 +1188,29 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
                 f"risk_adj={cell.get('risk_adj', float('nan')):.2f} "
                 f"disqualified={cell.get('disqualified_gates', False)}"
             )
+
+    print("\n" + "=" * 80)
+    print("Q5 — BARBELL SELECTION (per pair, per regime, calibration only)")
+    print("=" * 80)
+    barbell = select_barbell_per_pair(cells, run_windows, "risk_adj")
+    for pair in sorted(barbell.keys()):
+        regimes = barbell[pair]
+        for regime in sorted(regimes.keys()):
+            cell, score = regimes[regime]
+            if cell is None:
+                print(f"  {pair}  {regime} -> none")
+            else:
+                print(
+                    f"  {pair}  {regime} -> ({cell[0]:.1f}, {cell[1]:.1f}) "
+                    f"score={score:.2f}"
+                )
+        r_cell, _ = regimes.get("ranging", (None, float("-inf")))
+        s_cell, _ = regimes.get("stress", (None, float("-inf")))
+        if r_cell is not None and s_cell is not None:
+            if r_cell == s_cell:
+                print(f"  {pair}  => arms AGREE (single geometry serves both regimes)")
+            else:
+                print(f"  {pair}  => arms DIFFER -- OPT={r_cell} ALT={s_cell}")
 
     if "q1_2024_chop" in run_windows:
         chop = harvest_surfaces.get("q1_2024_chop", {})
