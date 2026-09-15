@@ -107,6 +107,7 @@ WINDOW_META = {
     "holdout_chop_2026q2": {"regime": "ranging", "label": "RANGING holdout chop 2026-04-24..2026-07-23"},
     "holdout_stress_2020q1": {"regime": "stress", "label": "STRESS holdout 2020-02-01..2020-05-01"},
     "holdout_tail_2015q1": {"regime": "stress", "label": "STRESS tail survival-only 2015-01-02..2015-03-01"},
+    "calib_tail_2015q1": {"regime": "stress", "label": "STRESS tail CALIBRATION 2015-01-02..2015-03-01 (same slice as holdout_tail_2015q1)"},
 }
 # Pre-registered calibration / holdout split (Gate 4). Editable configuration —
 # geometry selection uses calibration windows only; holdout is scored after selection.
@@ -121,6 +122,7 @@ WINDOW_ROLES: dict[str, str] = {
     "holdout_chop_2026q2": "holdout",
     "holdout_stress_2020q1": "holdout",
     "holdout_tail_2015q1": "holdout",
+    "calib_tail_2015q1": "calibration",
 }
 CALIBRATION_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "calibration")
 HOLDOUT_WINDOWS = tuple(k for k, r in WINDOW_ROLES.items() if r == "holdout")
@@ -255,6 +257,7 @@ _LEGACY_WINDOW_FILE_SUFFIX = {
     "truss_crisis": "truss_crisis_oos",
     "vaccine_rally": "vaccine_rally_oos",
     "june_blowup": "june_blowup",
+    "calib_tail_2015q1": "holdout_tail_2015q1",
 }
 
 
