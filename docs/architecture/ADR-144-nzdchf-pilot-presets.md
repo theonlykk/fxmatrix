@@ -56,7 +56,7 @@ opens (see its docstring: "Single-sided model: cap applies to len(layers) --
 the active side's depth only"). The sweep score ranks cells within that
 consistent model; it is not a prediction about the EA's two-sided book. OPT
 at exit 5 would be the first live arm with its exit inside the straddle
-half-width (7 / 2 = 3.5 pips); ALT at exit 7 sits exactly on the half-width.
+half-width of 7 pips; ALT at exit 7 sits exactly on it.
 The live A/B pair is therefore the experiment on that difference -- the
 re-validation against real fill data that ARCHITECT.md section 12 requires.
 
