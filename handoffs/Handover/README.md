@@ -11,6 +11,7 @@ This folder is the entry point for a new chat. Read these in order.
 | `02_TRAPS.md` | How the previous chat got things wrong | append when it happens again |
 | `03_COOKBOOK.md` | Every endpoint, every archive query, the repos | when a tool is added |
 | `04_DEEPSEEK_COURIER.md` | How Cursor carries prompts to DeepSeek | rarely |
+| `05_GIT_AS_TRANSPORT.md` | How specs and responses move through the repo | rarely |
 
 Then read, in the fxmatrix repo:
 

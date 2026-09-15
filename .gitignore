@@ -52,3 +52,6 @@ temp/
 /*.log
 /*_journal.log
 json-backup/
+
+# scripts scratch (export staging, not product)
+scripts/export_work/
