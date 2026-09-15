@@ -25,6 +25,26 @@ const ulong GRIND_CAP_ALL_MAGICS[12] =
    22260601UL, 22260602UL
 };
 
+#define GRIND_CAP_MAGIC_COUNT 12
+
+// Currency legs carried by each magic in GRIND_CAP_ALL_MAGICS, same order.
+// A peer contributes to, and can only fail, a leg it actually carries.
+// Commit 1 stub: empty strings; filled in commit 2.
+const string GRIND_CAP_MAGIC_LEG_A[12] =
+{
+   "", "", "", "", "", "", "", "", "", "", "", ""
+};
+const string GRIND_CAP_MAGIC_LEG_B[12] =
+{
+   "", "", "", "", "", "", "", "", "", "", "", ""
+};
+
+//+------------------------------------------------------------------+
+bool Grind_CapMagicCarriesLeg(const int idx, const string leg)
+{
+   return false;
+}
+
 double g_grind_cap_thresh_a = 0.0;
 double g_grind_cap_thresh_b = 0.0;
 double g_grind_cap_own_leg_a = 0.0;

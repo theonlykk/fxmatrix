@@ -699,6 +699,179 @@ void Test_CM3_MagicLockReleasesAllFleetMagics()
    AssertFalse("CM3 released 22269901", Grind_MagicLockIsClaimed(22269901UL));
 }
 
+void Grind_TestCapLegSaveState(double &thresh_a,
+                               double &thresh_b,
+                               string &leg_a,
+                               string &leg_b,
+                               ulong &magic)
+{
+   thresh_a = g_grind_cap_thresh_a;
+   thresh_b = g_grind_cap_thresh_b;
+   leg_a = g_grind_cap_leg_a;
+   leg_b = g_grind_cap_leg_b;
+   magic = g_grind_recon_magic;
+}
+
+void Grind_TestCapLegRestoreState(const double thresh_a,
+                                  const double thresh_b,
+                                  const string leg_a,
+                                  const string leg_b,
+                                  const ulong magic)
+{
+   g_grind_cap_thresh_a = thresh_a;
+   g_grind_cap_thresh_b = thresh_b;
+   g_grind_cap_leg_a = leg_a;
+   g_grind_cap_leg_b = leg_b;
+   g_grind_recon_magic = magic;
+   g_grind_cap_peer_read_failed = false;
+   g_grind_cap_blocked = false;
+}
+
+void Grind_TestCapLegSeedGV(const ulong magic, const string leg, const double value)
+{
+   const string key = Grind_CapExposureKey(magic, leg);
+   const string time_key = Grind_CapTimestampKey(key);
+   GlobalVariableSet(key, value);
+   GlobalVariableSet(time_key, (double)TimeCurrent());
+}
+
+void Grind_TestCapLegDeleteGV(const ulong magic, const string leg)
+{
+   const string key = Grind_CapExposureKey(magic, leg);
+   const string time_key = Grind_CapTimestampKey(key);
+   if(GlobalVariableCheck(key))
+      GlobalVariableDel(key);
+   if(GlobalVariableCheck(time_key))
+      GlobalVariableDel(time_key);
+}
+
+void Grind_TestCapLegSeedHealthyAudChfFleet()
+{
+   const ulong aud_magics[4] = {22260401UL, 22260402UL, 22260501UL, 22260502UL};
+   const ulong chf_magics[4] = {22260501UL, 22260502UL, 22260601UL, 22260602UL};
+   for(int i = 0; i < 4; i++)
+      Grind_TestCapLegSeedGV(aud_magics[i], "AUD", 0.02);
+   for(int i = 0; i < 4; i++)
+      Grind_TestCapLegSeedGV(chf_magics[i], "CHF", 0.02);
+}
+
+void Grind_TestCapLegCleanupAudChfFleet()
+{
+   const ulong aud_magics[4] = {22260401UL, 22260402UL, 22260501UL, 22260502UL};
+   const ulong chf_magics[4] = {22260501UL, 22260502UL, 22260601UL, 22260602UL};
+   for(int i = 0; i < 4; i++)
+      Grind_TestCapLegDeleteGV(aud_magics[i], "AUD");
+   for(int i = 0; i < 4; i++)
+      Grind_TestCapLegDeleteGV(chf_magics[i], "CHF");
+}
+
+void Test_CL1_ArmedHealthyFleetAllowsEntry()
+{
+   double saved_a = 0.0, saved_b = 0.0;
+   string saved_leg_a = "", saved_leg_b = "";
+   ulong saved_magic = 0;
+   Grind_TestCapLegSaveState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+
+   Grind_TestCapLegSeedHealthyAudChfFleet();
+   g_grind_cap_thresh_a = 0.40;
+   g_grind_cap_thresh_b = 0.40;
+   g_grind_cap_leg_a = "AUD";
+   g_grind_cap_leg_b = "CHF";
+   g_grind_recon_magic = 22260501UL;
+   g_grind_cap_peer_read_failed = false;
+   g_grind_cap_blocked = false;
+
+   AssertTrue("CL1 allows entry", Grind_CapAllowsEntry(true, 0.01));
+   AssertFalse("CL1 peer read ok", g_grind_cap_peer_read_failed);
+
+   Grind_TestCapLegCleanupAudChfFleet();
+   Grind_TestCapLegRestoreState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+}
+
+void Test_CL2_StaleUnrelatedPeerDoesNotBlock()
+{
+   double saved_a = 0.0, saved_b = 0.0;
+   string saved_leg_a = "", saved_leg_b = "";
+   ulong saved_magic = 0;
+   Grind_TestCapLegSaveState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+
+   Grind_TestCapLegSeedHealthyAudChfFleet();
+   const string gbp_key = Grind_CapExposureKey(22260101UL, "GBP");
+   const string gbp_time_key = Grind_CapTimestampKey(gbp_key);
+   GlobalVariableSet(gbp_key, 0.02);
+   GlobalVariableSet(gbp_time_key, (double)(TimeCurrent() - 600));
+
+   g_grind_cap_thresh_a = 0.40;
+   g_grind_cap_thresh_b = 0.40;
+   g_grind_cap_leg_a = "AUD";
+   g_grind_cap_leg_b = "CHF";
+   g_grind_recon_magic = 22260501UL;
+   g_grind_cap_peer_read_failed = false;
+   g_grind_cap_blocked = false;
+
+   AssertTrue("CL2 allows entry", Grind_CapAllowsEntry(true, 0.01));
+   AssertFalse("CL2 peer read ok", g_grind_cap_peer_read_failed);
+
+   GlobalVariableDel(gbp_key);
+   GlobalVariableDel(gbp_time_key);
+   Grind_TestCapLegCleanupAudChfFleet();
+   Grind_TestCapLegRestoreState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+}
+
+void Test_CL3_StaleSameLegPeerBlocks()
+{
+   double saved_a = 0.0, saved_b = 0.0;
+   string saved_leg_a = "", saved_leg_b = "";
+   ulong saved_magic = 0;
+   Grind_TestCapLegSaveState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+
+   Grind_TestCapLegSeedHealthyAudChfFleet();
+   const string chf_key = Grind_CapExposureKey(22260601UL, "CHF");
+   const string chf_time_key = Grind_CapTimestampKey(chf_key);
+   GlobalVariableSet(chf_key, 0.02);
+   GlobalVariableSet(chf_time_key, (double)(TimeCurrent() - 600));
+
+   g_grind_cap_thresh_a = 0.40;
+   g_grind_cap_thresh_b = 0.40;
+   g_grind_cap_leg_a = "AUD";
+   g_grind_cap_leg_b = "CHF";
+   g_grind_recon_magic = 22260501UL;
+   g_grind_cap_peer_read_failed = false;
+   g_grind_cap_blocked = false;
+
+   AssertFalse("CL3 blocks entry", Grind_CapAllowsEntry(true, 0.01));
+   AssertTrue("CL3 peer read failed", g_grind_cap_peer_read_failed);
+
+   GlobalVariableDel(chf_key);
+   GlobalVariableDel(chf_time_key);
+   Grind_TestCapLegCleanupAudChfFleet();
+   Grind_TestCapLegRestoreState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+}
+
+void Test_CL4_LegMembershipTableMatchesMagics()
+{
+   AssertTrue("CL4 leg_a size",
+              ArraySize(GRIND_CAP_MAGIC_LEG_A) == ArraySize(GRIND_CAP_ALL_MAGICS));
+   AssertTrue("CL4 leg_b size",
+              ArraySize(GRIND_CAP_MAGIC_LEG_B) == ArraySize(GRIND_CAP_ALL_MAGICS));
+   bool entries_ok = true;
+   for(int i = 0; i < GRIND_CAP_MAGIC_COUNT; i++) {
+      if(StringLen(GRIND_CAP_MAGIC_LEG_A[i]) != 3)
+         entries_ok = false;
+      if(StringLen(GRIND_CAP_MAGIC_LEG_B[i]) != 3)
+         entries_ok = false;
+   }
+   AssertTrue("CL4 leg entries non-empty 3-char", entries_ok);
+}
+
+void Test_CL5_CarriesLegSpotChecks()
+{
+   AssertTrue("CL5 idx0 GBP", Grind_CapMagicCarriesLeg(0, "GBP"));
+   AssertFalse("CL5 idx0 not CHF", Grind_CapMagicCarriesLeg(0, "CHF"));
+   AssertTrue("CL5 idx10 CHF", Grind_CapMagicCarriesLeg(10, "CHF"));
+   AssertFalse("CL5 idx10 not EUR", Grind_CapMagicCarriesLeg(10, "EUR"));
+}
+
 void Test_T31_ThresholdZeroOffStillPublishes()
 {
    g_grind_cap_thresh_a = 0.0;
@@ -5994,6 +6167,11 @@ void OnStart()
    Test_CM1_CapMagicsCoverFleet();
    Test_CM2_CapSumIteratesAllMagics();
    Test_CM3_MagicLockReleasesAllFleetMagics();
+   Test_CL1_ArmedHealthyFleetAllowsEntry();
+   Test_CL2_StaleUnrelatedPeerDoesNotBlock();
+   Test_CL3_StaleSameLegPeerBlocks();
+   Test_CL4_LegMembershipTableMatchesMagics();
+   Test_CL5_CarriesLegSpotChecks();
    Test_T31_ThresholdZeroOffStillPublishes();
    Test_T32_DuplicateMagicFails();
    Test_T33_FreeMagicClaimSucceeds();
