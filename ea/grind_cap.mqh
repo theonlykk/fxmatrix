@@ -29,20 +29,32 @@ const ulong GRIND_CAP_ALL_MAGICS[12] =
 
 // Currency legs carried by each magic in GRIND_CAP_ALL_MAGICS, same order.
 // A peer contributes to, and can only fail, a leg it actually carries.
-// Commit 1 stub: empty strings; filled in commit 2.
 const string GRIND_CAP_MAGIC_LEG_A[12] =
 {
-   "", "", "", "", "", "", "", "", "", "", "", ""
+   "GBP", "GBP",
+   "EUR", "EUR",
+   "EUR", "EUR",
+   "AUD", "AUD",
+   "AUD", "AUD",
+   "CAD", "CAD"
 };
 const string GRIND_CAP_MAGIC_LEG_B[12] =
 {
-   "", "", "", "", "", "", "", "", "", "", "", ""
+   "USD", "USD",
+   "USD", "USD",
+   "GBP", "GBP",
+   "CAD", "CAD",
+   "CHF", "CHF",
+   "CHF", "CHF"
 };
 
 //+------------------------------------------------------------------+
 bool Grind_CapMagicCarriesLeg(const int idx, const string leg)
 {
-   return false;
+   if(idx < 0 || idx >= ArraySize(GRIND_CAP_ALL_MAGICS))
+      return false;
+   return (GRIND_CAP_MAGIC_LEG_A[idx] == leg
+           || GRIND_CAP_MAGIC_LEG_B[idx] == leg);
 }
 
 double g_grind_cap_thresh_a = 0.0;
@@ -224,6 +236,8 @@ bool Grind_CapSumLegExposure(const string leg,
       return false;
 
    for(int i = 0; i < ArraySize(GRIND_CAP_ALL_MAGICS); i++) {
+      if(!Grind_CapMagicCarriesLeg(i, leg))
+         continue;
       const ulong magic = GRIND_CAP_ALL_MAGICS[i];
       const string key = Grind_CapExposureKey(magic, leg);
       double peer_value = 0.0;
