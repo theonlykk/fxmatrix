@@ -404,5 +404,21 @@ class TestCarrySwap(unittest.TestCase):
         self.assertAlmostEqual(carry, expected, places=9)
 
 
+class TestSwapPipDivisor(unittest.TestCase):
+    """Swap points-to-pips divisor (ADR-147)."""
+
+    def test_swap_divisor_is_ten_for_every_pair(self):
+        for sym in sim_costs.PAIR_SPECS:
+            with self.subTest(symbol=sym):
+                self.assertEqual(sim_costs._swap_pip_div(sym), 10)
+
+    def test_usdjpy_short_carry_one_rollover(self):
+        # Mon->Tue crossing; charge date Tue (TRIPLE_SWAP_WEEKDAY=Wed, multiplier 1).
+        open_dt = datetime(2026, 9, 14, 10, 0, 0)
+        close_dt = datetime(2026, 9, 15, 10, 0, 0)
+        pips = sim_costs.carry_pips("USDJPY", -1, open_dt, close_dt)
+        self.assertAlmostEqual(pips, -1.687, places=9)
+
+
 if __name__ == "__main__":
     unittest.main()
