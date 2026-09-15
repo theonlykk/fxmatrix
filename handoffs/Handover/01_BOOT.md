@@ -115,41 +115,77 @@ cannot tell whether something is ratified or merely discussed.
 A question costs a copy-paste. A wrong assumption has cost an hour.
 
 ---
-
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-14, ~19:00Z.**
+**As of 2026-09-15, ~15:00Z.**
 
 | | |
 |---|---|
-| fxmatrix main | `a35dea9` + ADR-142 merge -- **VPS is current** |
-| pipshed main | `b189cf6` + NZDCHF merge |
-| MQL5 suite | **955/956** -- `R1 not reconstructed L01` is a known, consistent failure (reporting only, no trading impact). **Fix it; do not adjust the test.** |
-| Fleet | 12 instances, 6 pairs x 2 arms, FTMO demo 1514582088 |
+| fxmatrix main | `87855be` |
+| VPS compiled at | `f58350e` -- correct. Everything since is tests, presets, Python and docs; nothing the fleet executes. **No deploy owed.** |
+| pipshed main | `b189cf6` -- untouched since 09-14 |
+| MQL5 suite | **1002/1002** -- fully green. Report the TOTAL, not just FAIL rows; see below. |
+| Python suites | 71 -- `test_sim_costs` 38, `test_sweep_scoring` 20, `test_presets` 13 |
+| Fleet | 12 instances, 6 pairs x 2 arms, FTMO demo 1514582088. Topologically uniform: two closed triangles, 6 currencies, 4 instances each. |
 | Account | demo -- nothing here risks real money |
 
-**Open incident:** FTMO issued a **hyperactivity warning** (limit 2000 trades
-or server requests per day). Root cause was a regression against ADR-123 --
-`Grind_TryPlaceL0` was re-quoting resting L0 orders on every 4-pip move. Fixed
-2026-09-13. Post-fix rate ~26 requests/hour, projecting ~630/day. **A follow-up
-email to FTMO with a clean full-day count is owed** once a day completes with
-no incident. Broker day rolls 21:00 UTC / 17:00 Toronto.
+**FTMO follow-up still owed.** Post-fix rate ~16/hour on 09-15, projecting
+~390/day against the 2000 limit. Broker day rolls 21:00 UTC / 17:00 Toronto.
+A recompile on a consistent book costs ZERO requests -- measured 09-14.
 
-**Recently shipped:** ADR-139 (I6 float-boundary epsilon), ADR-141 (invariant
-failures emit a full JSON detail payload -- this paid for itself in 40 minutes),
-ADR-142 (asymmetric I6 tolerance on filled exits; adverse fills quarantinable).
-**ADR-140 was ABANDONED** -- structurally identical to 142 but justified on an
-inverted premise. Do not revive `fix/i6-exit-fill-slippage` or reuse the number.
+**Shipped 09-14 night:** ADR-143 (fleet magic lists six -> twelve; a SECOND
+stale list existed in `Grind_MagicLockReleaseAllKnown`), ADR-144 (NZDCHF pilot
+presets), ADR-145 (R1 fixed -- test isolation, not a production defect),
+ADR-146 (NZDCHF 7/5 REJECTED).
 
-**In flight:** NZDCHF as a seventh pair. pipshed is ready (instances + a
-`nzdchf_pilot` ring). Geometry **locked at width 7 / exit 5 / add 14** from
-calibration (score 2687.9, 2nd of ten, carry-corrected). Holdout scoring across
-three windows was running at session end. Still needed before it goes live:
-presets for magics **22260701 / 22260702**, `max_layers` promoted from RESEARCH
-ONLY, `GRIND_CAP_ALL_MAGICS` updated (it still lists only the six original
-triangle magics and omits six LIVE ones), NZDCHF into Market Watch on the VPS,
-two charts attached.
+**Shipped 09-15:** ADR-147 (`_swap_pip_div` carry defect), ADR-148 (barbell
+regime-paired arms), ADR-149 (cap leg isolation).
 
-**Also open:** the `fleet_carry_v2_2026_09_13` sweep finished but its POOLED
-summary is unusable -- one gate-disqualified pair makes every pooled average
-`-inf`. Use `sweep_per_pair.py`. GBPUSD is DQ in 16/18 cells; AUDJPY scores -56.
+**NZDCHF is REJECTED at 7/5 and 7/7 (ADR-146).** Presets exist in the repo and
+on the VPS; they are NOT to be attached to a chart. The holdout disqualified
+ALL NINE cells on `holdout_tail_2015q1` (SNB de-peg); 7/5 breached Gate A on
+90% of seeds. The live CHF ring was then scored against the same window for the
+first time and ALL FOUR live cells breach too (AUDCHF 5/5 62%, 5/10 46%;
+CADCHF 5/5 82%, 5/10 60%) -- the ring went live on calibration-only numbers and
+had never been tail-gated. Re-calibration with the tail in the calibration set
+(ADR-146 D2) returned NO SELECTION: `is_gate_disqualified` is binary, so every
+cell scores -inf and there is no gradient to optimise against. Best cell in the
+grid is 3/10 -- highest realised (13,857) AND lowest drawdown (194.5) -- but
+still 16% Gate A. Unresolved; needs a Gemini ruling on graded penalty vs
+`max_layers` sweeping (never tried; `max_layers` is not a CLI dimension).
+
+**The cap was never executable.** Not latent -- broken. A missing GlobalVariable
+(peer legitimately does not carry that leg) was indistinguishable from a stale
+one, so summing any leg pulled MAXED from every instance not carrying it.
+Arming a threshold would have hard-locked the entire fleet on the first tick.
+ADR-149 leg-isolates the sum. Thresholds remain **0.0**; arming is a separate
+change and is a HARD BLOCKER for both NZDCHF (ADR-146 D5) and any mixed-width
+barbell pair (Gemini R3, 2026-09-15). Threshold set at **0.40 lots for CHF**,
+but recorded as a CHORD-DRIVEN EXCEPTION: on a topologically uniform fleet the
+threshold is derivable from structure and needs no appetite call.
+
+**AUDJPY's -56 is VOID.** `_swap_pip_div` inferred the points-per-pip divisor
+from `PairSpec.point`, which is pip size in price units and carries no tick-size
+information, so USDJPY and AUDJPY carry was overstated TENFOLD. Every figure
+through `carry_pips`/`carry_usd` for those two is invalid, including
+`fleet_carry_v2_2026_09_13`. AUDJPY is UNTESTED, not rejected.
+
+**Barbell arms (ADR-148).** OPT now carries the chop/ranging-optimal geometry,
+ALT the stress-optimal, selected per regime rather than pooled. The exit A/B is
+RETIRED. `select_barbell_per_pair` in `run_width_exit_sweep.py`, Q5 block in the
+console output. AUDNZD demonstrates why: chop peaks 7/5, stress peaks 3/5, and
+pooling returned 3/5 -- the stress peak winning on magnitude, not a compromise.
+
+**In flight, blocked on decisions not code:** a five-pair ring sweep (CADCHF,
+CHFJPY, AUDJPY, AUDNZD, NZDCAD -- all five have both calibration windows, none
+has holdout slices except CADCHF). Two open questions: whether that pentagon
+REPLACES the AUD/CAD/CHF triangle (running both takes AUD/CAD/CHF to 8
+instances each while others sit at 4 -- a worse asymmetry than NZDCHF), and
+mixed-width worst-case exposure, which needs a dual-instance simulator the
+sweep cannot currently produce.
+
+**Suite count is now a BASELINE, not just a gate.** `Test_I5g_L2ReconstructionPasses`
+contains nothing but a call to `Test_L2_ReconstructionCarriesCommentIndex`, which
+is separately registered, so L2's 2 assertions run twice. A regression in
+`Grind_RebuildBookFromTickets` would present as a TOTAL of 1000, not as a FAIL
+line.
