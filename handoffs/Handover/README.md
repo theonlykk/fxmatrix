@@ -13,6 +13,10 @@ This folder is the entry point for a new chat. Read these in order.
 | `04_DEEPSEEK_COURIER.md` | How Cursor carries prompts to DeepSeek | rarely |
 | `05_GIT_AS_TRANSPORT.md` | How specs and responses move through the repo | rarely |
 
+`NEW_CHAT_PROMPT.md` is not part of the reading order -- it is what the
+operator pastes to start a new chat. Update it only when the workflow
+changes, not when the work changes.
+
 Then read, in the fxmatrix repo:
 
 - `docs/architecture/ARCHITECT.md` -- the governing engineering document.
@@ -42,7 +46,9 @@ differing only in exit distance. Caps are hard. It never crosses the spread.
 ## WHEN YOU WRITE THE NEXT HANDOVER
 
 Update `01_BOOT.md`'s state block and append to `02_TRAPS.md`. Leave the
-rest unless it is actually wrong. The point of this folder is that it stops
+rest unless it is actually wrong. That includes `NEW_CHAT_PROMPT.md` --
+it points at the handoff rather than duplicating it, and should not acquire
+work items. The point of this folder is that it stops
 being rewritten from scratch every time.
 
 Keep the per-session detail in `handoffs/HANDOFF_<date>.md`. This folder is
