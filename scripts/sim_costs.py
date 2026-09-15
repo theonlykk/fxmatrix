@@ -604,14 +604,13 @@ def rollover_multiplier(d: date) -> int:
 
 
 def _swap_pip_div(symbol: str) -> int:
-    """MT5 swap points to pips divisor: 10 on 3- and 5-digit quotes, else 1."""
-    spec = get_pair_spec(symbol)
-    if abs(spec.point - 0.001) < 1e-12 and abs(spec.pip_size - 0.01) < 1e-12:
-        return 10
-    if abs(spec.point - 0.00001) < 1e-12:
-        return 10
-    if spec.quote_currency == "JPY" and abs(spec.point - spec.pip_size) < 1e-12:
-        return 1
+    """MT5 swap points to pips divisor.
+
+    FTMO quotes every supported pair to five digits, three on JPY, so one
+    pip is 10 MT5 points on all of them. This cannot be inferred from
+    PairSpec.point, which is pip size in price units and carries no
+    tick-size information -- see the convention note above PAIR_SPECS.
+    """
     return 10
 
 
