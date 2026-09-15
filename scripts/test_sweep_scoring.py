@@ -124,6 +124,103 @@ class TestSweepScoring(unittest.TestCase):
         self.assertIn("holdout_tail_2015q1", sweep.HOLDOUT_WINDOWS)
 
 
+def _barbell_cell(pair: str, window: str, width: float, exit_pips: float, risk_adj: float) -> dict:
+    return _clean_cell(
+        cell_key=f"{window}|{pair}|{int(width)}|{int(exit_pips)}",
+        window=window,
+        pair=pair,
+        width=width,
+        exit_pips=exit_pips,
+        regime=sweep.WINDOW_META[window]["regime"],
+        risk_adj=risk_adj,
+    )
+
+
+def _barbell_base_fixture() -> tuple[dict, list[str]]:
+    """Two pairs, three windows, three grid cells; holdout-only (9, 5) outlier."""
+    pairs = ("AAABBB", "CCCDDD")
+    calib_chop = "calib_chop_2020q3"
+    calib_stress = "calib_stress_2022q1"
+    holdout = "holdout_chop_2026q2"
+    grid = ((3.0, 5.0), (5.0, 5.0), (7.0, 5.0))
+    holdout_only = (9.0, 5.0)
+    scores = {
+        ("AAABBB", calib_chop): {(7.0, 5.0): 100.0, (5.0, 5.0): 50.0, (3.0, 5.0): 10.0},
+        ("AAABBB", calib_stress): {(3.0, 5.0): 100.0, (5.0, 5.0): 50.0, (7.0, 5.0): 10.0},
+        ("CCCDDD", calib_chop): {(5.0, 5.0): 100.0, (7.0, 5.0): 50.0, (3.0, 5.0): 10.0},
+        ("CCCDDD", calib_stress): {(5.0, 5.0): 100.0, (3.0, 5.0): 50.0, (7.0, 5.0): 10.0},
+    }
+    cells: dict = {}
+    for pair in pairs:
+        for window in (calib_chop, calib_stress):
+            for width, exit_pips in grid:
+                ra = scores[(pair, window)][(width, exit_pips)]
+                c = _barbell_cell(pair, window, width, exit_pips, ra)
+                cells[c["cell_key"]] = c
+        c = _barbell_cell(pair, holdout, holdout_only[0], holdout_only[1], 9999.0)
+        cells[c["cell_key"]] = c
+    window_keys = [calib_chop, calib_stress, holdout]
+    return cells, window_keys
+
+
+class TestBarbellSelection(unittest.TestCase):
+    def test_barbell_selects_per_pair_per_regime(self):
+        cells, window_keys = _barbell_base_fixture()
+        out = sweep.select_barbell_per_pair(cells, window_keys, "risk_adj")
+        aa_r, _ = out["AAABBB"]["ranging"]
+        aa_s, _ = out["AAABBB"]["stress"]
+        cc_r, _ = out["CCCDDD"]["ranging"]
+        cc_s, _ = out["CCCDDD"]["stress"]
+        self.assertEqual(aa_r, (7.0, 5.0))
+        self.assertEqual(aa_s, (3.0, 5.0))
+        self.assertEqual(cc_r, (5.0, 5.0))
+        self.assertEqual(cc_s, (5.0, 5.0))
+
+    def test_barbell_ignores_holdout_windows(self):
+        cells, window_keys = _barbell_base_fixture()
+        holdout_only = (9.0, 5.0)
+        out = sweep.select_barbell_per_pair(cells, window_keys, "risk_adj")
+        for pair, regimes in out.items():
+            for regime, (cell, _score) in regimes.items():
+                with self.subTest(pair=pair, regime=regime):
+                    self.assertNotEqual(cell, holdout_only)
+
+    def test_barbell_excludes_disqualified_cells(self):
+        cells, window_keys = _barbell_base_fixture()
+        key = "calib_chop_2020q3|AAABBB|7|5"
+        cells[key]["risk_adj"] = float("-inf")
+        out = sweep.select_barbell_per_pair(cells, window_keys, "risk_adj")
+        cell, _ = out["AAABBB"]["ranging"]
+        self.assertEqual(cell, (5.0, 5.0))
+
+    def test_barbell_groups_both_stress_windows(self):
+        cells, window_keys = _barbell_base_fixture()
+        tail = "calib_tail_2015q1"
+        window_keys = window_keys + [tail]
+        pair = "AAABBB"
+        stress_grid = ((3.0, 5.0), (5.0, 5.0), (7.0, 5.0))
+        # calib_stress: (3,5)=100; calib_tail: (5,5)=200 -> avg (5,5)=140 beats (3,5)=60.
+        stress_scores = {
+            "calib_stress_2022q1": {(3.0, 5.0): 100.0, (5.0, 5.0): 80.0, (7.0, 5.0): 60.0},
+            tail: {(3.0, 5.0): 20.0, (5.0, 5.0): 200.0, (7.0, 5.0): 40.0},
+        }
+        for window, grid_scores in stress_scores.items():
+            for width, exit_pips in stress_grid:
+                c = _barbell_cell(pair, window, width, exit_pips, stress_scores[window][(width, exit_pips)])
+                cells[c["cell_key"]] = c
+        out = sweep.select_barbell_per_pair(cells, window_keys, "risk_adj")
+        cell, score = out["AAABBB"]["stress"]
+        self.assertEqual(cell, (5.0, 5.0))
+        self.assertAlmostEqual(score, 140.0, places=9)
+
+    def test_barbell_missing_regime_returns_none(self):
+        cells, window_keys = _barbell_base_fixture()
+        out = sweep.select_barbell_per_pair(cells, ["calib_chop_2020q3"], "risk_adj")
+        cell, score = out["AAABBB"]["stress"]
+        self.assertIsNone(cell)
+        self.assertEqual(score, float("-inf"))
+
+
 class TestCheckpointProvenance(unittest.TestCase):
     def test_t15_matching_provenance_resumes(self):
         """T15: Matching version and complete cells pass validation."""
