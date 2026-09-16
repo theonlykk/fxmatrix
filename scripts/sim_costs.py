@@ -67,6 +67,7 @@ class PairSpec:
     max_layers: int | None = None  # production InpMaxLayers; None = not ratified (raises)
 
 
+
 PAIR_SPECS: dict[str, PairSpec] = {
     "EURUSD": PairSpec(
         symbol="EURUSD",
@@ -100,6 +101,9 @@ PAIR_SPECS: dict[str, PairSpec] = {
     ),
     # JPY pairs — point and pip_size both equal one pip in price units (0.01),
     # not the MT5 tick size (0.001 on three-decimal quotes). See test_sim_costs J1.
+    # USDJPY -- max_layers=8 RESEARCH ONLY, matching the ring-extension
+    # candidates so sweep results are comparable. Live majors run 12; a live
+    # USDJPY deployment requires its own ratification.
     "USDJPY": PairSpec(
         symbol="USDJPY",
         point=0.01,
@@ -108,6 +112,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["USDJPY"],
         conversion_pair=None,
+        max_layers=8,
     ),
     # Ring extension JPY crosses -- max_layers=8: all six extension pairs are cross
     # pairs, matching the existing EURGBP and CAD/CHF ring cap of 8, chosen for
