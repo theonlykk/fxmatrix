@@ -1,243 +1,263 @@
 This message has a line count at the bottom
 
-# DESIGN MEMO -- ORDER PURGATORY: ACCOUNT SLOT BUDGET WITH EXIT PRIORITY
+# DESIGN MEMO -- ORDER PURGATORY: EXIT QUEUE, CAPACITY FORMULA, SLOT GUARD (REV 3)
 
 | | |
 |---|---|
-| Status | **DRAFT for review.** Not an ADR yet. Proposed number: ADR-151 |
+| Status | **REV 3 DRAFT.** Supersedes rev 2 (never sent to Gemini). Proposed number: ADR-151 |
 | Author | Claude (lead engineer), 2026-09-16 |
-| Operator | Khalid. Named the concept; accepts modestly more requests in exchange for no refusal storms |
+| Operator | Khalid. Concept and the exit-queue insight: an order that cannot fill until others fill first should not hold a slot |
 | Evidence | `HANDOFF_2026-09-16.md` s1-2, `HANDOFF_2026-09-16b.md` (FOMC) |
-| Source read | fxmatrix main `46b1749`, `ea/grind_engine.mqh`, `grind_api_counter.mqh`, `grind_quarantine.mqh` |
-| Review path | Gemini ruling (design), then DeepSeek audit (order lifecycle, MANDATORY per ARCHITECT s2), then Cursor spec |
+| Prior red team | DeepSeek on rev 1: `prompts/deepseek_order_purgatory_response.md` (`e83b52f`). Rev 3 carries forward its accepted fixes (s7) |
+| Source read | fxmatrix `e83b52f`: `grind_engine.mqh`, `fxgrind.mq5`, `grind_recon.mqh`, `grind_quarantine.mqh`, `grind_carry.mqh` |
+| Review path | **DeepSeek (mandatory: changes invariants and order lifecycle)** -> Gemini ruling -> Cursor spec |
 
 ---
 
 ## 1. PROBLEM
 
 The account allows **200 positions + pending orders combined**
-(`ACCOUNT_LIMIT_ORDERS=200`, read 2026-09-16). The fleet has no concept of
-this limit. Each instance places orders as if capacity were infinite.
+(`ACCOUNT_LIMIT_ORDERS=200`; refusals occurred with ~113 orders resting, so on
+this account it counts both). At 200 the terminal refuses the next order
+locally (10040). Because a fill turns an order into a position, the refused
+order is the exit placed after a fill. The layer goes I3_NAKED, quarantine
+cannot outlast the limit, the instance halts. 2026-09-16: 14+ halt events,
+untracked fills on halted instances, a request storm (822 -> 3,414 in 23
+minutes), and every reinit into a full book re-halted.
 
-When the book reaches 200, three failures follow, all observed on 2026-09-16:
+Book at 21:47Z: 92 positions + 88 exit orders + 20 entry orders = 200.
 
-1. **Exits are refused.** A fill converts an order into a position (count
-   unchanged); the exit placed immediately after is the NEW order, so it is
-   the one refused (retcode 10040, `duration_ms=0`). Layer goes I3_NAKED,
-   quarantine cannot outlast the limit, instance halts. 12 halt events.
-2. **Halted instances keep filling.** `Grind_HaltCritical` only sets a flag;
-   resting entries stay at the broker and fill as untracked positions with
-   no exit (two observed at 18:02Z).
-3. **Refusals are retried every tick.** Entries and exits that fail are
-   re-sent on the next tick with no backoff. Request counter 822 -> 3,414 in
-   23 minutes.
+## 2. THE INSIGHT
 
-Manual recovery showed the stable state: an instance with no resting
-entries. Every reinit into a full book re-halted within minutes (3 of 3).
+**Most resting exits cannot fill until other exits fill first.**
 
-## 2. PRINCIPLE
+On a long ladder every exit is a SELL LIMIT above market. The deepest layer's
+exit is nearest to price; L00's exit is furthest. Price must rise through the
+nearer exits before it can reach the far ones. GBPUSD ALT at 21:47Z held 12
+resting exits from 1.34011 to 1.35212; eleven of them could not fill before
+the first did. Shorts mirror this.
 
-**An exit must never be refused for want of a slot. An entry may always
-wait.**
+Those far exits hold slots and do no work. **Keep only the K nearest exits per
+side on the book; hold the rest in purgatory; release the next one as the
+front one fills.** Positions cannot be held back -- an open position always
+holds its slot. Only resting orders can wait.
 
-Entries are optional; missing one costs a possible scalp. Exits are not;
-missing one halts the instance. So capacity is budgeted: entries only get a
-slot when the account has headroom above a reserve kept for exits.
-Entries that cannot be placed wait in memory -- "purgatory" -- and are
-placed when room returns.
+## 3. CAPACITY FORMULA
 
-## 3. CURRENT BEHAVIOUR (from source)
+Per instance, one side laddered to the cap P, the other flat (worst normal
+case):
 
-  - Entry gates: `Grind_TryPlaceL0` (grind_engine.mqh ~449) and
-    `Grind_EnsureAddNext` (~636) check `Grind_CanPlaceEntryLayer` (depth vs
-    cap) and `Grind_CapAllowsEntry` (ADR-149 exposure cap). No capacity check.
-  - Exit on fill: `Grind_HandleSideDealFill` (~833) places the exit
-    immediately on an ENT fill. Good ordering, but no capacity awareness.
-  - Tick order in `Grind_OnTickEngine` (~1026): L0 placement, then ADR-124
-    recentre, then cap transition, **then** `Grind_RetryMissingExits`, then
-    adds. **A missing exit is retried AFTER a new L0 has had the chance to
-    take the slot in the same tick.**
-  - `Grind_OrderSendCounted` (grind_api_counter.mqh ~76) increments the
-    request counter on every `OrderSend`, including sends the terminal
-    refuses locally. The fleet counter therefore over-states server
-    requests during a storm.
-  - Quarantine (grind_quarantine.mqh): 3000 ms and 3 checks, then halt.
-    It has no notion of WHY the exit is missing.
-  - Halt has TWO entry points, neither touching orders: the invariant path
-    in `OnTick` (fxgrind.mq5 ~234) sets `g_grind_halted` directly after
-    `Grind_QuarantineStep` returns HALT; `Grind_HaltCritical`
-    (grind_engine.mqh ~376) sets it for engine-detected faults.
-  - While QUARANTINED, `OnTick` (fxgrind.mq5 ~246) runs only
-    `Grind_RetryMissingExits` and skips the engine: quarantine is already an
-    exit-only mode. The budget generalises that idea to the whole fleet.
-  - I8 (`Grind_ReconCheckPendingAddCorrupt`, grind_recon.mqh ~370) halts if
-    `add_pending_ticket` is set but the order is gone. Any eviction must
-    clear the tracker in the same pass as the cancel.
+    positions P  +  live exits (K + H)  +  one L0 on the flat side   =   P + K + H + 1
+
+(One layer below cap gives the same total: P-1 positions + K+H exits + 1 add +
+1 L0.) H is the hysteresis band in s4.3. Two-sided ladders (EURGBP style) are
+2P + 2(K + H).
+
+Fleet, N pairs x 2 arms, all one-sided at cap at once (a USD move does this to
+every USD pair):
+
+    2N x (P + K + H + 1)  <=  200 - margin
+
+| Fleet | P | K | H | Worst case | vs 190 (margin 10) |
+|---|---|---|---|---|---|
+| Today, 7 pairs, 14 instances | 8 | 3 | 1 | 182 | fits |
+| Today, 7 pairs | 8 | 4 | 0 | 182 | fits |
+| Today, 7 pairs | 12 (majors now) | 3 | 1 | 238 (majors) | no |
+| 8 pairs (+NZDCHF) | 7 | 3 | 1 | 192 | marginal |
+| 10 pairs (+NZDCHF, USDJPY) | 6 | 2 | 0 | 180 | fits |
+| 10 pairs | 4 | 3 | 1 | 180 | fits |
+
+**Conclusions:** the exit queue alone frees 35-49 slots on today's book, but
+the formula only holds in the worst case if **P** comes down (majors 12 -> 8).
+Adding pairs needs a lower P, a lower K, or a second account. P, K and N are
+one decision; this memo proposes K and H and records the P implication. The
+cap change itself is a separate ADR because lowering P trips I7 on reinit
+(`HANDOFF_2026-09-16` s7 traps).
 
 ## 4. DESIGN
 
-### 4.1 Reading capacity -- local, free, fleet-wide by construction
+### 4.1 Which exits are live -- stateless, derived every tick
 
-    free = AccountInfoInteger(ACCOUNT_LIMIT_ORDERS)
-           - PositionsTotal() - OrdersTotal()
+For each side, sort that instance's layers by exit target, nearest to market
+first:
 
-These are terminal-local calls: **no server request**. Every instance in the
-terminal sees the same account totals, so no GlobalVariable coordination is
-needed to know the count. If `ACCOUNT_LIMIT_ORDERS` returns 0 (unlimited),
-the budget is disabled.
+  - longs: ascending exit target (every resting long exit is above bid, so
+    lowest = nearest)
+  - shorts: descending exit target
 
-Race: several instances can read the same `free` in the same tick and all
-act. The reserve (4.2) absorbs this; a refusal inside the reserve is handled
-by 4.4, not by halting.
+The first **K** layers in that order MUST have a live exit. Layers ranked
+K+1..K+H MAY have a live exit. Layers ranked beyond K+H MUST NOT.
 
-### 4.2 The budget rule
+The ordering depends only on broker positions and the exit price rule
+(entry +/- exit_pips + carry shift), so it is recomputed from the broker book
+every tick and after reinit. **No held-exit state lives only in memory.**
 
-| Order class | Allowed when |
+Carry shift: `Grind_CarryShiftGetForRecon` (grind_carry.mqh ~547) already
+reads a validated per-position shift from persisted state, so a held exit's
+target is recoverable after reinit.
+
+### 4.2 Release and hold
+
+  - **On a layer becoming nearest-K without a live exit** (front exit filled
+    and netted, or a new deeper layer appended): place its exit in the same
+    event handler that caused it. Exits are always allowed by the guard (s4.5).
+  - **On a live exit falling beyond rank K+H** (a new deeper layer pushed it
+    back): cancel it with `Grind_CancelPendingOrder` and **clear the layer's
+    exit tracker only on a confirmed cancel or confirmed gone** -- the pattern
+    `Grind_EnsureAddNext` already uses (DeepSeek rev 1 T-3).
+
+### 4.2a Worked example -- one GBPUSD instance, long, K = 2, H = 0
+
+Layers are numbered without gaps; an exit fill first opens an opposite
+position, and slots are freed only when CloseBy nets the pair.
+
+| Step | Positions | Exits live | Exits held | Entry live | Slots |
+|---|---|---|---|---|---|
+| 1. Today, every exit live, add blocked | L0 L1 L2 L3 | L0 L1 L2 L3 | -- | -- | 8 |
+| 2. Queue applied | L0 L1 L2 L3 | L2 L3 | L0 L1 | L4 add | 7 |
+| 3. L3 exit fills, nets | L0 L1 L2 | L2 | L0 L1 | L4 add | 5 |
+| 4. L1 reaches rank 2, released | L0 L1 L2 | L1 L2 | L0 | L4 add | 6 |
+| 5. L2 exit fills, nets | L0 L1 | L1 | L0 | L4 add | 4 |
+| 6. L0 released; add corrected | L0 L1 | L0 L1 | -- | L2 add | 5 |
+
+Notes:
+  - Holding is a standing rule, not a reaction to a blocked entry: cancelling
+    at the moment of need means cancelling while the account is refusing
+    orders.
+  - Held exits return at their original price (entry +/- exit_pips + carry
+    shift). They are not re-priced.
+  - Release is one exit at a time, as each reaches rank K.
+  - Step 6's add correction is existing behaviour: `Grind_EnsureAddNext`
+    cancels a resting add whose label no longer matches the next index and
+    places the correct one.
+
+### 4.3 Hysteresis H
+
+Without H, a market oscillating around one level churns: an add fills (new
+exit placed, K+1-th cancelled), the front exit fills (held exit re-placed),
+repeat. With H = 1 an exit is cancelled only when it falls to rank K+2, and
+re-placed only when it rises to rank K. Cost: H extra slots per side.
+
+### 4.4 A released exit that price has already passed
+
+If a held exit's target is already through the market when released (a gap
+through several levels between ticks), placing it at target would be an
+invalid or marketable limit. Rule: **clamp to the passive side** --
+long exit at `max(target, bid + stops_level)`, short exit at
+`min(target, ask - stops_level)` -- using the existing ADR-013 clamp pattern.
+It never crosses the spread and exits at or better than target.
+**Consequence:** I6 (`Grind_ReconExitMatchesEntry`, grind_recon.mqh ~340)
+today tolerates a favourable price only for a FILLED exit. It must also
+tolerate a favourable resting exit, or the clamp halts the instance.
+
+### 4.5 Slot guard (what remains of rev 2's budget)
+
+    free = ACCOUNT_LIMIT_ORDERS - PositionsTotal() - OrdersTotal()
+    EXIT sends:  allowed when free >= 1
+    ENTRY sends: allowed when free >= 2 + InpSlotMargin
+
+Terminal-local, no server request. With the queue sized by s3 this guard
+should rarely bind; it is the backstop for configuration drift and races.
+A blocked entry is deferred with zero sends. An ENT 10040 defers instead of
+retrying next tick.
+
+### 4.6 Invariants -- the changes
+
+| Check today (grind_recon.mqh) | Rev 3 |
 |---|---|
-| Exit (EXT) | `free >= 1` |
-| L0 or add (ENT) | `free > InpSlotReserve` |
-| Modify / cancel / CloseBy | always (they do not consume a slot; CloseBy frees 2) |
+| I3 `no_exit_coverage` for EVERY layer (~437, ~458) | Required only for ranks 1..J, J = max(1, K-1). Rank K is the release target; allowing one event for it avoids quarantine on every front fill |
+| I1 `exit_count != 1` for EVERY layer (~480-520) | Layers WITH an exit: exactly one. Layers without an exit: skipped |
+| I6 exit price (~445, ~466) | Only layers with an exit; favourable resting price tolerated (s4.4) |
+| NEW I9 | A live exit beyond rank K+H: soft (engine cancels it), never halts |
+| I4 orphan exit, I5, I7, I8 | Unchanged |
 
-`InpSlotReserve` is a new input. **Sizing is an open question (s7).**
-Starting argument: one exit slot per instance that could fill in the same
-burst. Tonight's worst burst was 5 halts in 3 minutes across 14 instances, so
-a reserve between 10 and 16 is the plausible range.
+**Transition:** today's books carry every exit. Under rev 3 the extra exits
+are simply ranks beyond K+H: legal, and trimmed by the engine over the first
+ticks. Reinit needs no migration.
 
-The reserve is self-limiting: once entries stop being placed, fills slow,
-exits keep slots, and scalps release capacity.
+### 4.7 Carried forward from rev 2 (DeepSeek-accepted)
 
-### 4.3 Purgatory -- deferred entries
+  - Move `Grind_RetryMissingExits` before L0 placement in
+    `Grind_OnTickEngine` (T-6: no adverse interaction).
+  - On either halt path, cancel own resting ENT orders (never EXT). Residual
+    race stated: an entry can fill between halt and cancel; halted instances
+    ignore fills (`Grind_OnTradeTransactionEngine` ~1161) so that position
+    needs a manual close (T-5).
+  - Rev 1's fleet flag and cross-instance eviction: **dropped** (T-4, T-7).
 
-When an entry is blocked by the budget, the instance does not send. It
-records that the entry is deferred (side, layer index, target already
-computed by existing logic) and re-evaluates on later ticks. Nothing about
-the target calculation changes: L0 still follows ADR-123 place-once, adds
-still follow `Grind_ComputeAddTarget`, recentre still follows ADR-124.
+### 4.8 Halted instances
 
-A deferred entry costs **zero requests** while waiting, because the check is
-local. This is what ends the storm.
+A halted instance does not manage its queue. Live exits keep working; held
+exits stay held; when a live exit fills and is netted on reinit, the next
+exit is released by the reinitialised engine. Parking (delete ENT, close
+naked) is unchanged.
 
-Telemetry: heartbeat gains `slots_free`, `entries_deferred_long`,
-`entries_deferred_short`. Dashboard shows purgatory explicitly rather than
-as a missing order.
+## 5. REQUEST COST
 
-### 4.4 Exit refused anyway (race inside the reserve)
+Each new deepest layer beyond K+H costs one extra cancel (the exit pushed
+back). Each scalp that releases a held exit costs one place that would
+otherwise have happened at fill time anyway. Net: roughly one extra cancel
+per add fill. Operator-accepted; small against a refusal storm.
 
-If an exit send returns 10040:
+## 6. WHAT DOES NOT CHANGE
 
-  1. **Evict locally.** Cancel this instance's own resting ENT order that is
-     furthest from market (an add before an L0). That frees one slot.
-     Re-send the exit in the same pass.
-  2. **If the instance has no resting ENT to evict**, raise a fleet flag
-     (GlobalVariable `GRIND_SLOT_STARVED`, timestamped). Every instance that
-     sees a fresh flag withdraws its own furthest ENT order and defers it.
-     Cleared when `free > InpSlotReserve`.
-  3. Record `SLOT_REFUSED` / `SLOT_EVICT` to ea_events.
+Geometry, targets, exit distance rule, ADR-123/124, the ADR-149 exposure cap,
+exit placement on an ENT fill for a layer ranked within K, reconstruction's
+broker-ticket basis.
 
-Step 2 is the only new cross-instance mechanism. It uses the existing GV
-pattern from the cap (ADR-149) and must obey ARCHITECT s13 (TimeTradeServer
-for staleness).
+## 7. PRIOR DEEPSEEK FINDINGS -- STATUS UNDER REV 3
 
-Request cost of an eviction: 1 cancel + 1 later re-place. Tonight's
-alternative was hundreds of refused sends per minute.
+| # | Rev 1 finding | Rev 3 |
+|---|---|---|
+| T-1 | Flat reserve exhausted by races | Mechanism replaced. Capacity now bounded by s3; guard s4.5 as backstop |
+| T-2 | Limit semantics / non-atomic counts | Semantics settled by evidence; guard reads are backstop only |
+| T-3 | Tracker cleared on failed cancel | Applied to BOTH entry eviction and exit hold (s4.2) |
+| T-4, T-7 | Fleet flag depends on peer ticks | Dropped |
+| T-5 | Halted instances ignore fills | Residual stated (s4.7) |
+| T-9 | Recentre modify storm | Rejected as stated (deadband); unchanged |
+| G7 | I8 cannot catch a stale tracker | Accepted; not relied on |
 
-### 4.5 Quarantine interaction -- NEEDS A RULING
+## 8. TESTS (outline)
 
-Today a slot-refused exit and a genuinely lost exit look identical to
-quarantine (I3_NAKED). Options:
+  1. Ranking: longs ascending, shorts descending, carry shift applied.
+  2. K nearest get exits; ranks beyond K+H get none; K+1..K+H left as found.
+  3. Front exit fill -> netted -> next held exit placed in the same event.
+  4. New deepest layer -> its exit placed; rank K+H+1 exit cancelled.
+  5. Cancel non-DONE with order live: tracker NOT cleared; no duplicate on
+     release (would be I2).
+  6. Hysteresis: add/exit/add/exit at one level produces no cancel churn with
+     H = 1.
+  7. Gap release: target through market -> clamped passive price; I6 passes.
+  8. Invariants: missing exit at rank <= J fails I3; at rank K passes one
+     event; beyond K+H never fails.
+  9. Reinit on a legacy full-exit book: passes; engine trims to K+H.
+ 10. Reinit on a held book: ranks recomputed; releases correct.
+ 11. Guard: entry deferred at `free < 2 + margin`; exit placed at `free == 1`.
+ 12. Halt (both paths) cancels own ENT only.
+ 13. Suite baseline reported.
 
-  - **(a) Unchanged.** Eviction usually wins inside 3000 ms; if not, halt as
-    today. Simplest; keeps "halt, don't repair" pure.
-  - **(b) Extended window only when the last send for that layer's exit
-    returned 10040** (e.g. up to 60 s while eviction runs), then halt.
+## 9. QUESTIONS FOR THE RULING
 
-Recommendation: **(a) first**, measure, revisit. (b) weakens an invariant and
-should not be adopted on reasoning alone.
+  1. K and H values; one fleet-wide input or per-preset.
+  2. J = max(1, K-1) for I3: sound, or must rank K be hard?
+  3. Passive clamp on gap release (s4.4) and the I6 relaxation.
+  4. P: accept that the formula needs majors 12 -> 8 (separate ADR)?
+  5. Two-sided ladders: separate cap for EURGBP-type pairs, or accept the
+     rarer worst case?
+  6. Halt contract: cancel own ENT on halt?
 
-### 4.6 Halt cancels own entries
+## 10. RISKS
 
-On any halt -- BOTH entry points in s3 -- the instance cancels its own resting
-ENT orders (never EXT).
-This removes the untracked-fill failure (F2 of 16b) and turns every halt into
-the "parked" state automatically. Exits stay; locked pairs net on reinit as
-observed.
+  - Invariant relaxation could hide a genuinely lost far exit. Mitigated: far
+    exits are re-placed deterministically when they reach rank K; a lost NEAR
+    exit still fails I3 at rank <= J.
+  - A gap through more than K+H levels releases several clamped exits at once;
+    they fill near the same price. Acceptable: at or better than target.
+  - Worst-case capacity depends on P, which this ADR does not change.
 
-Open point: cancelling during a halt is a trading action by a halted
-instance. It is narrow (cancel only, own ENT only) but it is a change to the
-halt contract.
+## 11. NOT IN SCOPE
 
-### 4.7 Tick ordering
+The layer-cap change and its I7 migration; retiring or adding instances;
+closing or resetting deep layers; a second account.
 
-Move `Grind_RetryMissingExits` to run **before** L0 placement, recentre and
-adds in `Grind_OnTickEngine`. Independent of the budget, this stops an
-instance's own entry from beating its own exit to a slot.
-
-### 4.8 Reinit
-
-No special path. Reconstruction runs as today; entries then pass through the
-budget like any other. A reinit into a full book comes back running with
-entries in purgatory, instead of placing them and re-halting.
-
-### 4.9 Backoff on refusals
-
-Any 10040 on an ENT send marks that entry deferred (4.3); it is not
-re-sent until the budget allows. Any other refusal keeps existing behaviour.
-
-## 5. WHAT DOES NOT CHANGE
-
-  - Geometry, targets, exit distances, ADR-123/124 behaviour.
-  - The ADR-149 exposure cap. Cap = how much exposure; budget = how many
-    tickets. Both gate entries; the budget check sits beside
-    `Grind_CapAllowsEntry`.
-  - Invariants and reconstruction (unless 4.5(b) is ruled in).
-  - Exit placement on fill.
-
-## 6. TESTS (outline for the Cursor spec)
-
-The order test harness (`g_grind_order_test_*`) needs a mocked slot count and
-a mocked 10040 retcode.
-
-  1. Entry blocked at `free <= reserve`; no send recorded; deferred flag set.
-  2. Entry placed when `free` rises above reserve; deferred flag cleared.
-  3. Exit placed at `free == 1` while entries are blocked.
-  4. Exit 10040 with a resting add: add cancelled, exit re-sent, one of each.
-  5. Exit 10040 with no resting ENT: `GRIND_SLOT_STARVED` set; peer instance
-     withdraws its furthest ENT.
-  6. Halt cancels own ENT orders, leaves EXT orders.
-  7. Tick order: missing exit retried before L0 on the same tick.
-  8. `ACCOUNT_LIMIT_ORDERS == 0` disables the budget.
-  9. No send storm: 1,000 ticks at a full book produce zero ENT sends.
- 10. Suite baseline count reported (02_TRAPS: count is a baseline).
-
-## 7. OPEN QUESTIONS FOR THE RULING
-
-  1. `InpSlotReserve` value and whether it is fleet-wide or scales with
-     instance count.
-  2. Fleet eviction (4.4 step 2): adopt now, or local eviction only in v1?
-  3. Quarantine: (a) unchanged or (b) extended window on 10040 (4.5).
-  4. Halt contract change (4.6): acceptable?
-  5. **Fairness.** Deep ladders hold many exit slots; the budget protects
-     them. Shallow crosses will be the instances whose entries wait. Is that
-     acceptable, or should the reserve be shared per instance?
-  6. Should the request counter distinguish local refusals from server
-     requests (s3), given FTMO's daily limit?
-
-## 8. RISKS
-
-  - Deferred entries reduce harvest when the book is full. Accepted by the
-    operator: trading at reduced capacity beats halting.
-  - GV flag staleness or a crashed instance could leave `GRIND_SLOT_STARVED`
-    set. Mitigation: timestamp and expiry.
-  - Eviction races between two instances cancelling for the same slot.
-    Cost is one extra cancel; no correctness risk.
-  - Budget reads `OrdersTotal()`, which includes any manual orders the
-    operator places. Correct by design: they consume real slots.
-
-## 9. NOT IN SCOPE
-
-  - Lowering `max_layers` (HANDOFF_2026-09-16 s7). Complementary: it reduces
-    how fast the book fills; this memo handles what happens when it does.
-  - Closing or resetting deep layers.
-  - Retiring or adding instances.
-
-Line count: 243
+Line count: 263
