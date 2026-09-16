@@ -56,6 +56,16 @@ button[disabled]{opacity:.35;cursor:default}
 .row .tk{color:var(--work);font-weight:700}
 .row .wk{color:var(--work);font-weight:600}
 .row.calc{border:1px dashed var(--line2)}.row.calc .px{color:var(--dim)}
+.row.calc.cn{border-color:var(--bidln);background:color-mix(in srgb,var(--bidbg) 45%,transparent)}
+.row.calc.cn .px{color:var(--bid)}
+.row.calc.cn.s{border-color:var(--askln);background:color-mix(in srgb,var(--askbg) 45%,transparent)}
+.row.calc.cn.s .px{color:var(--ask)}
+.row.calc.cx{border-color:var(--askln);background:color-mix(in srgb,var(--askbg) 45%,transparent)}
+.row.calc.cx .px{color:var(--ask)}
+.row.calc.cx.s{border-color:var(--bidln);background:color-mix(in srgb,var(--bidbg) 45%,transparent)}
+.row.calc.cx.s .px{color:var(--bid)}
+.row.stale{border:2px dashed var(--warn);background:color-mix(in srgb,var(--warn) 7%,transparent)}
+.row.stale .px{color:var(--warn);font-weight:600}.row.stale .wk{color:var(--warn)}
 .row.proj{border:1px dashed var(--line);opacity:.48;background:transparent}
 .row.proj .px{color:var(--dim);font-weight:400}
 .row.resid{border:1px dashed var(--bidln);background:var(--bidbg)}
@@ -133,7 +143,7 @@ const PAIRS=Object.keys(META);const BOOKS=[["OPT","L"],["OPT","S"],["ALT","L"],[
 const CLIP=1.0,KEY="ladder."+SEED.gen;let S=null,dlgState=null;
 const M=s=>META[s];
 const geo=(s,a)=>{const g=a==="OPT"?M(s).opt:M(s).alt;return{w:g[0],x:g[1],add:2*g[0]}};
-const fmt=(v,s)=>v.toFixed(M(s).d);
+const fmt=(v,s)=>(typeof v==="number"&&isFinite(v))?v.toFixed(M(s).d):"\u2014";
 const px=(b,p,s,up)=>b+(up?1:-1)*p*M(s).p;
 const tick=s=>Math.pow(10,-M(s).d);
 const L=i=>"L"+String(i).padStart(2,"0");
@@ -154,11 +164,13 @@ function levels(k){
   const fs=by[i],anchor=fs[0].price,filled=fs.reduce((t,f)=>t+f.size,0);
   const intended=fs[0].intended||CLIP,resid=+(intended-filled).toFixed(2);
   const gone=k.exits.filter(e=>e.idx===i).reduce((t,e)=>t+e.size,0);
-  out.push({kind:"pos",price:anchor,tag:L(i)+"|ENT",size:filled,idx:i,working:+(filled-gone).toFixed(2)});
+  out.push({kind:"pos",price:anchor,tag:L(i)+"|ENT",size:+(filled-gone).toFixed(2),idx:i,held:filled,exited:gone});
   if(resid>1e-9&&!k.cancelled[i])out.push({kind:"resid",price:anchor,tag:L(i)+"|ENT",size:resid,idx:i});
   if(filled-gone>1e-9)out.push({kind:"ext",price:px(anchor,g.x,s,long),tag:L(i)+"|EXT",size:+(filled-gone).toFixed(2),idx:i});
  });
- const dp=idxs[idxs.length-1],base=by[dp][0].price,resolved=!out.some(l=>l.kind==="resid");
+ for(let i=out.length-1;i>=0;i--) if(out[i].kind==="pos"&&out[i].size<1e-9) out.splice(i,1);
+ const openIdx=out.filter(l=>l.kind==="pos").map(l=>l.idx);
+ const dp=openIdx.length?Math.max(...openIdx):idxs[idxs.length-1],base=by[dp][0].price,resolved=!out.some(l=>l.kind==="resid");
  for(let n=1;n<=AHEAD;n++)out.push({kind:(n===1&&resolved)?"ent":"proj",
    price:px(base,g.add*n,s,!long),tag:L(dp+n)+"|ENT",size:CLIP,idx:dp+n});
  return out;
@@ -169,7 +181,9 @@ function bracket(s){let hb=-Infinity,ls=Infinity;
    const buy=(l.kind==="ext")?!long:long;
    if(buy){if(l.price>hb)hb=l.price}else{if(l.price<ls)ls=l.price}});});
  return (isFinite(hb)&&isFinite(ls))?{lo:hb,hi:ls,mid:(hb+ls)/2}:null;}
-const depth=k=>new Set(k.fills.map(f=>f.idx)).size;
+const depth=k=>{const by={};k.fills.forEach(f=>by[f.idx]=(by[f.idx]||0)+f.size);
+ k.exits.forEach(e=>by[e.idx]=(by[e.idx]||0)-e.size);
+ return Object.values(by).filter(v=>v>1e-9).length;};
 const net=k=>+(k.fills.reduce((t,x)=>t+x.size,0)-k.exits.reduce((t,x)=>t+x.size,0)).toFixed(2);
 const invOk=()=>Object.values(S.books).every(k=>k.exits.reduce((t,x)=>t+x.size,0)<=k.fills.reduce((t,x)=>t+x.size,0)+1e-9);
 
@@ -177,9 +191,22 @@ function fresh(){const bs=JSON.parse(JSON.stringify(SEED.books));
  const st={books:bs,log:[{t:SEED.gen.slice(11,16),c:"",h:"Live book loaded &mdash; <b>68 layers</b> across 24 books"}],gen:SEED.gen,undo:null};
  const p=S;S=st;Object.values(bs).forEach(k=>{k.confirmed={};k.cancelled=k.cancelled||{};
   k.fills.forEach(f=>f.intended=f.intended||f.size);
-  levels(k).forEach(l=>{if(l.kind==="ent"||l.kind==="ext")k.confirmed[l.tag]=true})});
+  levels(k).forEach(l=>{if(l.kind==="ent"||l.kind==="ext")k.confirmed[l.tag]=l.price})});
  S=p;return st;}
-const load=()=>{try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return fresh()};
+function migrate(st){
+ const p=S;S=st;
+ Object.values(st.books).forEach(k=>{
+  k.confirmed=k.confirmed||{};k.cancelled=k.cancelled||{};
+  k.fills.forEach(f=>{if(f.intended===undefined)f.intended=f.size});
+  const byTag={};levels(k).forEach(l=>byTag[l.tag]=l.price);
+  Object.keys(k.confirmed).forEach(t=>{
+   const v=k.confirmed[t];
+   if(typeof v!=="number"||!isFinite(v)){
+    if(v&&byTag[t]!==undefined)k.confirmed[t]=byTag[t]; else delete k.confirmed[t];
+   }});
+ });
+ S=p;return st;}
+const load=()=>{try{const r=localStorage.getItem(KEY);if(r)return migrate(JSON.parse(r))}catch(e){}return fresh()};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 function snap(){S.undo=JSON.stringify({books:S.books,log:S.log})}
 function act(c,h){S.log.unshift({t:new Date().toTimeString().slice(0,5),c,h})}
@@ -192,9 +219,10 @@ function render(){
   BOOKS.forEach(([a,d],j)=>cells.push(ladder(bk(s,a,d),br,mx-ab[j])));});
  document.getElementById("board").innerHTML=cells.join("");
  document.querySelectorAll("[data-r]").forEach(el=>el.onclick=onRow);
- const unc=Object.values(S.books).reduce((n,k)=>n+levels(k).filter(l=>(l.kind==="ent"||l.kind==="ext")&&!k.confirmed[l.tag]).length,0);
+ const unc=Object.values(S.books).reduce((n,k)=>n+levels(k).filter(l=>(l.kind==="ent"||l.kind==="ext")&&k.confirmed[l.tag]===undefined).length,0);
+ const stl=Object.values(S.books).reduce((n,k)=>n+levels(k).filter(l=>{const c=k.confirmed[l.tag];return c!==undefined&&(l.kind==="proj"||Math.abs(c-l.price)>1e-9)}).length,0);
  const lay=Object.values(S.books).reduce((n,k)=>n+depth(k),0);
- const u=document.getElementById("pUnc");u.innerHTML="to place <b>"+unc+"</b>";u.className="pill"+(unc?" bad":"");
+ const u=document.getElementById("pUnc");u.innerHTML="to place <b>"+unc+"</b> \u00b7 modify <b>"+stl+"</b>";u.className="pill"+((unc||stl)?" bad":"");
  document.getElementById("pLay").innerHTML="layers <b>"+lay+"</b>";
  const iv=document.getElementById("pInv");iv.className="pill"+(invOk()?"":" bad");
  iv.innerHTML="exposure <b>"+(invOk()?"ok":"over-hedged")+"</b>";
@@ -205,18 +233,23 @@ function render(){
 }
 function ladder(k,br,pad){
  const s=k.pair,long=k.side==="L",ls=levels(k).sort((a,b)=>b.price-a.price),kk=`${k.pair}|${k.arm}|${k.side}`;
- const mk=(l,n)=>{const cf=k.confirmed[l.tag];let cls="row ",hit=false,extra="";
+ const mk=(l,n)=>{const cp=k.confirmed[l.tag];
+  const cf=cp!==undefined, stale=cf&&Math.abs(cp-l.price)>1e-9;
+  let cls="row ",hit=false,extra="";
   if(l.kind==="pos"){cls+="pos"+(long?"":" s");
-    if(l.working<l.size-1e-9)extra=` <span class="wk">${l.working.toFixed(1)} wkg</span>`;}
-  else if(l.kind==="proj"){cls+="proj";hit=true}
+    const exl=ls.find(x=>x.kind==="ext"&&x.idx===l.idx), wk=exl?exl.size:0;
+    if(wk<l.size-1e-9)extra=` <span class="wk">+${(l.size-wk).toFixed(1)} exit</span>`;}
   else if(l.kind==="resid"){cls+="resid"+(long?"":" s");hit=true}
-  else if(!cf){cls+="calc";hit=true}
-  else {cls+=(l.kind==="ext"?"ext":"ent")+(long?"":" s");hit=true}
+  else if(cf&&l.kind==="proj"){cls+="stale";hit=true;extra=` <span class="wk">below active level</span>`}
+  else if(stale){cls+="stale";hit=true;extra=` <span class="wk">was ${fmt(cp,s)}</span>`}
+  else if(cf){cls+=(l.kind==="ext"?"ext":"ent")+(long?"":" s");hit=true}
+  else if(l.kind==="proj"){cls+="proj";hit=true}
+  else {cls+="calc "+(l.kind==="ext"?"cx":"cn")+(long?"":" s");hit=true}
   const lab=l.kind==="resid"?l.tag+"r":l.tag;
   const adj=(hit&&(cf||l.kind==="resid"))?`<span class="adj" data-r="adj" data-k="${kk}" data-n="${n}">&plusmn;</span>`:"";
   return `<div class="${cls}${hit?" hit":""}" ${hit?`data-r="row" data-k="${kk}" data-n="${n}"`:""}>`
    +`<span class="px mono">${fmt(l.price,s)}</span><span class="tg mono">${lab}</span>`
-   +`<span class="sz mono">${l.size.toFixed(1)}${extra}${cf&&(l.kind==="ent"||l.kind==="ext")?' <span class="tk">&check;</span>':''}</span>${adj}</div>`;};
+   +`<span class="sz mono">${l.size.toFixed(1)}${extra}${cf&&!stale&&(l.kind==="ent"||l.kind==="ext")?' <span class="tk">&check;</span>':''}</span>${adj}</div>`;};
  const rows=ls.map(mk);
  const nAb=ls.filter(l=>l.price>br.mid).length+pad;
  const band=`<div class="row mkt"><span class="px mono">${fmt(br.lo,s)}</span><span class="tg mono">market</span><span class="sz mono">${fmt(br.hi,s)}</span></div>`;
@@ -234,11 +267,12 @@ function onRow(e){
  const ls=levels(k).sort((x,y)=>y.price-x.price),l=ls[+el.dataset.n];
  const stepper=el.dataset.r==="adj";
  const cf=k.confirmed[l.tag];
- if(l.kind==="proj"){snap();k.confirmed[l.tag]=true;
+ if(l.kind==="proj"){snap();k.confirmed[l.tag]=l.price;
    act("",`<b>${s} ${a} ${d}</b> ${l.tag} placed early @ ${fmt(l.price,s)}`);render();return;}
- if((l.kind==="ent"||l.kind==="ext")&&!cf){snap();k.confirmed[l.tag]=true;
+ if(cf!==undefined&&Math.abs(cf-l.price)>1e-9){snap();const old=cf;k.confirmed[l.tag]=l.price;
+   act("",`<b>${s} ${a} ${d}</b> ${l.tag} modified ${fmt(old,s)} &rarr; ${fmt(l.price,s)} in terminal`);render();return;}
+ if((l.kind==="ent"||l.kind==="ext")&&!cf){snap();k.confirmed[l.tag]=l.price;
    act("",`<b>${s} ${a} ${d}</b> ${l.tag} placed in terminal @ ${fmt(l.price,s)}`);render();return;}
- if(!stepper){commit(k,l,l.price,l.size);return;}
  open(k,l);
 }
 function commit(k,l,p,z,cancelled){
