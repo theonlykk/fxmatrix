@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Working orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f2ee; --panel:#fff; --panel2:#faf8f5; --line:#dfd9d0; --line2:#c6bdb0;
+  --ink:#1b1e23; --dim:#6e7480; --dimmer:#9aa0ab;
+  --bid:#15589f; --bidbg:#e7f0fa; --bidln:#9dc0e4;
+  --ask:#a8431d; --askbg:#fbeae1; --askln:#e0ac8e;
+  --work:#8a6a12; --ok:#2f7d55; --warn:#b3261e;
+  --rowh:27px; --px:14px;
+}
+[data-theme="dark"]{
+  --bg:#0f1319; --panel:#161c26; --panel2:#1b222e; --line:#252e3c; --line2:#3a465a;
+  --ink:#e2e8f1; --dim:#8b95a7; --dimmer:#5b6578;
+  --bid:#6aa6e0; --bidbg:#152740; --bidln:#2d537f;
+  --ask:#e08356; --askbg:#3a2117; --askln:#7c4227;
+  --work:#e2bb52; --ok:#5fb08a; --warn:#e06b64;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:13px/1.35 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:16px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto}
+h1{font-size:14px;font-weight:600;margin:0}
+.src{font-size:12px;color:var(--dim)}
+.tools{display:flex;gap:9px;margin-left:auto;align-items:center}
+.pill{padding:3px 10px;border:1px solid var(--line2);border-radius:3px;font-size:12px;color:var(--dim);white-space:nowrap}
+.pill b{color:var(--ink);font-weight:600}
+.pill.bad{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,transparent)}
+.pill.bad b,.pill.bad{color:var(--warn)}
+button{font:inherit;font-size:12px;background:var(--panel2);color:var(--ink);border:1px solid var(--line2);border-radius:3px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--dim)}
+button:focus-visible{outline:2px solid var(--work);outline-offset:1px}
+button.w{border-color:var(--work);color:var(--work)}
+button.p{border-color:var(--bid);color:var(--bid)}
+button.n{border-color:var(--ask);color:var(--ask)}
+
+.board{flex:1 1 auto;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:4px;padding:5px;min-height:0}
+.lad{background:var(--panel);border:1px solid var(--line);border-radius:3px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.lad.L{border-top:2px solid var(--bidln)} .lad.S{border-top:2px solid var(--askln)}
+.lh{display:flex;align-items:baseline;gap:5px;padding:4px 6px 3px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.lh .sym{font-size:12px;font-weight:600;letter-spacing:.01em}
+.lh .bk{font-size:11px;font-weight:600}
+.lh.L .bk{color:var(--bid)} .lh.S .bk{color:var(--ask)}
+.lh .st{margin-left:auto;font-size:11px;color:var(--dim)}
+.rows{flex:1 1 auto;padding:3px 4px;display:flex;flex-direction:column;gap:2px;min-height:0}
+.row{display:flex;align-items:center;gap:4px;height:var(--rowh);padding:0 5px;border-radius:2px;border:1px solid transparent;flex:0 0 auto}
+.row .px{font-size:var(--px);font-weight:500;letter-spacing:-.01em}
+.row .tg{font-size:10px;color:var(--dim);letter-spacing:.02em}
+.row .sz{margin-left:auto;font-size:11px;color:var(--dim);white-space:nowrap}
+.row .tk{color:var(--work);font-weight:600}
+.row.calc{border:1px dashed var(--line2);color:var(--dim)}
+.row.calc .px{color:var(--dim)}
+.row.ent{background:var(--bidbg);border-color:var(--bidln)}
+.row.ent.s{background:var(--askbg);border-color:var(--askln)}
+.row.ext{background:var(--askbg);border-color:var(--askln)}
+.row.ext.s{background:var(--bidbg);border-color:var(--bidln)}
+.row.pos{background:transparent;border-color:var(--line2);border-left:3px solid var(--bid)}
+.row.pos.s{border-left-color:var(--ask)}
+.acts{display:flex;gap:3px;padding:4px;border-top:1px solid var(--line);flex:0 0 auto}
+.acts button{flex:1 1 auto;padding:4px 2px;font-size:11px}
+.none{color:var(--dimmer);font-size:11px;padding:6px 4px}
+
+.logwrap{position:fixed;inset:auto 0 0 0;height:34vh;background:var(--panel);border-top:1px solid var(--line2);transform:translateY(100%);transition:transform .18s ease;display:flex;flex-direction:column}
+.logwrap.on{transform:translateY(0)}
+.logwrap h2{margin:0;font-size:12px;font-weight:600;padding:7px 12px;border-bottom:1px solid var(--line);display:flex}
+.logwrap h2 button{margin-left:auto}
+.log{overflow:auto;padding:2px 0}
+.ev{display:grid;grid-template-columns:48px 1fr;gap:9px;padding:4px 12px;border-bottom:1px solid var(--line);font-size:12px}
+.ev .t{color:var(--dimmer)} .ev .d{color:var(--dim)} .ev .d b{color:var(--ink);font-weight:600}
+.ev.fl .d b{color:var(--bid)} .ev.fl.s .d b{color:var(--ask)} .ev.ex .d b{color:var(--ok)}
+
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:4px;padding:0;min-width:300px}
+dialog::backdrop{background:rgba(20,18,14,.4)}
+[data-theme="dark"] dialog::backdrop{background:rgba(6,8,12,.6)}
+.dg{padding:14px 16px}
+.dg h3{margin:0 0 10px;font-size:13px;font-weight:600}
+.dg label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px}
+.dg input{width:100%;background:var(--bg);border:1px solid var(--line2);color:var(--ink);border-radius:3px;padding:7px 9px;font-family:"IBM Plex Mono",monospace;font-size:15px}
+.dg .r{display:flex;gap:7px;margin-top:14px;justify-content:flex-end}
+.hint{font-size:11px;color:var(--dim);margin-top:9px;line-height:1.4}
+@media (max-width:1500px){.board{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media (max-width:820px){.board{grid-template-columns:repeat(2,minmax(0,1fr));overflow:auto}html,body{overflow:auto}}
+</style></head><body>
+<div class="app">
+<header>
+  <h1>Working orders</h1>
+  <span class="src mono" id="src"></span>
+  <div class="tools">
+    <span class="pill" id="pInv">exposure <b>ok</b></span>
+    <span class="pill" id="pLay">layers <b>0</b></span>
+    <span class="pill" id="pUnc">unconfirmed <b>0</b></span>
+    <button id="logBtn">Action log</button>
+    <button id="thBtn">Dark</button>
+    <button id="reload" class="w">Load live book</button>
+  </div>
+</header>
+<div class="board" id="board"></div>
+</div>
+<div class="logwrap" id="logwrap"><h2>Action log <button id="logX">Close</button></h2><div class="log" id="log"></div></div>
+
+<dialog id="dlg"><form method="dialog" class="dg">
+  <h3 id="dgT">Record fill</h3>
+  <label for="dgP">Price</label><input class="mono" id="dgP" inputmode="decimal">
+  <label for="dgS">Size (mm)</label><input class="mono" id="dgS" inputmode="decimal">
+  <div class="hint" id="dgH"></div>
+  <div class="r"><button value="cancel">Cancel</button><button value="ok" class="w">Record</button></div>
+</form></dialog>
+<script>
+const META={"GBPUSD":{"d":5,"p":0.0001,"mid":1.34693,"opt":[5,7],"alt":[5,10],"ml":12,"mtm":{"OPT":-14.68,"ALT":-11.95},"sc":{"OPT":15,"ALT":10},"rt":{"OPT":0.0,"ALT":0.94}},"EURUSD":{"d":5,"p":0.0001,"mid":1.15359,"opt":[7,7],"alt":[7,10],"ml":12,"mtm":{"OPT":-10.04,"ALT":-10.08},"sc":{"OPT":5,"ALT":3},"rt":{"OPT":0.62,"ALT":1.0}},"EURGBP":{"d":5,"p":0.0001,"mid":0.85562,"opt":[3,5],"alt":[3,8],"ml":8,"mtm":{"OPT":-16.61,"ALT":-16.78},"sc":{"OPT":5,"ALT":1},"rt":{"OPT":0.0,"ALT":0.0}},"AUDCAD":{"d":5,"p":0.0001,"mid":0.9915,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-4.43,"ALT":-4.27},"sc":{"OPT":14,"ALT":7},"rt":{"OPT":0.36,"ALT":0.0}},"AUDCHF":{"d":5,"p":0.0001,"mid":0.583,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-3.57,"ALT":-4.81},"sc":{"OPT":6,"ALT":2},"rt":{"OPT":0.0,"ALT":0.0}},"CADCHF":{"d":5,"p":0.0001,"mid":0.588,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-4.36,"ALT":-3.69},"sc":{"OPT":5,"ALT":1},"rt":{"OPT":0.0,"ALT":0.0}}};
+const SEED={"books":{"GBPUSD|OPT|L":{"pair":"GBPUSD","arm":"OPT","side":"L","fills":[{"idx":0,"price":1.35169,"size":1.0},{"idx":1,"price":1.3507,"size":1.0},{"idx":2,"price":1.34969,"size":1.0},{"idx":3,"price":1.34869,"size":1.0},{"idx":4,"price":1.34765,"size":1.0},{"idx":5,"price":1.34665,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34565},"GBPUSD|OPT|S":{"pair":"GBPUSD","arm":"OPT","side":"S","fills":[{"idx":0,"price":1.34693,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34799},"GBPUSD|ALT|L":{"pair":"GBPUSD","arm":"ALT","side":"L","fills":[{"idx":0,"price":1.35112,"size":1.0},{"idx":1,"price":1.35008,"size":1.0},{"idx":2,"price":1.34908,"size":1.0},{"idx":3,"price":1.34808,"size":1.0},{"idx":4,"price":1.34705,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34605},"GBPUSD|ALT|S":{"pair":"GBPUSD","arm":"ALT","side":"S","fills":[{"idx":0,"price":1.34693,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34793},"EURUSD|OPT|L":{"pair":"EURUSD","arm":"OPT","side":"L","fills":[{"idx":0,"price":1.15793,"size":1.0},{"idx":1,"price":1.15653,"size":1.0},{"idx":2,"price":1.15513,"size":1.0},{"idx":3,"price":1.15373,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15233},"EURUSD|OPT|S":{"pair":"EURUSD","arm":"OPT","side":"S","fills":[{"idx":0,"price":1.15359,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15499},"EURUSD|ALT|L":{"pair":"EURUSD","arm":"ALT","side":"L","fills":[{"idx":0,"price":1.15783,"size":1.0},{"idx":1,"price":1.15644,"size":1.0},{"idx":2,"price":1.15504,"size":1.0},{"idx":3,"price":1.15365,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15225},"EURUSD|ALT|S":{"pair":"EURUSD","arm":"ALT","side":"S","fills":[{"idx":0,"price":1.15322,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15462},"EURGBP|OPT|L":{"pair":"EURGBP","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.85958,"size":1.0},{"idx":1,"price":0.85898,"size":1.0},{"idx":2,"price":0.85838,"size":1.0},{"idx":3,"price":0.85778,"size":1.0},{"idx":4,"price":0.85718,"size":1.0},{"idx":5,"price":0.85658,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85598},"EURGBP|OPT|S":{"pair":"EURGBP","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.85562,"size":1.0},{"idx":1,"price":0.85622,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85682},"EURGBP|ALT|L":{"pair":"EURGBP","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.85965,"size":1.0},{"idx":1,"price":0.85904,"size":1.0},{"idx":2,"price":0.85842,"size":1.0},{"idx":3,"price":0.85782,"size":1.0},{"idx":4,"price":0.85723,"size":1.0},{"idx":5,"price":0.85663,"size":1.0},{"idx":6,"price":0.85603,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85543},"EURGBP|ALT|S":{"pair":"EURGBP","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.85562,"size":1.0},{"idx":1,"price":0.85622,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85682},"AUDCAD|OPT|L":{"pair":"AUDCAD","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.99287,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99187},"AUDCAD|OPT|S":{"pair":"AUDCAD","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.99003,"size":1.0},{"idx":1,"price":0.99103,"size":1.0},{"idx":2,"price":0.99203,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99304},"AUDCAD|ALT|L":{"pair":"AUDCAD","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.99301,"size":1.0},{"idx":1,"price":0.99198,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99098},"AUDCAD|ALT|S":{"pair":"AUDCAD","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.98991,"size":1.0},{"idx":1,"price":0.99092,"size":1.0},{"idx":2,"price":0.99192,"size":1.0},{"idx":3,"price":0.99292,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99392},"AUDCHF|OPT|L":{"pair":"AUDCHF","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.58468,"size":1.0},{"idx":1,"price":0.58368,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58268},"AUDCHF|OPT|S":{"pair":"AUDCHF","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.58237,"size":1.0},{"idx":1,"price":0.58337,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58437},"AUDCHF|ALT|L":{"pair":"AUDCHF","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.58471,"size":1.0},{"idx":1,"price":0.58371,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58271},"AUDCHF|ALT|S":{"pair":"AUDCHF","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.58208,"size":1.0},{"idx":1,"price":0.58308,"size":1.0},{"idx":2,"price":0.58408,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58508},"CADCHF|OPT|L":{"pair":"CADCHF","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.58964,"size":1.0},{"idx":1,"price":0.58863,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58763},"CADCHF|OPT|S":{"pair":"CADCHF","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.58703,"size":1.0},{"idx":1,"price":0.58803,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58903},"CADCHF|ALT|L":{"pair":"CADCHF","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.58964,"size":1.0},{"idx":1,"price":0.58863,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58763},"CADCHF|ALT|S":{"pair":"CADCHF","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.58699,"size":1.0},{"idx":1,"price":0.58799,"size":1.0},{"idx":2,"price":0.589,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.59}},"log":[],"gen":"2026-09-16T01:12:25Z"};
+const PAIRS=Object.keys(META);
+const BOOKS=[["OPT","L"],["OPT","S"],["ALT","L"],["ALT","S"]];
+const CLIP=1.0, KEY="ladder."+SEED.gen;
+let S=null;
+
+const M=s=>META[s];
+const geo=(s,a)=>{const g=a==="OPT"?M(s).opt:M(s).alt;return{w:g[0],x:g[1],add:2*g[0]}};
+const fmt=(v,s)=>v.toFixed(M(s).d);
+const px=(b,p,s,up)=>b+(up?1:-1)*p*M(s).p;
+const L=i=>"L"+String(i).padStart(2,"0");
+const bk=(s,a,d)=>S.books[s+"|"+a+"|"+d];
+
+function levels(k){
+ const s=k.pair,g=geo(s,k.arm),long=k.side==="L",out=[];
+ if(!k.fills.length){
+   out.push({kind:"ent",price:px(M(s).mid,g.w,s,!long),tag:L(0)+"|ENT",size:CLIP,idx:0});
+   return out;
+ }
+ const by={};k.fills.forEach(f=>(by[f.idx]=by[f.idx]||[]).push(f));
+ const idxs=Object.keys(by).map(Number).sort((a,b)=>a-b);
+ idxs.forEach(i=>{
+   const fs=by[i],anchor=fs[0].price,filled=fs.reduce((t,f)=>t+f.size,0);
+   out.push({kind:"pos",price:anchor,tag:L(i)+"|ENT",size:filled,idx:i});
+   const gone=k.exits.filter(e=>e.idx===i).reduce((t,e)=>t+e.size,0);
+   if(filled-gone>1e-9)
+     out.push({kind:"ext",price:px(anchor,g.x,s,long),tag:L(i)+"|EXT",size:+(filled-gone).toFixed(2),idx:i});
+ });
+ const dp=idxs[idxs.length-1];
+ out.push({kind:"ent",price:px(by[dp][0].price,g.add,s,!long),tag:L(dp+1)+"|ENT",size:CLIP,idx:dp+1});
+ return out;
+}
+const depth=k=>new Set(k.fills.map(f=>f.idx)).size;
+const net=k=>+(k.fills.reduce((t,x)=>t+x.size,0)-k.exits.reduce((t,x)=>t+x.size,0)).toFixed(2);
+const invOk=()=>Object.values(S.books).every(k=>k.exits.reduce((t,x)=>t+x.size,0)<=k.fills.reduce((t,x)=>t+x.size,0)+1e-9);
+
+function fresh(){
+ const bs=JSON.parse(JSON.stringify(SEED.books));
+ const st={books:bs,log:[{t:SEED.gen.slice(11,16),c:"",h:"Live book loaded &mdash; <b>68 layers</b> across 24 books"}],gen:SEED.gen};
+ const prev=S;S=st;
+ Object.values(bs).forEach(k=>{k.confirmed={};levels(k).forEach(l=>{if(l.kind!=="pos")k.confirmed[l.tag]=true})});
+ S=prev;return st;
+}
+const load=()=>{try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return fresh()};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const push=(c,h)=>S.log.unshift({t:new Date().toTimeString().slice(0,5),c,h});
+
+function render(){
+ const cells=[];
+ PAIRS.forEach(s=>BOOKS.forEach(([a,d])=>cells.push(ladder(bk(s,a,d)))));
+ document.getElementById("board").innerHTML=cells.join("");
+ document.querySelectorAll("[data-a]").forEach(b=>b.onclick=act);
+ const unc=Object.values(S.books).reduce((n,k)=>n+levels(k).filter(l=>l.kind!=="pos"&&!k.confirmed[l.tag]).length,0);
+ const lay=Object.values(S.books).reduce((n,k)=>n+depth(k),0);
+ document.getElementById("pUnc").innerHTML="unconfirmed <b>"+unc+"</b>";
+ document.getElementById("pUnc").className="pill"+(unc?" bad":"");
+ document.getElementById("pLay").innerHTML="layers <b>"+lay+"</b>";
+ const iv=document.getElementById("pInv");
+ iv.className="pill"+(invOk()?"":" bad");
+ iv.innerHTML="exposure <b>"+(invOk()?"ok":"over-hedged")+"</b>";
+ document.getElementById("log").innerHTML=S.log.slice(0,120).map(e=>
+  `<div class="ev ${e.c}"><span class="t mono">${e.t}</span><span class="d">${e.h}</span></div>`).join("");
+ save();
+}
+
+function ladder(k){
+ const s=k.pair,long=k.side==="L",ls=levels(k).sort((a,b)=>b.price-a.price);
+ const rows=ls.map(l=>{
+  const cf=k.confirmed[l.tag];
+  let cls="row ";
+  if(l.kind==="pos") cls+="pos"+(long?"":" s");
+  else if(!cf) cls+="calc";
+  else cls+=(l.kind==="ext"?"ext":"ent")+(long?"":" s");
+  return `<div class="${cls}"><span class="px mono">${fmt(l.price,s)}</span><span class="tg mono">${l.tag}</span>`
+   +`<span class="sz mono">${l.size.toFixed(1)}${cf&&l.kind!=="pos"?' <span class="tk">&check;</span>':''}</span></div>`;
+ }).join("");
+ const nx=ls.find(l=>l.kind==="ent"), ex=ls.filter(l=>l.kind==="ext");
+ const kk=`${k.pair}|${k.arm}|${k.side}`;
+ return `<div class="lad ${k.side}"><div class="lh ${k.side}">
+   <span class="sym">${s}</span><span class="bk">${k.arm} ${long?"BID":"OFF"}</span>
+   <span class="st mono">${depth(k)?depth(k)+"L "+net(k).toFixed(1):"flat"}</span></div>
+  <div class="rows">${rows||'<div class="none">nothing working</div>'}</div>
+  <div class="acts">
+   ${nx?`<button class="${long?"p":"n"}" data-a="fill" data-k="${kk}" data-i="${nx.idx}" data-p="${nx.price}">Fill ${L(nx.idx)}</button>`:""}
+   ${ex.length?`<button data-a="exit" data-k="${kk}" data-i="${ex[0].idx}">Exit ${L(ex[0].idx)}</button>`:""}
+   <button class="w" data-a="conf" data-k="${kk}">&check;</button>
+  </div></div>`;
+}
+
+let cb=null;
+function act(e){
+ const b=e.currentTarget,[s,a,d]=b.dataset.k.split("|"),k=bk(s,a,d),act=b.dataset.a;
+ if(act==="conf"){
+   const n=levels(k).filter(l=>l.kind!=="pos");n.forEach(l=>k.confirmed[l.tag]=true);
+   push("",`<b>${s} ${a} ${d}</b> &mdash; ${n.length} orders confirmed working`);render();return;
+ }
+ const i=+b.dataset.i;
+ if(act==="fill")
+   dlg("Record fill",fmt(+b.dataset.p,s),CLIP,"Anchored here. Exit and next add derive from this price.",
+     (p,z)=>{k.fills.push({idx:i,price:p,size:z});
+       push("fl"+(d==="L"?"":" s"),`<b>${s} ${a} ${d}</b> ${L(i)} filled ${z.toFixed(1)}mm @ ${fmt(p,s)}`);render()});
+ if(act==="exit"){
+   const x=levels(k).find(l=>l.kind==="ext"&&l.idx===i);
+   dlg("Record exit",fmt(x.price,s),x.size,"Never more exit size than position size.",
+     (p,z)=>{k.exits.push({idx:i,price:p,size:z});
+       push("ex",`<b>${s} ${a} ${d}</b> ${L(i)} exit ${z.toFixed(1)}mm @ ${fmt(p,s)}`);render()});
+ }
+}
+function dlg(t,p,z,h,fn){const g=document.getElementById("dlg");
+ document.getElementById("dgT").textContent=t;document.getElementById("dgP").value=p;
+ document.getElementById("dgS").value=(+z).toFixed(1);document.getElementById("dgH").textContent=h;
+ cb=fn;g.showModal();document.getElementById("dgP").select()}
+document.getElementById("dlg").addEventListener("close",function(){
+ if(this.returnValue==="ok"&&cb){const p=parseFloat(document.getElementById("dgP").value),
+  z=parseFloat(document.getElementById("dgS").value);if(isFinite(p)&&isFinite(z)&&z>0)cb(p,z)}cb=null});
+
+const lw=document.getElementById("logwrap");
+document.getElementById("logBtn").onclick=()=>lw.classList.toggle("on");
+document.getElementById("logX").onclick=()=>lw.classList.remove("on");
+document.getElementById("thBtn").onclick=e=>{
+ const dark=document.documentElement.getAttribute("data-theme")==="dark";
+ document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+ e.target.textContent=dark?"Dark":"Light";
+ try{localStorage.setItem("ladder.theme",dark?"light":"dark")}catch(x){}};
+document.getElementById("reload").onclick=()=>{
+ if(confirm("Reload the live book? Discards anything recorded here.")){
+  try{localStorage.removeItem(KEY)}catch(e){}S=fresh();render()}};
+function clk(){document.getElementById("src").textContent=
+ "live book "+SEED.gen.slice(11,16)+"Z \u00b7 demo 1514582088 \u00b7 London "
+ +new Date().toLocaleTimeString("en-GB",{timeZone:"Europe/London",hour:"2-digit",minute:"2-digit"})}
+try{const t=localStorage.getItem("ladder.theme");if(t){document.documentElement.setAttribute("data-theme",t);
+ document.getElementById("thBtn").textContent=t==="dark"?"Light":"Dark"}}catch(e){}
+S=load();render();clk();setInterval(clk,20000);
+</script></body></html>
