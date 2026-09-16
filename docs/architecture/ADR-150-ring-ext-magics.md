@@ -84,3 +84,33 @@ Thresholds remain at 0.0 in all presets. Arming is a separate change.
 - Operators must update all three tables together when adding fleet pairs.
 - CM1 and CM2 fleet-size expectations move to sixteen; CM2 CHF sum stays
   0.42 because new magics append after CHF carriers at indices 8-11.
+
+## Corrections made during implementation
+
+Two expectations in the specification were wrong and were corrected
+against the source, not against observed output.
+
+**RX3 expected 0.45; the correct value is 0.58.** The spec asserted that
+`Grind_CapSumLegExposure` exempts `own_magic` from the total. It does
+not: `own_magic` suppresses the peer-failure FLAG only
+(`grind_cap.mqh:252`), and the own value is still accumulated at line
+256. All four NZD carriers therefore contribute:
+0.13 + 0.14 + 0.15 + 0.16 = 0.58.
+
+CM2's expected 0.42 is unaffected but its comment is right for the wrong
+reason: its own magic (22260101, GBPUSD) carries no CHF, so the leg
+filter skips it before the own-magic question arises.
+
+**CL1 and CL2 broke because their seeding helper was stale.**
+`Grind_TestCapLegSeedHealthyAudChfFleet` hardcoded four AUD magics. AUD
+is now carried by six (AUDCAD, AUDCHF, AUDNZD), so the two unseeded
+AUDNZD peers read as MAXED and blocked the entry. The helper now uses
+`ArraySize` bounds so it cannot drift again.
+
+The specification named CL4 and CM2 as the only tests that would move
+and missed CL1/CL2. **Widening a fleet table touches every test that
+enumerates that table, not only the tests that assert its contents.**
+
+**The suite total is 1038, not the 1034 the specification predicted.**
+The prediction was wrong; no assertions were added or removed to match
+it.

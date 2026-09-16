@@ -757,21 +757,23 @@ void Grind_TestCapLegDeleteGV(const ulong magic, const string leg)
 
 void Grind_TestCapLegSeedHealthyAudChfFleet()
 {
-   const ulong aud_magics[4] = {22260401UL, 22260402UL, 22260501UL, 22260502UL};
+   const ulong aud_magics[6] = {22260401UL, 22260402UL, 22260501UL,
+                                22260502UL, 22260901UL, 22260902UL};
    const ulong chf_magics[4] = {22260501UL, 22260502UL, 22260601UL, 22260602UL};
-   for(int i = 0; i < 4; i++)
+   for(int i = 0; i < ArraySize(aud_magics); i++)
       Grind_TestCapLegSeedGV(aud_magics[i], "AUD", 0.02);
-   for(int i = 0; i < 4; i++)
+   for(int i = 0; i < ArraySize(chf_magics); i++)
       Grind_TestCapLegSeedGV(chf_magics[i], "CHF", 0.02);
 }
 
 void Grind_TestCapLegCleanupAudChfFleet()
 {
-   const ulong aud_magics[4] = {22260401UL, 22260402UL, 22260501UL, 22260502UL};
+   const ulong aud_magics[6] = {22260401UL, 22260402UL, 22260501UL,
+                                22260502UL, 22260901UL, 22260902UL};
    const ulong chf_magics[4] = {22260501UL, 22260502UL, 22260601UL, 22260602UL};
-   for(int i = 0; i < 4; i++)
+   for(int i = 0; i < ArraySize(aud_magics); i++)
       Grind_TestCapLegDeleteGV(aud_magics[i], "AUD");
-   for(int i = 0; i < 4; i++)
+   for(int i = 0; i < ArraySize(chf_magics); i++)
       Grind_TestCapLegDeleteGV(chf_magics[i], "CHF");
 }
 
@@ -958,11 +960,14 @@ void Test_RX3_NzdLegSumIsolated()
    g_grind_cap_peer_read_failed = false;
    g_grind_cap_blocked = false;
 
-   // NZD carriers at indices 12-15: 0.13 own (exempt), 0.14 + 0.15 + 0.16 = 0.45
+   // NZD carriers are indices 12-15, seeded 0.01*(i+1):
+   //   0.13 + 0.14 + 0.15 + 0.16 = 0.58
+   // own_magic suppresses the peer_failed FLAG only (grind_cap.mqh:252);
+   // the own value IS still added to total_out at line 256.
    double total = 0.0;
    bool peer_failed = true;
    Grind_CapSumLegExposure("NZD", 22260801UL, total, peer_failed);
-   AssertNear("RX3 total", total, 0.45, 1e-9);
+   AssertNear("RX3 total", total, 0.58, 1e-9);
    AssertFalse("RX3 peer_failed", peer_failed);
 
    for(int i = 0; i < n; i++) {
