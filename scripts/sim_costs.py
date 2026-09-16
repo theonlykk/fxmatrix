@@ -104,6 +104,8 @@ PAIR_SPECS: dict[str, PairSpec] = {
     # USDJPY -- max_layers=8 RESEARCH ONLY, matching the ring-extension
     # candidates so sweep results are comparable. Live majors run 12; a live
     # USDJPY deployment requires its own ratification.
+    # conversion_pair is USDJPY itself: P&L is in JPY and the USDJPY close
+    # is the rate that converts it to USD.
     "USDJPY": PairSpec(
         symbol="USDJPY",
         point=0.01,
@@ -111,7 +113,7 @@ PAIR_SPECS: dict[str, PairSpec] = {
         quote_currency="JPY",
         contract_size=100_000.0,
         spread_pips=PAIR_SPREAD_PIPS["USDJPY"],
-        conversion_pair=None,
+        conversion_pair="USDJPY",
         max_layers=8,
     ),
     # Ring extension JPY crosses -- max_layers=8: all six extension pairs are cross
