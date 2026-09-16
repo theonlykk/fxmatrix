@@ -126,3 +126,54 @@ tick and the terminal rejects locally with retcode 10027, which still counts in
 
 **Both arms of a pair log as `fxgrind (GBPUSD,M5)`** with nothing to
 distinguish OPT from ALT. ADR-141 added an instance prefix to EA Prints.
+
+---
+
+## CAPACITY AND THE LIVE BOOK (2026-09-16)
+
+**The account slot limit counts POSITIONS + PENDING ORDERS.** FTMO demo is
+200. MT5 docs describe `ACCOUNT_LIMIT_ORDERS` as pending-only; on this account
+the refusals came with 113 pending and 194 total. Read it with a script, not
+the docs. The previous chat spent three handoffs on API-request capacity
+while this limit was the one that halts.
+
+**`retcode=10040` with `duration_ms=0` is the terminal refusing locally.** The
+Journal text is "[Position limit reached]". It refuses the NEWEST order,
+which after a fill is the exit.
+
+**Detaching an EA frees no slots.** Its positions, exits and resting entries
+all stay in the book and still count.
+
+**On a hedging account an exit fill does not close the position.** It opens
+an opposite position; the EA nets it with CloseBy. A detached arm's exits
+leave locked pairs that still hold 2 slots. The session's Claude first said
+route B would free slots as exits filled; the code said otherwise.
+
+**Both arms of a pair share a chart title** (`fxgrind (NZDCAD,M5)`). Before
+removing an EA, open its properties, confirm `InpMagic` and `InpSlot`, and
+press CANCEL (OK can reinit).
+
+**Pipshed shows a detached instance as "live" with its frozen last book**,
+including orders already deleted, until it ages out. Compare P&L across two
+reads: identical to the cent means frozen.
+
+---
+
+## SPECS (2026-09-16)
+
+**Count the literal you mean, not a substring.** A test counted
+`grind-ring-section` and would have matched two CSS selectors as well as the
+class attribute. Three checks could never pass. Same family as the 09-15
+self-contradicting verification criteria: derive checks from the SOURCE FILE,
+not from the design text.
+
+**Name functions from source.** Rev 1 cited `instances_for_ring`; the helper
+is `_grind_instances_for_ring`.
+
+**Do not put live state into a prompt as current fact.** "Two instances are
+halted" was true for 90 minutes and false when the prompt was reviewed.
+Gemini then repeated it back as current and asked how the halts were being
+cleared. State the time, or state it as history.
+
+**A Gemini approval is not a source check.** Rev 1 was approved with three
+mechanical errors. Keep both steps.
