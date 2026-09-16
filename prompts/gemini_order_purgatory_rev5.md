@@ -1,5 +1,64 @@
 This message has a line count at the bottom
 
+# GEMINI -- STAFF ARCHITECT RULING REQUEST: ORDER PURGATORY (ADR-151 candidate, memo rev 5)
+
+## YOUR ROLE
+Staff architect. Rule on the questions in memo s9 and on any design conflict
+you find. You rule; you do not implement. Write no code. Claude (lead engineer)
+verifies every amendment against source and records it accepted or rejected
+with reasons.
+
+## THE SYSTEM (fixed frame)
+fxgrind is a passive limit-order market maker on MT5. Fourteen EA instances
+share ONE FTMO demo account (hedging), separated by magic number. It never
+crosses the spread and never uses stop losses. Per side an instance holds a
+ladder of layers; each layer is one position plus one exit limit at entry +/-
+exit_pips, optionally shifted by accrued carry. L0 is placed once when a side
+is flat (ADR-123); the flat side's L0 is re-centred only while the other side
+holds layers (ADR-124). Adds are priced from the deepest layer. An exit fill
+opens an opposite position that the EA nets with CloseBy. Invariants rebuild
+the book from broker tickets every tick; a failure quarantines (3000 ms
+minimum, 3 checks) or halts immediately if not quarantinable. A halted
+instance stops trading. (ARCHITECT s1's sentence that L0 is re-quoted every
+tick is stale.)
+
+## HOW WE GOT HERE
+2026-09-16: the account limit (200 positions + orders) refused exits after
+fills; 14+ halts, untracked fills on halted instances, a request storm, and
+reinits that re-halted. The operator named the fix "order purgatory" and
+contributed the key insight: most resting exits cannot fill until nearer exits
+fill first, so they should not hold slots.
+
+Three DeepSeek R1 source-grounded teardowns: rev 1 (flat reserve + fleet
+eviction) premise killed; rev 3 (exit queue) premise killed on implementation
+gaps; rev 4 (exit queue + commitment guard) **premise survives**, eight local
+findings, six fixed in rev 5. Claude verified every DeepSeek claim against
+source; all dispositions are in memo s7. DeepSeek's rev 4 final report follows
+the memo, verbatim.
+
+## WHAT TO RULE ON
+  R1. Is the exit queue plus commitment guard sound as a design, and does rev 5
+      close DeepSeek's rev 4 findings?
+  R2. Memo s9 questions 1-7.
+  R3. Any disposition in memo s7 you believe is wrong.
+  R4. Conflicts with ARCHITECT principles: fail closed; halt, don't repair;
+      never cross the spread; the operator owns the book.
+  R5. Is anything missing that must be decided before a Cursor spec is
+      written?
+
+## REQUIRED RESPONSE FORMAT
+For R1, R3, R4, R5: RULING / REASONING / AMENDMENT (exact memo text to change,
+or "none").
+For each s9 question: RULING / REASONING / AMENDMENT.
+Then: VERDICT -- APPROVED / APPROVED WITH AMENDMENTS / REJECTED.
+Do not assert facts about current fleet state or source beyond what this
+document gives you. If you need a fact you do not have, ask it as a question.
+
+=====================================================================
+MEMO REV 5 (verbatim)
+=====================================================================
+
+
 # DESIGN MEMO -- ORDER PURGATORY: EXIT QUEUE + COMMITMENT GUARD (REV 5)
 
 | | |
@@ -334,4 +393,95 @@ broker-ticket basis, carry pass behaviour for live exits.
 The layer-cap change and its I7 migration; adding or retiring instances;
 closing or resetting deep layers; a second account.
 
-Line count: 337
+
+=====================================================================
+DEEPSEEK R1 FINAL REPORT ON REV 4 (verbatim from prompts/deepseek_order_purgatory_rev4_response.md; non-ASCII punctuation normalised)
+=====================================================================
+
+## Final Report
+
+## T-1 TARGET PARITY
+- **VERDICT:** NO-EXPLOIT
+- **LOAD-BEARING CLAIM:** `grind_recon.mqh : Grind_ReconCheckInvariants / Grind_ReconExitMatchesEntry` -- I6 computes `expected = formula + Grind_CarryShiftGetForRecon(position_id)`. Release stores `X - formula` via `Grind_CarryShiftSet`, so `expected = X` unless G4 deletes the shift.
+- **MINIMAL REPRO / MECHANISM:** Ledger changes between release and rebuild do not affect I6 because I6 does not recompute carry from the ledger; it uses the stored shift GV. Sign-guard flips at release only affect `target()`, which if blocked yields `formula` and stores shift `0`. Therefore parity holds for all cases except validated-shift deletion, which is T-2.
+- **SEVERITY:** cosmetic
+- **IF FIXABLE:** N/A
+
+## T-2 SHIFT BOUND
+- **VERDICT:** EXPLOIT-FOUND
+- **LOAD-BEARING CLAIM:** `grind_carry.mqh : Grind_CarryShiftGetValidated` deletes a stored shift failing `Grind_CarryShiftWithinBound`; `grind_recon.mqh : Grind_ReconCheckInvariants` then uses shift 0 in I6; `grind_quarantine.mqh : Grind_IsQuarantinableReason` does not include plain `I6_LONG_EXIT` / `I6_SHORT_EXIT`.
+- **MINIMAL REPRO / MECHANISM:** Long layer entry 1.1000, exit_pips 50, formula 1.1050. Market gaps to 1.2000. Layer held beyond K+H. Front exits fill and net until layer reaches rank <= K. Release computes `target = 1.1050`, clamps long to `ask + min_dist = 1.2000 + min`. Store shift ~950 pips. `Grind_CarryShiftWithinBound`: open_time recent, nightly_max ~1-2 pips, max_price `(0+7)*nightly*2` ~14-28 pips. 950 > max. Next rebuild: `Grind_CarryShiftGetValidated` deletes and returns 0. I6 expects 1.1050, sees 1.2000+min, diff > 2 points, exit resting. `I6_LONG_EXIT` is not quarantinable -> immediate halt.
+- **SEVERITY:** fixable-within-design
+- **IF FIXABLE:** Exempt release shifts from `Grind_CarryShiftWithinBound` (separate GV namespace or marker), or relax I6 to tolerate a favourable RESTING exit (rev 3's relaxation).
+
+## T-3 RANK BY ENTRY
+- **VERDICT:** DESIGN-UNSAFE
+- **LOAD-BEARING CLAIM:** memo 4.2 ranks by entry; memo 4.1 `target()` includes carry shift. `grind_carry.mqh : Grind_CarryShiftedExitPrice` can move a target by more than add spacing.
+- **MINIMAL REPRO / MECHANISM:** Long K=1. L1 entry 1.0900 (rank 1 live), L0 entry 1.1000 (rank 2 held). L1 has adverse carry moving its target up to 1.1050; L0 has favourable carry moving its target down to 1.0850. Market 1.0900. L1 live exit is far above; L0 held target is below market. Price falls to 1.0850, passing L0's target, but L0 is held so no fill. L1 never fills, so L0 never releases. Ladder stuck. Memo s10 only notes the held exit is passed and release clamps; it does not note the live exit can be unreachable and the held exit never releases.
+- **SEVERITY:** fixable-within-design
+- **IF FIXABLE:** Rank by `target()` with a carry-shift deadband / stable tie-break to avoid churn, or allow a held exit to be released early when its target becomes more passive than the current rank-K live exit.
+
+## T-4 RECON FOR HELD LAYERS
+- **VERDICT:** NO-EXPLOIT
+- **LOAD-BEARING CLAIM:** `grind_recon.mqh : Grind_ReconstructState` runs after magic lock in `fxgrind.mq5 : OnInit`; `grind_carry.mqh : Grind_CarryPositionSwapVolume` uses `PositionSelectByTicket` and `POSITION_SWAP`; memo 4.1 says `target()` falls back to `formula` if carry is off or sign guard blocks.
+- **MINIMAL REPRO / MECHANISM:** Reconstruction has magic, slot, exit_pips, point, and selectable positions. Position swap is available via `PositionSelectByTicket`. If swap/tick_value/tick_size/volume is missing, `target()` falls back to `formula`. Sign guard blocks also yield `formula`. No path returns 0.0 for a held layer.
+- **SEVERITY:** cosmetic
+- **IF FIXABLE:** N/A
+
+## T-5 HOLD CANCEL (C4)
+- **VERDICT:** EXPLOIT-FOUND
+- **LOAD-BEARING CLAIM:** memo 4.3 hold-cancel confirmed-gone searches positions for this magic and layer index; `grind_closeby.mqh : Grind_ProcessCloseByQueue` halts on `GRIND_CLOSEBY_EXHAUSTED` if both legs remain selectable; `grind_engine.mqh : Grind_HandleSideDealFill` also queues CloseBy for the correct EXT.
+- **MINIMAL REPRO / MECHANISM:** Hold cancel for long layer 2 fails (order filled). Search by magic+layer_index omits side. Finds short layer 2 EXT position (BUY). Sets long layer `exit_position_ticket` to short position. Queues CloseBy(long ENT BUY, short EXT BUY). Broker rejects same-direction CloseBy. After 10 retries both still selectable -> `GRIND_CLOSEBY_EXHAUSTED` halt. Or comment truncation makes parse fail, search clears tracker, EXT position remains; next tick `Grind_RetryMissingExits` places a new exit -> `I2_LONG_EXIT_DUP` quarantine and possible halt.
+- **SEVERITY:** fixable-within-design
+- **IF FIXABLE:** On confirmed-gone, resolve the filled EXT position by querying history for the deal with the failed order ticket (`DEAL_ORDER`) to obtain `position_id`, instead of comment search. If comment search is kept, filter by side and slot.
+
+## T-6 RANK-K HARD (C7)
+- **VERDICT:** EXPLOIT-FOUND
+- **LOAD-BEARING CLAIM:** `fxgrind.mq5 : OnTick` quarantine branch calls only `Grind_RetryMissingExits` and returns; `grind_engine.mqh : Grind_RetryMissingExits` calls `Grind_TryPlaceExitForLayer` with stored `layer.exit_target`; C1 populates at reinit but does not re-clamp on market move.
+- **MINIMAL REPRO / MECHANISM:** K=1, L0 live, L1 held. L0 exit fills, CloseBy nets, L0 removed. Next OnTick: I3 sees L1 rank 1 no exit -> quarantine. OnTick enters quarantine, calls `Grind_RetryMissingExits`. L1 `exit_target` is stale (e.g., 1.1050 for long). Market gapped to 1.1100. Sell limit at 1.1050 is below ask -> invalid price, place fails. Next ticks repeat. After 3 checks / 3000 ms -> halt. `OnTimer` does no trading.
+- **SEVERITY:** fixable-within-design
+- **IF FIXABLE:** Make `Grind_RetryMissingExits` recompute `target(layer)` and apply the 4.5 clamp before placing, identical to the `Grind_OnTickEngine` release path.
+
+## T-7 COMMITMENT GUARD (C8)
+- **VERDICT:** EXPLOIT-FOUND
+- **LOAD-BEARING CLAIM:** memo 4.7 guard is terminal-local and non-atomic; `resting_ent` counts only parsed ENT comments of any magic; one ENT send per instance per tick.
+- **MINIMAL REPRO / MECHANISM:** 14 instances evaluate guard concurrently. `free - resting_ENT = 2 + margin` (e.g., 8 for margin 6). Each instance sees condition true and sends one ENT. 14 sends consume 28 from `free - resting_ENT`, overcommitting by 20. Broker accepts until the 200 limit; exits may be refused or blocked. Also unparsed ENT comments (truncation) are not counted in `resting_ent`, so their reserved slots are invisible.
+- **SEVERITY:** fixable-within-design
+- **IF FIXABLE:** Increase `InpSlotMargin` to at least `2*N + safety` (e.g., 28+ for 14 instances), implement a terminal-wide critical section around ENT send (GlobalVariable lock), and count all pending orders with magic in the fxgrind namespace regardless of parse.
+
+## T-8 TRANSITION
+- **VERDICT:** EXPLOIT-FOUND
+- **LOAD-BEARING CLAIM:** `fxgrind.mq5 : OnTick` runs invariant check and quarantine branch before `Grind_OnTickEngine`; `grind_engine.mqh : Grind_OnTickEngine` contains hold-cancel trim; memo 4.7 blocks EXIT send when `free < 1`.
+- **MINIMAL REPRO / MECHANISM:** Initial book `free = 0`, 20 ENT resting. An existing ENT fills before the first `Grind_OnTickEngine` trim. `Grind_HandleSideDealFill` tries to place exit; `free = 0` so exit send is blocked/fails. Layer naked. First OnTick: I3 fails (if rank <= K) -> quarantine. Quarantine branch skips `Grind_OnTickEngine`, so no trim. `Grind_RetryMissingExits` cannot place exit because `free = 0`. 3 checks / 3000 ms -> halt.
+- **SEVERITY:** fixable-within-design
+- **IF FIXABLE:** Perform excess-exit trim (cancel beyond K+H) in `OnInit` after `Grind_ReconstructState`, or allow `Grind_OnTickEngine` trim during quarantine, or prioritise cancels before invariant check. The guard must permit exit placement when cancelling an excess exit can free a slot.
+
+## GIVENS CHECK
+G1-G8 are accurate against `9f67f0f`; no source counterexample found.  
+- G1: `Grind_ReconEnsureLayer` sets `exit_target = 0.0`; rebuild copies EXT order/position price.  
+- G2: `Grind_AppendLayer` stores formula only.  
+- G3: `Grind_CarryExitShiftLayer` ledger + pending + sign guard + clamp + `Grind_CarryShiftSet(applied = new_exit - formula)`.  
+- G4: `Grind_CarryShiftGetValidated` deletes out-of-bound shifts; `Grind_CarryShiftGetForRecon` calls it.  
+- G5: `Grind_CarryExitPassBegin` skips layers with `exit_order_ticket == 0`.  
+- G6: `Grind_ReconExitMatchesEntry` favourable only when filled.  
+- G7: `Grind_CancelPendingOrder` requires `TRADE_RETCODE_DONE`; `Grind_HandleSideDealFill` queues CloseBy on EXT fill; halted instances skip.  
+- G8: I3 quarantinable; I5/I7 not.
+
+## REV 3 FIXES CHECK
+- **R3 T-1:** Does not fully hold -- rank K hard, but release path in quarantine can fail on stale unclamped `exit_target` (T-6).
+- **R3 T-2/T-8:** Holds for 0.0 -- C1 populates held `exit_target`; no 0.0 path found (T-4), but stored target can become stale (T-6).
+- **R3 T-4:** Partially holds -- C4 handles confirmed-gone, but search can mis-identify EXT position if not side-filtered (T-5).
+- **R3 T-5:** Fails -- C5 stores release shift; G4 deletes it if over bound, then I6 halts (T-2).
+- **R3 T-6:** Holds for rank stability -- entry ranking never reorders; but fill-ordering mismatch remains (T-3).
+- **R3 T-7:** Holds -- carry pass unchanged for live exits; held carry read at release.
+- **R3 T-9:** Fails under fleet race -- commitment guard non-atomic and ignores unparsed ENT (T-7).
+
+## PREMISE VERDICT
+The premise survives. No finding requires abandoning the exit-queue + commitment-guard design. Required fixes are: exempt release shifts or relax I6 (T-2), rank on target with deadband or early release (T-3), robust history lookup for hold-cancel (T-5), clamp in `Grind_RetryMissingExits` (T-6), strengthen guard margin/lock and count all ENT (T-7), trim before invariant or during quarantine (T-8). All are within design.
+
+OVERRIDE CHECK: No finding kills the premise; all identified failure modes are fixable within the design by the stated minimal changes.
+
+=====================================================================
+END. Respond in the required format.
+
+Line count: 487
