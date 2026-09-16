@@ -6,244 +6,289 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f4f2ee; --panel:#fff; --panel2:#faf8f5; --line:#dfd9d0; --line2:#c6bdb0;
-  --ink:#1b1e23; --dim:#6e7480; --dimmer:#9aa0ab;
-  --bid:#15589f; --bidbg:#e7f0fa; --bidln:#9dc0e4;
-  --ask:#a8431d; --askbg:#fbeae1; --askln:#e0ac8e;
-  --work:#8a6a12; --ok:#2f7d55; --warn:#b3261e;
-  --rowh:27px; --px:14px;
+ --bg:#f4f2ee;--panel:#fff;--panel2:#faf8f5;--line:#ddd7ce;--line2:#c3baac;
+ --ink:#1b1e23;--dim:#6b7280;--dimmer:#9aa0ab;
+ --bid:#15589f;--bidbg:#e7f0fa;--bidln:#9dc0e4;
+ --ask:#a8431d;--askbg:#fbeae1;--askln:#e0ac8e;
+ --mkt:#1d7a4d;--mktbg:#e6f4ec;
+ --work:#8a6a12;--warn:#b3261e;--rowh:28px;--px:14px;
 }
 [data-theme="dark"]{
-  --bg:#0f1319; --panel:#161c26; --panel2:#1b222e; --line:#252e3c; --line2:#3a465a;
-  --ink:#e2e8f1; --dim:#8b95a7; --dimmer:#5b6578;
-  --bid:#6aa6e0; --bidbg:#152740; --bidln:#2d537f;
-  --ask:#e08356; --askbg:#3a2117; --askln:#7c4227;
-  --work:#e2bb52; --ok:#5fb08a; --warn:#e06b64;
+ --bg:#0f1319;--panel:#161c26;--panel2:#1b222e;--line:#252e3c;--line2:#3a465a;
+ --ink:#e2e8f1;--dim:#8b95a7;--dimmer:#5b6578;
+ --bid:#6aa6e0;--bidbg:#152740;--bidln:#2d537f;
+ --ask:#e08356;--askbg:#3a2117;--askln:#7c4227;
+ --mkt:#4fb583;--mktbg:#12291f;
+ --work:#e2bb52;--warn:#e06b64;
 }
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--ink);font:13px/1.35 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-
 .app{display:flex;flex-direction:column;height:100%}
-header{display:flex;align-items:center;gap:16px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto}
+header{display:flex;align-items:center;gap:14px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto}
 h1{font-size:14px;font-weight:600;margin:0}
 .src{font-size:12px;color:var(--dim)}
-.tools{display:flex;gap:9px;margin-left:auto;align-items:center}
+.tools{display:flex;gap:8px;margin-left:auto;align-items:center}
 .pill{padding:3px 10px;border:1px solid var(--line2);border-radius:3px;font-size:12px;color:var(--dim);white-space:nowrap}
 .pill b{color:var(--ink);font-weight:600}
-.pill.bad{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,transparent)}
-.pill.bad b,.pill.bad{color:var(--warn)}
+.pill.bad,.pill.bad b{color:var(--warn);border-color:var(--warn)}
 button{font:inherit;font-size:12px;background:var(--panel2);color:var(--ink);border:1px solid var(--line2);border-radius:3px;padding:4px 10px;cursor:pointer}
-button:hover{border-color:var(--dim)}
-button:focus-visible{outline:2px solid var(--work);outline-offset:1px}
+button:hover{border-color:var(--dim)}button:focus-visible{outline:2px solid var(--mkt);outline-offset:1px}
 button.w{border-color:var(--work);color:var(--work)}
-button.p{border-color:var(--bid);color:var(--bid)}
-button.n{border-color:var(--ask);color:var(--ask)}
-
+button[disabled]{opacity:.35;cursor:default}
 .board{flex:1 1 auto;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:4px;padding:5px;min-height:0}
 .lad{background:var(--panel);border:1px solid var(--line);border-radius:3px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.lad.L{border-top:2px solid var(--bidln)} .lad.S{border-top:2px solid var(--askln)}
+.lad.L{border-top:2px solid var(--bidln)}.lad.S{border-top:2px solid var(--askln)}
 .lh{display:flex;align-items:baseline;gap:5px;padding:4px 6px 3px;border-bottom:1px solid var(--line);flex:0 0 auto}
-.lh .sym{font-size:12px;font-weight:600;letter-spacing:.01em}
-.lh .bk{font-size:11px;font-weight:600}
-.lh.L .bk{color:var(--bid)} .lh.S .bk{color:var(--ask)}
+.lh .sym{font-size:12px;font-weight:600}.lh .bkn{font-size:11px;font-weight:600}
+.lh.L .bkn{color:var(--bid)}.lh.S .bkn{color:var(--ask)}
 .lh .st{margin-left:auto;font-size:11px;color:var(--dim)}
-.rows{flex:1 1 auto;padding:3px 4px;display:flex;flex-direction:column;gap:2px;min-height:0}
-.row{display:flex;align-items:center;gap:4px;height:var(--rowh);padding:0 5px;border-radius:2px;border:1px solid transparent;flex:0 0 auto}
-.row .px{font-size:var(--px);font-weight:500;letter-spacing:-.01em}
-.row .tg{font-size:10px;color:var(--dim);letter-spacing:.02em}
+.rows{position:relative;flex:1 1 auto;padding:3px 4px;display:flex;flex-direction:column;gap:2px;min-height:0}
+.rows::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.08;background:var(--bid);
+ -webkit-mask-image:url(data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cpath d='M7 19 L15 10 L23 19' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E);mask-image:url(data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cpath d='M7 19 L15 10 L23 19' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E);-webkit-mask-size:30px 30px;mask-size:30px 30px;
+ -webkit-mask-repeat:repeat;mask-repeat:repeat}
+.lad.S .rows::before{background:var(--ask);-webkit-mask-image:url(data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cpath d='M7 11 L15 20 L23 11' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E);mask-image:url(data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cpath d='M7 11 L15 20 L23 11' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E)}
+[data-theme="dark"] .rows::before{opacity:.13}
+.row{position:relative;z-index:1;display:flex;align-items:center;gap:4px;height:var(--rowh);padding:0 4px 0 6px;border-radius:2px;border:1px solid transparent;flex:0 0 auto;background:var(--panel)}
+.row .px{font-size:var(--px);font-weight:500}
+.row .tg{font-size:10px;color:var(--dim)}
 .row .sz{margin-left:auto;font-size:11px;color:var(--dim);white-space:nowrap}
-.row .tk{color:var(--work);font-weight:600}
-.row.calc{border:1px dashed var(--line2);color:var(--dim)}
-.row.calc .px{color:var(--dim)}
+.row .tk{color:var(--work);font-weight:700}
+.row .wk{color:var(--work);font-weight:600}
+.row.calc{border:1px dashed var(--line2)}.row.calc .px{color:var(--dim)}
+.row.proj{border:1px dashed var(--line);opacity:.48;background:transparent}
+.row.proj .px{color:var(--dim);font-weight:400}
+.row.resid{border:1px dashed var(--bidln);background:var(--bidbg)}
+.row.resid.s{border-color:var(--askln);background:var(--askbg)}
 .row.ent{background:var(--bidbg);border-color:var(--bidln)}
 .row.ent.s{background:var(--askbg);border-color:var(--askln)}
 .row.ext{background:var(--askbg);border-color:var(--askln)}
 .row.ext.s{background:var(--bidbg);border-color:var(--bidln)}
-.row.pos{background:transparent;border-color:var(--line2);border-left:3px solid var(--bid)}
+.row.pos{border-color:var(--line2);border-left:3px solid var(--bid)}
 .row.pos.s{border-left-color:var(--ask)}
-.acts{display:flex;gap:3px;padding:4px;border-top:1px solid var(--line);flex:0 0 auto}
-.acts button{flex:1 1 auto;padding:4px 2px;font-size:11px}
+.row.hit{cursor:pointer}
+.row.hit:hover{box-shadow:inset 0 0 0 2px var(--mkt)}
+.row .adj{flex:0 0 auto;margin-left:5px;width:19px;height:19px;line-height:17px;text-align:center;
+ border:1px solid var(--line2);border-radius:3px;font-size:12px;color:var(--dim);background:var(--panel)}
+.row .adj:hover{border-color:var(--mkt);color:var(--mkt)}
+.row.gap{border:0;background:transparent}
+.row.mkt{border:0;border-top:2px solid var(--mkt);border-bottom:2px solid var(--mkt);background:var(--mktbg);height:22px;margin:2px 0}
+.row.mkt .px,.row.mkt .sz{font-size:12px;color:var(--mkt);font-weight:600}
+.row.mkt .tg{color:var(--mkt);opacity:.8;margin:0 auto}
 .none{color:var(--dimmer);font-size:11px;padding:6px 4px}
-
-.logwrap{position:fixed;inset:auto 0 0 0;height:34vh;background:var(--panel);border-top:1px solid var(--line2);transform:translateY(100%);transition:transform .18s ease;display:flex;flex-direction:column}
+.logwrap{position:fixed;inset:auto 0 0 0;height:34vh;background:var(--panel);border-top:1px solid var(--line2);transform:translateY(100%);transition:transform .16s ease;display:flex;flex-direction:column;z-index:5}
 .logwrap.on{transform:translateY(0)}
-.logwrap h2{margin:0;font-size:12px;font-weight:600;padding:7px 12px;border-bottom:1px solid var(--line);display:flex}
+.logwrap h2{margin:0;font-size:12px;font-weight:600;padding:7px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px}
 .logwrap h2 button{margin-left:auto}
-.log{overflow:auto;padding:2px 0}
+.log{overflow:auto}
 .ev{display:grid;grid-template-columns:48px 1fr;gap:9px;padding:4px 12px;border-bottom:1px solid var(--line);font-size:12px}
-.ev .t{color:var(--dimmer)} .ev .d{color:var(--dim)} .ev .d b{color:var(--ink);font-weight:600}
-.ev.fl .d b{color:var(--bid)} .ev.fl.s .d b{color:var(--ask)} .ev.ex .d b{color:var(--ok)}
-
-dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:4px;padding:0;min-width:300px}
-dialog::backdrop{background:rgba(20,18,14,.4)}
-[data-theme="dark"] dialog::backdrop{background:rgba(6,8,12,.6)}
-.dg{padding:14px 16px}
-.dg h3{margin:0 0 10px;font-size:13px;font-weight:600}
-.dg label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px}
-.dg input{width:100%;background:var(--bg);border:1px solid var(--line2);color:var(--ink);border-radius:3px;padding:7px 9px;font-family:"IBM Plex Mono",monospace;font-size:15px}
-.dg .r{display:flex;gap:7px;margin-top:14px;justify-content:flex-end}
-.hint{font-size:11px;color:var(--dim);margin-top:9px;line-height:1.4}
+.ev .t{color:var(--dimmer)}.ev .d{color:var(--dim)}.ev .d b{color:var(--ink);font-weight:600}
+.ev.fl .d b{color:var(--bid)}.ev.fl.s .d b{color:var(--ask)}.ev.ex .d b{color:var(--mkt)}
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:4px;padding:0;min-width:330px}
+dialog::backdrop{background:rgba(20,18,14,.42)}
+[data-theme="dark"] dialog::backdrop{background:rgba(6,8,12,.62)}
+.dg{padding:15px 17px}.dg h3{margin:0 0 4px;font-size:13px;font-weight:600}
+.dg .sub{font-size:11px;color:var(--dim);margin-bottom:12px}
+.stp{display:flex;align-items:center;gap:8px;margin:9px 0}
+.stp .lb{font-size:11px;color:var(--dim);width:42px}
+.stp .val{font-family:"IBM Plex Mono",monospace;font-size:19px;font-weight:600;min-width:104px;text-align:center}
+.stp button{width:34px;height:30px;font-size:16px;padding:0}
+.seg{display:flex;gap:0;margin:9px 0}
+.seg button{border-radius:0;flex:1 1 auto}
+.seg button:first-child{border-radius:3px 0 0 3px}.seg button:last-child{border-radius:0 3px 3px 0}
+.seg button.on{background:var(--mktbg);border-color:var(--mkt);color:var(--mkt);font-weight:600}
+.dg .r{display:flex;gap:7px;margin-top:15px;justify-content:flex-end}
+.hint{font-size:11px;color:var(--dim);margin-top:10px;line-height:1.4}
 @media (max-width:1500px){.board{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media (max-width:820px){.board{grid-template-columns:repeat(2,minmax(0,1fr));overflow:auto}html,body{overflow:auto}}
 </style></head><body>
 <div class="app">
-<header>
-  <h1>Working orders</h1>
-  <span class="src mono" id="src"></span>
-  <div class="tools">
-    <span class="pill" id="pInv">exposure <b>ok</b></span>
-    <span class="pill" id="pLay">layers <b>0</b></span>
-    <span class="pill" id="pUnc">unconfirmed <b>0</b></span>
-    <button id="logBtn">Action log</button>
-    <button id="thBtn">Dark</button>
-    <button id="reload" class="w">Load live book</button>
-  </div>
-</header>
-<div class="board" id="board"></div>
-</div>
+<header><h1>Working orders</h1><span class="src mono" id="src"></span>
+ <div class="tools">
+  <span class="pill" id="pInv">exposure <b>ok</b></span>
+  <span class="pill" id="pLay">layers <b>0</b></span>
+  <span class="pill" id="pUnc">to place <b>0</b></span>
+  <button id="undo" disabled>Undo</button>
+  <button id="ticket">Manual ticket</button>
+  <button id="logBtn">Log</button>
+  <button id="thBtn">Dark</button>
+  <button id="reload" class="w">Reload book</button>
+ </div></header>
+<div class="board" id="board"></div></div>
 <div class="logwrap" id="logwrap"><h2>Action log <button id="logX">Close</button></h2><div class="log" id="log"></div></div>
 
 <dialog id="dlg"><form method="dialog" class="dg">
-  <h3 id="dgT">Record fill</h3>
-  <label for="dgP">Price</label><input class="mono" id="dgP" inputmode="decimal">
-  <label for="dgS">Size (mm)</label><input class="mono" id="dgS" inputmode="decimal">
-  <div class="hint" id="dgH"></div>
-  <div class="r"><button value="cancel">Cancel</button><button value="ok" class="w">Record</button></div>
+ <h3 id="dgT"></h3><div class="sub" id="dgS2"></div>
+ <div id="dgSeg"></div>
+ <div class="stp"><span class="lb">Price</span>
+  <button type="button" id="pD">&minus;</button><span class="val mono" id="pV"></span><button type="button" id="pU">+</button></div>
+ <div class="stp"><span class="lb">Size</span>
+  <button type="button" id="sD">&minus;</button><span class="val mono" id="sV"></span><button type="button" id="sU">+</button></div>
+ <div class="hint" id="dgH"></div>
+ <div class="r"><button value="cancel">Cancel</button><button value="ok" class="w">Confirm</button></div>
 </form></dialog>
 <script>
-const META={"GBPUSD":{"d":5,"p":0.0001,"mid":1.34693,"opt":[5,7],"alt":[5,10],"ml":12,"mtm":{"OPT":-14.68,"ALT":-11.95},"sc":{"OPT":15,"ALT":10},"rt":{"OPT":0.0,"ALT":0.94}},"EURUSD":{"d":5,"p":0.0001,"mid":1.15359,"opt":[7,7],"alt":[7,10],"ml":12,"mtm":{"OPT":-10.04,"ALT":-10.08},"sc":{"OPT":5,"ALT":3},"rt":{"OPT":0.62,"ALT":1.0}},"EURGBP":{"d":5,"p":0.0001,"mid":0.85562,"opt":[3,5],"alt":[3,8],"ml":8,"mtm":{"OPT":-16.61,"ALT":-16.78},"sc":{"OPT":5,"ALT":1},"rt":{"OPT":0.0,"ALT":0.0}},"AUDCAD":{"d":5,"p":0.0001,"mid":0.9915,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-4.43,"ALT":-4.27},"sc":{"OPT":14,"ALT":7},"rt":{"OPT":0.36,"ALT":0.0}},"AUDCHF":{"d":5,"p":0.0001,"mid":0.583,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-3.57,"ALT":-4.81},"sc":{"OPT":6,"ALT":2},"rt":{"OPT":0.0,"ALT":0.0}},"CADCHF":{"d":5,"p":0.0001,"mid":0.588,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-4.36,"ALT":-3.69},"sc":{"OPT":5,"ALT":1},"rt":{"OPT":0.0,"ALT":0.0}}};
-const SEED={"books":{"GBPUSD|OPT|L":{"pair":"GBPUSD","arm":"OPT","side":"L","fills":[{"idx":0,"price":1.35169,"size":1.0},{"idx":1,"price":1.3507,"size":1.0},{"idx":2,"price":1.34969,"size":1.0},{"idx":3,"price":1.34869,"size":1.0},{"idx":4,"price":1.34765,"size":1.0},{"idx":5,"price":1.34665,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34565},"GBPUSD|OPT|S":{"pair":"GBPUSD","arm":"OPT","side":"S","fills":[{"idx":0,"price":1.34693,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34799},"GBPUSD|ALT|L":{"pair":"GBPUSD","arm":"ALT","side":"L","fills":[{"idx":0,"price":1.35112,"size":1.0},{"idx":1,"price":1.35008,"size":1.0},{"idx":2,"price":1.34908,"size":1.0},{"idx":3,"price":1.34808,"size":1.0},{"idx":4,"price":1.34705,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34605},"GBPUSD|ALT|S":{"pair":"GBPUSD","arm":"ALT","side":"S","fills":[{"idx":0,"price":1.34693,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34793},"EURUSD|OPT|L":{"pair":"EURUSD","arm":"OPT","side":"L","fills":[{"idx":0,"price":1.15793,"size":1.0},{"idx":1,"price":1.15653,"size":1.0},{"idx":2,"price":1.15513,"size":1.0},{"idx":3,"price":1.15373,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15233},"EURUSD|OPT|S":{"pair":"EURUSD","arm":"OPT","side":"S","fills":[{"idx":0,"price":1.15359,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15499},"EURUSD|ALT|L":{"pair":"EURUSD","arm":"ALT","side":"L","fills":[{"idx":0,"price":1.15783,"size":1.0},{"idx":1,"price":1.15644,"size":1.0},{"idx":2,"price":1.15504,"size":1.0},{"idx":3,"price":1.15365,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15225},"EURUSD|ALT|S":{"pair":"EURUSD","arm":"ALT","side":"S","fills":[{"idx":0,"price":1.15322,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15462},"EURGBP|OPT|L":{"pair":"EURGBP","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.85958,"size":1.0},{"idx":1,"price":0.85898,"size":1.0},{"idx":2,"price":0.85838,"size":1.0},{"idx":3,"price":0.85778,"size":1.0},{"idx":4,"price":0.85718,"size":1.0},{"idx":5,"price":0.85658,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85598},"EURGBP|OPT|S":{"pair":"EURGBP","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.85562,"size":1.0},{"idx":1,"price":0.85622,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85682},"EURGBP|ALT|L":{"pair":"EURGBP","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.85965,"size":1.0},{"idx":1,"price":0.85904,"size":1.0},{"idx":2,"price":0.85842,"size":1.0},{"idx":3,"price":0.85782,"size":1.0},{"idx":4,"price":0.85723,"size":1.0},{"idx":5,"price":0.85663,"size":1.0},{"idx":6,"price":0.85603,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85543},"EURGBP|ALT|S":{"pair":"EURGBP","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.85562,"size":1.0},{"idx":1,"price":0.85622,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85682},"AUDCAD|OPT|L":{"pair":"AUDCAD","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.99287,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99187},"AUDCAD|OPT|S":{"pair":"AUDCAD","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.99003,"size":1.0},{"idx":1,"price":0.99103,"size":1.0},{"idx":2,"price":0.99203,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99304},"AUDCAD|ALT|L":{"pair":"AUDCAD","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.99301,"size":1.0},{"idx":1,"price":0.99198,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99098},"AUDCAD|ALT|S":{"pair":"AUDCAD","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.98991,"size":1.0},{"idx":1,"price":0.99092,"size":1.0},{"idx":2,"price":0.99192,"size":1.0},{"idx":3,"price":0.99292,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99392},"AUDCHF|OPT|L":{"pair":"AUDCHF","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.58468,"size":1.0},{"idx":1,"price":0.58368,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58268},"AUDCHF|OPT|S":{"pair":"AUDCHF","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.58237,"size":1.0},{"idx":1,"price":0.58337,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58437},"AUDCHF|ALT|L":{"pair":"AUDCHF","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.58471,"size":1.0},{"idx":1,"price":0.58371,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58271},"AUDCHF|ALT|S":{"pair":"AUDCHF","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.58208,"size":1.0},{"idx":1,"price":0.58308,"size":1.0},{"idx":2,"price":0.58408,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58508},"CADCHF|OPT|L":{"pair":"CADCHF","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.58964,"size":1.0},{"idx":1,"price":0.58863,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58763},"CADCHF|OPT|S":{"pair":"CADCHF","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.58703,"size":1.0},{"idx":1,"price":0.58803,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58903},"CADCHF|ALT|L":{"pair":"CADCHF","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.58964,"size":1.0},{"idx":1,"price":0.58863,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58763},"CADCHF|ALT|S":{"pair":"CADCHF","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.58699,"size":1.0},{"idx":1,"price":0.58799,"size":1.0},{"idx":2,"price":0.589,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.59}},"log":[],"gen":"2026-09-16T01:12:25Z"};
-const PAIRS=Object.keys(META);
-const BOOKS=[["OPT","L"],["OPT","S"],["ALT","L"],["ALT","S"]];
-const CLIP=1.0, KEY="ladder."+SEED.gen;
-let S=null;
-
+const META={"GBPUSD":{"d":5,"p":0.0001,"mid":1.34693,"opt":[5,7],"alt":[5,10],"ml":12,"mtm":{"OPT":-14.68,"ALT":-11.95},"sc":{"OPT":15,"ALT":10},"rt":{"OPT":0.0,"ALT":0.94}},"EURUSD":{"d":5,"p":0.0001,"mid":1.15359,"opt":[7,7],"alt":[7,10],"ml":12,"mtm":{"OPT":-10.04,"ALT":-10.08},"sc":{"OPT":5,"ALT":3},"rt":{"OPT":0.62,"ALT":1.0}},"EURGBP":{"d":5,"p":0.0001,"mid":0.85562,"opt":[3,5],"alt":[3,8],"ml":8,"mtm":{"OPT":-16.61,"ALT":-16.78},"sc":{"OPT":5,"ALT":1},"rt":{"OPT":0.0,"ALT":0.0}},"AUDCAD":{"d":5,"p":0.0001,"mid":0.9915,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-4.43,"ALT":-4.27},"sc":{"OPT":14,"ALT":7},"rt":{"OPT":0.36,"ALT":0.0}},"AUDCHF":{"d":5,"p":0.0001,"mid":0.583,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-3.57,"ALT":-4.81},"sc":{"OPT":6,"ALT":2},"rt":{"OPT":0.0,"ALT":0.0}},"CADCHF":{"d":5,"p":0.0001,"mid":0.588,"opt":[5,5],"alt":[5,10],"ml":8,"mtm":{"OPT":-4.36,"ALT":-3.69},"sc":{"OPT":5,"ALT":1},"rt":{"OPT":0.0,"ALT":0.0}}};const SEED={"books":{"GBPUSD|OPT|L":{"pair":"GBPUSD","arm":"OPT","side":"L","fills":[{"idx":0,"price":1.35169,"size":1.0},{"idx":1,"price":1.3507,"size":1.0},{"idx":2,"price":1.34969,"size":1.0},{"idx":3,"price":1.34869,"size":1.0},{"idx":4,"price":1.34765,"size":1.0},{"idx":5,"price":1.34665,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34565},"GBPUSD|OPT|S":{"pair":"GBPUSD","arm":"OPT","side":"S","fills":[{"idx":0,"price":1.34693,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34799},"GBPUSD|ALT|L":{"pair":"GBPUSD","arm":"ALT","side":"L","fills":[{"idx":0,"price":1.35112,"size":1.0},{"idx":1,"price":1.35008,"size":1.0},{"idx":2,"price":1.34908,"size":1.0},{"idx":3,"price":1.34808,"size":1.0},{"idx":4,"price":1.34705,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34605},"GBPUSD|ALT|S":{"pair":"GBPUSD","arm":"ALT","side":"S","fills":[{"idx":0,"price":1.34693,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.34793},"EURUSD|OPT|L":{"pair":"EURUSD","arm":"OPT","side":"L","fills":[{"idx":0,"price":1.15793,"size":1.0},{"idx":1,"price":1.15653,"size":1.0},{"idx":2,"price":1.15513,"size":1.0},{"idx":3,"price":1.15373,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15233},"EURUSD|OPT|S":{"pair":"EURUSD","arm":"OPT","side":"S","fills":[{"idx":0,"price":1.15359,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15499},"EURUSD|ALT|L":{"pair":"EURUSD","arm":"ALT","side":"L","fills":[{"idx":0,"price":1.15783,"size":1.0},{"idx":1,"price":1.15644,"size":1.0},{"idx":2,"price":1.15504,"size":1.0},{"idx":3,"price":1.15365,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15225},"EURUSD|ALT|S":{"pair":"EURUSD","arm":"ALT","side":"S","fills":[{"idx":0,"price":1.15322,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":1.15462},"EURGBP|OPT|L":{"pair":"EURGBP","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.85958,"size":1.0},{"idx":1,"price":0.85898,"size":1.0},{"idx":2,"price":0.85838,"size":1.0},{"idx":3,"price":0.85778,"size":1.0},{"idx":4,"price":0.85718,"size":1.0},{"idx":5,"price":0.85658,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85598},"EURGBP|OPT|S":{"pair":"EURGBP","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.85562,"size":1.0},{"idx":1,"price":0.85622,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85682},"EURGBP|ALT|L":{"pair":"EURGBP","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.85965,"size":1.0},{"idx":1,"price":0.85904,"size":1.0},{"idx":2,"price":0.85842,"size":1.0},{"idx":3,"price":0.85782,"size":1.0},{"idx":4,"price":0.85723,"size":1.0},{"idx":5,"price":0.85663,"size":1.0},{"idx":6,"price":0.85603,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85543},"EURGBP|ALT|S":{"pair":"EURGBP","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.85562,"size":1.0},{"idx":1,"price":0.85622,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.85682},"AUDCAD|OPT|L":{"pair":"AUDCAD","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.99287,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99187},"AUDCAD|OPT|S":{"pair":"AUDCAD","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.99003,"size":1.0},{"idx":1,"price":0.99103,"size":1.0},{"idx":2,"price":0.99203,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99304},"AUDCAD|ALT|L":{"pair":"AUDCAD","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.99301,"size":1.0},{"idx":1,"price":0.99198,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99098},"AUDCAD|ALT|S":{"pair":"AUDCAD","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.98991,"size":1.0},{"idx":1,"price":0.99092,"size":1.0},{"idx":2,"price":0.99192,"size":1.0},{"idx":3,"price":0.99292,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.99392},"AUDCHF|OPT|L":{"pair":"AUDCHF","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.58468,"size":1.0},{"idx":1,"price":0.58368,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58268},"AUDCHF|OPT|S":{"pair":"AUDCHF","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.58237,"size":1.0},{"idx":1,"price":0.58337,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58437},"AUDCHF|ALT|L":{"pair":"AUDCHF","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.58471,"size":1.0},{"idx":1,"price":0.58371,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58271},"AUDCHF|ALT|S":{"pair":"AUDCHF","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.58208,"size":1.0},{"idx":1,"price":0.58308,"size":1.0},{"idx":2,"price":0.58408,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58508},"CADCHF|OPT|L":{"pair":"CADCHF","arm":"OPT","side":"L","fills":[{"idx":0,"price":0.58964,"size":1.0},{"idx":1,"price":0.58863,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58763},"CADCHF|OPT|S":{"pair":"CADCHF","arm":"OPT","side":"S","fills":[{"idx":0,"price":0.58703,"size":1.0},{"idx":1,"price":0.58803,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58903},"CADCHF|ALT|L":{"pair":"CADCHF","arm":"ALT","side":"L","fills":[{"idx":0,"price":0.58964,"size":1.0},{"idx":1,"price":0.58863,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.58763},"CADCHF|ALT|S":{"pair":"CADCHF","arm":"ALT","side":"S","fills":[{"idx":0,"price":0.58699,"size":1.0},{"idx":1,"price":0.58799,"size":1.0},{"idx":2,"price":0.589,"size":1.0}],"exits":[],"confirmed":{},"nextAdd":0.59}},"log":[],"gen":"2026-09-16T01:12:25Z"};
+const PAIRS=Object.keys(META);const BOOKS=[["OPT","L"],["OPT","S"],["ALT","L"],["ALT","S"]];
+const CLIP=1.0,KEY="ladder."+SEED.gen;let S=null,dlgState=null;
 const M=s=>META[s];
 const geo=(s,a)=>{const g=a==="OPT"?M(s).opt:M(s).alt;return{w:g[0],x:g[1],add:2*g[0]}};
 const fmt=(v,s)=>v.toFixed(M(s).d);
 const px=(b,p,s,up)=>b+(up?1:-1)*p*M(s).p;
+const tick=s=>Math.pow(10,-M(s).d);
 const L=i=>"L"+String(i).padStart(2,"0");
 const bk=(s,a,d)=>S.books[s+"|"+a+"|"+d];
+const AHEAD=3;
 
 function levels(k){
  const s=k.pair,g=geo(s,k.arm),long=k.side==="L",out=[];
  if(!k.fills.length){
-   out.push({kind:"ent",price:px(M(s).mid,g.w,s,!long),tag:L(0)+"|ENT",size:CLIP,idx:0});
-   return out;
+  const p=px(M(s).mid,g.w,s,!long);
+  out.push({kind:"ent",price:p,tag:L(0)+"|ENT",size:CLIP,idx:0});
+  for(let n=1;n<=AHEAD;n++)out.push({kind:"proj",price:px(p,g.add*n,s,!long),tag:L(n)+"|ENT",size:CLIP,idx:n});
+  return out;
  }
  const by={};k.fills.forEach(f=>(by[f.idx]=by[f.idx]||[]).push(f));
  const idxs=Object.keys(by).map(Number).sort((a,b)=>a-b);
  idxs.forEach(i=>{
-   const fs=by[i],anchor=fs[0].price,filled=fs.reduce((t,f)=>t+f.size,0);
-   out.push({kind:"pos",price:anchor,tag:L(i)+"|ENT",size:filled,idx:i});
-   const gone=k.exits.filter(e=>e.idx===i).reduce((t,e)=>t+e.size,0);
-   if(filled-gone>1e-9)
-     out.push({kind:"ext",price:px(anchor,g.x,s,long),tag:L(i)+"|EXT",size:+(filled-gone).toFixed(2),idx:i});
+  const fs=by[i],anchor=fs[0].price,filled=fs.reduce((t,f)=>t+f.size,0);
+  const intended=fs[0].intended||CLIP,resid=+(intended-filled).toFixed(2);
+  const gone=k.exits.filter(e=>e.idx===i).reduce((t,e)=>t+e.size,0);
+  out.push({kind:"pos",price:anchor,tag:L(i)+"|ENT",size:filled,idx:i,working:+(filled-gone).toFixed(2)});
+  if(resid>1e-9&&!k.cancelled[i])out.push({kind:"resid",price:anchor,tag:L(i)+"|ENT",size:resid,idx:i});
+  if(filled-gone>1e-9)out.push({kind:"ext",price:px(anchor,g.x,s,long),tag:L(i)+"|EXT",size:+(filled-gone).toFixed(2),idx:i});
  });
- const dp=idxs[idxs.length-1];
- out.push({kind:"ent",price:px(by[dp][0].price,g.add,s,!long),tag:L(dp+1)+"|ENT",size:CLIP,idx:dp+1});
+ const dp=idxs[idxs.length-1],base=by[dp][0].price,resolved=!out.some(l=>l.kind==="resid");
+ for(let n=1;n<=AHEAD;n++)out.push({kind:(n===1&&resolved)?"ent":"proj",
+   price:px(base,g.add*n,s,!long),tag:L(dp+n)+"|ENT",size:CLIP,idx:dp+n});
  return out;
 }
+function bracket(s){let hb=-Infinity,ls=Infinity;
+ BOOKS.forEach(([a,d])=>{const k=bk(s,a,d),long=d==="L";
+  levels(k).forEach(l=>{if(l.kind==="pos"||l.kind==="proj")return;
+   const buy=(l.kind==="ext")?!long:long;
+   if(buy){if(l.price>hb)hb=l.price}else{if(l.price<ls)ls=l.price}});});
+ return (isFinite(hb)&&isFinite(ls))?{lo:hb,hi:ls,mid:(hb+ls)/2}:null;}
 const depth=k=>new Set(k.fills.map(f=>f.idx)).size;
 const net=k=>+(k.fills.reduce((t,x)=>t+x.size,0)-k.exits.reduce((t,x)=>t+x.size,0)).toFixed(2);
 const invOk=()=>Object.values(S.books).every(k=>k.exits.reduce((t,x)=>t+x.size,0)<=k.fills.reduce((t,x)=>t+x.size,0)+1e-9);
 
-function fresh(){
- const bs=JSON.parse(JSON.stringify(SEED.books));
- const st={books:bs,log:[{t:SEED.gen.slice(11,16),c:"",h:"Live book loaded &mdash; <b>68 layers</b> across 24 books"}],gen:SEED.gen};
- const prev=S;S=st;
- Object.values(bs).forEach(k=>{k.confirmed={};levels(k).forEach(l=>{if(l.kind!=="pos")k.confirmed[l.tag]=true})});
- S=prev;return st;
-}
+function fresh(){const bs=JSON.parse(JSON.stringify(SEED.books));
+ const st={books:bs,log:[{t:SEED.gen.slice(11,16),c:"",h:"Live book loaded &mdash; <b>68 layers</b> across 24 books"}],gen:SEED.gen,undo:null};
+ const p=S;S=st;Object.values(bs).forEach(k=>{k.confirmed={};k.cancelled=k.cancelled||{};
+  k.fills.forEach(f=>f.intended=f.intended||f.size);
+  levels(k).forEach(l=>{if(l.kind==="ent"||l.kind==="ext")k.confirmed[l.tag]=true})});
+ S=p;return st;}
 const load=()=>{try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return fresh()};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
-const push=(c,h)=>S.log.unshift({t:new Date().toTimeString().slice(0,5),c,h});
+function snap(){S.undo=JSON.stringify({books:S.books,log:S.log})}
+function act(c,h){S.log.unshift({t:new Date().toTimeString().slice(0,5),c,h})}
 
 function render(){
  const cells=[];
- PAIRS.forEach(s=>BOOKS.forEach(([a,d])=>cells.push(ladder(bk(s,a,d)))));
+ PAIRS.forEach(s=>{const br=bracket(s);
+  const ab=BOOKS.map(([a,d])=>levels(bk(s,a,d)).filter(l=>l.price>br.mid).length);
+  const mx=Math.max(...ab);
+  BOOKS.forEach(([a,d],j)=>cells.push(ladder(bk(s,a,d),br,mx-ab[j])));});
  document.getElementById("board").innerHTML=cells.join("");
- document.querySelectorAll("[data-a]").forEach(b=>b.onclick=act);
- const unc=Object.values(S.books).reduce((n,k)=>n+levels(k).filter(l=>l.kind!=="pos"&&!k.confirmed[l.tag]).length,0);
+ document.querySelectorAll("[data-r]").forEach(el=>el.onclick=onRow);
+ const unc=Object.values(S.books).reduce((n,k)=>n+levels(k).filter(l=>(l.kind==="ent"||l.kind==="ext")&&!k.confirmed[l.tag]).length,0);
  const lay=Object.values(S.books).reduce((n,k)=>n+depth(k),0);
- document.getElementById("pUnc").innerHTML="unconfirmed <b>"+unc+"</b>";
- document.getElementById("pUnc").className="pill"+(unc?" bad":"");
+ const u=document.getElementById("pUnc");u.innerHTML="to place <b>"+unc+"</b>";u.className="pill"+(unc?" bad":"");
  document.getElementById("pLay").innerHTML="layers <b>"+lay+"</b>";
- const iv=document.getElementById("pInv");
- iv.className="pill"+(invOk()?"":" bad");
+ const iv=document.getElementById("pInv");iv.className="pill"+(invOk()?"":" bad");
  iv.innerHTML="exposure <b>"+(invOk()?"ok":"over-hedged")+"</b>";
- document.getElementById("log").innerHTML=S.log.slice(0,120).map(e=>
+ document.getElementById("undo").disabled=!S.undo;
+ document.getElementById("log").innerHTML=S.log.slice(0,150).map(e=>
   `<div class="ev ${e.c}"><span class="t mono">${e.t}</span><span class="d">${e.h}</span></div>`).join("");
  save();
 }
-
-function ladder(k){
- const s=k.pair,long=k.side==="L",ls=levels(k).sort((a,b)=>b.price-a.price);
- const rows=ls.map(l=>{
-  const cf=k.confirmed[l.tag];
-  let cls="row ";
-  if(l.kind==="pos") cls+="pos"+(long?"":" s");
-  else if(!cf) cls+="calc";
-  else cls+=(l.kind==="ext"?"ext":"ent")+(long?"":" s");
-  return `<div class="${cls}"><span class="px mono">${fmt(l.price,s)}</span><span class="tg mono">${l.tag}</span>`
-   +`<span class="sz mono">${l.size.toFixed(1)}${cf&&l.kind!=="pos"?' <span class="tk">&check;</span>':''}</span></div>`;
- }).join("");
- const nx=ls.find(l=>l.kind==="ent"), ex=ls.filter(l=>l.kind==="ext");
- const kk=`${k.pair}|${k.arm}|${k.side}`;
- return `<div class="lad ${k.side}"><div class="lh ${k.side}">
-   <span class="sym">${s}</span><span class="bk">${k.arm} ${long?"BID":"OFF"}</span>
-   <span class="st mono">${depth(k)?depth(k)+"L "+net(k).toFixed(1):"flat"}</span></div>
-  <div class="rows">${rows||'<div class="none">nothing working</div>'}</div>
-  <div class="acts">
-   ${nx?`<button class="${long?"p":"n"}" data-a="fill" data-k="${kk}" data-i="${nx.idx}" data-p="${nx.price}">Fill ${L(nx.idx)}</button>`:""}
-   ${ex.length?`<button data-a="exit" data-k="${kk}" data-i="${ex[0].idx}">Exit ${L(ex[0].idx)}</button>`:""}
-   <button class="w" data-a="conf" data-k="${kk}">&check;</button>
-  </div></div>`;
+function ladder(k,br,pad){
+ const s=k.pair,long=k.side==="L",ls=levels(k).sort((a,b)=>b.price-a.price),kk=`${k.pair}|${k.arm}|${k.side}`;
+ const mk=(l,n)=>{const cf=k.confirmed[l.tag];let cls="row ",hit=false,extra="";
+  if(l.kind==="pos"){cls+="pos"+(long?"":" s");
+    if(l.working<l.size-1e-9)extra=` <span class="wk">${l.working.toFixed(1)} wkg</span>`;}
+  else if(l.kind==="proj"){cls+="proj";hit=true}
+  else if(l.kind==="resid"){cls+="resid"+(long?"":" s");hit=true}
+  else if(!cf){cls+="calc";hit=true}
+  else {cls+=(l.kind==="ext"?"ext":"ent")+(long?"":" s");hit=true}
+  const lab=l.kind==="resid"?l.tag+"r":l.tag;
+  const adj=(hit&&(cf||l.kind==="resid"))?`<span class="adj" data-r="adj" data-k="${kk}" data-n="${n}">&plusmn;</span>`:"";
+  return `<div class="${cls}${hit?" hit":""}" ${hit?`data-r="row" data-k="${kk}" data-n="${n}"`:""}>`
+   +`<span class="px mono">${fmt(l.price,s)}</span><span class="tg mono">${lab}</span>`
+   +`<span class="sz mono">${l.size.toFixed(1)}${extra}${cf&&(l.kind==="ent"||l.kind==="ext")?' <span class="tk">&check;</span>':''}</span>${adj}</div>`;};
+ const rows=ls.map(mk);
+ const nAb=ls.filter(l=>l.price>br.mid).length+pad;
+ const band=`<div class="row mkt"><span class="px mono">${fmt(br.lo,s)}</span><span class="tg mono">market</span><span class="sz mono">${fmt(br.hi,s)}</span></div>`;
+ const blanks='<div class="row gap"></div>'.repeat(pad);
+ const body=blanks+rows.slice(0,nAb-pad).join("")+band+rows.slice(nAb-pad).join("");
+ return `<div class="lad ${k.side}"><div class="lh ${k.side}"><span class="sym">${s}</span>
+  <span class="bkn">${k.arm} ${long?"BID":"OFF"}</span>
+  <span class="st mono">${depth(k)?depth(k)+"L "+net(k).toFixed(1):"flat"}</span></div>
+  <div class="rows">${body}</div></div>`;
 }
 
-let cb=null;
-function act(e){
- const b=e.currentTarget,[s,a,d]=b.dataset.k.split("|"),k=bk(s,a,d),act=b.dataset.a;
- if(act==="conf"){
-   const n=levels(k).filter(l=>l.kind!=="pos");n.forEach(l=>k.confirmed[l.tag]=true);
-   push("",`<b>${s} ${a} ${d}</b> &mdash; ${n.length} orders confirmed working`);render();return;
- }
- const i=+b.dataset.i;
- if(act==="fill")
-   dlg("Record fill",fmt(+b.dataset.p,s),CLIP,"Anchored here. Exit and next add derive from this price.",
-     (p,z)=>{k.fills.push({idx:i,price:p,size:z});
-       push("fl"+(d==="L"?"":" s"),`<b>${s} ${a} ${d}</b> ${L(i)} filled ${z.toFixed(1)}mm @ ${fmt(p,s)}`);render()});
- if(act==="exit"){
-   const x=levels(k).find(l=>l.kind==="ext"&&l.idx===i);
-   dlg("Record exit",fmt(x.price,s),x.size,"Never more exit size than position size.",
-     (p,z)=>{k.exits.push({idx:i,price:p,size:z});
-       push("ex",`<b>${s} ${a} ${d}</b> ${L(i)} exit ${z.toFixed(1)}mm @ ${fmt(p,s)}`);render()});
- }
+function onRow(e){
+ e.stopPropagation();
+ const el=e.currentTarget,[s,a,d]=el.dataset.k.split("|"),k=bk(s,a,d);
+ const ls=levels(k).sort((x,y)=>y.price-x.price),l=ls[+el.dataset.n];
+ const stepper=el.dataset.r==="adj";
+ const cf=k.confirmed[l.tag];
+ if(l.kind==="proj"){snap();k.confirmed[l.tag]=true;
+   act("",`<b>${s} ${a} ${d}</b> ${l.tag} placed early @ ${fmt(l.price,s)}`);render();return;}
+ if((l.kind==="ent"||l.kind==="ext")&&!cf){snap();k.confirmed[l.tag]=true;
+   act("",`<b>${s} ${a} ${d}</b> ${l.tag} placed in terminal @ ${fmt(l.price,s)}`);render();return;}
+ if(!stepper){commit(k,l,l.price,l.size);return;}
+ open(k,l);
 }
-function dlg(t,p,z,h,fn){const g=document.getElementById("dlg");
- document.getElementById("dgT").textContent=t;document.getElementById("dgP").value=p;
- document.getElementById("dgS").value=(+z).toFixed(1);document.getElementById("dgH").textContent=h;
- cb=fn;g.showModal();document.getElementById("dgP").select()}
+function commit(k,l,p,z,cancelled){
+ const s=k.pair,a=k.arm,d=k.side;snap();
+ if(cancelled){k.cancelled[l.idx]=true;
+   act("",`<b>${s} ${a} ${d}</b> ${L(l.idx)} residual ${l.size.toFixed(1)} cancelled &mdash; level closed`);render();return;}
+ if(l.kind==="ext"){k.exits.push({idx:l.idx,price:p,size:z});
+   act("ex",`<b>${s} ${a} ${d}</b> ${L(l.idx)} exit ${z.toFixed(1)} @ ${fmt(p,s)}`);}
+ else{k.fills.push({idx:l.idx,price:p,size:z,intended:l.kind==="resid"?z:CLIP});
+   act("fl"+(d==="L"?"":" s"),`<b>${s} ${a} ${d}</b> ${L(l.idx)} filled ${z.toFixed(1)} @ ${fmt(p,s)}`);}
+ render();
+}
+function open(k,l){
+ const s=k.pair,t=tick(s);let p=l.price,z=l.size;
+ dlgState={k,l,get p(){return p},get z(){return z}};
+ const pv=document.getElementById("pV"),sv=document.getElementById("sV");
+ const draw=()=>{pv.textContent=fmt(p,s);sv.textContent=z.toFixed(1)+" mm";};
+ document.getElementById("dgT").textContent=(l.kind==="ext"?"Exit ":"Fill ")+l.tag;
+ document.getElementById("dgS2").textContent=`${s} ${k.arm} ${k.side==="L"?"bid":"offer"} \u00b7 derived ${fmt(l.price,s)}`;
+ document.getElementById("dgSeg").innerHTML=l.kind==="resid"
+  ? `<div class="seg"><button type="button" class="on" id="mF">It traded</button><button type="button" id="mC">Cancel the residual</button></div>`:"";
+ let cancelled=false;
+ if(l.kind==="resid"){document.getElementById("mF").onclick=()=>{cancelled=false;mF.classList.add("on");mC.classList.remove("on")};
+  document.getElementById("mC").onclick=()=>{cancelled=true;mC.classList.add("on");mF.classList.remove("on")};}
+ document.getElementById("pD").onclick=()=>{p=+(p-t).toFixed(M(s).d);draw()};
+ document.getElementById("pU").onclick=()=>{p=+(p+t).toFixed(M(s).d);draw()};
+ document.getElementById("sD").onclick=()=>{z=Math.max(.1,+(z-.1).toFixed(1));draw()};
+ document.getElementById("sU").onclick=()=>{z=Math.min(l.size,+(z+.1).toFixed(1));draw()};
+ document.getElementById("dgH").textContent=l.kind==="ext"
+  ? "A short fill leaves the remainder working. Nothing to re-place."
+  : "A short fill leaves a residual working at this level. The next add waits until it resolves.";
+ draw();dlgState.done=(ok)=>{if(ok)commit(k,l,p,z,cancelled)};
+ document.getElementById("dlg").showModal();
+}
 document.getElementById("dlg").addEventListener("close",function(){
- if(this.returnValue==="ok"&&cb){const p=parseFloat(document.getElementById("dgP").value),
-  z=parseFloat(document.getElementById("dgS").value);if(isFinite(p)&&isFinite(z)&&z>0)cb(p,z)}cb=null});
+ if(dlgState&&dlgState.done)dlgState.done(this.returnValue==="ok");dlgState=null;});
 
+document.getElementById("undo").onclick=()=>{if(!S.undo)return;
+ const prev=JSON.parse(S.undo);S.books=prev.books;S.log=prev.log;S.undo=null;render();};
+document.getElementById("ticket").onclick=()=>alert("Manual ticket: side / book / price / size steppers. Not wired in this pass.");
 const lw=document.getElementById("logwrap");
 document.getElementById("logBtn").onclick=()=>lw.classList.toggle("on");
 document.getElementById("logX").onclick=()=>lw.classList.remove("on");
-document.getElementById("thBtn").onclick=e=>{
- const dark=document.documentElement.getAttribute("data-theme")==="dark";
- document.documentElement.setAttribute("data-theme",dark?"light":"dark");
- e.target.textContent=dark?"Dark":"Light";
- try{localStorage.setItem("ladder.theme",dark?"light":"dark")}catch(x){}};
-document.getElementById("reload").onclick=()=>{
- if(confirm("Reload the live book? Discards anything recorded here.")){
-  try{localStorage.removeItem(KEY)}catch(e){}S=fresh();render()}};
-function clk(){document.getElementById("src").textContent=
- "live book "+SEED.gen.slice(11,16)+"Z \u00b7 demo 1514582088 \u00b7 London "
- +new Date().toLocaleTimeString("en-GB",{timeZone:"Europe/London",hour:"2-digit",minute:"2-digit"})}
+document.getElementById("thBtn").onclick=e=>{const dk=document.documentElement.getAttribute("data-theme")==="dark";
+ document.documentElement.setAttribute("data-theme",dk?"light":"dark");e.target.textContent=dk?"Dark":"Light";
+ try{localStorage.setItem("ladder.theme",dk?"light":"dark")}catch(x){}};
+document.getElementById("reload").onclick=()=>{if(confirm("Reload the live book? Discards anything recorded here.")){
+ try{localStorage.removeItem(KEY)}catch(e){}S=fresh();render();}};
+function clk(){document.getElementById("src").textContent="live book "+SEED.gen.slice(11,16)
+ +"Z \u00b7 demo 1514582088 \u00b7 London "+new Date().toLocaleTimeString("en-GB",{timeZone:"Europe/London",hour:"2-digit",minute:"2-digit"})}
 try{const t=localStorage.getItem("ladder.theme");if(t){document.documentElement.setAttribute("data-theme",t);
  document.getElementById("thBtn").textContent=t==="dark"?"Light":"Dark"}}catch(e){}
 S=load();render();clk();setInterval(clk,20000);
