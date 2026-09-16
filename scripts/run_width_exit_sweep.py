@@ -90,6 +90,7 @@ PAIRS = (
     "CHFJPY",
     "AUDJPY",
     "CADJPY",
+    "USDJPY",
     "NZDCAD",
     "NZDCHF",
     "AUDNZD",
