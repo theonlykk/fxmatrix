@@ -854,8 +854,18 @@ void Test_CL3_StaleSameLegPeerBlocks()
    Grind_TestCapLegRestoreState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
 }
 
+int Grind_TestFindCapMagicIndex(const ulong magic)
+{
+   for(int i = 0; i < ArraySize(GRIND_CAP_ALL_MAGICS); i++) {
+      if(GRIND_CAP_ALL_MAGICS[i] == magic)
+         return i;
+   }
+   return -1;
+}
+
 void Test_CL4_LegMembershipTableMatchesMagics()
 {
+   AssertTrue("CL4 magic count 16", ArraySize(GRIND_CAP_ALL_MAGICS) == 16);
    AssertTrue("CL4 leg_a size",
               ArraySize(GRIND_CAP_MAGIC_LEG_A) == ArraySize(GRIND_CAP_ALL_MAGICS));
    AssertTrue("CL4 leg_b size",
@@ -876,6 +886,112 @@ void Test_CL5_CarriesLegSpotChecks()
    AssertFalse("CL5 idx0 not CHF", Grind_CapMagicCarriesLeg(0, "CHF"));
    AssertTrue("CL5 idx10 CHF", Grind_CapMagicCarriesLeg(10, "CHF"));
    AssertFalse("CL5 idx10 not EUR", Grind_CapMagicCarriesLeg(10, "EUR"));
+}
+
+void Test_RX1_NewMagicsPresent()
+{
+   const ulong new_magics[4] =
+   {
+      22260801UL, 22260802UL,
+      22260901UL, 22260902UL
+   };
+   for(int i = 0; i < 4; i++) {
+      bool found = false;
+      for(int j = 0; j < ArraySize(GRIND_CAP_ALL_MAGICS); j++) {
+         if(GRIND_CAP_ALL_MAGICS[j] == new_magics[i])
+            found = true;
+      }
+      AssertTrue("RX1 magic " + IntegerToString((long)new_magics[i]), found);
+   }
+}
+
+void Test_RX2_NewMagicLegsCorrect()
+{
+   struct MagicLegCase {
+      ulong magic;
+      string leg_a;
+      string leg_b;
+   };
+   MagicLegCase cases[4];
+   cases[0].magic = 22260801UL; cases[0].leg_a = "NZD"; cases[0].leg_b = "CAD";
+   cases[1].magic = 22260802UL; cases[1].leg_a = "NZD"; cases[1].leg_b = "CAD";
+   cases[2].magic = 22260901UL; cases[2].leg_a = "AUD"; cases[2].leg_b = "NZD";
+   cases[3].magic = 22260902UL; cases[3].leg_a = "AUD"; cases[3].leg_b = "NZD";
+   for(int i = 0; i < 4; i++) {
+      const int idx = Grind_TestFindCapMagicIndex(cases[i].magic);
+      AssertTrue("RX2 " + IntegerToString((long)cases[i].magic) + " leg A",
+                 idx >= 0 && Grind_CapMagicCarriesLeg(idx, cases[i].leg_a));
+      AssertTrue("RX2 " + IntegerToString((long)cases[i].magic) + " leg B",
+                 idx >= 0 && Grind_CapMagicCarriesLeg(idx, cases[i].leg_b));
+   }
+}
+
+void Test_RX3_NzdLegSumIsolated()
+{
+   double saved_a = 0.0, saved_b = 0.0;
+   string saved_leg_a = "", saved_leg_b = "";
+   ulong saved_magic = 0;
+   Grind_TestCapLegSaveState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+
+   const int n = ArraySize(GRIND_CAP_ALL_MAGICS);
+   string keys[];
+   string time_keys[];
+   ArrayResize(keys, n);
+   ArrayResize(time_keys, n);
+   for(int i = 0; i < n; i++) {
+      const ulong magic = GRIND_CAP_ALL_MAGICS[i];
+      keys[i] = Grind_CapExposureKey(magic, "NZD");
+      time_keys[i] = Grind_CapTimestampKey(keys[i]);
+      GlobalVariableSet(keys[i], 0.01 * (i + 1));
+      GlobalVariableSet(time_keys[i], (double)TimeCurrent());
+   }
+
+   g_grind_cap_thresh_a = 0.40;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_cap_leg_a = "NZD";
+   g_grind_cap_leg_b = "CAD";
+   g_grind_recon_magic = 22260801UL;
+   g_grind_cap_peer_read_failed = false;
+   g_grind_cap_blocked = false;
+
+   // NZD carriers at indices 12-15: 0.13 own (exempt), 0.14 + 0.15 + 0.16 = 0.45
+   double total = 0.0;
+   bool peer_failed = true;
+   Grind_CapSumLegExposure("NZD", 22260801UL, total, peer_failed);
+   AssertNear("RX3 total", total, 0.45, 1e-9);
+   AssertFalse("RX3 peer_failed", peer_failed);
+
+   for(int i = 0; i < n; i++) {
+      GlobalVariableDel(keys[i]);
+      GlobalVariableDel(time_keys[i]);
+   }
+   Grind_TestCapLegRestoreState(saved_a, saved_b, saved_leg_a, saved_leg_b, saved_magic);
+}
+
+void Test_RX4_MagicLockReleasesSixteen()
+{
+   const ulong expected[16] =
+   {
+      22260101UL, 22260102UL,
+      22260201UL, 22260202UL,
+      22260301UL, 22260302UL,
+      22260401UL, 22260402UL,
+      22260501UL, 22260502UL,
+      22260601UL, 22260602UL,
+      22260801UL, 22260802UL,
+      22260901UL, 22260902UL
+   };
+
+   for(int i = 0; i < 16; i++)
+      Grind_MagicLockClaim(expected[i]);
+   Grind_MagicLockClaim(22269901UL);
+
+   Grind_MagicLockReleaseAllKnown();
+
+   for(int i = 0; i < 16; i++)
+      AssertFalse("RX4 released " + IntegerToString((long)expected[i]),
+                  Grind_MagicLockIsClaimed(expected[i]));
+   AssertFalse("RX4 released 22269901", Grind_MagicLockIsClaimed(22269901UL));
 }
 
 void Test_T31_ThresholdZeroOffStillPublishes()
@@ -6178,6 +6294,10 @@ void OnStart()
    Test_CL3_StaleSameLegPeerBlocks();
    Test_CL4_LegMembershipTableMatchesMagics();
    Test_CL5_CarriesLegSpotChecks();
+   Test_RX1_NewMagicsPresent();
+   Test_RX2_NewMagicLegsCorrect();
+   Test_RX3_NzdLegSumIsolated();
+   Test_RX4_MagicLockReleasesSixteen();
    Test_T31_ThresholdZeroOffStillPublishes();
    Test_T32_DuplicateMagicFails();
    Test_T33_FreeMagicClaimSucceeds();
