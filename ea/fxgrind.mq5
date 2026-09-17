@@ -93,6 +93,11 @@ int OnInit()
       return INIT_FAILED;
    }
 
+   if(InpEnableCarryPass) {
+      Print("FATAL: ADR-151 phase A requires InpEnableCarryPass=false");
+      return INIT_FAILED;
+   }
+
    if(!Grind_MagicLockClaim(InpMagic)) {
       Print("FATAL: duplicate magic ", InpMagic,
             " — another fxgrind instance is already running on this magic");
@@ -130,6 +135,8 @@ int OnInit()
    if(!Grind_ReconstructState()) {
       Print("CRITICAL: Grind_ReconstructState failed — halted in place (",
             g_grind_halt_reason, ")");
+   } else {
+      Grind_RetryMissingExits(InpMagic, InpSlot, InpLots);
    }
 
    Grind_CarryPruneShiftGvs(InpMagic);
@@ -237,6 +244,7 @@ void OnTick()
          Grind_TelemetryCritical(g_grind_telemetry_instance, "INVARIANT_FAIL",
                                  g_grind_halt_reason, g_grind_invariant_detail);
          Grind_InvariantEmitArchive(g_grind_halt_reason);
+         Grind_CancelOwnEntryOrders(InpMagic, InpSlot);
       }
    }
 

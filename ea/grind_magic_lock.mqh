@@ -4,6 +4,8 @@
 #ifndef GRIND_MAGIC_LOCK_MQH
 #define GRIND_MAGIC_LOCK_MQH
 
+#include "grind_cap.mqh"
+
 #define GRIND_MAGIC_LOCK_PREFIX "GRIND2226_MAGIC_LOCK_"
 
 //+------------------------------------------------------------------+
@@ -23,19 +25,8 @@ void Grind_MagicLockRelease(const ulong magic)
 //+------------------------------------------------------------------+
 void Grind_MagicLockReleaseAllKnown()
 {
-   const ulong magics[16] =
-   {
-      22260101UL, 22260102UL,
-      22260201UL, 22260202UL,
-      22260301UL, 22260302UL,
-      22260401UL, 22260402UL,
-      22260501UL, 22260502UL,
-      22260601UL, 22260602UL,
-      22260801UL, 22260802UL,
-      22260901UL, 22260902UL
-   };
-   for(int i = 0; i < ArraySize(magics); i++)
-      Grind_MagicLockRelease(magics[i]);
+   for(int i = 0; i < GRIND_CAP_MAGIC_COUNT; i++)
+      Grind_MagicLockRelease(GRIND_CAP_ALL_MAGICS[i]);
    Grind_MagicLockRelease(22269901UL);
 }
 

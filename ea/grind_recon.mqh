@@ -10,9 +10,26 @@
 #include "grind_recon_failure.mqh"
 #include "grind_telemetry.mqh"
 #include "grind_archive.mqh"
+
+// Set by fxgrind OnInit before Grind_ReconstructState() — declared before closeby include.
+ulong  g_grind_recon_magic = 0;
+string g_grind_recon_slot = "";
+double g_grind_recon_exit_pips = 0.0;
+int    g_grind_recon_max_layers = 0;
+string g_grind_halt_reason = "";
+string g_grind_invariant_reason = "";
+string g_grind_invariant_detail = "";
+ulong  g_grind_invariant_marker_ticket = 0;
+bool   g_grind_last_invariant_ok = true;
+bool   g_grind_recon_ok = false;
+bool   g_grind_recon_verbose = false;
+
 #include "grind_closeby.mqh"
+#include "grind_exitq.mqh"
 
 #define GRIND_RECON_FAILURE_MAX_EMIT 40
+
+void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 
 #define GRIND_RECON_TICKET_POSITION 0
 #define GRIND_RECON_TICKET_ORDER    1
@@ -40,19 +57,6 @@ struct GrindReconLayerScratch
    ulong    exit_position_id;
    int      layer_index;
 };
-
-// Set by fxgrind OnInit before Grind_ReconstructState().
-ulong  g_grind_recon_magic = 0;
-string g_grind_recon_slot = "";
-double g_grind_recon_exit_pips = 0.0;
-int    g_grind_recon_max_layers = 0;
-string g_grind_halt_reason = "";
-string g_grind_invariant_reason = "";
-string g_grind_invariant_detail = "";
-ulong  g_grind_invariant_marker_ticket = 0;
-bool   g_grind_last_invariant_ok = true;
-bool   g_grind_recon_ok = false;
-bool   g_grind_recon_verbose = false;
 
 //+------------------------------------------------------------------+
 string Grind_InvariantJsonDouble(const double value, const int digits)
@@ -390,10 +394,53 @@ bool Grind_ReconCheckPendingAddCorrupt(const GrindReconTicket &tickets[],
 }
 
 //+------------------------------------------------------------------+
+void Grind_ReconComputeRanks(const GrindReconLayerScratch &layers[],
+                             const int layer_count,
+                             const bool is_long,
+                             int &ranks_out[])
+{
+   ArrayResize(ranks_out, layer_count);
+   int pos_count = 0;
+   for(int i = 0; i < layer_count; i++) {
+      if(layers[i].has_position)
+         pos_count++;
+   }
+   if(pos_count == 0) {
+      for(int i = 0; i < layer_count; i++)
+         ranks_out[i] = 999;
+      return;
+   }
+
+   double entries[];
+   int indices[];
+   int map_back[];
+   ArrayResize(entries, pos_count);
+   ArrayResize(indices, pos_count);
+   ArrayResize(map_back, pos_count);
+   int k = 0;
+   for(int i = 0; i < layer_count; i++) {
+      if(!layers[i].has_position)
+         continue;
+      entries[k] = layers[i].entry_price;
+      indices[k] = layers[i].layer_index;
+      map_back[k] = i;
+      k++;
+   }
+   int sub_ranks[];
+   Grind_ExitQRanks(entries, indices, pos_count, is_long, sub_ranks);
+   for(int i = 0; i < layer_count; i++)
+      ranks_out[i] = 999;
+   for(int j = 0; j < pos_count; j++)
+      ranks_out[map_back[j]] = sub_ranks[j];
+}
+
+//+------------------------------------------------------------------+
 bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int long_count,
+                                const int &long_ranks[],
                                 const GrindReconLayerScratch &short_layers[],
                                 const int short_count,
+                                const int &short_ranks[],
                                 const double exit_pips,
                                 const double point,
                                 const int max_layers,
@@ -434,11 +481,14 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
                                     Grind_InvariantDetailI3(long_layers[i], true, "no_position"));
       }
-      if(!Grind_ReconLayerHasExitCoverage(long_layers[i])) {
+      const int long_rank = (i < ArraySize(long_ranks)) ? long_ranks[i] : 0;
+      if(Grind_ExitQRequired(long_rank) && !Grind_ReconLayerHasExitCoverage(long_layers[i])) {
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
                                     Grind_InvariantDetailI3(long_layers[i], true, "no_exit_coverage"),
                                     long_layers[i].position_id);
       }
+      if(!Grind_ReconLayerHasExitCoverage(long_layers[i]))
+         continue;
       const double long_shift = Grind_CarryShiftGetForRecon(long_layers[i].position_id);
       const bool long_exit_filled = long_layers[i].has_exit_position;
       if(!Grind_ReconExitMatchesEntry(long_layers[i].entry_price,
@@ -458,12 +508,15 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
                                     Grind_InvariantDetailI3(short_layers[i], false, "no_position"));
       }
-      if(!Grind_ReconLayerHasExitCoverage(short_layers[i])) {
+      const int short_rank = (i < ArraySize(short_ranks)) ? short_ranks[i] : 0;
+      if(Grind_ExitQRequired(short_rank) && !Grind_ReconLayerHasExitCoverage(short_layers[i])) {
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
                                     Grind_InvariantDetailI3(short_layers[i], false,
                                                              "no_exit_coverage"),
                                     short_layers[i].position_id);
       }
+      if(!Grind_ReconLayerHasExitCoverage(short_layers[i]))
+         continue;
       const double short_shift = Grind_CarryShiftGetForRecon(short_layers[i].position_id);
       const bool short_exit_filled = short_layers[i].has_exit_position;
       if(!Grind_ReconExitMatchesEntry(short_layers[i].entry_price,
@@ -479,6 +532,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
    }
 
    for(int i = 0; i < long_count; i++) {
+      if(!Grind_ReconLayerHasExitCoverage(long_layers[i]))
+         continue;
       int exit_count = 0;
       if(long_layers[i].has_exit_order) {
          for(int j = 0; j < long_count; j++) {
@@ -502,6 +557,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
    }
 
    for(int i = 0; i < short_count; i++) {
+      if(!Grind_ReconLayerHasExitCoverage(short_layers[i]))
+         continue;
       int exit_count = 0;
       if(short_layers[i].has_exit_order) {
          for(int j = 0; j < short_count; j++) {
@@ -960,8 +1017,16 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       }
    }
 
+   int long_ranks[];
+   int short_ranks[];
+   Grind_ReconComputeRanks(long_scratch, long_count, true, long_ranks);
+   Grind_ReconComputeRanks(short_scratch, short_count, false, short_ranks);
+
    for(int i = 0; i < long_count; i++) {
-      if(long_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
+      const int rank = (i < ArraySize(long_ranks)) ? long_ranks[i] : 0;
+      if(long_scratch[i].has_position &&
+         Grind_ExitQRequired(rank) &&
+         !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, long_scratch[i].position_id);
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
@@ -975,7 +1040,10 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       }
    }
    for(int i = 0; i < short_count; i++) {
-      if(short_scratch[i].has_position && !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
+      const int rank = (i < ArraySize(short_ranks)) ? short_ranks[i] : 0;
+      if(short_scratch[i].has_position &&
+         Grind_ExitQRequired(rank) &&
+         !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, short_scratch[i].position_id);
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
@@ -989,8 +1057,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       }
    }
 
-   if(!Grind_ReconCheckInvariants(long_scratch, long_count,
-                                 short_scratch, short_count,
+   if(!Grind_ReconCheckInvariants(long_scratch, long_count, long_ranks,
+                                 short_scratch, short_count, short_ranks,
                                  exit_pips, point, max_layers, reason_out)) {
       if(offending_comment_out == "")
          offending_comment_out = Grind_ReconFailureOffendingForReason(
@@ -1012,7 +1080,11 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       const int n = ArraySize(long_out.layers);
       ArrayResize(long_out.layers, n + 1);
       long_out.layers[n].entry_price = long_scratch[j].entry_price;
-      long_out.layers[n].exit_target = long_scratch[j].exit_target;
+      if(Grind_ReconLayerHasExitCoverage(long_scratch[j]))
+         long_out.layers[n].exit_target = long_scratch[j].exit_target;
+      else
+         long_out.layers[n].exit_target =
+            Grind_ExitQFormulaTarget(long_scratch[j].entry_price, exit_pips, point, true);
       long_out.layers[n].position_ticket = long_scratch[j].position_id;
       long_out.layers[n].exit_order_ticket = long_scratch[j].exit_order_ticket;
       long_out.layers[n].exit_position_ticket = long_scratch[j].exit_position_id;
@@ -1023,7 +1095,11 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       const int n = ArraySize(short_out.layers);
       ArrayResize(short_out.layers, n + 1);
       short_out.layers[n].entry_price = short_scratch[j].entry_price;
-      short_out.layers[n].exit_target = short_scratch[j].exit_target;
+      if(Grind_ReconLayerHasExitCoverage(short_scratch[j]))
+         short_out.layers[n].exit_target = short_scratch[j].exit_target;
+      else
+         short_out.layers[n].exit_target =
+            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_pips, point, false);
       short_out.layers[n].position_ticket = short_scratch[j].position_id;
       short_out.layers[n].exit_order_ticket = short_scratch[j].exit_order_ticket;
       short_out.layers[n].exit_position_ticket = short_scratch[j].exit_position_id;
@@ -1160,6 +1236,7 @@ bool Grind_ReconstructState()
       g_grind_halted = true;
       g_grind_halt_reason = reason;
       Grind_TelemetryCritical(g_grind_telemetry_instance, "RECON_FAIL", reason);
+      Grind_CancelOwnEntryOrders(g_grind_recon_magic, g_grind_recon_slot);
       return false;
    }
 

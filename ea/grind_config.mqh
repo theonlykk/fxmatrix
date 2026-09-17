@@ -4,6 +4,14 @@
 #ifndef GRIND_CONFIG_MQH
 #define GRIND_CONFIG_MQH
 
+#define GRIND_EXITQ_K                 2
+#define GRIND_EXITQ_H                 1
+#define GRIND_SLOT_MARGIN             4
+#define GRIND_SLOT_LOCK_GV            "GRIND_SLOT_LOCK"
+#define GRIND_SLOT_LOCK_STALE_MS      10000
+#define GRIND_SLOT_LOCK_MAX_RETRIES   50
+#define GRIND_CARRY_RELEASE_PREFIX    "GRIND_CARRY_RELEASE_"
+
 //+------------------------------------------------------------------+
 string Grind_ConfigTelemetryKeyStatus(const string api_key)
 {
