@@ -119,21 +119,22 @@ A question costs a copy-paste. A wrong assumption has cost an hour.
 ---
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-17, ~02:53Z.** Evidence: `HANDOFF_2026-09-17.md`.
+**As of 2026-09-17, ~03:54Z.** Evidence: `HANDOFF_2026-09-17.md` (deploy),
+`HANDOFF_2026-09-17b.md` (closes, cap 8, NZD ALT arms).
 
 | | |
 |---|---|
-| fxmatrix main | `c39fb84` (ADR-151 Phase A merged) + this handoff commit |
+| fxmatrix main | `2b570a3` + 17b addendum; EA source at `c39fb84` (ADR-151 Phase A) |
 | VPS compiled at | `c39fb84`, 02:15:57Z. **ADR-151 Phase A is LIVE** |
 | pipshed main | `4e5bef4` |
 | MQL5 suite | **1136/1136** on desktop at `5bc5a88` (baseline 1038 confirmed) |
-| Fleet | 14 attached, 0 halted. NZDCAD ALT / AUDNZD ALT detached (empty books). NZDCHF never attached |
-| Account | demo 1514582088, hedging, limit 200 on positions + orders; **170/200** at 02:53Z |
+| Fleet | **16 attached, 0 halted.** NZDCHF never attached. **GBPUSD/EURUSD OPT+ALT at `InpMaxLayers` 8 via dialog; presets still 12 -- fix first (17b s4)** |
+| Account | demo 1514582088, hedging, limit 200 on positions + orders; **152/200** at 03:54Z. Daily-loss headroom est. ~$100, UNVERIFIED in MetriX (17b s1) |
 | Rollback | `rollback/adr151-k99-r2` @ `f7e2123` (merge, deploy, compile). Never restore the ADR-150 ex5 while any layer is held |
 
 **THE BINDING CONSTRAINT IS NOW THE COMMITMENT GUARD, NOT THE ACCOUNT.**
-Entries need `positions + orders + resting_entries <= 194`. At 02:53Z that was
-196: new entries defer fleet-wide while ~30 slots sit physically free. Exits
+Entries need `positions + orders + resting_entries <= 194`. It bound at 196
+(02:53Z); after the 03:2x closes it is ~183 and entries flow. Exits
 need 1 free slot and are unaffected. Capacity design is the next question.
 
 **How ADR-151 behaves, as seen live:** per side only the 2 nearest exits must

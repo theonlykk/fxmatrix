@@ -262,3 +262,22 @@ fleet slot lock GV; prune tests delete carry GVs terminal-wide.
 **The guard binds in steady state.** Missing entries after a reattach are
 usually deferral (`positions + orders + resting_ent > 194`), not a fault.
 Compute it before diagnosing.
+
+**`status=401` in the Experts tab means the telemetry key is wrong, not the
+network.** The EA keeps trading; pipshed and the archive see nothing. Check
+the Experts tab for 401 in the first minute after every attach.
+
+**Loading a preset overwrites a pasted `TelemetryAPIKey`** (presets store it
+blank), and RDP copy-paste can fail silently. Load preset first, paste key
+last, look at the field before OK.
+
+**Closing positions under a running EA quarantines then halts it.** Detach,
+delete that instance's ENT orders (a fill while detached would be a naked
+rank-0 layer), close, then reattach. Reattaching with a lower `InpMaxLayers`
+than a side's depth trips I7 (not quarantinable): close first.
+
+**An input changed in the EA dialog is not in the repo.** The next preset
+load restores the old value. Commit preset changes the same night.
+
+**Manual closes are invisible to EA realised, `scalp_history` and the pipshed
+summary.** Record tickets and take P&L from MT5 History.
