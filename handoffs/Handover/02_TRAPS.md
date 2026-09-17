@@ -281,3 +281,14 @@ load restores the old value. Commit preset changes the same night.
 
 **Manual closes are invisible to EA realised, `scalp_history` and the pipshed
 summary.** Record tickets and take P&L from MT5 History.
+
+**Carry exit adjustment is a settled principle, not an option** (ADR-135b,
+Economics). An exit that does not move by accrued carry changes the financial
+terms of the trade; the sweep priced carry on that assumption (`725391f`).
+Never frame it as "shifting makes exits fill less often" or offer "don't
+shift" as an alternative.
+
+**"Carry pass off" is not "no risk".** With it off (ADR-151 Phase A), every
+layer held across a rollover exits on changed terms and the fleet diverges
+from the carry-priced calibration. Do not justify deferring carry work by its
+being disabled.

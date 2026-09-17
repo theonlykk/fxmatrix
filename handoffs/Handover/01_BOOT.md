@@ -147,6 +147,9 @@ entries. A front-exit release and the hold-cancel race have NOT run yet.
 across a compile". To keep an instance out, detach it.
 
 **Carry pass is OFF in all 18 presets;** Phase A refuses to start if on.
+**That is a live economic leak, not a safe default:** exits must move by
+accrued carry (ADR-135b; sweep priced it, `725391f`). Phase B priority is
+open -- see `HANDOFF_2026-09-17c.md`.
 
 **Still true:** majors cap 12 / crosses 8 (12 -> 8 is a follow-on ADR, I7
 trap; the memo's capacity table does not justify it, see handoff s3); NZDCHF
