@@ -7,7 +7,9 @@ This message has a line count at the bottom.
 |---|---|
 | Repo | theonlykk/fxmatrix, `D:\fxmatrix` |
 | Design | `docs/architecture/ADR-151-order-purgatory.md` (already on main) and memo rev 5 |
-| Baseline | confirm `origin/main` HEAD before starting; EA source last changed at `9f67f0f` |
+| Baseline | confirm `origin/main` HEAD before starting; last `ea/` commit is `46b1749` |
+| Gemini (2026-09-17) | AM1-AM8 all APPROVED. Rollback via K=99 build APPROVED (AM9). Deploy to 6 running instances first, parked 8 reattached one at a time: APPROVED, no spec change |
+| Revision | rev 2: adds AM9 (K override seam, 2 tests, rollback branch). Supersedes the 269-line spec |
 | Branch | `feat/adr151-exit-queue` from `main` |
 | Compile / tests | You CANNOT compile MQL5. Never claim a compile or a test pass. The operator compiles `ea/fxgrind.mq5` and runs `ea/fxgrind_tests.mq5` on the VPS |
 
@@ -196,6 +198,7 @@ modified existing test in the report.
   1. `ADR-151: tests and seams for exit queue and commitment guard (failing)`
   2. `ADR-151: exit queue, commitment guard, fleet lock, trim, halt-cancel (phase A)`
 Push the branch. Do NOT merge. Do not edit the ADR or the memo.
+Then the rollback branch, per AM9.
 
 ## 9. NEGATIVE SPACE
 - No Phase B: no swap-ledger target, no promotion, no deadband input.
@@ -204,6 +207,11 @@ Push the branch. Do NOT merge. Do not edit the ADR or the memo.
 - No new inputs. Constants only.
 - Do not touch `ea/presets/`.
 - Do not claim compile success or test results.
+- Rollback branch (AM9): exactly one changed line, the `GRIND_EXITQ_K` value.
+  Nothing else, not even whitespace.
+- Do not deploy, do not CLI compile, do not launch MetaTrader, do not
+  `git stash`, do not check out files from other commits, no `git add .`
+  or `git add -u` (stage by exact file name).
 
 ## 10. STOP CONDITIONS
 - Any orientation anchor wrong by >30 lines or missing.
@@ -250,20 +258,58 @@ AM7. 4d: the new layer receives an exit if its rank is required; do not assume
 AM8. Additional tests (add to commit 1; NEW_TESTS becomes 39):
   HT2_CloseByExhaustedHaltCancelsOwnEnt, MQ6_UsedRecomputedBeforeEachExitSend,
   EG3_LockReleasedWhenSendFails.
+AM9. ROLLBACK BUILD (Gemini ruling 2026-09-17). The fleet rollback is the same
+  ADR-151 code rebuilt with `GRIND_EXITQ_K` = 99: every rank required, trim
+  cancels nothing, release re-places every held exit where a slot exists. No
+  code may assume K is small.
+  a. In `grind_exitq.mqh` add `int g_grind_exitq_test_k = -1;` and
+     `int Grind_ExitQK()` returning `g_grind_exitq_test_k` when >= 0, else
+     `GRIND_EXITQ_K`. `Grind_ExitQRequired` and `Grind_ExitQAllowed` use
+     `Grind_ExitQK()` instead of the literal constant. Nothing else reads
+     `GRIND_EXITQ_K` directly. Every test that sets it restores -1 before returning.
+  b. Two tests, added to commit 1 (NEW_TESTS becomes 41):
+     EQ5_KOverrideAllRanksRequired -- with test K = 99: Required(0),
+       Required(11) and Allowed(11) are all true; with override -1,
+       Required(2) is false (K = 2). 4 assertions.
+     MQ7_KOverrideTrimsNothingReleasesAll -- one long side, 5 layers, entries
+       1.10500, 1.10400, 1.10300, 1.10200, 1.10100 (layer_index 0..4).
+       Layers 0 and 1 have exit orders; layers 2, 3, 4 have none. Slot seam:
+       limit 200, used 100, resting_ent 0. Test K = 99. Run
+       `Grind_ExitQManageSide` once. Expect: cancels = 0; exit sends = 3;
+       layers 2, 3, 4 each have `exit_order_ticket != 0`. Then a FRESH copy
+       of the same fixture with override -1 (K = 2, H = 1): ranks by ascending entry are
+       layer 4 = 0, layer 3 = 1, layer 2 = 2, layer 1 = 3, layer 0 = 4, so
+       layers 0 and 1 are beyond Allowed and are cancelled (cancels = 2) and
+       layers 4 and 3 are required and released (exit sends = 2); layer 2
+       (rank 2, allowed not required) receives no send. 7 assertions total.
+     If the existing order/position seams cannot count cancels and sends
+     separately, STOP and report.
+  c. Rollback branch, AFTER `feat/adr151-exit-queue` is pushed: create
+     `rollback/adr151-k99` from commit 2 (NOT from the report commit), change
+     ONLY the value on the `GRIND_EXITQ_K` define line in `ea/grind_config.mqh`
+     from 2 to 99, keeping its spacing, commit as `ADR-151 rollback build: GRIND_EXITQ_K 99
+     (Gemini 2026-09-17)`, push. Do NOT merge it.
 Known residual (no test possible in the script harness): the live
 `HistorySelect` deal lookup in 4b. The operator smoke-checks it on deploy.
 
-## 12. REPORT (print in chat)
+## 12. REPORT
     BASELINE_HEAD: <hash>
     BRANCH: feat/adr151-exit-queue
     COMMITS: <hash1> <hash2>
     FILES_CHANGED: <list with +/- lines>
-    NEW_TESTS: <count> (expect 39)
+    ROLLBACK_BRANCH: rollback/adr151-k99 <hash>
+    ROLLBACK_DIFF_LINES: <count> (expect 1 changed line)
+    NEW_TESTS: <count> (expect 41)
     EXISTING_TESTS_MODIFIED: <count> -- <names>
     ANCHORS_VERIFIED: YES|NO (list deviations)
     COMPILED: NO (operator compiles on VPS)
     OPEN_QUESTIONS: <any, or none>
-End your response with the line `Line count: N`, where N is the mechanical
-line count of your full response.
+Write this report to `prompts/cursor_adr151_phaseA_response.md` on
+`feat/adr151-exit-queue` as a THIRD commit touching only that file. Its first
+line must be: `UNVERIFIED WORKING MATERIAL -- verify against the branch, not this file.`
+Push both branches. Reply in chat with ONLY: both branch names, every commit
+hash AS IT EXISTS ON ORIGIN, and one line saying the report is pushed.
+End the response file with the line `Line count: N`, where N is the mechanical
+line count of that file.
 
-Line count: 269
+Line count: 315
