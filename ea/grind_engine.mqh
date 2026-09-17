@@ -111,6 +111,43 @@ ulong g_grind_position_test_tickets[];
 int   g_grind_position_test_count = 0;
 
 //+------------------------------------------------------------------+
+bool Grind_OrderTestActive()
+{
+   return g_grind_order_test_active;
+}
+
+//+------------------------------------------------------------------+
+int Grind_OrderTestRestingEntFleetCount()
+{
+   int resting_ent = 0;
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      const GrindOrderTestRecord rec = g_grind_order_test_records[i];
+      if(!Grind_IsFleetMagic(rec.magic))
+         continue;
+      string slot, side, role;
+      int layer_index;
+      if(GrindCommentParse(rec.comment, slot, side, layer_index, role)) {
+         if(role == "EXT")
+            continue;
+      }
+      resting_ent++;
+   }
+   return resting_ent;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_PositionTestExistsAnyMagic(const ulong ticket)
+{
+   if(ticket == 0)
+      return false;
+   for(int i = 0; i < g_grind_position_test_count; i++) {
+      if(g_grind_position_test_tickets[i] == ticket)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
 void Grind_PositionTestAdd(const ulong ticket)
 {
    ArrayResize(g_grind_position_test_tickets, g_grind_position_test_count + 1);
@@ -137,6 +174,8 @@ void Grind_OrderTestReset()
    g_grind_order_test_count = 0;
    ArrayResize(g_grind_position_test_tickets, 0);
    g_grind_position_test_count = 0;
+   g_grind_ent_sent_this_tick = false;
+   g_grind_slot_test_delta = 0;
 }
 
 //+------------------------------------------------------------------+
@@ -201,8 +240,10 @@ bool Grind_OrderEngineSend(MqlTradeRequest &request, MqlTradeResult &result)
       result.retcode = g_grind_order_test_send_retcode;
       if(!g_grind_order_test_send_ok)
          return false;
-      if(result.retcode == TRADE_RETCODE_DONE)
+      if(result.retcode == TRADE_RETCODE_DONE) {
          Grind_OrderTestRemove(request.order);
+         g_grind_slot_test_delta--;
+      }
       return true;
    }
 
@@ -233,6 +274,7 @@ bool Grind_OrderEngineSend(MqlTradeRequest &request, MqlTradeResult &result)
          g_grind_order_test_last_placed_price = request.price;
          Grind_OrderTestUpsert(ticket, (long)request.magic, request.comment,
                                request.price, (long)request.type);
+         g_grind_slot_test_delta++;
       }
       return true;
    }

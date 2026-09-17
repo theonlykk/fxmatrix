@@ -22,6 +22,11 @@ bool g_grind_slot_test_active = false;
 long g_grind_slot_test_limit = 0;
 int  g_grind_slot_test_used = 0;
 int  g_grind_slot_test_resting_ent = 0;
+int  g_grind_slot_test_delta = 0;
+
+bool Grind_OrderTestActive();
+int  Grind_OrderTestRestingEntFleetCount();
+bool Grind_PositionTestExistsAnyMagic(const ulong ticket);
 
 int g_grind_exitq_test_k = -1;
 
@@ -102,6 +107,8 @@ long Grind_SlotAccountLimit()
 {
    if(g_grind_slot_test_active)
       return g_grind_slot_test_limit;
+   if(Grind_OrderTestActive())
+      return 0;
    return AccountInfoInteger(ACCOUNT_LIMIT_ORDERS);
 }
 
@@ -109,7 +116,9 @@ long Grind_SlotAccountLimit()
 int Grind_SlotUsed()
 {
    if(g_grind_slot_test_active)
-      return g_grind_slot_test_used;
+      return g_grind_slot_test_used + g_grind_slot_test_delta;
+   if(Grind_OrderTestActive())
+      return 0;
    return PositionsTotal() + OrdersTotal();
 }
 
@@ -118,6 +127,8 @@ int Grind_SlotRestingEnt()
 {
    if(g_grind_slot_test_active)
       return g_grind_slot_test_resting_ent;
+   if(Grind_OrderTestActive())
+      return Grind_OrderTestRestingEntFleetCount();
 
    int resting_ent = 0;
    for(int i = OrdersTotal() - 1; i >= 0; i--) {

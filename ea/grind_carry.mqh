@@ -9,6 +9,9 @@
 #include "grind_pure.mqh"
 #include "grind_config.mqh"
 
+bool Grind_OrderTestActive();
+bool Grind_PositionTestExistsAnyMagic(const ulong ticket);
+
 ulong    g_grind_carry_test_tickets[];
 datetime g_grind_carry_test_open_times[];
 int      g_grind_carry_test_open_count = 0;
@@ -796,7 +799,10 @@ void Grind_CarryPruneShiftGvs(const ulong magic)
       }
       if(ticket == 0)
          continue;
-      if(!PositionSelectByTicket(ticket))
+      const bool exists = Grind_OrderTestActive()
+                          ? Grind_PositionTestExistsAnyMagic(ticket)
+                          : PositionSelectByTicket(ticket);
+      if(!exists)
          GlobalVariableDel(name);
    }
 }
