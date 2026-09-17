@@ -1,5 +1,32 @@
 This message has a line count at the bottom
 
+# ABANDONED -- superseded by ADR-152 (docs/architecture/ADR-152-entry-purgatory.md)
+
+Status: **ABANDONED, never implemented.** Gemini ruling 2026-09-17 (Q4-bis):
+A3 is folded into ADR-152; this ADR is officially abandoned. Do NOT implement
+anything below.
+
+Why: the DeepSeek teardown (`prompts/deepseek_adr152a_response.md`, `bbdf464`),
+verified against source, showed two fatal problems with extracting the fill-path
+timing change on its own.
+
+1. A due flag serviced at the start of the next tick only reorders work inside
+   that tick. It does not remove the tick boundary, so the verified repro that
+   motivated this ADR still misses the fill.
+2. Servicing due adds before L0 lets a far add consume the last guard unit ahead
+   of an at-market L0 -- the exact starvation ADR-152 exists to remove.
+
+Placement timing and the priority band are one coupled design problem. ADR-152
+handles both, and isolates risk by rollout phase (Phase 1 placement mechanics
+and priority band, no withholding; Phase 2 the horizon) instead of by splitting
+the design.
+
+The original draft is kept below for history only.
+
+---
+
+This message has a line count at the bottom
+
 # ADR-152a -- Fill-driven add placement (prerequisite to entry purgatory)
 
 | | |
