@@ -375,12 +375,16 @@ bool Grind_CancelPendingOrder(const ulong ticket, const ulong magic)
 }
 
 //+------------------------------------------------------------------+
+void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
+
+//+------------------------------------------------------------------+
 void Grind_HaltCritical(const string reason)
 {
    g_grind_halted = true;
    if(g_grind_order_test_active)
       g_grind_order_test_last_critical = reason;
    Grind_TelemetryCritical(g_grind_telemetry_instance, reason);
+   Grind_CancelOwnEntryOrders(g_grind_recon_magic, g_grind_recon_slot);
 }
 
 //+------------------------------------------------------------------+
@@ -473,10 +477,28 @@ bool Grind_TryPlaceL0(GrindSideState &side,
       }
    }
 
+   if(g_grind_ent_sent_this_tick)
+      return false;
+
+   double slot_token = 0.0;
+   if(!Grind_SlotLockAcquire(slot_token))
+      return false;
+
+   const long limit = Grind_SlotAccountLimit();
+   const int used = Grind_SlotUsed();
+   const int resting_ent = Grind_SlotRestingEnt();
+   if(!Grind_SlotEntryAllowed(limit, used, resting_ent)) {
+      Grind_SlotLockRelease(slot_token);
+      return false;
+   }
+
    const string side_letter = is_long ? "L" : "S";
    const string comment = GrindCommentBuild(slot, side_letter, 0, "ENT");
    const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
    side.l0_pending_ticket = Grind_PlaceLimit(otype, target_price, lots, magic, comment);
+   Grind_SlotLockRelease(slot_token);
+   if(side.l0_pending_ticket > 0)
+      g_grind_ent_sent_this_tick = true;
    return (side.l0_pending_ticket > 0);
 }
 
@@ -520,6 +542,10 @@ bool Grind_TryPlaceExitForLayer(GrindLayer &layer,
                                 const double lots)
 {
    if(layer.exit_order_ticket != 0 || layer.exit_position_ticket != 0)
+      return false;
+   const long limit = Grind_SlotAccountLimit();
+   const int used = Grind_SlotUsed();
+   if(!Grind_SlotExitAllowed(limit, used))
       return false;
    const string side_letter = is_long ? "L" : "S";
    const string comment = GrindCommentBuild(slot, side_letter, layer.layer_index, "EXT");
@@ -712,10 +738,28 @@ void Grind_EnsureAddNext(GrindSideState &side,
    if(!Grind_ValidateAddLabelIndex(required_index, next_layer))
       return;
 
+   if(g_grind_ent_sent_this_tick)
+      return;
+
+   double slot_token = 0.0;
+   if(!Grind_SlotLockAcquire(slot_token))
+      return;
+
+   const long limit = Grind_SlotAccountLimit();
+   const int used = Grind_SlotUsed();
+   const int resting_ent = Grind_SlotRestingEnt();
+   if(!Grind_SlotEntryAllowed(limit, used, resting_ent)) {
+      Grind_SlotLockRelease(slot_token);
+      return;
+   }
+
    const string side_letter = is_long ? "L" : "S";
    const string comment = GrindCommentBuild(slot, side_letter, next_layer, "ENT");
    const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
    side.add_pending_ticket = Grind_PlaceLimit(otype, clamped, lots, magic, comment);
+   Grind_SlotLockRelease(slot_token);
+   if(side.add_pending_ticket > 0)
+      g_grind_ent_sent_this_tick = true;
 }
 
 //+------------------------------------------------------------------+
@@ -890,7 +934,9 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                                      stack_depth,
                                      net_pnl,
                                      close_time);
+         Grind_CarryShiftDelete(side.layers[i].position_ticket);
          Grind_RemoveLayerAt(side, i);
+         Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
          return;
       }
       return;
@@ -917,9 +963,7 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          side.add_pending_ticket = 0;
 
       Grind_AppendLayer(side, deal_price, position_id, c_layer, exit_pips, is_long);
-      const int layer_idx = Grind_FindLayerByPosition(side, position_id);
-      if(layer_idx >= 0)
-         Grind_TryPlaceExitForLayer(side.layers[layer_idx], is_long, magic, slot, lots);
+      Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
 
       if(c_layer == 0 && side.l0_pending_ticket != 0 &&
          side.l0_pending_ticket != order_ticket) {
@@ -1012,16 +1056,8 @@ void Grind_RetryMissingExits(const ulong magic,
                              const string slot,
                              const double lots)
 {
-   for(int i = 0; i < Grind_SideDepth(g_grind_long); i++) {
-      if(g_grind_long.layers[i].exit_order_ticket == 0 &&
-         g_grind_long.layers[i].exit_position_ticket == 0)
-         Grind_TryPlaceExitForLayer(g_grind_long.layers[i], true, magic, slot, lots);
-   }
-   for(int i = 0; i < Grind_SideDepth(g_grind_short); i++) {
-      if(g_grind_short.layers[i].exit_order_ticket == 0 &&
-         g_grind_short.layers[i].exit_position_ticket == 0)
-         Grind_TryPlaceExitForLayer(g_grind_short.layers[i], false, magic, slot, lots);
-   }
+   Grind_ExitQManageSide(g_grind_long, true, magic, slot, lots, g_grind_recon_exit_pips);
+   Grind_ExitQManageSide(g_grind_short, false, magic, slot, lots, g_grind_recon_exit_pips);
 }
 
 //+------------------------------------------------------------------+
@@ -1037,6 +1073,9 @@ void Grind_OnTickEngine(const ulong magic,
 {
    if(!Grind_GuardsAllowTrading(magic, lots))
       return;
+
+   g_grind_ent_sent_this_tick = false;
+   Grind_RetryMissingExits(magic, slot, lots);
 
    Grind_ReconcileStrayL0(g_grind_long, true, magic);
    Grind_ReconcileStrayL0(g_grind_short, false, magic);
@@ -1065,8 +1104,6 @@ void Grind_OnTickEngine(const ulong magic,
 
    Grind_OnSideCapTransition(g_grind_long, Grind_SideDepth(g_grind_long), max_layers);
    Grind_OnSideCapTransition(g_grind_short, Grind_SideDepth(g_grind_short), max_layers);
-
-   Grind_RetryMissingExits(magic, slot, lots);
 
    if(Grind_SideDepth(g_grind_long) > 0 || g_grind_long.add_pending_ticket != 0)
       Grind_EnsureAddNext(g_grind_long, true, magic, slot, add_pips, deadband_pips, max_layers, lots);
@@ -1181,20 +1218,94 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                             exit_pips, deadband_pips, max_layers, lots);
 }
 
-// ADR-151 phase A — commit 1 stubs (replaced in commit 2).
 bool Grind_ExitQFindExitDealPosition(const ulong order_ticket,
                                      const bool is_long,
                                      const ulong magic,
                                      ulong &position_out)
 {
    position_out = 0;
+   const string want_side = is_long ? "L" : "S";
+
+   if(g_grind_deal_test_active) {
+      for(int i = 0; i < g_grind_deal_test_count; i++) {
+         const GrindDealTestRecord rec = g_grind_deal_test_records[i];
+         if(rec.order_ticket != order_ticket)
+            continue;
+         if(rec.entry_type != DEAL_ENTRY_IN)
+            continue;
+         if(!Grind_MagicMatches(rec.magic, magic))
+            continue;
+         string c_slot, c_side, c_role;
+         int c_layer;
+         if(!GrindCommentParse(rec.comment, c_slot, c_side, c_layer, c_role))
+            continue;
+         if(c_side != want_side)
+            continue;
+         position_out = rec.position_id;
+         return (position_out > 0);
+      }
+      return false;
+   }
+
+   const datetime from = TimeCurrent() - 30 * 86400;
+   if(!HistorySelect(from, TimeCurrent()))
+      return false;
+   const int total = HistoryDealsTotal();
+   for(int i = total - 1; i >= 0; i--) {
+      const ulong deal_ticket = HistoryDealGetTicket(i);
+      if(deal_ticket == 0 || !HistoryDealSelect(deal_ticket))
+         continue;
+      if((ulong)HistoryDealGetInteger(deal_ticket, DEAL_ORDER) != order_ticket)
+         continue;
+      if(HistoryDealGetInteger(deal_ticket, DEAL_ENTRY) != DEAL_ENTRY_IN)
+         continue;
+      if(!Grind_MagicMatches(HistoryDealGetInteger(deal_ticket, DEAL_MAGIC), magic))
+         continue;
+      string c_slot, c_side, c_role;
+      int c_layer;
+      const string comment = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
+      if(!GrindCommentParse(comment, c_slot, c_side, c_layer, c_role))
+         continue;
+      if(c_side != want_side)
+         continue;
+      position_out = (ulong)HistoryDealGetInteger(deal_ticket, DEAL_POSITION_ID);
+      return (position_out > 0);
+   }
    return false;
 }
 
-void Grind_CancelOwnEntryOrders(const ulong magic, const string slot)
+//+------------------------------------------------------------------+
+bool Grind_ExitQHoldCancelLayer(GrindLayer &layer,
+                                const bool is_long,
+                                const ulong magic)
 {
+   if(layer.exit_order_ticket == 0)
+      return true;
+
+   const ulong ticket = layer.exit_order_ticket;
+   if(Grind_CancelPendingOrder(ticket, magic)) {
+      layer.exit_order_ticket = 0;
+      return true;
+   }
+   if(Grind_SelectOurOrder(ticket, magic))
+      return false;
+
+   ulong pos_out = 0;
+   if(Grind_ExitQFindExitDealPosition(ticket, is_long, magic, pos_out) &&
+      Grind_SelectOurPosition(pos_out, magic)) {
+      layer.exit_position_ticket = pos_out;
+      layer.exit_order_ticket = 0;
+      if(is_long)
+         Grind_QueueCloseBy(g_grind_long_closeby_queue, layer.position_ticket, pos_out);
+      else
+         Grind_QueueCloseBy(g_grind_short_closeby_queue, layer.position_ticket, pos_out);
+   } else {
+      layer.exit_order_ticket = 0;
+   }
+   return true;
 }
 
+//+------------------------------------------------------------------+
 void Grind_ExitQManageSide(GrindSideState &side,
                            const bool is_long,
                            const ulong magic,
@@ -1202,6 +1313,129 @@ void Grind_ExitQManageSide(GrindSideState &side,
                            const double lots,
                            const double exit_pips)
 {
+   const int n = Grind_SideDepth(side);
+   if(n <= 0)
+      return;
+
+   double entries[];
+   int layer_indices[];
+   ArrayResize(entries, n);
+   ArrayResize(layer_indices, n);
+   for(int i = 0; i < n; i++) {
+      entries[i] = side.layers[i].entry_price;
+      layer_indices[i] = side.layers[i].layer_index;
+   }
+
+   int ranks[];
+   Grind_ExitQRanks(entries, layer_indices, n, is_long, ranks);
+
+   for(int i = 0; i < n; i++) {
+      if(!Grind_ExitQAllowed(ranks[i]) && side.layers[i].exit_order_ticket != 0)
+         Grind_ExitQHoldCancelLayer(side.layers[i], is_long, magic);
+   }
+
+   for(int i = 0; i < n; i++) {
+      if(!Grind_ExitQRequired(ranks[i]))
+         continue;
+      if(side.layers[i].exit_order_ticket != 0 || side.layers[i].exit_position_ticket != 0)
+         continue;
+
+      const long limit = Grind_SlotAccountLimit();
+      const int used = Grind_SlotUsed();
+      if(!Grind_SlotExitAllowed(limit, used))
+         continue;
+
+      const double formula = Grind_ExitQFormulaTarget(side.layers[i].entry_price,
+                                                      exit_pips, _Point, is_long);
+      double price = formula;
+      const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
+      const string side_letter = is_long ? "L" : "S";
+      const string comment = GrindCommentBuild(slot, side_letter, side.layers[i].layer_index, "EXT");
+      const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_SELL_LIMIT : ORDER_TYPE_BUY_LIMIT;
+      const ulong ticket = Grind_PlaceLimit(otype, price, lots, magic, comment);
+      if(ticket == 0)
+         continue;
+      side.layers[i].exit_order_ticket = ticket;
+      side.layers[i].exit_target = price;
+      if(clamped || MathAbs(price - formula) > _Point * 0.5) {
+         Grind_CarryShiftSet(side.layers[i].position_ticket, price - formula);
+         GlobalVariableSet(Grind_CarryReleaseGvName(side.layers[i].position_ticket), 1.0);
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+void Grind_CancelOwnEntryOrders(const ulong magic, const string slot)
+{
+   if(g_grind_order_test_active) {
+      for(int i = 0; i < g_grind_order_test_count; i++) {
+         const GrindOrderTestRecord rec = g_grind_order_test_records[i];
+         if(!Grind_MagicMatches(rec.magic, magic))
+            continue;
+         string c_slot, c_side, c_role;
+         int c_layer;
+         if(!GrindCommentParse(rec.comment, c_slot, c_side, c_layer, c_role))
+            continue;
+         if(c_role != "ENT" || c_slot != slot)
+            continue;
+         if(Grind_CancelPendingOrder(rec.ticket, magic)) {
+            if(g_grind_long.l0_pending_ticket == rec.ticket)
+               g_grind_long.l0_pending_ticket = 0;
+            if(g_grind_long.add_pending_ticket == rec.ticket)
+               g_grind_long.add_pending_ticket = 0;
+            if(g_grind_short.l0_pending_ticket == rec.ticket)
+               g_grind_short.l0_pending_ticket = 0;
+            if(g_grind_short.add_pending_ticket == rec.ticket)
+               g_grind_short.add_pending_ticket = 0;
+         } else if(!Grind_SelectOurOrder(rec.ticket, magic)) {
+            if(g_grind_long.l0_pending_ticket == rec.ticket)
+               g_grind_long.l0_pending_ticket = 0;
+            if(g_grind_long.add_pending_ticket == rec.ticket)
+               g_grind_long.add_pending_ticket = 0;
+            if(g_grind_short.l0_pending_ticket == rec.ticket)
+               g_grind_short.l0_pending_ticket = 0;
+            if(g_grind_short.add_pending_ticket == rec.ticket)
+               g_grind_short.add_pending_ticket = 0;
+         }
+      }
+      return;
+   }
+
+   for(int i = OrdersTotal() - 1; i >= 0; i--) {
+      const ulong ticket = OrderGetTicket(i);
+      if(ticket == 0 || !OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) != _Symbol)
+         continue;
+      if(!Grind_MagicMatches(OrderGetInteger(ORDER_MAGIC), magic))
+         continue;
+      string c_slot, c_side, c_role;
+      int c_layer;
+      const string comment = OrderGetString(ORDER_COMMENT);
+      if(!GrindCommentParse(comment, c_slot, c_side, c_layer, c_role))
+         continue;
+      if(c_role != "ENT" || c_slot != slot)
+         continue;
+      if(Grind_CancelPendingOrder(ticket, magic)) {
+         if(g_grind_long.l0_pending_ticket == ticket)
+            g_grind_long.l0_pending_ticket = 0;
+         if(g_grind_long.add_pending_ticket == ticket)
+            g_grind_long.add_pending_ticket = 0;
+         if(g_grind_short.l0_pending_ticket == ticket)
+            g_grind_short.l0_pending_ticket = 0;
+         if(g_grind_short.add_pending_ticket == ticket)
+            g_grind_short.add_pending_ticket = 0;
+      } else if(!Grind_SelectOurOrder(ticket, magic)) {
+         if(g_grind_long.l0_pending_ticket == ticket)
+            g_grind_long.l0_pending_ticket = 0;
+         if(g_grind_long.add_pending_ticket == ticket)
+            g_grind_long.add_pending_ticket = 0;
+         if(g_grind_short.l0_pending_ticket == ticket)
+            g_grind_short.l0_pending_ticket = 0;
+         if(g_grind_short.add_pending_ticket == ticket)
+            g_grind_short.add_pending_ticket = 0;
+      }
+   }
 }
 
 #include "grind_heartbeat_detail.mqh"

@@ -7,6 +7,7 @@
 #include "grind_archive.mqh"
 #include "grind_state.mqh"
 #include "grind_pure.mqh"
+#include "grind_config.mqh"
 
 ulong    g_grind_carry_test_tickets[];
 datetime g_grind_carry_test_open_times[];
@@ -493,9 +494,16 @@ void Grind_CarryShiftSet(const ulong position_ticket, const double shift_price)
 }
 
 //+------------------------------------------------------------------+
+string Grind_CarryReleaseGvNameLocal(const ulong position_ticket)
+{
+   return GRIND_CARRY_RELEASE_PREFIX + IntegerToString((long)position_ticket);
+}
+
+//+------------------------------------------------------------------+
 void Grind_CarryShiftDelete(const ulong position_ticket)
 {
    GlobalVariableDel(Grind_CarryShiftGvName(position_ticket));
+   GlobalVariableDel(Grind_CarryReleaseGvNameLocal(position_ticket));
 }
 
 //+------------------------------------------------------------------+
@@ -523,6 +531,10 @@ double Grind_CarryShiftGetValidated(const ulong position_ticket,
                                     const datetime open_time,
                                     const double nightly_max_pips)
 {
+   const string release_gv = Grind_CarryReleaseGvNameLocal(position_ticket);
+   if(GlobalVariableCheck(release_gv))
+      return Grind_CarryShiftGet(position_ticket);
+
    const double shift = Grind_CarryShiftGet(position_ticket);
    if(shift == 0.0)
       return 0.0;
@@ -772,26 +784,19 @@ void Grind_CarryPruneShiftGvs(const ulong magic)
 {
    for(int g = GlobalVariablesTotal() - 1; g >= 0; g--) {
       const string name = GlobalVariableName(g);
-      if(StringFind(name, "GRIND_CARRY_SHIFT_") != 0)
+      ulong ticket = 0;
+      if(StringFind(name, "GRIND_CARRY_SHIFT_") == 0) {
+         const string suffix = StringSubstr(name, StringLen("GRIND_CARRY_SHIFT_"));
+         ticket = (ulong)StringToInteger(suffix);
+      } else if(StringFind(name, GRIND_CARRY_RELEASE_PREFIX) == 0) {
+         const string suffix = StringSubstr(name, StringLen(GRIND_CARRY_RELEASE_PREFIX));
+         ticket = (ulong)StringToInteger(suffix);
+      } else {
          continue;
-      const string suffix = StringSubstr(name, StringLen("GRIND_CARRY_SHIFT_"));
-      const ulong ticket = (ulong)StringToInteger(suffix);
-      bool in_book = false;
-      for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
-         if(g_grind_long.layers[i].position_ticket == ticket) {
-            in_book = true;
-            break;
-         }
       }
-      if(!in_book) {
-         for(int j = 0; j < ArraySize(g_grind_short.layers); j++) {
-            if(g_grind_short.layers[j].position_ticket == ticket) {
-               in_book = true;
-               break;
-            }
-         }
-      }
-      if(!in_book || !Grind_SelectOurPosition(ticket, magic))
+      if(ticket == 0)
+         continue;
+      if(!PositionSelectByTicket(ticket))
          GlobalVariableDel(name);
    }
 }

@@ -23,6 +23,8 @@ struct GrindCloseByTask
 GrindCloseByTask g_grind_long_closeby_queue[];
 GrindCloseByTask g_grind_short_closeby_queue[];
 
+void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
+
 // Unit-test hooks (no live PositionSelect / OrderSend when active).
 bool   g_grind_closeby_test_active = false;
 bool   g_grind_closeby_test_send_ok = true;
@@ -165,6 +167,7 @@ void Grind_ProcessCloseByQueue(GrindCloseByTask &queue[],
             g_grind_closeby_test_last_critical = crit;
             Grind_TelemetryCritical(g_grind_telemetry_instance, "GRIND_CLOSEBY_EXHAUSTED", crit);
             g_grind_halted = true;
+            Grind_CancelOwnEntryOrders(magic, g_grind_recon_slot);
          } else if(verbose) {
             Print("INFO GRIND_CLOSEBY_EXHAUSTED one or both legs closed/unselectable "
                   "position=", queue[i].ticket1,
@@ -227,6 +230,7 @@ void Grind_ProcessCloseByQueue(GrindCloseByTask &queue[],
          Grind_TelemetryCritical(g_grind_telemetry_instance, "CLOSEBY_SYMBOL_MISMATCH",
                                  StringFormat("ticket1=%I64u ticket2=%I64u",
                                               mismatch_t1, mismatch_t2));
+         Grind_CancelOwnEntryOrders(magic, g_grind_recon_slot);
          return;
       }
 

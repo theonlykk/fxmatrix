@@ -56,6 +56,29 @@ void AssertNotContains(const string name, const string haystack, const string ne
    AssertTrue(name, StringFind(haystack, needle) < 0);
 }
 
+bool Grind_TestReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
+                                    const int long_count,
+                                    const GrindReconLayerScratch &short_layers[],
+                                    const int short_count,
+                                    const double exit_pips,
+                                    const double point,
+                                    const int max_layers,
+                                    string &reason_out,
+                                    const int default_rank = 0)
+{
+   int long_ranks[];
+   int short_ranks[];
+   ArrayResize(long_ranks, long_count);
+   ArrayResize(short_ranks, short_count);
+   for(int i = 0; i < long_count; i++)
+      long_ranks[i] = default_rank;
+   for(int i = 0; i < short_count; i++)
+      short_ranks[i] = default_rank;
+   return Grind_ReconCheckInvariants(long_layers, long_count, long_ranks,
+                                     short_layers, short_count, short_ranks,
+                                     exit_pips, point, max_layers, reason_out);
+}
+
 int Test_SuiteResetGlobals()
 {
    int deleted = 0;
@@ -2590,6 +2613,7 @@ void Test_T50_InvariantOpenExtPositionPasses()
 
 void Test_T51_InvariantNeitherExitStillHalts()
 {
+   // ADR-151: I3 no_exit_coverage applies only to required ranks; L00 is rank 0.
    const ulong magic = 22260101UL;
    GrindReconTicket tickets[1];
    tickets[0].ticket = 1001; tickets[0].magic = magic;
@@ -3676,7 +3700,7 @@ void Test_I5c_DuplicateIndicesFail()
    GrindReconLayerScratch empty[];
    string reason = "";
    AssertTrue("I5c fail",
-              !Grind_ReconCheckInvariants(layers, 2, empty, 0,
+              !Grind_TestReconCheckInvariants(layers, 2, empty, 0,
                                          3.0, 0.00001, 12, reason));
    AssertEqStr("I5c reason", reason, "I5_LONG_CORRUPT_LAYER_INDICES");
 }
@@ -3688,7 +3712,7 @@ void Test_I5d_NegativeIndexFails()
    GrindReconLayerScratch empty[];
    string reason = "";
    AssertTrue("I5d fail",
-              !Grind_ReconCheckInvariants(layers, 1, empty, 0,
+              !Grind_TestReconCheckInvariants(layers, 1, empty, 0,
                                          3.0, 0.00001, 12, reason));
    AssertEqStr("I5d reason", reason, "I5_LONG_CORRUPT_LAYER_INDICES");
 }
@@ -4262,6 +4286,7 @@ void Test_Q9_ReasonChangeKeepsClock()
 
 void Test_Q10_RetryMissingExitsOnlyUncovered()
 {
+   // ADR-151: RetryMissingExits delegates to exit queue; only required ranks get releases.
    Grind_QuarantineReset();
    Grind_TestResetSideState();
    Grind_OrderTestReset();
@@ -6019,7 +6044,7 @@ void Test_IV1_I6LongExitOrderDetail()
    g_grind_invariant_detail = "";
    g_grind_invariant_reason = "";
    AssertFalse("IV1 fails",
-               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
    AssertEqStr("IV1 reason", g_grind_invariant_reason, "I6_LONG_EXIT");
    AssertContains("IV1 exit_is order", g_grind_invariant_detail, "\"exit_is\":\"ORDER\"");
 }
@@ -6036,7 +6061,7 @@ void Test_IV2_I6LongExitPositionLiveCase()
    g_grind_invariant_detail = "";
    g_grind_invariant_reason = "";
    AssertFalse("IV2 fails",
-               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
    AssertContains("IV2 exit_is position", g_grind_invariant_detail, "\"exit_is\":\"POSITION\"");
    AssertContains("IV2 diff_points", g_grind_invariant_detail, "\"diff_points\":-6");
    AssertContains("IV2 exit_ticket", g_grind_invariant_detail, "\"exit_ticket\":541583361");
@@ -6056,7 +6081,7 @@ void Test_IV3_I3LongNakedDetail()
    g_grind_invariant_detail = "";
    g_grind_invariant_reason = "";
    AssertFalse("IV3 fails",
-               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
    AssertEqStr("IV3 reason", g_grind_invariant_reason, "I3_LONG_NAKED");
    AssertContains("IV3 failed test", g_grind_invariant_detail, "\"failed_test\":\"no_position\"");
 }
@@ -6075,7 +6100,7 @@ void Test_IV4_I7LongDepthDetail()
    g_grind_invariant_detail = "";
    g_grind_invariant_reason = "";
    AssertFalse("IV4 fails",
-               Grind_ReconCheckInvariants(layers, 13, empty, 0, 7.0, 0.00001, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 13, empty, 0, 7.0, 0.00001, 12, reason));
    AssertEqStr("IV4 reason", g_grind_invariant_reason, "I7_LONG_DEPTH");
    AssertContains("IV4 depth found", g_grind_invariant_detail, "\"depth_found\":13");
    AssertContains("IV4 max layers", g_grind_invariant_detail, "\"max_layers\":12");
@@ -6093,7 +6118,7 @@ void Test_IV5_InvariantDetailClearsOnPass()
    g_grind_invariant_detail = "{\"stale\":true}";
    g_grind_invariant_reason = "STALE";
    AssertTrue("IV5 pass",
-              Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+              Grind_TestReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
    AssertEqStr("IV5 detail cleared", g_grind_invariant_detail, "");
 }
 
@@ -6109,7 +6134,7 @@ void Test_IV6_JsonShapeAndArchiveInfo()
    g_grind_invariant_detail = "";
    g_grind_invariant_reason = "";
    AssertFalse("IV6 fails",
-               Grind_ReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 1, empty, 0, 7.0, 0.00001, 12, reason));
    const int detail_len = StringLen(g_grind_invariant_detail);
    AssertTrue("IV6 starts brace", detail_len > 0 && StringGetCharacter(g_grind_invariant_detail, 0) == '{');
    AssertTrue("IV6 ends brace",
@@ -6137,7 +6162,7 @@ void Test_EF1_I6LiveFavourableFillLong()
    GrindReconLayerScratch empty[];
    string reason = "";
    AssertTrue("EF1 filled pass",
-              Grind_ReconCheckInvariants(filled, 1, empty, 0, exit_pips, point, 12, reason));
+              Grind_TestReconCheckInvariants(filled, 1, empty, 0, exit_pips, point, 12, reason));
 
    GrindReconLayerScratch resting[1];
    Grind_TestInitLayerScratch(resting[0], 2, entry, 541545776UL);
@@ -6146,7 +6171,7 @@ void Test_EF1_I6LiveFavourableFillLong()
    resting[0].exit_target = 1.35044;
    g_grind_invariant_reason = "";
    AssertFalse("EF1 resting fail",
-               Grind_ReconCheckInvariants(resting, 1, empty, 0, exit_pips, point, 12, reason));
+               Grind_TestReconCheckInvariants(resting, 1, empty, 0, exit_pips, point, 12, reason));
    AssertEqStr("EF1 resting reason", g_grind_invariant_reason, "I6_LONG_EXIT");
 }
 
@@ -6163,7 +6188,7 @@ void Test_EF2_I6LargeFavourableFillLong()
    GrindReconLayerScratch empty[];
    string reason = "";
    AssertTrue("EF2 filled pass",
-              Grind_ReconCheckInvariants(filled, 1, empty, 0, exit_pips, point, 12, reason));
+              Grind_TestReconCheckInvariants(filled, 1, empty, 0, exit_pips, point, 12, reason));
 
    GrindReconLayerScratch resting[1];
    Grind_TestInitLayerScratch(resting[0], 2, entry, 541545776UL);
@@ -6171,7 +6196,7 @@ void Test_EF2_I6LargeFavourableFillLong()
    resting[0].exit_order_ticket = 999;
    resting[0].exit_target = 1.35200;
    AssertFalse("EF2 resting fail",
-               Grind_ReconCheckInvariants(resting, 1, empty, 0, exit_pips, point, 12, reason));
+               Grind_TestReconCheckInvariants(resting, 1, empty, 0, exit_pips, point, 12, reason));
 }
 
 void Test_EF3_I6ShortFillMirror()
@@ -6192,15 +6217,15 @@ void Test_EF3_I6ShortFillMirror()
 
    layers[0].exit_target = 0.58479;
    AssertTrue("EF3 two below pass",
-              Grind_ReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+              Grind_TestReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
 
    layers[0].exit_target = 0.58400;
    AssertTrue("EF3 large favour pass",
-              Grind_ReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+              Grind_TestReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
 
    layers[0].exit_target = 0.58495;
    AssertFalse("EF3 fourteen adverse fail",
-               Grind_ReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+               Grind_TestReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
 }
 
 void Test_EF4_I6AdverseFillQuarantinable()
@@ -6217,7 +6242,7 @@ void Test_EF4_I6AdverseFillQuarantinable()
    string reason = "";
    g_grind_invariant_reason = "";
    AssertFalse("EF4 fails",
-               Grind_ReconCheckInvariants(layers, 1, empty, 0, exit_pips, point, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 1, empty, 0, exit_pips, point, 12, reason));
    AssertEqStr("EF4 reason", g_grind_invariant_reason, "I6_LONG_EXIT_FILL_ADVERSE");
    AssertTrue("EF4 quarantinable", Grind_IsQuarantinableReason(g_grind_invariant_reason));
 }
@@ -6236,7 +6261,7 @@ void Test_EF5_I6RestingMismatchHardHalt()
    string reason = "";
    g_grind_invariant_reason = "";
    AssertFalse("EF5 fails",
-               Grind_ReconCheckInvariants(layers, 1, empty, 0, exit_pips, point, 12, reason));
+               Grind_TestReconCheckInvariants(layers, 1, empty, 0, exit_pips, point, 12, reason));
    AssertEqStr("EF5 reason", g_grind_invariant_reason, "I6_LONG_EXIT");
    AssertFalse("EF5 not quarantinable", Grind_IsQuarantinableReason(g_grind_invariant_reason));
 }
