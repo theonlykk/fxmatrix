@@ -108,6 +108,9 @@ def can_place_entry_layer(current_layers: int, max_layers_cap: int) -> bool:
     return current_layers < max_layers_cap
 
 
+CAP_MODES = ("stall", "roll_on_add", "roll_on_fill")
+
+
 def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=None,
                        symbol="GBPUSD", bias_mode=BiasMode.BOTH,
                        seed=0, sub_steps=100, sigma_for_bridge=None,
@@ -119,7 +122,8 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                        initial_balance: float = sim_costs.DEFAULT_INITIAL_BALANCE,
                        max_daily_loss_usd: float | None = None,
                        max_total_loss_usd: float | None = None,
-                       max_layers: int | None = None):
+                       max_layers: int | None = None,
+                       cap_mode: str = "stall"):
     """
     bid_theoretical_arr / offer_theoretical_arr: precomputed real-signal levels
     (same length as closes), used ONLY for the flat->Layer-0 re-entry decision.
@@ -129,15 +133,25 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     conversion_rate: constant conversion rate when conversion_closes not supplied.
     max_layers: required layer cap (current_layers < max_layers to open entries).
     Single-sided model: cap applies to len(layers) — the active side's depth only.
+    cap_mode: stall (default), roll_on_add, or roll_on_fill at max_layers cap.
     """
     if max_layers is None:
         raise ValueError(
             "max_layers is required; pass sim_costs.get_pair_max_layers(symbol) "
             "or an explicit cap — unbounded simulation is not supported"
         )
+    cap_mode = str(cap_mode)
+    if cap_mode not in CAP_MODES:
+        raise ValueError(
+            f"cap_mode must be one of {CAP_MODES}, got {cap_mode!r}"
+        )
     max_layers_cap = int(max_layers)
     if max_layers_cap < 0:
         raise ValueError(f"max_layers must be non-negative, got {max_layers_cap}")
+    if cap_mode != "stall" and max_layers_cap < 2:
+        raise ValueError(
+            f"cap_mode={cap_mode!r} requires max_layers >= 2, got {max_layers_cap}"
+        )
 
     rng = np.random.default_rng(seed)
     n_bars = len(closes) - 1
@@ -207,6 +221,10 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     drawdown_4pct = False
     peak_layer_depth = 0
     cap_reached = False
+    n_forced_closes = 0
+    forced_close_pnl_usd = 0.0
+    forced_close_loss_pips_sum = 0.0
+    stranded_bars = 0
     layer_directions_seen: set[int] = set()
     total_trades = 0
     resting_straddle_width_pips = None
@@ -231,6 +249,54 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
     def compute_equity_usd_at_price(price, bar_idx: int) -> float:
         unrealised, _ = _unrealised_gross_and_comm(price, bar_idx)
         return initial_balance + pnl_realised_usd + unrealised
+
+    def _force_close_oldest(close_mid: float, bar_idx: int) -> None:
+        nonlocal pnl_realised_usd, n_forced_closes, forced_close_pnl_usd
+        nonlocal forced_close_loss_pips_sum, carry_usd_total, carry_modelled
+        if not layers:
+            return
+        assert len(layers) == len(layer_is_l0) == len(layer_entry_bars)
+        closed = layers.pop(0)
+        layer_is_l0.pop(0)
+        entry_bar = layer_entry_bars.pop(0)
+        if closed.direction == 1:
+            close_price = close_mid - half_spread
+        else:
+            close_price = close_mid + half_spread
+        rate = _rate_at(bar_idx)
+        gross = sim_costs.price_diff_to_usd(
+            (close_price - closed.entry_price) * closed.direction,
+            symbol,
+            LOT_SIZE,
+            rate,
+        )
+        carry_leg = 0.0
+        if times is not None:
+            open_dt = pd.Timestamp(times[entry_bar])
+            close_dt = pd.Timestamp(times[bar_idx + 1])
+            carry_leg = sim_costs.carry_usd(
+                symbol,
+                closed.direction,
+                open_dt,
+                close_dt,
+                LOT_SIZE,
+                rate,
+            )
+        else:
+            carry_modelled = False
+        leg_pnl = gross - exit_comm_leg + carry_leg
+        pnl_realised_usd += leg_pnl
+        forced_close_pnl_usd += leg_pnl
+        carry_usd_total += carry_leg
+        n_forced_closes += 1
+        forced_close_loss_pips_sum += (
+            (close_price - closed.entry_price) * closed.direction / pair_spec.pip_size
+        )
+        assert len(layers) == len(layer_is_l0) == len(layer_entry_bars)
+
+    def _maybe_roll_on_fill(close_mid: float, bar_idx: int) -> None:
+        if cap_mode == "roll_on_fill" and len(layers) == max_layers_cap:
+            _force_close_oldest(close_mid, bar_idx)
 
     def try_enter_from_flat(bar_idx, mid_price):
         """Work the real-signal-derived resting order(s), per bias_mode."""
@@ -326,6 +392,7 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                             peak_layer_depth = max(peak_layer_depth, len(layers))
                             if peak_layer_depth >= max_layers_cap:
                                 cap_reached = True
+                            _maybe_roll_on_fill(mid_now, i)
                             resting_straddle_width_pips = None
                 continue
 
@@ -397,8 +464,14 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                 hit = ((cur.direction == 1 and price_prev > effective_add >= price_now) or
                        (cur.direction == -1 and price_prev < effective_add <= price_now))
                 if hit:
+                    if (
+                        cap_mode == "roll_on_add"
+                        and len(layers) == max_layers_cap
+                    ):
+                        _force_close_oldest(price_now, i)
                     if not can_place_entry_layer(len(layers), max_layers_cap):
-                        cap_reached = True
+                        if cap_mode == "stall":
+                            cap_reached = True
                     else:
                         layers.append(Layer(
                             entry_price=add_target,
@@ -414,6 +487,16 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
                         peak_layer_depth = max(peak_layer_depth, len(layers))
                         if peak_layer_depth >= max_layers_cap:
                             cap_reached = True
+                        _maybe_roll_on_fill(price_now, i)
+
+        if layers and len(layers) == max_layers_cap and pod_half_width_pips is not None:
+            add_pips_sb = add_pips_from_width(pod_half_width_pips)
+            add_target_sb = compute_add_target(layers, add_pips_sb, symbol)
+            cur_sb = layers[-1]
+            if cur_sb.direction == 1 and end_price < add_target_sb:
+                stranded_bars += 1
+            elif cur_sb.direction == -1 and end_price > add_target_sb:
+                stranded_bars += 1
 
         price_current = end_price
         equity_current = compute_equity_usd_at_price(end_price, i + 1)
@@ -487,6 +570,15 @@ def simulate_one_path(closes, bid_theoretical_arr, offer_theoretical_arr, times=
             rollover_units_total / layers_total if layers_total else 0.0
         ),
         "carry_modelled": carry_modelled,
+        "cap_mode": cap_mode,
+        "n_forced_closes": n_forced_closes,
+        "forced_close_pnl_usd": forced_close_pnl_usd,
+        "forced_close_loss_pips_mean": (
+            forced_close_loss_pips_sum / n_forced_closes
+            if n_forced_closes
+            else 0.0
+        ),
+        "stranded_bars": stranded_bars,
     }
     if track_l0_stats:
         out["l0_hold_mins"] = l0_hold_mins
