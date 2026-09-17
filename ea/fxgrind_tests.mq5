@@ -15,6 +15,7 @@
 #include "grind_pnl.mqh"
 #include "grind_magic_lock.mqh"
 #include "grind_config.mqh"
+#include "fxgrind_tests_adr151.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -6532,6 +6533,47 @@ void OnStart()
    Test_B5b_TypeShortStringsNoMqlPrefix();
    Test_B5c_SameSecondOrderingByMsc();
    Test_B6_WorstCaseBookSplitPostComplete();
+   Test_EQ1_RanksLongAscendingEntry();
+   Test_EQ2_RanksShortDescendingEntry();
+   Test_EQ3_RankTieByLayerIndex();
+   Test_EQ4_RequiredAllowedBands();
+   Test_EQ5_KOverrideAllRanksRequired();
+   Test_SG1_ExitAllowedAtOneFree();
+   Test_SG2_EntryBlockedBelowMargin();
+   Test_SG3_EntryAllowedAtMargin();
+   Test_SG4_LimitZeroDisablesGuard();
+   Test_SG5_RestingEntCountsUnparseableFleetOrder();
+   Test_SG6_RestingEntIgnoresExtAndNonFleet();
+   Test_LK1_AcquireReleaseRoundTrip();
+   Test_LK2_SecondAcquireFailsWhileHeld();
+   Test_LK3_StaleLockStolen();
+   Test_LK4_ReleaseOnlyIfTokenMatches();
+   Test_MQ1_TrimCancelsBeyondAllowedBand();
+   Test_MQ2_ReleasePlacesRequiredMissing();
+   Test_MQ3_TrimRunsBeforeRelease();
+   Test_MQ4_NoSendWhenExitNotAllowed();
+   Test_MQ5_ClampStoresShiftAndReleaseMarker();
+   Test_MQ6_UsedRecomputedBeforeEachExitSend();
+   Test_MQ7_KOverrideTrimsNothingReleasesAll();
+   Test_HC1_CancelDoneClearsTracker();
+   Test_HC2_CancelFailedOrderLiveKeepsTracker();
+   Test_HC3_GoneWithDealQueuesCloseBy();
+   Test_HC4_GoneWithoutDealClearsTracker();
+   Test_HC5_DealOnOtherSideIgnored();
+   Test_CV1_ReleaseMarkerSkipsBound();
+   Test_CV2_ShiftDeleteRemovesMarker();
+   Test_CV3_PruneKeepsExistingPositionGvs();
+   Test_RI1_HeldLayerBeyondKPassesI3();
+   Test_RI2_MissingExitAtRequiredRankFailsI3();
+   Test_RI3_I1SkipsLayersWithoutExit();
+   Test_RI4_I6SkipsLayersWithoutExit();
+   Test_RI5_HeldLayerExitTargetFormulaNotZero();
+   Test_EG1_EntryDeferredNoSendWhenBlocked();
+   Test_EG2_OneEntSendPerTick();
+   Test_EG3_LockReleasedWhenSendFails();
+   Test_HT1_HaltCriticalCancelsOwnEntOnly();
+   Test_HT2_CloseByExhaustedHaltCancelsOwnEnt();
+   Test_FL1_EntFillPlacesRankZeroExitAndTrims();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

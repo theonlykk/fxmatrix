@@ -80,6 +80,8 @@ long Grind_MarketFreezeLevel()
    return (long)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL);
 }
 
+#include "grind_exitq.mqh"
+
 // Order-operation unit-test hooks (fxgrind_tests A1–A8).
 bool   g_grind_order_test_active = false;
 bool   g_grind_order_test_send_ok = true;
@@ -1177,6 +1179,29 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                             exit_pips, deadband_pips, max_layers, lots);
    Grind_HandleSideDealFill(g_grind_short, false, trans.deal, magic, slot,
                             exit_pips, deadband_pips, max_layers, lots);
+}
+
+// ADR-151 phase A — commit 1 stubs (replaced in commit 2).
+bool Grind_ExitQFindExitDealPosition(const ulong order_ticket,
+                                     const bool is_long,
+                                     const ulong magic,
+                                     ulong &position_out)
+{
+   position_out = 0;
+   return false;
+}
+
+void Grind_CancelOwnEntryOrders(const ulong magic, const string slot)
+{
+}
+
+void Grind_ExitQManageSide(GrindSideState &side,
+                           const bool is_long,
+                           const ulong magic,
+                           const string slot,
+                           const double lots,
+                           const double exit_pips)
+{
 }
 
 #include "grind_heartbeat_detail.mqh"
