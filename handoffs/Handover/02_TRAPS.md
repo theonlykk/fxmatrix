@@ -301,3 +301,26 @@ terminal actions are server requests FTMO counts but we do not.
 
 **Layer index is a label, not a count.** Closed indices are never reused, so
 a capped ladder can read L05-L12. Depth is `open_layers_long/short`.
+
+**MT5 loads presets from `MQL5\Presets`, which `git pull` and `deploy.ps1`
+never touch** (`xcopy ea\*` has no /S). A preset commit is live only after a
+manual copy there. Loading a stale preset silently reverted a cap to 12.
+
+**The guard is first-come.** Freeing room does not mean the instance you
+freed it for gets it: other instances' far adds and short L0s took it first,
+repeatedly. Deleting an attached instance's ENT orders just re-places them;
+detach first.
+
+**A detached instance's pipshed heartbeat is frozen**, including orders you
+have since deleted. Verify in the MT5 Trade tab. Its resting exits keep
+filling at the broker; the fills net on reattach.
+
+**A roll's cost is not the realised loss.** That loss is already in MTM and
+in today's daily-loss figure. The cost is spread + commission plus the
+forgone recovery of the closed layer. And the resting bid re-anchors to the
+deepest layer, so it follows price both ways.
+
+**The roll-mode simulator is single-sided with touch fills.** A capped stall
+ladder idles the whole instance in the sim, so early results overstate
+rolling by an order of magnitude versus live. Compare modes; do not quote
+magnitudes.
