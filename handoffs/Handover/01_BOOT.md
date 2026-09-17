@@ -19,8 +19,10 @@ branches, never to main. Honest when something does not work, and it has caught
 errors in specs.
 
 **DeepSeek -- adversarial red-team audits.** Pre-implementation critique of
-mathematical frameworks; finding pathologies before code exists. Reached via the
-Cursor courier pattern -- see `04_DEEPSEEK_COURIER.md`.
+mathematical frameworks; finding pathologies before code exists. Reached by the
+API through `D:\candlelab\scripts\r1_audit.py`, which Cursor edits and runs --
+see `04_DEEPSEEK_COURIER.md` (the old "switch Cursor to DeepSeek" courier is not
+how it is actually done).
 
 **The operator (Khalid) merges, compiles and deploys.** You never do.
 
@@ -117,47 +119,35 @@ A question costs a copy-paste. A wrong assumption has cost an hour.
 ---
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-16, ~16:00Z.** Reasoning and evidence: `HANDOFF_2026-09-16.md`.
+**As of 2026-09-16, ~23:45Z.** Evidence: `HANDOFF_2026-09-16b.md` (FOMC),
+design and deploy plan: `HANDOFF_2026-09-16c.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `46b1749` (ADR-150 sixteen-magic tables, NZDCAD/AUDNZD presets) |
-| VPS compiled at | **UNKNOWN** -- ADR-150 is EA code; check `config_events` before assuming |
-| pipshed main | `4e5bef4` -- dashboard rings rendered from `GRIND_RINGS` |
-| MQL5 suite | 1038 per ADR-150 text; SUMMARY not re-pasted -- treat as unverified |
-| Python suites | 71 as of 09-15, plus `scripts/verify_dashboard_rings.py` in pipshed |
-| Fleet | 14 EAs attached: EUR/GBP/USD and AUD/CAD/CHF triangles (12) + NZDCAD OPT + AUDNZD OPT. NZDCAD ALT and AUDNZD ALT DETACHED 2026-09-16 with residual positions and exits. NZDCHF never attached |
-| Account | demo 1514582088, hedging, **ACCOUNT_LIMIT_ORDERS=200 on positions + orders** |
+| fxmatrix main | `17838db` (+ operator commit of spec amendments AM1-AM8, if pushed) |
+| VPS compiled at | last known ADR-150 build; **ADR-151 NOT implemented or deployed** |
+| pipshed main | `4e5bef4` |
+| MQL5 suite | 1038 per ADR-150 text; unverified. ADR-151 adds 39 |
+| Fleet | 14 EAs attached. At 21:47Z: halted GBPUSD OPT, EURUSD ALT (parked), AUDCHF ALT, CADCHF OPT (parking instructions given; not confirmed). NZDCAD/AUDNZD ALT detached, residuals closed |
+| Account | demo 1514582088, hedging, **limit 200 on positions + orders**; book at 200/200 at 21:47Z |
 
-**THE BINDING CONSTRAINT IS THE ACCOUNT LIMIT, NOT API REQUESTS.** At 200
-positions+orders the terminal refuses new orders locally (retcode 10040,
-`duration_ms=0`). The refused order is an EXIT, the layer goes I3_NAKED, the
-3 s quarantine cannot outlast the limit, the instance halts. Three halts on
-09-16 (NZDCAD_ALT 12:55Z, AUDNZD_ALT 12:59Z, GBPUSD_OPT 14:09Z). Book ~190 at
-session end. **No new instances until exits outrank entries in the EA**
-(DeepSeek + Gemini required). API requests are fine: ~23/hour fleet-wide.
+**THE BINDING CONSTRAINT IS THE ACCOUNT LIMIT.** At 200 the terminal refuses
+the exit placed after a fill (10040, `duration_ms=0`) -> I3 naked -> halt.
+Halted instances keep filling resting entries; refused sends retry per tick.
 
-**Detached ALT residuals.** Five positions with exits resting. On this hedging
-account a filled exit OPENS an opposite position; nothing nets it while
-detached. Close By by exact ticket only -- the pair table is in the handoff
-s3. OPT trades within pips; a Close By against an OPT ticket halts OPT.
+**THE FIX IS ACCEPTED: ADR-151 ORDER PURGATORY.** Exit queue (only the K=2
+nearest exits per side rest, H=1 band, the rest held and released as front
+exits net) + commitment guard (entries only when `free - resting_ent >= 2 + 4`,
+under a fleet GV lock). Phase A (carry off) spec:
+`prompts/cursor_adr151_phaseA.md`. **Next session implements and deploys it.**
 
-**Layer cap.** GBPUSD/EURUSD run 12, crosses 8. Lowering is under discussion,
-not decided. I7 halts immediately if depth > cap on reinit, and a resting add
-at the new cap index is kept and would fill to cap+1. See handoff s7.
+**Parking a halted instance** (until ADR-151 is live): delete its ENT orders,
+close exit-less positions, leave locked pairs. Never reinit into a full book.
 
-**ADR-150's calibration-only exception was never ruled by Gemini.** AUDNZD
-ALT 7/7 matches neither barbell peak.
+**Carry pass is OFF in all 18 presets.** ADR-151 Phase A refuses to start if
+it is on. `Grind_CarryPruneShiftGvs` deletes OTHER instances' shift GVs --
+fixed inside ADR-151; do not enable carry before that lands.
 
-**Still true from 09-15:** NZDCHF REJECTED (ADR-146), presets not to be
-attached. Cap thresholds 0.0; leg-isolated (ADR-149) but arming now needs a
-per-currency judgement (topology non-uniform; today's largest concentration
-was short USD). AUDJPY carry figures before ADR-147 are VOID. Barbell arms
-approved (ADR-148), not deployed on any pair.
-
-**ARCHITECT s1 and s11 are stale** (L0 re-quote; cap missing-GV semantics).
-Correct them before the next Gemini or DeepSeek brief.
-
-**Suite count is a BASELINE, not just a gate.** `Test_I5g_L2ReconstructionPasses`
-re-runs L2's assertions; a regression in `Grind_RebuildBookFromTickets`
-presents as a lower TOTAL, not a FAIL line.
+**Still true:** majors cap 12 / crosses 8 (cut to 8 is a follow-on ADR, I7
+trap); NZDCHF rejected (ADR-146); cap thresholds 0.0; ARCHITECT s1 and s11
+stale; suite count is a baseline.

@@ -1,88 +1,76 @@
-# THE DEEPSEEK COURIER PATTERN
+# HOW DEEPSEEK IS REACHED -- THE r1_audit.py RUNNER
 
-DeepSeek is NOT called directly. It is reached by having **Cursor, switched to
-the DeepSeek R1 model**, load a brief from disk, integrity-check that it loaded
-whole, hard-stop if it did not, and only then run the task and write the answer
-back to disk.
+**DeepSeek is called by API from a Python script, not by switching Cursor's
+model.** Earlier versions of this file described a Cursor "courier"; that is
+not what the operator uses, and a Cursor chat set to its own model will just
+summarise the file you hand it.
 
-**Why the integrity gate exists:** pasting a long brief through another tool
-silently truncates. The gate catches that BEFORE DeepSeek answers a half-loaded
-prompt.
+    Script:  D:\candlelab\scripts\r1_audit.py   (candlelab repo, UNTRACKED)
+    Key:     D:\candlelab\.env  ->  DEEPSEEK_API_KEY   (never in code, never printed)
+    Model:   deepseek-reasoner  (usage page reports it as a flash model)
 
----
-
-## THE CANONICAL DOCS -- READ THESE, DO NOT RE-DERIVE
-
-In the fxmatrix repo, `docs/deepseek_prompts_templates/`:
-
-| File | What it is |
-|---|---|
-| `deepseek_courier_pattern_HOWTO.md` | the full procedure and conventions |
-| `deepseek_straddle_rebuild.md` | a real BRIEF, 106 lines, use as a template |
-| `cursor_courier_deepseek_straddle_rebuild.md` | the matching COURIER wrapper |
-
-Further worked examples live in `prompts/` --
-`DEEPSEEK_TEARDOWN_V2.5_ratchet.md` and its `_response.md`,
-`DEEPSEEK_TEARDOWN_BCC.md` and its response,
-`TEMPLATE_cursor_deepseek_handoff.md`.
+The script loads a prompt file plus the files listed in its config block,
+preflight-checks every path exists, sends one request, and writes the reasoning
+and the report to one output file.
 
 ---
 
-## THE FLOW
+## THE FLOW (what worked five times on 2026-09-16)
 
-1. **Claude writes TWO files** to `prompts/`: the BRIEF (the task for DeepSeek)
-   and the COURIER wrapper (the prompt the operator pastes into Cursor).
-2. The operator saves the brief to `D:\fxmatrix\prompts\<name>.md` byte-exact.
-3. He sets Cursor's model to DeepSeek R1 and pastes the COURIER wrapper.
-4. Cursor loads the brief, runs the integrity gate, and either prints
-   **"COURIER HARD STOP -- brief did not load intact"** and answers nothing, or
-   performs the task and writes `prompts/<name>_response.md`.
-5. The operator pastes the response back, in chunks. **Wait for "finished".**
-6. **Claude verifies the response's load-bearing claims against real source
-   before using it. DeepSeek over-flags; its verdicts are not taken on trust.**
+1. **Claude writes the BRIEF** (bookended, ASCII, source-verified GIVENS, the
+   design to attack, threats, required output format).
+2. **Claude writes a CURSOR RUN PROMPT** that: pulls; checks the brief's and any
+   design doc's line counts; commits them to main; replaces ONLY the config
+   block (`FILES_TO_AUDIT`, `DOCS_TO_INCLUDE`, `LATEST_ADR = None`,
+   `PROMPT_PATH`) and the `output_path` line of `r1_audit.py`; runs
+   `python r1_audit.py --dry-run` and checks file count and character size;
+   runs for real; checks the response mechanically; commits the response;
+   prints a fixed FINAL REPORT block.
+3. **The operator saves Claude's files, pastes the run prompt into Cursor.**
+4. **Claude reads the committed response from GitHub** and verifies every
+   load-bearing claim against source before accepting or rejecting it.
 
----
-
-## CONVENTIONS THAT MAKE IT RELIABLE
-
-**ASCII only** in every file. No smart quotes or em-dashes -- MQL5 and agent
-tooling choke on non-ASCII.
-
-**Line-count bookends on the BRIEF.** First line EXACTLY
-`This message has a line count at the bottom.` Last line EXACTLY
-`Line count: N`, with N the real total.
-
-**A stable MID-FILE anchor** -- a heading on a known line number -- as a third
-integrity check, so truncation in the MIDDLE is caught, not just at the ends.
-
-**The courier's integrity signature must match** the brief's actual line 1, the
-mid anchor and its line number, the last line, and the total N. **If you edit
-the brief, re-count and update the courier.**
-
-**The brief carries its own required output format** and a final OVERRIDE CHECK
-line, so the response comes back structured and parseable.
+Worked examples, all in `prompts/`: `deepseek_order_purgatory_rev4.md` (brief),
+`deepseek_order_purgatory_rev4_response.md`, and the ADR-151 spec audit pair.
+The run prompts themselves were not committed; rebuild from step 2.
 
 ---
 
-## THE INTEGRITY GATE -- WHAT CURSOR CHECKS
+## CHECKS THAT MATTER
 
-    line 1        == "This message has a line count at the bottom."
-    line <MID>    == "<the exact mid-file heading>"
-    last line     == "Line count: <N>"
-    total lines   == <N>
+**Attach the source.** The script sends whole files. A design that touches
+recon, carry or CloseBy needs those files in `FILES_TO_AUDIT`, or DeepSeek
+attacks imagined internals. Payloads of 150k-200k chars worked.
 
-Print each PASS/FAIL with the observed value. **HARD STOP on any FAIL.** Never
-answer a brief that did not load intact.
+**Check the report exists.** The response file has `## Internal Reasoning` then
+`## Final Report`. If nothing follows `## Final Report`, the model ran out of
+output (2026-09-16 ADR-151 spec audit: 249k chars of reasoning, empty report).
+A literal-presence check passes anyway, because the reasoning mentions every
+section name. Check for non-empty text after the final heading.
+
+**Secret check by shape.** `sk-[A-Za-z0-9]{20,}` count must be 0 before commit.
+A plain `sk-` substring matches words like `ask-stops`.
+
+**Do not let it re-litigate.** Say what changed, forbid re-raising settled
+findings unless the fix fails, and ask for the smallest fix per finding.
+DeepSeek otherwise declares premises dead over fixable issues.
 
 ---
 
-## WHEN TO USE DEEPSEEK AT ALL
+## OPEN IMPROVEMENTS TO THE RUNNER (not done)
 
-Adversarial red-team critique of a mathematical framework, or finding
-pathologies **before** code exists. Not for implementation, not for review of
-working code.
+  - Record `response.choices[0].finish_reason`; warn loudly on `length`.
+  - Pass an explicit large `max_tokens`.
+  - Write reasoning and report to separate files.
+  - Add `.env` to candlelab's `.gitignore`; consider tracking the script.
 
-**Do not send an audit built on a theory you cannot support.** On 2026-09-14
-Gemini rejected a DeepSeek audit on exactly these grounds: auditing an unknown
-state transition without a telemetry payload is guessing, and the round trip is
-wasted. Build the lens first, then audit what it shows.
+---
+
+## WHEN TO USE DEEPSEEK
+
+Adversarial critique before code exists: order lifecycle, invariants, halts,
+reconstruction, geometry, statistics (ARCHITECT s2 mandatory list). Not for
+implementation.
+
+**Do not send an audit built on a theory you cannot support.** Build the lens
+first, then audit what it shows.

@@ -1,6 +1,6 @@
 # HANDOVER -- START HERE
 
-You are picking up an active algorithmic FX market-making project. Twelve EA
+You are picking up an active algorithmic FX market-making project. Fourteen EA
 instances trade live on an FTMO demo account right now.
 
 This folder is the entry point for a new chat. Read these in order.
@@ -10,7 +10,7 @@ This folder is the entry point for a new chat. Read these in order.
 | `01_BOOT.md` | Roles, machines, conventions, current state | state block every session; rest rarely |
 | `02_TRAPS.md` | How the previous chat got things wrong | append when it happens again |
 | `03_COOKBOOK.md` | Every endpoint, every archive query, the repos | when a tool is added |
-| `04_DEEPSEEK_COURIER.md` | How Cursor carries prompts to DeepSeek | rarely |
+| `04_DEEPSEEK_COURIER.md` | How DeepSeek is reached: the `r1_audit.py` API runner | rarely |
 | `05_GIT_AS_TRANSPORT.md` | How specs and responses move through the repo | rarely |
 
 `NEW_CHAT_PROMPT.md` is not part of the reading order -- it is what the
@@ -30,8 +30,9 @@ Then read, in the fxmatrix repo:
 fxgrind is a passive limit-order FX market maker. Each instance posts a
 two-sided straddle around mid, adds layers as price moves against it,
 exits each layer a fixed distance from its own entry, and nets the pair
-with CloseBy. Twelve instances: six pairs, two arms each (OPT and ALT),
-differing only in exit distance. Caps are hard. It never crosses the spread.
+with CloseBy. Fourteen attached instances: six pairs with both arms (OPT and
+ALT), plus the OPT arm of NZDCAD and AUDNZD (their ALT arms are detached).
+Caps are hard. It never crosses the spread.
 
 ## WHAT TO DO FIRST
 

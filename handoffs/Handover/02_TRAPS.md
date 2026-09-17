@@ -177,3 +177,46 @@ cleared. State the time, or state it as history.
 
 **A Gemini approval is not a source check.** Rev 1 was approved with three
 mechanical errors. Keep both steps.
+
+---
+
+## DESIGN AND RED TEAM (2026-09-16 evening)
+
+**The DeepSeek runner is a script, not a Cursor model switch.**
+`D:\candlelab\scripts\r1_audit.py` sends prompt + listed files by API. Three
+handover docs described the courier; the operator had to dig out the script.
+It had an API key hardcoded as a fallback -- removed; key lives in
+`D:\candlelab\.env`, which candlelab does NOT gitignore.
+
+**An empty `## Final Report` means DeepSeek ran out of output, not credit.**
+The ADR-151 spec audit produced 249k chars of reasoning and no report. The
+section literals appear in the reasoning, so a presence check passes anyway.
+Check that text exists AFTER the final heading. Fix the runner to log
+`finish_reason` and set a large `max_tokens`; keep briefs to one question set.
+
+**Check for the SHAPE of a secret, not a substring.** `sk-` matched
+`ask-stops`. Use `sk-[A-Za-z0-9]{20,}`.
+
+**Claude's design memos had real source errors that only a source-grounded red
+team found:** I8 cannot see a stale tracker; halted instances ignore fills;
+reconstruction leaves `exit_target=0.0` for layers without exits; the carry
+pass skips layers without exit orders; plain `I6_*_EXIT` is NOT quarantinable.
+Three DeepSeek rounds took the premise from "dead" to "survives". Keep sending
+design to DeepSeek with source attached.
+
+**DeepSeek declares premises dead for fixable issues.** Ask for the smallest
+fix per finding and forbid "fatal" on anything it rates fixable.
+
+**Gemini's numbers need the same check.** A 1000 ms lock staleness would have
+broken mutual exclusion across a synchronous OrderSend. Rejected; 10 s.
+
+**A GlobalVariable is terminal-wide.** Any prune keyed on "not in my book"
+deletes peers' data. Delete only when the underlying position no longer exists.
+
+**MQL inputs cannot be fleet-wide.** Values that must match across instances
+belong in compiled constants.
+
+**Recompiling `fxgrind.mq5` reloads every chart using it at once.** Halted
+instances with naked layers will fail reconstruction on reload; close naked
+positions first.
+

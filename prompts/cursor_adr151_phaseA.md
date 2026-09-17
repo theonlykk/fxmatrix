@@ -159,8 +159,7 @@ If `grind_config.mqh` is not included where needed, include it; do not duplicate
   `Grind_CancelOwnEntryOrders(InpMagic, InpSlot)`.
 6d. `OnTick` quarantined branch (~246): keep calling `Grind_RetryMissingExits`
   (which now trims before release); guards as today.
-6e. If `Grind_ReconstructState()` fails in `OnInit`, call
-  `Grind_CancelOwnEntryOrders(InpMagic, InpSlot)`.
+6e. (Superseded by AM3: the cancel lives at the reconstruction failure site.)
 
 ## 7. TESTS (`ea/fxgrind_tests.mq5`) -- commit 1, before implementation
 Add these (names exact), registered in `OnStart` before the SUMMARY line:
@@ -214,12 +213,52 @@ Push the branch. Do NOT merge. Do not edit the ADR or the memo.
   be seamed with the existing `g_grind_deal_test_*` records.
 - More than 40 existing tests need modification.
 
-## 11. REPORT (print in chat)
+## 11. AUDIT AMENDMENTS (DeepSeek spec audit `17838db`, verified by Claude)
+These SUPERSEDE earlier sections where they conflict.
+
+AM1. `Grind_RetryMissingExits(magic, slot, lots)` keeps its signature (called
+  from fxgrind.mq5 ~248 and 6b). It passes `g_grind_recon_exit_pips` (set in
+  OnInit before reconstruction) to `Grind_ExitQManageSide`.
+AM2. Release loop (4a step 3): recompute `limit` and `used` IMMEDIATELY before
+  EACH exit send; never reuse values from before an earlier send in the loop.
+AM3. Halt cancels entries on EVERY halt site. Call
+  `Grind_CancelOwnEntryOrders(g_grind_recon_magic, g_grind_recon_slot)`
+  directly after each `g_grind_halted = true` at:
+    grind_engine.mqh ~378 (`Grind_HaltCritical`),
+    grind_closeby.mqh ~167 (CLOSEBY_EXHAUSTED) and ~226 (CLOSEBY_SYMBOL_MISMATCH),
+    grind_recon.mqh ~1160 (`Grind_ReconstructState` failure; this REPLACES 6e),
+    fxgrind.mq5 ~235 (invariant halt; this is 6c).
+  NOT at fxgrind.mq5 ~282 (`Grind_TestStubHaltPath`, a test stub).
+  Add a forward declaration of `Grind_CancelOwnEntryOrders` where needed by
+  include order (as grind_recon.mqh already forward-declares
+  `Grind_CarryShiftGetForRecon`). If a file cannot reach it without a circular
+  include, STOP and report.
+AM4. Lock scope (4h): acquire the slot lock immediately before the
+  `Grind_PlaceLimit` call in `Grind_TryPlaceL0` (~477) and in
+  `Grind_EnsureAddNext` (~716), AFTER all existing validation including
+  `Grind_ValidateAddLabelIndex` (~710), cap and marketability checks. Release
+  on every path after acquisition. Nothing that can halt or return early may
+  run while the lock is held.
+AM5. Fleet magic table: reuse the existing `GRIND_CAP_ALL_MAGICS` (grind_cap.mqh
+  ~18) as the ONE table. `Grind_MagicLockReleaseAllKnown` and
+  `Grind_IsFleetMagic` both iterate it. Keep 22269901 handling in the magic
+  lock unchanged. If include order prevents this, STOP and report.
+AM6. Declare `g_grind_ent_sent_this_tick` and all `g_grind_slot_test_*` in
+  `grind_exitq.mqh`. `Grind_ExitQRanks` resizes `ranks_out` to n.
+AM7. 4d: the new layer receives an exit if its rank is required; do not assume
+  rank 0.
+AM8. Additional tests (add to commit 1; NEW_TESTS becomes 39):
+  HT2_CloseByExhaustedHaltCancelsOwnEnt, MQ6_UsedRecomputedBeforeEachExitSend,
+  EG3_LockReleasedWhenSendFails.
+Known residual (no test possible in the script harness): the live
+`HistorySelect` deal lookup in 4b. The operator smoke-checks it on deploy.
+
+## 12. REPORT (print in chat)
     BASELINE_HEAD: <hash>
     BRANCH: feat/adr151-exit-queue
     COMMITS: <hash1> <hash2>
     FILES_CHANGED: <list with +/- lines>
-    NEW_TESTS: <count> (expect 36)
+    NEW_TESTS: <count> (expect 39)
     EXISTING_TESTS_MODIFIED: <count> -- <names>
     ANCHORS_VERIFIED: YES|NO (list deviations)
     COMPILED: NO (operator compiles on VPS)
@@ -227,4 +266,4 @@ Push the branch. Do NOT merge. Do not edit the ADR or the memo.
 End your response with the line `Line count: N`, where N is the mechanical
 line count of your full response.
 
-Line count: 230
+Line count: 269
