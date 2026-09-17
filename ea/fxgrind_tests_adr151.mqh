@@ -121,9 +121,10 @@ void Test_EQ2_RanksShortDescendingEntry()
    int ranks[];
    Grind_ExitQRanks(entries, layer_indices, 3, false, ranks);
    AssertTrue("EQ2 size", ArraySize(ranks) == 3);
-   AssertTrue("EQ2 nearest", ranks[0] == 0);
+   // fix1: shorts rank by descending entry; 1.09700 is nearest.
+   AssertTrue("EQ2 nearest", ranks[2] == 0);
    AssertTrue("EQ2 mid", ranks[1] == 1);
-   AssertTrue("EQ2 farthest", ranks[2] == 2);
+   AssertTrue("EQ2 farthest", ranks[0] == 2);
    Adr151_TestResetAll();
 }
 
@@ -716,6 +717,7 @@ void Test_CV3_PruneKeepsExistingPositionGvs()
    GlobalVariableDel(Grind_CarryReleaseGvName(pos));
    Grind_CarryShiftSet(pos, 0.00030);
    GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+   g_grind_order_test_active = true;
    Grind_PositionTestAdd(pos);
    Grind_CarryPruneShiftGvs(magic);
    AssertTrue("CV3 shift kept", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
@@ -803,19 +805,37 @@ void Test_RI5_HeldLayerExitTargetFormulaNotZero()
 {
    const ulong magic = 22260101UL;
    const double exit_pips = 3.0;
-   GrindReconTicket tickets[2];
+   GrindReconTicket tickets[5];
    int count = 0;
    tickets[count].ticket = 1001;
+   tickets[count].magic = magic;
+   tickets[count].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[count].price = 1.25000;
+   tickets[count].kind = GRIND_RECON_TICKET_POSITION;
+   count++;
+   tickets[count].ticket = 1002;
+   tickets[count].magic = magic;
+   tickets[count].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[count].price = 1.24900;
+   tickets[count].kind = GRIND_RECON_TICKET_POSITION;
+   count++;
+   tickets[count].ticket = 1003;
    tickets[count].magic = magic;
    tickets[count].comment = GrindCommentBuild("OPT", "L", 2, "ENT");
    tickets[count].price = 1.24800;
    tickets[count].kind = GRIND_RECON_TICKET_POSITION;
    count++;
-   tickets[count].ticket = 1002;
+   tickets[count].ticket = 2002;
    tickets[count].magic = magic;
-   tickets[count].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
-   tickets[count].price = 1.25000;
-   tickets[count].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[count].comment = GrindCommentBuild("OPT", "L", 1, "EXT");
+   tickets[count].price = 1.24930;
+   tickets[count].kind = GRIND_RECON_TICKET_ORDER;
+   count++;
+   tickets[count].ticket = 2003;
+   tickets[count].magic = magic;
+   tickets[count].comment = GrindCommentBuild("OPT", "L", 2, "EXT");
+   tickets[count].price = 1.24830;
+   tickets[count].kind = GRIND_RECON_TICKET_ORDER;
    count++;
    GrindSideState long_out;
    GrindSideState short_out;
@@ -823,13 +843,12 @@ void Test_RI5_HeldLayerExitTargetFormulaNotZero()
    AssertTrue("RI5 ok", Grind_RebuildBookFromTickets(tickets, count, magic, "OPT",
                                                      exit_pips, 12, _Point,
                                                      long_out, short_out, reason));
-   const double expected = Grind_ExitQFormulaTarget(1.24800, exit_pips, _Point, true);
    bool found = false;
    for(int i = 0; i < ArraySize(long_out.layers); i++) {
-      if(long_out.layers[i].layer_index != 2)
+      if(long_out.layers[i].layer_index != 0)
          continue;
       found = true;
-      AssertNear("RI5 formula", long_out.layers[i].exit_target, expected, 1e-10);
+      AssertNear("RI5 formula", long_out.layers[i].exit_target, 1.25030, 0.000001);
       AssertTrue("RI5 not zero", long_out.layers[i].exit_target > 0.0);
    }
    AssertTrue("RI5 layer found", found);

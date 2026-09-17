@@ -4286,15 +4286,15 @@ void Test_Q9_ReasonChangeKeepsClock()
 
 void Test_Q10_RetryMissingExitsOnlyUncovered()
 {
-   // ADR-151: RetryMissingExits delegates to exit queue; only required ranks get releases.
+   // ADR-151 fix1: exit-less layer moved to rank 0 so the retry-only-uncovered intent still holds.
    Grind_QuarantineReset();
    Grind_TestResetSideState();
    Grind_OrderTestReset();
    g_grind_order_test_active = true;
 
    ArrayResize(g_grind_long.layers, 3);
-   g_grind_long.layers[0].entry_price = 1.25000;
-   g_grind_long.layers[0].exit_target = 1.25050;
+   g_grind_long.layers[0].entry_price = 1.24700;
+   g_grind_long.layers[0].exit_target = 1.24750;
    g_grind_long.layers[0].position_ticket = 1001;
    g_grind_long.layers[0].exit_order_ticket = 0;
    g_grind_long.layers[0].exit_position_ticket = 0;
