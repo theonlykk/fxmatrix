@@ -213,6 +213,21 @@ bool Grind_OrderTestFind(const ulong ticket, GrindOrderTestRecord &out)
 }
 
 //+------------------------------------------------------------------+
+int Grind_OrderTestCountFleetEnt(const string side_letter)
+{
+   int n = 0;
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      string slot, side, role;
+      int layer;
+      if(!GrindCommentParse(g_grind_order_test_records[i].comment, slot, side, layer, role))
+         continue;
+      if(side == side_letter && role == "ENT")
+         n++;
+   }
+   return n;
+}
+
+//+------------------------------------------------------------------+
 void Grind_OrderTestUpsert(const ulong ticket,
                            const long magic,
                            const string comment,

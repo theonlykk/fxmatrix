@@ -13,6 +13,8 @@
 #define GRIND_DAILY_API_SOFT_WARN 1800
 
 bool g_grind_api_counter_broken = false;
+bool g_grind_api_counter_test_active = false;
+int  g_grind_api_counter_test_count = 0;
 bool g_grind_api_entry_stop_warn_emitted = false;
 int  g_grind_near_reserve_blocks = 0;
 int  g_grind_last_guard_total = 0;
@@ -28,8 +30,30 @@ double Grind_ApiCounterTodayYmd()
 }
 
 //+------------------------------------------------------------------+
+void Grind_ApiCounterTestReset()
+{
+   g_grind_api_counter_test_active = false;
+   g_grind_api_counter_test_count = 0;
+   g_grind_api_entry_stop_warn_emitted = false;
+   if(GlobalVariableCheck(GRIND_DAILY_API_COUNT_GV))
+      GlobalVariableDel(GRIND_DAILY_API_COUNT_GV);
+   if(GlobalVariableCheck(GRIND_DAILY_API_DATE_GV))
+      GlobalVariableDel(GRIND_DAILY_API_DATE_GV);
+}
+
+//+------------------------------------------------------------------+
+void Grind_ApiCounterTestSeed(const int count)
+{
+   g_grind_api_counter_test_active = true;
+   g_grind_api_counter_test_count = count;
+   g_grind_api_entry_stop_warn_emitted = false;
+}
+
+//+------------------------------------------------------------------+
 void Grind_ApiCounterMaybeReset()
 {
+   if(g_grind_api_counter_test_active)
+      return;
    const double today_val = Grind_ApiCounterTodayYmd();
    const double stored = GlobalVariableCheck(GRIND_DAILY_API_DATE_GV)
                          ? GlobalVariableGet(GRIND_DAILY_API_DATE_GV)
@@ -67,6 +91,8 @@ void Grind_ApiCounterIncrement()
 //+------------------------------------------------------------------+
 int Grind_ApiCounterRead()
 {
+   if(g_grind_api_counter_test_active)
+      return g_grind_api_counter_test_count;
    Grind_ApiCounterMaybeReset();
    if(!GlobalVariableCheck(GRIND_DAILY_API_COUNT_GV))
       return 0;

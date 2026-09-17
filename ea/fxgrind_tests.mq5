@@ -6600,7 +6600,7 @@ void OnStart()
    Test_HT1_HaltCriticalCancelsOwnEntOnly();
    Test_HT2_CloseByExhaustedHaltCancelsOwnEnt();
    Test_FL1_EntFillPlacesRankZeroExitAndTrims();
-   Test_T1_single_attempt_lock_has_no_retry_loop();
+   Test_T1_try_lock_does_not_block();
    Test_T1b_single_attempt_lock_returns_false_when_held();
    Test_T1c_single_attempt_lock_releases_only_own_token();
    Test_T2_near_entry_allowed_at_ceiling();

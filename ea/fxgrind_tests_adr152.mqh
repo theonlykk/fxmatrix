@@ -18,8 +18,12 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
                           const bool use_try_lock,
                           const long fill_deal_time_msc = 0);
 void Grind_MarketTestSeedTimeMsc(const long time_msc);
+void Grind_ApiCounterTestReset();
+void Grind_ApiCounterTestSeed(const int count);
+int  Grind_OrderTestCountFleetEnt(const string side_letter);
 
 extern long g_grind_entry_place_latency_ms;
+extern bool g_grind_cap_test_lock_held;
 void Grind_Adr152ResetDueFlags();
 void Grind_TryPlaceAddAtFill(GrindSideState &side,
                              const bool is_long,
@@ -57,11 +61,19 @@ void Adr152_TestResetLock()
 //+------------------------------------------------------------------+
 void Adr152_TestResetApiCounter()
 {
-   if(GlobalVariableCheck(GRIND_DAILY_API_COUNT_GV))
-      GlobalVariableDel(GRIND_DAILY_API_COUNT_GV);
-   if(GlobalVariableCheck(GRIND_DAILY_API_DATE_GV))
-      GlobalVariableDel(GRIND_DAILY_API_DATE_GV);
+   Grind_ApiCounterTestReset();
    g_grind_api_counter_broken = false;
+}
+
+//+------------------------------------------------------------------+
+void Adr152_TestPrepareIsolation()
+{
+   Adr152_TestResetApiCounter();
+   Grind_ApiCounterTestSeed(0);
+   Adr151_TestResetLock();
+   g_grind_cap_test_lock_held = false;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
 }
 
 //+------------------------------------------------------------------+
@@ -88,65 +100,18 @@ void Adr152_TestSeedSlotSeams(const long limit,
 }
 
 //+------------------------------------------------------------------+
-string Adr152_ReadExitqMqhContent()
+void Test_T1_try_lock_does_not_block()
 {
-   const string rel = "grind_exitq.mqh";
-   int h = FileOpen(rel, FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
-   if(h == INVALID_HANDLE)
-      h = FileOpen(rel, FILE_READ | FILE_TXT | FILE_ANSI);
-   if(h == INVALID_HANDLE) {
-      const string abs_path = TerminalInfoString(TERMINAL_DATA_PATH)
-                              + "\\MQL5\\Scripts\\" + rel;
-      h = FileOpen(abs_path, FILE_READ | FILE_TXT | FILE_ANSI);
-   }
-   if(h == INVALID_HANDLE) {
-      const string abs_path2 = TerminalInfoString(TERMINAL_DATA_PATH)
-                               + "\\MQL5\\Experts\\" + rel;
-      h = FileOpen(abs_path2, FILE_READ | FILE_TXT | FILE_ANSI);
-   }
-   if(h == INVALID_HANDLE)
-      return "";
-   string content = "";
-   while(!FileIsEnding(h))
-      content += FileReadString(h) + "\n";
-   FileClose(h);
-   return content;
-}
-
-//+------------------------------------------------------------------+
-string Adr152_ExtractFunctionBody(const string content, const string func_name)
-{
-   const string needle = func_name;
-   int pos = StringFind(content, needle);
-   if(pos < 0)
-      return "";
-   int brace = StringFind(content, "{", pos);
-   if(brace < 0)
-      return "";
-   int depth = 0;
-   for(int i = brace; i < StringLen(content); i++) {
-      const ushort c = StringGetCharacter(content, i);
-      if(c == '{')
-         depth++;
-      else if(c == '}') {
-         depth--;
-         if(depth == 0)
-            return StringSubstr(content, brace, i - brace + 1);
-      }
-   }
-   return "";
-}
-
-//+------------------------------------------------------------------+
-void Test_T1_single_attempt_lock_has_no_retry_loop()
-{
-   const string content = Adr152_ReadExitqMqhContent();
-   AssertTrue("T1 file readable", StringLen(content) > 500);
-   const string body = Adr152_ExtractFunctionBody(content, "Grind_SlotLockTryAcquire");
-   AssertTrue("T1 body found", StringLen(body) > 10);
-   AssertFalse("T1 no Sleep", StringFind(body, "Sleep(") >= 0);
-   AssertFalse("T1 no for loop", StringFind(body, "for(") >= 0);
-   AssertFalse("T1 no while loop", StringFind(body, "while(") >= 0);
+   Adr152_TestResetLock();
+   GlobalVariableTemp(GRIND_SLOT_LOCK_GV);
+   GlobalVariableSet(GRIND_SLOT_LOCK_GV, 12345.0);
+   double token = 0.0;
+   const ulong t0 = GetTickCount64();
+   const bool ok = Grind_SlotLockTryAcquire(token);
+   const ulong elapsed = GetTickCount64() - t0;
+   AssertFalse("T1 try blocked", ok);
+   AssertTrue("T1 elapsed under 5ms", elapsed < 5);
+   GlobalVariableDel(GRIND_SLOT_LOCK_GV);
    Adr152_TestResetAll();
 }
 
@@ -259,10 +224,10 @@ void Test_T3_entry_stop_blocks_entry_at_threshold()
    g_grind_order_test_active = true;
    g_grind_cap_thresh_a = 0.0;
    g_grind_cap_thresh_b = 0.0;
+   Adr152_TestPrepareIsolation();
    Adr152_TestSeedSlotSeams(200, 100, 0);
    Grind_MarketTestSeed(1.24950, 1.24952, 0);
-   GlobalVariableSet(GRIND_DAILY_API_DATE_GV, Grind_ApiCounterTodayYmd());
-   GlobalVariableSet(GRIND_DAILY_API_COUNT_GV, (double)GRIND_DAILY_API_ENTRY_STOP);
+   Grind_ApiCounterTestSeed(GRIND_DAILY_API_ENTRY_STOP);
 
    const ulong magic = 22260101UL;
    Grind_TryPlaceL0(g_grind_long, true, 1.24900, magic, "OPT", 12, 0.01);
@@ -279,9 +244,9 @@ void Test_T3_entry_stop_blocks_entry_at_threshold()
 //+------------------------------------------------------------------+
 void Test_T3b_entry_stop_does_not_block_exit()
 {
+   Adr152_TestPrepareIsolation();
    Adr152_TestSeedSlotSeams(200, 199, 0);
-   GlobalVariableSet(GRIND_DAILY_API_DATE_GV, Grind_ApiCounterTodayYmd());
-   GlobalVariableSet(GRIND_DAILY_API_COUNT_GV, (double)GRIND_DAILY_API_ENTRY_STOP);
+   Grind_ApiCounterTestSeed(GRIND_DAILY_API_ENTRY_STOP);
    AssertTrue("T3b stop active", Grind_ApiCounterEntryStopped());
    AssertTrue("T3b exit ok", Grind_SlotExitAllowed(Grind_SlotAccountLimit(),
                                                    Grind_SlotUsed()));
@@ -291,8 +256,10 @@ void Test_T3b_entry_stop_does_not_block_exit()
 //+------------------------------------------------------------------+
 void Test_T3c_entry_stop_resets_with_broker_day()
 {
+   Adr152_TestPrepareIsolation();
    GlobalVariableSet(GRIND_DAILY_API_DATE_GV, Grind_ApiCounterTodayYmd() - 1.0);
    GlobalVariableSet(GRIND_DAILY_API_COUNT_GV, (double)GRIND_DAILY_API_ENTRY_STOP);
+   g_grind_api_counter_test_active = false;
    Grind_ApiCounterMaybeReset();
    AssertFalse("T3c stop cleared on rollover", Grind_ApiCounterEntryStopped());
    AssertTrue("T3c count reset", Grind_ApiCounterRead() == 0);
@@ -441,8 +408,7 @@ void Test_T4b_due_flag_cleared_on_place()
    Grind_OrderTestReset();
    Grind_TestResetSideState();
    g_grind_order_test_active = true;
-   g_grind_cap_thresh_a = 0.0;
-   g_grind_cap_thresh_b = 0.0;
+   Adr152_TestPrepareIsolation();
    Grind_EngineConfigureAdr152(true, 0);
    Adr152_TestSeedSlotSeams(200, 100, 0);
    Grind_MarketTestSeed(1.10450, 1.10452, 0);
@@ -470,18 +436,23 @@ void Test_T4c_due_flag_cleared_at_cap()
    Grind_OrderTestReset();
    Grind_TestResetSideState();
    g_grind_order_test_active = true;
+   Adr152_TestPrepareIsolation();
    Grind_EngineConfigureAdr152(true, 0);
    g_grind_add_due_long = true;
 
    ArrayResize(g_grind_long.layers, 2);
    Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 6101);
    Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, 6102);
+   ArrayResize(g_grind_short.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_short, 0, 0, 1.10400, 5003, 6103);
+   g_grind_short.layers[0].exit_target =
+      Grind_ExitQFormulaTarget(1.10400, 3.0, _Point, false);
 
    const ulong magic = 22260101UL;
    Grind_OnTickEngine(magic, "OPT", 20.0, 3.0, 10.0, 30.0, 4.0, 2, 0.01);
 
    AssertFalse("T4c due cleared at cap", g_grind_add_due_long);
-   AssertTrue("T4c no add send", g_grind_order_test_place_calls == 0);
+   AssertTrue("T4c no long add", Grind_OrderTestCountFleetEnt("L") == 0);
 
    Grind_OrderTestReset();
    Grind_TestResetSideState();

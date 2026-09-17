@@ -135,8 +135,9 @@ operator cannot fly blind on invisible state.
 ## Tests
 
 Pure/unit:
-T1. Single-attempt lock helper: no loop, no `Sleep` (assert by inspection test
-    and by a timing bound).
+T1. Single-attempt lock helper: no loop, no `Sleep` (timing bound in
+    `T1_try_lock_does_not_block`; the no-`Sleep`/no-loop property is also
+    checked by grep during verification, not by the suite).
 T2. Fill-time placement occurs when the lock is free; the due flag is set when
     it is taken.
 T3. Band: a far entry is refused at `used + resting_ent = 194 - Q + 1`; a near
