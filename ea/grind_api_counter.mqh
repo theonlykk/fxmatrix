@@ -5,6 +5,7 @@
 #define GRIND_API_COUNTER_MQH
 
 #include "grind_archive.mqh"
+#include "grind_config.mqh"
 
 #define GRIND_DAILY_API_COUNT_GV "GRIND_DAILY_API_COUNT"
 #define GRIND_DAILY_API_DATE_GV  "GRIND_DAILY_API_DATE"
