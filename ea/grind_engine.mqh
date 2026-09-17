@@ -24,6 +24,8 @@ double g_grind_market_test_bid = 0.0;
 double g_grind_market_test_ask = 0.0;
 long   g_grind_market_test_stops_level = 0;
 long   g_grind_market_test_freeze_level = 0;
+bool   g_grind_market_test_time_active = false;
+long   g_grind_market_test_time_msc = 0;
 
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
@@ -36,6 +38,23 @@ void Grind_MarketTestReset()
    g_grind_market_test_ask = 0.0;
    g_grind_market_test_stops_level = 0;
    g_grind_market_test_freeze_level = 0;
+   g_grind_market_test_time_active = false;
+   g_grind_market_test_time_msc = 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_MarketTestSeedTimeMsc(const long time_msc)
+{
+   g_grind_market_test_time_active = true;
+   g_grind_market_test_time_msc = time_msc;
+}
+
+//+------------------------------------------------------------------+
+long Grind_MarketTimeMsc()
+{
+   if(g_grind_market_test_time_active)
+      return g_grind_market_test_time_msc;
+   return (long)SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
 }
 
 //+------------------------------------------------------------------+
@@ -744,6 +763,14 @@ double Grind_ComputeAddTarget(const GrindSideState &side,
 }
 
 //+------------------------------------------------------------------+
+bool Grind_AddTargetNearMarket(const double target,
+                               const double mid,
+                               const double add_pips)
+{
+   return (MathAbs(target - mid) <= Grind_PipsToPrice(add_pips, _Point) + GRIND_PRICE_EPS);
+}
+
+//+------------------------------------------------------------------+
 bool Grind_SendNextAddEnt(GrindSideState &side,
                           const bool is_long,
                           const ulong magic,
@@ -752,7 +779,7 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
                           const int max_layers,
                           const double lots,
                           const bool use_try_lock,
-                          const ulong fill_path_t0 = 0)
+                          const long fill_deal_time_msc = 0)
 {
    const int n = Grind_SideDepth(side);
    if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
@@ -796,11 +823,14 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
       return false;
    }
 
-   if(g_grind_ent_sent_this_tick)
+   if(g_grind_ent_sent_this_tick) {
+      if(use_try_lock)
+         Grind_Adr152SetDueForSide(is_long);
       return false;
+   }
 
    const double mid = Grind_MidPrice(bid, ask);
-   const bool near_market = (MathAbs(clamped - mid) <= add_pips * _Point + GRIND_PRICE_EPS);
+   const bool near_market = Grind_AddTargetNearMarket(clamped, mid, add_pips);
 
    double slot_token = 0.0;
    if(use_try_lock) {
@@ -832,10 +862,14 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
    Grind_SlotLockRelease(slot_token);
    if(side.add_pending_ticket > 0) {
       g_grind_ent_sent_this_tick = true;
-      if(fill_path_t0 > 0)
-         g_grind_entry_place_latency_ms = (long)(GetTickCount64() - fill_path_t0);
-      else
+      if(fill_deal_time_msc > 0) {
+         const long now_msc = Grind_MarketTimeMsc();
+         g_grind_entry_place_latency_ms = (now_msc > fill_deal_time_msc)
+                                          ? (now_msc - fill_deal_time_msc)
+                                          : 0;
+      } else {
          g_grind_entry_place_latency_ms = 0;
+      }
       Grind_Adr152ClearDueForSide(is_long);
       return true;
    }
@@ -858,10 +892,10 @@ void Grind_TryPlaceAddAtFill(GrindSideState &side,
    if(Grind_ApiCounterEntryStopped())
       return;
 
-   const ulong fill_path_t0 = GetTickCount64();
    g_grind_entry_place_latency_ms = 0;
+   const long fill_deal_time_msc = (long)Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
    Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots,
-                        true, fill_path_t0);
+                        true, fill_deal_time_msc);
 }
 
 //+------------------------------------------------------------------+

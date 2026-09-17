@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests_adr152.mqh — ADR-152 phase 1 unit tests (17)       |
+//| fxgrind_tests_adr152.mqh — ADR-152 phase 1 unit tests (20)       |
 //+------------------------------------------------------------------+
 #ifndef FXGRIND_TESTS_ADR152_MQH
 #define FXGRIND_TESTS_ADR152_MQH
@@ -7,6 +7,19 @@
 #include "grind_exitq.mqh"
 
 void Grind_EngineConfigureAdr152(const bool fill_time_place, const int slot_near_reserve);
+bool Grind_AddTargetNearMarket(const double target, const double mid, const double add_pips);
+bool Grind_SendNextAddEnt(GrindSideState &side,
+                          const bool is_long,
+                          const ulong magic,
+                          const string slot,
+                          const double add_pips,
+                          const int max_layers,
+                          const double lots,
+                          const bool use_try_lock,
+                          const long fill_deal_time_msc = 0);
+void Grind_MarketTestSeedTimeMsc(const long time_msc);
+
+extern long g_grind_entry_place_latency_ms;
 void Grind_Adr152ResetDueFlags();
 void Grind_TryPlaceAddAtFill(GrindSideState &side,
                              const bool is_long,
@@ -222,6 +235,23 @@ void Test_T2d_reserve_zero_reproduces_today()
 }
 
 //+------------------------------------------------------------------+
+void Test_T2e_near_band_uses_pip_conversion()
+{
+   const double add_pips = 10.0;
+   const double mid = 1.10500;
+   const double one_step = Grind_PipsToPrice(add_pips, _Point);
+   const double one_pip = Grind_PipsToPrice(1.0, _Point);
+   const double near_target = mid - one_step;
+   const double far_target = mid - one_step - one_pip;
+
+   AssertTrue("T2e one add step is near",
+              Grind_AddTargetNearMarket(near_target, mid, add_pips));
+   AssertFalse("T2e one add step plus one pip is far",
+               Grind_AddTargetNearMarket(far_target, mid, add_pips));
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
 void Test_T3_entry_stop_blocks_entry_at_threshold()
 {
    Grind_OrderTestReset();
@@ -266,6 +296,53 @@ void Test_T3c_entry_stop_resets_with_broker_day()
    Grind_ApiCounterMaybeReset();
    AssertFalse("T3c stop cleared on rollover", Grind_ApiCounterEntryStopped());
    AssertTrue("T3c count reset", Grind_ApiCounterRead() == 0);
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_T3d_latency_uses_server_clock()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   Adr152_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.10450, 1.10452, 0);
+   g_grind_ent_sent_this_tick = false;
+   g_grind_entry_place_latency_ms = 0;
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 6101);
+
+   const long deal_msc = 1000000;
+   const ulong magic = 22260101UL;
+   Grind_MarketTestSeedTimeMsc(deal_msc + 250);
+   AssertTrue("T3d placed",
+              Grind_SendNextAddEnt(g_grind_long, true, magic, "OPT", 10.0, 12, 0.01,
+                                   false, deal_msc));
+   AssertTrue("T3d latency 250", g_grind_entry_place_latency_ms == 250);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   Adr152_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.10450, 1.10452, 0);
+   g_grind_ent_sent_this_tick = false;
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 6101);
+
+   Grind_MarketTestSeedTimeMsc(deal_msc - 100);
+   AssertTrue("T3d placed again",
+              Grind_SendNextAddEnt(g_grind_long, true, magic, "OPT", 10.0, 12, 0.01,
+                                   false, deal_msc));
+   AssertTrue("T3d latency 0 when clock behind", g_grind_entry_place_latency_ms == 0);
+
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
    Adr152_TestResetAll();
 }
 
@@ -316,6 +393,41 @@ void Test_T4_due_flag_set_on_ent_fill_only()
    Grind_HandleSideDealFill(g_grind_long, true, 9602, 22260101UL, "OPT",
                             3.0, 4.0, 12, 0.01);
    AssertFalse("T4 ext no due", g_grind_add_due_long);
+
+   Grind_DealTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_T4g_due_flag_set_when_tick_budget_consumed()
+{
+   Grind_OrderTestReset();
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   Grind_EngineConfigureAdr152(true, 0);
+   Adr152_TestSeedSlotSeams(200, 100, 0);
+   g_grind_ent_sent_this_tick = true;
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 6101);
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9603,
+                        GrindCommentBuild("OPT", "L", 1, "ENT"),
+                        DEAL_ENTRY_IN,
+                        6203,
+                        7203,
+                        0.0, 0.0, 0.0,
+                        1.10400);
+
+   Grind_HandleSideDealFill(g_grind_long, true, 9603, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+
+   AssertTrue("T4g due on ent budget consumed", g_grind_add_due_long);
 
    Grind_DealTestReset();
    Grind_OrderTestReset();
