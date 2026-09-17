@@ -292,3 +292,12 @@ shift" as an alternative.
 layer held across a rollover exits on changed terms and the fleet diverges
 from the carry-priced calibration. Do not justify deferring carry work by its
 being disabled.
+
+**`api_count` is per BROKER day, reset at 21:00Z, and includes every
+`OrderSend` attempt, failed or not.** A night of incident ops lands in the
+next day's count. `GRIND_DAILY_API_LIMIT 2000` is defined but unused: only
+the 1,800 soft warning emits telemetry, and nothing stops the fleet. Manual
+terminal actions are server requests FTMO counts but we do not.
+
+**Layer index is a label, not a count.** Closed indices are never reused, so
+a capped ladder can read L05-L12. Depth is `open_layers_long/short`.
