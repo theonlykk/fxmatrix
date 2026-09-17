@@ -4,7 +4,7 @@
 #ifndef GRIND_CONFIG_MQH
 #define GRIND_CONFIG_MQH
 
-#define GRIND_EXITQ_K                 2
+#define GRIND_EXITQ_K                 99
 #define GRIND_EXITQ_H                 1
 #define GRIND_SLOT_MARGIN             4
 #define GRIND_SLOT_LOCK_GV            "GRIND_SLOT_LOCK"
