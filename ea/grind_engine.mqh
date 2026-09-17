@@ -24,6 +24,11 @@ double g_grind_market_test_bid = 0.0;
 double g_grind_market_test_ask = 0.0;
 long   g_grind_market_test_stops_level = 0;
 long   g_grind_market_test_freeze_level = 0;
+bool   g_grind_market_test_time_active = false;
+long   g_grind_market_test_time_msc = 0;
+
+bool   g_grind_fill_time_place = false;
+double g_grind_engine_add_pips = 0.0;
 
 //+------------------------------------------------------------------+
 void Grind_MarketTestReset()
@@ -33,6 +38,23 @@ void Grind_MarketTestReset()
    g_grind_market_test_ask = 0.0;
    g_grind_market_test_stops_level = 0;
    g_grind_market_test_freeze_level = 0;
+   g_grind_market_test_time_active = false;
+   g_grind_market_test_time_msc = 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_MarketTestSeedTimeMsc(const long time_msc)
+{
+   g_grind_market_test_time_active = true;
+   g_grind_market_test_time_msc = time_msc;
+}
+
+//+------------------------------------------------------------------+
+long Grind_MarketTimeMsc()
+{
+   if(g_grind_market_test_time_active)
+      return g_grind_market_test_time_msc;
+   return (long)SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
 }
 
 //+------------------------------------------------------------------+
@@ -188,6 +210,21 @@ bool Grind_OrderTestFind(const ulong ticket, GrindOrderTestRecord &out)
       }
    }
    return false;
+}
+
+//+------------------------------------------------------------------+
+int Grind_OrderTestCountFleetEnt(const string side_letter)
+{
+   int n = 0;
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      string slot, side, role;
+      int layer;
+      if(!GrindCommentParse(g_grind_order_test_records[i].comment, slot, side, layer, role))
+         continue;
+      if(side == side_letter && role == "ENT")
+         n++;
+   }
+   return n;
 }
 
 //+------------------------------------------------------------------+
@@ -420,6 +457,40 @@ bool Grind_CancelPendingOrder(const ulong ticket, const ulong magic)
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 
 //+------------------------------------------------------------------+
+void Grind_EngineConfigureAdr152(const bool fill_time_place, const int slot_near_reserve)
+{
+   g_grind_fill_time_place = fill_time_place;
+   g_grind_slot_near_reserve = slot_near_reserve;
+}
+
+//+------------------------------------------------------------------+
+void Grind_Adr152ResetDueFlags()
+{
+   g_grind_add_due_long = false;
+   g_grind_add_due_short = false;
+   g_grind_add_due_attempted_long = false;
+   g_grind_add_due_attempted_short = false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_Adr152ClearDueForSide(const bool is_long)
+{
+   if(is_long)
+      g_grind_add_due_long = false;
+   else
+      g_grind_add_due_short = false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_Adr152SetDueForSide(const bool is_long)
+{
+   if(is_long)
+      g_grind_add_due_long = true;
+   else
+      g_grind_add_due_short = true;
+}
+
+//+------------------------------------------------------------------+
 void Grind_HaltCritical(const string reason)
 {
    g_grind_halted = true;
@@ -427,6 +498,7 @@ void Grind_HaltCritical(const string reason)
       g_grind_order_test_last_critical = reason;
    Grind_TelemetryCritical(g_grind_telemetry_instance, reason);
    Grind_CancelOwnEntryOrders(g_grind_recon_magic, g_grind_recon_slot);
+   Grind_Adr152ResetDueFlags();
 }
 
 //+------------------------------------------------------------------+
@@ -521,6 +593,8 @@ bool Grind_TryPlaceL0(GrindSideState &side,
 
    if(g_grind_ent_sent_this_tick)
       return false;
+   if(Grind_ApiCounterEntryStopped())
+      return false;
 
    double slot_token = 0.0;
    if(!Grind_SlotLockAcquire(slot_token))
@@ -529,7 +603,8 @@ bool Grind_TryPlaceL0(GrindSideState &side,
    const long limit = Grind_SlotAccountLimit();
    const int used = Grind_SlotUsed();
    const int resting_ent = Grind_SlotRestingEnt();
-   if(!Grind_SlotEntryAllowed(limit, used, resting_ent)) {
+   g_grind_last_guard_total = used + resting_ent;
+   if(!Grind_SlotEntryAllowed(limit, used, resting_ent, true)) {
       Grind_SlotLockRelease(slot_token);
       return false;
    }
@@ -703,6 +778,182 @@ double Grind_ComputeAddTarget(const GrindSideState &side,
 }
 
 //+------------------------------------------------------------------+
+bool Grind_AddTargetNearMarket(const double target,
+                               const double mid,
+                               const double add_pips)
+{
+   return (MathAbs(target - mid) <= Grind_PipsToPrice(add_pips, _Point) + GRIND_PRICE_EPS);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_SendNextAddEnt(GrindSideState &side,
+                          const bool is_long,
+                          const ulong magic,
+                          const string slot,
+                          const double add_pips,
+                          const int max_layers,
+                          const double lots,
+                          const bool use_try_lock,
+                          const long fill_deal_time_msc = 0)
+{
+   const int n = Grind_SideDepth(side);
+   if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
+      return false;
+   if(!Grind_CapAllowsEntry(is_long, lots))
+      return false;
+   if(Grind_ApiCounterEntryStopped())
+      return false;
+
+   if(side.add_pending_ticket != 0) {
+      if(Grind_SelectOurOrder(side.add_pending_ticket, magic))
+         return false;
+      if(Grind_SelectOurPosition(side.add_pending_ticket, magic))
+         return false;
+      side.add_pending_ticket = 0;
+   }
+
+   const int required_index = Grind_SideNextIndex(side);
+   const int next_layer = required_index;
+
+   double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
+   if(add_target <= 0.0)
+      return false;
+
+   const double bid = Grind_MarketBid();
+   const double ask = Grind_MarketAsk();
+   const long stops = Grind_MarketStopsLevel();
+   double clamped = add_target;
+   if(is_long)
+      Grind_Adr013ClampBuy(add_target, bid, _Point, stops, clamped);
+   else
+      Grind_Adr013ClampSell(add_target, bid, ask, _Point, stops, clamped);
+
+   if(is_long && !Grind_BuyLimitMarketable(clamped, ask))
+      return false;
+   if(!is_long && !Grind_SellLimitMarketable(clamped, bid))
+      return false;
+
+   if(!Grind_ValidateAddLabelIndex(required_index, next_layer)) {
+      Grind_Adr152ClearDueForSide(is_long);
+      return false;
+   }
+
+   if(g_grind_ent_sent_this_tick) {
+      if(use_try_lock)
+         Grind_Adr152SetDueForSide(is_long);
+      return false;
+   }
+
+   const double mid = Grind_MidPrice(bid, ask);
+   const bool near_market = Grind_AddTargetNearMarket(clamped, mid, add_pips);
+
+   double slot_token = 0.0;
+   if(use_try_lock) {
+      if(!Grind_SlotLockTryAcquire(slot_token)) {
+         Grind_Adr152SetDueForSide(is_long);
+         return false;
+      }
+   } else {
+      if(!Grind_SlotLockAcquire(slot_token))
+         return false;
+   }
+
+   const long limit = Grind_SlotAccountLimit();
+   const int used = Grind_SlotUsed();
+   const int resting_ent = Grind_SlotRestingEnt();
+   g_grind_last_guard_total = used + resting_ent;
+   if(!Grind_SlotEntryAllowed(limit, used, resting_ent, near_market)) {
+      if(!near_market)
+         g_grind_near_reserve_blocks++;
+      Grind_SlotLockRelease(slot_token);
+      Grind_Adr152ClearDueForSide(is_long);
+      return false;
+   }
+
+   const string side_letter = is_long ? "L" : "S";
+   const string comment = GrindCommentBuild(slot, side_letter, next_layer, "ENT");
+   const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+   side.add_pending_ticket = Grind_PlaceLimit(otype, clamped, lots, magic, comment);
+   Grind_SlotLockRelease(slot_token);
+   if(side.add_pending_ticket > 0) {
+      g_grind_ent_sent_this_tick = true;
+      if(fill_deal_time_msc > 0) {
+         const long now_msc = Grind_MarketTimeMsc();
+         g_grind_entry_place_latency_ms = (now_msc > fill_deal_time_msc)
+                                          ? (now_msc - fill_deal_time_msc)
+                                          : 0;
+      } else {
+         g_grind_entry_place_latency_ms = 0;
+      }
+      Grind_Adr152ClearDueForSide(is_long);
+      return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_TryPlaceAddAtFill(GrindSideState &side,
+                              const bool is_long,
+                              const ulong magic,
+                              const string slot,
+                              const double add_pips,
+                              const double deadband_pips,
+                              const int max_layers,
+                              const double lots,
+                              const ulong deal_ticket)
+{
+   if(!g_grind_fill_time_place)
+      return;
+   if(Grind_ApiCounterEntryStopped())
+      return;
+
+   g_grind_entry_place_latency_ms = 0;
+   const long fill_deal_time_msc = (long)Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
+   Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots,
+                        true, fill_deal_time_msc);
+}
+
+//+------------------------------------------------------------------+
+void Grind_ServiceDueAddFlags(const ulong magic,
+                              const string slot,
+                              const double add_pips,
+                              const double deadband_pips,
+                              const int max_layers,
+                              const double lots)
+{
+   if(!g_grind_fill_time_place)
+      return;
+
+   if(g_grind_add_due_long && !g_grind_add_due_attempted_long) {
+      g_grind_add_due_attempted_long = true;
+      const int depth = Grind_SideDepth(g_grind_long);
+      if(depth <= 0 || !Grind_CanPlaceEntryLayer(depth, max_layers)) {
+         g_grind_add_due_long = false;
+      } else if(g_grind_long.add_pending_ticket != 0 &&
+                Grind_SelectOurOrder(g_grind_long.add_pending_ticket, magic)) {
+         // defer stale-label handling to Grind_EnsureAddNext
+      } else {
+         Grind_SendNextAddEnt(g_grind_long, true, magic, slot, add_pips, max_layers, lots, false);
+         g_grind_add_due_long = false;
+      }
+   }
+
+   if(g_grind_add_due_short && !g_grind_add_due_attempted_short) {
+      g_grind_add_due_attempted_short = true;
+      const int depth = Grind_SideDepth(g_grind_short);
+      if(depth <= 0 || !Grind_CanPlaceEntryLayer(depth, max_layers)) {
+         g_grind_add_due_short = false;
+      } else if(g_grind_short.add_pending_ticket != 0 &&
+                Grind_SelectOurOrder(g_grind_short.add_pending_ticket, magic)) {
+         // defer stale-label handling to Grind_EnsureAddNext
+      } else {
+         Grind_SendNextAddEnt(g_grind_short, false, magic, slot, add_pips, max_layers, lots, false);
+         g_grind_add_due_short = false;
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 void Grind_EnsureAddNext(GrindSideState &side,
                          const bool is_long,
                          const ulong magic,
@@ -728,6 +979,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
                                                  parsed_layer, c_role)
                                && parsed_layer == required_index;
          if(!label_ok) {
+            Grind_Adr152ClearDueForSide(is_long);
             if(g_grind_recon_verbose) {
                string label_txt = "UNPARSEABLE";
                if(GrindCommentParse(resting_comment, c_slot, c_side, parsed_layer, c_role))
@@ -744,9 +996,13 @@ void Grind_EnsureAddNext(GrindSideState &side,
       }
    }
 
-   if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
+   if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers)) {
+      Grind_Adr152ClearDueForSide(is_long);
       return;
+   }
    if(!Grind_CapAllowsEntry(is_long, lots))
+      return;
+   if(Grind_ApiCounterEntryStopped())
       return;
 
    const int next_layer = required_index;
@@ -783,25 +1039,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
    if(g_grind_ent_sent_this_tick)
       return;
 
-   double slot_token = 0.0;
-   if(!Grind_SlotLockAcquire(slot_token))
-      return;
-
-   const long limit = Grind_SlotAccountLimit();
-   const int used = Grind_SlotUsed();
-   const int resting_ent = Grind_SlotRestingEnt();
-   if(!Grind_SlotEntryAllowed(limit, used, resting_ent)) {
-      Grind_SlotLockRelease(slot_token);
-      return;
-   }
-
-   const string side_letter = is_long ? "L" : "S";
-   const string comment = GrindCommentBuild(slot, side_letter, next_layer, "ENT");
-   const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-   side.add_pending_ticket = Grind_PlaceLimit(otype, clamped, lots, magic, comment);
-   Grind_SlotLockRelease(slot_token);
-   if(side.add_pending_ticket > 0)
-      g_grind_ent_sent_this_tick = true;
+   Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false);
 }
 
 //+------------------------------------------------------------------+
@@ -1006,6 +1244,8 @@ void Grind_HandleSideDealFill(GrindSideState &side,
 
       Grind_AppendLayer(side, deal_price, position_id, c_layer, exit_pips, is_long);
       Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
+      Grind_TryPlaceAddAtFill(side, is_long, magic, slot, g_grind_engine_add_pips,
+                              deadband_pips, max_layers, lots, deal_ticket);
 
       if(c_layer == 0 && side.l0_pending_ticket != 0 &&
          side.l0_pending_ticket != order_ticket) {
@@ -1117,7 +1357,11 @@ void Grind_OnTickEngine(const ulong magic,
       return;
 
    g_grind_ent_sent_this_tick = false;
+   g_grind_add_due_attempted_long = false;
+   g_grind_add_due_attempted_short = false;
+   g_grind_engine_add_pips = add_pips;
    Grind_RetryMissingExits(magic, slot, lots);
+   Grind_ServiceDueAddFlags(magic, slot, add_pips, deadband_pips, max_layers, lots);
 
    Grind_ReconcileStrayL0(g_grind_long, true, magic);
    Grind_ReconcileStrayL0(g_grind_short, false, magic);
@@ -1243,6 +1487,7 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                                     const ulong magic,
                                     const string slot,
                                     const double exit_pips,
+                                    const double add_pips,
                                     const double deadband_pips,
                                     const int max_layers,
                                     const double lots)
@@ -1254,6 +1499,7 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
    if(trans.type != TRADE_TRANSACTION_DEAL_ADD)
       return;
 
+   g_grind_engine_add_pips = add_pips;
    Grind_HandleSideDealFill(g_grind_long, true, trans.deal, magic, slot,
                             exit_pips, deadband_pips, max_layers, lots);
    Grind_HandleSideDealFill(g_grind_short, false, trans.deal, magic, slot,

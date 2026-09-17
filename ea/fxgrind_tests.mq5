@@ -16,6 +16,7 @@
 #include "grind_magic_lock.mqh"
 #include "grind_config.mqh"
 #include "fxgrind_tests_adr151.mqh"
+#include "fxgrind_tests_adr152.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -3977,7 +3978,7 @@ void Grind_TestDispatchDeal(const ulong deal_ticket)
    ZeroMemory(trans);
    trans.type = TRADE_TRANSACTION_DEAL_ADD;
    trans.deal = deal_ticket;
-   Grind_OnTradeTransactionEngine(trans, 22260101UL, "OPT", 3.0, 4.0, 12, 0.01);
+   Grind_OnTradeTransactionEngine(trans, 22260101UL, "OPT", 3.0, 10.0, 4.0, 12, 0.01);
 }
 
 void Grind_TestSetupShortCloseByLayer()
@@ -4829,7 +4830,7 @@ void Test_AR14_FillWrongMagic()
    ZeroMemory(trans);
    trans.type = TRADE_TRANSACTION_DEAL_ADD;
    trans.deal = 9911;
-   Grind_OnTradeTransactionEngine(trans, 22260999UL, "OPT", 3.0, 4.0, 12, 0.01);
+   Grind_OnTradeTransactionEngine(trans, 22260999UL, "OPT", 3.0, 10.0, 4.0, 12, 0.01);
    AssertTrue("AR14 count", Grind_ArchiveQueueCount() == 0);
    Grind_ArchiveTestReset();
    Grind_TelemetryTestReset();
@@ -6599,6 +6600,26 @@ void OnStart()
    Test_HT1_HaltCriticalCancelsOwnEntOnly();
    Test_HT2_CloseByExhaustedHaltCancelsOwnEnt();
    Test_FL1_EntFillPlacesRankZeroExitAndTrims();
+   Test_T1_try_lock_does_not_block();
+   Test_T1b_single_attempt_lock_returns_false_when_held();
+   Test_T1c_single_attempt_lock_releases_only_own_token();
+   Test_T2_near_entry_allowed_at_ceiling();
+   Test_T2b_far_entry_refused_inside_reserve();
+   Test_T2c_far_entry_allowed_below_reserve();
+   Test_T2d_reserve_zero_reproduces_today();
+   Test_T2e_near_band_uses_pip_conversion();
+   Test_T3_entry_stop_blocks_entry_at_threshold();
+   Test_T3b_entry_stop_does_not_block_exit();
+   Test_T3c_entry_stop_resets_with_broker_day();
+   Test_T3d_latency_uses_server_clock();
+   Test_T4_due_flag_set_on_ent_fill_only();
+   Test_T4g_due_flag_set_when_tick_budget_consumed();
+   Test_T4b_due_flag_cleared_on_place();
+   Test_T4c_due_flag_cleared_at_cap();
+   Test_T4d_due_flag_cleared_on_label_mismatch();
+   Test_T4e_due_flag_cleared_on_init();
+   Test_T4f_due_flag_not_retried_twice_in_one_tick();
+   Test_T5_no_double_send_due_plus_ensure();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

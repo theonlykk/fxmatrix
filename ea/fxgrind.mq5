@@ -20,6 +20,8 @@ input double InpLots               = 0.01;
 input double InpStrandedThreshPips = -1.0;
 input double InpDeadbandPips       = 4.0;
 input bool   InpEnableCarryPass    = false;   // ADR-135b carry exit shift
+input bool   InpFillTimePlace      = true;    // D1 kill switch
+input int    InpSlotNearReserve    = GRIND_SLOT_NEAR_RESERVE;   // 0 = off
 input string InpCapLegA            = "";
 input string InpCapLegB            = "";
 input double InpCapLegAThresh      = 0.0;
@@ -39,29 +41,44 @@ ulong g_grind_last_telemetry_tick = 0;
 //+------------------------------------------------------------------+
 string Grind_BuildHeartbeatJson()
 {
-   return Grind_TelemetryHeartbeatJson(g_grind_telemetry_instance,
-                                       Grind_SideDepth(g_grind_long),
-                                       Grind_SideDepth(g_grind_short),
-                                       g_grind_fill_count,
-                                       g_grind_scalp_count,
-                                       g_grind_cap_blocked,
-                                       g_grind_halted,
-                                       g_grind_halt_reason,
-                                       g_grind_recon_ok,
-                                       g_grind_last_invariant_ok,
-                                       g_grind_cap_own_leg_a,
-                                       g_grind_cap_own_leg_b,
-                                       g_grind_cap_total_leg_a,
-                                       g_grind_cap_total_leg_b,
-                                       g_grind_cap_peer_read_failed,
-                                       InpMagic,
-                                       InpSlot,
-                                       InpWidthPips,
-                                       InpAddPips,
-                                       InpExitPips,
-                                       InpMaxLayers,
-                                       InpCapLegA,
-                                       InpCapLegB);
+   string hb = Grind_TelemetryHeartbeatJson(g_grind_telemetry_instance,
+                                            Grind_SideDepth(g_grind_long),
+                                            Grind_SideDepth(g_grind_short),
+                                            g_grind_fill_count,
+                                            g_grind_scalp_count,
+                                            g_grind_cap_blocked,
+                                            g_grind_halted,
+                                            g_grind_halt_reason,
+                                            g_grind_recon_ok,
+                                            g_grind_last_invariant_ok,
+                                            g_grind_cap_own_leg_a,
+                                            g_grind_cap_own_leg_b,
+                                            g_grind_cap_total_leg_a,
+                                            g_grind_cap_total_leg_b,
+                                            g_grind_cap_peer_read_failed,
+                                            InpMagic,
+                                            InpSlot,
+                                            InpWidthPips,
+                                            InpAddPips,
+                                            InpExitPips,
+                                            InpMaxLayers,
+                                            InpCapLegA,
+                                            InpCapLegB);
+   const int len = StringLen(hb);
+   if(len < 2 || StringGetCharacter(hb, len - 1) != '}')
+      return hb;
+   hb = StringSubstr(hb, 0, len - 1);
+   hb += StringFormat(
+      ",\"add_due_long\":%s,\"add_due_short\":%s,"
+      "\"entry_stopped\":%s,\"near_reserve_blocks\":%d,"
+      "\"guard_total\":%d,\"entry_place_latency_ms\":%d}",
+      g_grind_add_due_long ? "true" : "false",
+      g_grind_add_due_short ? "true" : "false",
+      Grind_ApiCounterEntryStopped() ? "true" : "false",
+      g_grind_near_reserve_blocks,
+      g_grind_last_guard_total,
+      (int)g_grind_entry_place_latency_ms);
+   return hb;
 }
 
 //+------------------------------------------------------------------+
@@ -116,6 +133,8 @@ int OnInit()
    g_grind_recon_exit_pips = InpExitPips;
    g_grind_recon_max_layers = InpMaxLayers;
    g_grind_recon_verbose = InpVerboseLog;
+   Grind_EngineConfigureAdr152(InpFillTimePlace, InpSlotNearReserve);
+   Grind_Adr152ResetDueFlags();
    Grind_ScalpTelemetryConfigure(EnableTelemetry,
                                  TelemetryURL,
                                  TelemetryAPIKey,
@@ -277,6 +296,7 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
                                   InpMagic,
                                   InpSlot,
                                   InpExitPips,
+                                  InpAddPips,
                                   InpDeadbandPips,
                                   InpMaxLayers,
                                   InpLots);
