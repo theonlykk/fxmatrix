@@ -74,6 +74,7 @@ void Adr152_TestPrepareIsolation()
    g_grind_cap_test_lock_held = false;
    g_grind_cap_thresh_a = 0.0;
    g_grind_cap_thresh_b = 0.0;
+   g_grind_last_feed_tick_msc = 0; // CX11 leaves a synthetic msc that poisons the first OnTickEngine guard
 }
 
 //+------------------------------------------------------------------+
