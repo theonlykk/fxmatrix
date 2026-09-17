@@ -119,17 +119,18 @@ A question costs a copy-paste. A wrong assumption has cost an hour.
 ---
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-17, ~17:07Z.** Evidence: `HANDOFF_2026-09-17.md` (deploy),
-`17b` (closes, cap 8, NZD ALT arms), `17c` (carry), `17d` (roll-at-cap spec,
-API count), `17e` (manual rolls, guard starvation, sweep running).
+**As of 2026-09-17, end of session.** Evidence: `HANDOFF_2026-09-17.md`
+(deploy), `17b` (closes, cap 8, NZD ALT arms), `17c` (carry), `17d`
+(roll-at-cap spec, API count), `17e` (manual rolls, guard starvation, passive
+roll), `17f` (ADR-152 designed, ADR-152a abandoned, DeepSeek route corrected).
 
 | | |
 |---|---|
-| fxmatrix main | `5a17d1c` + 17e; EA source at `c39fb84` (ADR-151 Phase A); presets all `InpMaxLayers=8` in repo AND VPS `MQL5\Presets` |
+| fxmatrix main | `27f55fa`; EA source at `c39fb84` (ADR-151 Phase A), nothing deployed 17-Sep evening; presets all `InpMaxLayers=8` in repo AND VPS `MQL5\Presets` |
 | VPS compiled at | `c39fb84`, 02:15:57Z. **ADR-151 Phase A is LIVE** |
 | pipshed main | `4e5bef4` |
 | MQL5 suite | **1136/1136** on desktop at `5bc5a88` (baseline 1038 confirmed) |
-| Fleet | **16 attached, 0 halted.** NZDCHF never attached. All caps 8. GBPUSD longs rolled 6x manually today (17e s2). Research: `research/roll-at-cap` @ `b30c8ba`; Surface calibration sweep running |
+| Fleet | **16 attached, 0 halted.** NZDCHF never attached. All caps 8. GBPUSD longs rolled 6x manually today (17e s2). Research: `research/roll-at-cap` @ `f423f18`; Surface sweeps `roll_modes_cal_2026_09_17` + `roll_modes_tail_chf_2026_09_17` unread. **ADR-152 drafted (`cdb95f4`), ADR-152a abandoned (`27f55fa`)** |
 | Account | demo 1514582088, hedging, limit 200 on positions + orders. Daily-loss headroom UNVERIFIED in MetriX (17b s1). Deposit confirmed $10,000. **API requests 2320 for broker day 17 Sep, over FTMO's 2,000; nothing in the EA stops at 2000 (17d s3)** |
 | Rollback | `rollback/adr151-k99-r2` @ `f7e2123` (merge, deploy, compile). Never restore the ADR-150 ex5 while any layer is held |
 
