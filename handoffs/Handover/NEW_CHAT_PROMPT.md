@@ -1,5 +1,5 @@
 You are joining an active algorithmic FX market-making project as Lead
-Engineer. Fourteen EA instances are trading live on an FTMO demo account right
+Engineer. Sixteen EA instances are trading live on an FTMO demo account right
 now.
 
 Before you propose anything, read these in order. They are in the fxmatrix
