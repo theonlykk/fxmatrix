@@ -12,6 +12,10 @@
 #define GRIND_DAILY_API_SOFT_WARN 1800
 
 bool g_grind_api_counter_broken = false;
+bool g_grind_api_entry_stop_warn_emitted = false;
+int  g_grind_near_reserve_blocks = 0;
+int  g_grind_last_guard_total = 0;
+long g_grind_entry_place_latency_ms = 0;
 
 //+------------------------------------------------------------------+
 double Grind_ApiCounterTodayYmd()
@@ -32,6 +36,8 @@ void Grind_ApiCounterMaybeReset()
    if(!GlobalVariableCheck(GRIND_DAILY_API_DATE_GV) || stored != today_val) {
       GlobalVariableSet(GRIND_DAILY_API_DATE_GV, today_val);
       GlobalVariableSet(GRIND_DAILY_API_COUNT_GV, 0.0);
+      g_grind_api_entry_stop_warn_emitted = false;
+      g_grind_near_reserve_blocks = 0;
    }
 }
 
@@ -70,6 +76,23 @@ int Grind_ApiCounterRead()
 bool Grind_ApiCounterSoftWarnActive()
 {
    return (Grind_ApiCounterRead() >= GRIND_DAILY_API_SOFT_WARN);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ApiCounterEntryStopped()
+{
+   Grind_ApiCounterMaybeReset();
+   const int count = Grind_ApiCounterRead();
+   if(count < GRIND_DAILY_API_ENTRY_STOP)
+      return false;
+   if(!g_grind_api_entry_stop_warn_emitted) {
+      g_grind_api_entry_stop_warn_emitted = true;
+      Grind_ArchiveMarker("WARN", "WARN_API_ENTRY_STOP", "",
+                          0,
+                          StringFormat("{\"count\":%d}", count));
+      Print("WARN WARN_API_ENTRY_STOP count=", count);
+   }
+   return true;
 }
 
 //+------------------------------------------------------------------+

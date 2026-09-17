@@ -3978,7 +3978,7 @@ void Grind_TestDispatchDeal(const ulong deal_ticket)
    ZeroMemory(trans);
    trans.type = TRADE_TRANSACTION_DEAL_ADD;
    trans.deal = deal_ticket;
-   Grind_OnTradeTransactionEngine(trans, 22260101UL, "OPT", 3.0, 4.0, 12, 0.01);
+   Grind_OnTradeTransactionEngine(trans, 22260101UL, "OPT", 3.0, 10.0, 4.0, 12, 0.01);
 }
 
 void Grind_TestSetupShortCloseByLayer()
@@ -4830,7 +4830,7 @@ void Test_AR14_FillWrongMagic()
    ZeroMemory(trans);
    trans.type = TRADE_TRANSACTION_DEAL_ADD;
    trans.deal = 9911;
-   Grind_OnTradeTransactionEngine(trans, 22260999UL, "OPT", 3.0, 4.0, 12, 0.01);
+   Grind_OnTradeTransactionEngine(trans, 22260999UL, "OPT", 3.0, 10.0, 4.0, 12, 0.01);
    AssertTrue("AR14 count", Grind_ArchiveQueueCount() == 0);
    Grind_ArchiveTestReset();
    Grind_TelemetryTestReset();

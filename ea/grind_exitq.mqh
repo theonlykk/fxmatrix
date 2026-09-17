@@ -29,6 +29,7 @@ int  Grind_OrderTestRestingEntFleetCount();
 bool Grind_PositionTestExistsAnyMagic(const ulong ticket);
 
 int g_grind_exitq_test_k = -1;
+int g_grind_slot_near_reserve = 0;
 
 //+------------------------------------------------------------------+
 int Grind_ExitQK()
@@ -161,12 +162,36 @@ bool Grind_SlotExitAllowed(const long limit, const int used)
 }
 
 //+------------------------------------------------------------------+
-bool Grind_SlotEntryAllowed(const long limit, const int used, const int resting_ent)
+bool Grind_SlotEntryAllowed(const long limit,
+                            const int used,
+                            const int resting_ent,
+                            const bool near_market)
 {
    if(limit <= 0)
       return true;
-   const long needed = 2 + GRIND_SLOT_MARGIN;
+   const long reserve = near_market ? 0 : (long)g_grind_slot_near_reserve;
+   const long needed = 2 + GRIND_SLOT_MARGIN + reserve;
    return ((long)(used + resting_ent) <= limit - needed);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_SlotEntryAllowed(const long limit, const int used, const int resting_ent)
+{
+   return Grind_SlotEntryAllowed(limit, used, resting_ent, true);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_SlotLockTryAcquire(double &token_out)
+{
+   GlobalVariableTemp(GRIND_SLOT_LOCK_GV);
+   double now = (double)GetTickCount64();
+   if(now == 0.0)
+      now = 1.0;
+   if(GlobalVariableSetOnCondition(GRIND_SLOT_LOCK_GV, now, 0.0)) {
+      token_out = now;
+      return true;
+   }
+   return false;
 }
 
 //+------------------------------------------------------------------+

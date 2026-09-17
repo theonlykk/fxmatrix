@@ -40,4 +40,9 @@ string         g_grind_cap_leg_b = "";
 ulong          g_grind_processed_deals[];
 int            g_grind_processed_deal_count = 0;
 
+bool g_grind_add_due_long  = false;
+bool g_grind_add_due_short = false;
+bool g_grind_add_due_attempted_long  = false;
+bool g_grind_add_due_attempted_short = false;
+
 #endif // GRIND_STATE_MQH

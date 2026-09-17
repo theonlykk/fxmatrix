@@ -7,6 +7,8 @@
 #define GRIND_EXITQ_K                 2
 #define GRIND_EXITQ_H                 1
 #define GRIND_SLOT_MARGIN             4
+#define GRIND_SLOT_NEAR_RESERVE       8     // Q, guard units reserved
+#define GRIND_DAILY_API_ENTRY_STOP    1900  // hard stop, entries only
 #define GRIND_SLOT_LOCK_GV            "GRIND_SLOT_LOCK"
 #define GRIND_SLOT_LOCK_STALE_MS      10000
 #define GRIND_SLOT_LOCK_MAX_RETRIES   50
