@@ -138,10 +138,19 @@ STRESS_WINDOWS = ("truss_crisis", "vaccine_rally", "june_blowup")
 
 BAR_MINUTES = 5.0
 PREVIEW_N_SEEDS = 50
+PRESET_DIR = ROOT / "ea" / "presets"
+DEFAULT_CAP_MODES = ("stall",)
 
 
-def make_cell_key(wkey: str, pair: str, width: float, exit_pips: float) -> str:
-    return f"{wkey}|{pair}|{width:g}|{exit_pips:g}"
+def make_cell_key(
+    wkey: str,
+    pair: str,
+    width: float,
+    exit_pips: float,
+    cap_mode: str = "stall",
+    max_layers: int = 0,
+) -> str:
+    return f"{wkey}|{pair}|{width:g}|{exit_pips:g}|{cap_mode}|P{max_layers}"
 
 
 def format_hms(seconds: float) -> str:
@@ -154,6 +163,55 @@ def format_hms(seconds: float) -> str:
 
 def parse_float_list(text: str) -> list[float]:
     return [float(x.strip()) for x in text.split(",") if x.strip()]
+
+
+def parse_int_list(text: str) -> list[int]:
+    return [int(x.strip()) for x in text.split(",") if x.strip()]
+
+
+def parse_set_file(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for line in path.read_text(encoding="ascii").splitlines():
+        line = line.strip()
+        if not line or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        out[key.strip()] = value.strip()
+    return out
+
+
+def load_preset_geometry(pairs: tuple[str, ...]) -> dict[str, list[dict[str, Any]]]:
+    rows: dict[str, list[dict[str, Any]]] = {}
+    for pair in pairs:
+        pair_lower = pair.lower()
+        pair_rows: list[dict[str, Any]] = []
+        for slot in ("opt", "alt"):
+            path = PRESET_DIR / f"{pair_lower}_{slot}.set"
+            if not path.is_file():
+                continue
+            preset = parse_set_file(path)
+            pair_rows.append({
+                "slot": slot.upper(),
+                "width": float(preset["InpWidthPips"]),
+                "exit": float(preset["InpExitPips"]),
+            })
+        if pair_rows:
+            rows[pair.upper()] = pair_rows
+        else:
+            print(f"NOTE: no preset geometry for {pair} — skipped", flush=True)
+    return rows
+
+
+def print_preset_geometry_table(preset_rows: dict[str, list[dict[str, Any]]]) -> None:
+    print("\nPreset geometry:", flush=True)
+    print(f"{'pair':<8} {'slot':<6} {'width':>8} {'exit':>8}", flush=True)
+    for pair in sorted(preset_rows):
+        for row in preset_rows[pair]:
+            print(
+                f"{pair:<8} {row['slot']:<6} {row['width']:>8.0f} {row['exit']:>8.0f}",
+                flush=True,
+            )
+    print(flush=True)
 
 
 def estimate_cell_sec(n_seeds: int, substeps: int, n_bars: int) -> float:
@@ -204,6 +262,9 @@ def checkpoint_config_matches(
     window_keys: list[str],
     pairs: tuple[str, ...],
     substeps: int,
+    cap_modes: list[str],
+    max_layers_grid: list[int] | None,
+    preset_geometry: bool,
 ) -> bool:
     return (
         ckpt.get("n_seeds") == n_seeds
@@ -212,6 +273,9 @@ def checkpoint_config_matches(
         and ckpt.get("exit_grid") == exit_grid
         and sorted(ckpt.get("windows", [])) == sorted(window_keys)
         and sorted(ckpt.get("pairs", [])) == sorted(pairs)
+        and ckpt.get("cap_modes") == cap_modes
+        and ckpt.get("max_layers_grid") == max_layers_grid
+        and ckpt.get("preset_geometry") == preset_geometry
     )
 
 
@@ -243,6 +307,7 @@ def print_progress_line(
     dd4 = cell.get("dd4_rate", float("nan"))
     print(
         f"[cell {done}/{total}] w={cell['width']:g} e={cell['exit_pips']:g} "
+        f"mode={cell.get('cap_mode', 'stall')} P={cell.get('max_layers', '?')} "
         f"win={cell['window']} pair={cell['pair']} | "
         f"mean_pnl={cell['mean_pnl']:+.0f} med_pnl={cell['median_pnl']:+.0f} "
         f"dd4={dd4:.0f}% | cell {cell_sec:.1f}s | "
@@ -325,6 +390,7 @@ def _worker_cell(payload: dict) -> dict:
                     exit_pips=payload["exit_pips"],
                     track_l0_stats=True,
                     max_layers=payload["max_layers"],
+                    cap_mode=payload["cap_mode"],
                     **sim_kwargs,
                 )
             )
@@ -334,6 +400,8 @@ def _worker_cell(payload: dict) -> dict:
     cell["pair"] = payload["symbol"].upper()
     cell["width"] = float(payload["width"])
     cell["exit_pips"] = float(payload["exit_pips"])
+    cell["cap_mode"] = payload["cap_mode"]
+    cell["max_layers"] = int(payload["max_layers"])
     cell["regime"] = payload["regime"]
     cell["cell_key"] = payload["cell_key"]
     cell["cell_elapsed_sec"] = time.time() - t0
@@ -352,9 +420,13 @@ def _run_one_cell_local(
     n_seeds: int,
     substeps: int = DEFAULT_SUBSTEPS,
     conversion_closes=None,
+    cap_mode: str = "stall",
+    max_layers: int | None = None,
 ) -> dict:
     """In-process single cell (workers=1 path) — identical seed loop to _worker_cell."""
     t0 = time.time()
+    if max_layers is None:
+        max_layers = sim_costs.get_pair_max_layers(pair)
     dummy = np.zeros_like(closes)
     seed_results = []
     sim_kwargs = {}
@@ -375,7 +447,8 @@ def _run_one_cell_local(
                 straddle_half_width_pips=width,
                 exit_pips=exit_pips,
                 track_l0_stats=True,
-                max_layers=sim_costs.get_pair_max_layers(pair),
+                max_layers=max_layers,
+                cap_mode=cap_mode,
                 **sim_kwargs,
             )
         )
@@ -384,8 +457,10 @@ def _run_one_cell_local(
     cell["pair"] = pair
     cell["width"] = width
     cell["exit_pips"] = exit_pips
+    cell["cap_mode"] = cap_mode
+    cell["max_layers"] = max_layers
     cell["regime"] = WINDOW_META[wkey]["regime"]
-    cell["cell_key"] = make_cell_key(wkey, pair, width, exit_pips)
+    cell["cell_key"] = make_cell_key(wkey, pair, width, exit_pips, cap_mode, max_layers)
     cell["cell_elapsed_sec"] = time.time() - t0
     return cell
 
@@ -402,6 +477,10 @@ def aggregate_seed_results(
     gate_a = sum(1 for r in seed_results if r.get("gate_a_daily_loss_breach"))
     gate_b = sum(1 for r in seed_results if r.get("gate_b_total_loss_breach"))
     n_exits = [r.get("n_exits", 0) for r in seed_results]
+    n_forced = [r.get("n_forced_closes", 0) for r in seed_results]
+    forced_pnl = [r.get("forced_close_pnl_usd", 0.0) for r in seed_results]
+    forced_loss_pips = [r.get("forced_close_loss_pips_mean", 0.0) for r in seed_results]
+    stranded_bars = [r.get("stranded_bars", 0) for r in seed_results]
 
     all_holds: list[float] = []
     all_exit_dist: list[float] = []
@@ -412,6 +491,15 @@ def aggregate_seed_results(
         all_had_adds.extend(r.get("l0_had_adds", []))
 
     mean_exits = float(np.mean(n_exits)) if n_exits else 0.0
+    mean_forced_closes = float(np.mean(n_forced)) if n_forced else 0.0
+    mean_forced_close_pnl_usd = float(np.mean(forced_pnl)) if forced_pnl else 0.0
+    mean_forced_close_loss_pips = float(np.mean(forced_loss_pips)) if forced_loss_pips else 0.0
+    mean_stranded_hours = (
+        float(np.mean(stranded_bars)) * BAR_MINUTES / 60.0 if stranded_bars else 0.0
+    )
+    exits_per_forced_close = (
+        mean_exits / mean_forced_closes if mean_forced_closes > 0 else None
+    )
     harvest_per_hr = mean_exits / window_hours if window_hours > 0 else 0.0
 
     hold_arr = np.asarray(all_holds, dtype=float)
@@ -446,6 +534,11 @@ def aggregate_seed_results(
         "cap_reached_count": cap_reached_count,
         "cap_reached_rate": cap_reached_count / n * 100.0,
         "mean_exits": mean_exits,
+        "mean_forced_closes": mean_forced_closes,
+        "mean_forced_close_pnl_usd": mean_forced_close_pnl_usd,
+        "mean_forced_close_loss_pips": mean_forced_close_loss_pips,
+        "mean_stranded_hours": mean_stranded_hours,
+        "exits_per_forced_close": exits_per_forced_close,
         "harvest_per_hr": harvest_per_hr,
         "l0_unwind_n": int(len(hold_arr)),
         "mean_l0_hold_min": float(np.mean(hold_arr)) if len(hold_arr) else float("nan"),
@@ -481,6 +574,7 @@ def aggregate_seed_results(
 # Sorted per-cell field names written by aggregate_seed_results + cell metadata.
 CELL_SCHEMA_FIELDS = sorted(
     [
+        "cap_mode",
         "cap_reached_count",
         "cap_reached_rate",
         "cell_elapsed_sec",
@@ -494,15 +588,20 @@ CELL_SCHEMA_FIELDS = sorted(
         "disqualified_gate_b",
         "disqualified_gates",
         "exit_pips",
+        "exits_per_forced_close",
         "gate_a_breach_count",
         "gate_a_breach_rate",
         "gate_b_breach_count",
         "gate_b_breach_rate",
         "harvest_per_hr",
         "l0_unwind_n",
+        "max_layers",
         "mean_equity_peak",
         "mean_exit_dist_pips",
         "mean_exits",
+        "mean_forced_close_loss_pips",
+        "mean_forced_close_pnl_usd",
+        "mean_forced_closes",
         "mean_l0_hold_min",
         "mean_max_absolute_drawdown_usd",
         "mean_max_daily_equity_drawdown_usd",
@@ -510,6 +609,7 @@ CELL_SCHEMA_FIELDS = sorted(
         "mean_pnl",
         "mean_realised",
         "mean_carry_usd",
+        "mean_stranded_hours",
         "mean_rollovers_per_layer",
         "pct_layers_crossing",
         "carry_modelled",
@@ -659,10 +759,16 @@ def run_sweep(
     resume_cells: dict[str, dict] | None = None,
     runtag: str = "",
     substeps: int = DEFAULT_SUBSTEPS,
+    cap_modes: list[str] | None = None,
+    max_layers_grid: list[int] | None = None,
+    preset_geometry: bool = False,
+    preset_rows: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     start = time.time()
     cells: dict[str, dict] = dict(resume_cells or {})
     pairs = PAIRS
+    cap_modes = list(cap_modes or DEFAULT_CAP_MODES)
+    preset_rows = preset_rows or {}
 
     # Pre-load window data once per (window, pair).
     series_cache: dict[tuple[str, str], dict] = {}
@@ -678,7 +784,6 @@ def run_sweep(
                 (pd.Timestamp(times[-1]) - pd.Timestamp(times[0])).total_seconds() / 3600.0
             )
             pair_spread = sim_costs.get_pair_spread_pips(pair)
-            pair_max_layers = sim_costs.get_pair_max_layers(pair)
             suffix = _window_file_suffix(wkey)
             conversion_closes, conv_stats = sim_costs.load_aligned_conversion_closes(
                 times, pair, ROOT / "data", suffix, return_stats=True
@@ -710,30 +815,48 @@ def run_sweep(
                     f"({window_hours:.1f}h){conv_note}",
                     flush=True,
                 )
-            for width in width_grid:
-                for exit_pips in exit_grid:
-                    ck = make_cell_key(wkey, pair, width, exit_pips)
-                    if ck in cells:
-                        continue
-                    cache = series_cache[(wkey, pair)]
-                    jobs.append({
-                        "root": str(ROOT),
-                        "symbol": pair.upper(),
-                        "pair_spread": cache["pair_spread"],
-                        "max_layers": pair_max_layers,
-                        "width": width,
-                        "exit_pips": exit_pips,
-                        "bias_mode": int(BIAS_MODE),
-                        "closes": cache["closes"],
-                        "times": cache["times"],
-                        "window_hours": cache["window_hours"],
-                        "conversion_closes": cache.get("conversion_closes"),
-                        "window": wkey,
-                        "regime": WINDOW_META[wkey]["regime"],
-                        "cell_key": ck,
-                        "n_seeds": n_seeds,
-                        "substeps": substeps,
-                    })
+            if preset_geometry:
+                geom_list = [
+                    (float(row["width"]), float(row["exit"]))
+                    for row in preset_rows.get(pair.upper(), [])
+                ]
+            else:
+                geom_list = [(width, exit_pips) for width in width_grid for exit_pips in exit_grid]
+            if not geom_list:
+                continue
+            p_values = (
+                list(max_layers_grid)
+                if max_layers_grid
+                else [sim_costs.get_pair_max_layers(pair)]
+            )
+            for width, exit_pips in geom_list:
+                for cap_mode in cap_modes:
+                    for max_layers in p_values:
+                        ck = make_cell_key(
+                            wkey, pair, width, exit_pips, cap_mode, max_layers
+                        )
+                        if ck in cells:
+                            continue
+                        cache = series_cache[(wkey, pair)]
+                        jobs.append({
+                            "root": str(ROOT),
+                            "symbol": pair.upper(),
+                            "pair_spread": cache["pair_spread"],
+                            "max_layers": max_layers,
+                            "cap_mode": cap_mode,
+                            "width": width,
+                            "exit_pips": exit_pips,
+                            "bias_mode": int(BIAS_MODE),
+                            "closes": cache["closes"],
+                            "times": cache["times"],
+                            "window_hours": cache["window_hours"],
+                            "conversion_closes": cache.get("conversion_closes"),
+                            "window": wkey,
+                            "regime": WINDOW_META[wkey]["regime"],
+                            "cell_key": ck,
+                            "n_seeds": n_seeds,
+                            "substeps": substeps,
+                        })
 
     total = len(cells) + len(jobs)
     skipped = len(cells)
@@ -758,6 +881,9 @@ def run_sweep(
                 "substeps": substeps,
                 "width_grid": width_grid,
                 "exit_grid": exit_grid,
+                "cap_modes": cap_modes,
+                "max_layers_grid": max_layers_grid,
+                "preset_geometry": preset_geometry,
                 "windows": sorted(windows.keys()),
                 "pairs": list(pairs),
                 "started_utc": datetime.fromtimestamp(start, tz=timezone.utc).isoformat(),
@@ -797,6 +923,8 @@ def run_sweep(
                 n_seeds,
                 substeps,
                 conversion_closes=cache.get("conversion_closes"),
+                cap_mode=job["cap_mode"],
+                max_layers=job["max_layers"],
             )
             cells[cell["cell_key"]] = cell
             done += 1
@@ -877,6 +1005,56 @@ def pool_windows_mean(
         for k, v in pool_pairs(cells, wkey).items():
             pooled.setdefault(k, []).append(v)
     return pooled
+
+
+def _cell_score(cell: dict, score_key: str = "risk_adj") -> float:
+    if score_key == "risk_adj":
+        return risk_adjusted_score(cell)
+    if score_key == "survival_score":
+        return survival_score(cell)
+    return float(cell.get(score_key, float("-inf")))
+
+
+def select_mode_p_per_geometry(
+    cells: dict,
+    window_keys: tuple[str, ...] | list[str],
+    score_key: str = "risk_adj",
+) -> dict[tuple[str, float, float], tuple[tuple[str, int] | None, float]]:
+    """Pick best (cap_mode, max_layers) per (pair, width, exit) on calibration windows."""
+    cal_windows = [w for w in window_keys if WINDOW_ROLES.get(w) == "calibration"]
+    cal_set = set(cal_windows)
+    if not cal_windows:
+        return {}
+
+    indexed: dict[tuple[str, float, float, str, int], dict[str, dict]] = {}
+    geometries: set[tuple[str, float, float]] = set()
+    for c in cells.values():
+        if c["window"] not in cal_set:
+            continue
+        geom = (c["pair"], float(c["width"]), float(c["exit_pips"]))
+        geometries.add(geom)
+        mode_p = (c.get("cap_mode", "stall"), int(c.get("max_layers", 0)))
+        indexed.setdefault((*geom, *mode_p), {})[c["window"]] = c
+
+    out: dict[tuple[str, float, float], tuple[tuple[str, int] | None, float]] = {}
+    for pair, width, exit_pips in sorted(geometries):
+        best_mode_p: tuple[str, int] | None = None
+        best_score = float("-inf")
+        prefix = (pair, width, exit_pips)
+        candidates = [k for k in indexed if k[:3] == prefix]
+        for cand_key in candidates:
+            window_cells = indexed[cand_key]
+            if len(window_cells) != len(cal_windows):
+                continue
+            scores = [_cell_score(window_cells[w], score_key) for w in cal_windows]
+            if not all(np.isfinite(s) for s in scores):
+                continue
+            avg = float(np.mean(scores))
+            if avg > best_score:
+                best_score = avg
+                best_mode_p = (cand_key[3], cand_key[4])
+        out[(pair, width, exit_pips)] = (best_mode_p, best_score)
+    return out
 
 
 def select_geometry_from_calibration(
@@ -1191,6 +1369,42 @@ def print_verdict(payload: dict, width_grid: list[float], exit_grid: list[float]
             )
 
     print("\n" + "=" * 80)
+    print("Q4b — MODE/P SELECTION (calibration only; holdout vs stall at same P)")
+    print("=" * 80)
+    mode_p_selections = select_mode_p_per_geometry(cells, run_windows, "risk_adj")
+    holdout_keys = [w for w in run_windows if WINDOW_ROLES.get(w) == "holdout"]
+    for (pair, width, exit_pips), (mode_p, cal_score) in sorted(mode_p_selections.items()):
+        if mode_p is None:
+            print(
+                f"  {pair} ({width:g}/{exit_pips:g}): no finite calibration selection"
+            )
+            continue
+        cap_mode, max_p = mode_p
+        print(
+            f"  {pair} ({width:g}/{exit_pips:g}): selected {cap_mode} P={max_p} "
+            f"(cal risk_adj={cal_score:.2f})"
+        )
+        for wkey in sorted(holdout_keys):
+            sel_key = make_cell_key(wkey, pair, width, exit_pips, cap_mode, max_p)
+            stall_key = make_cell_key(wkey, pair, width, exit_pips, "stall", max_p)
+            sel_cell = cells.get(sel_key)
+            stall_cell = cells.get(stall_key)
+            if sel_cell is None and stall_cell is None:
+                continue
+            sel_real = sel_cell.get("mean_realised", float("nan")) if sel_cell else float("nan")
+            stall_real = (
+                stall_cell.get("mean_realised", float("nan")) if stall_cell else float("nan")
+            )
+            sel_fc = sel_cell.get("mean_forced_closes", float("nan")) if sel_cell else float("nan")
+            stall_fc = (
+                stall_cell.get("mean_forced_closes", float("nan")) if stall_cell else float("nan")
+            )
+            print(
+                f"    {wkey}: selected realised=${sel_real:.2f} "
+                f"forced={sel_fc:.1f} | stall@${stall_real:.2f} forced={stall_fc:.1f}"
+            )
+
+    print("\n" + "=" * 80)
     print("Q5 — BARBELL SELECTION (per pair, per regime, calibration only)")
     print("=" * 80)
     barbell = select_barbell_per_pair(cells, run_windows, "risk_adj")
@@ -1484,6 +1698,23 @@ def main():
         help="Subset of pairs",
     )
     parser.add_argument(
+        "--cap-modes",
+        type=str,
+        default=None,
+        help="Comma cap modes: stall,roll_on_add,roll_on_fill (default stall)",
+    )
+    parser.add_argument(
+        "--max-layers-grid",
+        type=str,
+        default=None,
+        help="Comma P values (default: per-pair cap from sim_costs)",
+    )
+    parser.add_argument(
+        "--preset-geometry",
+        action="store_true",
+        help="Use ea/presets *_opt/_alt width/exit per pair",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print resolved CSV path per (window, pair) and exit without simulating",
@@ -1514,16 +1745,44 @@ def main():
     windows = all_window_paths()
     preview = False
     fast_shape = False
+    smoke_test_active = False
+    preset_geometry = args.preset_geometry
+    preset_rows: dict[str, list[dict[str, Any]]] = {}
+    cap_modes = (
+        [m.strip() for m in args.cap_modes.split(",") if m.strip()]
+        if args.cap_modes
+        else list(DEFAULT_CAP_MODES)
+    )
+    max_layers_grid = (
+        parse_int_list(args.max_layers_grid) if args.max_layers_grid else None
+    )
+    for mode in cap_modes:
+        if mode not in simv7.CAP_MODES:
+            parser.error(
+                f"invalid cap mode {mode!r}; expected one of {simv7.CAP_MODES}"
+            )
     user_set_seeds = args.n_seeds != DEFAULT_N_SEEDS
     user_set_substeps = args.substeps != DEFAULT_SUBSTEPS
+    roll_at_cap_smoke = bool(
+        args.preset_geometry or args.cap_modes or args.max_layers_grid
+    )
 
     if args.smoke_test:
-        width_grid = [9.0]
-        exit_grid = [3.0, 5.0]
+        smoke_test_active = True
         n_seeds = 2
         substeps = DEFAULT_SUBSTEPS
         windows = filter_windows(["q1_2024_chop"], (PAIRS[0],))
-        print("SMOKE TEST: q1_2024_chop / first pair / 2x1 grid / n=2 seeds\n", flush=True)
+        if roll_at_cap_smoke:
+            print(
+                "SMOKE TEST (roll-at-cap): q1_2024_chop / first pair / "
+                f"preset={preset_geometry} modes={cap_modes} "
+                f"P={max_layers_grid or 'pair-default'} / n=2 seeds\n",
+                flush=True,
+            )
+        else:
+            width_grid = [9.0]
+            exit_grid = [3.0, 5.0]
+            print("SMOKE TEST: q1_2024_chop / first pair / 2x1 grid / n=2 seeds\n", flush=True)
     elif args.fast_shape:
         fast_shape = True
         width_grid = list(FAST_SHAPE_WIDTH_GRID)
@@ -1574,12 +1833,20 @@ def main():
         exit_grid = parse_float_list(args.exits)
     if args.pairs is not None:
         PAIRS = tuple(p.upper() for p in args.pairs)
+    if preset_geometry:
+        preset_rows = load_preset_geometry(PAIRS)
+        print_preset_geometry_table(preset_rows)
+        PAIRS = tuple(p for p in PAIRS if p in preset_rows)
+        width_grid = sorted({row["width"] for rows in preset_rows.values() for row in rows})
+        exit_grid = sorted({row["exit"] for rows in preset_rows.values() for row in rows})
     if args.windows is not None:
         windows = filter_windows(args.windows, PAIRS)
-    elif args.pairs is not None and fast_shape:
+    elif args.pairs is not None and not smoke_test_active and fast_shape:
         windows = filter_windows(FAST_SHAPE_WINDOWS, PAIRS)
-    elif args.pairs is not None:
+    elif args.pairs is not None and not smoke_test_active:
         windows = filter_windows(WINDOW_META.keys(), PAIRS)
+    if smoke_test_active and PAIRS:
+        windows = filter_windows(["q1_2024_chop"], (PAIRS[0],))
 
     if args.dry_run:
         sys.exit(dry_run_resolve(windows, PAIRS))
@@ -1605,7 +1872,16 @@ def main():
     if not args.fresh and partial_path.is_file():
         ckpt = load_checkpoint(partial_path)
         if ckpt and checkpoint_config_matches(
-            ckpt, n_seeds, width_grid, exit_grid, window_keys, PAIRS, substeps
+            ckpt,
+            n_seeds,
+            width_grid,
+            exit_grid,
+            window_keys,
+            PAIRS,
+            substeps,
+            cap_modes,
+            max_layers_grid,
+            preset_geometry,
         ):
             try:
                 validate_checkpoint_provenance(ckpt)
@@ -1623,16 +1899,24 @@ def main():
                 flush=True,
             )
 
-    n_cells = len(width_grid) * len(exit_grid) * sum(len(v) for v in windows.values())
+    n_series = sum(len(v) for v in windows.values())
+    if preset_geometry:
+        n_geom = sum(len(preset_rows.get(pair, [])) for paths in windows.values() for pair in paths)
+    else:
+        n_geom = len(width_grid) * len(exit_grid)
+    n_p = len(max_layers_grid) if max_layers_grid else 1
+    n_cells = n_geom * len(cap_modes) * n_p * n_series
     bar_counts = collect_bar_counts(windows)
     est_sec = estimate_sweep_runtime(n_cells, n_seeds, substeps, args.workers, bar_counts)
     per_cell_est = estimate_cell_sec(n_seeds, substeps, int(np.mean(bar_counts)) if bar_counts else REF_BARS)
     provenance = build_provenance()
     print(
         f"Sweep: {len(width_grid)} widths x {len(exit_grid)} exits x "
-        f"{n_cells // max(1, len(width_grid)*len(exit_grid))} series = {n_cells} cells",
+        f"{len(cap_modes)} modes x {n_p} P x {n_series} series = {n_cells} cells",
         flush=True,
     )
+    if preset_geometry:
+        print(f"  preset_geometry=True  cap_modes={cap_modes}  max_layers_grid={max_layers_grid}", flush=True)
     print(
         f"  n_seeds={n_seeds}  substeps={substeps}  ~{per_cell_est:.0f}s/cell (est)  "
         f"workers={args.workers}  ETA ~{format_hms(est_sec)}",
@@ -1661,6 +1945,10 @@ def main():
         resume_cells=resume_cells,
         runtag=runtag,
         substeps=substeps,
+        cap_modes=cap_modes,
+        max_layers_grid=max_layers_grid,
+        preset_geometry=preset_geometry,
+        preset_rows=preset_rows,
     )
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
@@ -1673,6 +1961,9 @@ def main():
         "substeps": substeps,
         "width_grid": width_grid,
         "exit_grid": exit_grid,
+        "cap_modes": cap_modes,
+        "max_layers_grid": max_layers_grid,
+        "preset_geometry": preset_geometry,
         "windows": window_keys,
         "pairs": list(PAIRS),
         "window_roles": WINDOW_ROLES,
