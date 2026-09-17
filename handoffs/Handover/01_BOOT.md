@@ -119,35 +119,34 @@ A question costs a copy-paste. A wrong assumption has cost an hour.
 ---
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-16, ~23:45Z.** Evidence: `HANDOFF_2026-09-16b.md` (FOMC),
-design and deploy plan: `HANDOFF_2026-09-16c.md`.
+**As of 2026-09-17, ~02:53Z.** Evidence: `HANDOFF_2026-09-17.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `17838db` (+ operator commit of spec amendments AM1-AM8, if pushed) |
-| VPS compiled at | last known ADR-150 build; **ADR-151 NOT implemented or deployed** |
+| fxmatrix main | `c39fb84` (ADR-151 Phase A merged) + this handoff commit |
+| VPS compiled at | `c39fb84`, 02:15:57Z. **ADR-151 Phase A is LIVE** |
 | pipshed main | `4e5bef4` |
-| MQL5 suite | 1038 per ADR-150 text; unverified. ADR-151 adds 39 |
-| Fleet | 14 EAs attached. At 21:47Z: halted GBPUSD OPT, EURUSD ALT (parked), AUDCHF ALT, CADCHF OPT (parking instructions given; not confirmed). NZDCAD/AUDNZD ALT detached, residuals closed |
-| Account | demo 1514582088, hedging, **limit 200 on positions + orders**; book at 200/200 at 21:47Z |
+| MQL5 suite | **1136/1136** on desktop at `5bc5a88` (baseline 1038 confirmed) |
+| Fleet | 14 attached, 0 halted. NZDCAD ALT / AUDNZD ALT detached (empty books). NZDCHF never attached |
+| Account | demo 1514582088, hedging, limit 200 on positions + orders; **170/200** at 02:53Z |
+| Rollback | `rollback/adr151-k99-r2` @ `f7e2123` (merge, deploy, compile). Never restore the ADR-150 ex5 while any layer is held |
 
-**THE BINDING CONSTRAINT IS THE ACCOUNT LIMIT.** At 200 the terminal refuses
-the exit placed after a fill (10040, `duration_ms=0`) -> I3 naked -> halt.
-Halted instances keep filling resting entries; refused sends retry per tick.
+**THE BINDING CONSTRAINT IS NOW THE COMMITMENT GUARD, NOT THE ACCOUNT.**
+Entries need `positions + orders + resting_entries <= 194`. At 02:53Z that was
+196: new entries defer fleet-wide while ~30 slots sit physically free. Exits
+need 1 free slot and are unaffected. Capacity design is the next question.
 
-**THE FIX IS ACCEPTED: ADR-151 ORDER PURGATORY.** Exit queue (only the K=2
-nearest exits per side rest, H=1 band, the rest held and released as front
-exits net) + commitment guard (entries only when `free - resting_ent >= 2 + 4`,
-under a fleet GV lock). Phase A (carry off) spec:
-`prompts/cursor_adr151_phaseA.md`. **Next session implements and deploys it.**
+**How ADR-151 behaves, as seen live:** per side only the 2 nearest exits must
+rest (+1 may); deeper exits are held (`has_exit_order false`, formula
+`exit_target`). A fill places its exit in ~100-200 ms and cancels the exit
+that fell to rank 3. One entry send per instance per tick. Halt cancels own
+entries. A front-exit release and the hold-cancel race have NOT run yet.
 
-**Parking a halted instance** (until ADR-151 is live): delete its ENT orders,
-close exit-less positions, leave locked pairs. Never reinit into a full book.
+**A compile or reattach clears a halt** (`OnInit`). There is no "parked
+across a compile". To keep an instance out, detach it.
 
-**Carry pass is OFF in all 18 presets.** ADR-151 Phase A refuses to start if
-it is on. `Grind_CarryPruneShiftGvs` deletes OTHER instances' shift GVs --
-fixed inside ADR-151; do not enable carry before that lands.
+**Carry pass is OFF in all 18 presets;** Phase A refuses to start if on.
 
-**Still true:** majors cap 12 / crosses 8 (cut to 8 is a follow-on ADR, I7
-trap); NZDCHF rejected (ADR-146); cap thresholds 0.0; ARCHITECT s1 and s11
-stale; suite count is a baseline.
+**Still true:** majors cap 12 / crosses 8 (12 -> 8 is a follow-on ADR, I7
+trap; the memo's capacity table does not justify it, see handoff s3); NZDCHF
+rejected (ADR-146); cap thresholds 0.0; ARCHITECT s1, s3 and s11 stale.

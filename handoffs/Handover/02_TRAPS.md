@@ -220,3 +220,45 @@ belong in compiled constants.
 instances with naked layers will fail reconstruction on reload; close naked
 positions first.
 
+
+---
+
+## DEPLOY NIGHT (2026-09-17)
+
+**A compile clears every halt.** `OnInit` sets `g_grind_halted=false`. The
+16c plan assumed parked instances stay parked through a recompile; they do
+not. Detach anything that must stay out.
+
+**Count the names, not the number.** "8 halted" was repeated for hours; the
+list had 7. Recount from the status every time a number is carried forward.
+
+**Liveness is not in `api_count` or in one P&L change.** A detached instance
+shows "live" with a frozen book and repeats the fleet-wide `api_count`. Two
+reads taken AFTER the detach, identical to the cent, prove frozen. Pipshed
+shows `book: null` for a detached instance, so AccountLimits is the only full
+book count.
+
+**Two-dot diffstat lies about merges.** `origin/main..branch` compares trees:
+a file added to main after the branch point shows as "deleted". Use
+`origin/main...branch` (three dots) to see what the branch changed.
+
+**A commit report file is still a self-report.** Both Cursor reports tonight
+had wrong counts or hashes. The branch was right both times.
+
+**Test seams must model what the test asserts.** A constant `used` seam made
+AM2 (recompute before each send) untestable; a per-tick flag reset only in
+`OnTickEngine` leaked across direct-call tests; a function reading the live
+terminal ignored the order seam. Twenty-one failures, none in live logic.
+
+**A stub commit must compile.** A forward declaration of a new overload with
+no body fails MQL5 compile (`function must have a body`). The tests-first
+proof was lost for ADR-151.
+
+**Never run the test suite on a terminal with live EAs.** LK tests delete the
+fleet slot lock GV; prune tests delete carry GVs terminal-wide.
+
+**Screenshots of EA inputs contain `TelemetryAPIKey`.** Crop or rotate.
+
+**The guard binds in steady state.** Missing entries after a reattach are
+usually deferral (`positions + orders + resting_ent > 194`), not a fault.
+Compute it before diagnosing.
