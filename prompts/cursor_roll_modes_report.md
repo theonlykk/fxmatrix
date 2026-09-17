@@ -134,4 +134,12 @@ GBPUSD   ALT         5       10
 
 ### 5. `git diff --stat main...research/roll-at-cap`
 
-After commits on branch, only `scripts/` and this report under `prompts/` (see commit section below).
+```
+ prompts/cursor_roll_modes_report.md | 137 ++++++++++++++
+ scripts/grid_sim_v7_real_signal.py  |  96 +++++++++-
+ scripts/run_width_exit_sweep.py     | 365 ++++++++++++++++++++++++++++++++----
+ scripts/test_sim_roll_modes.py      | 249 ++++++++++++++++++++++++
+ 4 files changed, 808 insertions(+), 39 deletions(-)
+```
+
+Only `scripts/` and this report — no `ea/`, presets, pipshed, or deploy changes.
