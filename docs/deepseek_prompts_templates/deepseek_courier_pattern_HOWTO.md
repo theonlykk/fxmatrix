@@ -1,3 +1,15 @@
+# SUPERSEDED -- see deepseek_r1_audit_pattern_HOWTO.md
+
+This file described reaching DeepSeek by switching Cursor itself to the DeepSeek R1
+model and having it load a brief from disk behind a courier integrity gate. That is
+NOT how DeepSeek is reached. DeepSeek R1 is called through the API runner
+`D:\candlelab\scripts\r1_audit.py`, driven by Cursor.
+
+Read `deepseek_r1_audit_pattern_HOWTO.md` in this folder. The original text is kept
+below for history only -- do not follow it.
+
+---
+
 # How we send a prompt to DeepSeek (via Cursor as courier)
 
 DeepSeek is NOT called directly. It is reached by having Cursor -- switched to the
