@@ -245,6 +245,9 @@ void Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick()
 void Test_EQ_K1c_i3_requires_rank_zero_only()
 {
    Grind_CarryTestReset();
+   Grind_CarryShiftDelete(5001UL);
+   Grind_CarryShiftDelete(5002UL);
+   Grind_CarryShiftDelete(5003UL);
    GrindReconLayerScratch layers[3];
    Grind_TestInitLayerScratch(layers[0], 0, 1.10500, 5001UL);
    layers[0].has_exit_order = false;
@@ -265,13 +268,6 @@ void Test_EQ_K1c_i3_requires_rank_zero_only()
    AssertTrue("EQ-K1c pass held",
               Grind_ReconCheckInvariants(layers, 3, long_ranks, empty, 0, short_ranks,
                                          3.0, 0.00001, 12, reason));
-   Print("EQ-K1c DIAG reason=", reason,
-         " shift=", Grind_CarryShiftGetForRecon(5003UL),
-         " expected=", Grind_ExitQFormulaTarget(1.10300, 3.0, 0.00001, true),
-         " target=", layers[2].exit_target,
-         " cover2=", Grind_ReconLayerHasExitCoverage(layers[2]),
-         " req0=", Grind_ExitQRequired(0),
-         " req1=", Grind_ExitQRequired(1));
 
    layers[2].has_exit_order = false;
    AssertFalse("EQ-K1c fail rank0",

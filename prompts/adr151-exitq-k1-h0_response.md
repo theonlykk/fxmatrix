@@ -297,3 +297,116 @@ git diff --stat f3acf67..HEAD (this commit only):
 No cause proposed. No assertion changed.
 
 Line count: 299
+
+## FIX: EQ-K1c carry GV deletes
+
+Measured cause: shift=0.04525 on position 5003 leaked from prior
+Grind_ExitQManageSide tests (EQ-K1a/K1b). Fix deletes shift and release GVs
+for 5001, 5002, 5003 after Grind_CarryTestReset(). Diagnostic Print removed.
+
+Test_EQ_K1c_i3_requires_rank_zero_only setup as it now reads:
+
+void Test_EQ_K1c_i3_requires_rank_zero_only()
+{
+   Grind_CarryTestReset();
+   Grind_CarryShiftDelete(5001UL);
+   Grind_CarryShiftDelete(5002UL);
+   Grind_CarryShiftDelete(5003UL);
+   GrindReconLayerScratch layers[3];
+   Grind_TestInitLayerScratch(layers[0], 0, 1.10500, 5001UL);
+   layers[0].has_exit_order = false;
+   Grind_TestInitLayerScratch(layers[1], 1, 1.10400, 5002UL);
+   layers[1].has_exit_order = false;
+   Grind_TestInitLayerScratch(layers[2], 2, 1.10300, 5003UL);
+   layers[2].has_exit_order = true;
+   layers[2].exit_order_ticket = 6103;
+   layers[2].exit_target = 1.10330;
+
+   int long_ranks[3];
+   long_ranks[0] = 2;
+   long_ranks[1] = 1;
+   long_ranks[2] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("EQ-K1c pass held",
+              Grind_ReconCheckInvariants(layers, 3, long_ranks, empty, 0, short_ranks,
+                                         3.0, 0.00001, 12, reason));
+
+   layers[2].has_exit_order = false;
+   AssertFalse("EQ-K1c fail rank0",
+               Grind_ReconCheckInvariants(layers, 3, long_ranks, empty, 0, short_ranks,
+                                          3.0, 0.00001, 12, reason));
+   AssertEqStr("EQ-K1c reason", reason, "I3_LONG_NAKED");
+
+   Adr151_TestResetAll();
+}
+
+Diagnostic Print: removed (confirmed absent from fxgrind_tests_adr151.mqh).
+
+Assertions unchanged: EQ-K1c pass held, EQ-K1c fail rank0, EQ-K1c reason.
+exit_target unchanged: 1.10330 on layers[2]. Grind_CarryTestReset() retained.
+
+git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
+
+ docs/architecture/ADR-151-order-purgatory.md |  25 +++-
+ docs/architecture/ADR-152-entry-purgatory.md |   8 +-
+ ea/fxgrind.mq5                               |   7 +-
+ ea/fxgrind_tests.mq5                         |   9 +-
+ ea/fxgrind_tests_adr151.mqh                  | 205 ++++++++++++++++++--
+ ea/fxgrind_tests_adr152.mqh                  |   1 +
+ ea/grind_api_counter.mqh                     |   2 +
+ ea/grind_config.mqh                          |   4 +-
+ ea/grind_engine.mqh                          |   2 +
+ ea/grind_state.mqh                           |   1 +
+ ea/presets/gbpusd_alt.set                    |   2 +-
+ ea/presets/gbpusd_opt.set                    |   2 +-
+ prompts/adr151-exitq-k1-h0_response.md       | (this file)
+ 13 files changed, (branch total)
+
+Shared position-id survey (report only, not fixed on this branch):
+
+Carry GV writers (Grind_CarryShiftSet direct):
+  fxgrind_tests.mq5: Test_CX7_ShiftGvLifecycle (88001),
+                     Test_CX8_CorruptGvBound (88002)
+  fxgrind_tests_adr151.mqh: Test_CV1_ReleaseMarkerSkipsBound (88010),
+                            Test_CV2_ShiftDeleteRemovesMarker (88011),
+                            Test_CV3_PruneKeepsExistingPositionGvs (88012)
+
+Carry GV writers (indirect via Grind_ExitQManageSide clamp path):
+  fxgrind_tests_adr151.mqh: Test_EQ_K1a_one_resting_exit_at_rank_zero (5001-5003),
+                            Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick (5001-5004),
+                            Test_EQ_CLAMP1_passed_target_increments_counter (7001),
+                            Test_EQ_CLAMP2_unpassed_target_no_counter (7002),
+                            Test_MQ1_TrimCancelsBeyondAllowedBand (5001-5004),
+                            Test_MQ2_ReleasePlacesRequiredMissing (5001-5003),
+                            Test_MQ3_TrimRunsBeforeRelease (5001-5004),
+                            Test_MQ4_NoSendWhenExitNotAllowed (5001),
+                            Test_MQ5_ClampStoresShiftAndReleaseMarker (7001),
+                            Test_MQ6_UsedRecomputedBeforeEachExitSend (5001-5002),
+                            Test_MQ7_KOverrideTrimsNothingReleasesAll (5001-5004),
+                            Test_HC1_CancelDoneClearsTracker (5001-5004),
+                            Test_HC2_CancelFailedOrderLiveKeepsTracker (5001-5004),
+                            Test_HC3_GoneWithDealQueuesCloseBy (5001-5004),
+                            Test_HC4_GoneWithoutDealClearsTracker (5001-5004),
+                            Test_HC5_DealOnOtherSideIgnored (5001-5004),
+                            Test_FL1_EntFillPlacesRankZeroExitAndTrims (5001-5003)
+
+Grind_ReconCheckInvariants overlap (position_id also touched by carry writer):
+  fxgrind_tests_adr151.mqh:
+    Test_EQ_K1c_i3_requires_rank_zero_only -- position_ids 5001, 5002, 5003
+      (GV read on 5003 via I6; leak source EQ-K1a/K1b in suite order)
+  No other test in these two files calls Grind_ReconCheckInvariants with a
+  position_id that also appears in a carry-shift writer above.
+
+Grind_ReconExitMatchesEntry overlap:
+  Standalone calls in fxgrind_tests.mq5 (Test_CX6, Test_CX8, Test_FB1-FB4)
+  pass shift explicitly; they do not read GVs by position_id. Test_CX8 sets
+  and consumes 88002 in the same test. No cross-test position-id leak risk
+  identified for Grind_ReconExitMatchesEntry in these two files.
+
+Wider gap noted: Grind_CarryTestReset does not clear GlobalVariables; any
+future recon test reusing 5001-5003 or 7001 after ExitQManageSide clamp tests
+remains vulnerable until shared harness is fixed on a separate branch.
+
+Line count: 412
