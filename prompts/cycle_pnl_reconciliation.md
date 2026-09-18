@@ -195,3 +195,112 @@ Analysis script (local, not committed): `scripts/cycle_pnl_recon.py`.
 CSV not committed per dump script instruction.
 
 Line count: 197
+
+## COUNTERFACTUAL: 17-Sep GBPUSD force closes
+
+On the evidence available (no Sep-17/18 GBPUSD rate file; EXT-fill lower bound
+for highs), none of the 15 force-closed longs would have reached their formula
+exit targets by 2026-09-18 23:50. Holding them to the last dump price
+(1.33955) would have left -125.21 unrealised MTM versus -176.35 realised on
+the closes -- a +51.14 equity difference (counterfactual minus actual), meaning
+the closes destroyed about **$51 of equity** relative to simply holding. That
+is not a large win for the closes: every position would still be underwater,
+and the closes locked in roughly $51 more loss than mark-to-market at the end
+of the window. True market highs may exceed our EXT lower bound, but the
+nearest target (L08 at 1.34401) sits ~45 pips above the highest observed
+|EXT| fill (1.33914), so flipping any position to a scalp exit is unlikely
+under conservative assumptions. The answer is close: closes clearly hurt vs
+hold-to-end, but neither path was profitable.
+
+Note: a 16th GBPUSD manual OUT on 2026-09-17 at 17:23:36 (-9.12) sits outside
+the two operator clusters and is excluded from the 15 below.
+
+### Step 1 -- Closed positions and geometry
+
+All 15 OUT deals match an ENT IN on `position_id`. All are long (`|L|` in
+comment). Arm from magic: `22260101` = OPT (exit_pips 7, target entry+0.00070),
+`22260102` = ALT (exit_pips 10, target entry+0.00100).
+
+| position_id | close time | close px | actual net | ENT time | entry | arm | target | comment |
+|-------------|------------|----------|------------|----------|-------|-----|--------|---------|
+| 541060808 | 2026-09-17 06:23:42 | 1.33715 | -14.25 | 2026-09-14 06:00:52 | 1.35112 | ALT | 1.35212 | GRIND\|ALT\|L\|L00\|ENT |
+| 541999470 | 2026-09-17 06:23:49 | 1.33716 | -13.20 | 2026-09-14 22:50:35 | 1.35008 | ALT | 1.35108 | GRIND\|ALT\|L\|L01\|ENT |
+| 542056165 | 2026-09-17 06:23:53 | 1.33715 | -12.17 | 2026-09-15 04:24:22 | 1.34908 | ALT | 1.35008 | GRIND\|ALT\|L\|L02\|ENT |
+| 543250220 | 2026-09-17 06:24:03 | 1.33718 | -11.10 | 2026-09-16 09:06:39 | 1.34809 | ALT | 1.34909 | GRIND\|ALT\|L\|L03\|ENT |
+| 543261883 | 2026-09-17 06:24:10 | 1.33717 | -10.07 | 2026-09-16 11:01:02 | 1.34705 | ALT | 1.34805 | GRIND\|ALT\|L\|L04\|ENT |
+| 540374044 | 2026-09-17 06:28:40 | 1.33709 | -14.88 | 2026-09-14 03:31:00 | 1.35169 | OPT | 1.35239 | GRIND\|OPT\|L\|L00\|ENT |
+| 541050954 | 2026-09-17 06:28:44 | 1.33708 | -13.90 | 2026-09-14 06:18:17 | 1.35070 | OPT | 1.35140 | GRIND\|OPT\|L\|L01\|ENT |
+| 542106297 | 2026-09-17 06:28:48 | 1.33708 | -12.85 | 2026-09-15 03:28:59 | 1.34969 | OPT | 1.35039 | GRIND\|OPT\|L\|L02\|ENT |
+| 543251889 | 2026-09-17 06:28:53 | 1.33708 | -11.83 | 2026-09-16 09:01:37 | 1.34872 | OPT | 1.34942 | GRIND\|OPT\|L\|L03\|ENT |
+| 543312365 | 2026-09-17 06:28:57 | 1.33704 | -10.87 | 2026-09-16 10:43:05 | 1.34772 | OPT | 1.34842 | GRIND\|OPT\|L\|L04\|ENT |
+| 543354875 | 2026-09-17 17:32:43 | 1.33634 | -10.56 | 2026-09-16 13:00:07 | 1.34671 | OPT | 1.34741 | GRIND\|OPT\|L\|L05\|ENT |
+| 543701009 | 2026-09-17 17:57:56 | 1.33520 | -10.04 | 2026-09-16 18:04:58 | 1.34505 | ALT | 1.34605 | GRIND\|ALT\|L\|L06\|ENT |
+| 543415118 | 2026-09-17 18:50:03 | 1.33410 | -11.80 | 2026-09-16 14:51:33 | 1.34571 | OPT | 1.34641 | GRIND\|OPT\|L\|L06\|ENT |
+| 543880431 | 2026-09-17 18:51:32 | 1.33407 | -10.16 | 2026-09-16 21:00:50 | 1.34404 | ALT | 1.34504 | GRIND\|ALT\|L\|L07\|ENT |
+| 543881186 | 2026-09-17 19:25:02 | 1.33453 | -8.67 | 2026-09-16 21:01:11 | 1.34301 | ALT | 1.34401 | GRIND\|ALT\|L\|L08\|ENT |
+
+### Step 2 -- Highest GBPUSD price since each close
+
+**Method used: fallback (EXT-fill lower bound).** No GBPUSD tick/M1 series
+covering 2026-09-17 06:23 through 2026-09-18 21:00 was available in the
+repository (`data/live_15d_export_20260808/gbpusd_m1.csv` ends 2026-08-07).
+
+For each close, the running high of subsequent GBPUSD `|EXT` IN fill prices
+after that close time:
+
+| cluster | per-position high | timestamp | bias |
+|---------|-------------------|-----------|------|
+| morning (10 closes) | 1.34016 | 2026-09-17 09:55:15 | lower bound |
+| afternoon (5 closes) | 1.33914 | 2026-09-18 20:10:46 | lower bound |
+
+Overall post-06:23 high from EXT fills: **1.34016** at 2026-09-17 09:55:15.
+Last GBPUSD deal price in dump: **1.33955** at 2026-09-18 22:46:17.
+
+**Bias:** true highs may exceed EXT fills; using EXT therefore tends to
+understate how often targets would have been reached, i.e. conservative toward
+"the closes were justified." Here targets (1.347-1.352) lie far above even
+generous EXT highs, so the bias does not change the classification.
+
+### Step 3 -- Counterfactual
+
+Classification rule: (a) subsequent EXT high >= exit target; else (b) still
+open with MTM at last price 1.33955: `(last - entry) / 0.0001 * $0.10` per
+0.01 lot. Scalp counterfactual (a) would be `exit_pips * $0.10 - $0.03`.
+
+**Result: 0 would have exited (a); 15 still open (b).**
+
+| | actual | counterfactual |
+|---|---|---|
+| realised on these 15 | -176.35 | 0.00 |
+| unrealised still open | 0.00 | -125.21 |
+| **equity effect** | **-176.35** | **-125.21** |
+
+**Difference (counterfactual minus actual): +51.14 USD.** Positive => the
+closes destroyed equity vs holding to the dump end. Positions were closed
+deeper in loss than where GBPUSD stood at 2026-09-18 22:46.
+
+Largest five would-be MTM losses if held (least bad first at -3.46):
+
+| position | entry | target | EXT high | MTM at 1.33955 |
+|----------|-------|--------|----------|----------------|
+| 543881186 L08 ALT | 1.34301 | 1.34401 | 1.33914 | -3.46 |
+| 543880431 L07 ALT | 1.34404 | 1.34504 | 1.33914 | -4.49 |
+| 543701009 L06 ALT | 1.34505 | 1.34605 | 1.33914 | -5.50 |
+| 543415118 L06 OPT | 1.34571 | 1.34641 | 1.33914 | -6.16 |
+| 543354875 L05 OPT | 1.34671 | 1.34741 | 1.33914 | -7.16 |
+
+### Step 4 -- What the closes bought (not netted)
+
+GBPUSD scalp CloseBy net in the 4 hours after each cluster vs same clock on
+2026-09-16 (crude control). **Cannot attribute** these to the force closes.
+
+| window | after closes (17-Sep) | control (16-Sep) |
+|--------|----------------------|------------------|
+| 4h after morning cluster end (06:28:57 -> 10:28:57) | 7 scalps, +5.72 net | 5 scalps, +3.98 net |
+| 4h after afternoon cluster end (19:25:02 -> 23:25:02) | 3 scalps, +2.43 net | 16 scalps, +14.09 net |
+
+Afternoon-after is well below the prior-day control; morning-after is slightly
+above. Guard-slot relief may have enabled some subsequent grind activity, but
+this dump cannot separate causation from normal session variation.
+
+Line count: 306
