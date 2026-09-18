@@ -247,4 +247,4 @@ git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
  prompts/adr151-exitq-k1-h0_response.md       | 237 +++++++++++++++++++++++++++++
  13 files changed, 479 insertions(+), 22 deletions(-)
 
-Line count: PLACEHOLDER
+Line count: 250
