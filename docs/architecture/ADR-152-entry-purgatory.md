@@ -116,12 +116,17 @@ exactly as today; only WHEN and in WHAT ORDER entries are placed changes.
   must be `false` and `0`. Pilot participation is strictly opt-in via preset
   files to enforce a fail-closed posture against missing or stale
   configuration.
-- Promotion gate: zero halts, zero quarantine episodes, zero I3/I6 markers,
-  and `entry_place_latency_ms` (fill to add placement) at or below today's.
-  `near_reserve_blocks` is treated as a measurement, not a hard threshold,
-  UNLESS telemetry confirms `guard_total` breached the far-entry ceiling
-  (186). If saturation is reached, the block counter must be non-zero to
-  proceed to Phase 2.
+- Promotion gate: zero halts, zero quarantine episodes, zero I3/I6 markers.
+  Strike `entry_place_latency_ms` and `near_reserve_blocks`. The gate requires
+  manual terminal log extraction of the `fill-to-placement gap` for all pilot
+  fills. This gap must be recorded as the baseline for Phase 2 validation.
+
+The standalone Phase 1 fleet rollout is cancelled due to unresolvable guard
+saturation. The Phase 1 pilot remains active on GBPUSD OPT/ALT, but will
+deploy to the remaining 14 instances concurrently with Phase 2.
+
+Pilot duration requirements (e.g. 48 hours) are measured strictly in active
+trading hours. Friday 21:00Z to Sunday 21:00Z pauses the promotion clock.
 
 **Phase 2 -- the horizon.**
 Ships D3, D4's transition budget, D6.
