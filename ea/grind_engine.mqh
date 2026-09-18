@@ -618,9 +618,12 @@ int Grind_ApplyEntryHorizon(GrindSideState &side,
       if(side.add_held && side.add_pending_ticket == 0 && !g_grind_ent_sent_this_tick) {
          if(Grind_EntryTransitionTryConsume(side)) {
             transitions++;
-            side.add_held = false;
-            if(!Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false))
+            if(Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false)) {
+               side.add_held = false;
+            } else {
                side.entry_transitions_used--;
+               transitions--;
+            }
          }
       }
       if(side.add_pending_ticket != 0) {
