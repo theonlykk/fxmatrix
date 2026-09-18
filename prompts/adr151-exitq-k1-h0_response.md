@@ -132,8 +132,8 @@ git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
  ea/grind_state.mqh                           |   1 +
  ea/presets/gbpusd_alt.set                    |   2 +-
  ea/presets/gbpusd_opt.set                    |   2 +-
- prompts/adr151-exitq-k1-h0_response.md       | 158 +++++++++++++++++++++
- 13 files changed, 399 insertions(+), 14 deletions(-)
+ prompts/adr151-exitq-k1-h0_response.md       | 171 +++++++++++++++++++++++
+ 13 files changed, 412 insertions(+), 22 deletions(-)
 
 grind_recon.mqh: NOT edited.
 
@@ -168,4 +168,4 @@ EQ-K1c: not changed in this commit (diagnosis pending operator ack).
 Anything else changed: nothing beyond the six assertions above and this
 response file.
 
-Line count: 172
+Line count: 171
