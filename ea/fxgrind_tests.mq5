@@ -6572,6 +6572,11 @@ void OnStart()
    Test_EQ3_RankTieByLayerIndex();
    Test_EQ4_RequiredAllowedBands();
    Test_EQ5_KOverrideAllRanksRequired();
+   Test_EQ_K1a_one_resting_exit_at_rank_zero();
+   Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick();
+   Test_EQ_K1c_i3_requires_rank_zero_only();
+   Test_EQ_CLAMP1_passed_target_increments_counter();
+   Test_EQ_CLAMP2_unpassed_target_no_counter();
    Test_SG1_ExitAllowedAtOneFree();
    Test_SG2_EntryBlockedBelowMargin();
    Test_SG3_EntryAllowedAtMargin();
