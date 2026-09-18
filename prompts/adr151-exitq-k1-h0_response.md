@@ -296,4 +296,4 @@ git diff --stat f3acf67..HEAD (this commit only):
 
 No cause proposed. No assertion changed.
 
-Line count: PLACEHOLDER
+Line count: 299
