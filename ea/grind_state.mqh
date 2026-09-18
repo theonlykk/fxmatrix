@@ -25,6 +25,7 @@ struct GrindSideState
    int      add_gap_missed;
    bool     entry_transitions_exhausted;
    bool     add_gap_beyond_target;
+   int      exit_clamped_promotions;
    bool     cap_warn_emitted;
 };
 

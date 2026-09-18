@@ -1833,6 +1833,8 @@ void Grind_ExitQManageSide(GrindSideState &side,
                                                       exit_pips, _Point, is_long);
       double price = formula;
       const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
+      if(clamped)
+         side.exit_clamped_promotions++;
       const string side_letter = is_long ? "L" : "S";
       const string comment = GrindCommentBuild(slot, side_letter, side.layers[i].layer_index, "EXT");
       const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_SELL_LIMIT : ORDER_TYPE_BUY_LIMIT;

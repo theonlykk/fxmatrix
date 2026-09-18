@@ -77,6 +77,8 @@ void Grind_ApiCounterMaybeReset()
       GlobalVariableSet(GRIND_DAILY_API_COUNT_GV, 0.0);
       g_grind_api_entry_stop_warn_emitted = false;
       g_grind_near_reserve_blocks = 0;
+      g_grind_long.exit_clamped_promotions = 0;
+      g_grind_short.exit_clamped_promotions = 0;
       Grind_EntryHorizonDailyReset();
    }
 }

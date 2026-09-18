@@ -116,6 +116,7 @@ void Adr152_TestResetHorizonSide(GrindSideState &side)
    side.add_gap_missed = 0;
    side.entry_transitions_exhausted = false;
    side.add_gap_beyond_target = false;
+   side.exit_clamped_promotions = 0;
 }
 
 //+------------------------------------------------------------------+

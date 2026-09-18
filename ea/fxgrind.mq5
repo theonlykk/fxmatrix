@@ -76,7 +76,8 @@ string Grind_BuildHeartbeatJson()
       "\"add_held_long\":%s,\"add_held_short\":%s,"
       "\"add_held_target_long\":%s,\"add_held_target_short\":%s,"
       "\"entry_transitions_used_long\":%d,\"entry_transitions_used_short\":%d,"
-      "\"add_gap_missed_long\":%d,\"add_gap_missed_short\":%d}",
+      "\"add_gap_missed_long\":%d,\"add_gap_missed_short\":%d,"
+      "\"exit_clamped_promotions_long\":%d,\"exit_clamped_promotions_short\":%d}",
       g_grind_add_due_long ? "true" : "false",
       g_grind_add_due_short ? "true" : "false",
       Grind_ApiCounterEntryStopped() ? "true" : "false",
@@ -90,7 +91,9 @@ string Grind_BuildHeartbeatJson()
       g_grind_long.entry_transitions_used,
       g_grind_short.entry_transitions_used,
       g_grind_long.add_gap_missed,
-      g_grind_short.add_gap_missed);
+      g_grind_short.add_gap_missed,
+      g_grind_long.exit_clamped_promotions,
+      g_grind_short.exit_clamped_promotions);
    return hb;
 }
 

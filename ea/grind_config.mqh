@@ -4,8 +4,8 @@
 #ifndef GRIND_CONFIG_MQH
 #define GRIND_CONFIG_MQH
 
-#define GRIND_EXITQ_K                 2
-#define GRIND_EXITQ_H                 1
+#define GRIND_EXITQ_K                 1
+#define GRIND_EXITQ_H                 0
 #define GRIND_SLOT_MARGIN             4
 #define GRIND_SLOT_NEAR_RESERVE       8     // Q, guard units reserved
 #define GRIND_DAILY_API_ENTRY_STOP    1900  // hard stop, entries only
