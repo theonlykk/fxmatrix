@@ -36,6 +36,7 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
 void Grind_MarketTestSeedTimeMsc(const long time_msc);
 void Grind_ApiCounterTestReset();
 void Grind_ApiCounterTestSeed(const int count);
+void Grind_EntryHorizonDailyReset();
 int  Grind_OrderTestCountFleetEnt(const string side_letter);
 
 extern long g_grind_entry_place_latency_ms;
