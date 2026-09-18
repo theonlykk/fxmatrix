@@ -759,6 +759,47 @@ void Test_T4e_horizon_off_is_phase1()
 }
 
 //+------------------------------------------------------------------+
+void Test_T4f_horizon_held_retained_on_failed_send()
+{
+   const double add_pips = 10.0;
+   const double H = 20.0;
+   const double anchor = 1.10500;
+   const double target = Grind_AddTargetPrice(anchor, add_pips, _Point, 1);
+   const double floor_dist = Grind_PipsToPrice(add_pips, _Point);
+   const double H_dist = Grind_PipsToPrice(H, _Point);
+   const double dist = floor_dist + (H_dist - floor_dist) * 0.5;
+   const double mid = target + dist;
+
+   Adr152_TestHorizonSetupLong(anchor, add_pips, mid, H);
+   Adr152_TestSeedSlotSeams(200, 100, 95);
+   g_grind_long.add_held = true;
+   g_grind_long.add_pending_ticket = 0;
+   const int used_before = g_grind_long.entry_transitions_used;
+   g_grind_near_reserve_blocks = 0;
+
+   Adr152_TestHorizonTick();
+   AssertTrue("T4f held after tick1", g_grind_long.add_held);
+   AssertTrue("T4f pending clear tick1", g_grind_long.add_pending_ticket == 0);
+   AssertTrue("T4f transitions unchanged tick1", g_grind_long.entry_transitions_used == used_before);
+   AssertTrue("T4f attempt tick1", g_grind_near_reserve_blocks >= 1);
+
+   g_grind_ent_sent_this_tick = false;
+   Adr152_TestHorizonTick();
+   AssertTrue("T4f attempt tick2", g_grind_near_reserve_blocks >= 2);
+
+   Adr152_TestSeedSlotSeams(200, 100, 0);
+   g_grind_ent_sent_this_tick = false;
+   Adr152_TestHorizonTick();
+   AssertTrue("T4f placed tick3", g_grind_order_test_place_calls >= 1);
+   AssertFalse("T4f held cleared tick3", g_grind_long.add_held);
+
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
 void Test_T5_horizon_transition_budget_exhausted()
 {
    const double add_pips = 10.0;

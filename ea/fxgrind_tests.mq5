@@ -6633,6 +6633,7 @@ void OnStart()
    Test_T4c_horizon_cancel_at_Hc();
    Test_T4d_horizon_no_flicker();
    Test_T4e_horizon_off_is_phase1();
+   Test_T4f_horizon_held_retained_on_failed_send();
    Test_T5_horizon_transition_budget_exhausted();
    Test_T9_held_add_reconstruction();
    Test_T10_horizon_gap_missed_once();
