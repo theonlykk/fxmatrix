@@ -349,11 +349,11 @@ exit_target unchanged: 1.10330 on layers[2]. Grind_CarryTestReset() retained.
 
 git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
 
- docs/architecture/ADR-151-order-purgatory.md |  25 +++-
+ docs/architecture/ADR-151-order-purgatory.md |  25 +-
  docs/architecture/ADR-152-entry-purgatory.md |   8 +-
  ea/fxgrind.mq5                               |   7 +-
  ea/fxgrind_tests.mq5                         |   9 +-
- ea/fxgrind_tests_adr151.mqh                  | 205 ++++++++++++++++++--
+ ea/fxgrind_tests_adr151.mqh                  | 204 ++++++++++++-
  ea/fxgrind_tests_adr152.mqh                  |   1 +
  ea/grind_api_counter.mqh                     |   2 +
  ea/grind_config.mqh                          |   4 +-
@@ -361,8 +361,8 @@ git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
  ea/grind_state.mqh                           |   1 +
  ea/presets/gbpusd_alt.set                    |   2 +-
  ea/presets/gbpusd_opt.set                    |   2 +-
- prompts/adr151-exitq-k1-h0_response.md       | (this file)
- 13 files changed, (branch total)
+ prompts/adr151-exitq-k1-h0_response.md       | 412 +++++++++++++++++++++++++++
+ 13 files changed, 657 insertions(+), 22 deletions(-)
 
 Shared position-id survey (report only, not fixed on this branch):
 
