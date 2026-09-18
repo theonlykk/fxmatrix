@@ -879,23 +879,61 @@ void Test_T10_horizon_gap_missed_once()
    const double H = 20.0;
    const double anchor = 1.10500;
    const double target = Grind_AddTargetPrice(anchor, add_pips, _Point, 1);
+   const double beyond_dist = Grind_PipsToPrice(41.0, _Point);
 
-   Adr152_TestHorizonSetupLong(anchor, add_pips, target + Grind_PipsToPrice(H * 2.0, _Point), H);
+   Adr152_TestHorizonSetupLong(anchor, add_pips, target + beyond_dist, H);
    g_grind_long.add_held = true;
    g_grind_long.add_held_target = target;
    g_grind_long.add_gap_beyond_target = false;
 
-   Adr152_TestSeedMid(target + Grind_PipsToPrice(1.0, _Point));
+   Adr152_TestSeedMid(target + beyond_dist);
    Adr152_TestHorizonTick();
-   AssertTrue("T10 gap still zero above", g_grind_long.add_gap_missed == 0);
+   AssertTrue("T10 step1 gap", g_grind_long.add_gap_missed == 0);
+   AssertTrue("T10 step1 held", g_grind_long.add_held);
+
+   Adr152_TestSeedMid(target - beyond_dist);
+   Adr152_TestHorizonTick();
+   AssertTrue("T10 step2 gap", g_grind_long.add_gap_missed == 1);
+   AssertTrue("T10 step2 held", g_grind_long.add_held);
+
+   Adr152_TestSeedMid(target - Grind_PipsToPrice(42.0, _Point));
+   Adr152_TestHorizonTick();
+   AssertTrue("T10 step3 gap", g_grind_long.add_gap_missed == 1);
+   AssertTrue("T10 step3 held", g_grind_long.add_held);
+
+   Adr152_TestSeedMid(target + beyond_dist);
+   Adr152_TestHorizonTick();
+   AssertTrue("T10 step4 gap", g_grind_long.add_gap_missed == 1);
+
+   Adr152_TestSeedMid(target - beyond_dist);
+   Adr152_TestHorizonTick();
+   AssertTrue("T10 step5 gap", g_grind_long.add_gap_missed == 2);
+
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_T10b_horizon_gap_lands_in_floor()
+{
+   const double add_pips = 10.0;
+   const double H = 20.0;
+   const double anchor = 1.10500;
+   const double target = Grind_AddTargetPrice(anchor, add_pips, _Point, 1);
+   const double beyond_dist = Grind_PipsToPrice(41.0, _Point);
+
+   Adr152_TestHorizonSetupLong(anchor, add_pips, target + beyond_dist, H);
+   g_grind_long.add_held = true;
+   g_grind_long.add_held_target = target;
+   g_grind_long.add_gap_beyond_target = false;
 
    Adr152_TestSeedMid(target - Grind_PipsToPrice(1.0, _Point));
    Adr152_TestHorizonTick();
-   AssertTrue("T10 gap once below", g_grind_long.add_gap_missed == 1);
-
-   Adr152_TestSeedMid(target - Grind_PipsToPrice(2.0, _Point));
-   Adr152_TestHorizonTick();
-   AssertTrue("T10 gap still one", g_grind_long.add_gap_missed == 1);
+   AssertTrue("T10b gap once", g_grind_long.add_gap_missed == 1);
+   AssertTrue("T10b floor places", g_grind_order_test_place_calls >= 1);
+   AssertFalse("T10b held cleared", g_grind_long.add_held);
 
    Grind_MarketTestReset();
    Grind_OrderTestReset();

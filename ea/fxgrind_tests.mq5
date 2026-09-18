@@ -6637,6 +6637,7 @@ void OnStart()
    Test_T5_horizon_transition_budget_exhausted();
    Test_T9_held_add_reconstruction();
    Test_T10_horizon_gap_missed_once();
+   Test_T10b_horizon_gap_lands_in_floor();
    Test_T_invariant_held_pending_exclusive();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
