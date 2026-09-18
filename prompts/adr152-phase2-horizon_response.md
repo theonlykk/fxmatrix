@@ -168,4 +168,93 @@ ea/fxgrind_tests.mq5 (wire T4f), ea/grind_engine.mqh (in_place fix), and
 this response file. in_floor, in_cancel, band arithmetic, gap check,
 presets, ADR, and other tests untouched.
 
-Line count: 172
+Line count: 171
+
+## FIX 2: in_place gate and T10 scenario
+
+Branch: feat/adr152-phase2-horizon @ 335840e (after fix 2 commits)
+Additional commits (in order):
+  9269ffd ADR-152 phase 2 fix 2: drop add_held gate from in_place, budget held transitions only
+  335840e ADR-152 phase 2 fix 2: rewrite T10 gap scenario and add T10b
+Not merged. Branch pushed.
+
+SELF-REVIEW
+
+in_place branch as fixed (grind_engine.mqh lines 617-637):
+
+  if(in_place) {
+     if(side.add_pending_ticket == 0 && !g_grind_ent_sent_this_tick) {
+        const bool was_held = side.add_held;
+        if(!was_held || Grind_EntryTransitionTryConsume(side)) {
+           if(was_held)
+              transitions++;
+           if(Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false)) {
+              side.add_held = false;
+           } else if(was_held) {
+              side.entry_transitions_used--;
+              transitions--;
+           }
+        }
+     }
+     if(side.add_pending_ticket != 0) {
+        const double resting = Grind_OrderGetPriceOpen(side.add_pending_ticket);
+        if(!Grind_PriceWithinDeadband(resting, clamped, deadband_pips, _Point))
+           Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);
+     }
+     return transitions;
+  }
+
+in_floor, in_cancel and Grind_EntryHorizonCheckGap byte-identical to b72c5f0:
+  git diff b72c5f0 -- ea/grind_engine.mqh shows only the in_place block changed.
+
+T10 scenario (Test_T10_horizon_gap_missed_once):
+  setup: H=20, target=anchor-add_pips, add_held=true, add_gap_beyond_target=false
+  step 1: mid=target+41p -> gap=0, add_held=true
+  step 2: mid=target-41p -> gap=1, add_held=true
+  step 3: mid=target-42p -> gap=1, add_held=true
+  step 4: mid=target+41p -> gap=1 (edge re-arms, no new crossing)
+  step 5: mid=target-41p -> gap=2 (second rising-edge crossing)
+
+T10b scenario (Test_T10b_horizon_gap_lands_in_floor):
+  setup: held at mid=target+41p (beyond H_cancel=40p)
+  step 1: mid=target-1p (one tick into floor) -> gap=1, add placed, add_held=false
+
+git diff --stat origin/main...feat/adr152-phase2-horizon (raw):
+
+ docs/architecture/ADR-152-entry-purgatory.md |  17 +-
+ ea/fxgrind.mq5                               |  22 +-
+ ea/fxgrind_tests.mq5                         |  19 ++
+ ea/fxgrind_tests_adr152.mqh                  | 407 ++++++++++++++++++++++++++-
+ ea/grind_api_counter.mqh                     |  15 +
+ ea/grind_config.mqh                          |   9 +
+ ea/grind_engine.mqh                          | 202 ++++++++++++++-
+ ea/grind_recon.mqh                           |   6 +
+ ea/grind_state.mqh                           |   6 +
+ ea/presets/audcad_alt.set                    |   2 +
+ ea/presets/audcad_opt.set                    |   2 +
+ ea/presets/audchf_alt.set                    |   2 +
+ ea/presets/audchf_opt.set                    |   2 +
+ ea/presets/audnzd_alt.set                    |   2 +
+ ea/presets/audnzd_opt.set                    |   2 +
+ ea/presets/cadchf_alt.set                    |   2 +
+ ea/presets/cadchf_opt.set                    |   2 +
+ ea/presets/eurgbp_alt.set                    |   2 +
+ ea/presets/eurgbp_opt.set                    |   2 +
+ ea/presets/eurusd_alt.set                    |   2 +
+ ea/presets/eurusd_opt.set                    |   2 +
+ ea/presets/gbpusd_alt.set                    |   1 +
+ ea/presets/gbpusd_opt.set                    |   1 +
+ ea/presets/nzdcad_alt.set                    |   2 +
+ ea/presets/nzdcad_opt.set                    |   2 +
+ prompts/adr152-phase2-horizon_response.md    | 234 ++++++++++++++++
+ 26 files changed, 889 insertions(+), 15 deletions(-)
+
+Suite figure observed: operator 1215/1218 before fix 2 (T4b, T10 x2 failing).
+Not run in this session (no MetaEditor).
+
+Anything else changed: ea/grind_engine.mqh (in_place only), ea/fxgrind_tests_adr152.mqh
+(T10 rewrite, T10b added), ea/fxgrind_tests.mq5 (wire T10b), and this response file.
+in_floor, in_cancel, Grind_EntryHorizonCheckGap, band arithmetic, other tests,
+presets, and ADR untouched.
+
+Line count: 260
