@@ -2345,8 +2345,10 @@ void Grind_TestResetSideState()
    ArrayResize(g_grind_short.layers, 0);
    g_grind_long.l0_pending_ticket = 0;
    g_grind_long.add_pending_ticket = 0;
+   Adr152_TestResetHorizonSide(g_grind_long);
    g_grind_short.l0_pending_ticket = 0;
    g_grind_short.add_pending_ticket = 0;
+   Adr152_TestResetHorizonSide(g_grind_short);
    g_grind_fill_count = 0;
    g_grind_scalp_count = 0;
    g_grind_halted = false;
@@ -6620,6 +6622,15 @@ void OnStart()
    Test_T4e_due_flag_cleared_on_init();
    Test_T4f_due_flag_not_retried_twice_in_one_tick();
    Test_T5_no_double_send_due_plus_ensure();
+   Test_T4a_horizon_floor_rest();
+   Test_T4b_horizon_place_at_H();
+   Test_T4c_horizon_cancel_at_Hc();
+   Test_T4d_horizon_no_flicker();
+   Test_T4e_horizon_off_is_phase1();
+   Test_T5_horizon_transition_budget_exhausted();
+   Test_T9_held_add_reconstruction();
+   Test_T10_horizon_gap_missed_once();
+   Test_T_invariant_held_pending_exclusive();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

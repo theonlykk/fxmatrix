@@ -29,6 +29,7 @@ long   g_grind_market_test_time_msc = 0;
 
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
+double g_grind_engine_entry_horizon_pips = 0.0;
 
 //+------------------------------------------------------------------+
 void Grind_MarketTestReset()
@@ -457,10 +458,42 @@ bool Grind_CancelPendingOrder(const ulong ticket, const ulong magic)
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 
 //+------------------------------------------------------------------+
-void Grind_EngineConfigureAdr152(const bool fill_time_place, const int slot_near_reserve)
+void Grind_EngineConfigureAdr152(const bool fill_time_place,
+                                  const int slot_near_reserve,
+                                  const double entry_horizon_pips = 0.0)
 {
    g_grind_fill_time_place = fill_time_place;
    g_grind_slot_near_reserve = slot_near_reserve;
+   g_grind_engine_entry_horizon_pips = entry_horizon_pips;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_EntryHorizonActive()
+{
+   return (g_grind_engine_entry_horizon_pips > 0.0);
+}
+
+//+------------------------------------------------------------------+
+void Grind_Adr152AssertHeldPendingExclusive(const GrindSideState &side)
+{
+   if(side.add_held && side.add_pending_ticket != 0) {
+      if(g_grind_order_test_active)
+         g_grind_order_test_last_critical = "ADR152_HELD_PENDING_EXCLUSIVE";
+   }
+}
+
+//+------------------------------------------------------------------+
+// Phase 2 stub: replaced in commit 2. Returns D3 place/cancel transitions consumed.
+int Grind_ApplyEntryHorizon(GrindSideState &side,
+                             const bool is_long,
+                             const ulong magic,
+                             const string slot,
+                             const double add_pips,
+                             const double deadband_pips,
+                             const int max_layers,
+                             const double lots)
+{
+   return 0;
 }
 
 //+------------------------------------------------------------------+

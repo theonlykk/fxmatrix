@@ -19,6 +19,12 @@ struct GrindSideState
    GrindLayer layers[];
    ulong    l0_pending_ticket;
    ulong    add_pending_ticket;
+   bool     add_held;
+   double   add_held_target;
+   int      entry_transitions_used;
+   int      add_gap_missed;
+   bool     entry_transitions_exhausted;
+   bool     add_gap_beyond_target;
    bool     cap_warn_emitted;
 };
 
