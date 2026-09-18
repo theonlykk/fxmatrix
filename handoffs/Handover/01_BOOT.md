@@ -12,7 +12,9 @@ him before Cursor sees it. He catches real things: a TOCTOU race in a lock fix,
 an OnTick sampling blind spot, a lifecycle trap where a diagnostic would have
 been destroyed before it was emitted. **Verify his amendments too** -- one named
 an invariant `I7` when `I7` was taken; another mandated `ExpertRemove` against a
-standing ruling. Both were caught by checking.
+standing ruling. Both were caught by checking. He rules on design, not on
+repo mechanics: branch topology and commit layout follow the conventions in
+this folder and do not need a ruling.
 
 **Cursor -- implementation.** Works in the repos, runs tests, commits to
 branches, never to main. Honest when something does not work, and it has caught
@@ -62,19 +64,34 @@ require that it be reported.
 is open, exit codes have been observed inverted, and a stale log reads as a
 current result. MetaEditor GUI compile by the operator is the authoritative gate.
 
+**Do not ask Cursor to run the suite in the same prompt that forbids a
+compile.** The suite needs a compiled `.ex5`, so the two instructions conflict
+and Cursor resolves the conflict by doing more, not less. If the operator is to
+compile, say so and say the suite figure is pending -- do not also ask for it.
+
 ---
 
 ## 3. MACHINES
 
 **Desktop** (`D:\fxmatrix`, `D:\pipshed`) -- the working machine. Git, Cursor,
-MetaEditor for compiling and running the suite. An MT5 terminal is installed and
-Cursor can drive it, but no EAs are attached and algo is off.
+MetaEditor for compiling and running the suite. **Cursor runs HERE and nowhere
+else:** it never touches the VPS or the Surface. An MT5 terminal is installed
+and Cursor can drive it; no EAs are attached and algo is OFF, and it stays off.
+**It is logged into the same FTMO account as the VPS,** so it sees live
+positions, orders and history. A position list or a screenshot taken here is
+real fleet data, not a sandbox. Compiling here does NOT reload the fleet; only
+the VPS compile does that. Sync sources with `.\desktop_sync.ps1`, which copies
+`ea/` into the terminal's Experts and Scripts folders and hash-verifies each
+file. There is no git pull step in it: the desktop repo IS the working copy.
 
 **VPS** (`C:\fxmatrix`, terminal hash `81A933A9AFC5DE3C23B15CAB19C63850`) --
 **where the fleet actually trades.** Fleet size in section 6, algo ON. Reached by RDP.
 `.\deploy.ps1` copies files; **only the MetaEditor compile reloads the EAs**,
 and a compile REINITIALISES every attached instance (which resets in-memory
-daily counters -- use the archive for daily totals).
+daily counters -- use the archive for daily totals). `deploy.ps1` does NOT copy
+`ea\presets\*.set` into `MQL5\Presets`; that is a manual step (17e s4). The
+terminal hash above identifies the install path, not the machine: the desktop
+install shares it, so it does not tell you which box you are on.
 
 **Surface** (`C:\fxmatrix`) -- dedicated research machine. Python venv, all
 sweeps. RDP, drive mapped from the desktop. Watch path depth; a copy once landed
@@ -95,7 +112,10 @@ Each earned by something going wrong.
 - **Report cause before fixing.** No plausible change without diagnosis.
 - **Never adjust an expected value to match output.** That turns a test into a
   description.
-- **Fail closed.** Invariants halt rather than compound.
+- **Fail closed.** Invariants halt rather than compound. This applies to input
+  defaults too: a kill switch must default OFF so that a missing or stale
+  preset leaves a pilot on baseline instead of releasing a change fleet-wide
+  (ADR-152 Rollout).
 - **A code path that has never run is not a path that works.**
 - **An invariant and a reconciler must never target the same condition.**
 - **Live measurement outranks simulation.** The simulator has known divergences
@@ -116,34 +136,42 @@ cannot tell whether something is ratified or merely discussed.
 
 A question costs a copy-paste. A wrong assumption has cost an hour.
 
+You have standing latitude to draft consults to Gemini or to the previous chat
+whenever you judge one is warranted. You do not need to ask first.
+
 ---
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-17, end of session.** Evidence: `HANDOFF_2026-09-17.md`
-(deploy), `17b` (closes, cap 8, NZD ALT arms), `17c` (carry), `17d`
-(roll-at-cap spec, API count), `17e` (manual rolls, guard starvation, passive
-roll), `17f` (ADR-152 designed, ADR-152a abandoned, DeepSeek route corrected).
+**As of 2026-09-18, pre-London.** Evidence: `HANDOFF_2026-09-17.md` (deploy),
+`17b` (closes, cap 8, NZD ALT arms), `17c` (carry), `17d` (roll-at-cap spec,
+API count), `17e` (manual rolls, guard starvation, passive roll), `17f`
+(ADR-152 designed, ADR-152a abandoned, DeepSeek route corrected), `17g`
+(ADR-152 Phase 1 merged, Phase 1 deploy checklist).
 
 | | |
 |---|---|
-| fxmatrix main | `27f55fa`; EA source at `c39fb84` (ADR-151 Phase A), nothing deployed 17-Sep evening; presets all `InpMaxLayers=8` in repo AND VPS `MQL5\Presets` |
-| VPS compiled at | `c39fb84`, 02:15:57Z. **ADR-151 Phase A is LIVE** |
-| pipshed main | `4e5bef4` |
-| MQL5 suite | **1136/1136** on desktop at `5bc5a88` (baseline 1038 confirmed) |
-| Fleet | **16 attached, 0 halted.** NZDCHF never attached. All caps 8. GBPUSD longs rolled 6x manually today (17e s2). Research: `research/roll-at-cap` @ `f423f18`; Surface sweeps `roll_modes_cal_2026_09_17` + `roll_modes_tail_chf_2026_09_17` unread. **ADR-152 drafted (`cdb95f4`), ADR-152a abandoned (`27f55fa`)** |
-| Account | demo 1514582088, hedging, limit 200 on positions + orders. Daily-loss headroom UNVERIFIED in MetriX (17b s1). Deposit confirmed $10,000. **API requests 2320 for broker day 17 Sep, over FTMO's 2,000; nothing in the EA stops at 2000 (17d s3)** |
+| fxmatrix main | `52f6870`. **ADR-152 Phase 1 merged at `fe511e7` but NOT deployed;** VPS still runs EA source `c39fb84` (ADR-151 Phase A). All 18 presets `InpMaxLayers=8` in repo AND VPS `MQL5\Presets` |
+| Open branch | `fix/adr152-failclosed-default` @ `0c21ce4`, pushed, unmerged. Flips the `InpFillTimePlace` / `InpSlotNearReserve` compiled defaults to `false` / `0` and makes the two GBPUSD presets opt in at `true` / `8`. Gemini approved both this and the ADR-152 gate wording |
+| VPS compiled at | `c39fb84`, 02:15:57Z 17-Sep. **ADR-151 Phase A is LIVE** |
+| pipshed main | `4e5bef4`. Does not yet render the ADR-152 heartbeat keys |
+| MQL5 suite | **1178/1178** at `fe511e7`, operator-run (17g) |
+| Fleet | **16 attached, 0 halted, all `recon_ok` / `invariant_ok`** at 04:25:22Z 18-Sep (status c46). NZDCHF never attached. Research: `research/roll-at-cap` @ `f423f18`; Surface sweeps `roll_modes_cal_2026_09_17` + `roll_modes_tail_chf_2026_09_17` finished 17-Sep evening, **still unread** -- rank on total P&L, not `mean_realised` |
+| Account | demo 1514582088, hedging, limit 200 on positions + orders. Daily-loss headroom UNVERIFIED in MetriX since 16-Sep (17b s1). Deposit confirmed $10,000. API requests 2,336 for broker day 17-Sep, over FTMO's 2,000; the 1,900 entry stop exists in merged code but is NOT on the VPS |
 | Rollback | `rollback/adr151-k99-r2` @ `f7e2123` (merge, deploy, compile). Never restore the ADR-150 ex5 while any layer is held |
 
-**THE BINDING CONSTRAINT IS NOW THE COMMITMENT GUARD, NOT THE ACCOUNT.**
-Entries need `positions + orders + resting_entries <= 194`. It bound at 196
-(02:53Z); after the 03:2x closes it is ~183 and entries flow. Exits
-need 1 free slot and are unaffected. Capacity design is the next question.
+**THE BINDING CONSTRAINT IS THE COMMITMENT GUARD, NOT THE ACCOUNT.**
+Entries need `positions + orders + resting_entries <= 194`. It moves fast: 172
+at 22:40Z 17-Sep, **195 at 04:25Z 18-Sep** (177 in book, 18 resting entries),
+which blocks entries fleet-wide while the book itself sits well under 200.
+Do not conclude from one snapshot that the ceiling is far away. Exits need 1
+free slot and are unaffected. Capacity design is the next question.
 
 **How ADR-151 behaves, as seen live:** per side only the 2 nearest exits must
 rest (+1 may); deeper exits are held (`has_exit_order false`, formula
 `exit_target`). A fill places its exit in ~100-200 ms and cancels the exit
 that fell to rank 3. One entry send per instance per tick. Halt cancels own
-entries. A front-exit release and the hold-cancel race have NOT run yet.
+entries. A front-exit release has run live (EURUSD OPT L05, 17d); the
+hold-cancel race has NOT.
 
 **A compile or reattach clears a halt** (`OnInit`). There is no "parked
 across a compile". To keep an instance out, detach it.
@@ -153,6 +181,9 @@ across a compile". To keep an instance out, detach it.
 accrued carry (ADR-135b; sweep priced it, `725391f`). Phase B priority is
 open -- see `HANDOFF_2026-09-17c.md`.
 
-**Still true:** majors cap 12 / crosses 8 (12 -> 8 is a follow-on ADR, I7
-trap; the memo's capacity table does not justify it, see handoff s3); NZDCHF
-rejected (ADR-146); cap thresholds 0.0; ARCHITECT s1, s3 and s11 stale.
+**Still true:** all arms cap 8 in every preset (raising a cap is safe,
+lowering one below a side's current depth trips I7, which is not
+quarantinable -- close first); NZDCHF rejected (ADR-146); cap thresholds 0.0;
+ARCHITECT s1, s3, s8, s9 and s11 stale -- s1, s8 and s9 still say twelve
+instances and six symbols, and s1 is the block pasted verbatim into every
+Gemini and DeepSeek brief.
