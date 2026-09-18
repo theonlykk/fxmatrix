@@ -244,6 +244,7 @@ void Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick()
 //+------------------------------------------------------------------+
 void Test_EQ_K1c_i3_requires_rank_zero_only()
 {
+   Grind_CarryTestReset();
    GrindReconLayerScratch layers[3];
    Grind_TestInitLayerScratch(layers[0], 0, 1.10500, 5001UL);
    layers[0].has_exit_order = false;

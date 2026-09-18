@@ -169,3 +169,82 @@ Anything else changed: nothing beyond the six assertions above and this
 response file.
 
 Line count: 171
+
+## FIX: EQ-K1c carry reset
+
+Prior diagnosis correction: Grind_PipsToPrice is pips * point * 10.0
+(grind_pure.mqh:65). exit_target 1.10330 matches
+Grind_ExitQFormulaTarget(1.10300, 3.0, 0.00001, true) exactly. The I6
+failure was a stale carry shift on position id 5003, not a target mismatch.
+
+Fix: one line in Test_EQ_K1c_i3_requires_rank_zero_only setup:
+
+  Grind_CarryTestReset();
+
+EQ-K1c setup as committed:
+
+  void Test_EQ_K1c_i3_requires_rank_zero_only()
+  {
+     Grind_CarryTestReset();
+     GrindReconLayerScratch layers[3];
+     Grind_TestInitLayerScratch(layers[0], 0, 1.10500, 5001UL);
+     layers[0].has_exit_order = false;
+     Grind_TestInitLayerScratch(layers[1], 1, 1.10400, 5002UL);
+     layers[1].has_exit_order = false;
+     Grind_TestInitLayerScratch(layers[2], 2, 1.10300, 5003UL);
+     layers[2].has_exit_order = true;
+     layers[2].exit_order_ticket = 6103;
+     layers[2].exit_target = 1.10330;
+     ...
+
+exit_target still 1.10330. Both assertions unchanged. No file outside
+fxgrind_tests_adr151.mqh touched.
+
+Other tests calling Grind_ReconCheckInvariants without Grind_CarryTestReset
+(not fixed this commit):
+
+  fxgrind_tests_adr151.mqh:
+    Test_RI1_HeldLayerBeyondKPassesI3 (no exit coverage; I6 not reached)
+    Test_RI2_MissingExitAtRequiredRankFailsI3 (no exit coverage)
+    Test_RI3_I1SkipsLayersWithoutExit (no exit coverage)
+    Test_RI4_I6SkipsLayersWithoutExit (no exit coverage)
+
+  fxgrind_tests_adr152.mqh:
+    Test_T9_held_add_reconstruction (exit coverage, position 5001)
+
+  fxgrind_tests.mq5:
+    Test_I5c_DuplicateIndicesFail (no exit coverage)
+    Test_I5d_NegativeIndexFails (no exit coverage)
+    Test_IV1_I6LongExitOrderDetail (exit coverage, pos 541545776)
+    Test_IV2_I6LongExitPositionLiveCase (exit coverage, pos 541545776)
+    Test_IV3_I3LongNakedDetail (no exit coverage)
+    Test_IV4_I7LongDepthDetail (exit coverage; fails I7 before I6)
+    Test_IV5_InvariantDetailClearsOnPass (exit coverage, pos 1001)
+    Test_IV6_JsonShapeAndArchiveInfo (exit coverage, pos 541545776)
+    Test_EF1_I6LiveFavourableFillLong (exit coverage, pos 541545776)
+    Test_EF2_I6LargeFavourableFillLong (exit coverage, pos 541545776)
+    Test_EF3_I6ShortFillMirror (exit coverage, pos 1001)
+    Test_EF4_I6AdverseFillQuarantinable (exit coverage, pos 541545776)
+    Test_EF5_I6RestingMismatchHardHalt (exit coverage, pos 541545776)
+
+  Grind_ReconExitMatchesEntry direct calls without carry reset (FB1-FB4)
+  pass shift inline or default 0; they do not read carry GVs.
+
+git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
+
+ docs/architecture/ADR-151-order-purgatory.md |  25 +++-
+ docs/architecture/ADR-152-entry-purgatory.md |   8 +-
+ ea/fxgrind.mq5                               |   7 +-
+ ea/fxgrind_tests.mq5                         |   9 +-
+ ea/fxgrind_tests_adr151.mqh                  | 201 +++++++++++++++++++++++--
+ ea/fxgrind_tests_adr152.mqh                  |   1 +
+ ea/grind_api_counter.mqh                     |   2 +
+ ea/grind_config.mqh                          |   4 +-
+ ea/grind_engine.mqh                          |   2 +
+ ea/grind_state.mqh                           |   1 +
+ ea/presets/gbpusd_alt.set                    |   2 +-
+ ea/presets/gbpusd_opt.set                    |   2 +-
+ prompts/adr151-exitq-k1-h0_response.md       | 237 +++++++++++++++++++++++++++++
+ 13 files changed, 479 insertions(+), 22 deletions(-)
+
+Line count: PLACEHOLDER
