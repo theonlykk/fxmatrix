@@ -16,6 +16,23 @@ standing ruling. Both were caught by checking. He rules on design, not on
 repo mechanics: branch topology and commit layout follow the conventions in
 this folder and do not need a ruling.
 
+**His failure mode is not over-agreement, it is reasoning from general
+architecture rather than from this codebase.** On 2026-09-18 he proposed
+lowering `InpMaxLayers` to shed inventory (this engine cannot close a
+position, and lowering the cap below a side's depth trips I7, which is not
+quarantinable), and stated that MT5 would fill a passed held-exit target with
+positive slippage (a held exit has no order at the broker at all). Both are
+correct for a system that is not ours. Both were caught only by reading
+source. **The tell is a sign-off with commendations and no questions** --
+that means persuasive, not correct.
+
+**And the larger share is ours.** Both of those errors followed premises we
+supplied: a retracted operator preference, and a backwards description of the
+exit-queue ranking. He ruled correctly on what he was given. State which
+claims are verified in source and which are inferred, and flag when a premise
+is the operator's judgement rather than a measurement -- especially when that
+judgement is finely balanced.
+
 **Cursor -- implementation.** Works in the repos, runs tests, commits to
 branches, never to main. Honest when something does not work, and it has caught
 errors in specs.
