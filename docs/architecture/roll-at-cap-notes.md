@@ -116,6 +116,53 @@ at cap with price beyond the deepest layer, but not exactly.
 
 ---
 
+## 3a. FIRST EMPIRICAL OBSERVATION OF `q` -- 2026-09-18
+
+The break-even in s3 treats `q` as a probability: does a foothold get a guard
+slot or not. The first real measurement says that is the wrong shape.
+
+GBPUSD ALT, 2026-09-18, from the VPS terminal log (times UTC):
+
+| | |
+|---|---|
+| 10:38:55.714 | L14 entry fills. Its exit rests 1 ms later at 1.33714 |
+| 10:38:55.x | add to L15 is due. Cap allows it (6 of 8). Guard refuses it |
+| 11:51:59.702 | buy limit 1.33436 finally reaches the market |
+| 11:52:40.986 | it fills |
+
+**73 minutes** from due to placed. Then 41 seconds from placed to filled.
+
+Guard total was pinned at 195 for the whole of that day -- 195 at 05:01Z,
+195 at 05:11Z, 195 at 13:07Z -- while the book underneath moved (180 then
+178) and resting entries moved (15 then 17). A binding constraint being sat
+against, saturated for eight hours.
+
+**Consequences for the model in s3.**
+
+`q` is not a probability, it is a WAITING-TIME DISTRIBUTION. The slot
+arrived; it arrived 73 minutes late. A foothold's value decays while it
+waits, because the price level it was aimed at moves away. This one nearly
+expired: price reached 1.33436 forty-one seconds after the order landed, so
+a few more minutes of blocking and that layer would not exist. It is now the
+only long layer on either GBPUSD arm that is not underwater.
+
+So the benefit side of the break-even needs a decay term, not just a
+multiplier. Ejecting a layer to free a slot is worth much less if the
+foothold then queues for an hour behind other instances' entries.
+
+**How to measure it properly**: fill-to-placement gap per add, from the
+terminal log's Trades lines -- the interval between a layer's fill and the
+next layer's entry order reaching the market. That is a direct read of `q`
+and costs nothing but a grep. `near_reserve_blocks` does NOT measure this
+(see D1 and s4): it increments per tick while a far add is pending, so it
+reports blocked TIME in ticks, not refused entries. GBPUSD ALT read 22,309
+and OPT 7,930 over eight hours, which is roughly one per second.
+
+**This single observation is worth more than the 192-cell sweep**, because it
+measures the quantity the sweep structurally cannot model.
+
+---
+
 ## 4. THE SWEEPS (17-Sep) -- UNUSABLE ON MAGNITUDE
 
 `roll_modes_cal_2026_09_17` (192 cells, 2 windows x 8 pairs x 2 geometries
@@ -288,6 +335,18 @@ value and both arms scalp faster than either does now; match at the ALT value
 and both slow down. Either choice changes the fleet's aggregate behaviour for
 the duration of the test, and the geometry A/B stops while it runs.
 
+**Design idea for the ADR (operator, 2026-09-18).** Keep the MOST UNDERWATER
+layer's exit resting, alongside the nearest ranks that ADR-151 already rests.
+ADR-151 is a prefix (ranks 0-2); this makes it a barbell. The reason is the
+K + H + 1 in s6a item 2: that +1 is the new exit order created for the ejected
+layer. If the deepest exit is already resting, ejection becomes an
+`OrderModify` of an existing order rather than an `OrderSend` of a new one, so
+the +1 disappears and the guard cost is pre-paid. Pay-on-use looks cheaper --
+one unit per ejection rather than one held permanently on each deep side --
+but an ejection that cannot obtain a guard unit does not happen, and on
+2026-09-18 a near-market entry waited 73 minutes for one (s3a). Pre-paying
+guarantees the mechanism can fire.
+
 **Open questions for that ADR, from 17e s6a.** An explicit `EJECTED` state
 that ranking and trimming skip, or the next fill cancels the ejected exit.
 Slot accounting becomes K + H + 1 per side. Reconstruction must accept a
@@ -300,4 +359,4 @@ had adverse effects on this system before. The mechanism here is appealing
 and may still be wrong; s3 says the answer turns on `p` and `q`, and neither
 has an estimate.
 
-Line count: 303
+Line count: 362
