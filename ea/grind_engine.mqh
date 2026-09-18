@@ -615,12 +615,14 @@ int Grind_ApplyEntryHorizon(GrindSideState &side,
    }
 
    if(in_place) {
-      if(side.add_held && side.add_pending_ticket == 0 && !g_grind_ent_sent_this_tick) {
-         if(Grind_EntryTransitionTryConsume(side)) {
-            transitions++;
+      if(side.add_pending_ticket == 0 && !g_grind_ent_sent_this_tick) {
+         const bool was_held = side.add_held;
+         if(!was_held || Grind_EntryTransitionTryConsume(side)) {
+            if(was_held)
+               transitions++;
             if(Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false)) {
                side.add_held = false;
-            } else {
+            } else if(was_held) {
                side.entry_transitions_used--;
                transitions--;
             }
