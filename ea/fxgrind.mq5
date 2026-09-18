@@ -22,6 +22,7 @@ input double InpDeadbandPips       = 4.0;
 input bool   InpEnableCarryPass    = false;   // ADR-135b carry exit shift
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
 input int    InpSlotNearReserve    = 0;       // preset opts in; Q = GRIND_SLOT_NEAR_RESERVE
+input double InpEntryHorizonPips   = 0.0;   // D3 kill switch, 0 = off; preset opts in
 input string InpCapLegA            = "";
 input string InpCapLegB            = "";
 input double InpCapLegAThresh      = 0.0;
@@ -71,13 +72,25 @@ string Grind_BuildHeartbeatJson()
    hb += StringFormat(
       ",\"add_due_long\":%s,\"add_due_short\":%s,"
       "\"entry_stopped\":%s,\"near_reserve_blocks\":%d,"
-      "\"guard_total\":%d,\"entry_place_latency_ms\":%d}",
+      "\"guard_total\":%d,\"entry_place_latency_ms\":%d,"
+      "\"add_held_long\":%s,\"add_held_short\":%s,"
+      "\"add_held_target_long\":%s,\"add_held_target_short\":%s,"
+      "\"entry_transitions_used_long\":%d,\"entry_transitions_used_short\":%d,"
+      "\"add_gap_missed_long\":%d,\"add_gap_missed_short\":%d}",
       g_grind_add_due_long ? "true" : "false",
       g_grind_add_due_short ? "true" : "false",
       Grind_ApiCounterEntryStopped() ? "true" : "false",
       g_grind_near_reserve_blocks,
       g_grind_last_guard_total,
-      (int)g_grind_entry_place_latency_ms);
+      (int)g_grind_entry_place_latency_ms,
+      g_grind_long.add_held ? "true" : "false",
+      g_grind_short.add_held ? "true" : "false",
+      g_grind_long.add_held ? DoubleToString(g_grind_long.add_held_target, 5) : "null",
+      g_grind_short.add_held ? DoubleToString(g_grind_short.add_held_target, 5) : "null",
+      g_grind_long.entry_transitions_used,
+      g_grind_short.entry_transitions_used,
+      g_grind_long.add_gap_missed,
+      g_grind_short.add_gap_missed);
    return hb;
 }
 
@@ -133,7 +146,7 @@ int OnInit()
    g_grind_recon_exit_pips = InpExitPips;
    g_grind_recon_max_layers = InpMaxLayers;
    g_grind_recon_verbose = InpVerboseLog;
-   Grind_EngineConfigureAdr152(InpFillTimePlace, InpSlotNearReserve);
+   Grind_EngineConfigureAdr152(InpFillTimePlace, InpSlotNearReserve, InpEntryHorizonPips);
    Grind_Adr152ResetDueFlags();
    Grind_ScalpTelemetryConfigure(EnableTelemetry,
                                  TelemetryURL,
@@ -172,6 +185,9 @@ int OnInit()
                                 InpStrandedThreshPips,
                                 InpDeadbandPips,
                                 InpLots,
+                                InpFillTimePlace,
+                                InpSlotNearReserve,
+                                InpEntryHorizonPips,
                                 InpCapLegA,
                                 InpCapLegB,
                                 InpCapLegAThresh,

@@ -9,6 +9,8 @@
 #define GRIND_SLOT_MARGIN             4
 #define GRIND_SLOT_NEAR_RESERVE       8     // Q, guard units reserved
 #define GRIND_DAILY_API_ENTRY_STOP    1900  // hard stop, entries only
+#define GRIND_ENTRY_TRANSITIONS_MAX   20    // D4, per side per broker day
+#define GRIND_ENTRY_HORIZON_CANCEL_X  2.0   // H_cancel = X * H_place
 #define GRIND_SLOT_LOCK_GV            "GRIND_SLOT_LOCK"
 #define GRIND_SLOT_LOCK_STALE_MS      10000
 #define GRIND_SLOT_LOCK_MAX_RETRIES   50
@@ -31,6 +33,9 @@ string Grind_ConfigDumpString(const ulong magic,
                               const double stranded_thresh_pips,
                               const double deadband_pips,
                               const double lots,
+                              const bool fill_time_place,
+                              const int slot_near_reserve,
+                              const double entry_horizon_pips,
                               const string cap_leg_a,
                               const string cap_leg_b,
                               const double cap_leg_a_thresh,
@@ -51,6 +56,7 @@ string Grind_ConfigDumpString(const ulong magic,
       "InpMagic=%s InpSlot=%s symbol=%s "
       "InpWidthPips=%.4f InpAddPips=%.4f InpExitPips=%.4f "
       "InpMaxLayers=%d InpStrandedThreshPips=%.4f InpDeadbandPips=%.4f InpLots=%.4f "
+      "InpFillTimePlace=%s InpSlotNearReserve=%d InpEntryHorizonPips=%.4f "
       "InpCapLegA=%s InpCapLegB=%s InpCapLegAThresh=%.4f InpCapLegBThresh=%.4f "
       "InpTelemetryInstance=%s InpVerboseLog=%s InpConfigWarning=%s "
       "telemetry=%s url=%s key=%s interval=%d",
@@ -64,6 +70,9 @@ string Grind_ConfigDumpString(const ulong magic,
       stranded_thresh_pips,
       deadband_pips,
       lots,
+      fill_time_place ? "true" : "false",
+      slot_near_reserve,
+      entry_horizon_pips,
       cap_leg_a,
       cap_leg_b,
       cap_leg_a_thresh,

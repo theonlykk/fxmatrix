@@ -86,6 +86,7 @@ void Adr152_TestPrepareIsolation()
 {
    Adr152_TestResetApiCounter();
    Grind_ApiCounterTestSeed(0);
+   Grind_EntryHorizonDailyReset();
    Adr151_TestResetLock();
    g_grind_cap_test_lock_held = false;
    g_grind_cap_thresh_a = 0.0;

@@ -483,7 +483,49 @@ void Grind_Adr152AssertHeldPendingExclusive(const GrindSideState &side)
 }
 
 //+------------------------------------------------------------------+
-// Phase 2 stub: replaced in commit 2. Returns D3 place/cancel transitions consumed.
+bool Grind_EntryHorizonClampAddTarget(const bool is_long,
+                                       const double add_target,
+                                       double &clamped_out)
+{
+   const double bid = Grind_MarketBid();
+   const double ask = Grind_MarketAsk();
+   const long stops = Grind_MarketStopsLevel();
+   if(is_long) {
+      Grind_Adr013ClampBuy(add_target, bid, _Point, stops, clamped_out);
+      return Grind_BuyLimitMarketable(clamped_out, ask);
+   }
+   Grind_Adr013ClampSell(add_target, bid, ask, _Point, stops, clamped_out);
+   return Grind_SellLimitMarketable(clamped_out, bid);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_EntryTransitionTryConsume(GrindSideState &side)
+{
+   if(side.entry_transitions_used >= GRIND_ENTRY_TRANSITIONS_MAX) {
+      side.entry_transitions_exhausted = true;
+      return false;
+   }
+   side.entry_transitions_used++;
+   side.entry_transitions_exhausted = false;
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void Grind_EntryHorizonCheckGap(GrindSideState &side,
+                                const bool is_long,
+                                const double mid,
+                                const double target)
+{
+   if(!side.add_held)
+      return;
+   const bool beyond = is_long ? (mid < target - GRIND_PRICE_EPS)
+                               : (mid > target + GRIND_PRICE_EPS);
+   if(beyond && !side.add_gap_beyond_target)
+      side.add_gap_missed++;
+   side.add_gap_beyond_target = beyond;
+}
+
+//+------------------------------------------------------------------+
 int Grind_ApplyEntryHorizon(GrindSideState &side,
                              const bool is_long,
                              const ulong magic,
@@ -493,7 +535,103 @@ int Grind_ApplyEntryHorizon(GrindSideState &side,
                              const int max_layers,
                              const double lots)
 {
-   return 0;
+   if(!Grind_EntryHorizonActive())
+      return 0;
+
+   const int n = Grind_SideDepth(side);
+   if(n <= 0 || !Grind_CanPlaceEntryLayer(n, max_layers))
+      return 0;
+   if(!Grind_CapAllowsEntry(is_long, lots))
+      return 0;
+   if(Grind_ApiCounterEntryStopped())
+      return 0;
+
+   Grind_Adr152AssertHeldPendingExclusive(side);
+
+   const double H_price = Grind_PipsToPrice(g_grind_engine_entry_horizon_pips, _Point);
+   const double Hc_price = Grind_PipsToPrice(g_grind_engine_entry_horizon_pips
+                                             * GRIND_ENTRY_HORIZON_CANCEL_X, _Point);
+   const double floor_price = Grind_PipsToPrice(add_pips, _Point);
+
+   double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
+   if(add_target <= 0.0)
+      return 0;
+
+   if(side.add_held || side.add_pending_ticket != 0)
+      side.add_held_target = add_target;
+
+   double clamped = add_target;
+   if(!Grind_EntryHorizonClampAddTarget(is_long, add_target, clamped))
+      return 0;
+
+   const double bid = Grind_MarketBid();
+   const double ask = Grind_MarketAsk();
+   const double mid = Grind_MidPrice(bid, ask);
+   const double dist = MathAbs(add_target - mid);
+
+   Grind_EntryHorizonCheckGap(side, is_long, mid, add_target);
+
+   const bool in_floor = (dist <= floor_price + GRIND_PRICE_EPS);
+   const bool in_place = in_floor || (dist <= H_price + GRIND_PRICE_EPS);
+   const bool in_cancel = (dist > Hc_price + GRIND_PRICE_EPS);
+
+   int transitions = 0;
+
+   if(in_floor) {
+      if(side.add_held)
+         side.add_held = false;
+      if(side.add_pending_ticket != 0) {
+         const double resting = Grind_OrderGetPriceOpen(side.add_pending_ticket);
+         if(!Grind_PriceWithinDeadband(resting, clamped, deadband_pips, _Point))
+            Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);
+         return transitions;
+      }
+      if(!g_grind_ent_sent_this_tick && Grind_EntryTransitionTryConsume(side)) {
+         transitions++;
+         if(!Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false))
+            side.entry_transitions_used--;
+      }
+      return transitions;
+   }
+
+   if(in_cancel) {
+      if(side.add_pending_ticket != 0 && Grind_SelectOurOrder(side.add_pending_ticket, magic)) {
+         if(Grind_EntryTransitionTryConsume(side)) {
+            transitions++;
+            if(Grind_CancelPendingOrder(side.add_pending_ticket, magic)) {
+               side.add_pending_ticket = 0;
+               side.add_held = true;
+               side.add_held_target = add_target;
+            } else {
+               side.entry_transitions_used--;
+               transitions--;
+            }
+         }
+      } else if(side.add_pending_ticket == 0 && !side.add_held) {
+         side.add_held = true;
+         side.add_held_target = add_target;
+      }
+      return transitions;
+   }
+
+   if(in_place) {
+      if(side.add_held && side.add_pending_ticket == 0 && !g_grind_ent_sent_this_tick) {
+         if(Grind_EntryTransitionTryConsume(side)) {
+            transitions++;
+            side.add_held = false;
+            if(!Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots, false))
+               side.entry_transitions_used--;
+         }
+      }
+      if(side.add_pending_ticket != 0) {
+         const double resting = Grind_OrderGetPriceOpen(side.add_pending_ticket);
+         if(!Grind_PriceWithinDeadband(resting, clamped, deadband_pips, _Point))
+            Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);
+      }
+      return transitions;
+   }
+
+   return transitions;
 }
 
 //+------------------------------------------------------------------+
@@ -942,8 +1080,13 @@ void Grind_TryPlaceAddAtFill(GrindSideState &side,
 
    g_grind_entry_place_latency_ms = 0;
    const long fill_deal_time_msc = (long)Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
-   Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots,
-                        true, fill_deal_time_msc);
+   if(Grind_EntryHorizonActive()) {
+      Grind_ApplyEntryHorizon(side, is_long, magic, slot, add_pips, deadband_pips,
+                              max_layers, lots);
+   } else {
+      Grind_SendNextAddEnt(side, is_long, magic, slot, add_pips, max_layers, lots,
+                           true, fill_deal_time_msc);
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -965,6 +1108,10 @@ void Grind_ServiceDueAddFlags(const ulong magic,
       } else if(g_grind_long.add_pending_ticket != 0 &&
                 Grind_SelectOurOrder(g_grind_long.add_pending_ticket, magic)) {
          // defer stale-label handling to Grind_EnsureAddNext
+      } else if(Grind_EntryHorizonActive()) {
+         Grind_EnsureAddNext(g_grind_long, true, magic, slot, add_pips, deadband_pips,
+                             max_layers, lots);
+         g_grind_add_due_long = false;
       } else {
          Grind_SendNextAddEnt(g_grind_long, true, magic, slot, add_pips, max_layers, lots, false);
          g_grind_add_due_long = false;
@@ -979,6 +1126,10 @@ void Grind_ServiceDueAddFlags(const ulong magic,
       } else if(g_grind_short.add_pending_ticket != 0 &&
                 Grind_SelectOurOrder(g_grind_short.add_pending_ticket, magic)) {
          // defer stale-label handling to Grind_EnsureAddNext
+      } else if(Grind_EntryHorizonActive()) {
+         Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_pips, deadband_pips,
+                             max_layers, lots);
+         g_grind_add_due_short = false;
       } else {
          Grind_SendNextAddEnt(g_grind_short, false, magic, slot, add_pips, max_layers, lots, false);
          g_grind_add_due_short = false;
@@ -1037,6 +1188,13 @@ void Grind_EnsureAddNext(GrindSideState &side,
       return;
    if(Grind_ApiCounterEntryStopped())
       return;
+
+   if(Grind_EntryHorizonActive()) {
+      Grind_ApplyEntryHorizon(side, is_long, magic, slot, add_pips, deadband_pips,
+                              max_layers, lots);
+      Grind_Adr152AssertHeldPendingExclusive(side);
+      return;
+   }
 
    const int next_layer = required_index;
 

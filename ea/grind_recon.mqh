@@ -263,6 +263,12 @@ void Grind_ReconResetSide(GrindSideState &side)
    ArrayResize(side.layers, 0);
    side.l0_pending_ticket = 0;
    side.add_pending_ticket = 0;
+   side.add_held = false;
+   side.add_held_target = 0.0;
+   side.entry_transitions_used = 0;
+   side.add_gap_missed = 0;
+   side.entry_transitions_exhausted = false;
+   side.add_gap_beyond_target = false;
    side.cap_warn_emitted = false;
 }
 

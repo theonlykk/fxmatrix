@@ -1091,6 +1091,7 @@ void Test_T35_ConfigDumpCoversAllInputs()
       22260101UL, "OPT", "GBPUSD",
       5.0, 10.0, 5.0, 12,
       10.0, 4.0, 0.01,
+      true, 8, 20.0,
       "GBP", "USD", 0.0, 0.0,
       "GRIND_GBPUSD_OPT", true,
       "GBPUSD OPT 5/5 sweep ac19a9f",
@@ -1108,6 +1109,9 @@ void Test_T35_ConfigDumpCoversAllInputs()
    AssertContains("T35 InpStrandedThreshPips", dump, "InpStrandedThreshPips=");
    AssertContains("T35 InpDeadbandPips", dump, "InpDeadbandPips=");
    AssertContains("T35 InpLots", dump, "InpLots=");
+   AssertContains("T35 InpFillTimePlace", dump, "InpFillTimePlace=");
+   AssertContains("T35 InpSlotNearReserve", dump, "InpSlotNearReserve=");
+   AssertContains("T35 InpEntryHorizonPips", dump, "InpEntryHorizonPips=");
    AssertContains("T35 InpCapLegA", dump, "InpCapLegA=");
    AssertContains("T35 InpCapLegB", dump, "InpCapLegB=");
    AssertContains("T35 InpCapLegAThresh", dump, "InpCapLegAThresh=");
@@ -1134,6 +1138,7 @@ void Test_T37_ConfigDumpKeyNotLeaked()
       22260101UL, "OPT", "GBPUSD",
       5.0, 10.0, 5.0, 12,
       10.0, 4.0, 0.01,
+      true, 8, 0.0,
       "GBP", "USD", 0.0, 0.0,
       "GRIND_GBPUSD_OPT", true,
       "GBPUSD OPT 5/5 sweep ac19a9f",
@@ -1145,6 +1150,7 @@ void Test_T37_ConfigDumpKeyNotLeaked()
       22260101UL, "OPT", "GBPUSD",
       5.0, 10.0, 5.0, 12,
       10.0, 4.0, 0.01,
+      false, 0, 0.0,
       "GBP", "USD", 0.0, 0.0,
       "GRIND_GBPUSD_OPT", true,
       "GBPUSD OPT 5/5 sweep ac19a9f",

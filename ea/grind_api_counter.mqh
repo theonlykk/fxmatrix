@@ -6,6 +6,7 @@
 
 #include "grind_archive.mqh"
 #include "grind_config.mqh"
+#include "grind_state.mqh"
 
 #define GRIND_DAILY_API_COUNT_GV "GRIND_DAILY_API_COUNT"
 #define GRIND_DAILY_API_DATE_GV  "GRIND_DAILY_API_DATE"
@@ -50,6 +51,19 @@ void Grind_ApiCounterTestSeed(const int count)
 }
 
 //+------------------------------------------------------------------+
+void Grind_EntryHorizonDailyReset()
+{
+   g_grind_long.entry_transitions_used = 0;
+   g_grind_long.entry_transitions_exhausted = false;
+   g_grind_long.add_gap_missed = 0;
+   g_grind_long.add_gap_beyond_target = false;
+   g_grind_short.entry_transitions_used = 0;
+   g_grind_short.entry_transitions_exhausted = false;
+   g_grind_short.add_gap_missed = 0;
+   g_grind_short.add_gap_beyond_target = false;
+}
+
+//+------------------------------------------------------------------+
 void Grind_ApiCounterMaybeReset()
 {
    if(g_grind_api_counter_test_active)
@@ -63,6 +77,7 @@ void Grind_ApiCounterMaybeReset()
       GlobalVariableSet(GRIND_DAILY_API_COUNT_GV, 0.0);
       g_grind_api_entry_stop_warn_emitted = false;
       g_grind_near_reserve_blocks = 0;
+      Grind_EntryHorizonDailyReset();
    }
 }
 
