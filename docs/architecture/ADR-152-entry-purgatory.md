@@ -112,8 +112,16 @@ exactly as today; only WHEN and in WHAT ORDER entries are placed changes.
 - Deploy to GBPUSD OPT + ALT for 48 h, then the fleet for 48 h.
 - Fallback: revert to `c39fb84` behaviour by disabling D1 (`InpFillTimePlace
   = false`) and setting `Q = 0`. Both are inputs, not code paths.
+- The compiled EA defaults for `InpFillTimePlace` and `InpSlotNearReserve`
+  must be `false` and `0`. Pilot participation is strictly opt-in via preset
+  files to enforce a fail-closed posture against missing or stale
+  configuration.
 - Promotion gate: zero halts, zero quarantine episodes, zero I3/I6 markers,
   and `entry_place_latency_ms` (fill to add placement) at or below today's.
+  `near_reserve_blocks` is treated as a measurement, not a hard threshold,
+  UNLESS telemetry confirms `guard_total` breached the far-entry ceiling
+  (186). If saturation is reached, the block counter must be non-zero to
+  proceed to Phase 2.
 
 **Phase 2 -- the horizon.**
 Ships D3, D4's transition budget, D6.
@@ -136,8 +144,14 @@ operator cannot fly blind on invisible state.
 
 Pure/unit:
 T1. Single-attempt lock helper: no loop, no `Sleep` (timing bound in
-    `T1_try_lock_does_not_block`; the no-`Sleep`/no-loop property is also
-    checked by grep during verification, not by the suite).
+    `T1_try_lock_does_not_block`. The no-`Sleep`/no-loop property is checked
+    during verification, not by the suite: extract the body of
+    `Grind_SlotLockTryAcquire` from `grind_exitq.mqh` between its opening and
+    closing brace and assert no `Sleep(`, `for(` or `while(` within that range
+    only. A file-level grep of `grind_exitq.mqh` MUST NOT be used and will fail
+    by design, because `Grind_SlotLockAcquire` legitimately contains `Sleep(1)`.
+    Separately assert that `Grind_HandleSideDealFill` reaches the lock only
+    through the try-variant.)
 T2. Fill-time placement occurs when the lock is free; the due flag is set when
     it is taken.
 T3. Band: a far entry is refused at `used + resting_ent = 194 - Q + 1`; a near

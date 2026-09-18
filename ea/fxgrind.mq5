@@ -20,8 +20,8 @@ input double InpLots               = 0.01;
 input double InpStrandedThreshPips = -1.0;
 input double InpDeadbandPips       = 4.0;
 input bool   InpEnableCarryPass    = false;   // ADR-135b carry exit shift
-input bool   InpFillTimePlace      = true;    // D1 kill switch
-input int    InpSlotNearReserve    = GRIND_SLOT_NEAR_RESERVE;   // 0 = off
+input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
+input int    InpSlotNearReserve    = 0;       // preset opts in; Q = GRIND_SLOT_NEAR_RESERVE
 input string InpCapLegA            = "";
 input string InpCapLegB            = "";
 input double InpCapLegAThresh      = 0.0;
