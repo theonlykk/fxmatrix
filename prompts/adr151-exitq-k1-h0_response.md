@@ -113,3 +113,59 @@ Grind_ExitQFormulaTarget(entry, exit_pips, point, true) using the same
 point passed to Grind_ReconCheckInvariants. Do not edit grind_recon.mqh.
 
 Line count: 115
+
+## FIX: six stale K=2/H=1 assertions
+
+Commit: (this commit) six stale assertion updates after EQ-K1c diagnosis.
+
+git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
+
+ docs/architecture/ADR-151-order-purgatory.md |  25 +++-
+ docs/architecture/ADR-152-entry-purgatory.md |   8 +-
+ ea/fxgrind.mq5                               |   7 +-
+ ea/fxgrind_tests.mq5                         |   9 +-
+ ea/fxgrind_tests_adr151.mqh                  | 200 +++++++++++++++++++++++++--
+ ea/fxgrind_tests_adr152.mqh                  |   1 +
+ ea/grind_api_counter.mqh                     |   2 +
+ ea/grind_config.mqh                          |   4 +-
+ ea/grind_engine.mqh                          |   2 +
+ ea/grind_state.mqh                           |   1 +
+ ea/presets/gbpusd_alt.set                    |   2 +-
+ ea/presets/gbpusd_opt.set                    |   2 +-
+ prompts/adr151-exitq-k1-h0_response.md       | 158 +++++++++++++++++++++
+ 13 files changed, 399 insertions(+), 14 deletions(-)
+
+grind_recon.mqh: NOT edited.
+
+MQ1 cancel once -> cancel thrice
+  Old: 1 cancel. K=2/H=1 Allowed rank<3; rank 3 (layer 0, farthest) trimmed.
+  New: 3 cancels. K=1/H=0 Allowed rank<1; ranks 1,2,3 (layers 2,1,0) trimmed.
+  rank 0 kept on layer 3 (1.10200 nearest). Still meaningful: trim band width.
+
+MQ2 place twice -> place once; rank1 exit -> rank1 bare
+  Old: 2 places (ranks 0 and 1 required under K=2).
+  New: 1 place on rank 0 only (layer 2 at 1.10300). rank1 bare confirms
+  K=1 does not release rank 1 -- meaningful, not vacuous inversion.
+
+MQ7 k2 sends -> k1 sends (k1 cancels unchanged at 2)
+  Old: 2 cancels 2 sends. K=2 required ranks 0,1; fixture exits on ranks 3,4
+  cancelled; ranks 0,1 placed.
+  New: 2 cancels 1 send. K=1 cancels ranks 3,4 exits; places rank 0 only.
+  k99 override section unchanged. Still meaningful.
+
+Q10 layer1 unchanged -> layer1 trimmed
+  Old: layer1 keeps ticket 7001. K=2/H=1 rank 2 allowed in may band.
+  New: layer1 ticket 0. Ranks: L0 1.247=0, L2 1.248=1, L1 1.249=2; rank 2
+  exit not Allowed at K=1/H=0. Still tests retry places rank 0 only.
+
+SB4 old exit -> old exit trimmed
+  Old: layer0 keeps 3001 after ent fill. K=2/H=1 rank 1 exit allowed.
+  New: layer0 ticket 0. New fill at 1.26050 is rank 0; old layer rank 1 exit
+  trimmed under K=1. Still tests ent fill promotes new rank 0 exit.
+
+EQ-K1c: not changed in this commit (diagnosis pending operator ack).
+
+Anything else changed: nothing beyond the six assertions above and this
+response file.
+
+Line count: 172

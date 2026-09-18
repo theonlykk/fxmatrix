@@ -499,8 +499,11 @@ void Test_MQ1_TrimCancelsBeyondAllowedBand()
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
 
-   AssertTrue("MQ1 cancel once", g_grind_order_test_remove_calls == 1);
-   AssertTrue("MQ1 trimmed", g_grind_long.layers[0].exit_order_ticket == 0);
+   AssertTrue("MQ1 cancel thrice", g_grind_order_test_remove_calls == 3);
+   AssertTrue("MQ1 rank0 kept", g_grind_long.layers[3].exit_order_ticket != 0);
+   AssertTrue("MQ1 rank1 bare", g_grind_long.layers[2].exit_order_ticket == 0);
+   AssertTrue("MQ1 rank2 bare", g_grind_long.layers[1].exit_order_ticket == 0);
+   AssertTrue("MQ1 rank3 bare", g_grind_long.layers[0].exit_order_ticket == 0);
    AssertTrue("MQ1 no place", g_grind_order_test_place_calls == 0);
 
    Grind_OrderTestReset();
@@ -523,9 +526,9 @@ void Test_MQ2_ReleasePlacesRequiredMissing()
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
 
-   AssertTrue("MQ2 place twice", g_grind_order_test_place_calls == 2);
+   AssertTrue("MQ2 place once", g_grind_order_test_place_calls == 1);
    AssertTrue("MQ2 rank0 exit", g_grind_long.layers[2].exit_order_ticket != 0);
-   AssertTrue("MQ2 rank1 exit", g_grind_long.layers[1].exit_order_ticket != 0);
+   AssertTrue("MQ2 rank1 bare", g_grind_long.layers[1].exit_order_ticket == 0);
    AssertTrue("MQ2 no cancel", g_grind_order_test_remove_calls == 0);
 
    Grind_OrderTestReset();
@@ -675,8 +678,8 @@ void Test_MQ7_KOverrideTrimsNothingReleasesAll()
 
    Grind_ExitQManageSide(g_grind_long, true, magic, "OPT", lots, exit_pips);
 
-   AssertTrue("MQ7 k2 cancels", g_grind_order_test_remove_calls == 2);
-   AssertTrue("MQ7 k2 sends", g_grind_order_test_place_calls == 2);
+   AssertTrue("MQ7 k1 cancels", g_grind_order_test_remove_calls == 2);
+   AssertTrue("MQ7 k1 sends", g_grind_order_test_place_calls == 1);
 
    Grind_OrderTestReset();
    Grind_TestResetSideState();
