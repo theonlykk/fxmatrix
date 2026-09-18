@@ -53,9 +53,30 @@ def parse_time(s):
     return datetime.strptime(s, "%H:%M:%S.%f")
 
 
+def decode_log(path):
+    """MT5 terminal logs are usually UTF-16 LE, sometimes with no BOM.
+    Reading one as UTF-8 yields replacement characters and matches nothing,
+    so sniff rather than assume."""
+    data = Path(path).read_bytes()
+    if not data:
+        sys.exit("ERROR: %s is empty." % path)
+    if data[:2] == b"\xff\xfe":
+        return data.decode("utf-16-le", errors="replace"), "utf-16-le (BOM)"
+    if data[:2] == b"\xfe\xff":
+        return data.decode("utf-16-be", errors="replace"), "utf-16-be (BOM)"
+    if data[:3] == b"\xef\xbb\xbf":
+        return data.decode("utf-8-sig", errors="replace"), "utf-8 (BOM)"
+    head = data[:4000]
+    if head.count(0) > len(head) // 4:
+        enc = "utf-16-le" if head[1:2] == b"\x00" else "utf-16-be"
+        return data.decode(enc, errors="replace"), enc + " (sniffed)"
+    return data.decode("utf-8", errors="replace"), "utf-8"
+
+
 def read_events(path):
     deals, orders = [], []
-    raw = Path(path).read_text(encoding="utf-8", errors="replace")
+    raw, enc = decode_log(path)
+    print("Decoded %s as %s." % (path, enc))
     for line in raw.splitlines():
         m = DEAL.search(line)
         if m:
@@ -70,16 +91,32 @@ def read_events(path):
     return deals, orders
 
 
-def is_entry_order(order, deals_by_sym):
-    """An exit limit is opposite in direction to the position it closes and is
-    placed within milliseconds of that fill. An entry limit is same-direction
-    as the ladder side and is what we want. Direction alone cannot separate
-    them, so use proximity: an order within 2s of an opposite-direction fill
-    on the same symbol is almost certainly that fill's exit."""
-    for d in deals_by_sym.get(order["sym"], []):
-        if d["dir"] != order["dir"] and abs((order["t"] - d["t"]).total_seconds()) <= 2.0:
-            return False
-    return True
+EXIT_WINDOW_S = 2.0
+
+
+def find_exit_follower(deal, orders_by_sym):
+    """ADR-151 places a layer's exit within milliseconds of its ENTRY fill:
+    opposite direction, same symbol, offset by exactly exit_pips. An EXIT
+    fill (a scalp closing) has no such follower. Returns the exit order if
+    this deal is an entry fill, else None."""
+    for o in orders_by_sym.get(deal["sym"], []):
+        dt = (o["t"] - deal["t"]).total_seconds()
+        if dt < -0.001 or dt > EXIT_WINDOW_S:
+            continue
+        if o["dir"] == deal["dir"]:
+            continue
+        # a long layer's exit is ABOVE its entry, a short layer's BELOW
+        if deal["dir"] == "buy" and o["px"] <= deal["px"]:
+            continue
+        if deal["dir"] == "sell" and o["px"] >= deal["px"]:
+            continue
+        return o
+    return None
+
+
+def is_entry_order(order, exit_orders):
+    """Any limit identified as some entry fill's exit is not an entry."""
+    return id(order) not in exit_orders
 
 
 def main():
@@ -104,16 +141,30 @@ def main():
     if args.price is not None:
         orders = [o for o in orders if abs(o["px"] - args.price) < 1e-9]
 
-    by_sym = {}
-    for d in deals:
-        by_sym.setdefault(d["sym"], []).append(d)
+    orders_by_sym = {}
+    for o in orders:
+        orders_by_sym.setdefault(o["sym"], []).append(o)
+    for v in orders_by_sym.values():
+        v.sort(key=lambda o: o["t"])
 
-    entry_orders = [o for o in orders if is_entry_order(o, by_sym)]
+    entry_fills, exit_ids = [], set()
+    for d in deals:
+        follower = find_exit_follower(d, orders_by_sym)
+        if follower is not None:
+            entry_fills.append(d)
+            exit_ids.add(id(follower))
+
+    entry_orders = [o for o in orders if is_entry_order(o, exit_ids)]
     entry_orders.sort(key=lambda o: o["t"])
 
-    print("Parsed %d deals, %d limit orders, of which %d look like entries."
-          % (len(deals), len(orders), len(entry_orders)))
+    print("Parsed %d deals (%d entry fills, %d exit fills / unclassified), "
+          "%d limit orders of which %d are entries."
+          % (len(deals), len(entry_fills), len(deals) - len(entry_fills),
+             len(orders), len(entry_orders)))
+    print("Only ENTRY fills are paired: an exit fill has no add due after it.")
     print()
+
+    deals = entry_fills
 
     used = set()
     rows, unpaired = [], []
@@ -138,8 +189,15 @@ def main():
                      "order_px": o["px"], "gap_min": round(gap, 2)})
 
     if not rows:
-        print("No fill/entry-order pairs found. Check the log path: Trades lines")
-        print("are in Terminal\\<hash>\\logs, not Terminal\\<hash>\\MQL5\\Logs.")
+        print("No fill/entry-order pairs found.")
+        if not deals and not orders:
+            print("Nothing parsed at all. Either the encoding sniff was wrong")
+            print("(check the Decoded line above) or this is the wrong log:")
+            print("Trades lines are in Terminal\\<hash>\\logs, NOT")
+            print("Terminal\\<hash>\\MQL5\\Logs, which holds expert Print output.")
+        else:
+            print("Parsed events but found no pairings. Try a wider --max-gap-min,")
+            print("or check --symbol / --price if you narrowed the set.")
         return
 
     print("%-8s %-13s %-4s %-10s %-13s %-10s %9s"
