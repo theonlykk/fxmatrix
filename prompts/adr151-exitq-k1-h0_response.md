@@ -80,3 +80,36 @@ Suite figure observed: not run (no MetaEditor in this session). Baseline
 before change: 1226/1226 operator-run 2026-09-18.
 
 Line count: 82
+
+## DIAGNOSIS: EQ-K1c
+
+Test: Test_EQ_K1c_i3_requires_rank_zero_only (fxgrind_tests_adr151.mqh)
+Operator failure: AssertTrue("EQ-K1c pass held", ...) at first call to
+Grind_ReconCheckInvariants.
+
+1. reason string: "I6_LONG_EXIT" (NOT I3_LONG_NAKED).
+
+2. Branch: neither I3 no_position (~487) nor I3 no_exit_coverage (~492).
+   The failure is I6 at grind_recon.mqh ~500-508, reached only because
+   layers[2] has exit coverage and I3 passed for all three layers.
+   Rank gate: rank 0 (layers[2]) is the sole required rank under K=1;
+   ranks 1 and 2 correctly skipped for I3.
+
+3. I6 root cause: exit_target mismatch against point=0.00001.
+   layers[2]: entry 1.10300, exit_pips 3.0, exit_target 1.10330.
+   Grind_ExitQFormulaTarget(1.10300, 3.0, 0.00001, true) = 1.10303.
+   |1.10330 - 1.10303| = 0.00027 >> tolerance 2*point (0.00002).
+   The test used a 5-digit-style target (1.10330) while passing point=0.00001
+   to recon. max_layers=12 with 3 layers is not I7. No other invariant fires.
+
+4. Grind_TestInitLayerScratch sets has_position = true (fxgrind_tests.mq5
+   line 6033). has_position is not the defect.
+
+Conclusion: I3 rank gate is working as designed for K=1. The K=1 safety
+claim stands. EQ-K1c fails because the scratch exit_target is inconsistent
+with the point argument -- a test setup error, not an I3 or recon defect.
+Recommended fix (after operator read): set exit_target from
+Grind_ExitQFormulaTarget(entry, exit_pips, point, true) using the same
+point passed to Grind_ReconCheckInvariants. Do not edit grind_recon.mqh.
+
+Line count: 115
