@@ -194,4 +194,4 @@ netted in the equity line and do not move balance.
 Analysis script (local, not committed): `scripts/cycle_pnl_recon.py`.
 CSV not committed per dump script instruction.
 
-Line count: 172
+Line count: 197
