@@ -52,13 +52,34 @@ exits fill first. They hold slots and do no work.
 
 | Constant | Value | Source |
 |---|---|---|
-| `GRIND_EXITQ_K` | 2 | Gemini Q1 |
-| `GRIND_EXITQ_H` | 1 | Gemini Q1 |
+| `GRIND_EXITQ_K` | 1 | Gemini Q1, amended 2026-09-18 |
+| `GRIND_EXITQ_H` | 0 | Gemini Q1, amended 2026-09-18 |
 | `GRIND_SLOT_MARGIN` | 4 | Gemini Q1 |
 | `GRIND_SLOT_LOCK_STALE_MS` | 10000 | Gemini Q3 required staleness; 1000 ms rejected (lock spans an OrderSend) |
 
 Compiled constants, not inputs: an input is per chart and cannot be enforced
 fleet-wide.
+
+> `H = 0`. Hysteresis exists to prevent churn when a target drifts across a
+> threshold. Exit targets are static -- fixed at fill time as
+> `entry +/- exit_pips` -- and a layer's rank changes only when a discrete
+> deal occurs. Exits therefore do not drift and cannot flicker, so hysteresis
+> on the exit queue provides no protection while consuming guard units. This
+> holds at any value of K.
+
+> `K = 1`. The queue ranks by entry price nearest to market, so rank 0 is the
+> most recently added layer and the exit most likely to fill. K=1 always
+> rests it. Only rank 1 is forfeited, and only for a move clearing two grid
+> levels within a single tick; a sustained move promotes rank 1 to rank 0 and
+> `Grind_ExitQClampPassive` places it at `ask + min_dist`, a better fill than
+> the formula target.
+
+> The fleet runs guard-saturated in the interim. There is no configuration
+> change that frees position-side units: `InpMaxLayers` gates new layers only
+> and never sheds existing ones, and lowering it below a side's current depth
+> trips I7, which is not quarantinable. Inventory can be reduced only by
+> closing positions manually, which crosses the spread. Structural relief
+> waits on the passive roll-at-cap mechanism.
 
 ## Phases
 
