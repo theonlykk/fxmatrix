@@ -69,7 +69,10 @@ state beyond the existing lock.
 
 Adds only. L0 unchanged.
 
-- Place while `|target - mid| <= H_place`, `H_place = 2 x add_pips`.
+- Place while `|target - mid| <= H_place`. The recommended preset configuration
+  is `InpEntryHorizonPips = 1.2 x add_pips` (rounded to nearest integer). This
+  ensures `H_cancel` engages at roughly `2.4 x add_pips`, aggressively
+  clearing far adds while fully respecting the `1.0 x add_pips` floor.
 - Cancel once `|target - mid| > H_cancel`, `H_cancel = 4 x add_pips`.
 - A held add has no broker order and no ticket; its target is recomputed from
   the deepest layer each tick, as held exits are recomputed from entry price.
@@ -130,6 +133,9 @@ trading hours. Friday 21:00Z to Sunday 21:00Z pauses the promotion clock.
 
 **Phase 2 -- the horizon.**
 Ships D3, D4's transition budget, D6.
+Phase 2 is deployed but INERT by operator decision of 2026-09-18 -- an add
+must always rest on every side, because a missed spike is a fill that never
+existed and cannot be chased.
 - Deploy to GBPUSD OPT + ALT for 48 h, then the fleet.
 - Fallback: `InpEntryHorizonPips = 0` disables withholding; the engine reverts
   to Phase 1 behaviour with no restart required.

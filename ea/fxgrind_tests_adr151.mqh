@@ -145,12 +145,14 @@ void Test_EQ4_RequiredAllowedBands()
 {
    Adr151_TestResetExitQ();
    AssertTrue("EQ4 req0", Grind_ExitQRequired(0));
-   AssertTrue("EQ4 req1", Grind_ExitQRequired(1));
-   AssertFalse("EQ4 req2", Grind_ExitQRequired(2));
+   AssertFalse("EQ4 req1", Grind_ExitQRequired(1));
    AssertTrue("EQ4 allow0", Grind_ExitQAllowed(0));
-   AssertTrue("EQ4 allow1", Grind_ExitQAllowed(1));
-   AssertTrue("EQ4 allow2", Grind_ExitQAllowed(2));
-   AssertFalse("EQ4 allow3", Grind_ExitQAllowed(3));
+   AssertFalse("EQ4 allow1", Grind_ExitQAllowed(1));
+   for(int rank = 0; rank <= 4; rank++) {
+      const bool req = Grind_ExitQRequired(rank);
+      const bool allow = Grind_ExitQAllowed(rank);
+      AssertTrue(StringFormat("EQ4 agree r%d", rank), req == allow);
+   }
    Adr151_TestResetAll();
 }
 
@@ -163,6 +165,183 @@ void Test_EQ5_KOverrideAllRanksRequired()
    AssertTrue("EQ5 allow11 k99", Grind_ExitQAllowed(11));
    g_grind_exitq_test_k = -1;
    AssertFalse("EQ5 req2 default", Grind_ExitQRequired(2));
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+int Adr151_TestCountRestingExits(const GrindSideState &side)
+{
+   int resting = 0;
+   for(int i = 0; i < ArraySize(side.layers); i++) {
+      if(side.layers[i].exit_order_ticket != 0)
+         resting++;
+   }
+   return resting;
+}
+
+//+------------------------------------------------------------------+
+void Test_EQ_K1a_one_resting_exit_at_rank_zero()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   ArrayResize(g_grind_long.layers, 3);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 2, 2, 1.10300, 5003, 0);
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
+
+   AssertTrue("EQ-K1a one resting", Adr151_TestCountRestingExits(g_grind_long) == 1);
+   AssertTrue("EQ-K1a rank0 exit", g_grind_long.layers[2].exit_order_ticket != 0);
+   AssertTrue("EQ-K1a rank1 bare", g_grind_long.layers[1].exit_order_ticket == 0);
+   AssertTrue("EQ-K1a rank2 bare", g_grind_long.layers[0].exit_order_ticket == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   ArrayResize(g_grind_long.layers, 3);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 2, 2, 1.10300, 5003, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
+
+   ArrayResize(g_grind_long.layers, 4);
+   Adr151_TestSetupLongLayer(g_grind_long, 3, 3, 1.10200, 5004, 0);
+
+   g_grind_order_test_place_calls = 0;
+   g_grind_order_test_remove_calls = 0;
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
+
+   AssertTrue("EQ-K1b one place", g_grind_order_test_place_calls == 1);
+   AssertTrue("EQ-K1b one cancel", g_grind_order_test_remove_calls == 1);
+   AssertTrue("EQ-K1b new rank0 exit", g_grind_long.layers[3].exit_order_ticket != 0);
+   AssertTrue("EQ-K1b old rank0 bare", g_grind_long.layers[2].exit_order_ticket == 0);
+
+   g_grind_order_test_place_calls = 0;
+   g_grind_order_test_remove_calls = 0;
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
+   AssertTrue("EQ-K1b no churn tick2", g_grind_order_test_place_calls == 0);
+   AssertTrue("EQ-K1b no cancel tick2", g_grind_order_test_remove_calls == 0);
+
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_EQ_K1c_i3_requires_rank_zero_only()
+{
+   Grind_CarryTestReset();
+   Grind_CarryShiftDelete(5001UL);
+   Grind_CarryShiftDelete(5002UL);
+   Grind_CarryShiftDelete(5003UL);
+   GrindReconLayerScratch layers[3];
+   Grind_TestInitLayerScratch(layers[0], 0, 1.10500, 5001UL);
+   layers[0].has_exit_order = false;
+   Grind_TestInitLayerScratch(layers[1], 1, 1.10400, 5002UL);
+   layers[1].has_exit_order = false;
+   Grind_TestInitLayerScratch(layers[2], 2, 1.10300, 5003UL);
+   layers[2].has_exit_order = true;
+   layers[2].exit_order_ticket = 6103;
+   layers[2].exit_target = 1.10330;
+
+   int long_ranks[3];
+   long_ranks[0] = 2;
+   long_ranks[1] = 1;
+   long_ranks[2] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("EQ-K1c pass held",
+              Grind_ReconCheckInvariants(layers, 3, long_ranks, empty, 0, short_ranks,
+                                         3.0, 0.00001, 12, reason));
+
+   layers[2].has_exit_order = false;
+   AssertFalse("EQ-K1c fail rank0",
+               Grind_ReconCheckInvariants(layers, 3, long_ranks, empty, 0, short_ranks,
+                                          3.0, 0.00001, 12, reason));
+   AssertEqStr("EQ-K1c reason", reason, "I3_LONG_NAKED");
+
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_EQ_CLAMP1_passed_target_increments_counter()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
+
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true);
+   const double min_dist = Grind_CarryMinPassiveDistance(_Point, 0, 0);
+   const double expected = 1.25100 + min_dist;
+   const int prom_before = g_grind_long.exit_clamped_promotions;
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, 7001, 0);
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("EQ-CLAMP1 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("EQ-CLAMP1 price", g_grind_order_test_last_placed_price, expected, 1e-12);
+   AssertTrue("EQ-CLAMP1 better", g_grind_order_test_last_placed_price > formula);
+   AssertTrue("EQ-CLAMP1 counter",
+              g_grind_long.exit_clamped_promotions == prom_before + 1);
+
+   Grind_CarryTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_EQ_CLAMP2_unpassed_target_no_counter()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.24998, 1.25000, 0, 0);
+
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true);
+   const int prom_before = g_grind_long.exit_clamped_promotions;
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, 7002, 0);
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("EQ-CLAMP2 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("EQ-CLAMP2 formula", g_grind_order_test_last_placed_price, formula, 1e-12);
+   AssertTrue("EQ-CLAMP2 counter",
+              g_grind_long.exit_clamped_promotions == prom_before);
+
+   Grind_CarryTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
    Adr151_TestResetAll();
 }
 
@@ -324,8 +503,11 @@ void Test_MQ1_TrimCancelsBeyondAllowedBand()
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
 
-   AssertTrue("MQ1 cancel once", g_grind_order_test_remove_calls == 1);
-   AssertTrue("MQ1 trimmed", g_grind_long.layers[0].exit_order_ticket == 0);
+   AssertTrue("MQ1 cancel thrice", g_grind_order_test_remove_calls == 3);
+   AssertTrue("MQ1 rank0 kept", g_grind_long.layers[3].exit_order_ticket != 0);
+   AssertTrue("MQ1 rank1 bare", g_grind_long.layers[2].exit_order_ticket == 0);
+   AssertTrue("MQ1 rank2 bare", g_grind_long.layers[1].exit_order_ticket == 0);
+   AssertTrue("MQ1 rank3 bare", g_grind_long.layers[0].exit_order_ticket == 0);
    AssertTrue("MQ1 no place", g_grind_order_test_place_calls == 0);
 
    Grind_OrderTestReset();
@@ -348,9 +530,9 @@ void Test_MQ2_ReleasePlacesRequiredMissing()
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
 
-   AssertTrue("MQ2 place twice", g_grind_order_test_place_calls == 2);
+   AssertTrue("MQ2 place once", g_grind_order_test_place_calls == 1);
    AssertTrue("MQ2 rank0 exit", g_grind_long.layers[2].exit_order_ticket != 0);
-   AssertTrue("MQ2 rank1 exit", g_grind_long.layers[1].exit_order_ticket != 0);
+   AssertTrue("MQ2 rank1 bare", g_grind_long.layers[1].exit_order_ticket == 0);
    AssertTrue("MQ2 no cancel", g_grind_order_test_remove_calls == 0);
 
    Grind_OrderTestReset();
@@ -500,8 +682,8 @@ void Test_MQ7_KOverrideTrimsNothingReleasesAll()
 
    Grind_ExitQManageSide(g_grind_long, true, magic, "OPT", lots, exit_pips);
 
-   AssertTrue("MQ7 k2 cancels", g_grind_order_test_remove_calls == 2);
-   AssertTrue("MQ7 k2 sends", g_grind_order_test_place_calls == 2);
+   AssertTrue("MQ7 k1 cancels", g_grind_order_test_remove_calls == 2);
+   AssertTrue("MQ7 k1 sends", g_grind_order_test_place_calls == 1);
 
    Grind_OrderTestReset();
    Grind_TestResetSideState();

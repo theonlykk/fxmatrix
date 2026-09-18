@@ -4325,7 +4325,7 @@ void Test_Q10_RetryMissingExitsOnlyUncovered()
 
    AssertTrue("Q10 place once", g_grind_order_test_place_calls == 1);
    AssertTrue("Q10 layer0 exit", g_grind_long.layers[0].exit_order_ticket > 0);
-   AssertTrue("Q10 layer1 unchanged", g_grind_long.layers[1].exit_order_ticket == 7001);
+   AssertTrue("Q10 layer1 trimmed", g_grind_long.layers[1].exit_order_ticket == 0);
    AssertTrue("Q10 layer2 unchanged", g_grind_long.layers[2].exit_order_ticket == 0);
 
    Grind_OrderTestReset();
@@ -4433,7 +4433,7 @@ void Test_SB4_EntExitGoesToFilledPosition()
    Grind_TestDispatchDeal(9901);
    AssertTrue("SB4 depth", ArraySize(g_grind_short.layers) == 2);
    AssertTrue("SB4 new exit", g_grind_short.layers[1].exit_order_ticket == 9000);
-   AssertTrue("SB4 old exit", g_grind_short.layers[0].exit_order_ticket == 3001);
+   AssertTrue("SB4 old exit trimmed", g_grind_short.layers[0].exit_order_ticket == 0);
    AssertTrue("SB4 place once", g_grind_order_test_place_calls == 1);
    Grind_DealTestReset();
    Grind_MarketTestReset();
@@ -6572,6 +6572,11 @@ void OnStart()
    Test_EQ3_RankTieByLayerIndex();
    Test_EQ4_RequiredAllowedBands();
    Test_EQ5_KOverrideAllRanksRequired();
+   Test_EQ_K1a_one_resting_exit_at_rank_zero();
+   Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick();
+   Test_EQ_K1c_i3_requires_rank_zero_only();
+   Test_EQ_CLAMP1_passed_target_increments_counter();
+   Test_EQ_CLAMP2_unpassed_target_no_counter();
    Test_SG1_ExitAllowedAtOneFree();
    Test_SG2_EntryBlockedBelowMargin();
    Test_SG3_EntryAllowedAtMargin();
