@@ -248,3 +248,52 @@ git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
  13 files changed, 479 insertions(+), 22 deletions(-)
 
 Line count: 250
+
+## DIAGNOSTIC: EQ-K1c instrumentation
+
+One temporary Print after the first AssertTrue in Test_EQ_K1c_i3_requires_rank_zero_only.
+No assertion, setup, or carry-reset change. No cause proposed; operator must
+compile, run, and read the log line.
+
+Print statement as inserted:
+
+   Print("EQ-K1c DIAG reason=", reason,
+         " shift=", Grind_CarryShiftGetForRecon(5003UL),
+         " expected=", Grind_ExitQFormulaTarget(1.10300, 3.0, 0.00001, true),
+         " target=", layers[2].exit_target,
+         " cover2=", Grind_ReconLayerHasExitCoverage(layers[2]),
+         " req0=", Grind_ExitQRequired(0),
+         " req1=", Grind_ExitQRequired(1));
+
+Helper visibility: Grind_ExitQFormulaTarget and Grind_ExitQRequired are in
+grind_exitq.mqh (included by this file). Grind_CarryShiftGetForRecon and
+Grind_ReconLayerHasExitCoverage are in grind_recon.mqh, visible when
+fxgrind_tests.mq5 includes grind_engine.mqh before fxgrind_tests_adr151.mqh.
+All terms included.
+
+git diff --stat origin/main...feat/adr151-exitq-k1-h0 (raw):
+
+ docs/architecture/ADR-151-order-purgatory.md |  25 +++-
+ docs/architecture/ADR-152-entry-purgatory.md |   8 +-
+ ea/fxgrind.mq5                               |   7 +-
+ ea/fxgrind_tests.mq5                         |   9 +-
+ ea/fxgrind_tests_adr151.mqh                  | 208 ++++++++++++++++++--
+ ea/fxgrind_tests_adr152.mqh                  |   1 +
+ ea/grind_api_counter.mqh                     |   2 +
+ ea/grind_config.mqh                          |   4 +-
+ ea/grind_engine.mqh                          |   2 +
+ ea/grind_state.mqh                           |   1 +
+ ea/presets/gbpusd_alt.set                    |   2 +-
+ ea/presets/gbpusd_opt.set                    |   2 +-
+ prompts/adr151-exitq-k1-h0_response.md       | 284 +++++++++++++++++++++++++++
+ 13 files changed, 533 insertions(+), 22 deletions(-)
+
+git diff --stat f3acf67..HEAD (this commit only):
+
+ ea/fxgrind_tests_adr151.mqh            |  7 +++++++
+ prompts/adr151-exitq-k1-h0_response.md | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 41 insertions(+)
+
+No cause proposed. No assertion changed.
+
+Line count: PLACEHOLDER
