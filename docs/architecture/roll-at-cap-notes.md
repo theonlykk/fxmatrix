@@ -163,6 +163,186 @@ measures the quantity the sweep structurally cannot model.
 
 ---
 
+## 3b. THE GBPUSD CASE -- FIRST REAL `p` AND `R`, AND A TENSION THE MODEL MISSED
+
+On 2026-09-17 the operator force-closed 15 GBPUSD longs by hand (market
+close, not passive). Reconciled from the deal dump in
+`prompts/cycle_pnl_reconciliation.md`. This is the closest thing to a live
+ejection we have, and it gives s3 its first real numbers.
+
+**The ladder.** 8 ALT layers 1.35112 down to 1.34301; 7 OPT layers 1.35169
+down to 1.34571. Roughly 87 pips of ladder on each arm, built 14-Sep to
+16-Sep as price fell. Realised on the closes: **-176.35**.
+
+**What happened next.** GBPUSD traded 1.334-1.339 for two days. The high was
+1.33914. The nearest exit target of the whole ladder -- ALT L08 at 1.34401 --
+was **49 pips short**. Not one of the 15 would have exited.
+
+| | MTM on the 15 |
+|---|---:|
+| at the 2-day low 1.33436 | -203.06 |
+| at 1.33955 (end of window) | -125.21 |
+| **actually realised** | **-176.35** |
+
+So against holding to the end of the window the closes cost about $51;
+against the low they saved about $27. **On P&L alone it is a wash.** What
+they bought was a ladder sitting INSIDE the trading range instead of 90 pips
+above it -- the rebuilt ladder from 1.33436 up took 22 scalps for $18.69 on
+18-Sep, the best per-scalp figure in the fleet.
+
+### The operator's objection, and it is the strongest one against ejection
+
+**Recovery is all-or-nothing in the ladder's favour.** Price can only reach
+the WORST layer's exit target by passing through every shallower layer's exit
+on the way. So if the ladder recovers at all, it recovers completely.
+
+Which means ejecting the worst layer and then getting a recovery is the
+maximum-regret case. Measured, for ALT L00 ejected at the low:
+
+| | outcome on full recovery |
+|---|---:|
+| hold all 15, price reaches 1.35212 | **+12.90** |
+| eject ALT L00 at 1.33436, hold the rest | -16.76 + 11.90 = **-4.86** |
+| **cost of the ejection** | **17.76** |
+
+**One ejection costs more than the entire ladder earns on a full recovery.**
+That is a far worse ratio than s3's toy model suggested, because s3 never had
+a real `R`.
+
+### The tension s3 does not state
+
+`R` is the distance from market back to the ejected layer's exit target, and
+it **grows as the ladder deepens** -- which is exactly the situation where a
+freed slot is wanted. So ejection gets more expensive precisely when it
+becomes more attractive.
+
+Re-running the s3 break-even with the real `R = 177.6` pips and ALT's
+`E = 10`:
+
+| p (chance of recovery) | N (scalps the freed slot must generate) |
+|---:|---:|
+| 0.50 | 9.0 |
+| 0.20 | 3.7 |
+| 0.05 | 1.0 |
+
+Compare s3's table, which used `R = 85` and needed 6.3 / 2.6 / 0.8. Doubling
+the ladder depth roughly doubles the hurdle.
+
+**Counterweight, and it is not small.** In the case that actually occurred --
+no recovery -- holding all 15 earns exactly zero, both arms stay capped, and
+the ladder sits above the entire trading range indefinitely. The GBPUSD arms
+were at or near 8 of 8 before the closes.
+
+### Where this leaves the decision
+
+Not "ejection is wrong". **Ejection is expensive insurance, and it cannot be
+priced without an estimate of `p`.** The operator's instinct after seeing
+these numbers was that locking in a loss is not something he wants to do,
+and the $17.76-against-$12.90 ratio supports that unless `p` is low.
+
+`p` remains unmeasured. It is now the single number the whole question turns
+on, and it is estimable from history: for a ladder of depth D at cap, how
+often does price return to the worst layer's exit target within some horizon?
+That is a study on existing data, not a simulator and not a live A/B.
+
+**Do that before the ADR.**
+
+---
+
+## 3c. PATH VS DISPLACEMENT -- AND AN ARGUMENT FOR FLATTENING (operator, 2026-09-18)
+
+This section is a line of thinking, not a decision. It is recorded because it
+reframes roll-at-cap as a special case of something larger, and because it
+arrived from first principles rather than from the data.
+
+### The premise the current design rests on, stated plainly
+
+The ladder assumes: the market lives in a range, gaps to another range, lives
+there, gaps again -- and one day returns to the original range, where our
+inventory is waiting.
+
+**The operator's objection: at cap we get no range-trading value from the new
+range at all.** Every layer sits back in the old one. We cannot trade the
+range we are actually in. We can only hope for a return to the range we are
+no longer in.
+
+### Path, not displacement
+
+> "The distance travelled from 1 to 10 direct is orders of magnitude shorter
+> than 1 to 3, back to 2, then to 5, then to 2, then to 7, then 1, 9, then 8
+> then 10."
+
+A market maker earns from PATH LENGTH -- the sum of the oscillation. Net
+DISPLACEMENT is what the ladder's MTM tracks, and it is the component the
+strategy has no edge in.
+
+Stranded at cap, a side stops harvesting path entirely and is left holding
+pure displacement risk. **The strategy converts from path-harvesting to a
+directional bet on mean reversion, involuntarily, at the moment its capacity
+is exhausted.**
+
+GBPUSD, 16-18 Sep, is exactly that. Displacement 1.352 -> 1.334, about 180
+pips. Path inside 1.334-1.339 over the following two days was many multiples
+of that, and the REBUILT ladder harvested 22 scalps for $18.69 from it. The
+old ladder -- holding all the displacement, participating in none of the path
+-- earned zero.
+
+**Important qualifier: it is half a book, not a whole one.** The opposite
+side keeps working. GBPUSD OPT was capped long and still scalping three short
+layers. That is why the fleet kept earning through the week, and it is why
+this is a drag rather than a stop.
+
+### Which means `p` may be the wrong headline number
+
+`p` (s3, s3b) prices what ejection GIVES UP. It does not price what holding
+COSTS. The cost of not ejecting is not the forgone retrace -- it is every
+scalp the new range offers that a capped side cannot take, and unlike the
+retrace, that accrues continuously.
+
+**Suggested measurement, same data as the `p` study:** path-to-displacement
+ratio per pair per day -- sum of absolute bar-to-bar moves divided by net
+change over the window. That is a direct estimate of how much scalping a
+range offers, hence what a capped side forgoes per day.
+
+### The larger idea: periodic flattening
+
+If inventory is the risk we are not paid for, and capacity at current price
+is what lets us harvest path, then the standard market-maker answer applies:
+**flatten periodically.** A flat book at current price is maximum capacity
+exactly where the path is.
+
+**Not black and white.** The operator's framing is that some risk can be held
+overnight. The tractable version is a rule about how much DISPLACEMENT to
+carry -- keep layers within N pips of market, retire the rest. Near layers
+have real recovery probability and sit in the current path; far layers are
+pure displacement.
+
+**Three things to establish before believing any of it:**
+
+1. **What flattening costs.** Every retired layer realises its loss. The week
+   of 10-18 Sep ran 81 manual closes for **-284.86**
+   (`prompts/cycle_pnl_reconciliation.md`). That is the fee for the reset and
+   it is not small -- it consumed 68% of the scalp engine's +419.10.
+2. **What the reset buys.** Path harvested per day by a ladder anchored AT
+   market versus one anchored 90 pips away. The measurement above, applied
+   per ladder rather than per pair.
+3. **The trigger.** A time interval is arbitrary. A DISPLACEMENT threshold --
+   retire what is more than N pips from market -- is the same idea with a
+   trigger that tracks the actual condition, and it is closer to what
+   ejection was reaching for.
+
+### Scope note
+
+Ejection retires ONE layer to free ONE slot. Flattening retires inventory to
+reposition the WHOLE ladder. Same principle, different scope.
+
+**If this holds up, the passive-roll ADR is a special case rather than the
+main event**, and the sequencing in s7 may be wrong. Do not act on that
+until items 1-3 are measured. Nothing here is ratified and nothing here has
+been put to Gemini.
+
+---
+
 ## 4. THE SWEEPS (17-Sep) -- UNUSABLE ON MAGNITUDE
 
 `roll_modes_cal_2026_09_17` (192 cells, 2 windows x 8 pairs x 2 geometries
@@ -359,4 +539,4 @@ had adverse effects on this system before. The mechanism here is appealing
 and may still be wrong; s3 says the answer turns on `p` and `q`, and neither
 has an estimate.
 
-Line count: 362
+Line count: 542
