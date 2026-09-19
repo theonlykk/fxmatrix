@@ -160,6 +160,159 @@ and the prefix give the same answer.
 Guard cost: 3 positions + 3 orders + 1 reserved for the add's exit = 7, against
 6 under the prefix. One unit buys a working exit on the layer we would eject.
 
+## 2a-ter. FOUR LAYERS -- THE MIDDLE GROWS, THE COST DOES NOT
+
+Trade log continues:
+
+    L0 buy 100   -> next add 95,  exit 103
+    L1 buy  95   -> next add 90,  exit  98
+    L2 buy  90   -> next add 85,  exit  93
+    L3 buy  85   -> next add 80,  exit  88
+
+| layer | entry | exit | rank | note |
+|---|---:|---:|---:|---|
+| L3 | 85 | 88 | 0 | newest, nearest market |
+| L2 | 90 | 93 | 1 | middle |
+| L1 | 95 | 98 | 2 | middle |
+| L0 | 100 | 103 | 3 | MOST UNDERWATER |
+
+### The blotter, under the barbell
+
+    POSITIONS
+      BUY  1.00  @ 100        L0
+      BUY  1.00  @  95        L1
+      BUY  1.00  @  90        L2
+      BUY  1.00  @  85        L3
+
+    WORKING ORDERS
+      SELL LIMIT  @  88       L3 exit   (rank 0)
+      SELL LIMIT  @ 103       L0 exit   (highest rank, most underwater)
+      BUY  LIMIT  @  80       next add
+
+    HELD (no broker order)
+      L2 exit 93   (rank 1)
+      L1 exit 98   (rank 2)
+
+**The middle is now two layers rather than one, and the working-order count
+is unchanged at three.** Guard cost 9 -- four positions, three orders, one
+reserved for the add's future exit -- against 8 under today's prefix.
+
+**The barbell's extra unit stays at exactly one however deep the ladder
+goes.** Every new layer arrives at rank 0, pushing the previous rank 0 into
+the middle where it is held. Only the two ends ever rest.
+
+That is the property that makes it affordable: the cost does not scale with
+depth, while the benefit -- a working exit on the ejection candidate --
+matters MORE as the ladder deepens and that layer gets further underwater.
+
+## 2a-quater. THE FRONT EXIT FILLS ON A FOUR-LAYER LADDER
+
+Continuing from 2a-ter. The sell limit at 88 is lifted, so L3 closes for +3.
+
+**Positions** -- three longs remain: 100, 95, 90.
+
+Ranks re-form:
+
+| layer | entry | exit | rank | note |
+|---|---:|---:|---:|---|
+| L2 | 90 | 93 | 0 | promoted from rank 1 |
+| L1 | 95 | 98 | 1 | middle |
+| L0 | 100 | 103 | 2 | MOST UNDERWATER, unchanged |
+
+### The blotter after the fill
+
+    POSITIONS
+      BUY  1.00  @ 100        L0
+      BUY  1.00  @  95        L1
+      BUY  1.00  @  90        L2
+
+    WORKING ORDERS
+      SELL LIMIT  @  93       L2 exit   (rank 0)      <- newly PLACED
+      SELL LIMIT  @ 103       L0 exit   (highest rank) <- UNTOUCHED
+      BUY  LIMIT  @  85       next add                 <- RE-PRICED from 80
+
+    HELD (no broker order)
+      L1 exit 98   (rank 1)
+
+    REALISED
+      +3 on L3
+
+### Four distinct engine actions, worth separating
+
+1. **L3's exit FILLED** -- the layer closes and is removed from the side.
+2. **L2's exit is PLACED.** It was held at rank 1; promotion to rank 0 makes
+   it required, so a new sell limit goes on at 93.
+3. **L0's exit at 103 is UNTOUCHED.** It was the highest rank before the fill
+   and still is. No cancel, no re-place. **That matters: it is the order a
+   passive ejection would modify, and it stays continuously live.**
+4. **The add is RE-PRICED from 80 to 85.** Anchored to the layer nearest
+   market, which is now L2 at 90, so one `add_pips` step below.
+
+Net on the terminal: one order filled, one placed, one re-priced, one left
+alone.
+
+**Contrast with the prefix rule**, where L0's exit is never on the book at
+all -- an ejection would have to `OrderSend` a fresh order at the moment the
+guard is most likely to refuse it (`roll-at-cap-notes.md` s3a, the 73-minute
+measurement).
+
+## 2a-quinquies. THE ADD FILLS -- THE ROTATION COMPLETES
+
+Continuing from 2a-quater. Price falls and the buy limit at 85 is hit. It
+becomes a new layer with exit 88, and the next add moves to 80.
+
+**Positions** -- four longs: 100, 95, 90, 85.
+
+| layer | entry | exit | rank | note |
+|---|---:|---:|---:|---|
+| L4 | 85 | 88 | 0 | just filled |
+| L2 | 90 | 93 | 1 | DEMOTED from rank 0 |
+| L1 | 95 | 98 | 2 | middle |
+| L0 | 100 | 103 | 3 | MOST UNDERWATER, still untouched |
+
+### The blotter
+
+    POSITIONS
+      BUY  1.00  @ 100        L0
+      BUY  1.00  @  95        L1
+      BUY  1.00  @  90        L2
+      BUY  1.00  @  85        L4
+
+    WORKING ORDERS
+      SELL LIMIT  @  88       L4 exit   (rank 0)       <- newly PLACED
+      SELL LIMIT  @ 103       L0 exit   (highest rank) <- UNTOUCHED
+      BUY  LIMIT  @  80       next add                 <- RE-PRICED from 85
+
+    HELD (no broker order)
+      L2 exit 93   (rank 1)   <- CANCELLED on demotion
+      L1 exit 98   (rank 2)
+
+### Engine actions
+
+1. **The add at 85 FILLED** and became a layer.
+2. **L4's exit is PLACED** at 88.
+3. **L2's exit at 93 is CANCELLED** -- it drops from rank 0 to rank 1 and is
+   no longer required.
+4. **A new add is PLACED at 80**, one step below the new nearest-market
+   layer.
+5. **L0's exit at 103 is UNTOUCHED** for the second rotation running.
+
+### The rotation, and why the barbell survives it
+
+The ladder is now the same shape as 2a-ter with a different index on the
+newest layer. **One full cycle -- front exit fills, add fills -- and L0's
+exit has never been cancelled or re-placed.**
+
+That is the whole argument. Under K=1/H=0 the front of the queue churns on
+every fill: one cancel and one place per rotation. The barbell adds a second
+resting order that sits completely still through all of it, because the most
+underwater layer only changes when it finally exits or is ejected.
+
+**Note step 3 is exactly the path the stale-offset bug lived on** (`02_TRAPS`,
+fixed in `241a905`): a cancelled exit whose stored offset was never cleared,
+then re-placed later at the raw formula. Under the barbell that path is
+unchanged for the middle, so the fix remains load-bearing.
+
 ## 2b. THE SAME LADDER, WITH CARRY APPLIED
 
 Two layers -- L0 at 100, L1 at 95 -- with the barbell resting both exits.
@@ -338,4 +491,4 @@ keeping the queue and the invariant saying the same thing.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 341
+Line count: 494
