@@ -236,7 +236,10 @@ double Grind_ExitQFormulaTarget(const double entry,
                                 const bool is_long,
                                 const ulong position_ticket)
 {
-   return Grind_ExitPrice(entry, exit_pips, point, is_long ? 1 : -1);
+   const double shift = (position_ticket > 0)
+                        ? Grind_CarryShiftGetForRecon(position_ticket)
+                        : 0.0;
+   return Grind_ExitPrice(entry, exit_pips, point, is_long ? 1 : -1) + shift;
 }
 
 //+------------------------------------------------------------------+
