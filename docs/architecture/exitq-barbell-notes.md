@@ -627,6 +627,63 @@ In ordinary conditions purgatory costs NOTHING -- every exit is placed before
 the market reaches it -- and saves guard units on every tick. It only bites
 when price moves faster than the promotion cascade, which is 2d.
 
+## 2f. A QUIET ROLLOVER ON A FIVE-LAYER LADDER
+
+Same five layers as 2d and 2e: long 100, 95, 90, 85, 80. Exits 103, 98, 93,
+88, 83. Add at 75. Two exits resting under the barbell, three held.
+
+**Nothing trades. We roll to the next day.** All five layers accrue one
+night.
+
+### Case 1 -- negative carry of 2
+
+| layer | entry | exit before | exit after | where |
+|---|---:|---:|---:|---|
+| L4 | 80 | 83 | **85** | terminal -- order modified |
+| L3 | 85 | 88 | **90** | held -- tracker only |
+| L2 | 90 | 93 | **95** | held -- tracker only |
+| L1 | 95 | 98 | **100** | held -- tracker only |
+| L0 | 100 | 103 | **105** | terminal -- order modified |
+| add | -- | 75 | 75 | unchanged |
+
+### Case 2 -- positive carry of 2
+
+| layer | entry | exit before | exit after | where |
+|---|---:|---:|---:|---|
+| L4 | 80 | 83 | **81** | terminal -- order modified |
+| L3 | 85 | 88 | **86** | held -- tracker only |
+| L2 | 90 | 93 | **91** | held -- tracker only |
+| L1 | 95 | 98 | **96** | held -- tracker only |
+| L0 | 100 | 103 | **101** | terminal -- order modified |
+| add | -- | 75 | 75 | unchanged |
+
+Positions unchanged in both: long 100, 95, 90, 85, 80.
+
+**Two order modifies, three tracker updates, add untouched.** Five layers
+accrue; only two cost an API call.
+
+### The converging ladder
+
+Look at case 1. L4's exit moves to 85 -- which is L3's ENTRY price. L3's exit
+moves to 90, which is L2's entry. **With negative carry the exits march up
+into the entries above them.** Another night at this rate and they cross.
+
+Nothing prevents that and nothing should (s2c). Each layer's exit is priced
+off its own entry and its own accrual; the layers are independent positions
+that happen to sit in a ladder.
+
+It does mean the exit ORDER in price terms stops matching the layer order --
+which is worth remembering when reading a blotter, and worth testing, because
+ranking is by exit price ascending.
+
+### This is F2 in action
+
+**The three tracker updates do not currently happen.** `grind_carry.mqh:767`
+and `:775` skip any layer with `exit_order_ticket == 0`, so L3, L2 and L1
+accrue nothing. On a five-layer ladder under K=1/H=0 that is THREE FIFTHS of
+the book silently missing its adjustment, every night, and the layers that
+sit held longest are the ones that lose the most.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -766,4 +823,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 769
+Line count: 826
