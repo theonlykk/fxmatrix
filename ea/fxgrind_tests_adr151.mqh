@@ -16,6 +16,7 @@ void Grind_ExitQManageSide(GrindSideState &side,
 bool Grind_ExitQHoldCancelLayer(GrindLayer &layer,
                                 const bool is_long,
                                 const ulong magic);
+void Grind_RemoveLayerAt(GrindSideState &side, const int layer_idx);
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int long_count,
@@ -1322,64 +1323,53 @@ void Test_STALE1_measured_sequence_cleared_on_redo()
    GlobalVariableDel(Grind_CarryReleaseGvName(pos_near));
 
    const double entry_far = 1.25000;
+   const double entry_near = 1.24900;
    const double exit_pips = 3.0;
    const double point = 0.00001;
-   const double raw_formula = Grind_ExitPrice(entry_far, exit_pips, point, 1);
+   const double raw_formula_far = Grind_ExitPrice(entry_far, exit_pips, point, 1);
+   const double raw_formula_near = Grind_ExitPrice(entry_near, exit_pips, point, 1);
 
    Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
    const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
-   const double clamp_expected = 1.25100 + min_dist;
-   AssertTrue("STALE-1 precnd clamp", raw_formula <= 1.25100 + min_dist - 1e-12);
+   const double clamp_expected_far = 1.25100 + min_dist;
+   const double clamp_expected_near = 1.25100 + min_dist;
+   const double near_shift = clamp_expected_near - raw_formula_near;
+   AssertTrue("STALE-1 precnd far clamp", raw_formula_far <= 1.25100 + min_dist - 1e-12);
+   AssertTrue("STALE-1 precnd near clamp", raw_formula_near <= 1.25100 + min_dist - 1e-12);
 
    ArrayResize(g_grind_long.layers, 1);
    Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry_far, pos_far, 0);
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
 
    AssertTrue("STALE-1 clamp placed", g_grind_order_test_place_calls == 1);
-   AssertNear("STALE-1 clamp price", g_grind_order_test_last_placed_price, clamp_expected, 1e-12);
-   AssertTrue("STALE-1 offset stored", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
+   AssertNear("STALE-1 clamp price", g_grind_order_test_last_placed_price, clamp_expected_far, 1e-12);
+   AssertTrue("STALE-1 far offset stored", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
 
    ArrayResize(g_grind_long.layers, 2);
-   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.25100, pos_near, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, entry_near, pos_near, 0);
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
-
-   const int stale1_n = ArraySize(g_grind_long.layers);
-   double stale1_entries[];
-   int stale1_layer_indices[];
-   ArrayResize(stale1_entries, stale1_n);
-   ArrayResize(stale1_layer_indices, stale1_n);
-   for(int i = 0; i < stale1_n; i++) {
-      stale1_entries[i] = g_grind_long.layers[i].entry_price;
-      stale1_layer_indices[i] = g_grind_long.layers[i].layer_index;
-   }
-   int stale1_ranks[];
-   Grind_ExitQRanks(stale1_entries, stale1_layer_indices, stale1_n, true, stale1_ranks);
-   Print("STALE-1 DIAG rank0=", stale1_ranks[0], " rank1=", stale1_ranks[1],
-         " l0_ticket=", g_grind_long.layers[0].exit_order_ticket,
-         " l1_ticket=", g_grind_long.layers[1].exit_order_ticket,
-         " places=", g_grind_order_test_place_calls,
-         " l0_target=", g_grind_long.layers[0].exit_target,
-         " l1_target=", g_grind_long.layers[1].exit_target,
-         " bid=", Grind_MarketBid(), " ask=", Grind_MarketAsk());
 
    AssertTrue("STALE-1 demoted bare", g_grind_long.layers[0].exit_order_ticket == 0);
-   AssertFalse("STALE-1 offset cleared", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
-   AssertFalse("STALE-1 release cleared", GlobalVariableCheck(Grind_CarryReleaseGvName(pos_far)));
+   AssertTrue("STALE-1 near exit placed", g_grind_long.layers[1].exit_order_ticket != 0);
+   AssertTrue("STALE-1 two places", g_grind_order_test_place_calls == 2);
+   AssertNear("STALE-1 near price", g_grind_long.layers[1].exit_target, clamp_expected_near, 1e-12);
+   AssertFalse("STALE-1 far offset cleared", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
+   AssertFalse("STALE-1 far release cleared", GlobalVariableCheck(Grind_CarryReleaseGvName(pos_far)));
+   AssertTrue("STALE-1 near offset stored", GlobalVariableCheck(Grind_CarryShiftGvName(pos_near)));
+   AssertNear("STALE-1 near shift val", Grind_CarryShiftGet(pos_near), near_shift, 1e-12);
 
-   ArrayResize(g_grind_long.layers, 1);
-   g_grind_long.layers[0].entry_price = entry_far;
-   g_grind_long.layers[0].layer_index = 0;
-   g_grind_long.layers[0].position_ticket = pos_far;
-   g_grind_long.layers[0].exit_order_ticket = 0;
-   g_grind_long.layers[0].exit_position_ticket = 0;
+   Grind_RemoveLayerAt(g_grind_long, 1);
+   AssertTrue("STALE-1 one layer", ArraySize(g_grind_long.layers) == 1);
+   AssertTrue("STALE-1 far remains", g_grind_long.layers[0].position_ticket == pos_far);
+   AssertTrue("STALE-1 near offset survives", GlobalVariableCheck(Grind_CarryShiftGvName(pos_near)));
 
    Grind_MarketTestSeed(1.25000, 1.25020, 0, 0);
-   AssertTrue("STALE-1 quiet precnd", raw_formula > 1.25020 + min_dist - 1e-12);
+   AssertTrue("STALE-1 quiet precnd", raw_formula_far > 1.25020 + min_dist - 1e-12);
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
 
-   AssertTrue("STALE-1 replace placed", g_grind_order_test_place_calls == 2);
-   AssertNear("STALE-1 replace raw", g_grind_order_test_last_placed_price, raw_formula, 1e-12);
-   AssertFalse("STALE-1 replace no offset", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
+   AssertTrue("STALE-1 replace placed", g_grind_order_test_place_calls == 3);
+   AssertNear("STALE-1 replace raw", g_grind_order_test_last_placed_price, raw_formula_far, 1e-12);
+   AssertFalse("STALE-1 far replace no offset", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
 
    GrindReconLayerScratch layers[1];
    Grind_TestInitLayerScratch(layers[0], 0, entry_far, pos_far);
