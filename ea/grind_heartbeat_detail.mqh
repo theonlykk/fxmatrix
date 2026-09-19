@@ -175,9 +175,9 @@ string Grind_HeartbeatNullableSwapPointsJson(const double value,
 }
 
 //+------------------------------------------------------------------+
-void Grind_HeartbeatReadSwapPoints(const double &swap_long_out,
-                                   const double &swap_short_out,
-                                   const bool &points_mode_out)
+void Grind_HeartbeatReadSwapPoints(double &swap_long_out,
+                                   double &swap_short_out,
+                                   bool &points_mode_out)
 {
    int swap_mode = (int)SYMBOL_SWAP_MODE_POINTS;
    double swap_long = 0.0;
@@ -350,13 +350,19 @@ string Grind_HeartbeatLayersJson(const ulong magic, const int digits)
 //+------------------------------------------------------------------+
 string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits)
 {
+   double swap_long_points = 0.0;
+   double swap_short_points = 0.0;
+   bool swap_points_mode = false;
+   Grind_HeartbeatReadSwapPoints(swap_long_points, swap_short_points, swap_points_mode);
+
    return StringFormat(
       "\"layers\":%s,"
       "\"l0_pending_long\":%s,\"l0_pending_long_comment\":%s,"
       "\"l0_pending_short\":%s,\"l0_pending_short_comment\":%s,"
       "\"add_pending_long\":%s,\"add_pending_long_comment\":%s,"
       "\"add_pending_short\":%s,\"add_pending_short_comment\":%s,"
-      "\"resting_entries_long\":%d,\"resting_entries_short\":%d",
+      "\"resting_entries_long\":%d,\"resting_entries_short\":%d,"
+      "\"swap_long_points\":%s,\"swap_short_points\":%s,\"swap_rate_mult\":%d",
       Grind_HeartbeatLayersJson(magic, digits),
       Grind_HeartbeatNullablePriceJson(g_grind_long.l0_pending_ticket, magic, digits),
       Grind_HeartbeatNullableCommentJson(g_grind_long.l0_pending_ticket, magic),
@@ -367,7 +373,10 @@ string Grind_HeartbeatBuildLayerDetailJson(const ulong magic, const int digits)
       Grind_HeartbeatNullablePriceJson(g_grind_short.add_pending_ticket, magic, digits),
       Grind_HeartbeatNullableCommentJson(g_grind_short.add_pending_ticket, magic),
       Grind_HeartbeatCountRestingEntries(magic, "L"),
-      Grind_HeartbeatCountRestingEntries(magic, "S")
+      Grind_HeartbeatCountRestingEntries(magic, "S"),
+      Grind_HeartbeatNullableSwapPointsJson(swap_long_points, swap_points_mode),
+      Grind_HeartbeatNullableSwapPointsJson(swap_short_points, swap_points_mode),
+      Grind_HeartbeatSwapRateMult()
    );
 }
 
