@@ -6619,6 +6619,7 @@ void OnStart()
    Test_CARRY_Q4_ticket_zero_or_unknown_falls_back();
    Test_CARRY_Q5_held_promoted_places_shifted_target();
    Test_CARRY_Q6_clamp_operates_on_shifted_target();
+   Test_CLAMP_I6_after_block_removal();
    Test_T1_try_lock_does_not_block();
    Test_T1b_single_attempt_lock_returns_false_when_held();
    Test_T1c_single_attempt_lock_releases_only_own_token();
