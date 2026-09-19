@@ -684,6 +684,118 @@ accrue nothing. On a five-layer ladder under K=1/H=0 that is THREE FIFTHS of
 the book silently missing its adjustment, every night, and the layers that
 sit held longest are the ones that lose the most.
 
+## 2g. AT CAP -- THE BEST STATEMENT OF PASSIVE EJECTION SO FAR
+
+Eight layers, at cap: long 100, 95, 90, 85, 80, 75, 70, 65. Exits 103, 98,
+93, 88, 83, 78, 73, 68.
+
+| layer | entry | exit | rank | on book |
+|---|---:|---:|---:|---|
+| L7 | 65 | 68 | 0 | **resting** |
+| L6 | 70 | 73 | 1 | held |
+| L5 | 75 | 78 | 2 | held |
+| L4 | 80 | 83 | 3 | held |
+| L3 | 85 | 88 | 4 | held |
+| L2 | 90 | 93 | 5 | held |
+| L1 | 95 | 98 | 6 | held |
+| L0 | 100 | 103 | 7 | **resting** (barbell) |
+
+**On the fill at 65:** L7's exit is placed at 68. **No add is placed** -- the
+side is at 8 of 8 and the cap refuses it. Every previous fill re-anchored the
+buy limit one step lower; this one cannot.
+
+Working orders: two sell limits, 68 and 103. **No buy limit at all.** Guard
+cost 10 -- eight positions, two orders, nothing reserved.
+
+### Doing nothing is not a position. It is the absence of a strategy.
+
+Market drops to 62. The instinct is to hold and wait for recovery, and the
+arithmetic in `roll-at-cap-notes.md` s3b supports that: ejecting the most
+underwater layer at the low costs $17.76 against a ladder earning $12.90 on a
+full recovery.
+
+**But that prices ejection against the WRONG baseline.** Holding at cap is
+not a position with an expected return. It is eight frozen layers, one live
+exit at 68, and exactly ONE winning path: a 38-point rally. Meanwhile the
+thing the system is actually good at -- harvesting oscillation -- is switched
+off entirely. If price goes to 50 instead, we watch.
+
+### The operator's sequence
+
+    eject L0, sell limit at 62.003   -> lifted
+    new bid at 60                    -> hit
+    sell at 58.003                   -> lifted      (+2 scalped)
+    new bid at 55                    -> ...
+
+Each cycle is small. It is also LIVE, and it happens in the range the market
+is actually in rather than the one it left.
+
+**The bad case, accounted honestly.** If 55 never fills, L0 exited at 58
+rather than 62 -- worse by 2 -- but the 62-to-60 scalp collected 2 in
+between. Roughly flat, and we traded the whole way down instead of watching.
+
+**The residual objection, which is real but weaker.** Those scalps exist only
+because we keep rebuilding a ladder into a falling market, and each new layer
+can itself get stranded. Being long at 55 in a market going to 50 is the same
+problem one rung lower. **The mechanism does not stop the bleed -- it
+converts a frozen loss into a working one.** That is still better than one
+path to success.
+
+### The ejection PRICE is a parameter, not a given
+
+`ask + min_dist` is the worst available price, bought for near-certain
+execution. The order can rest anywhere above market, and every point higher
+is a point less realised on a 38-point loss.
+
+| where | fills | price |
+|---|---|---|
+| `ask + min_dist` (62.003) | near-certain, now | worst |
+| a few points above (64.503) | on a small bounce | 2.5 better, slot still freed |
+| near the old target (103) | that is not ejecting | -- |
+
+**At 64.503 the same ejection costs 35.5 instead of 38, and the difference is
+free if you are willing to wait for a tick.** The natural setting is neither
+extreme: somewhere the market plausibly reaches within the horizon that
+matters, which for a ladder at cap is hours, not days.
+
+**This is the self-timing property**, stated properly. If the ejection fills,
+price ticked up and a fresh bid below makes sense. If it does not fill, price
+is falling and we keep the deep layer rather than adding into the move. **The
+ejection completes only when the market says the slot is worth having.**
+
+### What it implies for implementation -- less than first thought
+
+An earlier draft of this section claimed a parameterised ejection needs to
+remember where it placed the order, as a third kind of offset alongside carry
+and clamp. **That is wrong.**
+
+**I6 already handles it.** The invariant compares the resting order's price
+against the layer's `exit_target`. If the ejection sets `exit_target` to
+64.503 when it modifies the order, the two agree. No new offset, no new
+store -- the existing field carries it.
+
+**And ejection is not a persistent mode.** It is one order modification. The
+moment a layer closes the side is under cap and the normal EA logic resumes:
+ranks re-form, the add is placed, the ladder rebuilds. If the ejection order
+fills, that happens. If it does not, the order simply sits there like any
+other exit.
+
+**The only thing worth recording is observability.** A flag saying "this
+layer is in ejection" so a status read shows the mechanism ARMED AND WAITING
+rather than broken -- otherwise an unfilled ejection at 62.003 looks
+identical to nothing having happened. That is a telemetry field, not state
+the engine depends on.
+
+### And this is why the barbell matters here
+
+L0's exit at 103 is on the book, 35 above market, on a layer underwater since
+the ladder began. Ejecting it is an `OrderModify` of an existing order -- no
+new guard unit at the moment the guard is most likely saturated
+(`roll-at-cap-notes.md` s3a, the 73-minute measurement).
+
+**Under the prefix rule that order does not exist**, and the ejection would
+have to `OrderSend` into a full book.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -823,4 +935,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 826
+Line count: 938
