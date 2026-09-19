@@ -1371,11 +1371,6 @@ void Test_CARRY_Q5_held_promoted_places_shifted_target()
    GlobalVariableDel(Grind_CarryReleaseGvName(pos));
    const double shift = 0.00020;
    Grind_CarryShiftSet(pos, shift);
-   Print("CARRY-Q5 BEFORE set=", shift,
-         " gvraw=", GlobalVariableGet(Grind_CarryShiftGvName(pos)),
-         " getraw=", Grind_CarryShiftGet(pos),
-         " getforrecon=", Grind_CarryShiftGetForRecon(pos),
-         " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
    GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
 
    const double entry = 1.10300;
@@ -1388,25 +1383,15 @@ void Test_CARRY_Q5_held_promoted_places_shifted_target()
    Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, 0);
    Adr151_TestSetupLongLayer(g_grind_long, 2, 2, entry, pos, 0);
 
+   Grind_MarketTestSeed(1.10200, 1.10202, 0, 0);
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
-
-   Print("CARRY-Q5 AFTER set=", shift,
-         " gvname=", Grind_CarryShiftGvName(pos),
-         " gvexists=", GlobalVariableCheck(Grind_CarryShiftGvName(pos)),
-         " gvraw=", GlobalVariableGet(Grind_CarryShiftGvName(pos)),
-         " relname=", Grind_CarryReleaseGvName(pos),
-         " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)),
-         " getraw=", Grind_CarryShiftGet(pos),
-         " getvalidated=", Grind_CarryShiftGetValidated(pos, 0, Grind_CarryNightlyMaxPips(_Symbol)),
-         " getforrecon=", Grind_CarryShiftGetForRecon(pos),
-         " nightly=", Grind_CarryNightlyMaxPips(_Symbol),
-         " symbol=", _Symbol);
 
    AssertTrue("CARRY-Q5 placed", g_grind_order_test_place_calls == 1);
    AssertNear("CARRY-Q5 price", g_grind_order_test_last_placed_price, expected, 1e-12);
 
    Grind_CarryShiftDelete(pos);
    GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
    Grind_OrderTestReset();
    Grind_TestResetSideState();
    Grind_CarryTestReset();

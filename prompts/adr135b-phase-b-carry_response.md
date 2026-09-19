@@ -256,4 +256,116 @@ git diff --stat origin/main...feat/adr135b-phase-b-carry:
 
 Operator must run the suite to obtain BEFORE/AFTER values.
 
-Line count: 259
+## FIX: remove clamp-writes-carry-shift
+
+Measurement (operator, 2026-09-18 23:01):
+
+    CARRY-Q5 BEFORE set=0.0002 gvraw=0.0002 getraw=0.0002 getforrecon=0.0002
+    CARRY-Q5 AFTER  set=0.0002 gvraw=0.045130000000000114 relexists=true
+                    getvalidated=0.04513 getforrecon=0.04513 nightly=3.318
+
+Grind_ExitQManageSide after clamp line (block deleted):
+
+      const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
+      if(clamped)
+         side.exit_clamped_promotions++;
+      const string side_letter = is_long ? "L" : "S";
+      const string comment = GrindCommentBuild(slot, side_letter, side.layers[i].layer_index, "EXT");
+      const ENUM_ORDER_TYPE otype = is_long ? ORDER_TYPE_SELL_LIMIT : ORDER_TYPE_BUY_LIMIT;
+      const ulong ticket = Grind_PlaceLimit(otype, price, lots, magic, comment);
+      if(ticket == 0)
+         continue;
+      side.layers[i].exit_order_ticket = ticket;
+      side.layers[i].exit_target = price;
+   }
+}
+
+CARRY-Q5 setup (both diagnostic Prints removed):
+
+    Grind_CarryShiftSet(pos, shift);
+    GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+    ...
+    Adr151_TestSetupLongLayer(g_grind_long, 2, 2, entry, pos, 0);
+
+    Grind_MarketTestSeed(1.10200, 1.10202, 0, 0);
+    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+    AssertTrue("CARRY-Q5 placed", g_grind_order_test_place_calls == 1);
+    AssertNear("CARRY-Q5 price", g_grind_order_test_last_placed_price, expected, 1e-12);
+
+Both CARRY-Q5 BEFORE and CARRY-Q5 AFTER Print statements removed.
+
+### REPORT 1: Was the deleted block deliberate?
+
+Yes, but it predates ADR-135b Phase B and was not part of that spec. It came
+from ADR-151 Phase A (Gemini Q2 release marker): when a clamp moved the exit
+off the raw formula, the queue wrote `price - formula` into
+`GRIND_CARRY_SHIFT_<ticket>` and set `GRIND_CARRY_RELEASE_<ticket>` so I6 recon
+would accept the placed price via `Grind_CarryShiftGetForRecon`. That was a
+pre-carry workaround conflating clamp delta with carry financing state.
+`Test_MQ5_ClampStoresShiftAndReleaseMarker` asserts exactly this behaviour.
+Once carry GVs hold real swap shifts, the same block corrupts carry state on
+every clamp. It needs an ADR and Gemini ruling if clamped exits require a
+separate persistence mechanism -- not reuse of the carry shift store.
+
+### REPORT 2: Grind_ExitQManageSide callers without market seed
+
+All in ea/fxgrind_tests_adr151.mqh. Tests that seed before the call:
+
+- Test_EQ_CLAMP1_passed_target_increments_counter
+- Test_EQ_CLAMP2_unpassed_target_no_counter
+- Test_MQ5_ClampStoresShiftAndReleaseMarker
+- Test_CARRY_Q5_held_promoted_places_shifted_target (seeded in this fix)
+- Test_CARRY_Q6_clamp_operates_on_shifted_target
+
+Tests that call Grind_ExitQManageSide without Grind_MarketTestSeed in the
+same function (rely on prior test market or terminal defaults):
+
+- Test_EQ_K1a_one_resting_exit_at_rank_zero
+- Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick (3 calls)
+- Test_MQ1_TrimCancelsBeyondAllowedBand
+- Test_MQ2_ReleasePlacesRequiredMissing
+- Test_MQ3_TrimRunsBeforeRelease
+- Test_MQ4_NoSendWhenExitNotAllowed
+- Test_MQ6_UsedRecomputedBeforeEachExitSend
+- Test_MQ7_KOverrideTrimsNothingReleasesAll (2 calls)
+- Test_HC1_CancelDoneClearsTracker
+- Test_HC2_CancelFailedOrderLiveKeepsTracker
+- Test_HC3_GoneWithDealQueuesCloseBy
+- Test_HC4_GoneWithoutDealClearsTracker
+- Test_HC5_DealOnOtherSideIgnored
+
+No other file calls Grind_ExitQManageSide from tests. Not changed in this
+commit.
+
+git diff --stat origin/main...feat/adr135b-phase-b-carry:
+
+ .../architecture/ADR-135b-carry-exit-adjustment.md |  15 +-
+ docs/architecture/ADR-151-order-purgatory.md       |  14 +-
+ ea/fxgrind.mq5                                     |   5 -
+ ea/fxgrind_tests.mq5                               |   6 +
+ ea/fxgrind_tests_adr151.mqh                        | 217 ++++++++++++-
+ ea/fxgrind_tests_adr152.mqh                        |   2 +-
+ ea/grind_engine.mqh                                |   7 +-
+ ea/grind_exitq.mqh                                 |   8 +-
+ ea/grind_recon.mqh                                 |   6 +-
+ ea/presets/audcad_alt.set                          |   2 +-
+ ea/presets/audcad_opt.set                          |   2 +-
+ ea/presets/audchf_alt.set                          |   2 +-
+ ea/presets/audchf_opt.set                          |   2 +-
+ ea/presets/audnzd_alt.set                          |   2 +-
+ ea/presets/audnzd_opt.set                          |   2 +-
+ ea/presets/cadchf_alt.set                          |   2 +-
+ ea/presets/cadchf_opt.set                          |   2 +-
+ ea/presets/eurgbp_alt.set                          |   2 +-
+ ea/presets/eurgbp_opt.set                          |   2 +-
+ ea/presets/eurusd_alt.set                          |   2 +-
+ ea/presets/eurusd_opt.set                          |   2 +-
+ ea/presets/gbpusd_alt.set                          |   2 +-
+ ea/presets/gbpusd_opt.set                          |   2 +-
+ ea/presets/nzdcad_alt.set                          |   2 +-
+ ea/presets/nzdcad_opt.set                          |   2 +-
+ prompts/adr135b-phase-b-carry_response.md          | 345 +++++++++++++++++++++
+ 26 files changed, 615 insertions(+), 42 deletions(-)
+
+Line count: 371
