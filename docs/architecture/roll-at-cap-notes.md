@@ -163,6 +163,92 @@ measures the quantity the sweep structurally cannot model.
 
 ---
 
+## 3b. THE GBPUSD CASE -- FIRST REAL `p` AND `R`, AND A TENSION THE MODEL MISSED
+
+On 2026-09-17 the operator force-closed 15 GBPUSD longs by hand (market
+close, not passive). Reconciled from the deal dump in
+`prompts/cycle_pnl_reconciliation.md`. This is the closest thing to a live
+ejection we have, and it gives s3 its first real numbers.
+
+**The ladder.** 8 ALT layers 1.35112 down to 1.34301; 7 OPT layers 1.35169
+down to 1.34571. Roughly 87 pips of ladder on each arm, built 14-Sep to
+16-Sep as price fell. Realised on the closes: **-176.35**.
+
+**What happened next.** GBPUSD traded 1.334-1.339 for two days. The high was
+1.33914. The nearest exit target of the whole ladder -- ALT L08 at 1.34401 --
+was **49 pips short**. Not one of the 15 would have exited.
+
+| | MTM on the 15 |
+|---|---:|
+| at the 2-day low 1.33436 | -203.06 |
+| at 1.33955 (end of window) | -125.21 |
+| **actually realised** | **-176.35** |
+
+So against holding to the end of the window the closes cost about $51;
+against the low they saved about $27. **On P&L alone it is a wash.** What
+they bought was a ladder sitting INSIDE the trading range instead of 90 pips
+above it -- the rebuilt ladder from 1.33436 up took 22 scalps for $18.69 on
+18-Sep, the best per-scalp figure in the fleet.
+
+### The operator's objection, and it is the strongest one against ejection
+
+**Recovery is all-or-nothing in the ladder's favour.** Price can only reach
+the WORST layer's exit target by passing through every shallower layer's exit
+on the way. So if the ladder recovers at all, it recovers completely.
+
+Which means ejecting the worst layer and then getting a recovery is the
+maximum-regret case. Measured, for ALT L00 ejected at the low:
+
+| | outcome on full recovery |
+|---|---:|
+| hold all 15, price reaches 1.35212 | **+12.90** |
+| eject ALT L00 at 1.33436, hold the rest | -16.76 + 11.90 = **-4.86** |
+| **cost of the ejection** | **17.76** |
+
+**One ejection costs more than the entire ladder earns on a full recovery.**
+That is a far worse ratio than s3's toy model suggested, because s3 never had
+a real `R`.
+
+### The tension s3 does not state
+
+`R` is the distance from market back to the ejected layer's exit target, and
+it **grows as the ladder deepens** -- which is exactly the situation where a
+freed slot is wanted. So ejection gets more expensive precisely when it
+becomes more attractive.
+
+Re-running the s3 break-even with the real `R = 177.6` pips and ALT's
+`E = 10`:
+
+| p (chance of recovery) | N (scalps the freed slot must generate) |
+|---:|---:|
+| 0.50 | 9.0 |
+| 0.20 | 3.7 |
+| 0.05 | 1.0 |
+
+Compare s3's table, which used `R = 85` and needed 6.3 / 2.6 / 0.8. Doubling
+the ladder depth roughly doubles the hurdle.
+
+**Counterweight, and it is not small.** In the case that actually occurred --
+no recovery -- holding all 15 earns exactly zero, both arms stay capped, and
+the ladder sits above the entire trading range indefinitely. The GBPUSD arms
+were at or near 8 of 8 before the closes.
+
+### Where this leaves the decision
+
+Not "ejection is wrong". **Ejection is expensive insurance, and it cannot be
+priced without an estimate of `p`.** The operator's instinct after seeing
+these numbers was that locking in a loss is not something he wants to do,
+and the $17.76-against-$12.90 ratio supports that unless `p` is low.
+
+`p` remains unmeasured. It is now the single number the whole question turns
+on, and it is estimable from history: for a ladder of depth D at cap, how
+often does price return to the worst layer's exit target within some horizon?
+That is a study on existing data, not a simulator and not a live A/B.
+
+**Do that before the ADR.**
+
+---
+
 ## 4. THE SWEEPS (17-Sep) -- UNUSABLE ON MAGNITUDE
 
 `roll_modes_cal_2026_09_17` (192 cells, 2 windows x 8 pairs x 2 geometries
@@ -359,4 +445,4 @@ had adverse effects on this system before. The mechanism here is appealing
 and may still be wrong; s3 says the answer turns on `p` and `q`, and neither
 has an estimate.
 
-Line count: 362
+Line count: 448
