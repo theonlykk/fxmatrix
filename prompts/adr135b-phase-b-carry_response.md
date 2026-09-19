@@ -127,4 +127,58 @@ Four tests fail against the stub (Q2, Q3, Q5, Q6). Two pass (Q1, Q4).
 3. b0fd366 -- 16 presets InpEnableCarryPass=true
 4. 2adeb0b -- ADR-135b Phase B section; ADR-151 Phase B enabled
 
-Line count: 99
+## DIAGNOSTIC: CARRY-Q5
+
+One Print inserted in Test_CARRY_Q5_held_promoted_places_shifted_target
+immediately after Grind_ExitQManageSide:
+
+    Print("CARRY-Q5 DIAG expected=", expected,
+          " placed=", g_grind_order_test_last_placed_price,
+          " formula=", Grind_ExitQFormulaTarget(entry, exit_pips, point, true, pos),
+          " shift=", Grind_CarryShiftGetForRecon(pos),
+          " bid=", Grind_MarketBid(), " ask=", Grind_MarketAsk(),
+          " mindist=", Grind_CarryMinPassiveDistance(point, Grind_MarketStopsLevel(), 0),
+          " places=", g_grind_order_test_place_calls);
+
+No assertion, expected value, shift, layer setup, or position id was changed.
+No market seed was added to Q5. No other file was edited.
+
+Change since 4a295fe (this commit, ea/ only):
+
+ ea/fxgrind_tests_adr151.mqh | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+git diff --stat origin/main...feat/adr135b-phase-b-carry:
+
+ .../architecture/ADR-135b-carry-exit-adjustment.md |  15 +-
+ docs/architecture/ADR-151-order-purgatory.md       |  14 +-
+ ea/fxgrind.mq5                                     |   5 -
+ ea/fxgrind_tests.mq5                               |   6 +
+ ea/fxgrind_tests_adr151.mqh                        | 223 ++++++++++++++++++++-
+ ea/fxgrind_tests_adr152.mqh                        |   2 +-
+ ea/grind_engine.mqh                                |   3 +-
+ ea/grind_exitq.mqh                                 |   8 +-
+ ea/grind_recon.mqh                                 |   6 +-
+ ea/presets/audcad_alt.set                          |   2 +-
+ ea/presets/audcad_opt.set                          |   2 +-
+ ea/presets/audchf_alt.set                          |   2 +-
+ ea/presets/audchf_opt.set                          |   2 +-
+ ea/presets/audnzd_alt.set                          |   2 +-
+ ea/presets/audnzd_opt.set                          |   2 +-
+ ea/presets/cadchf_alt.set                          |   2 +-
+ ea/presets/cadchf_opt.set                          |   2 +-
+ ea/presets/eurgbp_alt.set                          |   2 +-
+ ea/presets/eurgbp_opt.set                          |   2 +-
+ ea/presets/eurusd_alt.set                          |   2 +-
+ ea/presets/eurusd_opt.set                          |   2 +-
+ ea/presets/gbpusd_alt.set                          |   2 +-
+ ea/presets/gbpusd_opt.set                          |   2 +-
+ ea/presets/nzdcad_alt.set                          |   2 +-
+ ea/presets/nzdcad_opt.set                          |   2 +-
+ prompts/adr135b-phase-b-carry_response.md          | 154 ++++++++++++++
+ 26 files changed, 430 insertions(+), 38 deletions(-)
+
+Diagnostic is in place. Operator must run the suite to obtain values. No
+cause is stated here -- inference without a run is not evidence.
+
+Line count: 184

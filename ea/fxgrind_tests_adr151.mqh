@@ -1385,6 +1385,14 @@ void Test_CARRY_Q5_held_promoted_places_shifted_target()
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
 
+   Print("CARRY-Q5 DIAG expected=", expected,
+         " placed=", g_grind_order_test_last_placed_price,
+         " formula=", Grind_ExitQFormulaTarget(entry, exit_pips, point, true, pos),
+         " shift=", Grind_CarryShiftGetForRecon(pos),
+         " bid=", Grind_MarketBid(), " ask=", Grind_MarketAsk(),
+         " mindist=", Grind_CarryMinPassiveDistance(point, Grind_MarketStopsLevel(), 0),
+         " places=", g_grind_order_test_place_calls);
+
    AssertTrue("CARRY-Q5 placed", g_grind_order_test_place_calls == 1);
    AssertNear("CARRY-Q5 price", g_grind_order_test_last_placed_price, expected, 1e-12);
 
