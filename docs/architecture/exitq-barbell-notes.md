@@ -477,6 +477,83 @@ paying you to be long. Carry of 6 is many nights at typical rates, but it is
 exactly what a deep layer held for a fortnight looks like, and the deep
 layers are the ones that sit longest.
 
+## 2d. THE GAP-THROUGH CASE -- WHAT PURGATORY ACTUALLY COSTS
+
+Five layers: long 100, 95, 90, 85, 80. Ranks by exit price ascending, so the
+newest layer is rank 0 and the most underwater is the highest rank.
+
+| layer | entry | exit | rank | on book? |
+|---|---:|---:|---:|---|
+| L4 | 80 | 83 | 0 | **resting** |
+| L3 | 85 | 88 | 1 | held |
+| L2 | 90 | 93 | 2 | held |
+| L1 | 95 | 98 | 3 | held |
+| L0 | 100 | 103 | 4 | **resting** (barbell) |
+
+**Market jumps to 95 and stays there.** Three exits -- 83, 88, 93 -- are now
+below market. Only ONE of them was on the book.
+
+**L4's exit at 83 fills** at 95 or better: a sell limit below market executes
+at market. That layer earns about 15 instead of the 3 it was priced for.
+
+**L3's exit at 88 and L2's at 93 do not fill. They did not exist.** Price
+traded straight through both levels with nothing there.
+
+### What follows is a cascade, not a simultaneous exit
+
+1. L4 closes. L3 becomes rank 0, so its exit is placed -- but 88 is below
+   market, so `Grind_ExitQClampPassive` moves it to `ask + min_dist`, about
+   95.001. It fills on the next tick that reaches it.
+2. L3 closes. L2 becomes rank 0. Same clamp, same wait.
+3. L2 closes. L1 becomes rank 0. Its exit at 98 is ABOVE market, so it rests
+   normally and waits for price to come to it.
+4. L0's exit at 103 sits untouched above market throughout.
+
+So the three deep layers exit near 95 rather than at 83, 88 and 93 -- BETTER
+prices, because the market came to them.
+
+**The cost is serialisation, not price.** Three layers that should have
+exited in one sweep instead exit one per tick, each waiting its turn at rank
+0. On a jump that holds, that is seconds. On a jump that REVERSES, you may
+get only the first and the rest go back underwater.
+
+### The honest failure case
+
+**If the high prints exactly 95 and 95.001 never trades, none of them fill.**
+Three layers that were deep in profit at the high end up underwater again,
+and the tick chart shows you were there. That is strictly worse than the
+resting case, where all three would have filled at 95.
+
+Two qualifiers, neither of which makes it go away:
+
+- `min_dist` is typically ONE POINT, not one pip -- 95.001 on a 5-digit pair,
+  not 95.01. The window is a tenth of a pip. Narrow, but an exact-high print
+  is exactly when a tenth matters.
+- **The clamp is not a choice.** A sell limit at or below the ask is rejected
+  by the broker. The alternatives are crossing the spread, forbidden by
+  ARCHITECT s1, or leaving the position open until price returns. The clamp
+  is the least-bad legal option.
+
+### What this says about the design
+
+**This cost exists only for HELD exits.** A resting exit at 93 fills at 95
+with no clamp involved. So every layer in purgatory is a layer exposed to
+this, and the most exposed are the middle -- which both the prefix rule and
+the barbell hold.
+
+**It is insurance paid continuously and claimed in violent moves.** Purgatory
+saves guard units on every ordinary tick and costs you only when several
+exits are crossed at once.
+
+**And it argues for the barbell.** Under the prefix rule L0's exit at 103 is
+also held, so a jump to 105 would miss EVERY exit and unwind the whole ladder
+one tick at a time. The barbell guarantees the two extremes are always
+covered; only the middle serialises.
+
+**Measurable, not yet measured.** `exit_clamped_promotions_long` / `_short`
+counts exactly this event -- a promoted exit arriving with its target already
+passed. Added 2026-09-18, on `main`, never read.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -616,4 +693,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 619
+Line count: 696
