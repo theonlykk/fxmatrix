@@ -92,6 +92,42 @@ always the worst of what is held. That is precisely why the deepest layer is
 the one worth keeping reachable, and why dropping it first (today's prefix
 rule) is backwards.
 
+## 2b. THE SAME LADDER, WITH CARRY APPLIED
+
+Back to two layers -- L0 at 100, L1 at 95 -- with the barbell resting both
+exits, and the add at 95.
+
+Both layers are LONG, so both accrue the same carry per night.
+
+**Negative carry of 2** (we paid it -- exit moves FURTHER from entry, which
+for a long is up):
+
+| order | before | after |
+|---|---:|---:|
+| sell limit, L0 exit | 102 | **104** |
+| sell limit, L1 exit | 98 | **100** |
+| buy limit, next add | 95 | **95** |
+
+**Positive carry of 2** (we received it -- exit moves CLOSER):
+
+| order | before | after |
+|---|---:|---:|
+| sell limit, L0 exit | 102 | **100** |
+| sell limit, L1 exit | 98 | **96** |
+| buy limit, next add | 95 | **95** |
+
+**The add never moves.** Carry applies to inventory, not to unfilled quotes.
+There is no position behind a buy limit, so nothing has accrued. ARCHITECT
+s1, and pipshed's carry audit already skips ENT rows with exactly that
+reason.
+
+**Both exits shift by the same amount here** because carry is per position
+per night and both layers are long, same size, same pair. They diverge only
+once held for different numbers of nights -- a layer opened three nights ago
+carries three nights of accrual, one opened last night carries one. So in a
+real ladder the shifts are per-layer and unequal, which is why the
+adjustment has to be stored per position ticket rather than per side.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1
@@ -160,4 +196,4 @@ keeping the queue and the invariant saying the same thing.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 163
+Line count: 199
