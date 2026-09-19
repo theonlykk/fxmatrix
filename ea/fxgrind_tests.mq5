@@ -6619,6 +6619,13 @@ void OnStart()
    Test_STALE3_unclamped_placement_clears_offset();
    Test_STALE4_clamped_still_stores_and_passes_i6();
    Test_STALE5_filled_exit_keeps_offset();
+   Test_F2_1_held_layer_accrues();
+   Test_F2_2_held_places_at_adjusted_price();
+   Test_F2_3_carry_plus_clamp();
+   Test_F2_4_no_accrual_is_normal();
+   Test_F2_5_resting_layer_still_works();
+   Test_F2_6_accrual_survives_cancel();
+   Test_F2_7_accrual_cleared_on_scalp_close();
    Test_T1_try_lock_does_not_block();
    Test_T1b_single_attempt_lock_returns_false_when_held();
    Test_T1c_single_attempt_lock_releases_only_own_token();

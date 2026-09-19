@@ -17,6 +17,19 @@ bool Grind_ExitQHoldCancelLayer(GrindLayer &layer,
                                 const bool is_long,
                                 const ulong magic);
 void Grind_RemoveLayerAt(GrindSideState &side, const int layer_idx);
+void Grind_HandleSideDealFill(GrindSideState &side,
+                              const bool is_long,
+                              const ulong deal_ticket,
+                              const ulong magic,
+                              const string slot,
+                              const double exit_pips,
+                              const double deadband_pips,
+                              const int max_layers,
+                              const double lots);
+int Grind_CarryExitPassStep(const string symbol,
+                            const ulong magic,
+                            const double exit_pips,
+                            const datetime now);
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int long_count,
@@ -28,6 +41,49 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const double point,
                                 const int max_layers,
                                 string &reason_out);
+
+#if !defined(GRIND_CARRY_ACCRUED_API)
+#define GRIND_CARRY_ACCRUED_API
+string Grind_CarryAccruedGvName(const ulong position_ticket)
+{
+   return "GRIND_CARRY_ACCRUED_" + IntegerToString((long)position_ticket);
+}
+
+double Grind_CarryAccruedGet(const ulong position_ticket)
+{
+   const string name = Grind_CarryAccruedGvName(position_ticket);
+   if(!GlobalVariableCheck(name))
+      return 0.0;
+   return GlobalVariableGet(name);
+}
+
+void Grind_CarryAccruedSet(const ulong position_ticket, const double accrued_price)
+{
+   GlobalVariableSet(Grind_CarryAccruedGvName(position_ticket), accrued_price);
+}
+
+void Grind_CarryAccruedDelete(const ulong position_ticket)
+{
+   GlobalVariableDel(Grind_CarryAccruedGvName(position_ticket));
+}
+#endif
+
+//+------------------------------------------------------------------+
+void F2_TestClearPositionCarry(const ulong position_ticket)
+{
+   Grind_CarryShiftDelete(position_ticket);
+   Grind_CarryAccruedDelete(position_ticket);
+   GlobalVariableDel(Grind_CarryReleaseGvName(position_ticket));
+}
+
+//+------------------------------------------------------------------+
+void F2_TestSeedCarryWindow(const ulong magic)
+{
+   Grind_CarryGateReset(magic);
+   g_grind_carry_test_server_time = D'2026.09.14 23:50:00';
+   Grind_CarryTestSeedTick(g_grind_carry_test_server_time, 1.25000, 1.25020);
+   g_grind_carry_test_trade_mode = (long)SYMBOL_TRADE_MODE_FULL;
+}
 
 //+------------------------------------------------------------------+
 void Adr151_TestResetSlotSeams()
@@ -1577,6 +1633,276 @@ void Test_STALE5_filled_exit_keeps_offset()
    Grind_OrderTestReset();
    Grind_TestResetSideState();
    Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_1_held_layer_accrues()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   const ulong magic = 99993101UL;
+   const ulong pos_rank0 = 99101UL;
+   const ulong pos_held = 99102UL;
+   const ulong pos_held2 = 99103UL;
+   const ulong exit_rank0 = 99111UL;
+   F2_TestClearPositionCarry(pos_rank0);
+   F2_TestClearPositionCarry(pos_held);
+   F2_TestClearPositionCarry(pos_held2);
+   F2_TestSeedCarryWindow(magic);
+   g_grind_order_test_active = true;
+   const datetime open_time = D'2026.09.01 12:00';
+   Grind_CarryTestSetPosition(pos_rank0, -0.10, 0.01, open_time);
+   Grind_CarryTestSetPosition(pos_held, -0.10, 0.01, open_time);
+   Grind_CarryTestSetPosition(pos_held2, -0.10, 0.01, open_time);
+   Grind_PositionTestAdd(pos_rank0);
+   Grind_PositionTestAdd(pos_held);
+   Grind_PositionTestAdd(pos_held2);
+   ArrayResize(g_grind_long.layers, 3);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 2, 1.25200, pos_held2, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.25100, pos_held, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 2, 0, 1.25000, pos_rank0, exit_rank0);
+   Grind_OrderTestUpsert(exit_rank0, (long)magic, GrindCommentBuild("OPT", "L", 0, "EXT"),
+                        1.25030, (long)ORDER_TYPE_SELL_LIMIT);
+   g_grind_carry_eligible_magic = magic;
+   Grind_CarryExitPassStep(_Symbol, magic, 3.0, g_grind_carry_test_server_time);
+   Grind_CarryExitPassStep(_Symbol, magic, 3.0, g_grind_carry_test_server_time);
+   AssertTrue("F2-1 held accrued", MathAbs(Grind_CarryAccruedGet(pos_held)) > 1e-12);
+   AssertTrue("F2-1 held2 accrued", MathAbs(Grind_CarryAccruedGet(pos_held2)) > 1e-12);
+   AssertTrue("F2-1 rank0 accrued", MathAbs(Grind_CarryAccruedGet(pos_rank0)) > 1e-12);
+   Grind_CarryGateReset(magic);
+   F2_TestClearPositionCarry(pos_rank0);
+   F2_TestClearPositionCarry(pos_held);
+   F2_TestClearPositionCarry(pos_held2);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_2_held_places_at_adjusted_price()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.24998, 1.25000, 0, 0);
+   const ulong pos = 99201UL;
+   F2_TestClearPositionCarry(pos);
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double accrued = 0.00050;
+   Grind_CarryAccruedSet(pos, accrued);
+   const double intended = raw + accrued;
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+   AssertTrue("F2-2 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("F2-2 price", g_grind_order_test_last_placed_price, intended, 1e-12);
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = g_grind_long.layers[0].exit_order_ticket;
+   layers[0].exit_target = g_grind_long.layers[0].exit_target;
+   int long_ranks[1];
+   long_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("F2-2 i6",
+              Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                         exit_pips, point, 12, reason));
+   F2_TestClearPositionCarry(pos);
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_3_carry_plus_clamp()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
+   const ulong pos = 99202UL;
+   F2_TestClearPositionCarry(pos);
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double accrued = 0.00050;
+   const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+   const double intended = raw + accrued;
+   const double actual = 1.25100 + min_dist;
+   const double shift_expected = actual - intended;
+   Grind_CarryAccruedSet(pos, accrued);
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+   AssertTrue("F2-3 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("F2-3 clamp price", g_grind_order_test_last_placed_price, actual, 1e-12);
+   AssertNear("F2-3 shift", Grind_CarryShiftGet(pos), shift_expected, 1e-12);
+   AssertFalse("F2-3 not raw shift",
+               MathAbs(Grind_CarryShiftGet(pos) - (actual - raw)) < 1e-12);
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = g_grind_long.layers[0].exit_order_ticket;
+   layers[0].exit_target = g_grind_long.layers[0].exit_target;
+   int long_ranks[1];
+   long_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("F2-3 i6",
+              Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                         exit_pips, point, 12, reason));
+   F2_TestClearPositionCarry(pos);
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_4_no_accrual_is_normal()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+   Grind_MarketTestSeed(1.24998, 1.25000, 0, 0);
+   const ulong pos = 99203UL;
+   F2_TestClearPositionCarry(pos);
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+   AssertTrue("F2-4 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("F2-4 raw", g_grind_order_test_last_placed_price, raw, 1e-12);
+   AssertNear("F2-4 target", g_grind_long.layers[0].exit_target, raw, 1e-12);
+   F2_TestClearPositionCarry(pos);
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_5_resting_layer_still_works()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   const ulong magic = 99993105UL;
+   const ulong pos = 99205UL;
+   const ulong exit_ticket = 99215UL;
+   F2_TestClearPositionCarry(pos);
+   F2_TestSeedCarryWindow(magic);
+   g_grind_order_test_active = true;
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double exit_before = raw;
+   Grind_CarryTestSetPosition(pos, -0.10, 0.01, D'2026.09.01 12:00');
+   Grind_PositionTestAdd(pos);
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = entry;
+   g_grind_long.layers[0].exit_target = exit_before;
+   g_grind_long.layers[0].position_ticket = pos;
+   g_grind_long.layers[0].exit_order_ticket = exit_ticket;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_OrderTestUpsert(exit_ticket, (long)magic, GrindCommentBuild("OPT", "L", 0, "EXT"),
+                        exit_before, (long)ORDER_TYPE_SELL_LIMIT);
+   g_grind_carry_eligible_magic = magic;
+   Grind_CarryExitPassStep(_Symbol, magic, exit_pips, g_grind_carry_test_server_time);
+   GrindOrderTestRecord rec;
+   AssertTrue("F2-5 modified", Grind_OrderTestFind(exit_ticket, rec));
+   AssertTrue("F2-5 accrued", MathAbs(Grind_CarryAccruedGet(pos)) > 1e-12);
+   const double accrued = Grind_CarryAccruedGet(pos);
+   const double intended = raw + accrued;
+   AssertNear("F2-5 shift", Grind_CarryShiftGet(pos), rec.price - intended, 1e-12);
+   Grind_CarryGateReset(magic);
+   F2_TestClearPositionCarry(pos);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_6_accrual_survives_cancel()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   const ulong pos = 99206UL;
+   const ulong exit_order = 99216UL;
+   F2_TestClearPositionCarry(pos);
+   const double accrued = 0.00040;
+   Grind_CarryAccruedSet(pos, accrued);
+   Grind_CarryShiftSet(pos, 0.00020);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 1, 1.25100, pos, exit_order);
+   Grind_OrderTestUpsert(exit_order, (long)22260101UL, GrindCommentBuild("OPT", "L", 1, "EXT"),
+                        1.25130, (long)ORDER_TYPE_SELL_LIMIT);
+   AssertTrue("F2-6 cancel", Grind_ExitQHoldCancelLayer(g_grind_long.layers[0], true, 22260101UL));
+   AssertFalse("F2-6 shift cleared", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertTrue("F2-6 accrued survives", GlobalVariableCheck(Grind_CarryAccruedGvName(pos)));
+   AssertNear("F2-6 accrued val", Grind_CarryAccruedGet(pos), accrued, 1e-12);
+   F2_TestClearPositionCarry(pos);
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_F2_7_accrual_cleared_on_scalp_close()
+{
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
+   const ulong pos = 99207UL;
+   const ulong exit_pos = 99217UL;
+   F2_TestClearPositionCarry(pos);
+   Grind_CarryShiftSet(pos, 0.00030);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+   Grind_CarryAccruedSet(pos, 0.00050);
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].position_ticket = pos;
+   g_grind_long.layers[0].exit_position_ticket = exit_pos;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(99207UL, "#99207 by #99217", DEAL_ENTRY_OUT_BY, 0, pos, 2.50, -0.30, -0.20);
+   Grind_HandleSideDealFill(g_grind_long, true, 99207UL, 22260101UL, "OPT", 3.0, 4.0, 12, 0.01);
+   AssertFalse("F2-7 shift gone", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertFalse("F2-7 accrued gone", GlobalVariableCheck(Grind_CarryAccruedGvName(pos)));
+   Grind_DealTestReset();
+   Grind_TestResetSideState();
    Adr151_TestResetAll();
 }
 
