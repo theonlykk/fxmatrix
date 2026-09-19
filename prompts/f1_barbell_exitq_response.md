@@ -134,4 +134,4 @@ expecting prefix-only one exit or highest-rank exit cancelled) likely remain
 until stage 2 re-derives assertions. Operator re-run required to confirm
 count.
 
-Line count: 133
+Line count: 137
