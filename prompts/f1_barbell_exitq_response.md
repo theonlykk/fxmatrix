@@ -248,3 +248,89 @@ git diff --stat origin/main...feat/f1-barbell-exitq:
 This commit: no assertion text changed; no production file changed.
 
 Line count: 250
+
+## DIAGNOSTIC: HC3 and MQ3
+
+Commit: two Print blocks in ea/fxgrind_tests_adr151.mqh and this section.
+No assertion, fixture, or production change.
+
+HC3 (between ManageSide and first assertion):
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
+
+   double hc3_entries[]; int hc3_idx[]; int hc3_ranks[];
+   const int hc3_n = ArraySize(g_grind_long.layers);
+   ArrayResize(hc3_entries, hc3_n); ArrayResize(hc3_idx, hc3_n);
+   for(int z = 0; z < hc3_n; z++) {
+      hc3_entries[z] = g_grind_long.layers[z].entry_price;
+      hc3_idx[z] = g_grind_long.layers[z].layer_index;
+   }
+   Grind_ExitQRanks(hc3_entries, hc3_idx, hc3_n, true, hc3_ranks);
+   Print("HC3 DIAG n=", hc3_n,
+         " r0=", (hc3_n > 0 ? IntegerToString(hc3_ranks[0]) : "N/A"),
+         " r1=", (hc3_n > 1 ? IntegerToString(hc3_ranks[1]) : "N/A"),
+         " r2=", (hc3_n > 2 ? IntegerToString(hc3_ranks[2]) : "N/A"),
+         " r3=", (hc3_n > 3 ? IntegerToString(hc3_ranks[3]) : "N/A"),
+         " r4=", (hc3_n > 4 ? IntegerToString(hc3_ranks[4]) : "N/A"),
+         " req3=", (hc3_n > 3 ? (Grind_ExitQRequired(hc3_ranks[3], hc3_n) ? "true" : "false") : "N/A"),
+         " allow3=", (hc3_n > 3 ? (Grind_ExitQAllowed(hc3_ranks[3], hc3_n) ? "true" : "false") : "N/A"),
+         " l3_order=", (hc3_n > 3 ? IntegerToString((long)g_grind_long.layers[3].exit_order_ticket) : "N/A"),
+         " l3_exitpos=", (hc3_n > 3 ? IntegerToString((long)g_grind_long.layers[3].exit_position_ticket) : "N/A"),
+         " removes=", g_grind_order_test_remove_calls,
+         " places=", g_grind_order_test_place_calls);
+
+   AssertTrue("HC3 cleared", g_grind_long.layers[3].exit_order_ticket == 0);
+
+MQ3 (between ManageSide and first assertion):
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
+
+   double mq3_entries[]; int mq3_idx[]; int mq3_ranks[];
+   const int mq3_n = ArraySize(g_grind_long.layers);
+   ArrayResize(mq3_entries, mq3_n); ArrayResize(mq3_idx, mq3_n);
+   for(int z = 0; z < mq3_n; z++) {
+      mq3_entries[z] = g_grind_long.layers[z].entry_price;
+      mq3_idx[z] = g_grind_long.layers[z].layer_index;
+   }
+   Grind_ExitQRanks(mq3_entries, mq3_idx, mq3_n, true, mq3_ranks);
+   Print("MQ3 DIAG n=", mq3_n,
+         " r0=", (mq3_n > 0 ? IntegerToString(mq3_ranks[0]) : "N/A"),
+         " r1=", (mq3_n > 1 ? IntegerToString(mq3_ranks[1]) : "N/A"),
+         " r2=", (mq3_n > 2 ? IntegerToString(mq3_ranks[2]) : "N/A"),
+         " r3=", (mq3_n > 3 ? IntegerToString(mq3_ranks[3]) : "N/A"),
+         " req1=", (mq3_n > 1 ? (Grind_ExitQRequired(mq3_ranks[1], mq3_n) ? "true" : "false") : "N/A"),
+         " allow1=", (mq3_n > 1 ? (Grind_ExitQAllowed(mq3_ranks[1], mq3_n) ? "true" : "false") : "N/A"),
+         " l1_order=", (mq3_n > 1 ? IntegerToString((long)g_grind_long.layers[1].exit_order_ticket) : "N/A"),
+         " req2=", (mq3_n > 2 ? (Grind_ExitQRequired(mq3_ranks[2], mq3_n) ? "true" : "false") : "N/A"),
+         " allow2=", (mq3_n > 2 ? (Grind_ExitQAllowed(mq3_ranks[2], mq3_n) ? "true" : "false") : "N/A"),
+         " l2_order=", (mq3_n > 2 ? IntegerToString((long)g_grind_long.layers[2].exit_order_ticket) : "N/A"),
+         " req3=", (mq3_n > 3 ? (Grind_ExitQRequired(mq3_ranks[3], mq3_n) ? "true" : "false") : "N/A"),
+         " allow3=", (mq3_n > 3 ? (Grind_ExitQAllowed(mq3_ranks[3], mq3_n) ? "true" : "false") : "N/A"),
+         " l3_order=", (mq3_n > 3 ? IntegerToString((long)g_grind_long.layers[3].exit_order_ticket) : "N/A"),
+         " removes=", g_grind_order_test_remove_calls,
+         " places=", g_grind_order_test_place_calls);
+
+   AssertTrue("MQ3 cancel middle", g_grind_order_test_remove_calls == 2);
+
+Bounds: HC3 fixture n=5; all hc3_ranks[k] and layers[k] reads guarded with
+hc3_n > k. MQ3 fixture n=4; ranks r0..r3 guarded; no r4 term. mq3_* names
+distinct from hc3_*.
+
+No cause stated here; operator run required to read Experts log lines HC3 DIAG
+and MQ3 DIAG.
+
+git diff --stat origin/main...feat/f1-barbell-exitq:
+
+ docs/architecture/ADR-151-order-purgatory.md |  32 ++--
+ ea/fxgrind_tests.mq5                         |  11 +-
+ ea/fxgrind_tests_adr151.mqh                  | 394 +++++++++++++++++++++++----
+ ea/grind_engine.mqh                          |   4 +-
+ ea/grind_exitq.mqh                           |  16 +-
+ ea/grind_recon.mqh                           |   8 +-
+ prompts/f1_barbell_exitq_response.md         | 324 ++++++++++++++++++++++
+
+ 7 files changed, 708 insertions(+), 81 deletions(-)
+
+This commit: no assertion, fixture, or production file changed.
+
+Line count: 336
