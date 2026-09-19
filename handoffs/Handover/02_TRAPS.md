@@ -324,3 +324,118 @@ deepest layer, so it follows price both ways.
 ladder idles the whole instance in the sim, so early results overstate
 rolling by an order of magnitude versus live. Compare modes; do not quote
 magnitudes.
+
+---
+
+## CARRY IS NOT CLAMP. 2026-09-18, SIX HOURS LOST.
+
+**Read this before touching exit pricing.**
+
+### Carry, with numbers. There is nothing complicated here.
+
+Entry 100, `exit_pips` 5. Carry in pips, signed, negative means paid.
+
+| side | entry | exit, no carry | carry | new exit |
+|---|---:|---:|---:|---:|
+| long | 100 | 105 | -2 | **107** |
+| long | 100 | 105 | +2 | **103** |
+| short | 100 | 95 | -2 | **93** |
+| short | 100 | 95 | +2 | **97** |
+
+**Negative carry pushes the exit further from entry; positive pulls it
+closer.** "Further" is up for a long, down for a short. That is the whole
+rule, and it is `Grind_CarryShiftedExitPrice`:
+`formula_exit - direction * accrued_pips * pip_size`.
+
+It applies to EXITS only -- basis-anchored orders. Never to adds or L0
+(ARCHITECT s1). pipshed's carry audit already walks every order and skips ENT
+with exactly that reason.
+
+### Clamp is a completely unrelated thing
+
+A clamp is the broker refusing a price. A sell limit must rest above the ask;
+if the formula target is below it, `Grind_ExitQClampPassive` moves the order
+to `ask + min_dist`. Market proximity. Nothing to do with financing.
+
+**They share no mechanism, no cause and no maths.** If a discussion of carry
+starts involving the clamp, something has gone wrong.
+
+### How they got tangled, and it is a real defect
+
+`Grind_ExitQManageSide` stores the clamp offset in the CARRY shift GV:
+
+    if(clamped || MathAbs(price - formula) > _Point * 0.5) {
+       Grind_CarryShiftSet(side.layers[i].position_ticket, price - formula);
+       GlobalVariableSet(Grind_CarryReleaseGvName(...), 1.0);
+    }
+
+That is ADR-151 Phase A, Gemini's Q2 release marker. Its purpose is real: a
+clamped exit sits far from `entry +/- exit_pips`, so I6 would reject it. The
+block records the offset so `Grind_ReconExitMatchesEntry` accepts the placed
+price. **It is load-bearing and it is live on the fleet.**
+
+Its mistake is the STORE, not the idea. While carry is off the GV holds
+nothing else, so it works. **Turn carry on and a clamp overwrites accrued
+swap with market noise** -- measured at 4,513 points of "shift" against a
+nightly bound of 3.318 pips/night, with the release GV set so validation is
+bypassed forever after.
+
+**Carry therefore needs its own store.** Leave `GRIND_CARRY_SHIFT_` to the
+clamp. Add a separate key for accrued carry, written only by the carry pass.
+Both get added to the formula by the queue and by I6.
+
+### The ludicrous part -- what Claude actually did
+
+1. Saw the block, checked only whether the current spec asked for it, and
+   told Cursor it was **"invented scope"** and **"nothing in the spec asked
+   for it."** Never ran `git log` on it. It predated the branch by two days.
+2. Had Cursor delete it. Suite went 1266/1267. Nearly green.
+3. `MQ5 shift gv` / `MQ5 release gv` failed -- they assert the block. **One
+   instruction away from telling Cursor to update them, which would have made
+   the suite fully green and shipped a fleet-halting bug.**
+4. Only then read Cursor's own report, which correctly identified the block's
+   origin as ADR-151 Phase A.
+5. Measured it: clamped exit with the block gone gives
+   `invariants_ok=false reason=I6_LONG_EXIT`, 71 points against a 2-point
+   tolerance.
+6. Reverted the whole commit -- including a legitimate test market-seed that
+   had shipped alongside -- so a test that had been fixed broke again.
+7. Meanwhile answered a clean question about carry by talking about the
+   clamp, twice, when they are unrelated.
+
+**Net: six hours, nothing shipped, the branch abandoned.** The fleet was
+never at risk because nothing merged -- but only because the deletion
+happened to leave two assertions failing.
+
+### The rules that come out of it
+
+**Never call existing code unnecessary without `git log`-ing it.** "The spec
+did not ask for it" is not evidence of anything. Two commands would have
+ended this in the first minute.
+
+**A near-green suite after deleting code is a warning, not a result.** Ask
+what the failing assertions were protecting BEFORE deciding they are stale.
+
+**Never update a test to match new behaviour in the same change that altered
+the behaviour.** If an assertion objects, it is doing its job.
+
+**Check the deleted-assertion inventory on every branch:**
+
+    git diff origin/main -- ea/fxgrind_tests*.mq* | grep "^-" | grep -i "Assert\|void Test_"
+
+Anything listed that existed on main means the green is fake.
+
+**Revert surgically.** `git revert <hash>` takes everything in that hash. If
+a legitimate fix shipped alongside the mistake, revert the hunk, not the
+commit.
+
+**When a branch has accumulated reverts of reverts, abandon it.** Return to
+the last green commit on main and restart with what was learned. That is
+cheaper than archaeology.
+
+### Known unknown, still open
+
+`Grind_ExitQFormulaTarget` gaining a shift changes what `price - formula`
+means inside the clamp block. **No test covers a clamp on a layer that also
+has a carry shift.** `MQ5` runs with no shift stored, so it cannot see the
+interaction. Establish this before carry ships.
