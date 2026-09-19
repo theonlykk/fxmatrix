@@ -1236,7 +1236,7 @@ void Test_RI5_HeldLayerExitTargetFormulaNotZero()
 {
    const ulong magic = 22260101UL;
    const double exit_pips = 3.0;
-   GrindReconTicket tickets[5];
+   GrindReconTicket tickets[6];
    int count = 0;
    tickets[count].ticket = 1001;
    tickets[count].magic = magic;

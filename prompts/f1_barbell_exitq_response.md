@@ -201,3 +201,50 @@ Deleted-void-Test grep (must be empty):
   git diff origin/main -- ea/fxgrind_tests.mq5 ea/fxgrind_tests_adr151.mqh | grep "^-" | grep -i "void Test_"
 
 Line count: 203
+
+## FIX: fixture array sizes
+
+Commit: ea/fxgrind_tests_adr151.mqh and this section only. No assertion or
+production changes.
+
+RI5: GrindReconTicket tickets[6]; (was [5]). Six count++ after declaration
+(indices 0..5), count=6 at RebuildBookFromTickets call.
+
+Audit of stage-2 tests (3401c53) for fixed-size fixture arrays:
+
+| Test | Array | Declared | Written | Status |
+|------|-------|----------|---------|--------|
+| Q10 | (none fixed) | ArrayResize layers 3 | 3 | OK |
+| SB4 | (none fixed) | ArrayResize layers | 2 | OK |
+| EQ-K1a | (none fixed) | ArrayResize layers 3 | 3 | OK |
+| EQ-K1c | layers | 5 | 5 idx 0..4 | OK |
+| EQ-K1c | long_ranks | 5 | 5 | OK |
+| MQ1 | (none fixed) | ArrayResize layers 4 | 4 | OK |
+| MQ3 | (none fixed) | ArrayResize layers 4 | 4 | OK |
+| MQ7 | (none fixed) | ArrayResize layers 5 via fixture | 5 | OK |
+| HC1 | (none fixed) | ArrayResize layers 4 | 4 | OK |
+| HC3 | (none fixed) | ArrayResize layers 5 | 5 | OK |
+| HC4 | (none fixed) | ArrayResize layers 5 | 5 | OK |
+| HC5 | (none fixed) | ArrayResize layers 4 | 4 | OK |
+| RI5 | tickets | 6 | 6 | FIXED |
+| STALE-1 | layers scratch | 1 | 1 at I6 check | OK |
+| STALE-1 | long_ranks | 1 | 1 | OK |
+| STALE-1 | g_grind_long.layers | ArrayResize 1/2/3 | max 3 | OK |
+
+No other undersized fixed arrays in touched tests.
+
+git diff --stat origin/main...feat/f1-barbell-exitq:
+
+ docs/architecture/ADR-151-order-purgatory.md |  32 +--
+ ea/fxgrind_tests.mq5                         |  11 +-
+ ea/fxgrind_tests_adr151.mqh                  | 348 ++++++++++++++++++++++-----
+ ea/grind_engine.mqh                          |   4 +-
+ ea/grind_exitq.mqh                           |  16 +-
+ ea/grind_recon.mqh                           |   8 +-
+ prompts/f1_barbell_exitq_response.md         | 238 ++++++++++++++++++
+
+ 7 files changed, 576 insertions(+), 81 deletions(-)
+
+This commit: no assertion text changed; no production file changed.
+
+Line count: 250
