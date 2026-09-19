@@ -1,6 +1,6 @@
 # ADR-135b: Carry Exit Adjustment (Act)
 
-**Status:** Proposed  
+**Status:** Accepted (Phase B enabled 2026-09-18)  
 **Date:** 2026-09-13  
 **Context:** ADR-135a (observe phase) has been live since 2026-09-11. Daily
 CARRY_SNAPSHOT events record swap fields, eligible layer counts, mult_today /
@@ -123,6 +123,19 @@ shifted, clamped, skipped, failed counts.
 
 `ea/grind_carry.mqh` extended; wired from `fxgrind.mq5` OnTimer after heartbeat.
 I6 shift wired through `grind_recon.mqh`.
+
+### Phase B (2026-09-18)
+
+Phase B enables the carry pass on fleet presets and makes the ADR-151 exit
+queue the single writer of resting exit prices. The carry pass remains a pure
+state calculator: it accrues swap into `GRIND_CARRY_SHIFT_<position_ticket>`
+GlobalVariables only. The queue consumes that shift as read-only state.
+
+`Grind_ExitQFormulaTarget` (grind_exitq.mqh) applies the shift in **price
+space** as `Grind_ExitPrice(...) + Grind_CarryShiftGetForRecon(position_ticket)`,
+matching `Grind_ReconExitMatchesEntry` (grind_recon.mqh). Missing or unknown
+tickets fall back to 0.0 shift with no error. Adds, L0, and entry limits are
+unchanged (ARCHITECT s1).
 
 ## Consequences
 

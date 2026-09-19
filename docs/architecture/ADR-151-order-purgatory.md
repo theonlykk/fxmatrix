@@ -83,13 +83,14 @@ fleet-wide.
 
 ## Phases
 
-**Phase A (this ADR, implemented now): carry pass disabled.** All 18 presets
-set `InpEnableCarryPass=false`. Exit target = formula. `OnInit` refuses to
-start if the carry pass is enabled.
+**Phase A (implemented):** exit queue ranks K=1/H=0; carry pass disabled on
+attached presets until Phase B shipped.
 
-**Phase B (deferred, before carry is ever enabled):** carry-aware target from
-the swap ledger; target promotion with `InpRankDeadbandPips` (Gemini Q1: 10);
-reconstruction of carry-shifted held targets.
+**Phase B (enabled 2026-09-18, ADR-135b):** the exit queue is shift-aware.
+`Grind_ExitQFormulaTarget` reads `Grind_CarryShiftGetForRecon(position_ticket)`
+and applies the shift in price space to match I6 recon. Fleet presets set
+`InpEnableCarryPass=true`. Target promotion with `InpRankDeadbandPips`
+(Gemini Q1: 10) remains deferred.
 
 ## Gemini amendments -- disposition
 
@@ -126,7 +127,6 @@ them). Fixed in Phase A (decision 8).
 ## Follow-ons
 
   - Layer cap P: majors 12 -> 8 (separate ADR, I7 migration).
-  - Phase B carry-aware queue.
   - Heartbeat fields for slots and held exits (pipshed).
 
 Line count: 111
