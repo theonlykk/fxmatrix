@@ -135,3 +135,69 @@ until stage 2 re-derives assertions. Operator re-run required to confirm
 count.
 
 Line count: 137
+
+## STAGE 2: re-derived assertions
+
+Commit: test files and this section only. Cause for all 25: barbell keeps
+exit on rank depth-1; short ladders made the demoted layer the highest rank.
+
+Hand derivations use exit_pips=3, point=0.00001, pip=10 points so
+Grind_ExitPrice adds 0.00030 on long exits. Long rank: lower entry = rank 0.
+Array idx0 = highest entry = rank depth-1 on long fixtures.
+
+| Assertion | (a)/(b) | Reason |
+|-----------|---------|--------|
+| Q10 layer1 trimmed | (a) | Depth 3: 1.247 r0, 1.248 r1, 1.249 r2. layers[1] is rank 2 = depth-1; exit 7001 must survive. Renamed Q10 rank2 exit survives. |
+| SB4 old exit trimmed | (a) | Short depth 2: 1.26000 r1, 1.26050 r0. layers[0] is rank 1 = depth-1; ticket 3001 survives. Renamed SB4 old exit survives. |
+| EQ-K1a one resting | (a) | Depth 3 barbell: rank 0 (idx2) + rank 2 (idx0) resting; count 2 not 1. Renamed EQ-K1a two resting. |
+| EQ-K1a rank2 bare | (a) | idx0 entry 1.10500 is rank 2 = depth-1; must have exit. Renamed EQ-K1a rank2 exit. |
+| EQ-K1c pass held | (b) | I3 now requires rank 0 and rank depth-1. Five-layer scratch: exits on rank 0 (1.10100) and rank 4 (1.10500) only; ranks 1-3 bare. |
+| MQ1 cancel thrice | (a) | Only ranks 1 and 2 trimmed at depth 4; two removes not three. Renamed MQ1 cancel twice. |
+| MQ1 rank3 bare | (a) | idx0 is rank 3 = depth-1; exit must remain. Renamed MQ1 rank4 exit (idx0 highest entry). |
+| MQ3 cancel first | (a) | One remove on rank 1 only; rank 3 (idx0) survives. Renamed MQ3 cancel middle; count 2 with rank 2 trim. |
+| MQ3 release after trim | (a) | Unchanged: one place on rank 0 after trim. |
+| MQ3 nearest exit | (a) | Unchanged: layers[3] rank 0 has exit. |
+| MQ7 k1 cancels | (a) | K=1 depth 5: one middle trim; far rank 4 (idx0) survives. Renamed count 1; MQ7 k1 far exit. |
+| HC1 cleared | (a) | Depth 4 idx0 rank 3 protected. Renamed HC1 far exit survives ticket 6101. |
+| HC3 cleared | (b) | Five layers: idx3 entry 1.10200 rank 1 middle. Exit only on idx3; hold-cancel clears idx3 not idx0. |
+| HC3 exit pos | (b) | Same fixture: exit_position_ticket 7101 on idx3 after deal on 6104. |
+| HC3 closeby | (b) | Same fixture: closeby queue 1 for idx3 fill. |
+| HC4 cleared | (b) | Same 5-layer ladder, no deal: idx3 rank 1 bare without exit pos. |
+| HC5 cleared | (a) | Wrong-side deal does not clear barbell far rank; idx0 keeps 6101. Renamed HC5 far exit survives. |
+| RI5 ok | (b) | Rebuild I3 needs rank 0 and rank 2 exits at depth 3. Added EXT order L\|0 at 1.25030 = 1.25000+3p. |
+| RI5 layer found | (b) | Same ticket set; layer_index 0 row gets exit_target 1.25030. |
+| STALE-1 demoted bare | (b) | Depth 3: ultra 1.252 r2 idx0, far 1.250 r1 idx1, near 1.249 r0 idx2. Middle idx1 cancelled. |
+| STALE-1 far offset cleared | (b) | Hold-cancel on middle pos_far clears shift GV; ultra barbell exit unrelated. |
+| STALE-1 far release cleared | (b) | Same cancel clears release GV on pos_far. |
+| STALE-1 replace placed | (b) | Places: 1 far alone, +2 on triple manage (near+ultra), +1 quiet replace = 4 cumulative. |
+| STALE-1 replace raw | (b) | raw_formula_far = 1.25000+0.00030 = 1.25030; quiet market replace uses raw. |
+| STALE-1 far replace no offset | (b) | Replace on solo far after removes; no shift GV on pos_far. |
+
+STALE-1 ladder after triple manage (before removes):
+
+  idx0 1.25200 pos_ultra rank 2
+  idx1 1.25000 pos_far   rank 1  (demoted bare; offset cleared)
+  idx2 1.24900 pos_near  rank 0  (clamp near_shift = clamp_expected_near - 1.24930)
+
+Removes idx2 then idx0 leave solo far 1.25000 for replace phase.
+
+HC/RI5 checked separately: HC hold-cancel middle vs RI5 recon coverage; same
+barbell cause, different fixtures (HC (b) middle, RI5 (b) extra EXT ticket).
+
+None left failing for a different cause.
+
+git diff --stat origin/main...feat/f1-barbell-exitq (after this commit; run locally):
+
+ docs/architecture/ADR-151-order-purgatory.md |  32 ++--
+ ea/fxgrind_tests.mq5                         |  11 +-
+ ea/fxgrind_tests_adr151.mqh                  | 280 +++++++++++++++++++++------
+ ea/grind_engine.mqh                          |   4 +-
+ ea/grind_exitq.mqh                           |  12 +-
+ ea/grind_recon.mqh                           |   8 +-
+ prompts/f1_barbell_exitq_response.md         | 200 ++++++++++++++++++++
+
+Deleted-void-Test grep (must be empty):
+
+  git diff origin/main -- ea/fxgrind_tests.mq5 ea/fxgrind_tests_adr151.mqh | grep "^-" | grep -i "void Test_"
+
+Line count: 203
