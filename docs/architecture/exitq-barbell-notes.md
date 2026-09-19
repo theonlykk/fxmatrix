@@ -106,7 +106,7 @@ always the worst of what is held. That is precisely why the most
 underwater layer is the one worth keeping reachable, and why dropping it
 first (today's prefix rule) is backwards.
 
-## 2a-bis. THREE LAYERS -- WHERE THE BARBELL FIRST DOES ANYTHING
+## 2a-bis. THREE LAYERS -- WHERE A MIDDLE FIRST EXISTS
 
 Trade log:
 
@@ -153,9 +153,14 @@ UNDERWATER is the highest rank:
     HELD (no broker order)
       L1 exit 98   (rank 1)  <-- the middle, which is what we meant to drop
 
-**Three layers is the first depth at which rank 0 and the highest rank are
-different layers.** At one or two layers there is no middle, so the barbell
-and the prefix give the same answer.
+**Correction, 2026-09-19.** An earlier draft said three layers is where the
+barbell first does anything. That is wrong. At depth 2 rank 0 and rank 1 are
+already different layers, so the barbell rests BOTH where the prefix rests
+one -- it differs from depth 2 onward.
+
+**What first appears at depth 3 is a MIDDLE**: a layer that is neither rank 0
+nor the highest rank, and is therefore held. Below that there is nothing to
+drop.
 
 Guard cost: 3 positions + 3 orders + 1 reserved for the add's exit = 7, against
 6 under the prefix. One unit buys a working exit on the layer we would eject.
@@ -915,7 +920,7 @@ now has better reasons than the one it was given.
 - **Depth 2:** both rest. One unit more than today. No middle exists yet.
 - **Depth 3+:** rank 0 and the highest rank rest, everything between is held.
   One unit more than K=1 regardless of how deep the ladder goes. **Three
-  layers is where the barbell first does anything.**
+  layers is where a MIDDLE first exists to drop.**
 
 So the cost is **at most one extra resting exit per side with depth >= 2**,
 and it does not grow with depth. On the 2026-09-18 fleet that is roughly 8-10
@@ -990,8 +995,8 @@ near-market entry waited 73 minutes for a guard unit
 happen.
 
 **Fix.** The barbell: `rest if rank < K OR rank == depth - 1`. Cost is at
-most one extra resting exit per side with depth >= 3, and it does not grow
-with depth (s3, s2a-ter).
+most one extra resting exit per side at **depth >= 2**, and it does not grow
+with depth (s3, s2a-ter). A middle to drop first exists at depth 3.
 
 **Not a one-liner.** `Grind_ExitQRequired` and `Grind_ExitQAllowed` take a
 rank and nothing else; they need depth. And `Grind_ExitQRequired` is what I6
@@ -1046,4 +1051,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 1049
+Line count: 1054
