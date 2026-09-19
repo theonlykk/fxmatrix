@@ -796,6 +796,117 @@ new guard unit at the moment the guard is most likely saturated
 **Under the prefix rule that order does not exist**, and the ejection would
 have to `OrderSend` into a full book.
 
+## 2h. PASSIVE EJECTION -- WHERE WE ACTUALLY LANDED
+
+Worked through 2026-09-19. **Not finished, not ratified.** The honest summary
+is that the positives are few and the negatives accumulated as we went.
+
+### The positives
+
+**P1. It is the only lever that reaches the position side.** Entries closed by
+operator ruling, exits protected, and no configuration change frees position
+units (`02_TRAPS`, Gemini 2026-09-18). Inventory can only be reduced by
+closing something.
+
+**P2. Holding at cap is not a position -- it is the absence of a strategy.**
+Eight frozen layers, one live exit, exactly one winning path: a rally the
+width of the ladder. Meanwhile the thing the system is good at, harvesting
+path, is switched off. If price falls further, we watch.
+
+**P3. It is passive.** Re-target the exit to `ask + min_dist` and be lifted.
+No spread crossed, ARCHITECT s1 intact.
+
+**P4. It self-times.** If the ejection fills, price ticked up and a fresh bid
+below makes sense. If it does not fill, price is falling and we keep the deep
+layer rather than adding into the move.
+
+**P5. Under the barbell it is an `OrderModify`, not an `OrderSend`** -- no new
+guard unit at the moment the guard is most likely saturated.
+
+### The negatives
+
+**N1. It locks in a loss, and recovery is all-or-nothing in the ladder's
+favour.** Price can only reach the worst layer's exit by passing every
+shallower exit first, so if the ladder recovers it recovers completely.
+Measured (`roll-at-cap-notes.md` s3b): ejecting at the low cost $17.76
+against $12.90 the whole ladder earns on a full recovery. **One ejection
+wipes out fifteen scalps.**
+
+**N2. The timing trade is brutal at both ends.**
+- Eject at cap (65.002 when the eighth layer fills at 65): best price, but
+  the trade is a wash -- buy 65, sell 65.002 -- and you have paid the full
+  distance from the worst layer, 35 points, to swap it for one at market.
+- Eject late, in free fall: the ejection fills near the low and the refill
+  bid clamps to just under market, a coin-flip re-entry.
+- Leave it unfilled at 62.002 while the market trades 50: **the worst of
+  all.** You have made the ejection, got none of the benefit, and the side is
+  still capped and frozen with an order 12 points away.
+
+**N3. Revising the ejection lower as price falls is a trailing stop.** Passive
+execution does not change what it is -- a mechanism realising progressively
+more loss the further price runs against you, triggered by nothing but time.
+It also destroys P4.
+
+**N4. Ejection at cap makes every eighth fill a forced give-up.** Take a
+layer, give up a layer, and the one given up is always the worst. Either a
+conveyor belt that keeps us at market (and costs the full ladder width each
+rotation), or an expensive way to avoid deciding not to add at all.
+
+**N5. The refill is not guaranteed.** Eject at 50.002, bid clamps to 49.998,
+and if that never fills you have stopped out at the low with no re-entry.
+Worst outcome available.
+
+**N6. It converts a frozen loss into a working one -- it does not stop the
+bleed.** Each rebuilt layer can strand again one rung lower. Being long at 55
+in a market going to 50 is the same problem, cheaper.
+
+**N7. It is a patch for a geometry problem.** Eight layers at 10-pip spacing
+spans 80. GBPUSD's median daily RANGE is 95 (`roll-at-cap-notes.md` s3d). A
+single day's move can strand the whole ladder. Ejection is the expensive fix
+for a ladder that is undersized for the market it trades.
+
+**N8. Both arms strand simultaneously.** Within each pair `width` and
+`add_pips` are IDENTICAL across OPT and ALT -- only `exit_pips` differs. That
+is a harvest-rate difference, not a regime one. **If the intent was one arm
+for chop and one for stress, the presets do not deliver it**, and on 17-Sep
+both GBPUSD arms capped on the same side within hours and needed the same
+manual intervention.
+
+### The trigger question, unresolved
+
+Not "at cap". Cap is a threshold, not a signal. Candidate: **at cap AND the
+worst layer is far enough that its recovery is implausible** -- which is `p`
+again, still unmeasured.
+
+The operator's refinement, which is better than anything else proposed:
+**if the ejection does not fill, revise only into a STABILISED market.** Not
+elapsed time, not distance travelled. A range that has held for a while means
+a bid one `add_pips` step below has been inside the traded range recently --
+so the refill is plausible. **The stability is what makes the ejection worth
+completing.** Needs a definition; measurable from the same M5 data as the
+path study.
+
+### What must happen before any of this is specced
+
+1. **Redo the sweeps.** `roll_modes_cal_2026_09_17` covered 2 of 5
+   pre-registered windows, the simulator is single-sided and has no guard
+   model, and `exits_per_forced_close` was misdefined
+   (`roll-at-cap-notes.md` s4). The results informed nothing and should not
+   be cited.
+2. **Settle the geometry question first (N7, N8).** If the ladder is the
+   wrong shape for the market, ejection is treating a symptom. Test whether
+   the arms should differ in `add_pips` or `InpMaxLayers` rather than only
+   `exit_pips`.
+3. **Measure `p`** -- conditioned on a ladder at cap, not unconditionally
+   (the cancelled study, `roll-at-cap-notes.md` s3d).
+
+### Current position
+
+**Passive ejection is not ready to spec, and the case for it is weaker than
+it looked on 2026-09-18.** It remains the only position-side lever, which is
+why it survives at all. Gemini's deferral behind ADR-152 Phase 2 stands and
+now has better reasons than the one it was given.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -935,4 +1046,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 938
+Line count: 1049
