@@ -132,3 +132,41 @@ git diff --stat origin/main...feat/f2-held-layer-carry:
  8 files changed, 387 insertions(+), 17 deletions(-)
 
 Line count: 134
+
+## DIAGNOSTIC: F2-5 shift
+
+Operator context: 1315/1316, F2-5 shift only failure. F2-3 passes (carry+clamp).
+Hypothesis: Grind_ModifyPendingPrice stores Grind_Normalize(new_price) while
+applied_shift uses un-normalised new_exit. Measure only; no fix this commit.
+
+Print inserted immediately before AssertNear("F2-5 shift", ...) in
+Test_F2_5_resting_layer_still_works (ea/fxgrind_tests_adr151.mqh):
+
+   const double accrued = Grind_CarryAccruedGet(pos);
+   const double intended = raw + accrued;
+   Print("F2-5 DIAG raw=", DoubleToString(raw, 8),
+         " accrued=", DoubleToString(accrued, 8),
+         " intended=", DoubleToString(intended, 8),
+         " rec_price=", DoubleToString(rec.price, 8),
+         " norm_rec=", DoubleToString(Grind_Normalize(rec.price), 8),
+         " stored_shift=", DoubleToString(Grind_CarryShiftGet(pos), 8),
+         " expected_shift=", DoubleToString(rec.price - intended, 8),
+         " delta=", DoubleToString(Grind_CarryShiftGet(pos) - (rec.price - intended), 10));
+   AssertNear("F2-5 shift", Grind_CarryShiftGet(pos), rec.price - intended, 1e-12);
+
+Locals raw, accrued, intended already declared; no new variables. No market
+seed added. Assertion unchanged (1e-12). Grind_Normalize reachable via
+grind_engine.mqh included from fxgrind_tests.mq5.
+
+Change since bf780bc: one Print in ea/fxgrind_tests_adr151.mqh only. No
+production file changed.
+
+Operator: run suite, read F2-5 DIAG line, interpret delta per prompt spec.
+Cause not stated here (values not available to agent).
+
+git diff --stat bf780bc..HEAD (diagnostic commit only):
+
+ ea/fxgrind_tests_adr151.mqh            | 8 ++++++++
+ prompts/f2_held_layer_carry_response.md | 37 ++++++++++++++++++++++++++++++++
+
+Line count: 171

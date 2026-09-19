@@ -1815,6 +1815,14 @@ void Test_F2_5_resting_layer_still_works()
    AssertTrue("F2-5 accrued", MathAbs(Grind_CarryAccruedGet(pos)) > 1e-12);
    const double accrued = Grind_CarryAccruedGet(pos);
    const double intended = raw + accrued;
+   Print("F2-5 DIAG raw=", DoubleToString(raw, 8),
+         " accrued=", DoubleToString(accrued, 8),
+         " intended=", DoubleToString(intended, 8),
+         " rec_price=", DoubleToString(rec.price, 8),
+         " norm_rec=", DoubleToString(Grind_Normalize(rec.price), 8),
+         " stored_shift=", DoubleToString(Grind_CarryShiftGet(pos), 8),
+         " expected_shift=", DoubleToString(rec.price - intended, 8),
+         " delta=", DoubleToString(Grind_CarryShiftGet(pos) - (rec.price - intended), 10));
    AssertNear("F2-5 shift", Grind_CarryShiftGet(pos), rec.price - intended, 1e-12);
    Grind_CarryGateReset(magic);
    F2_TestClearPositionCarry(pos);
