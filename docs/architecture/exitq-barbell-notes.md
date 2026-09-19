@@ -94,89 +94,112 @@ rule) is backwards.
 
 ## 2b. THE SAME LADDER, WITH CARRY APPLIED
 
-Back to two layers -- L0 at 100, L1 at 95 -- with the barbell resting both
-exits, and the add at 95.
+Two layers -- L0 at 100, L1 at 95 -- with the barbell resting both exits.
+Deepest layer is 95, so the add sits one `add_pips` step below at 90.
 
-Both layers are LONG, so both accrue the same carry per night.
+Starting state: positions long 100 and long 95; sell limits at 102 and 98;
+buy limit at 90.
 
-**Negative carry of 2** (we paid it -- exit moves FURTHER from entry, which
-for a long is up):
+### Case 1 -- negative carry of 2
 
-| order | before | after |
-|---|---:|---:|
-| sell limit, L0 exit | 102 | **104** |
-| sell limit, L1 exit | 98 | **100** |
-| buy limit, next add | 95 | **95** |
+We paid it, so each exit moves FURTHER from entry. For a long that is up.
 
-**Positive carry of 2** (we received it -- exit moves CLOSER):
+| order | type | before | after |
+|---|---|---:|---:|
+| L0 exit | sell limit | 102 | **104** |
+| L1 exit | sell limit | 98 | **100** |
+| next add | buy limit | 90 | 90 |
 
-| order | before | after |
-|---|---:|---:|
-| sell limit, L0 exit | 102 | **100** |
-| sell limit, L1 exit | 98 | **96** |
-| buy limit, next add | 95 | **95** |
+Positions unchanged: long 100, long 95.
+
+### Case 2 -- positive carry of 2
+
+We received it, so each exit moves CLOSER to entry.
+
+| order | type | before | after |
+|---|---|---:|---:|
+| L0 exit | sell limit | 102 | **100** |
+| L1 exit | sell limit | 98 | **96** |
+| next add | buy limit | 90 | 90 |
+
+Positions unchanged: long 100, long 95.
+
+### What the two cases show
 
 **The add never moves.** Carry applies to inventory, not to unfilled quotes.
 There is no position behind a buy limit, so nothing has accrued. ARCHITECT
 s1, and pipshed's carry audit already skips ENT rows with exactly that
 reason.
 
-**Both exits shift by the same amount here** because carry is per position
-per night and both layers are long, same size, same pair. They diverge only
-once held for different numbers of nights -- a layer opened three nights ago
-carries three nights of accrual, one opened last night carries one. So in a
-real ladder the shifts are per-layer and unequal, which is why the
-adjustment has to be stored per position ticket rather than per side.
+**Both exits shift by the same amount** because both layers are long, same
+size, same pair, same number of nights held. They diverge once held for
+different numbers of nights -- a layer opened three nights ago carries three
+nights of accrual, one opened last night carries one. **In a real ladder the
+shifts are per-layer and unequal, which is why the adjustment must be stored
+per position ticket rather than per side.**
 
 ## 2c. THE EXTREME CASE -- CARRY OF 6, AND NOTHING SHOULD PREVENT IT
 
-Same ladder. This is the case worth staring at, because the result looks
-wrong on a blotter and is economically correct.
+Same ladder: positions long 100 and long 95; sell limits at 102 and 98; buy
+limit at 90.
 
-**Negative carry of 6:**
+### Case 1 -- negative carry of 6
 
-| order | before | after |
-|---|---:|---:|
-| sell limit, L0 exit | 102 | **108** |
-| sell limit, L1 exit | 98 | **104** |
-| buy limit, next add | 95 | 95 |
+| order | type | before | after |
+|---|---|---:|---:|
+| L0 exit | sell limit | 102 | **108** |
+| L1 exit | sell limit | 98 | **104** |
+| next add | buy limit | 90 | 90 |
 
-**Positive carry of 6:**
+Positions unchanged: long 100, long 95.
 
-| order | before | after |
-|---|---:|---:|
-| sell limit, L0 exit | 102 | **96** |
-| sell limit, L1 exit | 98 | **92** |
-| buy limit, next add | 95 | 95 |
+### Case 2 -- positive carry of 6
 
-Three things happen in the positive case that look alarming and are not:
+| order | type | before | after |
+|---|---|---:|---:|
+| L0 exit | sell limit | 102 | **96** |
+| L1 exit | sell limit | 98 | **92** |
+| next add | buy limit | 90 | 90 |
 
-**L1's exit at 92 is BELOW its own entry of 95.** That closes the layer for a
-3-point loss on price, against 6 collected in carry -- net +3, exactly what
-the original 98 was worth. The trade earns what it was priced to earn. **An
-exit below entry is a correct outcome, not an error.**
+Positions unchanged: long 100, long 95.
 
-**L0's exit at 96 sits below L1's entry at 95 by a point** -- the exits have
-crossed down through the layers. Also fine: they are independent positions
-with independent accrual.
+### Why case 2 is the one to stare at
 
-**L1's exit at 92 is below the add at 95.** If price fell you would add at 95
-and exit that same region at 92.
+Both exits are now BELOW their own entries, and the levels interleave:
 
-**There should be no logic preventing any of this**, and as far as we can see
-there is none. `Grind_CarryShiftedExitPrice` applies the shift arithmetically
-with no floor at entry price and no ordering constraint between layers. That
-is correct. A guard that refused to move an exit past its entry would silently
-break the economics ADR-135b exists to preserve.
+| level | what |
+|---:|---|
+| 100 | L0 entry |
+| 96 | L0 exit -- 4 below its own entry |
+| 95 | L1 entry |
+| 92 | L1 exit -- 3 below its own entry |
+| 90 | next add |
+
+**L1 closes for a 3-point loss on price against 6 collected in carry -- net
++3, exactly what the original exit at 98 was worth.** The trade earns what it
+was priced to earn. An exit below entry is a correct outcome, not an error.
+
+The exits are interleaved with the entries rather than sitting above them in
+order. Also fine: independent positions, independent accrual.
+
+**There should be no logic preventing any of this, and as far as we can see
+there is none.** `Grind_CarryShiftedExitPrice` applies the shift
+arithmetically with no floor at entry price and no ordering constraint
+between layers. A guard that refused to move an exit past its entry would
+silently break the economics ADR-135b exists to preserve.
 
 ### The one real consequence
 
 Once a long's exit is pushed BELOW the market it cannot rest as a sell limit,
 and `Grind_ExitQClampPassive` moves it to `ask + min_dist`. **That is the
 carry-plus-clamp interaction that nothing currently tests** -- recorded as
-the open unknown in `02_TRAPS`. Carry of 6 is many nights at typical rates,
-but it is exactly what a deep layer held for a fortnight looks like, and the
-deep layers are the ones that sit longest.
+the open unknown in `02_TRAPS`.
+
+With the ladder above, market would have to be at or near 92 for L1's exit to
+be unrestable -- 3 above its own entry, on a pair that has rallied while
+paying you to be long. Carry of 6 is many nights at typical rates, but it is
+exactly what a deep layer held for a fortnight looks like, and the deep
+layers are the ones that sit longest.
 
 ## 3. THE RULE, AND WHAT IT COSTS
 
@@ -246,4 +269,4 @@ keeping the queue and the invariant saying the same thing.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 249
+Line count: 272
