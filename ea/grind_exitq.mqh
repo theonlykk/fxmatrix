@@ -42,17 +42,21 @@ int Grind_ExitQK()
 //+------------------------------------------------------------------+
 bool Grind_ExitQRequired(const int rank, const int depth)
 {
+   if(rank < 0 || depth <= 0)
+      return false;
    if(rank < Grind_ExitQK())
       return true;
-   return (depth > 0 && rank == depth - 1);
+   return (rank == depth - 1);
 }
 
 //+------------------------------------------------------------------+
 bool Grind_ExitQAllowed(const int rank, const int depth)
 {
+   if(rank < 0 || depth <= 0)
+      return false;
    if(rank < Grind_ExitQK() + GRIND_EXITQ_H)
       return true;
-   return (depth > 0 && rank == depth - 1);
+   return (rank == depth - 1);
 }
 
 //+------------------------------------------------------------------+

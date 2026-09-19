@@ -99,3 +99,39 @@ git diff --stat origin/main...feat/f1-barbell-exitq:
  7 files changed, 345 insertions(+), 35 deletions(-)
 
 Line count: 100
+
+## STAGE 1: total predicates
+
+Commit after 5ab91b9: validity guard on both predicates only. No test changes.
+
+bool Grind_ExitQRequired(const int rank, const int depth)
+{
+   if(rank < 0 || depth <= 0)
+      return false;
+   if(rank < Grind_ExitQK())
+      return true;
+   return (rank == depth - 1);
+}
+
+bool Grind_ExitQAllowed(const int rank, const int depth)
+{
+   if(rank < 0 || depth <= 0)
+      return false;
+   if(rank < Grind_ExitQK() + GRIND_EXITQ_H)
+      return true;
+   return (rank == depth - 1);
+}
+
+Redundant depth > 0 on the second clause removed; top guard covers it.
+
+This commit: ea/grind_exitq.mqh and this response section only. No test file
+changed.
+
+Expectation (inference, not measured): F1-2 and any other failure that
+depended on Required/Allowed(0,0) or negative depth being true should
+resolve. The bulk of the prior 28 failures (EQ-K1*, MQ*, stale cancel class
+expecting prefix-only one exit or highest-rank exit cancelled) likely remain
+until stage 2 re-derives assertions. Operator re-run required to confirm
+count.
+
+Line count: 133
