@@ -587,3 +587,72 @@ git diff --stat origin/main...feat/adr135b-phase-b-carry:
  26 files changed, 922 insertions(+), 42 deletions(-)
 
 Line count: 589
+
+## STAGE 1: revert to known-good clamp
+
+Commits:
+1. c962d91 -- Revert da5b989 (restore ADR-151 clamp block; remove CARRY-Q5 market seed)
+2. 1ddf6d9 -- Remove Test_CLAMP_I6_after_block_removal and mq5 registration
+
+git diff origin/main -- ea/grind_engine.mqh (exactly one hunk):
+
+    diff --git a/ea/grind_engine.mqh b/ea/grind_engine.mqh
+    index d4c4a66..65334bb 100644
+    --- a/ea/grind_engine.mqh
+    +++ b/ea/grind_engine.mqh
+    @@ -1830,7 +1830,8 @@ void Grind_ExitQManageSide(GrindSideState &side,
+              continue;
+
+           const double formula = Grind_ExitQFormulaTarget(side.layers[i].entry_price,
+    -                                                      exit_pips, _Point, is_long);
+    +                                                      exit_pips, _Point, is_long,
+    +                                                      side.layers[i].position_ticket);
+           double price = formula;
+           const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
+           if(clamped)
+
+The if(clamped || MathAbs(price - formula) > _Point * 0.5) block with
+Grind_CarryShiftSet and Grind_CarryReleaseGvName is present at grind_engine.mqh
+lines 1847-1850. Grind_ExitQManageSide loop body otherwise matches origin/main.
+
+Test_CLAMP_I6_after_block_removal removed from fxgrind_tests_adr151.mqh and
+fxgrind_tests.mq5 (grep confirms zero matches).
+
+git diff --stat origin/main...feat/adr135b-phase-b-carry:
+
+ .../architecture/ADR-135b-carry-exit-adjustment.md |  15 +-
+ docs/architecture/ADR-151-order-purgatory.md       |  14 +-
+ ea/fxgrind.mq5                                     |   5 -
+ ea/fxgrind_tests.mq5                               |   6 +
+ ea/fxgrind_tests_adr151.mqh                        | 232 +++++++-
+ ea/fxgrind_tests_adr152.mqh                        |   2 +-
+ ea/grind_engine.mqh                                |   3 +-
+ ea/grind_exitq.mqh                                 |   8 +-
+ ea/grind_recon.mqh                                 |   6 +-
+ ea/presets/audcad_alt.set                          |   2 +-
+ ea/presets/audcad_opt.set                          |   2 +-
+ ea/presets/audchf_alt.set                          |   2 +-
+ ea/presets/audchf_opt.set                          |   2 +-
+ ea/presets/audnzd_alt.set                          |   2 +-
+ ea/presets/audnzd_opt.set                          |   2 +-
+ ea/presets/cadchf_alt.set                          |   2 +-
+ ea/presets/cadchf_opt.set                          |   2 +-
+ ea/presets/eurgbp_alt.set                          |   2 +-
+ ea/presets/eurgbp_opt.set                          |   2 +-
+ ea/presets/eurusd_alt.set                          |   2 +-
+ ea/presets/eurusd_opt.set                          |   2 +-
+ ea/presets/gbpusd_alt.set                          |   2 +-
+ ea/presets/gbpusd_opt.set                          |   2 +-
+ ea/presets/nzdcad_alt.set                          |   2 +-
+ ea/presets/nzdcad_opt.set                          |   2 +-
+ prompts/adr135b-phase-b-carry_response.md          | 658 +++++++++++++++++++++
+ 26 files changed, 943 insertions(+), 38 deletions(-)
+
+Expected suite (operator-run, not claimed here):
+
+PASS: MQ5 shift gv, MQ5 release gv (restored clamp block writes GVs).
+PASS: CARRY-Q1 through Q4, CARRY-Q6, EQ-* and remaining ADR-151 tests.
+FAIL: CARRY-Q5 price (no market seed; stale ask clamps and overwrites carry
+shift GV with clamp delta -- expected until stage 2).
+
+Line count: 658
