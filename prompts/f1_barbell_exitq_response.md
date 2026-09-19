@@ -89,12 +89,13 @@ Deleted-assert grep (EQ4 assertion text changed; no tests removed):
 
 git diff --stat origin/main...feat/f1-barbell-exitq:
 
- ea/fxgrind_tests.mq5                   |   7 +
- ea/fxgrind_tests_adr151.mqh            | 220 +++++++++++++++++++++++++++++++--
- ea/grind_engine.mqh                    |   4 +-
- ea/grind_exitq.mqh                     |  12 +-
- ea/grind_recon.mqh                     |   8 +-
- docs/architecture/ADR-151-order-purgatory.md |  28 +++--
- 6 files changed, 248 insertions(+), 31 deletions(-)
+ docs/architecture/ADR-151-order-purgatory.md |  32 ++--
+ ea/fxgrind_tests.mq5                         |   7 +
+ ea/fxgrind_tests_adr151.mqh                  | 217 +++++++++++++++++++++++++--
+ ea/grind_engine.mqh                          |   4 +-
+ ea/grind_exitq.mqh                           |  12 +-
+ ea/grind_recon.mqh                           |   8 +-
+ prompts/f1_barbell_exitq_response.md         | 100 ++++++++++++
+ 7 files changed, 345 insertions(+), 35 deletions(-)
 
-Line count: 88
+Line count: 100
