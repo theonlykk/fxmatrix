@@ -110,6 +110,24 @@ daily counters -- use the archive for daily totals). `deploy.ps1` does NOT copy
 terminal hash above identifies the install path, not the machine: the desktop
 install shares it, so it does not tell you which box you are on.
 
+**The VPS PULLS. Do not push from it.** On 2026-09-19 a tag was pushed from
+the VPS, which revealed it holds write credentials to the repo. Tags are
+additive so no harm was done, but a mistaken `git push` from a machine whose
+job is to run could overwrite `main` with whatever state the trading box is
+in. **Create tags on the desktop** -- it has the same repo and the SHA is the
+same from either box -- and treat any push from the VPS as a mistake.
+
+**Tag every VPS build before deploying over it.** The convention is
+`vps-<sha7>` with an annotated message giving the UTC compile time and what
+is live:
+
+    git tag -a vps-5454358 -m "VPS build 2026-09-19 20:53Z: ..." 5454358
+    git push origin vps-5454358
+
+That makes the restore path `git checkout vps-<sha7>`, `.\deploy.ps1`,
+compile -- named rather than remembered. Existing tags: `vps-19b6faa`
+(K=1/H=0, carry off), `vps-5454358` (stale-offset fix + F2, carry still off).
+
 **Surface** (`C:\fxmatrix`) -- dedicated research machine. Python venv, all
 sweeps. RDP, drive mapped from the desktop. Watch path depth; a copy once landed
 in `C:\fxmatrix\fxmatrix\data`.
