@@ -55,6 +55,43 @@ L0's exit at 102 is HELD -- no broker order.
 positions, two or three orders. Holding L0's exit saves one unit we do not
 need, and costs us the order we would most want working.
 
+## 2a. WHAT HAPPENS WHEN THE FRONT EXIT FILLS
+
+Continuing the same example. The sell limit at 98 is lifted.
+
+**The add does NOT stay at 90.** An add is anchored to the DEEPEST layer, not
+to the market. L1 at 95 has just closed, so L0 at 100 becomes the deepest,
+and the next add belongs one `add_pips` step below it -- at 95.
+
+So the 90 order is cancelled and a 95 placed (or modified up to 95).
+
+**State after the fill:**
+
+| | |
+|---|---|
+| positions | 1 long at 100 |
+| sell limit 102 | L0's exit, now rank 0 |
+| buy limit 95 | next add, re-anchored |
+| realised | +3 on the closed layer |
+
+Guard cost 4: one position, two orders, one reserved for the add's future
+exit.
+
+**This is why an add appears to track the market without ever being priced
+off it.** The ladder shortens from the deep end and the anchor climbs with
+it. Nothing re-quotes toward mid -- only L0 does that, and only when a side
+is flat.
+
+**And the barbell is a no-op again at depth 1**: rank 0 IS the deepest layer,
+so one exit rests either way.
+
+**The asymmetry worth naming.** The layer that closes is always the one
+NEAREST market, for a profit. What remains is always the one furthest from
+it. Sell high, buy back lower, repeat -- and the inventory that lingers is
+always the worst of what is held. That is precisely why the deepest layer is
+the one worth keeping reachable, and why dropping it first (today's prefix
+rule) is backwards.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1
@@ -123,4 +160,4 @@ keeping the queue and the invariant saying the same thing.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 126
+Line count: 163
