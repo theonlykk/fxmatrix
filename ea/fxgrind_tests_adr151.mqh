@@ -42,32 +42,6 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int max_layers,
                                 string &reason_out);
 
-#if !defined(GRIND_CARRY_ACCRUED_API)
-#define GRIND_CARRY_ACCRUED_API
-string Grind_CarryAccruedGvName(const ulong position_ticket)
-{
-   return "GRIND_CARRY_ACCRUED_" + IntegerToString((long)position_ticket);
-}
-
-double Grind_CarryAccruedGet(const ulong position_ticket)
-{
-   const string name = Grind_CarryAccruedGvName(position_ticket);
-   if(!GlobalVariableCheck(name))
-      return 0.0;
-   return GlobalVariableGet(name);
-}
-
-void Grind_CarryAccruedSet(const ulong position_ticket, const double accrued_price)
-{
-   GlobalVariableSet(Grind_CarryAccruedGvName(position_ticket), accrued_price);
-}
-
-void Grind_CarryAccruedDelete(const ulong position_ticket)
-{
-   GlobalVariableDel(Grind_CarryAccruedGvName(position_ticket));
-}
-#endif
-
 //+------------------------------------------------------------------+
 void F2_TestClearPositionCarry(const ulong position_ticket)
 {
@@ -134,7 +108,7 @@ void Adr151_TestSetupLongLayer(GrindSideState &side,
    side.layers[array_idx].exit_order_ticket = exit_order_ticket;
    side.layers[array_idx].exit_position_ticket = 0;
    side.layers[array_idx].exit_target =
-      Grind_ExitQFormulaTarget(entry_price, exit_pips, _Point, true);
+      Grind_ExitQFormulaTarget(entry_price, exit_pips, _Point, true, position_ticket);
 }
 
 //+------------------------------------------------------------------+
@@ -350,7 +324,7 @@ void Test_EQ_CLAMP1_passed_target_increments_counter()
 
    const double entry = 1.25000;
    const double exit_pips = 3.0;
-   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true);
+   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true, 7001UL);
    const double min_dist = Grind_CarryMinPassiveDistance(_Point, 0, 0);
    const double expected = 1.25100 + min_dist;
    const int prom_before = g_grind_long.exit_clamped_promotions;
@@ -385,7 +359,7 @@ void Test_EQ_CLAMP2_unpassed_target_no_counter()
 
    const double entry = 1.25000;
    const double exit_pips = 3.0;
-   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true);
+   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true, 7002UL);
    const int prom_before = g_grind_long.exit_clamped_promotions;
 
    ArrayResize(g_grind_long.layers, 1);

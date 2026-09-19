@@ -233,9 +233,13 @@ void Grind_SlotLockRelease(const double token)
 double Grind_ExitQFormulaTarget(const double entry,
                                 const double exit_pips,
                                 const double point,
-                                const bool is_long)
+                                const bool is_long,
+                                const ulong position_ticket)
 {
-   return Grind_ExitPrice(entry, exit_pips, point, is_long ? 1 : -1);
+   const double accrued = (position_ticket > 0)
+                          ? Grind_CarryAccruedGet(position_ticket)
+                          : 0.0;
+   return Grind_ExitPrice(entry, exit_pips, point, is_long ? 1 : -1) + accrued;
 }
 
 //+------------------------------------------------------------------+

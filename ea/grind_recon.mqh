@@ -356,10 +356,12 @@ bool Grind_ReconExitMatchesEntry(const double entry,
                                  const double point,
                                  const bool is_long,
                                  const double shift = 0.0,
-                                 const bool exit_is_filled = false)
+                                 const bool exit_is_filled = false,
+                                 const ulong position_id = 0)
 {
    const int dir = is_long ? 1 : -1;
-   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + shift;
+   const double accrued = (position_id > 0) ? Grind_CarryAccruedGet(position_id) : 0.0;
+   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + accrued + shift;
    const double diff = exit_target - expected;
    if(exit_is_filled) {
       if(is_long && diff >= 0.0)
@@ -500,7 +502,7 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       if(!Grind_ReconExitMatchesEntry(long_layers[i].entry_price,
                                      long_layers[i].exit_target,
                                      exit_pips, point, true, long_shift,
-                                     long_exit_filled)) {
+                                     long_exit_filled, long_layers[i].position_id)) {
          const string i6_reason = long_exit_filled ? "I6_LONG_EXIT_FILL_ADVERSE" : "I6_LONG_EXIT";
          return Grind_InvariantFail(reason_out, i6_reason,
                                     Grind_InvariantDetailI6(long_layers[i], true, exit_pips, point,
@@ -528,7 +530,7 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       if(!Grind_ReconExitMatchesEntry(short_layers[i].entry_price,
                                      short_layers[i].exit_target,
                                      exit_pips, point, false, short_shift,
-                                     short_exit_filled)) {
+                                     short_exit_filled, short_layers[i].position_id)) {
          const string i6_reason = short_exit_filled ? "I6_SHORT_EXIT_FILL_ADVERSE" : "I6_SHORT_EXIT";
          return Grind_InvariantFail(reason_out, i6_reason,
                                     Grind_InvariantDetailI6(short_layers[i], false, exit_pips, point,
@@ -1090,7 +1092,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
          long_out.layers[n].exit_target = long_scratch[j].exit_target;
       else
          long_out.layers[n].exit_target =
-            Grind_ExitQFormulaTarget(long_scratch[j].entry_price, exit_pips, point, true);
+            Grind_ExitQFormulaTarget(long_scratch[j].entry_price, exit_pips, point, true,
+                                     long_scratch[j].position_id);
       long_out.layers[n].position_ticket = long_scratch[j].position_id;
       long_out.layers[n].exit_order_ticket = long_scratch[j].exit_order_ticket;
       long_out.layers[n].exit_position_ticket = long_scratch[j].exit_position_id;
@@ -1105,7 +1108,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
          short_out.layers[n].exit_target = short_scratch[j].exit_target;
       else
          short_out.layers[n].exit_target =
-            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_pips, point, false);
+            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_pips, point, false,
+                                     short_scratch[j].position_id);
       short_out.layers[n].position_ticket = short_scratch[j].position_id;
       short_out.layers[n].exit_order_ticket = short_scratch[j].exit_order_ticket;
       short_out.layers[n].exit_position_ticket = short_scratch[j].exit_position_id;

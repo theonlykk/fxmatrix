@@ -510,6 +510,33 @@ void Grind_CarryShiftDelete(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+string Grind_CarryAccruedGvName(const ulong position_ticket)
+{
+   return "GRIND_CARRY_ACCRUED_" + IntegerToString((long)position_ticket);
+}
+
+//+------------------------------------------------------------------+
+double Grind_CarryAccruedGet(const ulong position_ticket)
+{
+   const string name = Grind_CarryAccruedGvName(position_ticket);
+   if(!GlobalVariableCheck(name))
+      return 0.0;
+   return GlobalVariableGet(name);
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryAccruedSet(const ulong position_ticket, const double accrued_price)
+{
+   GlobalVariableSet(Grind_CarryAccruedGvName(position_ticket), accrued_price);
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryAccruedDelete(const ulong position_ticket)
+{
+   GlobalVariableDel(Grind_CarryAccruedGvName(position_ticket));
+}
+
+//+------------------------------------------------------------------+
 bool Grind_CarryShiftWithinBound(const ulong position_ticket,
                                  const double shift_price,
                                  const datetime open_time,
@@ -764,7 +791,7 @@ void Grind_CarryExitPassBegin(const string symbol,
    const double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
    for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
       const GrindLayer layer = g_grind_long.layers[i];
-      if(layer.position_ticket == 0 || layer.exit_order_ticket == 0)
+      if(layer.position_ticket == 0)
          continue;
       const double formula = Grind_ExitPrice(layer.entry_price, exit_pips, point, 1);
       Grind_CarryExitPassAppendWork(layer.position_ticket, layer.exit_order_ticket,
@@ -772,7 +799,7 @@ void Grind_CarryExitPassBegin(const string symbol,
    }
    for(int i = 0; i < ArraySize(g_grind_short.layers); i++) {
       const GrindLayer layer = g_grind_short.layers[i];
-      if(layer.position_ticket == 0 || layer.exit_order_ticket == 0)
+      if(layer.position_ticket == 0)
          continue;
       const double formula = Grind_ExitPrice(layer.entry_price, exit_pips, point, -1);
       Grind_CarryExitPassAppendWork(layer.position_ticket, layer.exit_order_ticket,
@@ -854,6 +881,11 @@ bool Grind_CarryExitShiftLayer(const ulong position_ticket,
    const int direction = is_long ? 1 : -1;
    const double theoretical = Grind_CarryShiftedExitPrice(formula_exit, direction,
                                                         accrued_pips, pip_size);
+   const double accrued_price = theoretical - formula_exit;
+   Grind_CarryAccruedSet(position_ticket, accrued_price);
+
+   if(exit_order_ticket == 0)
+      return true;
 
    if(Grind_CarrySignGuardBlocks(entry_price, theoretical, is_long)) {
       sign_guard_skipped_out = true;
@@ -889,7 +921,8 @@ bool Grind_CarryExitShiftLayer(const ulong position_ticket,
       return false;
    }
 
-   const double applied_shift = new_exit - formula_exit;
+   const double intended = formula_exit + accrued_price;
+   const double applied_shift = new_exit - intended;
    Grind_CarryShiftSet(position_ticket, applied_shift);
    if(clamped_out)
       g_grind_carry_exit_clamped++;
