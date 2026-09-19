@@ -380,9 +380,35 @@ swap with market noise** -- measured at 4,513 points of "shift" against a
 nightly bound of 3.318 pips/night, with the release GV set so validation is
 bypassed forever after.
 
-**Carry therefore needs its own store.** Leave `GRIND_CARRY_SHIFT_` to the
-clamp. Add a separate key for accrued carry, written only by the carry pass.
-Both get added to the formula by the queue and by I6.
+**That framing was incomplete. The real defect is the WRITE GUARD, and it is
+pre-existing.** Measured 2026-09-19 by `Test_CARRY_PROBE_replace_after_cancel`
+(`prompts/carry_replace_probe.md`):
+
+    CARRY-PROBE re_placed=1.2503 raw_formula=1.2503 carry_target=1.2505
+                gv_before_replace=0.0002 gv_after_replace=0.0002
+                relexists=true exit_target=1.2503
+    CARRY-PROBE I6 ok=false reason=I6_LONG_EXIT
+
+Sequence: an exit is cancelled when its layer drops below rank 0, which under
+K=1/H=0 happens on EVERY add fill. When the layer returns to rank 0 the queue
+places a FRESH exit from the raw formula. The write guard is
+
+    if(clamped || MathAbs(price - formula) > _Point * 0.5)
+
+With no clamp, `price == formula`, so the guard is FALSE. The GV is neither
+updated NOR cleared. **The broker now holds an order at the raw price while
+the store still claims a shift, and I6 halts the instance.**
+
+This is why carry has never shipped. It is latent today only because carry is
+off, so nothing writes a real shift -- the clamp block writes on the same
+pass it clamps, so it stays consistent. Enable carry and the fleet halts on
+the first rank rotation. It is the concrete mechanism the `OnInit` FATAL
+guard has been protecting against.
+
+**Any carry design must therefore solve two things, not one:** the queue must
+place at the carry-adjusted price, AND the stored offset must be maintained
+on every placement path including the no-clamp one. A separate store for
+carry is probably still right, but it is not sufficient on its own.
 
 ### The ludicrous part -- what Claude actually did
 
@@ -433,9 +459,16 @@ commit.
 the last green commit on main and restart with what was learned. That is
 cheaper than archaeology.
 
+### Regression test, on main
+
+`Test_CARRY_PROBE_replace_after_cancel` in `fxgrind_tests_adr151.mqh` is the
+regression test for whatever the fix turns out to be. It currently PASSES
+because it only asserts that a second placement occurred; the defect shows in
+its `Print` output, not in an assertion. **When the fix lands, turn those
+printed values into assertions.**
+
 ### Known unknown, still open
 
-`Grind_ExitQFormulaTarget` gaining a shift changes what `price - formula`
-means inside the clamp block. **No test covers a clamp on a layer that also
-has a carry shift.** `MQ5` runs with no shift stored, so it cannot see the
-interaction. Establish this before carry ships.
+No test covers a clamp on a layer that ALSO has a carry shift. `MQ5` runs
+with no shift stored, so it cannot see the interaction. Establish this before
+carry ships.
