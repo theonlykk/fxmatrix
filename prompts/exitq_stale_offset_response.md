@@ -106,3 +106,54 @@ Operator expected suite: 1258/1258 (1253 baseline + 5 STALE tests). MQ5
 shift/release gv unchanged. CARRY-PROBE should pass with cleared offset.
 
 Line count: 108
+
+## DIAGNOSTIC: STALE-1 ranks
+
+One Print inserted after the second Grind_ExitQManageSide, before
+STALE-1 demoted bare:
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   const int stale1_n = ArraySize(g_grind_long.layers);
+   double stale1_entries[];
+   int stale1_layer_indices[];
+   ArrayResize(stale1_entries, stale1_n);
+   ArrayResize(stale1_layer_indices, stale1_n);
+   for(int i = 0; i < stale1_n; i++) {
+      stale1_entries[i] = g_grind_long.layers[i].entry_price;
+      stale1_layer_indices[i] = g_grind_long.layers[i].layer_index;
+   }
+   int stale1_ranks[];
+   Grind_ExitQRanks(stale1_entries, stale1_layer_indices, stale1_n, true, stale1_ranks);
+   Print("STALE-1 DIAG rank0=", stale1_ranks[0], " rank1=", stale1_ranks[1],
+         " l0_ticket=", g_grind_long.layers[0].exit_order_ticket,
+         " l1_ticket=", g_grind_long.layers[1].exit_order_ticket,
+         " places=", g_grind_order_test_place_calls,
+         " l0_target=", g_grind_long.layers[0].exit_target,
+         " l1_target=", g_grind_long.layers[1].exit_target,
+         " bid=", Grind_MarketBid(), " ask=", Grind_MarketAsk());
+
+   AssertTrue("STALE-1 demoted bare", ...);
+
+Ranking helper: Grind_ExitQRanks (grind_exitq.mqh), included via
+grind_exitq.mqh in fxgrind_tests_adr151.mqh:
+
+    void Grind_ExitQRanks(const double &entries[],
+                          const int &layer_indices[],
+                          const int n,
+                          const bool is_long,
+                          int &ranks_out[]);
+
+No production file changed. No assertion changed or moved.
+
+git diff --stat origin/main...fix/exitq-stale-offset:
+
+ ea/fxgrind_tests.mq5                   |   5 +
+ ea/fxgrind_tests_adr151.mqh            | 288 +++++++++++++++++++++++++++++++++
+ ea/grind_engine.mqh                    |   4 +
+ prompts/exitq_stale_offset_response.md | 159 ++++++++++++++++++
+ 4 files changed, 456 insertions(+)
+
+Operator must run suite and read STALE-1 DIAG line. No cause proposed.
+
+Line count: 159

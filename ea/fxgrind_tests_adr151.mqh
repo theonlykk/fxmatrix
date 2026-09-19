@@ -1343,6 +1343,25 @@ void Test_STALE1_measured_sequence_cleared_on_redo()
    Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.25100, pos_near, 0);
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
 
+   const int stale1_n = ArraySize(g_grind_long.layers);
+   double stale1_entries[];
+   int stale1_layer_indices[];
+   ArrayResize(stale1_entries, stale1_n);
+   ArrayResize(stale1_layer_indices, stale1_n);
+   for(int i = 0; i < stale1_n; i++) {
+      stale1_entries[i] = g_grind_long.layers[i].entry_price;
+      stale1_layer_indices[i] = g_grind_long.layers[i].layer_index;
+   }
+   int stale1_ranks[];
+   Grind_ExitQRanks(stale1_entries, stale1_layer_indices, stale1_n, true, stale1_ranks);
+   Print("STALE-1 DIAG rank0=", stale1_ranks[0], " rank1=", stale1_ranks[1],
+         " l0_ticket=", g_grind_long.layers[0].exit_order_ticket,
+         " l1_ticket=", g_grind_long.layers[1].exit_order_ticket,
+         " places=", g_grind_order_test_place_calls,
+         " l0_target=", g_grind_long.layers[0].exit_target,
+         " l1_target=", g_grind_long.layers[1].exit_target,
+         " bid=", Grind_MarketBid(), " ask=", Grind_MarketAsk());
+
    AssertTrue("STALE-1 demoted bare", g_grind_long.layers[0].exit_order_ticket == 0);
    AssertFalse("STALE-1 offset cleared", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
    AssertFalse("STALE-1 release cleared", GlobalVariableCheck(Grind_CarryReleaseGvName(pos_far)));
