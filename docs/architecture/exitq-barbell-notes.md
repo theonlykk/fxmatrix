@@ -554,6 +554,79 @@ covered; only the middle serialises.
 counts exactly this event -- a promoted exit arriving with its target already
 passed. Added 2026-09-18, on `main`, never read.
 
+## 2e. THE GRADUAL CASE -- WHAT PURGATORY COSTS IN ORDINARY CONDITIONS
+
+Same five layers as 2d: long 100, 95, 90, 85, 80. Exits 103, 98, 93, 88, 83.
+Add at 75. Two exits resting under the barbell (83 and 103), three held.
+
+**Market marches up gradually to 95. No gap.**
+
+### The cascade, with headroom
+
+| event | market | what happens |
+|---|---:|---|
+| L4 exit fills at 83 | 83 | resting order, fills at its price. +3 |
+| L3 promoted to rank 0 | ~83 | exit placed at 88 -- safely ABOVE market, no clamp |
+| L3 exit fills at 88 | 88 | +3 |
+| L2 promoted | ~88 | exit placed at 93, above market, no clamp |
+| L2 exit fills at 93 | 93 | +3 |
+| L1 promoted | ~93 | exit placed at 98, above market |
+| price stalls at 95 | 95 | 98 does not fill |
+
+**Every promotion had enough headroom to place its exit normally**, because
+promotion happens the moment the layer below closes -- which is at a LOWER
+price than the next exit. The market moves through the levels slower than the
+engine reacts to a fill.
+
+### Final state at 95
+
+    POSITIONS
+      BUY  1.00  @ 100        L0
+      BUY  1.00  @  95        L1
+
+    WORKING ORDERS
+      SELL LIMIT  @  98       L1 exit   (rank 0)
+      SELL LIMIT  @ 103       L0 exit   (highest rank)
+      BUY  LIMIT  @  90       next add
+
+    REALISED
+      +9 from three scalps, each at its intended price
+
+**Nothing clamped, nothing serialised, nothing lost.**
+
+### What the buy limit does throughout
+
+One add per side, re-priced as the ladder shortens:
+
+| after | nearest-market layer | add moves to |
+|---|---|---:|
+| start | L4 at 80 | 75 |
+| L4 exits | L3 at 85 | **80** |
+| L3 exits | L2 at 90 | **85** |
+| L2 exits | L1 at 95 | **90** |
+
+So the bid walks 75 -> 80 -> 85 -> 90, one modify per closed layer.
+
+Three things to be clear about:
+
+- **It is anchored to the LAYER, not the market.** At the end price is 95 and
+  the bid is at 90, five below. It tracks the lowest remaining entry, not the
+  price.
+- **Only ONE ever works.** A single `add_pending_ticket` per side -- there is
+  never a stack of bids underneath. That is why entries cost the guard far
+  less than the exit side does.
+- **It never carries.** No position behind it, so no accrual (s2b).
+
+**The asymmetry worth naming:** exits are CREATED one per layer and held in
+purgatory; the add is a SINGLE order that gets RE-PRICED. Different
+lifecycles, which is why the carry pass touches one and not the other.
+
+### The bet, stated plainly
+
+In ordinary conditions purgatory costs NOTHING -- every exit is placed before
+the market reaches it -- and saves guard units on every tick. It only bites
+when price moves faster than the promotion cascade, which is 2d.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -693,4 +766,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 696
+Line count: 769
