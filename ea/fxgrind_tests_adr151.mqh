@@ -1231,4 +1231,75 @@ void Test_FL1_EntFillPlacesRankZeroExitAndTrims()
    Adr151_TestResetAll();
 }
 
+//+------------------------------------------------------------------+
+void Test_CARRY_PROBE_replace_after_cancel()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos = 92001UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw_formula = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double carry_shift = 0.00020;
+   const double carry_target = raw_formula + carry_shift;
+
+   Grind_MarketTestSeed(1.25000, 1.25020, 0, 0);
+   const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+   AssertTrue("CARRY-PROBE precnd", raw_formula > 1.25020 + min_dist - 1e-12);
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   Grind_CarryShiftSet(pos, carry_shift);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+   g_grind_long.layers[0].exit_target = carry_target;
+
+   g_grind_long.layers[0].exit_order_ticket = 0;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("CARRY-PROBE two places", g_grind_order_test_place_calls == 2);
+
+   Print("CARRY-PROBE re_placed=", g_grind_order_test_last_placed_price,
+         " raw_formula=", raw_formula,
+         " carry_target=", carry_target,
+         " gv_before_replace=", carry_shift,
+         " gv_after_replace=", Grind_CarryShiftGet(pos),
+         " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)),
+         " exit_target=", g_grind_long.layers[0].exit_target);
+
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+   layers[0].has_exit_order = (g_grind_long.layers[0].exit_order_ticket != 0);
+   layers[0].exit_order_ticket = g_grind_long.layers[0].exit_order_ticket;
+   layers[0].exit_target = g_grind_long.layers[0].exit_target;
+   int long_ranks[1];
+   long_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   const bool ok = Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                              exit_pips, point, 12, reason);
+   Print("CARRY-PROBE I6 ok=", ok, " reason=", reason);
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
 #endif // FXGRIND_TESTS_ADR151_MQH

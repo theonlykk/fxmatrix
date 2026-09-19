@@ -6613,6 +6613,7 @@ void OnStart()
    Test_HT1_HaltCriticalCancelsOwnEntOnly();
    Test_HT2_CloseByExhaustedHaltCancelsOwnEnt();
    Test_FL1_EntFillPlacesRankZeroExitAndTrims();
+   Test_CARRY_PROBE_replace_after_cancel();
    Test_T1_try_lock_does_not_block();
    Test_T1b_single_attempt_lock_returns_false_when_held();
    Test_T1c_single_attempt_lock_releases_only_own_token();
