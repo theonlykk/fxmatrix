@@ -359,6 +359,61 @@ nights of accrual, one opened last night carries one. **In a real ladder the
 shifts are per-layer and unequal, which is why the adjustment must be stored
 per position ticket rather than per side.**
 
+## 2b-bis. CARRY WITH TWO EXITS IN PURGATORY -- AND A GAP
+
+Four layers as in 2a-quinquies: long 100, 95, 90, 85. Two exits resting (L4
+rank 0 at 88, L0 highest rank at 103), two held (L2 at 93, L1 at 98). Add at
+80.
+
+**Carry accrues on all four positions.** A held exit is still a position
+paying or receiving swap. The difference is only WHERE the adjustment lands:
+a broker order for the resting two, the tracker's formula target for the held
+two.
+
+### Case 1 -- negative carry of 2
+
+| layer | rank | exit before | exit after | where |
+|---|---:|---:|---:|---|
+| L4 | 0 | 88 | **90** | terminal -- order modified |
+| L2 | 1 | 93 | **95** | held -- tracker only |
+| L1 | 2 | 98 | **100** | held -- tracker only |
+| L0 | 3 | 103 | **105** | terminal -- order modified |
+| add | -- | 80 | 80 | unchanged |
+
+### Case 2 -- positive carry of 2
+
+| layer | rank | exit before | exit after | where |
+|---|---:|---:|---:|---|
+| L4 | 0 | 88 | **86** | terminal -- order modified |
+| L2 | 1 | 93 | **91** | held -- tracker only |
+| L1 | 2 | 98 | **96** | held -- tracker only |
+| L0 | 3 | 103 | **101** | terminal -- order modified |
+| add | -- | 80 | 80 | unchanged |
+
+Positions unchanged in both cases.
+
+**Two order modifies, two tracker updates, nothing to the add.** That is the
+economy of purgatory: four layers accrue, only two cost an API call.
+
+### THE GAP -- this is not what the code does
+
+**The carry pass never sees a held layer.** `grind_carry.mqh:767` and `:775`:
+
+    if(layer.position_ticket == 0 || layer.exit_order_ticket == 0)
+       continue;
+
+A held layer has `exit_order_ticket == 0`, so it is skipped when the work list
+is built. It accrues nothing.
+
+The tables above are what SHOULD happen. Under the current implementation L2
+and L1 accrue carry with nothing recorded against them, and when either is
+later promoted to rank 0 the queue places its exit at the RAW formula --
+losing every night of carry it accumulated while off the book.
+
+**This is worse under K=1/H=0 than it was under K=2/H=1**, because more
+layers sit held at any moment. The barbell does not fix it either: the middle
+is still held.
+
 ## 2c. THE EXTREME CASE -- CARRY OF 6, AND NOTHING SHOULD PREVENT IT
 
 Same ladder: positions long 100 and long 95; sell limits at 102 and 98; buy
@@ -486,9 +541,79 @@ keeping the queue and the invariant saying the same thing.
   only rank 1 is forfeited. The barbell changes what is forfeited to "the
   middle", which is a different trade and may warrant re-stating to Gemini.
 
+## 6a. FIXES NEEDED -- THE RUNNING LIST
+
+Nothing here is specced or ratified. This is the list of things that must be
+true before the barbell, or carry, can ship.
+
+### F1. The most underwater layer's exit is not on the book
+
+**What.** Today's prefix rule rests ranks `0 .. K-1`. At `K=1` that is the
+layer NEAREST market. The MOST UNDERWATER layer carries the HIGHEST rank and
+is the first thing dropped -- exactly the layer a passive ejection would act
+on.
+
+**Why it matters.** An ejection would have to `OrderSend` a fresh order at
+the moment the guard is most likely to refuse it. On 2026-09-18 a
+near-market entry waited 73 minutes for a guard unit
+(`roll-at-cap-notes.md` s3a). An ejection that cannot obtain a unit does not
+happen.
+
+**Fix.** The barbell: `rest if rank < K OR rank == depth - 1`. Cost is at
+most one extra resting exit per side with depth >= 3, and it does not grow
+with depth (s3, s2a-ter).
+
+**Not a one-liner.** `Grind_ExitQRequired` and `Grind_ExitQAllowed` take a
+rank and nothing else; they need depth. And `Grind_ExitQRequired` is what I6
+gates on (`grind_recon.mqh:491`), so the queue and the invariant must change
+together or reconstruction halts the instance (s5).
+
+### F2. Held layers never accrue carry
+
+**What.** `grind_carry.mqh:767` and `:775` skip any layer with
+`exit_order_ticket == 0` when building the pass's work list. A layer in
+purgatory is therefore never adjusted.
+
+**Why it matters.** The layers that sit held longest are the ones that
+accrue the most. When a held layer is promoted to rank 0 its exit is placed
+at the raw formula, silently discarding every night of accrual. The economics
+ADR-135b exists to preserve are lost precisely where they matter most.
+
+**Fix shape, not yet specced.** The pass must iterate LAYERS, not resting
+orders, and record the accrual per position ticket whether or not a broker
+order exists. Placement must then read that store. **That is the same store
+question as `carry-plan-gemini` step 2** -- Gemini ruled Option B, a separate
+GV written only by the carry pass, and this makes that ruling more clearly
+right: the store has to exist independently of any order.
+
+### F3. Carry rates are zero
+
+**What.** pipshed's carry table reads 0.000 for all eight symbols, long and
+short, per night and per week, with `MULT` 0. Updated 2026-09-18 20:50, so
+the mechanism runs and applies nothing.
+
+**Why it matters.** Until the rates are populated the pass computes zero and
+F2 is untestable in production.
+
+**Fix.** Find where the rates are meant to be sourced and why they are empty.
+Independent of F1 and F2, and the smallest of the three.
+
+### Already fixed, for the record
+
+The stale-offset defect -- an exit's stored offset surviving a cancel, and
+the write guard failing to clear it on an unclamped re-place -- was measured
+and fixed in `241a905` (`02_TRAPS`). It is on `main`, NOT yet deployed to the
+VPS.
+
+### Ordering
+
+F3 first: it is independent, cheap, and tells us whether carry is worth
+building at all. Then F2, because Gemini has already ruled its store design.
+F1 last -- it is the least urgent and touches the invariant.
+
 ## 7. NOT YET DONE
 
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 494
+Line count: 619
