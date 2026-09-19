@@ -482,3 +482,108 @@ git diff --stat origin/main...feat/adr135b-phase-b-carry:
 Operator must run suite and read CLAMP-I6 DIAG line. No cause proposed.
 
 Line count: 484
+
+## FIX: CLAMP-I6 reference declaration
+
+MQL5 compile error: local `GrindSideState &side = g_grind_long;` is illegal.
+Removed the reference declaration; all uses now pass `g_grind_long` directly.
+
+Test_CLAMP_I6_after_block_removal as fixed:
+
+    void Test_CLAMP_I6_after_block_removal()
+    {
+       Grind_OrderTestReset();
+       Grind_TestResetSideState();
+       Grind_CarryTestReset();
+       g_grind_order_test_active = true;
+       Adr151_TestSeedSlotSeams(200, 100, 0);
+
+       const ulong pos = 91010UL;
+       Grind_CarryShiftDelete(pos);
+       GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+
+       const double entry = 1.25000;
+       const double exit_pips = 3.0;
+       const double point = 0.00001;
+       const double raw_formula = Grind_ExitPrice(entry, exit_pips, point, 1);
+
+       Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
+       const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+       const double clamp_expected = 1.25100 + min_dist;
+       AssertTrue("CLAMP-I6 precnd", raw_formula <= 1.25100 + min_dist - 1e-12);
+
+       ArrayResize(g_grind_long.layers, 1);
+       Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+
+       Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+       AssertTrue("CLAMP-I6 placed", g_grind_order_test_place_calls == 1);
+       AssertNear("CLAMP-I6 price", g_grind_order_test_last_placed_price, clamp_expected, 1e-12);
+       AssertTrue("CLAMP-I6 not formula",
+                  MathAbs(g_grind_order_test_last_placed_price - raw_formula) > point);
+       AssertNear("CLAMP-I6 exit_target", g_grind_long.layers[0].exit_target,
+                  g_grind_order_test_last_placed_price, 0.0);
+
+       GrindReconLayerScratch layers[1];
+       Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+       layers[0].has_exit_order = (g_grind_long.layers[0].exit_order_ticket != 0);
+       layers[0].exit_order_ticket = g_grind_long.layers[0].exit_order_ticket;
+       layers[0].exit_target = g_grind_long.layers[0].exit_target;
+       int long_ranks[1];
+       long_ranks[0] = 0;
+       GrindReconLayerScratch empty[];
+       int short_ranks[];
+       string reason = "";
+       const bool ok = Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                                  exit_pips, point, 12, reason);
+
+       Print("CLAMP-I6 DIAG placed=", g_grind_order_test_last_placed_price,
+             " exit_target=", g_grind_long.layers[0].exit_target,
+             " formula=", Grind_ExitQFormulaTarget(entry, exit_pips, point, true, pos),
+             " invariants_ok=", ok, " reason=", reason);
+
+       Grind_CarryShiftDelete(pos);
+       GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+       Grind_MarketTestReset();
+       Grind_OrderTestReset();
+       Grind_TestResetSideState();
+       Grind_CarryTestReset();
+       Adr151_TestResetAll();
+    }
+
+No local reference declaration (`&`) remains in fxgrind_tests_adr151.mqh.
+Function-parameter references unchanged (legal in MQL5).
+
+No production file changed in this commit.
+
+git diff --stat origin/main...feat/adr135b-phase-b-carry:
+
+ .../architecture/ADR-135b-carry-exit-adjustment.md |  15 +-
+ docs/architecture/ADR-151-order-purgatory.md       |  14 +-
+ ea/fxgrind.mq5                                     |   5 -
+ ea/fxgrind_tests.mq5                               |   7 +
+ ea/fxgrind_tests_adr151.mqh                        | 279 +++++++++++++++-
+ ea/fxgrind_tests_adr152.mqh                        |   2 +-
+ ea/grind_engine.mqh                                |   7 +-
+ ea/grind_exitq.mqh                                 |   8 +-
+ ea/grind_recon.mqh                                 |   6 +-
+ ea/presets/audcad_alt.set                          |   2 +-
+ ea/presets/audcad_opt.set                          |   2 +-
+ ea/presets/audchf_alt.set                          |   2 +-
+ ea/presets/audchf_opt.set                          |   2 +-
+ ea/presets/audnzd_alt.set                          |   2 +-
+ ea/presets/audnzd_opt.set                          |   2 +-
+ ea/presets/cadchf_alt.set                          |   2 +-
+ ea/presets/cadchf_opt.set                          |   2 +-
+ ea/presets/eurgbp_alt.set                          |   2 +-
+ ea/presets/eurgbp_opt.set                          |   2 +-
+ ea/presets/eurusd_alt.set                          |   2 +-
+ ea/presets/eurusd_opt.set                          |   2 +-
+ ea/presets/gbpusd_alt.set                          |   2 +-
+ ea/presets/gbpusd_opt.set                          |   2 +-
+ ea/presets/nzdcad_alt.set                          |   2 +-
+ ea/presets/nzdcad_opt.set                          |   2 +-
+ prompts/adr135b-phase-b-carry_response.md          | 589 +++++++++++++++++++++
+ 26 files changed, 922 insertions(+), 42 deletions(-)
+
+Line count: 589
