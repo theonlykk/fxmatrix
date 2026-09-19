@@ -490,7 +490,7 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                     Grind_InvariantDetailI3(long_layers[i], true, "no_position"));
       }
       const int long_rank = (i < ArraySize(long_ranks)) ? long_ranks[i] : 0;
-      if(Grind_ExitQRequired(long_rank) && !Grind_ReconLayerHasExitCoverage(long_layers[i])) {
+      if(Grind_ExitQRequired(long_rank, long_count) && !Grind_ReconLayerHasExitCoverage(long_layers[i])) {
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
                                     Grind_InvariantDetailI3(long_layers[i], true, "no_exit_coverage"),
                                     long_layers[i].position_id);
@@ -517,7 +517,7 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                     Grind_InvariantDetailI3(short_layers[i], false, "no_position"));
       }
       const int short_rank = (i < ArraySize(short_ranks)) ? short_ranks[i] : 0;
-      if(Grind_ExitQRequired(short_rank) && !Grind_ReconLayerHasExitCoverage(short_layers[i])) {
+      if(Grind_ExitQRequired(short_rank, short_count) && !Grind_ReconLayerHasExitCoverage(short_layers[i])) {
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
                                     Grind_InvariantDetailI3(short_layers[i], false,
                                                              "no_exit_coverage"),
@@ -1033,7 +1033,7 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
    for(int i = 0; i < long_count; i++) {
       const int rank = (i < ArraySize(long_ranks)) ? long_ranks[i] : 0;
       if(long_scratch[i].has_position &&
-         Grind_ExitQRequired(rank) &&
+         Grind_ExitQRequired(rank, long_count) &&
          !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, long_scratch[i].position_id);
@@ -1050,7 +1050,7 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
    for(int i = 0; i < short_count; i++) {
       const int rank = (i < ArraySize(short_ranks)) ? short_ranks[i] : 0;
       if(short_scratch[i].has_position &&
-         Grind_ExitQRequired(rank) &&
+         Grind_ExitQRequired(rank, short_count) &&
          !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, short_scratch[i].position_id);

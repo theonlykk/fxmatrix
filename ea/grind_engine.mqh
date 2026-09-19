@@ -1811,12 +1811,12 @@ void Grind_ExitQManageSide(GrindSideState &side,
    Grind_ExitQRanks(entries, layer_indices, n, is_long, ranks);
 
    for(int i = 0; i < n; i++) {
-      if(!Grind_ExitQAllowed(ranks[i]) && side.layers[i].exit_order_ticket != 0)
+      if(!Grind_ExitQAllowed(ranks[i], n) && side.layers[i].exit_order_ticket != 0)
          Grind_ExitQHoldCancelLayer(side.layers[i], is_long, magic);
    }
 
    for(int i = 0; i < n; i++) {
-      if(!Grind_ExitQRequired(ranks[i]))
+      if(!Grind_ExitQRequired(ranks[i], n))
          continue;
       if(side.layers[i].exit_order_ticket != 0 || side.layers[i].exit_position_ticket != 0)
          continue;

@@ -6571,6 +6571,13 @@ void OnStart()
    Test_EQ2_RanksShortDescendingEntry();
    Test_EQ3_RankTieByLayerIndex();
    Test_EQ4_RequiredAllowedBands();
+   Test_F1_1_predicates_by_depth();
+   Test_F1_2_depth_guard();
+   Test_F1_3_five_layers_barbell_shape();
+   Test_F1_4_middle_cancelled_on_demotion();
+   Test_F1_5_highest_rank_exit_survives_rotation();
+   Test_F1_6_i6_barbell_coverage();
+   Test_F1_7_depth_one_unchanged();
    Test_EQ5_KOverrideAllRanksRequired();
    Test_EQ_K1a_one_resting_exit_at_rank_zero();
    Test_EQ_K1b_one_cancel_per_add_fill_not_per_tick();
