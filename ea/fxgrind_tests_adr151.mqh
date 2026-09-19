@@ -1371,6 +1371,11 @@ void Test_CARRY_Q5_held_promoted_places_shifted_target()
    GlobalVariableDel(Grind_CarryReleaseGvName(pos));
    const double shift = 0.00020;
    Grind_CarryShiftSet(pos, shift);
+   Print("CARRY-Q5 BEFORE set=", shift,
+         " gvraw=", GlobalVariableGet(Grind_CarryShiftGvName(pos)),
+         " getraw=", Grind_CarryShiftGet(pos),
+         " getforrecon=", Grind_CarryShiftGetForRecon(pos),
+         " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
    GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
 
    const double entry = 1.10300;
@@ -1385,13 +1390,17 @@ void Test_CARRY_Q5_held_promoted_places_shifted_target()
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
 
-   Print("CARRY-Q5 DIAG expected=", expected,
-         " placed=", g_grind_order_test_last_placed_price,
-         " formula=", Grind_ExitQFormulaTarget(entry, exit_pips, point, true, pos),
-         " shift=", Grind_CarryShiftGetForRecon(pos),
-         " bid=", Grind_MarketBid(), " ask=", Grind_MarketAsk(),
-         " mindist=", Grind_CarryMinPassiveDistance(point, Grind_MarketStopsLevel(), 0),
-         " places=", g_grind_order_test_place_calls);
+   Print("CARRY-Q5 AFTER set=", shift,
+         " gvname=", Grind_CarryShiftGvName(pos),
+         " gvexists=", GlobalVariableCheck(Grind_CarryShiftGvName(pos)),
+         " gvraw=", GlobalVariableGet(Grind_CarryShiftGvName(pos)),
+         " relname=", Grind_CarryReleaseGvName(pos),
+         " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)),
+         " getraw=", Grind_CarryShiftGet(pos),
+         " getvalidated=", Grind_CarryShiftGetValidated(pos, 0, Grind_CarryNightlyMaxPips(_Symbol)),
+         " getforrecon=", Grind_CarryShiftGetForRecon(pos),
+         " nightly=", Grind_CarryNightlyMaxPips(_Symbol),
+         " symbol=", _Symbol);
 
    AssertTrue("CARRY-Q5 placed", g_grind_order_test_place_calls == 1);
    AssertNear("CARRY-Q5 price", g_grind_order_test_last_placed_price, expected, 1e-12);

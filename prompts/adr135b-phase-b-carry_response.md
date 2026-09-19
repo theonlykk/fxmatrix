@@ -181,4 +181,79 @@ git diff --stat origin/main...feat/adr135b-phase-b-carry:
 Diagnostic is in place. Operator must run the suite to obtain values. No
 cause is stated here -- inference without a run is not evidence.
 
-Line count: 184
+## DIAGNOSTIC 2: CARRY-Q5
+
+First measurement (7de491d): expected=1.1035 placed=1.14863 formula=1.14843
+shift=0.04513 bid=1.14856 ask=1.14862 mindist=0.00001 places=1.
+
+Print A inserted immediately after Grind_CarryShiftSet(pos, shift), before
+GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0):
+
+    Grind_CarryShiftSet(pos, shift);
+    Print("CARRY-Q5 BEFORE set=", shift,
+          " gvraw=", GlobalVariableGet(Grind_CarryShiftGvName(pos)),
+          " getraw=", Grind_CarryShiftGet(pos),
+          " getforrecon=", Grind_CarryShiftGetForRecon(pos),
+          " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+    GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+
+Print B replaces the prior CARRY-Q5 DIAG line, immediately after
+Grind_ExitQManageSide(...):
+
+    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+    Print("CARRY-Q5 AFTER set=", shift,
+          " gvname=", Grind_CarryShiftGvName(pos),
+          " gvexists=", GlobalVariableCheck(Grind_CarryShiftGvName(pos)),
+          " gvraw=", GlobalVariableGet(Grind_CarryShiftGvName(pos)),
+          " relname=", Grind_CarryReleaseGvName(pos),
+          " relexists=", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)),
+          " getraw=", Grind_CarryShiftGet(pos),
+          " getvalidated=", Grind_CarryShiftGetValidated(pos, 0, Grind_CarryNightlyMaxPips(_Symbol)),
+          " getforrecon=", Grind_CarryShiftGetForRecon(pos),
+          " nightly=", Grind_CarryNightlyMaxPips(_Symbol),
+          " symbol=", _Symbol);
+
+All helpers used match grind_carry.mqh signatures as-is; none omitted.
+
+No assertion, expected, shift value, layer setup, or position id changed.
+No market seed added. No cause proposed.
+
+Change since 7de491d (ea/ only):
+
+ ea/fxgrind_tests_adr151.mqh | 23 ++++++---
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+git diff --stat origin/main...feat/adr135b-phase-b-carry:
+
+ .../architecture/ADR-135b-carry-exit-adjustment.md |  15 +-
+ docs/architecture/ADR-151-order-purgatory.md       |  14 +-
+ ea/fxgrind.mq5                                     |   5 -
+ ea/fxgrind_tests.mq5                               |   6 +
+ ea/fxgrind_tests_adr151.mqh                        | 232 +++++++++++++++++-
+ ea/fxgrind_tests_adr152.mqh                        |   2 +-
+ ea/grind_engine.mqh                                |   3 +-
+ ea/grind_exitq.mqh                                 |   8 +-
+ ea/grind_recon.mqh                                 |   6 +-
+ ea/presets/audcad_alt.set                          |   2 +-
+ ea/presets/audcad_opt.set                          |   2 +-
+ ea/presets/audchf_alt.set                          |   2 +-
+ ea/presets/audchf_opt.set                          |   2 +-
+ ea/presets/audnzd_alt.set                          |   2 +-
+ ea/presets/audnzd_opt.set                          |   2 +-
+ ea/presets/cadchf_alt.set                          |   2 +-
+ ea/presets/cadchf_opt.set                          |   2 +-
+ ea/presets/eurgbp_alt.set                          |   2 +-
+ ea/presets/eurgbp_opt.set                          |   2 +-
+ ea/presets/eurusd_alt.set                          |   2 +-
+ ea/presets/eurusd_opt.set                          |   2 +-
+ ea/presets/gbpusd_alt.set                          |   2 +-
+ ea/presets/gbpusd_opt.set                          |   2 +-
+ ea/presets/nzdcad_alt.set                          |   2 +-
+ ea/presets/nzdcad_opt.set                          |   2 +-
+ prompts/adr135b-phase-b-carry_response.md          | 259 +++++++++++++++++++++
+ 26 files changed, 544 insertions(+), 38 deletions(-)
+
+Operator must run the suite to obtain BEFORE/AFTER values.
+
+Line count: 259
