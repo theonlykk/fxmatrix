@@ -1769,6 +1769,7 @@ bool Grind_ExitQHoldCancelLayer(GrindLayer &layer,
    const ulong ticket = layer.exit_order_ticket;
    if(Grind_CancelPendingOrder(ticket, magic)) {
       layer.exit_order_ticket = 0;
+      Grind_CarryShiftDelete(layer.position_ticket);
       return true;
    }
    if(Grind_SelectOurOrder(ticket, magic))
@@ -1785,6 +1786,7 @@ bool Grind_ExitQHoldCancelLayer(GrindLayer &layer,
          Grind_QueueCloseBy(g_grind_short_closeby_queue, layer.position_ticket, pos_out);
    } else {
       layer.exit_order_ticket = 0;
+      Grind_CarryShiftDelete(layer.position_ticket);
    }
    return true;
 }
@@ -1846,6 +1848,8 @@ void Grind_ExitQManageSide(GrindSideState &side,
       if(clamped || MathAbs(price - formula) > _Point * 0.5) {
          Grind_CarryShiftSet(side.layers[i].position_ticket, price - formula);
          GlobalVariableSet(Grind_CarryReleaseGvName(side.layers[i].position_ticket), 1.0);
+      } else {
+         Grind_CarryShiftDelete(side.layers[i].position_ticket);
       }
    }
 }
