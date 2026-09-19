@@ -476,8 +476,8 @@ git diff --stat origin/main...feat/adr135b-phase-b-carry:
  ea/presets/gbpusd_opt.set                          |   2 +-
  ea/presets/nzdcad_alt.set                          |   2 +-
  ea/presets/nzdcad_opt.set                          |   2 +-
- prompts/adr135b-phase-b-carry_response.md          | (this file)
- 26 files changed, 705 insertions(+), 42 deletions(-)
+ prompts/adr135b-phase-b-carry_response.md          | 484 +++++++++++++++++++++
+ 26 files changed, 818 insertions(+), 42 deletions(-)
 
 Operator must run suite and read CLAMP-I6 DIAG line. No cause proposed.
 
