@@ -78,12 +78,28 @@ Long exits use sell-limit clamp (at/above ask + distance); short exits use
 buy-limit clamp (at/below bid - distance). Place at clamp; flag `clamped` in
 telemetry.
 
+### Accrued carry store (F2, 2026-09-19)
+
+Overnight carry accrues on every open position-backed layer, including held
+layers with no resting exit order (`exit_order_ticket == 0`). Accrual is stored
+per position in `GRIND_CARRY_ACCRUED_<position_ticket>` (price units, signed).
+Only the carry pass writes this GV; the exit queue reads it via
+`Grind_ExitQFormulaTarget` when placing exits. It is cleared on scalp close
+only (not on cancel or rank demotion).
+
+Intended exit price is `raw_formula + accrued`. When an order exists, the pass
+also modifies it and stores clamp delta in `GRIND_CARRY_SHIFT_<ticket>` as
+`actual - intended` (not `actual - raw`). I6 expects
+`raw_formula + accrued + shift == actual`.
+
 ### I6 tolerance (D7)
 
 Store cumulative applied shift per position ticket in GV
 `GRIND_CARRY_SHIFT_<position_ticket>` (signed, price units).
 
-`Grind_ReconExitMatchesEntry` accepts `|exit - (expected + shift)| <= 2*point`.
+`Grind_ReconExitMatchesEntry` accepts
+`|exit - (expected + accrued + shift)| <= 2*point` where `accrued` comes from
+`GRIND_CARRY_ACCRUED_<position_ticket>` when present.
 
 Bound stored shift: if `|shift|` exceeds age-derived nightly maximum, treat GV
 as corrupt, delete it, and I6 halts on mismatch.
@@ -154,3 +170,7 @@ CX1-CX14 in `ea/fxgrind_tests.mq5` (38 assertions):
 - CX14 telemetry JSON shape
 
 Suite target: 894/894 (856 baseline + 38).
+
+F2-1 through F2-7 in `ea/fxgrind_tests_adr151.mqh`: held-layer accrual,
+carry-aware queue placement, clamp with two-store arithmetic, resting regression,
+accrual survives cancel, accrual cleared on scalp close.
