@@ -6614,6 +6614,11 @@ void OnStart()
    Test_HT2_CloseByExhaustedHaltCancelsOwnEnt();
    Test_FL1_EntFillPlacesRankZeroExitAndTrims();
    Test_CARRY_PROBE_replace_after_cancel();
+   Test_STALE1_measured_sequence_cleared_on_redo();
+   Test_STALE2_cancel_clears_offset();
+   Test_STALE3_unclamped_placement_clears_offset();
+   Test_STALE4_clamped_still_stores_and_passes_i6();
+   Test_STALE5_filled_exit_keeps_offset();
    Test_T1_try_lock_does_not_block();
    Test_T1b_single_attempt_lock_returns_false_when_held();
    Test_T1c_single_attempt_lock_releases_only_own_token();

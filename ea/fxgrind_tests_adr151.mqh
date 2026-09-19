@@ -13,6 +13,9 @@ void Grind_ExitQManageSide(GrindSideState &side,
                            const string slot,
                            const double lots,
                            const double exit_pips);
+bool Grind_ExitQHoldCancelLayer(GrindLayer &layer,
+                                const bool is_long,
+                                const ulong magic);
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int long_count,
@@ -1295,6 +1298,272 @@ void Test_CARRY_PROBE_replace_after_cancel()
 
    Grind_CarryShiftDelete(pos);
    GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_STALE1_measured_sequence_cleared_on_redo()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos_far = 93001UL;
+   const ulong pos_near = 93002UL;
+   Grind_CarryShiftDelete(pos_far);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos_far));
+   Grind_CarryShiftDelete(pos_near);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos_near));
+
+   const double entry_far = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw_formula = Grind_ExitPrice(entry_far, exit_pips, point, 1);
+
+   Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
+   const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+   const double clamp_expected = 1.25100 + min_dist;
+   AssertTrue("STALE-1 precnd clamp", raw_formula <= 1.25100 + min_dist - 1e-12);
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry_far, pos_far, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("STALE-1 clamp placed", g_grind_order_test_place_calls == 1);
+   AssertNear("STALE-1 clamp price", g_grind_order_test_last_placed_price, clamp_expected, 1e-12);
+   AssertTrue("STALE-1 offset stored", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
+
+   ArrayResize(g_grind_long.layers, 2);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.25100, pos_near, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("STALE-1 demoted bare", g_grind_long.layers[0].exit_order_ticket == 0);
+   AssertFalse("STALE-1 offset cleared", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
+   AssertFalse("STALE-1 release cleared", GlobalVariableCheck(Grind_CarryReleaseGvName(pos_far)));
+
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = entry_far;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[0].position_ticket = pos_far;
+   g_grind_long.layers[0].exit_order_ticket = 0;
+   g_grind_long.layers[0].exit_position_ticket = 0;
+
+   Grind_MarketTestSeed(1.25000, 1.25020, 0, 0);
+   AssertTrue("STALE-1 quiet precnd", raw_formula > 1.25020 + min_dist - 1e-12);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("STALE-1 replace placed", g_grind_order_test_place_calls == 2);
+   AssertNear("STALE-1 replace raw", g_grind_order_test_last_placed_price, raw_formula, 1e-12);
+   AssertFalse("STALE-1 replace no offset", GlobalVariableCheck(Grind_CarryShiftGvName(pos_far)));
+
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry_far, pos_far);
+   layers[0].has_exit_order = (g_grind_long.layers[0].exit_order_ticket != 0);
+   layers[0].exit_order_ticket = g_grind_long.layers[0].exit_order_ticket;
+   layers[0].exit_target = g_grind_long.layers[0].exit_target;
+   int long_ranks[1];
+   long_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("STALE-1 i6",
+              Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                         exit_pips, point, 12, reason));
+
+   Grind_CarryShiftDelete(pos_far);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos_far));
+   Grind_CarryShiftDelete(pos_near);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos_near));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_STALE2_cancel_clears_offset()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos = 93003UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+
+   Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("STALE-2 offset before", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertTrue("STALE-2 cancel", Grind_ExitQHoldCancelLayer(g_grind_long.layers[0], true, 22260101UL));
+   AssertTrue("STALE-2 ticket cleared", g_grind_long.layers[0].exit_order_ticket == 0);
+   AssertFalse("STALE-2 offset gone", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertFalse("STALE-2 release gone", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_STALE3_unclamped_placement_clears_offset()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos = 93004UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_CarryShiftSet(pos, 0.00020);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw_formula = Grind_ExitPrice(entry, exit_pips, point, 1);
+
+   Grind_MarketTestSeed(1.25000, 1.25020, 0, 0);
+   const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+   AssertTrue("STALE-3 quiet precnd", raw_formula > 1.25020 + min_dist - 1e-12);
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("STALE-3 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("STALE-3 raw", g_grind_order_test_last_placed_price, raw_formula, 1e-12);
+   AssertFalse("STALE-3 offset cleared", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertFalse("STALE-3 release cleared", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_STALE4_clamped_still_stores_and_passes_i6()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos = 93005UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw_formula = Grind_ExitPrice(entry, exit_pips, point, 1);
+
+   Grind_MarketTestSeed(1.25098, 1.25100, 0, 0);
+   const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+   const double clamp_expected = 1.25100 + min_dist;
+   const double stored_shift = clamp_expected - raw_formula;
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("STALE-4 placed", g_grind_order_test_place_calls == 1);
+   AssertTrue("STALE-4 shift gv", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertTrue("STALE-4 release gv", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+   AssertNear("STALE-4 shift val", Grind_CarryShiftGet(pos), stored_shift, 1e-12);
+
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+   layers[0].has_exit_order = (g_grind_long.layers[0].exit_order_ticket != 0);
+   layers[0].exit_order_ticket = g_grind_long.layers[0].exit_order_ticket;
+   layers[0].exit_target = g_grind_long.layers[0].exit_target;
+   int long_ranks[1];
+   long_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("STALE-4 i6",
+              Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                         exit_pips, point, 12, reason));
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_STALE5_filled_exit_keeps_offset()
+{
+   Grind_OrderTestReset();
+   Grind_DealTestReset();
+   Grind_CloseByTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   g_grind_order_test_send_ok = false;
+   g_grind_order_test_send_retcode = TRADE_RETCODE_REJECT;
+
+   const ulong pos = 93006UL;
+   const ulong exit_order = 93061UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   const double seeded_shift = 0.00071;
+   Grind_CarryShiftSet(pos, seeded_shift);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.25000, pos, exit_order);
+   Grind_MarketTestSeed(1.25000, 1.25020, 0, 0);
+
+   g_grind_deal_test_active = true;
+   Grind_PositionTestAdd(pos);
+   Grind_TestAppendDeal(9506,
+                        GrindCommentBuild("OPT", "L", 0, "EXT"),
+                        DEAL_ENTRY_IN,
+                        exit_order,
+                        93071UL,
+                        0.0, 0.0, 0.0);
+   Grind_PositionTestAdd(93071UL);
+
+   AssertTrue("STALE-5 hold cancel", Grind_ExitQHoldCancelLayer(g_grind_long.layers[0], true, 22260101UL));
+   AssertTrue("STALE-5 exit pos", g_grind_long.layers[0].exit_position_ticket == 93071UL);
+   AssertTrue("STALE-5 offset kept", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   AssertNear("STALE-5 shift val", Grind_CarryShiftGet(pos), seeded_shift, 1e-12);
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_CloseByTestReset();
+   Grind_DealTestReset();
    Grind_MarketTestReset();
    Grind_OrderTestReset();
    Grind_TestResetSideState();
