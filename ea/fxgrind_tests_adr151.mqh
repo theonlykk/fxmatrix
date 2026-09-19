@@ -24,6 +24,13 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const double point,
                                 const int max_layers,
                                 string &reason_out);
+bool Grind_ReconExitMatchesEntry(const double entry,
+                                 const double exit_target,
+                                 const double exit_pips,
+                                 const double point,
+                                 const bool is_long,
+                                 const double shift = 0.0,
+                                 const bool exit_is_filled = false);
 
 //+------------------------------------------------------------------+
 void Adr151_TestResetSlotSeams()
@@ -74,7 +81,7 @@ void Adr151_TestSetupLongLayer(GrindSideState &side,
    side.layers[array_idx].exit_order_ticket = exit_order_ticket;
    side.layers[array_idx].exit_position_ticket = 0;
    side.layers[array_idx].exit_target =
-      Grind_ExitQFormulaTarget(entry_price, exit_pips, _Point, true);
+      Grind_ExitQFormulaTarget(entry_price, exit_pips, _Point, true, position_ticket);
 }
 
 //+------------------------------------------------------------------+
@@ -290,7 +297,7 @@ void Test_EQ_CLAMP1_passed_target_increments_counter()
 
    const double entry = 1.25000;
    const double exit_pips = 3.0;
-   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true);
+   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true, 7001UL);
    const double min_dist = Grind_CarryMinPassiveDistance(_Point, 0, 0);
    const double expected = 1.25100 + min_dist;
    const int prom_before = g_grind_long.exit_clamped_promotions;
@@ -325,7 +332,7 @@ void Test_EQ_CLAMP2_unpassed_target_no_counter()
 
    const double entry = 1.25000;
    const double exit_pips = 3.0;
-   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true);
+   const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, true, 7002UL);
    const int prom_before = g_grind_long.exit_clamped_promotions;
 
    ArrayResize(g_grind_long.layers, 1);
@@ -1228,6 +1235,208 @@ void Test_FL1_EntFillPlacesRankZeroExitAndTrims()
    Grind_DealTestReset();
    Grind_OrderTestReset();
    Grind_TestResetSideState();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_CARRY_Q1_no_shift_returns_raw_formula()
+{
+   Grind_CarryTestReset();
+   const ulong pos = 90001UL;
+   Grind_CarryShiftDelete(pos);
+   const double entry = 1.10300;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double target = Grind_ExitQFormulaTarget(entry, exit_pips, point, true, pos);
+   AssertNear("CARRY-Q1 raw", target, raw, 0.0);
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_CARRY_Q2_long_shift_matches_recon_i6()
+{
+   Grind_CarryTestReset();
+   const ulong pos = 90002UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   const double entry = 1.10300;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double shift = 0.00015;
+   Grind_CarryShiftSet(pos, shift);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double expected = raw + shift;
+   const double target = Grind_ExitQFormulaTarget(entry, exit_pips, point, true, pos);
+   AssertNear("CARRY-Q2 target", target, expected, 1e-12);
+   const double recon_shift = Grind_CarryShiftGetForRecon(pos);
+   AssertNear("CARRY-Q2 shift", recon_shift, shift, 1e-12);
+   AssertTrue("CARRY-Q2 recon",
+              Grind_ReconExitMatchesEntry(entry, target, exit_pips, point, true, recon_shift));
+
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = 91002;
+   layers[0].exit_target = target;
+   int long_ranks[1];
+   long_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int short_ranks[];
+   string reason = "";
+   AssertTrue("CARRY-Q2 i6",
+              Grind_ReconCheckInvariants(layers, 1, long_ranks, empty, 0, short_ranks,
+                                         exit_pips, point, 12, reason));
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_CARRY_Q3_short_shift_sign()
+{
+   Grind_CarryTestReset();
+   const ulong pos = 90003UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   const double entry = 1.09600;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double shift = 0.00012;
+   Grind_CarryShiftSet(pos, shift);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, -1);
+   const double expected = raw + shift;
+   const double target = Grind_ExitQFormulaTarget(entry, exit_pips, point, false, pos);
+   AssertNear("CARRY-Q3 target", target, expected, 1e-12);
+   const double recon_shift = Grind_CarryShiftGetForRecon(pos);
+   AssertTrue("CARRY-Q3 recon",
+              Grind_ReconExitMatchesEntry(entry, target, exit_pips, point, false, recon_shift));
+
+   GrindReconLayerScratch layers[1];
+   Grind_TestInitLayerScratch(layers[0], 0, entry, pos);
+   layers[0].has_exit_order = true;
+   layers[0].exit_order_ticket = 91003;
+   layers[0].exit_target = target;
+   int short_ranks[1];
+   short_ranks[0] = 0;
+   GrindReconLayerScratch empty[];
+   int long_ranks[];
+   string reason = "";
+   AssertTrue("CARRY-Q3 i6",
+              Grind_ReconCheckInvariants(empty, 0, long_ranks, layers, 1, short_ranks,
+                                         exit_pips, point, 12, reason));
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_CARRY_Q4_ticket_zero_or_unknown_falls_back()
+{
+   Grind_CarryTestReset();
+   const ulong unknown = 90004UL;
+   Grind_CarryShiftDelete(unknown);
+   const double entry = 1.10300;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double t0 = Grind_ExitQFormulaTarget(entry, exit_pips, point, true, 0);
+   const double tu = Grind_ExitQFormulaTarget(entry, exit_pips, point, true, unknown);
+   AssertNear("CARRY-Q4 ticket0", t0, raw, 0.0);
+   AssertNear("CARRY-Q4 unknown", tu, raw, 0.0);
+   Grind_CarryShiftDelete(unknown);
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_CARRY_Q5_held_promoted_places_shifted_target()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos = 90005UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   const double shift = 0.00020;
+   Grind_CarryShiftSet(pos, shift);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+
+   const double entry = 1.10300;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double expected = Grind_ExitPrice(entry, exit_pips, point, 1) + shift;
+
+   ArrayResize(g_grind_long.layers, 3);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, 0);
+   Adr151_TestSetupLongLayer(g_grind_long, 2, 2, entry, pos, 0);
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("CARRY-Q5 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("CARRY-Q5 price", g_grind_order_test_last_placed_price, expected, 1e-12);
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   Adr151_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_CARRY_Q6_clamp_operates_on_shifted_target()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
+   g_grind_order_test_active = true;
+   Adr151_TestSeedSlotSeams(200, 100, 0);
+
+   const ulong pos = 90006UL;
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const double shift = -0.00010;
+   Grind_CarryShiftSet(pos, shift);
+   GlobalVariableSet(Grind_CarryReleaseGvName(pos), 1.0);
+
+   Grind_MarketTestSeed(1.25023, 1.25025, 0, 0);
+   const double raw = Grind_ExitPrice(entry, exit_pips, point, 1);
+   const double shifted = raw + shift;
+   const double min_dist = Grind_CarryMinPassiveDistance(point, 0, 0);
+   const double expected = 1.25025 + min_dist;
+   AssertTrue("CARRY-Q6 raw unclamped", raw > 1.25025 + min_dist);
+   AssertTrue("CARRY-Q6 shifted clamped", shifted <= 1.25025 + min_dist);
+
+   ArrayResize(g_grind_long.layers, 1);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, entry, pos, 0);
+
+   Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, exit_pips);
+
+   AssertTrue("CARRY-Q6 placed", g_grind_order_test_place_calls == 1);
+   AssertNear("CARRY-Q6 price", g_grind_order_test_last_placed_price, expected, 1e-12);
+
+   Grind_CarryShiftDelete(pos);
+   GlobalVariableDel(Grind_CarryReleaseGvName(pos));
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_CarryTestReset();
    Adr151_TestResetAll();
 }
 

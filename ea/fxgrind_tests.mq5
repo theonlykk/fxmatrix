@@ -6613,6 +6613,12 @@ void OnStart()
    Test_HT1_HaltCriticalCancelsOwnEntOnly();
    Test_HT2_CloseByExhaustedHaltCancelsOwnEnt();
    Test_FL1_EntFillPlacesRankZeroExitAndTrims();
+   Test_CARRY_Q1_no_shift_returns_raw_formula();
+   Test_CARRY_Q2_long_shift_matches_recon_i6();
+   Test_CARRY_Q3_short_shift_sign();
+   Test_CARRY_Q4_ticket_zero_or_unknown_falls_back();
+   Test_CARRY_Q5_held_promoted_places_shifted_target();
+   Test_CARRY_Q6_clamp_operates_on_shifted_target();
    Test_T1_try_lock_does_not_block();
    Test_T1b_single_attempt_lock_returns_false_when_held();
    Test_T1c_single_attempt_lock_releases_only_own_token();

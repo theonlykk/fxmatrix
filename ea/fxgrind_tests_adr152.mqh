@@ -512,7 +512,7 @@ void Test_T4c_due_flag_cleared_at_cap()
    ArrayResize(g_grind_short.layers, 1);
    Adr151_TestSetupLongLayer(g_grind_short, 0, 0, 1.10400, 5003, 6103);
    g_grind_short.layers[0].exit_target =
-      Grind_ExitQFormulaTarget(1.10400, 3.0, _Point, false);
+      Grind_ExitQFormulaTarget(1.10400, 3.0, _Point, false, 5003UL);
 
    const ulong magic = 22260101UL;
    Grind_OnTickEngine(magic, "OPT", 20.0, 3.0, 10.0, 30.0, 4.0, 2, 0.01);

@@ -233,7 +233,8 @@ void Grind_SlotLockRelease(const double token)
 double Grind_ExitQFormulaTarget(const double entry,
                                 const double exit_pips,
                                 const double point,
-                                const bool is_long)
+                                const bool is_long,
+                                const ulong position_ticket)
 {
    return Grind_ExitPrice(entry, exit_pips, point, is_long ? 1 : -1);
 }

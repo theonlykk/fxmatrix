@@ -1830,7 +1830,8 @@ void Grind_ExitQManageSide(GrindSideState &side,
          continue;
 
       const double formula = Grind_ExitQFormulaTarget(side.layers[i].entry_price,
-                                                      exit_pips, _Point, is_long);
+                                                      exit_pips, _Point, is_long,
+                                                      side.layers[i].position_ticket);
       double price = formula;
       const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
       if(clamped)

@@ -1090,7 +1090,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
          long_out.layers[n].exit_target = long_scratch[j].exit_target;
       else
          long_out.layers[n].exit_target =
-            Grind_ExitQFormulaTarget(long_scratch[j].entry_price, exit_pips, point, true);
+            Grind_ExitQFormulaTarget(long_scratch[j].entry_price, exit_pips, point, true,
+                                     long_scratch[j].position_id);
       long_out.layers[n].position_ticket = long_scratch[j].position_id;
       long_out.layers[n].exit_order_ticket = long_scratch[j].exit_order_ticket;
       long_out.layers[n].exit_position_ticket = long_scratch[j].exit_position_id;
@@ -1105,7 +1106,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
          short_out.layers[n].exit_target = short_scratch[j].exit_target;
       else
          short_out.layers[n].exit_target =
-            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_pips, point, false);
+            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_pips, point, false,
+                                     short_scratch[j].position_id);
       short_out.layers[n].position_ticket = short_scratch[j].position_id;
       short_out.layers[n].exit_order_ticket = short_scratch[j].exit_order_ticket;
       short_out.layers[n].exit_position_ticket = short_scratch[j].exit_position_id;
