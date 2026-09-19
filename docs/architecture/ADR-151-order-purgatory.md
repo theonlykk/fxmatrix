@@ -23,10 +23,16 @@ exits fill first. They hold slots and do no work.
 
 ## Decision
 
-1. **Exit queue.** Per side, layers ranked by entry price nearest to market
-   (longs ascending, shorts descending, ties lower layer_index). Ranks
-   0..K-1 MUST have a live exit; K..K+H-1 MAY; beyond MUST NOT. Held exits are
-   released as front exits fill and CloseBy nets them.
+1. **Exit queue (barbell, 2026-09-19).** Per side, layers ranked by entry
+   price nearest to market (longs ascending, shorts descending, ties lower
+   layer_index). A layer MUST have a live exit when
+   `rank < K` OR `rank == depth - 1` (rank 0 plus the highest rank). Middle
+   ranks are held without a resting exit. Replaces the earlier prefix rule
+   (ranks 0..K-1 only). At `K=1`, `H=0`, depth 1 is unchanged; depth >= 2
+   adds exactly one extra resting exit per side (the most underwater layer),
+   flat in depth beyond that pair. Reason: the highest-rank layer is the
+   passive-ejection candidate and must already hold a broker ticket when
+   ejection runs. I3 coverage uses the same predicate as the queue.
 2. **Commitment guard.** Exits allowed at `free >= 1`. Entries allowed at
    `free - resting_ent >= 2 + margin`, evaluated and sent inside a fleet-wide
    GlobalVariable lock with staleness recovery. One entry send per instance
@@ -42,9 +48,9 @@ exits fill first. They hold slots and do no work.
    reconstruction, in the quarantined branch of `OnTick`, and first in the
    engine tick.
 6. **Halt cancels own entry orders** (never exits), on every halt path.
-7. **Invariants.** I3 exit coverage only for ranks < K. I1 and I6 only for
-   layers that have an exit. Held layers' `exit_target` is populated from the
-   formula, never 0.0.
+7. **Invariants.** I3 exit coverage only where `Grind_ExitQRequired(rank,
+   depth)` is true (barbell). I1 and I6 only for layers that have an exit.
+   Held layers' `exit_target` is populated from the formula, never 0.0.
 8. **Shift GV hygiene.** Shift and release-marker GVs are deleted only when
    their position no longer exists (fleet-safe), and when a layer is netted.
 
@@ -67,12 +73,10 @@ fleet-wide.
 > on the exit queue provides no protection while consuming guard units. This
 > holds at any value of K.
 
-> `K = 1`. The queue ranks by entry price nearest to market, so rank 0 is the
-> most recently added layer and the exit most likely to fill. K=1 always
-> rests it. Only rank 1 is forfeited, and only for a move clearing two grid
-> levels within a single tick; a sustained move promotes rank 1 to rank 0 and
-> `Grind_ExitQClampPassive` places it at `ask + min_dist`, a better fill than
-> the formula target.
+> `K = 1`. Rank 0 (nearest market) always rests. The highest rank (most
+> underwater) also rests under the barbell rule so passive ejection can fire
+> without a cold `OrderSend`. Middle ranks are held; their exits are cancelled
+> on the next management pass.
 
 > The fleet runs guard-saturated in the interim. There is no configuration
 > change that frees position-side units: `InpMaxLayers` gates new layers only
@@ -129,4 +133,4 @@ them). Fixed in Phase A (decision 8).
   - Phase B carry-aware queue.
   - Heartbeat fields for slots and held exits (pipshed).
 
-Line count: 111
+Line count: 136
