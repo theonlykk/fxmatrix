@@ -343,6 +343,81 @@ been put to Gemini.
 
 ---
 
+## 3d. PATH VS DISPLACEMENT, MEASURED -- 2026-09-18
+
+s3c argued the point; this measures it. Script
+`scripts/measure_path_vs_displacement.py`, full report
+`prompts/path_vs_displacement.md`. M5 bars, 2015-2026, ~3,035 trading days
+per symbol.
+
+**A typical day offers roughly 19 times more PATH than DISPLACEMENT.**
+
+GBPUSD, n=3035 days, pips:
+
+| stat | path | displacement | ratio | range |
+|------|-----:|-------------:|------:|------:|
+| q25 | 622 | 18.9 | 10.4 | 72 |
+| **median** | **743** | **41.8** | **17.8** | **95** |
+| q75 | 919 | 74.3 | 37.0 | 128 |
+
+Median daily path across the fleet runs 408 (EURGBP) to 743 (GBPUSD) pips.
+Pooled median ratio about 19:1.
+
+**That ratio is the business.** Path is what a market maker harvests;
+displacement is what a ladder's MTM tracks and the component the strategy has
+no edge in. A side stranded at cap stops harvesting the 19 and keeps the 1.
+
+### The capacity gap
+
+Crude upper bound, `median_daily_path / (2 * E)` round trips per day per side:
+
+| symbol | E OPT/ALT | median path | OPT rt/day | ALT rt/day |
+|--------|-----------|------------:|-----------:|-----------:|
+| GBPUSD | 7 / 10 | 743 | 53.0 | 37.1 |
+| EURUSD | 7 / 10 | 559 | 39.9 | 27.9 |
+| EURGBP | 5 / 8 | 408 | 40.8 | 25.5 |
+| AUDCAD | 5 / 10 | 527 | 52.7 | 26.3 |
+| AUDCHF | 5 / 10 | 454 | 45.4 | 22.7 |
+| CADCHF | 5 / 10 | 414 | 41.4 | 20.7 |
+| NZDCAD | 5 / 7 | 529 | 52.9 | 37.8 |
+| AUDNZD | 5 / 7 | 486 | 48.6 | 34.7 |
+
+**The fleet did 102 scalps on 2026-09-18, its best day of the cycle.** The
+per-symbol-per-side ceiling above is 27-53. Across 8 symbols, 2 arms and 2
+sides the theoretical fleet ceiling is in the high hundreds.
+
+The bound is crude and ignores guard, cap, spread and the fact that only one
+side faces each move -- but the gap is large enough that it is worth knowing
+which part of it is structural and which is removable. Most of it is
+structural: capturing a round trip needs inventory at that level, and a
+ladder only holds levels price has already visited. Guard saturation,
+layer caps and stranded sides are the removable part.
+
+### Two limits on this, both stated by the analysis itself
+
+**It is unconditional**, pooled over 2015-2026. A ladder at cap is a
+conditioned case -- a sustained move is already underway -- and that
+population likely shows path LOWER relative to displacement than the pooled
+median. So 19:1 is the optimistic end.
+
+**The week that matters is not in the data.** The M5 files on the desktop end
+between 2026-09-07 (AUDCAD) and 2026-09-11 (GBPUSD, EURUSD, EURGBP). The
+operator week 14-18 Sep, and specifically GBPUSD on 17-18 Sep -- how much
+path fell inside 1.334-1.339 where the rebuilt ladder traded, versus above
+1.34301 where the old one sat -- **could not be measured.** That was the
+single most valuable cut. It needs fresher M5 exports from the Surface and
+should be the first thing run when they exist.
+
+### Cancelled
+
+The `p` / retrace-probability study was abandoned. It was specified as a
+first-passage probability per bar per threshold, which is quadratic and drove
+Cursor to install numba; and more importantly unconditional `p` is a long-run
+average applied to a tail case, so it would have read too high. Spec error,
+recorded in case anyone is tempted to revive it.
+
+---
+
 ## 4. THE SWEEPS (17-Sep) -- UNUSABLE ON MAGNITUDE
 
 `roll_modes_cal_2026_09_17` (192 cells, 2 windows x 8 pairs x 2 geometries
@@ -539,4 +614,4 @@ had adverse effects on this system before. The mechanism here is appealing
 and may still be wrong; s3 says the answer turns on `p` and `q`, and neither
 has an estimate.
 
-Line count: 542
+Line count: 617
