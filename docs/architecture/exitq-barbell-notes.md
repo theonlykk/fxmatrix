@@ -990,6 +990,59 @@ prospective bid inside the range, may be common or may almost never happen.
 **Measurable from the same M5 data as the path study
 (`roll-at-cap-notes.md` s3d). Check before speccing.**
 
+## 2j. REJECTED: A DELAY BEFORE THE INITIAL EJECTION
+
+Proposed by the operator 2026-09-19 and withdrawn the same day. Recorded so
+it is not re-proposed.
+
+### The proposal
+
+When the 8th layer fills and the side caps, wait N minutes before firing the
+ejection. "We would have held L0 for so long -- would 5 more minutes be
+worse?"
+
+### What it was protecting against -- a real case
+
+Layer 8 fills at 65 because price spiked down. It snaps back to 68 within a
+minute. Without a delay we have ejected the most underwater layer at the
+worst tick of a move that immediately reversed.
+
+Five minutes against a layer held for days costs nothing, so the asymmetry
+looked attractive.
+
+### Why it was rejected
+
+**The stability condition (s2i) already provides this protection, and
+measures the right thing.** A delay is a crude proxy for "has the market
+settled". The range test measures settlement directly:
+
+    over the last N M5 bars:
+        high - low <= add_pips
+        AND low <= prospective_bid
+
+**A spike fill cannot satisfy that**, because a spike is not a consolidated
+range. So applying the stability condition to the INITIAL ejection -- not
+only to revisions -- handles the spike case for the same reason it handles
+the free-fall case.
+
+**And the delay has a cost that is easy to miss.** Between capping and
+ejecting, the side is frozen and cannot add. If price keeps falling during
+those five minutes we have simply ejected lower -- which is the free-fall
+case already identified as the worst outcome available (s2h N2).
+
+**Two mechanisms would also be harder to reason about than one.** A timer
+plus a range test means timer state, and an interaction between them to
+specify and test.
+
+### The rule that replaced it
+
+**Apply the stability condition to the initial ejection as well as to
+revisions.** One trigger, one rule. Fire at cap ONLY when the market has
+consolidated and the prospective refill bid has traded within that range.
+
+That is strictly better than a delay: it cannot fire on a spike, it cannot
+fire in a free fall, and it needs no timer.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -1129,4 +1182,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 1132
+Line count: 1185
