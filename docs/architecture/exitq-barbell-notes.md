@@ -128,6 +128,56 @@ carries three nights of accrual, one opened last night carries one. So in a
 real ladder the shifts are per-layer and unequal, which is why the
 adjustment has to be stored per position ticket rather than per side.
 
+## 2c. THE EXTREME CASE -- CARRY OF 6, AND NOTHING SHOULD PREVENT IT
+
+Same ladder. This is the case worth staring at, because the result looks
+wrong on a blotter and is economically correct.
+
+**Negative carry of 6:**
+
+| order | before | after |
+|---|---:|---:|
+| sell limit, L0 exit | 102 | **108** |
+| sell limit, L1 exit | 98 | **104** |
+| buy limit, next add | 95 | 95 |
+
+**Positive carry of 6:**
+
+| order | before | after |
+|---|---:|---:|
+| sell limit, L0 exit | 102 | **96** |
+| sell limit, L1 exit | 98 | **92** |
+| buy limit, next add | 95 | 95 |
+
+Three things happen in the positive case that look alarming and are not:
+
+**L1's exit at 92 is BELOW its own entry of 95.** That closes the layer for a
+3-point loss on price, against 6 collected in carry -- net +3, exactly what
+the original 98 was worth. The trade earns what it was priced to earn. **An
+exit below entry is a correct outcome, not an error.**
+
+**L0's exit at 96 sits below L1's entry at 95 by a point** -- the exits have
+crossed down through the layers. Also fine: they are independent positions
+with independent accrual.
+
+**L1's exit at 92 is below the add at 95.** If price fell you would add at 95
+and exit that same region at 92.
+
+**There should be no logic preventing any of this**, and as far as we can see
+there is none. `Grind_CarryShiftedExitPrice` applies the shift arithmetically
+with no floor at entry price and no ordering constraint between layers. That
+is correct. A guard that refused to move an exit past its entry would silently
+break the economics ADR-135b exists to preserve.
+
+### The one real consequence
+
+Once a long's exit is pushed BELOW the market it cannot rest as a sell limit,
+and `Grind_ExitQClampPassive` moves it to `ask + min_dist`. **That is the
+carry-plus-clamp interaction that nothing currently tests** -- recorded as
+the open unknown in `02_TRAPS`. Carry of 6 is many nights at typical rates,
+but it is exactly what a deep layer held for a fortnight looks like, and the
+deep layers are the ones that sit longest.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1
@@ -196,4 +246,4 @@ keeping the queue and the invariant saying the same thing.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 199
+Line count: 249
