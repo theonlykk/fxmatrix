@@ -334,3 +334,43 @@ git diff --stat origin/main...feat/f1-barbell-exitq:
 This commit: no assertion, fixture, or production file changed.
 
 Line count: 336
+
+## FIX: HC3 and MQ3 fixtures
+
+Measured cause: engine correct; stage 2 fixture errors. Diagnostics removed.
+Assertions unchanged. No production changes.
+
+HC3: removed Grind_OrderTestUpsert(6104) only. Five-layer ladder, deal on
+6104->7101, PositionTestAdd(5004/7101), and three assertions unchanged.
+Filled exit must not also live in order store.
+
+HC4: stage 2 added the same upsert with no deal. Rejected cancel plus
+SelectOurOrder(6104) blocks HoldCancelLayer clear (same branch, not filled
+contradiction). Removed upsert; layer still carries ticket 6104 on idx3.
+
+MQ3: const mq3_exit_far/mid2/mid1; layer and store bound per ticket.
+Three upserts for far and both middles; idx3 rank 0 starts bare for release.
+
+MQ3 ladder (depth 4, long ranks by entry):
+
+  idx  entry    rank  ticket var        assertion target
+  0    1.10500  3     mq3_exit_far      MQ3 far exit survives (not in fail set)
+  1    1.10400  2     mq3_exit_mid2     MQ3 cancel middle
+  2    1.10300  1     mq3_exit_mid1     MQ3 cancel middle
+  3    1.10200  0     (placed)          MQ3 nearest exit; MQ3 release after trim
+
+git diff --stat origin/main...feat/f1-barbell-exitq:
+
+ docs/architecture/ADR-151-order-purgatory.md |  32 ++--
+ ea/fxgrind_tests.mq5                         |  11 +-
+ ea/fxgrind_tests_adr151.mqh                  | 360 +++++++++++++++++++++-----
+ ea/grind_engine.mqh                          |   4 +-
+ ea/grind_exitq.mqh                           |  16 +-
+ ea/grind_recon.mqh                           |   8 +-
+ prompts/f1_barbell_exitq_response.md         | 368 +++++++++++++++++++++++++++
+
+ 7 files changed, 714 insertions(+), 85 deletions(-)
+
+This commit: fixtures and doc only; no assertion or production change.
+
+Line count: 376

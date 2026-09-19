@@ -787,41 +787,26 @@ void Test_MQ3_TrimRunsBeforeRelease()
    g_grind_order_test_active = true;
    Adr151_TestSeedSlotSeams(200, 200, 0);
 
+   const ulong mq3_exit_far = 6101;
+   const ulong mq3_exit_mid2 = 6102;
+   const ulong mq3_exit_mid1 = 6103;
+
    ArrayResize(g_grind_long.layers, 4);
-   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, 6101);
-   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, 6102);
-   Adr151_TestSetupLongLayer(g_grind_long, 2, 2, 1.10300, 5003, 6103);
+   Adr151_TestSetupLongLayer(g_grind_long, 0, 0, 1.10500, 5001, mq3_exit_far);
+   Adr151_TestSetupLongLayer(g_grind_long, 1, 1, 1.10400, 5002, mq3_exit_mid2);
+   Adr151_TestSetupLongLayer(g_grind_long, 2, 2, 1.10300, 5003, mq3_exit_mid1);
    Adr151_TestSetupLongLayer(g_grind_long, 3, 3, 1.10200, 5004, 0);
-   Grind_OrderTestUpsert(6101, (long)22260101UL,
+   Grind_OrderTestUpsert(mq3_exit_far, (long)22260101UL,
                          GrindCommentBuild("OPT", "L", 0, "EXT"),
                          1.10530, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_OrderTestUpsert(mq3_exit_mid2, (long)22260101UL,
+                         GrindCommentBuild("OPT", "L", 1, "EXT"),
+                         1.10430, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_OrderTestUpsert(mq3_exit_mid1, (long)22260101UL,
+                         GrindCommentBuild("OPT", "L", 2, "EXT"),
+                         1.10330, (long)ORDER_TYPE_SELL_LIMIT);
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
-
-   double mq3_entries[]; int mq3_idx[]; int mq3_ranks[];
-   const int mq3_n = ArraySize(g_grind_long.layers);
-   ArrayResize(mq3_entries, mq3_n); ArrayResize(mq3_idx, mq3_n);
-   for(int z = 0; z < mq3_n; z++) {
-      mq3_entries[z] = g_grind_long.layers[z].entry_price;
-      mq3_idx[z] = g_grind_long.layers[z].layer_index;
-   }
-   Grind_ExitQRanks(mq3_entries, mq3_idx, mq3_n, true, mq3_ranks);
-   Print("MQ3 DIAG n=", mq3_n,
-         " r0=", (mq3_n > 0 ? IntegerToString(mq3_ranks[0]) : "N/A"),
-         " r1=", (mq3_n > 1 ? IntegerToString(mq3_ranks[1]) : "N/A"),
-         " r2=", (mq3_n > 2 ? IntegerToString(mq3_ranks[2]) : "N/A"),
-         " r3=", (mq3_n > 3 ? IntegerToString(mq3_ranks[3]) : "N/A"),
-         " req1=", (mq3_n > 1 ? (Grind_ExitQRequired(mq3_ranks[1], mq3_n) ? "true" : "false") : "N/A"),
-         " allow1=", (mq3_n > 1 ? (Grind_ExitQAllowed(mq3_ranks[1], mq3_n) ? "true" : "false") : "N/A"),
-         " l1_order=", (mq3_n > 1 ? IntegerToString((long)g_grind_long.layers[1].exit_order_ticket) : "N/A"),
-         " req2=", (mq3_n > 2 ? (Grind_ExitQRequired(mq3_ranks[2], mq3_n) ? "true" : "false") : "N/A"),
-         " allow2=", (mq3_n > 2 ? (Grind_ExitQAllowed(mq3_ranks[2], mq3_n) ? "true" : "false") : "N/A"),
-         " l2_order=", (mq3_n > 2 ? IntegerToString((long)g_grind_long.layers[2].exit_order_ticket) : "N/A"),
-         " req3=", (mq3_n > 3 ? (Grind_ExitQRequired(mq3_ranks[3], mq3_n) ? "true" : "false") : "N/A"),
-         " allow3=", (mq3_n > 3 ? (Grind_ExitQAllowed(mq3_ranks[3], mq3_n) ? "true" : "false") : "N/A"),
-         " l3_order=", (mq3_n > 3 ? IntegerToString((long)g_grind_long.layers[3].exit_order_ticket) : "N/A"),
-         " removes=", g_grind_order_test_remove_calls,
-         " places=", g_grind_order_test_place_calls);
 
    AssertTrue("MQ3 cancel middle", g_grind_order_test_remove_calls == 2);
    AssertTrue("MQ3 release after trim", g_grind_order_test_place_calls == 1);
@@ -1028,9 +1013,6 @@ void Test_HC3_GoneWithDealQueuesCloseBy()
    Adr151_TestSetupLongLayer(g_grind_long, 2, 2, 1.10300, 5003, 0);
    Adr151_TestSetupLongLayer(g_grind_long, 3, 3, 1.10200, 5004, 6104);
    Adr151_TestSetupLongLayer(g_grind_long, 4, 4, 1.10100, 5005, 0);
-   Grind_OrderTestUpsert(6104, (long)22260101UL,
-                         GrindCommentBuild("OPT", "L", 3, "EXT"),
-                         1.10230, (long)ORDER_TYPE_SELL_LIMIT);
 
    g_grind_deal_test_active = true;
    Grind_PositionTestAdd(5004);
@@ -1043,27 +1025,6 @@ void Test_HC3_GoneWithDealQueuesCloseBy()
    Grind_PositionTestAdd(7101);
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
-
-   double hc3_entries[]; int hc3_idx[]; int hc3_ranks[];
-   const int hc3_n = ArraySize(g_grind_long.layers);
-   ArrayResize(hc3_entries, hc3_n); ArrayResize(hc3_idx, hc3_n);
-   for(int z = 0; z < hc3_n; z++) {
-      hc3_entries[z] = g_grind_long.layers[z].entry_price;
-      hc3_idx[z] = g_grind_long.layers[z].layer_index;
-   }
-   Grind_ExitQRanks(hc3_entries, hc3_idx, hc3_n, true, hc3_ranks);
-   Print("HC3 DIAG n=", hc3_n,
-         " r0=", (hc3_n > 0 ? IntegerToString(hc3_ranks[0]) : "N/A"),
-         " r1=", (hc3_n > 1 ? IntegerToString(hc3_ranks[1]) : "N/A"),
-         " r2=", (hc3_n > 2 ? IntegerToString(hc3_ranks[2]) : "N/A"),
-         " r3=", (hc3_n > 3 ? IntegerToString(hc3_ranks[3]) : "N/A"),
-         " r4=", (hc3_n > 4 ? IntegerToString(hc3_ranks[4]) : "N/A"),
-         " req3=", (hc3_n > 3 ? (Grind_ExitQRequired(hc3_ranks[3], hc3_n) ? "true" : "false") : "N/A"),
-         " allow3=", (hc3_n > 3 ? (Grind_ExitQAllowed(hc3_ranks[3], hc3_n) ? "true" : "false") : "N/A"),
-         " l3_order=", (hc3_n > 3 ? IntegerToString((long)g_grind_long.layers[3].exit_order_ticket) : "N/A"),
-         " l3_exitpos=", (hc3_n > 3 ? IntegerToString((long)g_grind_long.layers[3].exit_position_ticket) : "N/A"),
-         " removes=", g_grind_order_test_remove_calls,
-         " places=", g_grind_order_test_place_calls);
 
    AssertTrue("HC3 cleared", g_grind_long.layers[3].exit_order_ticket == 0);
    AssertTrue("HC3 exit pos", g_grind_long.layers[3].exit_position_ticket == 7101);
@@ -1093,9 +1054,6 @@ void Test_HC4_GoneWithoutDealClearsTracker()
    Adr151_TestSetupLongLayer(g_grind_long, 2, 2, 1.10300, 5003, 0);
    Adr151_TestSetupLongLayer(g_grind_long, 3, 3, 1.10200, 5004, 6104);
    Adr151_TestSetupLongLayer(g_grind_long, 4, 4, 1.10100, 5005, 0);
-   Grind_OrderTestUpsert(6104, (long)22260101UL,
-                         GrindCommentBuild("OPT", "L", 3, "EXT"),
-                         1.10230, (long)ORDER_TYPE_SELL_LIMIT);
 
    Grind_ExitQManageSide(g_grind_long, true, 22260101UL, "OPT", 0.01, 3.0);
 
