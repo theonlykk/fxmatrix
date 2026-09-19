@@ -1341,6 +1341,40 @@ void Grind_TestResetLayerDetailState()
    g_grind_book_test_active = true;
 }
 
+void Test_F3_1_heartbeat_contains_swap_fields()
+{
+   Grind_TestResetLayerDetailState();
+   Grind_HeartbeatTestSeedSwapRates(-6.78, -3.76);
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("F3-1 swap_long_points", hb, "\"swap_long_points\":");
+   AssertContains("F3-1 swap_short_points", hb, "\"swap_short_points\":");
+   AssertContains("F3-1 swap_rate_mult", hb, "\"swap_rate_mult\":");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_F3_2_negative_swap_sign_survives()
+{
+   Grind_TestResetLayerDetailState();
+   Grind_HeartbeatTestSeedSwapRates(-6.78, -3.76);
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertContains("F3-2 long negative", hb, "\"swap_long_points\":-6.78");
+   AssertContains("F3-2 short negative", hb, "\"swap_short_points\":-3.76");
+   Grind_TestResetLayerDetailState();
+}
+
+void Test_F3_3_heartbeat_still_well_formed()
+{
+   Grind_TestResetLayerDetailState();
+   Grind_HeartbeatTestSeedSwapRates(-6.78, -3.76);
+   const string hb = Grind_TestSampleHeartbeatJson();
+   AssertTrue("F3-3 opens", StringGetCharacter(hb, 0) == '{');
+   AssertTrue("F3-3 closes", StringGetCharacter(hb, StringLen(hb) - 1) == '}');
+   AssertContains("F3-3 instance_id", hb, "\"instance_id\":");
+   AssertContains("F3-3 layers", hb, "\"layers\":");
+   AssertContains("F3-3 resting long", hb, "\"resting_entries_long\":");
+   Grind_TestResetLayerDetailState();
+}
+
 void Test_D1_ThreeLayersEmitDetail()
 {
    Grind_TestResetLayerDetailState();
@@ -6356,6 +6390,9 @@ void OnStart()
    Test_T42_DailyResetFollowsServerTime();
    Test_T43_TouchRevertThreshold();
    Test_T44_HeartbeatSchemaAppendOnly();
+   Test_F3_1_heartbeat_contains_swap_fields();
+   Test_F3_2_negative_swap_sign_survives();
+   Test_F3_3_heartbeat_still_well_formed();
    Test_D1_ThreeLayersEmitDetail();
    Test_D2_NonContiguousLayerIndices();
    Test_D3_EmptySideEmitsEmptyArray();

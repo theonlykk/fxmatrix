@@ -22,12 +22,40 @@ struct GrindHeartbeatTestPosition
 GrindHeartbeatTestPosition g_grind_heartbeat_test_positions[];
 int g_grind_heartbeat_test_position_count = 0;
 
+bool     g_grind_heartbeat_test_swap_active = false;
+int      g_grind_heartbeat_test_swap_mode = (int)SYMBOL_SWAP_MODE_POINTS;
+double   g_grind_heartbeat_test_swap_long = 0.0;
+double   g_grind_heartbeat_test_swap_short = 0.0;
+int      g_grind_heartbeat_test_rollover3days = 3;
+datetime g_grind_heartbeat_test_swap_time = 0;
+
 //+------------------------------------------------------------------+
 void Grind_HeartbeatTestReset()
 {
    g_grind_heartbeat_test_active = false;
    ArrayResize(g_grind_heartbeat_test_positions, 0);
    g_grind_heartbeat_test_position_count = 0;
+   g_grind_heartbeat_test_swap_active = false;
+   g_grind_heartbeat_test_swap_mode = (int)SYMBOL_SWAP_MODE_POINTS;
+   g_grind_heartbeat_test_swap_long = 0.0;
+   g_grind_heartbeat_test_swap_short = 0.0;
+   g_grind_heartbeat_test_rollover3days = 3;
+   g_grind_heartbeat_test_swap_time = 0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatTestSeedSwapRates(const double swap_long_points,
+                                      const double swap_short_points,
+                                      const int swap_mode = (int)SYMBOL_SWAP_MODE_POINTS,
+                                      const int rollover3days = 3,
+                                      const datetime broker_time = 0)
+{
+   g_grind_heartbeat_test_swap_active = true;
+   g_grind_heartbeat_test_swap_long = swap_long_points;
+   g_grind_heartbeat_test_swap_short = swap_short_points;
+   g_grind_heartbeat_test_swap_mode = swap_mode;
+   g_grind_heartbeat_test_rollover3days = rollover3days;
+   g_grind_heartbeat_test_swap_time = broker_time;
 }
 
 //+------------------------------------------------------------------+
@@ -135,6 +163,59 @@ string Grind_HeartbeatNullableCommentJson(const ulong ticket,
    if(!Grind_HeartbeatOrderComment(ticket, magic, comment))
       return "null";
    return Grind_HeartbeatQuotedCommentJson(comment);
+}
+
+//+------------------------------------------------------------------+
+string Grind_HeartbeatNullableSwapPointsJson(const double value,
+                                             const bool points_mode)
+{
+   if(!points_mode)
+      return "null";
+   return DoubleToString(value, 2);
+}
+
+//+------------------------------------------------------------------+
+void Grind_HeartbeatReadSwapPoints(const double &swap_long_out,
+                                   const double &swap_short_out,
+                                   const bool &points_mode_out)
+{
+   int swap_mode = (int)SYMBOL_SWAP_MODE_POINTS;
+   double swap_long = 0.0;
+   double swap_short = 0.0;
+   if(g_grind_heartbeat_test_swap_active) {
+      swap_mode = g_grind_heartbeat_test_swap_mode;
+      swap_long = g_grind_heartbeat_test_swap_long;
+      swap_short = g_grind_heartbeat_test_swap_short;
+   } else {
+      swap_mode = (int)SymbolInfoInteger(_Symbol, SYMBOL_SWAP_MODE);
+      swap_long = SymbolInfoDouble(_Symbol, SYMBOL_SWAP_LONG);
+      swap_short = SymbolInfoDouble(_Symbol, SYMBOL_SWAP_SHORT);
+   }
+   points_mode_out = (swap_mode == SYMBOL_SWAP_MODE_POINTS);
+   swap_long_out = swap_long;
+   swap_short_out = swap_short;
+}
+
+//+------------------------------------------------------------------+
+int Grind_HeartbeatSwapRateMult()
+{
+   MqlDateTime dt;
+   if(g_grind_heartbeat_test_swap_active && g_grind_heartbeat_test_swap_time > 0)
+      TimeToStruct(g_grind_heartbeat_test_swap_time, dt);
+   else
+      TimeToStruct(TimeCurrent(), dt);
+
+   int rollover3days = 3;
+   if(g_grind_heartbeat_test_swap_active)
+      rollover3days = g_grind_heartbeat_test_rollover3days;
+   else
+      rollover3days = (int)SymbolInfoInteger(_Symbol, SYMBOL_SWAP_ROLLOVER3DAYS);
+
+   if(dt.day_of_week == 0 || dt.day_of_week == 6)
+      return 1;
+   if(dt.day_of_week == rollover3days)
+      return 3;
+   return 1;
 }
 
 //+------------------------------------------------------------------+
