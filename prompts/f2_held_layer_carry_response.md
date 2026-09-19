@@ -170,3 +170,65 @@ git diff --stat bf780bc..HEAD (diagnostic commit only):
  prompts/f2_held_layer_carry_response.md | 37 ++++++++++++++++++++++++++++++++
 
 Line count: 172
+
+## FIX: normalise before computing shift
+
+Operator measurement 2026-09-19 16:34:
+
+  F2-5 DIAG raw=1.25030000 accrued=0.00021060 intended=1.25051060
+            rec_price=1.25051000 stored_shift=0.00000000
+            expected_shift=-0.00000060 delta=0.0000006000
+
+Pass stored shift 0 because applied_shift used un-normalised new_exit; order
+landed at Grind_Normalize(new_exit), 6e-7 below intended.
+
+### grind_carry.mqh change (context)
+
+   const double intended = formula_exit + accrued_price;
+   const double applied_shift = Grind_Normalize(new_exit) - intended;
+   Grind_CarryShiftSet(position_ticket, applied_shift);
+
+intended unchanged; accrued_price unchanged; exit_order_ticket==0 path unchanged.
+
+### Grind_Normalize location
+
+- Single definition moved verbatim to ea/grind_pure.mqh (after Grind_PipsToPrice).
+- Removed from ea/grind_engine.mqh; engine already includes grind_pure.mqh.
+- grind_carry.mqh includes grind_pure.mqh; no circular include.
+
+### F2-5 test
+
+F2-5 DIAG Print removed. AssertNear("F2-5 shift", ..., 1e-12) unchanged.
+
+### Placement path (report only, not fixed this commit)
+
+Yes, same class of defect at Grind_ExitQManageSide placement
+(grind_engine.mqh:1845-1851):
+
+  ticket = Grind_PlaceLimit(otype, price, ...)  // Grind_PlaceLimit :423 normalises
+  side.layers[i].exit_target = price;             // un-normalised price stored
+  Grind_CarryShiftSet(..., price - formula);    // shift from un-normalised price
+
+Broker order price is Grind_Normalize(price); shift describes pre-normalise
+price. Operator decides separate fix.
+
+### Self-review
+
+- F2-5 DIAG Print gone; assertion and tolerance unchanged.
+- Clamp block at grind_engine.mqh:1847-1855 not modified (only Normalize def removed earlier in file).
+
+git diff --stat origin/main...feat/f2-held-layer-carry:
+
+ .../architecture/ADR-135b-carry-exit-adjustment.md |  22 +-
+ ea/fxgrind_tests.mq5                               |   7 +
+ ea/fxgrind_tests_adr151.mqh                        | 306 ++++++++++++++++++++-
+ ea/fxgrind_tests_adr152.mqh                        |   2 +-
+ ea/grind_carry.mqh                                 |  39 ++-
+ ea/grind_engine.mqh                                |  10 +-
+ ea/grind_exitq.mqh                                 |   8 +-
+ ea/grind_pure.mqh                                  |   6 +
+ ea/grind_recon.mqh                                 |  16 +-
+ prompts/f2_held_layer_carry_response.md            | 224 +++++++++++++++
+ 10 files changed, 617 insertions(+), 23 deletions(-)
+
+Line count: 224

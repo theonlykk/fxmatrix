@@ -66,6 +66,12 @@ double Grind_PipsToPrice(const double pips, const double point)
 }
 
 //+------------------------------------------------------------------+
+double Grind_Normalize(const double price)
+{
+   return NormalizeDouble(price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+}
+
+//+------------------------------------------------------------------+
 double Grind_MidPrice(const double bid, const double ask)
 {
    return (bid + ask) * 0.5;

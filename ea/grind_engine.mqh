@@ -12,12 +12,6 @@
 #include "grind_closeby.mqh"
 #include "grind_telemetry.mqh"
 
-//+------------------------------------------------------------------+
-double Grind_Normalize(const double price)
-{
-   return NormalizeDouble(price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
-}
-
 // Live-market unit-test hooks (fxgrind_tests — off by default in production).
 bool   g_grind_market_test_active = false;
 double g_grind_market_test_bid = 0.0;

@@ -922,7 +922,7 @@ bool Grind_CarryExitShiftLayer(const ulong position_ticket,
    }
 
    const double intended = formula_exit + accrued_price;
-   const double applied_shift = new_exit - intended;
+   const double applied_shift = Grind_Normalize(new_exit) - intended;
    Grind_CarryShiftSet(position_ticket, applied_shift);
    if(clamped_out)
       g_grind_carry_exit_clamped++;
