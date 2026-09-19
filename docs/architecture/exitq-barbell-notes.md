@@ -912,6 +912,84 @@ it looked on 2026-09-18.** It remains the only position-side lever, which is
 why it survives at all. Gemini's deferral behind ADR-152 Phase 2 stands and
 now has better reasons than the one it was given.
 
+## 2i. EJECTION STALENESS -- GEMINI RULING, 2026-09-19
+
+**Fire the ejection when the 8th layer fills.** Settled. This is what happens
+when the ejection order is not lifted.
+
+### Why time and distance are both wrong
+
+"Unfilled for N seconds, revise lower" fires at the worst moment: if the
+ejection has not filled it is because price is falling, so revising completes
+it near the low and the refill bid clamps to just under market -- a coin-flip
+re-entry.
+
+"Unfilled and price is M pips below" is a trailing stop with extra steps.
+
+**Both act BECAUSE the market moved against us. That is chasing.** Both
+destroy the self-timing property: if it does not fill, price is falling and
+we should not be adding into the move.
+
+### The rule -- Shape B, ruled
+
+Revise when the market STOPS moving, and only when the refill is provably
+reachable:
+
+    over the last N M5 bars:
+        high - low <= add_pips          // consolidation
+        AND low <= prospective_bid      // the refill level has traded
+
+Gemini on why not range-width alone: **it is blind to location.** The market
+could flatline 40 pips above the refill level, and we would pay the ejection
+cost to free a slot that never triggers. Shape B forces the market to prove
+the new bid is viable before we pay.
+
+### Bars, not ticks -- and this corrects me
+
+I worried a bar window meant new machinery. **That applies to indicator
+handles, not raw history.** `CopyRates` is a direct synchronous fetch from
+the terminal's history buffer: zero engine state, zero GlobalVariables, and
+it survives an EA restart intact.
+
+A rolling tick window would need a custom ring buffer and transient state
+that WIPES ON REBOOT. Use `PERIOD_M5` and let the broker hold the memory.
+
+### Repeatable, not once
+
+Capping at a single revision freezes permanently if the market stair-steps
+down to a second, lower shelf.
+
+**Gemini's reason -- the trigger is not distance or time, so it cannot
+degenerate into a trailing stop -- is right but incomplete.** In a
+stair-stepping market the EFFECT looks like one: shelf at 55, revise and
+fill; shelf at 45, revise and fill.
+
+**What actually makes it acceptable: revising lower adds no loss.** Ejecting
+at 45 realises exactly what holding to 45 costs in MTM. It converts
+unrealised to realised at the same price. The only thing surrendered is
+recovery optionality on that ONE layer -- and at each shelf we get a working
+ladder that scalps in the range the market is actually in.
+
+**The conveyor belt is the design, not a failure of it.** Worth stating in
+the ADR, because "repeatable revision" reads like unbounded risk and is not.
+
+### No invariant change
+
+The ejection is an `OrderModify` that updates `exit_target`. I6 compares the
+resting order's price against that exact field, so they agree. **Shape B
+needs no change to I3 or I6**, and reconstruction handles it natively.
+
+### The one number, and it is a guess
+
+`N = 6` M5 bars, about 30 minutes, is Gemini's suggestion -- **not a
+measurement.** It is the only parameter in the ruling and it decides whether
+the rule ever fires.
+
+Thirty minutes of consolidation within one `add_pips` step, with the
+prospective bid inside the range, may be common or may almost never happen.
+**Measurable from the same M5 data as the path study
+(`roll-at-cap-notes.md` s3d). Check before speccing.**
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -1051,4 +1129,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 1054
+Line count: 1132
