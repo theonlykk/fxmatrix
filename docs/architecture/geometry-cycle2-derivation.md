@@ -284,8 +284,9 @@ conditions) and replay only the exit, on real prices:
 
 1. For every filled layer in the window, take the M1 path from its entry.
 2. For each candidate X from 3 to 15 pips: did the path reach the exit?
-   A long exits when BID >= entry + X; a short when ASK <= entry - X, so
-   the spread counts against shorts. Record the fill time, or mark the
+   Exits are resting limits and fill passively at their own price. A long's
+   exit is a sell limit, filled when BID >= entry + X; a short's is a buy
+   limit, filled only when ASK <= entry - X. Record the fill time, or mark the
    layer to market at window end.
 3. Per pair, plot net pips per day and per slot-day against X.
 
@@ -339,4 +340,4 @@ only as a live A/B, which 6.1 blocks anyway.
   values, or get the width ruling first.
 - **EURUSD:** leave one arm at its old values so the pair has a control.
 
-Line count: 342
+Line count: 343
