@@ -59,12 +59,15 @@ fails only when the geometry is outside a sane band:
 The band keeps ADR-125's drift protection -- a typo of 40 instead of 4
 still fails at startup -- without dictating the geometry.
 
-**2. `InpStrandedThreshPips` follows WIDTH, not add.**
+**2. `InpStrandedThreshPips` follows WIDTH, not add, with a floor.**
 
-The preset convention becomes `stranded = 2 x width`, which is numerically
-what every preset holds today, so the ADR-124 rescue semantics are
-unchanged: the gate opens only once the quote has drifted a full extra
-`width` beyond where it was placed.
+    stranded = max(2 x width, width + deadband + 1)
+
+`2 x width` is numerically what every preset holds today, so the ADR-124
+rescue semantics are unchanged on every pair that already clears the
+floor: the gate opens only once the quote has drifted a full extra
+`width` beyond where it was placed. The floor exists because the EFFECTIVE
+threshold is not `stranded` alone -- see the evidence section.
 
 **3. New `OnInit` check, fatal:**
 
@@ -93,14 +96,40 @@ new range check (ratio exactly 2.0) and the new stranded bound
 (2 x width > width + 4 for every width >= 5; EURGBP at width 3 gives
 6 > 7 FALSE -- see Open Questions).
 
-## Open questions
+## Evidence: EURGBP already churns, measured
 
-**EURGBP fails the new bound at today's width.** width 3, deadband 4:
-`2 x 3 = 6` is not greater than `3 + 4 = 7`. Under cycle 3 EURGBP moves to
-width 2, which is worse (4 > 6 false). Either the bound is
-`stranded >= width + deadband` with EURGBP's deadband reduced, or EURGBP's
-stranded is set explicitly above the bound rather than by the 2 x width
-convention. **Must be settled before the spec goes to Cursor.**
+EURGBP runs width 3, stranded 6, deadband 4 -- so `2 x width` (6) does NOT
+exceed `width + deadband` (7), and it has been below the bound since
+deployment. The `--l0churn` view added to pipshed
+(`scripts/archive_counts.py`, merged 2026-09-20 at `36a4ade`) counts
+layer-0 ENT modifies per instance, recovering role and layer by joining
+each modify to the placement that created its ticket:
+
+| instance | modifies | share of its requests | window |
+|---|---:|---:|---|
+| GRIND_EURGBP_ALT | **139** | **48.3%** | 13-Sep 21:05 to 14-Sep 04:41 |
+| GRIND_AUDNZD_ALT | 15 | 7.7% | spread over 4 days |
+| GRIND_GBPUSD_OPT | 13 | 1.0% | spread over 8 days |
+| every other instance | 2 to 12 | 0.2% to 5.3% | spread |
+| GRIND_EURGBP_OPT | 2 | 0.2% | -- |
+
+Read with care:
+
+- **It is bursty.** All 139 landed inside 7h36m, about 18 per hour. Nearly
+  half that instance's API usage over nine days came from one night.
+- **Geometry permits it; the one-sided state triggers it.** EURGBP OPT has
+  identical geometry and shows 2. The recentre only runs when one side
+  holds layers and the other is flat.
+- **Lower bound.** Only 560 of 2430 modifies matched a placement row --
+  `send_logs` retains 14 days and older orders have no placement.
+
+**The effective threshold is `width + deadband`, not `stranded`.** A
+re-quote needs the gate open (`dist > stranded`) AND the new price at
+least `deadband` from the old, which needs `dist >= width + deadband`.
+For EURGBP that is 7 pips of mid drift against a 3-pip quote; for every
+other pair it is 10. Cycle 3 would have taken EURGBP to width 2, dropping
+it to 6. Hence the floor in Decision 2: at width 2 it yields stranded 7,
+and it changes nothing on any pair whose `2 x width` already clears it.
 
 ## Testing
 
@@ -110,6 +139,7 @@ Tests first, and they must fail before the change:
   accept, reject.
 - `stranded` at `width + deadband` exactly (reject) and one point above
   (accept).
+- The floor: width 2, deadband 4 -> the convention yields 7, not 4.
 - A cycle-3 geometry (width 5, add 4, exit 10, stranded 10) starts clean.
 - Every current preset still passes both checks.
 - The ADR-124 recentre is unchanged when `stranded = 2 x width`: same
