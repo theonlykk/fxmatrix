@@ -12,6 +12,7 @@ This folder is the entry point for a new chat. Read these in order.
 | `03_COOKBOOK.md` | Every endpoint, every archive query, the repos | when a tool is added |
 | `04_DEEPSEEK_COURIER.md` | How DeepSeek is reached: the `r1_audit.py` API runner | rarely |
 | `05_GIT_AS_TRANSPORT.md` | How specs and responses move through the repo | rarely |
+| `06_LINUX_WINE_BOX.md` | The Vultr Ubuntu/Wine box: build, paths, Wine version trap | when it changes |
 
 `NEW_CHAT_PROMPT.md` is not part of the reading order -- it is what the
 operator pastes to start a new chat. Update it only when the workflow
