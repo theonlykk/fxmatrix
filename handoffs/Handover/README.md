@@ -13,6 +13,11 @@ This folder is the entry point for a new chat. Read these in order.
 | `04_DEEPSEEK_COURIER.md` | How DeepSeek is reached: the `r1_audit.py` API runner | rarely |
 | `05_GIT_AS_TRANSPORT.md` | How specs and responses move through the repo | rarely |
 | `06_LINUX_WINE_BOX.md` | The Vultr Ubuntu/Wine box: build, paths, Wine version trap | when it changes |
+| `07_ROADMAP.md` | Where the project is going: multi-account, rings, monitoring | when the direction changes |
+
+`07_ROADMAP.md` is intent, not instruction -- read it for context on why a
+decision is being framed a certain way, and do not treat anything in it as
+ratified unless it says so.
 
 `NEW_CHAT_PROMPT.md` is not part of the reading order -- it is what the
 operator pastes to start a new chat. Update it only when the workflow
