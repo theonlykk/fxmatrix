@@ -145,16 +145,35 @@ run an add other than 10. Week one measures the real response.
 | AUDCAD | 10/5, 10/10 | 6 / 10 | 7 / 11 |
 | AUDCHF | 10/5, 10/10 | 4 / 10 | 5 / 11 |
 | CADCHF | 10/5, 10/10 | 4 / 10 | 5 / 11 |
-| EURGBP | 6/5, 6/8 | 4 / 5 | 5 / 6 |
+| EURGBP | 6/5, 6/8 | 4 / 5 | 4 / 11 |
 | NZDCAD | 10/5, 10/7 | 6 / 10 | 7 / 11 |
 | AUDNZD | 14/5, 14/7 | 8 / 10 | 9 / 11 |
 
 Headline measures after one week: total pips per day, and top-to-bottom
 pips-per-day dispersion across pairs (4.2x now; first target under 2x).
 
+### EURGBP is the exception: same add on both arms, exit varied (added 2026-09-20)
+
+EURGBP is the only pair where the two methods disagree, so its arms are
+spent settling that rather than on add spacing.
+
+- **The counterfactual says 11.** On the holdout, after swap, +93.2 pips
+  against the live configuration, interval [+31.6, +144.5] -- the only
+  result in the study whose interval excludes zero
+  (`prompts/exit_counterfactual_results.md` s4, s7).
+- **The raw fills say 5.** OPT at exit 5 made 36.7 pips/day; ALT at 8 made
+  30.0. Thin: 51 and 26 scalps.
+- Neither is decisive. The replay is statistically stronger but rests on
+  entries the old grid produced; the fills are direct but few.
+
+So both arms take add 4 (width 2, stranded 4) and differ ONLY in exit: OPT
+5, ALT 11. Last week's 6/5 and 6/8 remain the baseline for whether the
+tighter add lifted the pair at all. EURGBP gives up its add comparison for
+the week; the exit question is the one in dispute.
+
 **This supersedes three of your earlier rulings,** by operator decision:
-EURUSD OPT as a 14/7 control; EURGBP ALT revert to 8; NZD held at current
-values.
+EURUSD OPT as a 14/7 control; EURGBP ALT revert to 8 (it goes to 11
+instead, per the above); NZD held at current values.
 
 ---
 
@@ -192,4 +211,4 @@ no passive ejection, tight grids cap more (at add 4, a full
 Please ask questions where anything is unclear. State which premises you
 verified from this memo and which you assumed. No implementation.
 
-Line count: 195
+Line count: 214

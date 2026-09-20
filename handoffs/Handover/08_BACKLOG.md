@@ -24,7 +24,7 @@ Last reviewed 2026-09-20 22:15Z.
 | A4 | **Cycle-3 presets.** add / exit / width / stranded per arm, from `prompts/gemini_memo_geometry_cycle3.md`. Blocked by A1, shaped by A2 and A3 | blocked |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
 | A7 | **GlobalVariable clean-up list**, source-verified. A terminal restart does NOT clear them. `GRIND_MAE_*` anchors on the OLD account's equity; carry keys are ticket-dead; slot/magic locks, cap exposure, `GRIND_DEINIT_`, `GRIND_CLOSEBY_EXHAUSTED` unread | not started |
-| A8 | **EURGBP exit to 11.** Cleared the holdout AND the swap check (`prompts/exit_counterfactual_results.md` s7, +93 pips, interval [+32, +145]). Ship on one arm with the other at 8 as a control, or hold for the new account? | decision |
+| A8 | **EURGBP exit: DECIDED 2026-09-20.** The replay says 11 (+93 pips on the holdout after swap, the only interval excluding zero); the raw fills say 5 (OPT 36.7 vs ALT 30.0 pips/day). Only pair where the two methods disagree, so EURGBP's two arms settle it: SAME add on both, exit 5 on OPT and 11 on ALT. Folded into A4. Overrides the cycle-3 memo's 4/5 and 5/6, and a row Gemini already ruled on -- goes to him with A1 | in A4 |
 | A9 | **Deploy sequence.** Detach all 16 on the OLD account BEFORE switching login (attached EAs reinit on the new account and start quoting), switch, restart, clear GVs (A7), deploy build + presets, tag `vps-<sha7>`, attach | not started |
 
 ## B. WEDNESDAY, OPTIONAL BUT CHEAP
