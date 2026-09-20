@@ -170,7 +170,7 @@ arm (diagnostic), both EURGBP arms earn more at wider X over the full
 window: OPT 130 pips at X=5 vs 222 at X=11; ALT 80 at X=8 vs 95 at X=11.
 
 - **S1** (include the entry minute) was rejected by parity (A3c).
-- **S3** (swap) was NOT run. It is owed before any EURGBP change ships.
+- **S3** (swap) is now RUN -- see s8.
 
 ---
 
@@ -193,7 +193,52 @@ window: OPT 130 pips at X=5 vs 222 at X=11; ALT 80 at X=8 vs 95 at X=11.
 
 ---
 
-## 7. WHAT GOES TO GEMINI
+## 7. S3 -- SWAP, RUN 2026-09-20 21:00Z
+
+**Input:** the pipshed carry table, per night in pips at `mult` 1, read
+2026-09-20 20:50 once the week started. Per night: AUDCAD +0.202 / -0.941,
+AUDCHF +0.224 / -0.999, AUDNZD +0.165 / -0.931, CADCHF +0.081 / -0.624,
+EURGBP -0.642 / 0.000, EURUSD -1.106 / +0.059, GBPUSD -0.678 / -0.376,
+NZDCAD -0.069 / -0.355 (long / short).
+
+**Method:** charge each counterfactual hold for every broker midnight it
+crosses, weekday midnights only, with Wednesday's charged triple.
+
+**Assumptions, stated:** the rates are TODAY's and are applied to the
+10-18 Sep window; rates move. Which midnight carries the triple is a
+convention -- repeating it on Thursday's changes nothing (EURGBP still
+selects 11, band 10-12).
+
+**Result: the selections barely move.**
+
+| group | select on net | select on net + swap | swap over the calibration curve |
+|---|---|---|---|
+| majors | nothing (curve below zero) | nothing | -43 to -120 pips |
+| EURGBP | **11** (set 9-14) | **11** (set 10-12) | -13 to -63 pips |
+| crosses | 14 (set 13-15) | 13 (set 13-14) | -18 to -108 pips |
+
+**Holdout, on net after swap, like for like:**
+
+| group | X* | net at X* | net at live | difference | interval | result |
+|---|---|---:|---:|---:|---|---|
+| EURGBP | 11 | 82.0 | -11.2 | **+93.2** | [+31.6, +144.5] | **ACCEPT** |
+| crosses | 13 | -198.3 | -137.6 | -60.7 | [-264, +134] | reject |
+| crosses | 14 | -176.2 | -137.6 | -38.6 | [-252, +158] | reject |
+
+**EURGBP survives the swap check.** Its short side pays nothing per night
+and its long side -0.642, so the longer holds a wider exit implies cost
+about 44 pips over the calibration window against a roughly 100-pip gain,
+and the holdout interval still excludes zero.
+
+**What swap does change is the cost of holding inventory generally.** At
+the live geometry the current book pays about 47 pips (~4.4 USD) a night,
+about 9% of gross realised, and roughly triple that on Wednesdays. The
+worst rates sit exactly where layers are held longest: short AUD at ~0.94
+to 1.00 a night, EURUSD long at 1.106. Cycle 3's tighter grids hold more
+layers, so that cost rises with them -- it is not in the pips-per-day
+figures on which cycle 3 was chosen.
+
+## 8. WHAT GOES TO GEMINI
 
 1. **The metric disagreement.** Under a binding guard, which governs --
    per day (EURGBP widen to ~11; crosses wider) or per position-day
@@ -205,5 +250,7 @@ window: OPT 130 pips at X=5 vs 222 at X=11; ALT 80 at X=8 vs 95 at X=11.
 4. The selection-rule flaw (s6): accept it as a stated limitation, or
    re-run with a difference-from-reference rule as a new, separately
    pre-registered study once the new account has a week of data.
+5. EURGBP now clears the swap check (s7). Ship 11 on one arm, keeping the
+   other at 8 as a control, or hold it until the new account?
 
-Line count: 209
+Line count: 256
