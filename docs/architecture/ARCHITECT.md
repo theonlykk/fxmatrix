@@ -20,18 +20,29 @@ the V2 lessons that still bind.
 Paste this verbatim at the top of every DeepSeek brief and every Gemini
 design memo, so no reviewer reasons about an imagined system.
 
-> fxgrind is a passive limit-order market maker on MT5. Twelve instances
-> (six symbols x two geometry arms, OPT and ALT) share one FTMO demo
+> fxgrind is a passive limit-order market maker on MT5. Sixteen instances
+> (eight symbols x two geometry arms, OPT and ALT) share one FTMO demo
 > account, separated by magic number. It NEVER crosses the spread and NEVER
 > uses stop losses.
 >
-> Per side (long and short) an instance holds a ladder of "layers". Each
-> layer is one open position plus exactly one resting exit limit:
-> a long layer is a BUY position whose exit is a SELL LIMIT above market;
-> a short layer is a SELL position whose exit is a BUY LIMIT below market.
-> The exit is priced at entry +/- exit_pips and fixed at fill time. Entry
-> orders are different: L0 is re-quoted toward MID every tick outside a
-> deadband, and adds are priced from the layer anchor at add_pips spacing.
+> Per side (long and short) an instance holds a ladder of "layers". A long
+> layer is a BUY position whose exit is a SELL LIMIT above market; a short
+> layer is a SELL position whose exit is a BUY LIMIT below market. Each
+> layer's exit TARGET is entry +/- exit_pips, but under ADR-151 only a
+> PREFIX of each side's ladder has its exit actually resting at the broker
+> -- currently the single layer nearest the market. Deeper layers hold
+> their target as a formula and have no order; a fill rotates the ranks,
+> places the newly-nearest exit and cancels the one that fell out. This
+> exists because the account limit is 200 positions plus orders.
+>
+> An exit target is NOT immutable: a clamp at placement time, or the carry
+> pass when carry is enabled, records an offset that the queue and the
+> invariants apply alongside the formula.
+>
+> Entry orders are different: L0 is placed once at mid +/- width_pips and
+> re-quoted only when the flat side's quote is stranded far from mid while
+> the other side holds layers; adds are priced from the newest layer's
+> entry at add_pips spacing.
 >
 > Invariants run on EVERY tick and halt the instance when the book and the
 > tracker disagree. A halted instance stops trading but keeps observing.
@@ -117,8 +128,10 @@ Templates and a worked example live in `docs/deepseek_prompts_templates/`
 2. **Claude writes a COURIER wrapper** -- a short prompt whose only job is
    to load the brief from disk, verify all four bookends, hard-stop on any
    mismatch, perform the task, and write `prompts/<name>_response.md`.
-3. **The operator** saves the brief, switches Cursor to DeepSeek R1, and
-   pastes the courier.
+3. **The operator** saves the brief and has Cursor run the API runner
+   `scripts/r1_audit.py` (see `handoffs/Handover/04_DEEPSEEK_COURIER.md`),
+   which calls DeepSeek R1 directly. The older method -- switching Cursor's
+   own model to R1 and pasting a courier prompt -- is superseded.
 4. **The courier never touches git.** The operator commits the brief and
    response pair.
 5. **Claude reads both from GitHub** and verifies every load-bearing claim
@@ -314,8 +327,10 @@ Observed, dated, and expected to recur.
 Three machines, three roles. Do not assume rules transfer.
 
 **Desktop** -- repo at `D:\fxmatrix`, the working copy (not a clone that
-needs pulling). MT5 here is for compiling and Strategy Tester only, never
-attached to a live chart. All Strategy Tester work runs here.
+needs pulling). MT5 here compiles and runs the Strategy Tester, and is
+LOGGED IN to the live demo account with algo trading OFF -- so its Market
+Watch, deal history and export scripts see real account data. No EA is
+attached to a chart here.
 
 **VPS** -- separate clone at `C:\fxmatrix`. Runs the twelve live instances.
 Cursor has NO execution access, deliberately: the one machine with real
@@ -324,6 +339,11 @@ only via `deploy.ps1` pulling from git; the VPS never pushes.
 
 **Surface** -- Python only, no MT5, separate `C:\fxmatrix`. Cursor has no
 write access. Data moves over RDP, with `S:\` as a backup route.
+
+**Linux/Wine box** (added 2026-09-20) -- Vultr Ubuntu 24.04, compiles
+`fxgrind` and runs MT5 under Wine, algo OFF. A second machine that can
+build and test, so Cursor's inability to execute is not a single point of
+failure. See `handoffs/Handover/06_LINUX_WINE_BOX.md`.
 
 ### Sync scripts
 
@@ -457,8 +477,10 @@ identical, otherwise bounded by an explicitly stated rounding tolerance.
 
 ### V2 carry-forward items
 
-- **300 s pacing gate** and the **ADR-114 layer-anchor ratchet** remain
-  live concepts in fxgrind.
+- **300 s pacing gate** and the **ADR-114 layer-anchor ratchet** are V2
+  concepts and are NOT in fxgrind: neither appears anywhere in `ea/`. Treat
+  them as ideas that could be reinstated, never as behaviour to reason
+  from.
 - **The AddPipsFloor slippage lesson generalises:** a geometry parameter
   derived from simulated fills must be re-derived, or at minimum
   re-validated, against real fill data before it governs live orders.

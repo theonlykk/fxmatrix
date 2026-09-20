@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-20 21:45Z.
+Last reviewed 2026-09-20 22:15Z.
 
 ---
 
@@ -23,7 +23,6 @@ Last reviewed 2026-09-20 21:45Z.
 | A3 | **Fleet size.** The book sat at guard 194-195 with 16 instances. Cycle 3 makes nearly every pair trade MORE, and F1 adds one resting exit per side of depth >= 2 (30 slots on Friday's book). Measure peak book per instance from the archive and choose the count | not started |
 | A4 | **Cycle-3 presets.** add / exit / width / stranded per arm, from `prompts/gemini_memo_geometry_cycle3.md`. Blocked by A1, shaped by A2 and A3 | blocked |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
-| A6 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot. Wednesday is the only day every chart is reattached anyway | not started |
 | A7 | **GlobalVariable clean-up list**, source-verified. A terminal restart does NOT clear them. `GRIND_MAE_*` anchors on the OLD account's equity; carry keys are ticket-dead; slot/magic locks, cap exposure, `GRIND_DEINIT_`, `GRIND_CLOSEBY_EXHAUSTED` unread | not started |
 | A8 | **EURGBP exit to 11.** Cleared the holdout AND the swap check (`prompts/exit_counterfactual_results.md` s7, +93 pips, interval [+32, +145]). Ship on one arm with the other at 8 as a control, or hold for the new account? | decision |
 | A9 | **Deploy sequence.** Detach all 16 on the OLD account BEFORE switching login (attached EAs reinit on the new account and start quoting), switch, restart, clear GVs (A7), deploy build + presets, tag `vps-<sha7>`, attach | not started |
@@ -43,11 +42,11 @@ Last reviewed 2026-09-20 21:45Z.
 | C2 | **F1 migration path.** The barbell cannot deploy onto an EXISTING book: startup reconstruction demands an exit on `rank == depth - 1` and halts permanently. Needed for any mid-cycle change after Wednesday. Options: place-before-check at `OnInit`, or route the startup shortfall to quarantine | not started |
 | C3 | **Second exit study** on the new account, using a difference-from-reference selection rule (the flaw in `prompts/exit_counterfactual_results.md` s6). Needs a week of fills | waiting on data |
 | C4 | **Carry-skewed quoting.** Asymmetric L0 (e.g. mid -2 / mid +8) to prefer the positive-carry side. Breakeven is 2-3 nights held against a 3-pip skew, most holds are hours, and a fleet-wide skew becomes a carry trade. **First: split realised pips by side per pair, after swap, and see whether there is anything to capture** | analysis first |
-| C5 | **ARCHITECT is stale.** s1's frame block still says "exactly one resting exit ... fixed at fill time" -- false since ADR-151 -- and it is pasted into every Gemini and DeepSeek brief. Also s3 (courier), s8 (desktop MT5), s12 (pacing gate, ADR-114 ratchet: neither is in the code) | not started |
 | C6 | **Linux box qualification.** Run `fxgrind_tests` there (Strategy Tester); whitelist the pipshed URL and prove telemetry; systemd service so the terminal survives a reboot; watch for Wine crashes. Only then consider moving a fleet to it. `OrderSend` under Wine stays unproven until a live instance runs | partly done |
 | C7 | **Monitoring for N accounts.** One pass/fail across accounts: anything halted, any account near its loss limit, any book near 200, any API count near cap, anything stopped reporting. See `07_ROADMAP.md` s4 | not started |
 | C8 | **NZDCHF.** Rejected in ADR-146, never attached, presets still in the repo. Reopen only as part of ring selection, not as a one-off | idea |
-| C9 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
+| C9 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot (not public). Deferred from Wednesday: rotating means touching every chart's inputs. Do it at a reattach that is happening anyway. **The separate, larger exposure is the pipshed READ token, which is in every handoff in a PUBLIC repo** -- see the standing question in `NEW_CHAT_PROMPT.md` | deferred |
+| C10 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
 
 ## D. STANDING / HYGIENE
 
@@ -57,4 +56,4 @@ Last reviewed 2026-09-20 21:45Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 60
+Line count: 59
