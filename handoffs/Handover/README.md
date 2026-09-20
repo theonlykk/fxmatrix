@@ -14,8 +14,11 @@ This folder is the entry point for a new chat. Read these in order.
 | `05_GIT_AS_TRANSPORT.md` | How specs and responses move through the repo | rarely |
 | `06_LINUX_WINE_BOX.md` | The Vultr Ubuntu/Wine box: build, paths, Wine version trap | when it changes |
 | `07_ROADMAP.md` | Where the project is going: multi-account, rings, monitoring | when the direction changes |
+| `08_BACKLOG.md` | Every open work item, with status | as items land or are dropped |
 
-`07_ROADMAP.md` is intent, not instruction -- read it for context on why a
+`08_BACKLOG.md` is the standing list of open work; the newest handoff's
+NEXT SESSION block picks from it and orders it. `07_ROADMAP.md` is intent,
+not instruction -- read it for context on why a
 decision is being framed a certain way, and do not treat anything in it as
 ratified unless it says so.
 
