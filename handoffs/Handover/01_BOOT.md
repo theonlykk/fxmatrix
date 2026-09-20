@@ -178,21 +178,28 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-20 01:30Z, market shut until 21:00Z Sunday.** Evidence:
-`HANDOFF_2026-09-18c.md`, `HANDOFF_2026-09-19.md`,
-`docs/architecture/exitq-barbell-notes.md`.
+**As of 2026-09-20 21:15Z, market OPEN (reopened 21:00Z Sunday).** Evidence:
+`HANDOFF_2026-09-20.md`, status read `c67` at 21:13:15Z.
 
 | | |
 |---|---|
-| fxmatrix main | `e1efa23` |
-| VPS running | `5454358`, compiled 01:20Z 20-Sep. **DETACHED HEAD** |
-| Delta main vs VPS | `grind_engine.mqh`, `grind_exitq.mqh`, `grind_recon.mqh` (F1) + 12 presets (geometry). **Neither deployed** |
+| fxmatrix main | `761dc94` |
+| VPS running | `5454358`, compiled 01:18:50Z 20-Sep. **DETACHED HEAD**. Terminal verified byte-identical to that commit, 66 of 66 files |
+| Delta main vs VPS | `grind_engine.mqh`, `grind_exitq.mqh`, `grind_recon.mqh` (F1) + 12 presets (geometry cycle 2) + tooling. **None of it deployed** |
 | MQL5 suite | **1354/1354** at `605bc85`, operator-run |
-| Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok` at 01:20:56Z. NZDCHF never attached |
-| Book | 105 positions, 61 orders, 29 resting entries. Guard 195 |
-| Account | demo 1514582088, balance 10,091.94, equity 9,904.16, MTM -172.95. **3 days left on the cycle** |
+| Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok` at 21:13:15Z. NZDCHF never attached |
+| Book | 104 positions, 61 orders, 29 resting entries. **Guard 194** -- exactly at the limit |
+| Account | demo 1514582088, MTM -247. **Cycle ends; new account Wednesday**, same VPS terminal, restarted |
 | Carry | OFF in all presets. `OnInit` FATAL guard intact |
 | Tags | `vps-19b6faa` (K=1/H=0), `vps-5454358` (current) |
+| Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- compiles and runs MT5, algo OFF. See `06_LINUX_WINE_BOX.md` |
+
+**The stale-offset fix has now run live and priced correctly.** At 21:09:17Z
+AUDCAD ALT's capped short side released: the deepest short exit filled
+(+0.82), rank rotation promoted L06, and its exit was placed at 0.99414 =
+entry 0.99594 - 10 pips exactly, with no stale offset. Fleet-wide
+`exit_penetration_pips_mean` 0.0 and `exit_touch_revert_count` 0 through the
+Sunday open.
 
 **THE VPS IS IN DETACHED HEAD.** `deploy.ps1` begins with
 `git pull origin main` and would reintroduce F1. **Do not run it until you
@@ -215,10 +222,28 @@ the new preset fails I6 in `OnInit` and halts in place -- same mechanism as
 F1 below. **Until geometry is staged, an emergency reattach must use the OLD
 values.**
 
-**Geometry cycle 2 is not ratified.** No spec in the repo, no DeepSeek audit
-(mandatory for grid spacing, ARCHITECT s2), no pre-registered holdout (s12).
-The derivation lives in an uncommitted Gemini memo. EURUSD changes both arms,
-so that pair has no control.
+**Geometry cycle 2 is superseded, not ratified.** It had no spec, no DeepSeek
+audit (mandatory for grid spacing, ARCHITECT s2) and no pre-registered
+holdout (s12); its derivation is now committed at
+`docs/architecture/geometry-cycle2-derivation.md` with a source-review
+addendum. Six of its presets cannot start at all: `OnInit` enforces
+`add_pips == 2.0 x width_pips` (`fxgrind.mq5:119`, ADR-125).
+
+**What replaces it is geometry cycle 3**, in
+`prompts/gemini_memo_geometry_cycle3.md` with Gemini's ruling in
+`prompts/gemini_ruling_geometry_cycle3.md`. Objective: maximise pips per day
+AND even the distribution across pairs (4.2x top-to-bottom today), judged on
+trade volume from fills. Every pair except GBPUSD gets a tighter add; GBPUSD
+is the benchmark and same-week control. Open with the operator: keep the
+width link (width = add / 2, presets only) or break it (code + ADR); even in
+pips or in dollars (`InpLots`); fleet size against the 200 limit.
+
+**The exit question is settled for now.** A pre-registered counterfactual on
+the real fills (`prompts/exit_counterfactual_prereg.md`, results in
+`prompts/exit_counterfactual_results.md`) found only one clear result --
+EURGBP should widen to about 11, pending a swap check. Majors keep 7/10;
+crosses inconclusive. Its limit: it held entries FIXED, so it could not see
+the entry-volume problem that cycle 3 addresses.
 
 ### F1 halted the fleet tonight. It is merged and must not be redeployed.
 

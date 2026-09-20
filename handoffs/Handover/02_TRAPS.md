@@ -574,3 +574,76 @@ value fail. Same family as the I7 trap on lowering `InpMaxLayers`.
 **Verify what landed in the TERMINAL, not just the repo.** The check that
 matters is `Select-String -Path "$term\grind_exitq.mqh" -Pattern "const int
 depth"` -- empty means the barbell is not there.
+
+---
+
+## A STUDY THAT HOLDS ITS INPUTS FIXED CANNOT JUDGE WHAT PRODUCED THEM
+
+2026-09-20. The exit counterfactual was executed properly -- pre-registered,
+DeepSeek-audited, Gemini-ruled, parity 610/612 scalps within one minute --
+and it answered the wrong question.
+
+It replayed different `exit_pips` over the REAL entries. Entries were held
+fixed by design, which is what made the parity check possible. But the
+entries were produced by the grid under test, so the study was blind to the
+defect that mattered: **pairs differ in pips per day almost entirely because
+they differ in ENTRY volume.** Every pair converts 67-82% of entries into
+scalps; GBPUSD gets 30.3 entries/day and CADCHF 10.0, on the same add
+spacing of 10.
+
+The operator caught it, and was right to be annoyed: "why are you focused on
+exits when that is obviously polluted by the entry".
+
+**Rules that follow:**
+
+- Read an uneven scalp or pip distribution across pairs as **add spacing too
+  wide for the quieter pair** FIRST. Check exits second.
+- Before running a study, name what it holds constant and ask whether that
+  constant is itself the suspect.
+- **"No alternative beat it" is not "it is correct".** A narrow null result
+  reported as "change nothing" wasted an hour and was wrong.
+- **Price-action proxies do not persuade the operator, and should not
+  persuade you.** Lead with trade volume from fills -- scalps and pips per
+  day, per pair, per arm.
+
+## OTHER TRAPS FROM 2026-09-20
+
+**Cursor leaves the desktop on its own branch.** Twice in one session a
+commit or merge landed on `review/...` instead of `main`, and `git merge`
+answered "Already up to date" because the branch was being merged into
+itself. **Run `git branch --show-current` after every Cursor job**, and read
+the last line of `git log --oneline -1` for `HEAD -> main`.
+
+**`git add a b` stages NOTHING if one path is wrong.** A missing file in the
+list silently takes the good one with it. Check `git status --short` after.
+
+**Commission is charged per FILL, including passive limit fills.** 0.03 USD
+per 0.01 lot on ENT, EXT and manual OUT; CloseBy is free. That is 0.45 pip
+per scalp on EURGBP and 1.05 on AUDNZD. It is an FTMO account charge, not
+spread, and it is not evidence that the strategy crosses the spread --
+report gross AND net and let the reader choose.
+
+**A terminal restart does NOT clear GlobalVariables.** They persist across
+restarts and across an account switch, in the terminal's own store. The new
+account on Wednesday needs an explicit, source-verified clean-up list --
+`GRIND_MAE_*` in particular anchors on the OLD account's equity.
+
+**Never push the deals dump to git.** The repo is public and the dump is the
+complete fill history. Upload it to the chat instead; 341 KB is nothing.
+
+**DeepSeek reads "slot" as the OPT/ALT arm.** Say "account slot" in briefs,
+or it will reject correct work on a misreading. Five of its 22 findings this
+session were wrong on MT5 mechanics; all five were caught by checking the
+deals and the source.
+
+**Gemini's conclusion can be right while its reason is wrong** -- it argued
+tight exits "give up the spread", which passive limit exits never do. Keep
+the ruling, correct the reason in the record.
+
+**Screenshots of EA inputs expose `TelemetryAPIKey`.** It happened again.
+Rotate at the next planned reattach, which is Wednesday.
+
+**Wine 11 breaks MT5** on the new Linux box -- "A debugger has been found
+running in your system". Ubuntu's own Wine 9 works. Details in
+`06_LINUX_WINE_BOX.md`.
+
