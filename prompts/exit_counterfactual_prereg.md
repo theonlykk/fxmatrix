@@ -297,6 +297,51 @@ Not raised by the review, added here: the NZD group's three-day history
 **The method is locked at A2.** The replay runs after this amendment is
 committed.
 
+**A3, 2026-09-20, after PARITY only -- no counterfactual curve seen.**
+Parity at `718b732` failed on one arm (EURUSD OPT, median hold 99.3 vs
+134.6 min). Diagnosed before any curve was computed:
+
+- **The timing model is essentially exact.** Of 612 observed scalps, 610
+  are filled by the replay, and 99.7% of real exits land within one minute
+  of the replay's fill minute. Split by side and by pre/post ADR-151, the
+  classification agrees on 99.4% to 100%. Held exits made no measurable
+  difference.
+- **Cause of the failure:** 14 of the 76 manual layers are filled by the
+  replay AT THEIR OWN LIVE X before the manual close. At live X the real
+  exit would have filled at the same moment, so in those 14 cases no exit
+  order existed at the broker: they fall in incident periods (FOMC night
+  16-Sep 21:00-21:46 broker, when the 200 limit refused exits; 14-Sep
+  early hours; 10-Sep afternoon). Two of them sit in EURUSD OPT with
+  one- and ten-minute holds, and the median moved through a gap in that
+  arm's hold distribution (117 to 152 min). On the 44 observed scalps
+  alone the replay's median hold is 134.3 vs 134.6.
+
+Changes:
+
+- **A3a, s5:** a manual layer that the replay fills at its OWN live X
+  before its manual close is taken to have had no exit order. It takes its
+  actual manual outcome at EVERY X (14 layers). This adds the same amount
+  to every X, so it cannot move a selection. The other 62 manual layers
+  keep rule A.
+- **A3b, s9:** the median-hold check compares the replay's holds with
+  the observed holds on the SAME layers (those observed as `scalp`),
+  like the classification check. A median over different layer sets is
+  sensitive to membership in a sparse distribution.
+- **A3c, s4:** the upper leg S1 is REJECTED by parity: including the
+  entry minute leaves only 80% to 89% of observed-open layers open on four
+  arms (GBPUSD OPT 80%), so it fills layers that demonstrably did not
+  fill. The bracket reduces to the lower leg; S1 is reported as rejected.
+
+With A3a and A3b, all 16 arms PASS, and the monotonicity invariant
+(s9) shows zero violations over X = 3 to 15. The fill rule itself is
+unchanged.
+
+**Expected regime for the tie-breaker (s8), stated before any curve:**
+operator 2026-09-20 -- the new account will run about 15 instances, close
+to the 200 limit. The guard is expected to BIND, so the tie-breaker does
+not apply: both co-primary metrics are reported, and any disagreement
+goes to Gemini.
+
 ## 12. KNOWN BIASES -- STATED IN ADVANCE
 
 - **Entries fixed.** A different exit closes layers sooner or later, which
@@ -337,4 +382,4 @@ fixable issue.
 
 Reviewed by DeepSeek 2026-09-20; dispositions in s11 A1.
 
-Line count: 340
+Line count: 385
