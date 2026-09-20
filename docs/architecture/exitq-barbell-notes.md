@@ -990,6 +990,143 @@ prospective bid inside the range, may be common or may almost never happen.
 **Measurable from the same M5 data as the path study
 (`roll-at-cap-notes.md` s3d). Check before speccing.**
 
+## 2j. REJECTED: A DELAY BEFORE THE INITIAL EJECTION
+
+Proposed by the operator 2026-09-19 and withdrawn the same day. Recorded so
+it is not re-proposed.
+
+### The proposal
+
+When the 8th layer fills and the side caps, wait N minutes before firing the
+ejection. "We would have held L0 for so long -- would 5 more minutes be
+worse?"
+
+### What it was protecting against -- a real case
+
+Layer 8 fills at 65 because price spiked down. It snaps back to 68 within a
+minute. Without a delay we have ejected the most underwater layer at the
+worst tick of a move that immediately reversed.
+
+Five minutes against a layer held for days costs nothing, so the asymmetry
+looked attractive.
+
+### Why it was rejected
+
+**The stability condition (s2i) already provides this protection, and
+measures the right thing.** A delay is a crude proxy for "has the market
+settled". The range test measures settlement directly:
+
+    over the last N M5 bars:
+        high - low <= add_pips
+        AND low <= prospective_bid
+
+**A spike fill cannot satisfy that**, because a spike is not a consolidated
+range. So applying the stability condition to the INITIAL ejection -- not
+only to revisions -- handles the spike case for the same reason it handles
+the free-fall case.
+
+**And the delay has a cost that is easy to miss.** Between capping and
+ejecting, the side is frozen and cannot add. If price keeps falling during
+those five minutes we have simply ejected lower -- which is the free-fall
+case already identified as the worst outcome available (s2h N2).
+
+**Two mechanisms would also be harder to reason about than one.** A timer
+plus a range test means timer state, and an interaction between them to
+specify and test.
+
+### The rule that replaced it
+
+**Apply the stability condition to the initial ejection as well as to
+revisions.** One trigger, one rule. Fire at cap ONLY when the market has
+consolidated and the prospective refill bid has traded within that range.
+
+That is strictly better than a delay: it cannot fire on a spike, it cannot
+fire in a free fall, and it needs no timer.
+
+## 2k. THE STABILITY RULE MEASURED -- AND WHY NOTHING IS PINNED
+
+Measured 2026-09-19. `scripts/measure_ejection_stability_window.py`, full
+tables in `prompts/ejection_stability_window.md`. M5 bars 2015-01-02 to
+2026-09-11, ~861,000 windows per symbol per N. **The files end before the
+operator week.**
+
+### The rule in s2i is a null set. Confirmed, not argued.
+
+Gemini's proof: clause 1 gives `min_low >= max_high - add_pips`, clause 2
+gives `close >= min_low + add_pips`, so `close >= max_high` -- which can only
+hold at exact equality. Measured at `range_mult = 1.0`:
+
+| symbol | pct_both | median wait | never resolved |
+|---|---:|---:|---:|
+| GBPUSD N=3 | 0.0045% | 1,448 h | 0.4% |
+| GBPUSD N=24 | 0.0008% | 5,880 h | 0.2% |
+| EURGBP N=3 | **0.0%** | inf | **100%** |
+| AUDNZD N=3 | **0.0%** | inf | **100%** |
+
+**The rule as ratified cannot fire.** The error was mine: clause 2 used
+`close - add_pips`, but the refill bid actually sits one step below the
+NEAREST-MARKET LAYER'S ENTRY. Collapsing the ladder out of the formula made
+the clause meaningless.
+
+### `N` barely matters. The consolidation WIDTH is everything.
+
+GBPUSD, clause 2 unchanged, width relaxed:
+
+| N | range_mult | pct_both | median | p90 |
+|---:|---:|---:|---:|---:|
+| 6 | 2.0 | 10.9% | 1.1 h | 6.1 h |
+| 8 | 2.0 | 11.6% | 1.1 h | 5.4 h |
+| 12 | 2.0 | 11.9% | 1.3 h | 5.8 h |
+| 6 | 3.0 | 17.5% | 0.7 h | 6.1 h |
+
+At `range_mult = 2.0`, N from 3 to 12 spans 7.6% to 11.9% with similar
+waits. **Gemini's guessed `N = 6` was fine. The parameter nobody questioned
+was the wrong one.**
+
+### The real finding -- the fleet is not homogeneous
+
+At `range_mult = 2.0`:
+
+| symbol | add_pips | pct_both | median wait |
+|---|---:|---:|---:|
+| GBPUSD | 10 | 10.9% (N=6) | **1.1 h** |
+| EURGBP | 6 | 6.5% (N=3) | 2.2 h |
+| AUDNZD | 14 | 1.08% (N=3) | **15.5 h** |
+
+**AUDNZD is fifteen times slower**, and the cause is in the same tables. Its
+`pct_c1` at `range_mult = 1.0` is **95%** -- its typical M5 range is SMALLER
+than its own `add_pips` of 14. **You cannot span 14 pips below the close
+inside a range narrower than 14 pips.** The reachability clause is close to
+arithmetically impossible for that pair. GBPUSD's `pct_c1` is 65%, so its
+ranges routinely exceed its 10-pip spacing and the clause is reachable.
+
+**The binding quantity is neither `N` nor `range_mult`. It is `add_pips`
+relative to the pair's own volatility.**
+
+### Gemini's ruling, 2026-09-19
+
+**Q1 -- parameterise the stability rule per pair, or by ATR?** *Neither.*
+`add_pips` ITSELF must become a function of volatility. Normalising the
+window while leaving the grid arbitrary just moves the lockout: the
+reachability clause fundamentally requires the market to span the grid step.
+Fix the geometry and the existing rule shape scales natively, with no
+per-pair lookup table.
+
+**Q2 -- ordering?** *Geometry absolutely first.* The firing rate is
+inextricably coupled to `add_pips`; building ejection against today's
+arbitrary grid is fitting logic to noise.
+
+**Q3 -- pin `N=6`, `range_mult=2.0` for GBPUSD?** *Pin nothing.* Those values
+are correct only for GBPUSD's current arbitrary `add_pips` and will
+invalidate the moment geometry changes. **File the findings; do not burn them
+into `grind_engine.mqh`.**
+
+### Consequence
+
+**Passive ejection is blocked behind geometry**, and so is any pinning of the
+stability parameters. The next piece of work is normalising `add_pips` to
+each pair's volatility, then the sweep, then ejection.
+
 ## 3. THE RULE, AND WHAT IT COSTS
 
     rest if  rank < K  OR  rank == depth - 1        // depth-1 = highest rank = most underwater
@@ -1129,4 +1266,4 @@ F1 last -- it is the least urgent and touches the invariant.
 Nothing. No ADR, no spec, no code, no ruling. This file exists so the idea
 survives the weekend.
 
-Line count: 1132
+Line count: 1269
