@@ -201,8 +201,24 @@ mean to.**
 **`MQL5\Presets` already holds the NEW geometry** (written by
 `deploy_presets.ps1`, which injects the telemetry key from
 `c:\fxmatrix-local\telemetry.key`, outside the repo because it is public).
-Chart inputs still carry the old values, so nothing has changed -- but
-**reattaching any chart picks up the new grid.**
+Chart inputs still carry the old values: no EA has been attached or detached
+since Friday, only compiled, and a compile reinitialises with the chart's
+existing inputs. So nothing has changed -- but **reattaching any chart picks
+up the new grid, and for six arms that halts the instance.**
+
+**Reattach hazard.** I6 checks every resting exit against the CURRENT
+`InpExitPips` (`fxgrind.mq5:149` -> `g_grind_recon_exit_pips` ->
+`grind_recon.mqh:502-536`, 2-point tolerance). Six arms change `exit_pips`:
+EURUSD OPT, EURUSD ALT, EURGBP ALT, AUDCAD ALT, AUDCHF ALT, CADCHF ALT. All
+six hold resting exits priced to the old value. Reattaching any of them with
+the new preset fails I6 in `OnInit` and halts in place -- same mechanism as
+F1 below. **Until geometry is staged, an emergency reattach must use the OLD
+values.**
+
+**Geometry cycle 2 is not ratified.** No spec in the repo, no DeepSeek audit
+(mandatory for grid spacing, ARCHITECT s2), no pre-registered holdout (s12).
+The derivation lives in an uncommitted Gemini memo. EURUSD changes both arms,
+so that pair has no control.
 
 ### F1 halted the fleet tonight. It is merged and must not be redeployed.
 
@@ -212,8 +228,16 @@ reverted 01:20Z, all 16 recovered with books intact.
 **Cause:** the barbell requires an exit on the most underwater layer
 (`rank == depth - 1`). Every existing book was built under the PREFIX rule, so
 no such layer has one. Reconstruction runs I3 before the queue can place the
-missing exits. Normally self-healing in one tick -- **but the market was shut,
-so every order returned `[Market closed]`.**
+missing exits, and **a failed reconstruction in `OnInit` is a PERMANENT halt
+in any market**: `Grind_RetryMissingExits` sits in the `else` branch at
+`fxgrind.mq5:170`, the halt path sets `g_grind_halted`, `OnTick` does nothing
+while halted, and `OnInit` never enters quarantine.
+
+**The shut market was incidental.** The `[Market closed]` lines were the halt
+path cancelling ENT orders (`Grind_CancelOwnEntryOrders`), not exits being
+refused. The same compile in a live market halts all 16 the same way.
+(Corrected 2026-09-20; the first version of this block said the halt was
+normally self-healing. It was never checked against source.)
 
 **F1 needs a migration path before it ships.** See `02_TRAPS`.
 

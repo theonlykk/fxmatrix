@@ -475,7 +475,7 @@ carry ships.
 
 ---
 
-## A MIGRATION THAT NEEDS ORDERS PLACED MUST NOT SHIP INTO A CLOSED MARKET
+## A CHANGE TO WHAT AN INVARIANT REQUIRES MUST SURVIVE ONINIT ON THE BOOK THAT EXISTS
 
 2026-09-20 01:08Z. F1, the barbell exit queue, was deployed. **All 16
 instances halted on `I3_LONG_NAKED` within two minutes.** Reverted 01:20Z;
@@ -495,32 +495,54 @@ CADCHF OPT, exactly: long layers 0.58963 (L00), 0.58863 (L01), 0.58763 (L02),
 only long exit on L02. Depth 3, so L02 is rank 0 and **L00 is rank 2 =
 depth-1**. No exit. Offending comment `GRIND|OPT|L|L00|ENT`.
 
-### Why it was not survivable
+### Why it was not survivable -- in ANY market
 
-**Normally this self-heals within a tick** -- the queue notices the missing
-exit, places it, and I3 passes from then on. The barbell is not incompatible
-with these books; it needs one order per side to bring them into compliance.
+**Correction, 2026-09-20.** This entry first said the halt "normally
+self-heals within a tick" and was stuck only because the market was shut,
+and it listed "deploy into a live market and accept a transient halt" as an
+option. That was reasoned from what the queue WOULD do, never checked against
+the `OnInit` path, and written into two handover documents. It was wrong:
 
-**But the market was shut.** Every order attempt returned `[Market closed]`.
-The engine was stuck in a state it could have fixed in seconds, and a halted
-instance does not trade at the open either.
+- `fxgrind.mq5:170`: a failed `Grind_ReconstructState` prints "halted in
+  place". `Grind_RetryMissingExits` is in the `else` branch and never runs.
+- The halt path sets `g_grind_halted = true`; `OnTick` gates everything
+  behind `if(!g_grind_halted)`. Nothing retries.
+- `I3_*_NAKED` IS quarantinable (`grind_quarantine.mqh:37`), but quarantine
+  runs only on the `OnTick` invariant path. `OnInit` bypasses it.
+
+**The `[Market closed]` lines were the halt path**, `Grind_CancelOwnEntryOrders`
+cancelling ENT orders -- not exit placements being refused.
+
+**The same compile in a live market halts all 16 identically**, and a halted
+instance ignores fills. The shut market was incidental.
 
 ### The rule
 
 **Before deploying any change that alters what an invariant REQUIRES, ask:
-does an existing book satisfy the new rule as it stands?**
+does the book that exists NOW pass the new rule through the `OnInit` path?**
 
 If it does not, the change needs one of:
 
-- **Place before checking** -- let the queue run a pass before the invariant
-  gates on the new rule.
-- **A grace state** -- the invariant tolerates the old shape for one pass.
-- **Deploy into a LIVE market only**, accept a transient halt, and watch every
-  instance self-heal.
+- **Place before checking** -- in `OnInit`, reconstruct under a rule the old
+  book satisfies, run the queue, then check under the new rule.
+- **A grace state** -- reconstruction tolerates the old shape and routes the
+  shortfall into quarantine instead of a halt.
 
-**And never deploy a migration of this kind into a closed market.** A change
-that can fix itself in one tick cannot fix itself at all when the broker
-refuses every order.
+**There is no "transient halt" option.** A reconstruction failure is
+permanent until a compile or reattach.
+
+**Quarantine facts, for any fix that routes through it.** Escalation to halt
+needs BOTH `>= GRIND_QUARANTINE_MIN_MS` (3000) AND
+`>= GRIND_QUARANTINE_MIN_CHECKS` (3), and checks run only in `OnTick`
+(`fxgrind.mq5:277-278`). A shut market delivers no ticks, so quarantine does
+not escalate over a weekend. **Whether the retry succeeds at the open is
+UNVERIFIED:** the quarantine retry is gated by `Grind_GuardsAllowTrading`,
+which includes a feed-staleness check on the first post-weekend ticks, and
+whether `Grind_RetryMissingExits` places an exit for the `depth - 1` rank has
+not been read. Prove both with tests before relying on them.
+
+**The test that must exist before F1 ships:** a book built under the OLD rule,
+run through the `OnInit` path under the new rule, expecting no halt.
 
 ### How it got through
 
@@ -543,6 +565,11 @@ deploy a reverted build. Use `git checkout <sha>` then a bare `xcopy ea\*`.
 
 **Tags are not fetched by `git pull origin main`.** `git fetch origin --tags`,
 or just use the SHA.
+
+**Changing `InpExitPips` on an arm that holds resting exits halts it on
+reattach** -- the same `OnInit` mechanism. I6 compares each resting exit with
+`entry +/- InpExitPips` at 2-point tolerance, so exits priced under the old
+value fail. Same family as the I7 trap on lowering `InpMaxLayers`.
 
 **Verify what landed in the TERMINAL, not just the repo.** The check that
 matters is `Select-String -Path "$term\grind_exitq.mqh" -Pattern "const int
