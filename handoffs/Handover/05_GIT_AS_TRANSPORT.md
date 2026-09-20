@@ -16,6 +16,25 @@ could see nothing. See `02_TRAPS.md`.
 
 ---
 
+## WHAT TRAVELS THROUGH THE REPO, AND WHAT DOES NOT
+
+Not everything needs committing, and committing everything slows the loop
+without making anything safer.
+
+| | route | why |
+|---|---|---|
+| Specs for Cursor | repo, always | Cursor reads from the repo; the diff check in Direction 1 is the integrity test |
+| Cursor responses | repo, always | Claude verifies commits and diffs against them |
+| DeepSeek briefs and reports | repo | the runner writes them there anyway, and audits are cited later |
+| Gemini RULINGS | repo | they change what is ratified; a decision nobody can find was never made |
+| Gemini BRIEFS | chat, unless they carry evidence | a question is transient; commit it only when it contains data or reasoning that later work cites, like a derivation memo |
+| Status reads, screenshots, one-off analysis | chat | re-fetchable or reproducible |
+
+The test: **will someone need this to understand a decision six weeks from
+now?** A ruling yes, the question that prompted it usually not.
+
+---
+
 ## DIRECTION 1 -- SPEC GOING IN
 
 1. Claude writes the spec to a file.
