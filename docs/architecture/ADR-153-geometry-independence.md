@@ -2,9 +2,10 @@
 
 ## Status
 
-Proposed -- 2026-09-20. Gemini approved the direction (both the break and
-the `stranded = 2 x width` revision) on 2026-09-20; DeepSeek audit and
-Cursor implementation outstanding.
+Proposed -- 2026-09-20, revised the same day after the DeepSeek audit,
+which found a sign error in the fatal check and a wrong derivation of the
+recentre threshold. Both corrected below. Gemini re-ruling and Cursor
+implementation outstanding.
 
 Supersedes the fixed relationship set by ADR-125 (`0bd0877`, 2026-09-06).
 
@@ -69,13 +70,22 @@ floor: the gate opens only once the quote has drifted a full extra
 `width` beyond where it was placed. The floor exists because the EFFECTIVE
 threshold is not `stranded` alone -- see the evidence section.
 
-**3. New `OnInit` check, fatal:**
+**3. New `OnInit` check, fatal.** The check REJECTS; the passing condition
+is the floor from Decision 2:
 
-    stranded_thresh_pips > width_pips + deadband_pips
+    if(stranded_thresh_pips < MathMax(2.0 * width_pips,
+                                      width_pips + deadband_pips + 1.0))
+       return INIT_FAILED;
 
-Below that bound the stranded gate is permanently open and the deadband
-becomes the de facto control. Failing at startup makes the mistake
-impossible to ship.
+**Written as a rejection deliberately.** An earlier draft stated the
+PASSING condition (`stranded > width + deadband`) under the heading
+"check, fatal", which reads as the failing one. Implemented literally that
+would have failed every preset with width 5 and admitted EURGBP -- exactly
+backwards (DeepSeek finding 1).
+
+It also enforces the whole floor rather than half of it: a check on
+`width + deadband` alone would admit `width 6, stranded 10.5`, violating
+the `2 x width` component (finding 4).
 
 ## Consequences
 
@@ -91,10 +101,18 @@ parameter derived from simulated fills to be re-validated against real
 fills before it governs live orders. The simulator has known cost-model
 defects; the EA should not be constrained to keep it honest.
 
-**Nothing changes for today's fleet.** Every live preset satisfies both the
-new range check (ratio exactly 2.0) and the new stranded bound
-(2 x width > width + 4 for every width >= 5; EURGBP at width 3 gives
-6 > 7 FALSE -- see Open Questions).
+**Today's fleet passes the range check** (ratio exactly 2.0 everywhere).
+Against the floor, all 18 presets checked, deadband 4.0 on every one:
+
+| width | arms | `2 x width` | floor | current stranded | passes |
+|---:|---|---:|---:|---:|---|
+| 7 | eurusd, audnzd, nzdchf (detached) | 14 | 14 | 14 | yes |
+| 5 | audcad, audchf, cadchf, gbpusd, nzdcad | 10 | 10 | 10 | yes |
+| 3 | **eurgbp OPT and ALT** | 6 | **8** | **6** | **NO** |
+
+EURGBP is the only preset this ADR forces a change on: stranded 6 -> 8.
+**Both EURGBP presets must change in the same commit as the code**, or
+those two instances will not start.
 
 ## Evidence: EURGBP already churns, measured
 
@@ -123,13 +141,61 @@ Read with care:
 - **Lower bound.** Only 560 of 2430 modifies matched a placement row --
   `send_logs` retains 14 days and older orders have no placement.
 
-**The effective threshold is `width + deadband`, not `stranded`.** A
-re-quote needs the gate open (`dist > stranded`) AND the new price at
-least `deadband` from the old, which needs `dist >= width + deadband`.
-For EURGBP that is 7 pips of mid drift against a 3-pip quote; for every
-other pair it is 10. Cycle 3 would have taken EURGBP to width 2, dropping
-it to 6. Hence the floor in Decision 2: at width 2 it yields stranded 7,
-and it changes nothing on any pair whose `2 x width` already clears it.
+### What actually sets the re-quote threshold
+
+Let `W` = width, `S` = stranded, `D` = deadband, and `d` = how far mid has
+drifted since the L0 was placed. A long L0 rests at `mid0 - W`, so the
+gate sees `|W + d|` while the deadband sees `|d|`. Both must pass, which
+gives DIRECTION-DEPENDENT thresholds in terms of mid drift: `max(D, S - W)`
+when mid moves AWAY from the resting quote, `S + W` when it moves toward
+it. The binding one is `max(D, S - W)`:
+
+| | W | S | D | drift that re-quotes |
+|---|---:|---:|---:|---:|
+| EURGBP today | 3 | 6 | 4 | **4.0** |
+| every other arm today | 5 | 10 | 4 | 5.0 |
+| EURGBP under the floor | 3 | 8 | 4 | 5.0 |
+| cycle-3 EURGBP (W 2) under the floor | 2 | 7 | 4 | 5.0 |
+
+**An earlier draft said the threshold was `width + deadband` -- 7 for
+EURGBP against 10 elsewhere.** Wrong twice (DeepSeek findings 2 and 10):
+it measured the resting order's distance from mid rather than the drift
+that moves it, and `width + deadband` at width 5 is 9, not 10.
+
+**So the floor buys less than first claimed:** EURGBP moves from
+re-quoting on 4-pip drifts to 5, matching the fleet. What the floor
+guarantees is that the GATE binds rather than the deadband -- `S >= W + D`
+is exactly the condition for `S - W >= D` -- and that is the property
+worth having, because the gate is a parameter we tune per pair and the
+deadband is not.
+
+**The 10x churn gap is therefore mostly NOT geometry.** A 4-pip threshold
+against 5 cannot explain 139 modifies against 12. The dominant factor is
+time spent one-sided with mid oscillating across the threshold: EURGBP ALT
+was one-sided for the whole 7h36m window. The floor is right, but it will
+not eliminate the churn.
+
+## Prerequisites the audit uncovered
+
+Two defects must be fixed as part of this work, not after it:
+
+- **`Grind_TryRecenterOppositeL0` reads the resting price with the raw
+  `OrderGetDouble`** (`grind_engine.mqh:1498`), while
+  `Grind_OrderGetPriceOpen` (`:348`) exists to serve order-test records.
+  In test mode the raw call returns 0.0, so the recentre computes a
+  nonsense distance. **No recentre test can pass until this is switched**
+  (finding 5).
+- **`Grind_TestOnInitGeometryCheck` (`grind_pure.mqh:47`) never calls
+  `Grind_ValidateAddWidthRelationship` and takes no `deadband`**, so
+  neither new check is reachable from the pure test surface. It needs the
+  extra parameter and the extra call (finding 8).
+
+The `OnInit` error message still names the old equality and is rewritten
+with it (finding 9).
+
+**Checked and clear:** `GRIND_ADD_WIDTH_MULTIPLE` appears only in the
+validator and that message; nothing in `grind_recon`, `grind_exitq`,
+`grind_cap` or `grind_state` assumes `add == 2 x width` (finding 6).
 
 ## Testing
 
@@ -141,6 +207,10 @@ Tests first, and they must fail before the change:
   (accept).
 - The floor: width 2, deadband 4 -> the convention yields 7, not 4.
 - A cycle-3 geometry (width 5, add 4, exit 10, stranded 10) starts clean.
+- The range permits `add > exit` (e.g. width 1, add 4, exit 2), where a new
+  layer's exit target sits BELOW the previous layer's entry. Test that the
+  exit queue ranks and places correctly there, or narrow the range
+  (finding 7).
 - Every current preset still passes both checks.
 - The ADR-124 recentre is unchanged when `stranded = 2 x width`: same
   modify count as today on a fixture where mid drifts.
@@ -148,5 +218,14 @@ Tests first, and they must fail before the change:
 ## Review
 
 DeepSeek is MANDATORY (ARCHITECT s2: grid geometry, and it changes when
-orders are placed). Gemini has ruled on the direction; the audit is for the
-mechanism and the bound.
+orders are placed).
+
+- Gemini ruled on the direction 2026-09-20: break the link, keep a range
+  guard, tie stranded to width.
+- **DeepSeek audited 2026-09-20** (`prompts/adr153_deepseek_response.md`,
+  branch `review/adr153-deepseek` at `565fa95`), verdict "do not implement
+  as written". All ten findings were checked against source: 1, 2, 3, 4,
+  5, 8, 9 and 10 accepted and folded in above; 6 confirmed clear; 7 became
+  a test requirement.
+- **Outstanding:** Gemini's sign-off on the corrected arithmetic, then the
+  Cursor spec.
