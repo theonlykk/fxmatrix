@@ -175,50 +175,72 @@ You have standing latitude to draft consults to Gemini or to the previous chat
 whenever you judge one is warranted. You do not need to ask first.
 
 ---
+
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-18, pre-London.** Evidence: `HANDOFF_2026-09-17.md` (deploy),
-`17b` (closes, cap 8, NZD ALT arms), `17c` (carry), `17d` (roll-at-cap spec,
-API count), `17e` (manual rolls, guard starvation, passive roll), `17f`
-(ADR-152 designed, ADR-152a abandoned, DeepSeek route corrected), `17g`
-(ADR-152 Phase 1 merged, Phase 1 deploy checklist).
+**As of 2026-09-20 01:30Z, market shut until 21:00Z Sunday.** Evidence:
+`HANDOFF_2026-09-18c.md`, `HANDOFF_2026-09-19.md`,
+`docs/architecture/exitq-barbell-notes.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `52f6870`. **ADR-152 Phase 1 merged at `fe511e7` but NOT deployed;** VPS still runs EA source `c39fb84` (ADR-151 Phase A). All 18 presets `InpMaxLayers=8` in repo AND VPS `MQL5\Presets` |
-| Open branch | `fix/adr152-failclosed-default` @ `0c21ce4`, pushed, unmerged. Flips the `InpFillTimePlace` / `InpSlotNearReserve` compiled defaults to `false` / `0` and makes the two GBPUSD presets opt in at `true` / `8`. Gemini approved both this and the ADR-152 gate wording |
-| VPS compiled at | `c39fb84`, 02:15:57Z 17-Sep. **ADR-151 Phase A is LIVE** |
-| pipshed main | `4e5bef4`. Does not yet render the ADR-152 heartbeat keys |
-| MQL5 suite | **1178/1178** at `fe511e7`, operator-run (17g) |
-| Fleet | **16 attached, 0 halted, all `recon_ok` / `invariant_ok`** at 04:25:22Z 18-Sep (status c46). NZDCHF never attached. Research: `research/roll-at-cap` @ `f423f18`; Surface sweeps `roll_modes_cal_2026_09_17` + `roll_modes_tail_chf_2026_09_17` finished 17-Sep evening, **still unread** -- rank on total P&L, not `mean_realised` |
-| Account | demo 1514582088, hedging, limit 200 on positions + orders. Daily-loss headroom UNVERIFIED in MetriX since 16-Sep (17b s1). Deposit confirmed $10,000. API requests 2,336 for broker day 17-Sep, over FTMO's 2,000; the 1,900 entry stop exists in merged code but is NOT on the VPS |
-| Rollback | `rollback/adr151-k99-r2` @ `f7e2123` (merge, deploy, compile). Never restore the ADR-150 ex5 while any layer is held |
+| fxmatrix main | `e1efa23` |
+| VPS running | `5454358`, compiled 01:20Z 20-Sep. **DETACHED HEAD** |
+| Delta main vs VPS | `grind_engine.mqh`, `grind_exitq.mqh`, `grind_recon.mqh` (F1) + 12 presets (geometry). **Neither deployed** |
+| MQL5 suite | **1354/1354** at `605bc85`, operator-run |
+| Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok` at 01:20:56Z. NZDCHF never attached |
+| Book | 105 positions, 61 orders, 29 resting entries. Guard 195 |
+| Account | demo 1514582088, balance 10,091.94, equity 9,904.16, MTM -172.95. **3 days left on the cycle** |
+| Carry | OFF in all presets. `OnInit` FATAL guard intact |
+| Tags | `vps-19b6faa` (K=1/H=0), `vps-5454358` (current) |
+
+**THE VPS IS IN DETACHED HEAD.** `deploy.ps1` begins with
+`git pull origin main` and would reintroduce F1. **Do not run it until you
+mean to.**
+
+**`MQL5\Presets` already holds the NEW geometry** (written by
+`deploy_presets.ps1`, which injects the telemetry key from
+`c:\fxmatrix-local\telemetry.key`, outside the repo because it is public).
+Chart inputs still carry the old values, so nothing has changed -- but
+**reattaching any chart picks up the new grid.**
+
+### F1 halted the fleet tonight. It is merged and must not be redeployed.
+
+Deployed 01:08Z, all 16 halted on `I3_LONG_NAKED` within two minutes,
+reverted 01:20Z, all 16 recovered with books intact.
+
+**Cause:** the barbell requires an exit on the most underwater layer
+(`rank == depth - 1`). Every existing book was built under the PREFIX rule, so
+no such layer has one. Reconstruction runs I3 before the queue can place the
+missing exits. Normally self-healing in one tick -- **but the market was shut,
+so every order returned `[Market closed]`.**
+
+**F1 needs a migration path before it ships.** See `02_TRAPS`.
+
+### What IS live
+
+**ADR-151 K=1/H=0 PREFIX queue.** Per side only the nearest exit rests;
+everything deeper is held (`has_exit_order false`, formula `exit_target`).
+The most underwater layer has NO resting exit -- that is the defect F1 was
+built to fix.
+
+**The stale-offset fix** (`241a905`) -- `GRIND_CARRY_SHIFT_` is now cleared on
+cancel and on unclamped placement. Closed a live latent halt that would fire
+on a clamp, demotion, then unclamped re-placement.
+
+**F2 held-layer carry accrual** -- `GRIND_CARRY_ACCRUED_<ticket>`, written
+only by the carry pass, read by the queue and I6 alongside the clamp shift.
+**Inert while carry is off.**
 
 **THE BINDING CONSTRAINT IS THE COMMITMENT GUARD, NOT THE ACCOUNT.**
-Entries need `positions + orders + resting_entries <= 194`. It moves fast: 172
-at 22:40Z 17-Sep, **195 at 04:25Z 18-Sep** (177 in book, 18 resting entries),
-which blocks entries fleet-wide while the book itself sits well under 200.
-Do not conclude from one snapshot that the ceiling is far away. Exits need 1
-free slot and are unaffected. Capacity design is the next question.
+Entries need `positions + orders + resting_entries <= 194`. Currently 195.
+Exits need 1 free slot and are unaffected.
 
-**How ADR-151 behaves, as seen live:** per side only the 2 nearest exits must
-rest (+1 may); deeper exits are held (`has_exit_order false`, formula
-`exit_target`). A fill places its exit in ~100-200 ms and cancels the exit
-that fell to rank 3. One entry send per instance per tick. Halt cancels own
-entries. A front-exit release has run live (EURUSD OPT L05, 17d); the
-hold-cancel race has NOT.
+**A compile or reattach clears a halt** (`OnInit`). There is no "parked across
+a compile". To keep an instance out, detach it.
 
-**A compile or reattach clears a halt** (`OnInit`). There is no "parked
-across a compile". To keep an instance out, detach it.
-
-**Carry pass is OFF in all 18 presets;** Phase A refuses to start if on.
-**That is a live economic leak, not a safe default:** exits must move by
-accrued carry (ADR-135b; sweep priced it, `725391f`). Phase B priority is
-open -- see `HANDOFF_2026-09-17c.md`.
-
-**Still true:** all arms cap 8 in every preset (raising a cap is safe,
-lowering one below a side's current depth trips I7, which is not
-quarantinable -- close first); NZDCHF rejected (ADR-146); cap thresholds 0.0;
-ARCHITECT s1, s3, s8, s9 and s11 stale -- s1, s8 and s9 still say twelve
-instances and six symbols, and s1 is the block pasted verbatim into every
-Gemini and DeepSeek brief.
+**Carry is OFF and that is a known economic leak**, not a safe default. F2
+made the mechanism correct; enabling it is a separate decision and needs the
+pipshed carry table fixed first -- it builds the pips columns from
+`mult_tomorrow`, which is 0 at weekends, so **the table was displaying the
+weekend, not a fault.**

@@ -472,3 +472,78 @@ printed values into assertions.**
 No test covers a clamp on a layer that ALSO has a carry shift. `MQ5` runs
 with no shift stored, so it cannot see the interaction. Establish this before
 carry ships.
+
+---
+
+## A MIGRATION THAT NEEDS ORDERS PLACED MUST NOT SHIP INTO A CLOSED MARKET
+
+2026-09-20 01:08Z. F1, the barbell exit queue, was deployed. **All 16
+instances halted on `I3_LONG_NAKED` within two minutes.** Reverted 01:20Z;
+all 16 recovered, books intact.
+
+### What happened
+
+The barbell changes which ranks require a resting exit, from a prefix
+(`rank < K`) to two ends (`rank < K OR rank == depth - 1`). So it requires an
+exit on the MOST UNDERWATER layer of every side.
+
+**Every existing book was built under the prefix rule, so no such layer had
+one.** Reconstruction runs I3 before the exit queue gets a pass, so every
+instance failed the invariant on its first reinit.
+
+CADCHF OPT, exactly: long layers 0.58963 (L00), 0.58863 (L01), 0.58763 (L02),
+only long exit on L02. Depth 3, so L02 is rank 0 and **L00 is rank 2 =
+depth-1**. No exit. Offending comment `GRIND|OPT|L|L00|ENT`.
+
+### Why it was not survivable
+
+**Normally this self-heals within a tick** -- the queue notices the missing
+exit, places it, and I3 passes from then on. The barbell is not incompatible
+with these books; it needs one order per side to bring them into compliance.
+
+**But the market was shut.** Every order attempt returned `[Market closed]`.
+The engine was stuck in a state it could have fixed in seconds, and a halted
+instance does not trade at the open either.
+
+### The rule
+
+**Before deploying any change that alters what an invariant REQUIRES, ask:
+does an existing book satisfy the new rule as it stands?**
+
+If it does not, the change needs one of:
+
+- **Place before checking** -- let the queue run a pass before the invariant
+  gates on the new rule.
+- **A grace state** -- the invariant tolerates the old shape for one pass.
+- **Deploy into a LIVE market only**, accept a transient halt, and watch every
+  instance self-heal.
+
+**And never deploy a migration of this kind into a closed market.** A change
+that can fix itself in one tick cannot fix itself at all when the broker
+refuses every order.
+
+### How it got through
+
+**The steady state was tested exhaustively** -- 7 new tests, 25 re-derived
+assertions, suite 1354/1354, and Gemini reviewed the spec four times. **Every
+test built its own fixture under the NEW rule.** Not one started from a book
+built under the old one.
+
+**Neither Claude nor Gemini considered the migration.** The reviews caught
+mechanical traps -- array bounds, ticket binding, regex classes -- and missed
+the question of what happens to books that already exist.
+
+**A test that constructs its own world cannot tell you whether the world you
+already have will survive the change.**
+
+### Also learned that night
+
+**`deploy.ps1` starts with `git pull origin main`**, so it cannot be used to
+deploy a reverted build. Use `git checkout <sha>` then a bare `xcopy ea\*`.
+
+**Tags are not fetched by `git pull origin main`.** `git fetch origin --tags`,
+or just use the SHA.
+
+**Verify what landed in the TERMINAL, not just the repo.** The check that
+matters is `Select-String -Path "$term\grind_exitq.mqh" -Pattern "const int
+depth"` -- empty means the barbell is not there.
