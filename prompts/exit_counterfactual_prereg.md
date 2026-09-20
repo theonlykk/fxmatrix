@@ -136,6 +136,11 @@ Per pair, per X in {3, 4, ..., 15}, per arm and pooled across arms:
   200-order account limit, NOT the OPT/ALT arm. When the two co-primary
   metrics select different X, that disagreement is itself reported as the
   finding and goes to Gemini with both curves.
+  **Tie-breaker (A2):** if the account the result is for is expected to
+  run WITHOUT guard saturation, net pips per day overrules net pips per
+  position-day. The expected regime is stated in the results document
+  BEFORE the curves are read, from the fleet size chosen for the new
+  account.
 - fill count and median hold
 - the distribution of available horizon (window end minus entry time) for
   calibration and holdout layers separately
@@ -199,10 +204,12 @@ sixteen free choices. Groups, from the derivation memo s7.4:
 
 Per-pair curves are reported as diagnostics only.
 
-**The NZD group is weak evidence.** Its pairs started trading on 16-Sep,
-so it has three entry days, one of them (17-Sep) its only holdout day, and
-most of its entries fall after ADR-151 went live. Any NZD selection is
-reported as provisional.
+**The NZD group is EXCLUDED from selection and from the holdout test
+(A2).** Its pairs started trading on 16-Sep, so it has three entry days,
+one of them (17-Sep) its only holdout day, and most of its entries fall
+after ADR-151 went live. It is still replayed and its curves are reported
+as diagnostics. NZDCAD and AUDNZD keep their current exit_pips until they
+have at least one further full week of data.
 
 **Selection, per group, on calibration only:**
 
@@ -216,13 +223,20 @@ reported as provisional.
    tested range.
 
 Run separately on NET per day, NET per position-day, and GROSS per day;
-report all three selections.
+report all three selections. Applies to majors, EURGBP and crosses only.
 
 **Holdout test, per group, like for like:** replay the SAME holdout
 layers twice -- once at X*, and once with each layer at its own arm's live
 X (the configuration actually running during the window). Accept X* only
 if holdout net pips at X* is at least equal to the live configuration's.
-Otherwise keep the current values.
+Otherwise keep the current values. **No tolerance band (A2).**
+
+**Reported, not decisive:** resample the group's holdout layers with
+replacement 2,000 times (seed 20260920) and report the 5th and 95th
+percentiles of (net at X*) minus (net at live configuration). If the
+interval straddles zero, the result is labelled as not distinguishable
+from the live configuration, whichever way the binary rule fell. This
+shows when one trade decided the outcome without loosening the rule.
 
 **False acceptance is not small.** Four groups, about 30 to 130 holdout
 layers each, a one-sided test: a pass is weak evidence and is reported as
@@ -266,6 +280,23 @@ the deals and price files:
 Not raised by the review, added here: the NZD group's three-day history
 (s10).
 
+**A2, 2026-09-20, NO results seen.** Gemini ruling on A1:
+
+- All five rejections stand.
+- Co-primary kept, with a tie-breaker: net pips per day overrules
+  position-days when the target account is expected to run without guard
+  saturation (s8).
+- NZD group excluded from selection and holdout; diagnostic only (s10).
+- Holdout bar: Gemini asked whether to allow a 95% tolerance. Decided NO
+  (operator delegated the call to Claude): a calibration gain is exactly
+  what overfitting produces, a band re-admits it, and a false rejection
+  costs one more week of the live configuration. The outlier concern is
+  answered by the bootstrap interval, which is reported but does not
+  decide (s10).
+
+**The method is locked at A2.** The replay runs after this amendment is
+committed.
+
 ## 12. KNOWN BIASES -- STATED IN ADVANCE
 
 - **Entries fixed.** A different exit closes layers sooner or later, which
@@ -306,4 +337,4 @@ fixable issue.
 
 Reviewed by DeepSeek 2026-09-20; dispositions in s11 A1.
 
-Line count: 309
+Line count: 340
