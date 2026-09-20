@@ -68,10 +68,14 @@ def test_t5_ask_low_r4():
 
 def test_t6_crossed_r5():
     row = _base_row("2026-09-10 10:00:00")
+    row["bid_open"] = 1.10005
+    row["bid_close"] = 1.10008
     row["bid_low"] = 1.10000
     row["bid_high"] = 1.10010
-    row["ask_low"] = 1.09990
-    row["ask_high"] = 1.10020
+    row["ask_open"] = 1.10010
+    row["ask_close"] = 1.10005
+    row["ask_low"] = 1.09995
+    row["ask_high"] = 1.10015
     msgs = check_bars(pd.DataFrame([row]))
     assert len(msgs) == 1
     assert "R5" in msgs[0]
