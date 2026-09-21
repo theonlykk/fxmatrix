@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-21 17:30Z.
+Last reviewed 2026-09-21 19:40Z.
 
 ---
 
@@ -22,7 +22,6 @@ Last reviewed 2026-09-21 17:30Z.
 | A3 | **Fleet: DECIDED -- nine pairs, one arm, cap 8.** Written up as the cycle-3 pre-registration, `docs/architecture/geometry-cycle3.md` | decided |
 | A4 | **Presets: WRITTEN 2026-09-21** -- nine `ea/presets/*_opt.set` (ALT presets untouched, unattached). EURGBP exit 5 (fills). Deploy with A9 | ready |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
-| A7 | **GlobalVariable clean-up: DONE 2026-09-21.** `scripts/grind_gv_clean.mq5` (merged `18aeab5`) deletes the ten persistent prefixes; the temporary ones (locks, reporter lease) are cleared by the terminal restart. Used in runbook step 3 | done |
 | A9 | **Deploy sequence: WRITTEN** -- `docs/runbooks/account-switch-2026-09-23.md`. Includes the F1 first-live check (B1) | ready |
 
 ## B. WEDNESDAY, OPTIONAL BUT CHEAP
@@ -36,14 +35,13 @@ Last reviewed 2026-09-21 17:30Z.
 
 | # | Item | Status |
 |---|---|---|
-| C1 | **Passive ejection.** The ratified stability rule cannot fire (measured 2026-09-19); its corrected form -- refill bid measured from the nearest layer's entry -- is unwritten and unmeasured. Then spec, DeepSeek, Gemini, Cursor, behind `InpEnablePassiveEject = false`. **Must record the exit offset it creates, or the next restart halts on I6** | blocked on a written rule |
 | C2 | **F1 migration path.** The barbell cannot deploy onto an EXISTING book: startup reconstruction demands an exit on `rank == depth - 1` and halts permanently. Needed for any mid-cycle change after Wednesday. Options: place-before-check at `OnInit`, or route the startup shortfall to quarantine | not started |
 | C3 | **Second exit study** on the new account, using a difference-from-reference selection rule (the flaw in `prompts/exit_counterfactual_results.md` s6). Needs a week of fills | waiting on data |
 | C4 | **Carry-skewed quoting.** Asymmetric L0 (e.g. mid -2 / mid +8) to prefer the positive-carry side. Breakeven is 2-3 nights held against a 3-pip skew, most holds are hours, and a fleet-wide skew becomes a carry trade. **First: split realised pips by side per pair, after swap, and see whether there is anything to capture** | analysis first |
 | C6 | **Linux box qualification.** Run `fxgrind_tests` there (Strategy Tester); whitelist the pipshed URL and prove telemetry; systemd service so the terminal survives a reboot; watch for Wine crashes. Only then consider moving a fleet to it. `OrderSend` under Wine stays unproven until a live instance runs | partly done |
 | C7 | **Monitoring for N accounts.** One pass/fail across accounts: anything halted, any account near its loss limit, any book near 200, any API count near cap, anything stopped reporting. See `07_ROADMAP.md` s4 | not started |
-| C8 | **NZDCHF.** Rejected in ADR-146, never attached, presets still in the repo. Reopen only as part of ring selection, not as a one-off | idea |
 | C12 | **Twelve tests price against the LIVE chart.** T45, T46, T46b, T46c, T57b, S1, S1b, S3, S4, S5, S6, Q10 reach exit placement on the 1001 fixture without `Grind_MarketTestSeed`. Their own assertions pass either way and the carry leak they caused is fixed (`29df88f`), but they still read live quotes. Seed the market in each | hygiene |
+| C17 | **Account daily-loss circuit breaker -- TOP PRIORITY AFTER WEDNESDAY.** Evidence (MetriX, 2026-09-21): $10k account, FTMO limit $500/day; **worst day -$420 (84%, FOMC night)**; about $217 of the day's limit already used by mid-session, apparently because floating inventory counts against each day from its start. **Nothing in the EA acts on this**: `GRIND_MAE_DAILY_LOSS_FRAC` (4.5%) only REPORTS the distance to the floor. Design (operator, 2026-09-21): **portfolio-level only** -- no per-instance budgets, because the fleet's pairs exist to diversify and absorb each other's losses. When the account's FTMO-day loss reaches a threshold (e.g. 80% of the limit), EVERY instance stops placing NEW entries (adds and L0); exits keep resting and filling, so the book can only shrink; resets at FTMO's daily reset (midnight CE(S)T). A backstop for technology failure and correlated tail days, not an everyday control. Reuses `GRIND_MAE_ANCHOR_<day>`, which must match FTMO's reference (verify: higher of balance or equity at day start). ADR, tests first, DeepSeek (it changes when orders are placed) | not started |
 | C15 | **Commanded ejection -- FIRST BUILD AFTER WEDNESDAY.** A script (`grind_eject`, inputs magic + ticket) writes `GRIND_EJECT_<magic>`; the EA validates the ticket is its DEEPEST layer on a side, cancels that side's ENT, closes the position through its OWN path, updates its book (no quarantine, no reattach, no preset trap), clears the command and emits an `EJECT` telemetry event so pipshed records it. The engine's normal add re-quote then completes the roll. Separates MECHANISM (build and test once) from POLICY (human-triggered until the roll log and the retrace study say what the rule is). Passive ejection later = this mechanism + a trigger. EA code touching layer state: spec, tests first, DeepSeek. Must survive restart (I6) | not started |
 | C16 | **Retrace study** -- from the M1 bid/ask data and fills: for each capped side, how often a retrace of `X` pips came within 24h vs how often price returned to the deepest layer's exit. Turns roll vs eject-and-wait into a number. Operator insight 2026-09-21: with add `a` < exit `X`, a retrace earns ~`X/a` pips per pip beyond the first `X` -- favours rolling | not started |
 | C14 | **Partial-fill handling -- prerequisite for any lot above 0.01.** The EA reads filled volume only to LOG it (`grind_engine.mqh:1651`) and places each exit for `InpLots`. A partial fill leaves an exit sized for volume that never filled; CloseBy then nets part of it and leaves an unowned opposite position, and the second partial deal's handling is untraced. Operator wants to scale (e.g. 0.1 on a 100k account), so this gates growth. Tied to the API budget: handling partials costs requests | not started |
@@ -58,4 +56,4 @@ Last reviewed 2026-09-21 17:30Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 61
+Line count: 59

@@ -74,6 +74,14 @@ Choosing the next rings -- decide from FILLS, not from a diagram:
   from a volume-matched add and is corrected from its own fills after a
   week.
 
+**Never run the same PAIR on two accounts.** FTMO treats opposite
+positions across linked accounts as manipulative trading, and a grid is
+routinely long on one ladder and short on another. Two accounts both
+running AUDCAD would regularly hold opposite AUDCAD positions. Give each
+account its own rings, with no pair shared between accounts. (Same
+strategy across own accounts is allowed, capped at 400k USD total
+allocation per strategy.)
+
 **Open structural question:** currencies overlap between rings, so an
 account running two triangles is only flat in a currency if both are
 complete. AUD currently sits in two rings. Harmless at 0.01 lots;
@@ -149,4 +157,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 152
+Line count: 160
