@@ -2,8 +2,9 @@ This message has a line count at the bottom
 
 # ADR-156 -- STARTUP EXIT SHORTFALL: PLACE, THEN CHECK
 
-**Status:** Proposed, 2026-09-21. Backlog C2. Needs a Gemini ruling and a
-DeepSeek audit (it changes when orders are placed; ARCHITECT s2).
+**Status:** Approved by Gemini 2026-09-21 (rev 2 folds in his ruling,
+`prompts/gemini_adr156_ruling.md`). DeepSeek audit pending (it changes
+when orders are placed; ARCHITECT s2). Backlog C2.
 **Base:** `main` `5124bd2`. All line numbers below are at that SHA.
 
 ---
@@ -76,17 +77,21 @@ place, not a halt.** Everywhere else, I3 stays exactly as it is.
    `no_exit_coverage` I3 branch is skipped (F-3, all four sites).
    Nothing else changes. When it is false, behaviour is byte-for-byte as
    today.
-2. The rebuild counts skipped layers in a new global
-   `int g_grind_recon_exit_shortfall`. It is reset to 0 at the start of
-   every rebuild and counted ONLY in the Inner loop (`:1033-1060`), so a
-   layer is counted once, not twice.
+2. The rebuild counts skipped layers PER SIDE in two new globals,
+   `g_grind_recon_exit_shortfall_long` and `_short`. Both are reset to 0
+   at the start of every rebuild and counted ONLY in the Inner loop
+   (`:1033-1060`), so a layer is counted once, not twice.
 3. `Grind_ReconstructState()` passes `true`. `Grind_CheckBookInvariants()`
    keeps the default `false`.
-4. In `OnInit`, after a successful reconstruction with a shortfall above
-   0: print one WARN line and write one archive marker
-   `WARN STARTUP_EXIT_SHORTFALL` with detail `{"count":N}`. Then the
-   existing `Grind_RetryMissingExits` runs (it is already in the `else`
-   branch).
+4. In `OnInit`, after a successful reconstruction with any shortfall:
+   print one WARN line and write one archive marker
+   `WARN STARTUP_EXIT_SHORTFALL` with detail `{"long":a,"short":b}`. If
+   EITHER side's shortfall is 2 (with K = 1 that is every required exit on
+   the side), also call `Grind_TelemetryCritical` with event
+   `STARTUP_EXIT_SHORTFALL_SIDE`. The decision is a pure helper,
+   `Grind_StartupShortfallCritical(long_n, short_n)`. **No halt** (Gemini
+   ruling item 3, revised). Then the existing `Grind_RetryMissingExits`
+   runs (it is already in the `else` branch).
 5. The first OnTick runs the STRICT check. If the placement worked, the
    check passes. If it did not, the instance enters quarantine, retries
    each tick, and halts after 3 s and 3 checks if the exit still cannot be
@@ -148,14 +153,25 @@ entry - 0.00030.
 | X7 | long, EXT on L2 + L0, L0's EXT at 1.25040 | tolerant | FAIL `I6_LONG_EXIT` |
 | X8 | X1 + EXT order for layer 5, no position | tolerant | FAIL `I4_LONG_ORPHAN_EXIT` |
 | X9 | X2, 10-argument call (default) | default | FAIL `I3_LONG_NAKED` |
+| X10 | helper truth table | -- | (2,1) T, (0,2) T, (1,1) F, (1,0) F, (0,0) F; on X6 counts T, on X3 and X4 counts F |
 
-X3-X6 must FAIL against a stub that accepts the parameter and ignores it.
+Shortfalls are per side (long/short): X1 0/0, X3 1/0, X4 1/0, X5 0/1,
+X6 2/1. X3-X6 and X10's TRUE cases must FAIL against a stub that accepts
+the parameter and ignores it, and a helper that returns false.
 X1, X2, X7, X8 and X9 are regression locks that pass in both states.
 Report them as such.
 
 ---
 
-## 7. QUESTIONS FOR REVIEW
+## 7. QUESTIONS FOR REVIEW -- ANSWERED (Gemini, 2026-09-21)
+
+Q1: all required ranks (approved). Q2: no halt; critical telemetry when a
+side's shortfall is 2 (revised after the reconsider memo: `INIT_FAILED`
+unloads the EA, add/width cannot create a shortfall, and a halt would
+recreate the unrecoverable state). The quarantine-counting issue is out
+of scope, for a separate ADR. Q3: open, for DeepSeek (T-2).
+
+Original questions:
 
 - Q1. Should the tolerance cover rank-0 shortfalls too, or only
   `depth - 1`? It is proposed as ALL required ranks: rank 0 is T2/T3
@@ -167,4 +183,4 @@ Report them as such.
   before `Grind_MaeInit` and `Grind_CapPublishOwnExposure`, depends on
   state not yet initialised? It already runs there today.
 
-Line count: 170
+Line count: 186
