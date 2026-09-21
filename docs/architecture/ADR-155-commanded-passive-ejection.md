@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed -- 2026-09-21. Backlog C15. Needs Gemini, then DeepSeek
+Proposed -- 2026-09-21, revised after Gemini's ruling the same day
+(dedicated offset variable, not accrual). Backlog C15. Needs DeepSeek
 (ARCHITECT s2: it moves live orders), then a tests-first Cursor spec.
 **Depends on F1** (barbell): the deepest layer must have a resting exit.
 F1 goes live with cycle 3 on 2026-09-23; this ships after, mid-cycle,
@@ -55,27 +56,43 @@ clamped exactly as every exit is (`Grind_CarryClampLongExit` /
 resting exit order to it. The layer then exits as a limit when the market
 touches it. **No market order is ever sent.**
 
-### 4. Durability -- record it as ACCRUAL, not as a shift
+### 4. Durability -- a DEDICATED offset, read by the formula and by I6
 
 The exit queue re-prices every exit from `formula + accrued`
-(`Grind_ExitQFormulaTarget`, `grind_exitq.mqh:241`). The stored SHIFT is
-not part of that formula, and an unclamped re-placement DELETES it (the
+(`Grind_ExitQFormulaTarget`, `grind_exitq.mqh:241`). A stored SHIFT is not
+part of that formula, and an unclamped re-placement DELETES it (the
 stale-offset fix, `grind_engine.mqh:~1847`). ADR-151's trim can cancel an
-exit under slot pressure; its re-release would then quietly undo an
-ejection stored as a shift.
+exit under slot pressure; its re-release would quietly undo an ejection
+stored as a shift.
 
-So the ejection is written as a one-off increment to
-`GRIND_CARRY_ACCRUED_<position>`:
+**Gemini ruled (2026-09-21) against reusing accrual** for this: once an
+ejection sits inside `GRIND_CARRY_ACCRUED_`, nothing downstream can tell
+carry from an operator command. So the ejection gets its own variable:
 
-    accrued_new = accrued_old + (ejected_price - current_formula_target)
+    GRIND_EJECT_OFFSET_<position>  =  ejected_price - (formula + accrued)
 
-Consequences, each by existing code:
-- every re-placement recomputes the ejected price (formula includes
-  accrued), then clamps it passive
-- I6 on restart expects `formula + accrued`, so it passes
-- accrual has no bound check, so nothing deletes it
-- if carry is later enabled, nightly accrual continues to add on top --
-  semantically correct
+and it is added everywhere the exit target is computed:
+
+| where | today | after |
+|---|---|---|
+| `Grind_ExitQFormulaTarget` (`grind_exitq.mqh:241`) | `exit + accrued` | `exit + accrued + eject_offset` |
+| `Grind_ReconExitMatchesEntry` (`grind_recon.mqh:353`, the I6 check) | `exit + accrued + shift` | `exit + accrued + eject_offset + shift` |
+
+**Both are required.** If the queue reads the offset but I6 does not, the
+first restart after an ejection halts the instance (`I6_*_EXIT`) -- the same
+failure as the F1 migration and the AUDCAD ALT reattach.
+
+Lifecycle of the variable:
+- **written** once, when a command is accepted
+- **deleted** when the layer closes, alongside the existing
+  `Grind_CarryAccruedDelete` (`grind_engine.mqh:1408`)
+- **covered** by the account-switch clean-up script
+  (`scripts/grind_gv_clean.mq5`) and the suite reset
+  (`Grind_TestClearCarryState`) -- add the prefix `GRIND_EJECT_` to both,
+  which also covers the command variable `GRIND_EJECT_<magic>`
+
+The offset has no bound check, deliberately: an ejection is supposed to be
+large.
 
 ### 5. After the exit fills
 
@@ -98,28 +115,40 @@ ordinary scalps.
 - **It may not fill immediately.** A passive exit at the market fills on
   the next touch. In a fast trend away from it, it trails behind. The
   ejected price is fixed at command time; a second command re-ejects.
-- **Accrual changes meaning slightly:** it now carries carry AND
-  ejection offsets. Telemetry must say which.
+- **Carry and ejection stay separable** in state and telemetry (Gemini).
 - **It needs F1.** Without the barbell, the deepest layer has no resting
   exit to move.
 
-## Open questions
+## Rulings on the open questions (Gemini, 2026-09-21)
 
-1. Should an unfilled ejection be re-pressed automatically after N
-   minutes, or only by a new command?
-2. Should the command also cancel the side's pending add (eject-and-wait)
-   as an option, or is that policy for later?
-3. Does moving the deepest exit interact with the recentre, the cap
-   guard, or the slot reserve in any way not covered by I6?
+1. **Re-press an unfilled ejection only by a new command.** No timers or
+   state machine in an operator override.
+2. **Eject-and-wait is policy, for later.** Build the raw roll first; if
+   the roll log and the retrace study (C16) favour waiting, change the
+   engine then.
+3. **Interaction with ranking:** Gemini asked that ranking stay by ENTRY
+   price only, so an ejected exit price cannot reorder the barbell queue
+   and drop the deepest layer's exit. **Verified in source:**
+   `Grind_ExitQRanks` (`grind_exitq.mqh:84`) ranks through
+   `Grind_ExitQEntryBeats`, entry only. Pinned by a test below.
+   Recentre and cap guard: unaffected -- depth does not change until the
+   exit fills.
 
 ## Testing (tests first)
 
 - command on a non-deepest layer: refused, nothing modified
 - command on depth 1: refused
 - command with the switch off: refused
-- accepted: exit modified to the passive market price; accrued increased
-  by exactly (ejected - formula)
+- accepted: exit modified to the passive market price;
+  `GRIND_EJECT_OFFSET_<pos>` equals exactly (ejected - formula - accrued);
+  accrued UNCHANGED
 - **restart after an accepted ejection: reconstruction passes I6**
 - trim cancels and re-releases the ejected exit: it comes back at the
   EJECTED price, not the formula price
-- exit fills: CloseBy, layer removed, side's next add re-quoted
+- exit fills: CloseBy, layer removed, `GRIND_EJECT_OFFSET_` deleted,
+  side's next add re-quoted
+- ranking after an ejection: the ejected layer keeps rank `depth - 1`, and
+  its exit stays required, even when its ejected price is nearer the
+  market than a newer layer's formula target
+- the clean-up script and `Grind_TestClearCarryState` remove every
+  `GRIND_EJECT_` variable
