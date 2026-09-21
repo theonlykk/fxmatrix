@@ -178,21 +178,20 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-21 05:10Z, market OPEN.** Evidence: `HANDOFF_2026-09-21.md`,
-status read `c70`.
+**As of 2026-09-21 19:45Z, market OPEN.** Evidence: `HANDOFF_2026-09-21.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `29df88f` |
-| VPS running | `5454358`, compiled 01:18:50Z 20-Sep. **DETACHED HEAD**. Terminal verified byte-identical, 66 of 66 files |
-| Delta main vs VPS | F1 barbell, **ADR-153** (geometry independence, recentre API budget), 12 presets (cycle 2, superseded), tooling. **None deployed** |
-| MQL5 suite | `main` **1387/1387**, verified on two charts (GBPUSD, AUDCAD) 2026-09-21. Runs from `MQL5\Scripts\` |
-| Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok`. NZDCHF never attached |
-| Book | 104 positions, 60 orders, 30 resting entries. **Guard 194** |
-| Account | demo 1514582088, MTM -207; both AUDCAD arms capped short 8/8. **New account Wednesday** |
-| Next fleet | **9 pairs x 1 arm, cap 8** -- see `HANDOFF_2026-09-21.md` s2 |
-| Carry | OFF in all presets. `OnInit` FATAL guard intact |
-| Tags | `vps-19b6faa` (K=1/H=0), `vps-5454358` (current) |
+| fxmatrix main | `9f43bbd` |
+| pipshed main | `5153977` |
+| VPS running | `5454358`, DETACHED HEAD, cycle-2 presets. **Nothing newer deployed** |
+| Delta main vs VPS | F1 barbell, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
+| MQL5 suite | `main` **1387/1387**, two charts. Runs from `MQL5\Scripts\` |
+| Fleet | 16 attached (cycle 2), 0 halted. AUDCAD rolled four times by hand -- see `docs/runbooks/roll-log.md` |
+| Account | demo 1514582088, $10k, FTMO daily limit $500 -- **worst day -$420**. Nothing in the EA enforces it (backlog C17) |
+| **Next** | **Wednesday 2026-09-23: new account, cycle 3.** Runbook `docs/runbooks/account-switch-2026-09-23.md` |
+| After that | C17 circuit breaker, then C15 commanded ejection (ADR-155) |
+| Carry | OFF in all presets |
 | Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 
 **The stale-offset fix has now run live and priced correctly.** At 21:09:17Z
