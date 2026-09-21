@@ -6,7 +6,8 @@
 
 #include "grind_comment.mqh"
 
-#define GRIND_ADD_WIDTH_MULTIPLE 2.0
+#define GRIND_ADD_WIDTH_RATIO_MIN 0.5
+#define GRIND_ADD_WIDTH_RATIO_MAX 4.0
 #define GRIND_FEED_STALE_MS      5000
 
 // Absolute price epsilon for boundary comparisons. A difference of
@@ -37,23 +38,23 @@ bool Grind_ValidateGeometryInputs(const double width_pips,
 }
 
 //+------------------------------------------------------------------+
-bool Grind_ValidateAddWidthRelationship(const double width_pips,
-                                        const double add_pips)
-{
-   return (MathAbs(add_pips - GRIND_ADD_WIDTH_MULTIPLE * width_pips) <= 1e-8);
-}
-
-//+------------------------------------------------------------------+
 bool Grind_ValidateAddWidthRatio(const double width_pips,
                                  const double add_pips)
 {
-   return false;
+   if(width_pips <= 0.0 || add_pips <= 0.0)
+      return false;
+   const double r = add_pips / width_pips;
+   if(r < GRIND_ADD_WIDTH_RATIO_MIN - 1e-9)
+      return false;
+   if(r > GRIND_ADD_WIDTH_RATIO_MAX + 1e-9)
+      return false;
+   return true;
 }
 
 //+------------------------------------------------------------------+
 bool Grind_ValidateDeadband(const double deadband_pips)
 {
-   return false;
+   return (deadband_pips >= 0.0);
 }
 
 //+------------------------------------------------------------------+
@@ -67,6 +68,10 @@ int Grind_TestOnInitGeometryCheck(const double width_pips,
 {
    if(!Grind_ValidateGeometryInputs(width_pips, exit_pips, max_layers,
                                     stranded_thresh_pips, add_pips))
+      return INIT_FAILED;
+   if(!Grind_ValidateAddWidthRatio(width_pips, add_pips))
+      return INIT_FAILED;
+   if(!Grind_ValidateDeadband(deadband_pips))
       return INIT_FAILED;
    if(magic == 0)
       return INIT_FAILED;

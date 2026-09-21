@@ -116,9 +116,14 @@ int OnInit()
       Print("FATAL: geometry not configured — width/add/exit/max_layers/stranded must be > 0");
       return INIT_FAILED;
    }
-   if(!Grind_ValidateAddWidthRelationship(InpWidthPips, InpAddPips)) {
-      Print("FATAL: InpAddPips (", InpAddPips, ") != ",
-            GRIND_ADD_WIDTH_MULTIPLE, " x InpWidthPips (", InpWidthPips, ")");
+   if(!Grind_ValidateAddWidthRatio(InpWidthPips, InpAddPips)) {
+      Print("FATAL: InpAddPips / InpWidthPips = ", InpAddPips / InpWidthPips,
+            " is outside [", GRIND_ADD_WIDTH_RATIO_MIN, ", ",
+            GRIND_ADD_WIDTH_RATIO_MAX, "] -- typo guard, ADR-153");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateDeadband(InpDeadbandPips)) {
+      Print("FATAL: InpDeadbandPips must be >= 0");
       return INIT_FAILED;
    }
    if(InpMagic == 0) {
