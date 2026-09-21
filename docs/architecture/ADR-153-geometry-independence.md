@@ -1,11 +1,21 @@
-# ADR-153: Geometry Independence -- Break add == 2 x width, Tie stranded to width
+# ADR-153: Geometry Independence -- Break add == 2 x width, Free the Stranded Threshold, Budget the Recentre
 
 ## Status
 
-Proposed -- 2026-09-20, revised the same day after the DeepSeek audit,
-which found a sign error in the fatal check and a wrong derivation of the
-recentre threshold. Both corrected below. Gemini re-ruling and Cursor
-implementation outstanding.
+Proposed -- 2026-09-20. Revision 3, same day.
+
+- Rev 1 broke the `add == 2 x width` link and tied stranded to width.
+- Rev 2 corrected a sign error and a wrong threshold derivation found by
+  the DeepSeek audit.
+- **Rev 3 (this) removes the stranded floor entirely** and adds an API
+  budget gate to the recentre. The floor was a quoting preference dressed
+  as a safety rule, and it blocked a legitimate design (live two-sided
+  quoting). The real safety limit is the API budget, and the recentre --
+  the one path that burned 139 requests in a night -- was the one path
+  that budget did not cover.
+
+Gemini approved revs 1-2; rev 3 removes a floor he approved and needs his
+sign-off. Cursor implementation outstanding.
 
 Supersedes the fixed relationship set by ADR-125 (`0bd0877`, 2026-09-06).
 
@@ -60,32 +70,65 @@ fails only when the geometry is outside a sane band:
 The band keeps ADR-125's drift protection -- a typo of 40 instead of 4
 still fails at startup -- without dictating the geometry.
 
-**2. `InpStrandedThreshPips` follows WIDTH, not add, with a floor.**
+**2. `InpStrandedThreshPips` is a free design parameter.**
 
-    stranded = max(2 x width, width + deadband + 1)
+No floor, no fatal relationship to width or deadband. It and
+`InpDeadbandPips` together set how closely the flat side's L0 follows mid
+while the other side holds layers. Two coherent designs, both now
+expressible as presets, per pair, changeable mid-week (neither enters a
+reconstruction invariant):
 
-`2 x width` is numerically what every preset holds today, so the ADR-124
-rescue semantics are unchanged on every pair that already clears the
-floor: the gate opens only once the quote has drifted a full extra
-`width` beyond where it was placed. The floor exists because the EFFECTIVE
-threshold is not `stranded` alone -- see the evidence section.
+| design | typical setting | behaviour |
+|---|---|---|
+| **rescue** (today) | `stranded = 2 x width` | place once; re-quote only when badly left behind |
+| **live** | `stranded ~ width`, deadband chosen for cadence | flat side stays near mid; leans against inventory -- once short, stay ready to get long |
 
-**3. New `OnInit` check, fatal.** The check REJECTS; the passing condition
-is the floor from Decision 2:
+The re-quote threshold on mid drift is `max(D, S - W)` (see below), so the
+live design's cadence -- and its API cost -- is set by the deadband.
 
-    if(stranded_thresh_pips < MathMax(2.0 * width_pips,
-                                      width_pips + deadband_pips + 1.0))
-       return INIT_FAILED;
+**Why no floor.** An earlier revision required
+`stranded >= max(2 x width, width + deadband + 1)`. `2 x width` was
+inherited from the presets that existed when add was locked to twice
+width; `width + deadband + 1` was derived to stop the deadband becoming the
+control. Neither is a safety property. Both are preferences for the rescue
+design, and as a fatal check they would have made the live design
+impossible to run. Safety is handled by Decision 4.
 
-**Written as a rejection deliberately.** An earlier draft stated the
-PASSING condition (`stranded > width + deadband`) under the heading
-"check, fatal", which reads as the failing one. Implemented literally that
-would have failed every preset with width 5 and admitted EURGBP -- exactly
-backwards (DeepSeek finding 1).
+**3. `OnInit` fatal checks are SANITY checks only.**
 
-It also enforces the whole floor rather than half of it: a check on
-`width + deadband` alone would admit `width 6, stranded 10.5`, violating
-the `2 x width` component (finding 4).
+They exist to catch typos and nonsense, not to encode a quoting design.
+`OnInit` returns `INIT_FAILED` if any of these hold:
+
+    width_pips    <= 0
+    add_pips      <= 0
+    exit_pips     <= 0
+    stranded_pips <= 0
+    deadband_pips <  0
+    add_pips / width_pips < 0.5  or  > 4.0
+
+The add/width band is itself arbitrary; it exists to catch a 40 typed for
+a 4 and blocks nothing currently planned. Write every check as a
+REJECTION, as above -- an earlier draft stated a passing condition under
+the heading "fatal check", which reads as its opposite (DeepSeek
+finding 1).
+
+**4. The recentre respects the API budget.**
+
+`GRIND_DAILY_API_ENTRY_STOP` (1,900 requests/day, `grind_config.mqh:11`)
+is checked in five places -- `Grind_TryPlaceL0`, `Grind_ApplyEntryHorizon`,
+`Grind_SendNextAddEnt`, `Grind_TryPlaceAddAtFill`,
+`Grind_EnsureAddNext` -- and **not** in `Grind_TryRecenterOppositeL0`.
+
+So the one path measured burning 139 requests in a night is the one path
+the budget guard does not cover. Worse: when re-quoting drives the counter
+to 1,900, the stop blocks ENTRIES -- the requests that earn money -- while
+the re-quotes carry on.
+
+`Grind_TryRecenterOppositeL0` returns early when the entry stop is active,
+exactly like the five paths above. **Recommended, not required for this
+ADR:** a lower re-quote-specific threshold (e.g. stop recentring at the
+1,800 soft-warn level) so re-quotes yield to entries before entries are
+cut.
 
 ## Consequences
 
@@ -101,18 +144,11 @@ parameter derived from simulated fills to be re-validated against real
 fills before it governs live orders. The simulator has known cost-model
 defects; the EA should not be constrained to keep it honest.
 
-**Today's fleet passes the range check** (ratio exactly 2.0 everywhere).
-Against the floor, all 18 presets checked, deadband 4.0 on every one:
-
-| width | arms | `2 x width` | floor | current stranded | passes |
-|---:|---|---:|---:|---:|---|
-| 7 | eurusd, audnzd, nzdchf (detached) | 14 | 14 | 14 | yes |
-| 5 | audcad, audchf, cadchf, gbpusd, nzdcad | 10 | 10 | 10 | yes |
-| 3 | **eurgbp OPT and ALT** | 6 | **8** | **6** | **NO** |
-
-EURGBP is the only preset this ADR forces a change on: stranded 6 -> 8.
-**Both EURGBP presets must change in the same commit as the code**, or
-those two instances will not start.
+**Today's fleet passes every sanity check** (add/width ratio exactly 2.0
+everywhere, all values positive). **No preset change is forced.** EURGBP's
+stranded of 6 is a choice, not a violation -- measured below at a cost of
+139 re-quotes in one night on one arm. Whether to change it is now a
+preset decision.
 
 ## Evidence: EURGBP already churns, measured
 
@@ -154,26 +190,24 @@ it. The binding one is `max(D, S - W)`:
 |---|---:|---:|---:|---:|
 | EURGBP today | 3 | 6 | 4 | **4.0** |
 | every other arm today | 5 | 10 | 4 | 5.0 |
-| EURGBP under the floor | 3 | 8 | 4 | 5.0 |
-| cycle-3 EURGBP (W 2) under the floor | 2 | 7 | 4 | 5.0 |
+| EURGBP at the old floor (S 8) | 3 | 8 | 4 | 5.0 |
+| EURGBP, W 2, at the old floor (S 7) | 2 | 7 | 4 | 5.0 |
+| live design, W 5, S 5, D 6 | 5 | 5 | 6 | 6.0 |
 
 **An earlier draft said the threshold was `width + deadband` -- 7 for
 EURGBP against 10 elsewhere.** Wrong twice (DeepSeek findings 2 and 10):
 it measured the resting order's distance from mid rather than the drift
 that moves it, and `width + deadband` at width 5 is 9, not 10.
 
-**So the floor buys less than first claimed:** EURGBP moves from
-re-quoting on 4-pip drifts to 5, matching the fleet. What the floor
-guarantees is that the GATE binds rather than the deadband -- `S >= W + D`
-is exactly the condition for `S - W >= D` -- and that is the property
-worth having, because the gate is a parameter we tune per pair and the
-deadband is not.
+**So a floor would buy little:** raising EURGBP to the old floor (8) moves
+it from re-quoting on 4-pip drifts to 5, matching the fleet. That is a
+preset choice, and the reason rev 3 drops the floor.
 
 **The 10x churn gap is therefore mostly NOT geometry.** A 4-pip threshold
 against 5 cannot explain 139 modifies against 12. The dominant factor is
 time spent one-sided with mid oscillating across the threshold: EURGBP ALT
-was one-sided for the whole 7h36m window. The floor is right, but it will
-not eliminate the churn.
+was one-sided for the whole 7h36m window. No geometry rule would have
+prevented it; an API budget gate would have capped it. Hence Decision 4.
 
 ## Prerequisites the audit uncovered
 
@@ -187,11 +221,15 @@ Two defects must be fixed as part of this work, not after it:
   (finding 5).
 - **`Grind_TestOnInitGeometryCheck` (`grind_pure.mqh:47`) never calls
   `Grind_ValidateAddWidthRelationship` and takes no `deadband`**, so
-  neither new check is reachable from the pure test surface. It needs the
-  extra parameter and the extra call (finding 8).
+  the new sanity checks are not reachable from the pure test surface. It
+  needs `stranded`, `exit` and `deadband` parameters and the extra call
+  (finding 8).
 
 The `OnInit` error message still names the old equality and is rewritten
 with it (finding 9).
+
+Decision 4 touches the same function as the test-mode fix above, so both
+land in one change.
 
 **Checked and clear:** `GRIND_ADD_WIDTH_MULTIPLE` appears only in the
 validator and that message; nothing in `grind_recon`, `grind_exitq`,
@@ -203,17 +241,21 @@ Tests first, and they must fail before the change:
 
 - `add/width` ratio at 0.49, 0.5, 2.0, 4.0, 4.01 -- reject, accept, accept,
   accept, reject.
-- `stranded` at `width + deadband` exactly (reject) and one point above
-  (accept).
-- The floor: width 2, deadband 4 -> the convention yields 7, not 4.
+- Each sanity check: zero or negative width, add, exit, stranded (reject);
+  negative deadband (reject); deadband 0 (accept).
+- `stranded = width` starts clean -- the live design must be expressible.
+- **Recentre + API stop:** with the counter at the entry-stop level, a
+  recentre that would otherwise fire does NOT send a modify. Must fail
+  before the change.
 - A cycle-3 geometry (width 5, add 4, exit 10, stranded 10) starts clean.
 - The range permits `add > exit` (e.g. width 1, add 4, exit 2), where a new
   layer's exit target sits BELOW the previous layer's entry. Test that the
   exit queue ranks and places correctly there, or narrow the range
   (finding 7).
-- Every current preset still passes both checks.
+- Every current preset still passes every check.
 - The ADR-124 recentre is unchanged when `stranded = 2 x width`: same
-  modify count as today on a fixture where mid drifts.
+  modify count as today on a fixture where mid drifts. Requires the
+  test-mode fix in Prerequisites first.
 
 ## Review
 
@@ -227,5 +269,6 @@ orders are placed).
   as written". All ten findings were checked against source: 1, 2, 3, 4,
   5, 8, 9 and 10 accepted and folded in above; 6 confirmed clear; 7 became
   a test requirement.
-- **Outstanding:** Gemini's sign-off on the corrected arithmetic, then the
-  Cursor spec.
+- **Rev 3** removes the stranded floor (a preference, not a safety rule)
+  and gates the recentre on the API budget.
+- **Outstanding:** Gemini's sign-off on rev 3, then the Cursor spec.
