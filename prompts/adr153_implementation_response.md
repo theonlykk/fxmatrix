@@ -10,7 +10,7 @@ Prompt read at commit `da7c790` (`prompts/adr153_implementation.md`, footer `Lin
 |---|---|---|
 | 1 | tests + stubs | `bca6a56` |
 | 2 | implementation | `93c3bf7` |
-| 3 | ADR status + this file | `ceb8c31` |
+| 3 | ADR status + this file | `c9997b2` |
 
 (Push updates `origin/feat/adr153-geometry-independence` to the same hashes.)
 
@@ -56,4 +56,19 @@ May pass at commit 1: G2, G3, G5, PO4, PO4d.
 
 If PO4b or PO4c pass at commit 1, stop — harness not exercising recentre correctly.
 
-Line count: 52
+## Follow-up commit
+
+Follow-up prompt read at commit `807c794` (`prompts/adr153_followup.md`, footer `Line count: 118`).
+
+| role | hash |
+|---|---|
+| finding 7 + G6/G7 + ADR acceptance | `74f1b93` |
+
+```
+ docs/architecture/ADR-153-geometry-independence.md | 18 ++++--
+ ea/fxgrind_tests.mq5                               | 69 ++++++++++++++++++++++
+ prompts/adr153_implementation_response.md          | 16 ++++-
+ 3 files changed, 95 insertions(+), 8 deletions(-)
+```
+
+Line count: 71

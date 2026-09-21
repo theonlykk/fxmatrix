@@ -279,6 +279,74 @@ void Test_ADR153_OnInitGeometry()
               Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 10.0, 10.0, -1.0, 22260101UL) == INIT_FAILED);
    AssertTrue("G5 eurgbp ok",
               Grind_TestOnInitGeometryCheck(3.0, 8.0, 8, 6.0, 6.0, 4.0, 22260101UL) == INIT_SUCCEEDED);
+   AssertTrue("G6 stranded zero",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 0.0, 10.0, 4.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("G7 stranded neg",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, -1.0, 10.0, 4.0, 22260101UL) == INIT_FAILED);
+}
+
+void Test_ADR153_AddGreaterThanExitRanks()
+{
+   const double exit_pips = 2.0;
+   const int n = 3;
+
+   double long_entries[3];
+   long_entries[0] = 1.25000;
+   long_entries[1] = 1.24960;
+   long_entries[2] = 1.24920;
+   int long_layers[3];
+   long_layers[0] = 0;
+   long_layers[1] = 1;
+   long_layers[2] = 2;
+   int long_ranks[];
+   Grind_ExitQRanks(long_entries, long_layers, n, true, long_ranks);
+   int long_rank_25000 = -1;
+   int long_rank_24960 = -1;
+   int long_rank_24920 = -1;
+   for(int i = 0; i < n; i++) {
+      if(MathAbs(long_entries[i] - 1.25000) < 1e-12)
+         long_rank_25000 = long_ranks[i];
+      if(MathAbs(long_entries[i] - 1.24960) < 1e-12)
+         long_rank_24960 = long_ranks[i];
+      if(MathAbs(long_entries[i] - 1.24920) < 1e-12)
+         long_rank_24920 = long_ranks[i];
+   }
+   AssertTrue("ADR153 long rank 24920", long_rank_24920 == 0);
+   AssertTrue("ADR153 long rank 24960", long_rank_24960 == 1);
+   AssertTrue("ADR153 long rank 25000", long_rank_25000 == 2);
+   const double long_t0 = Grind_ExitPrice(1.24920, exit_pips, _Point, 1);
+   const double long_t1 = Grind_ExitPrice(1.24960, exit_pips, _Point, 1);
+   const double long_t2 = Grind_ExitPrice(1.25000, exit_pips, _Point, 1);
+   AssertTrue("ADR153 long targets rise", long_t0 < long_t1 && long_t1 < long_t2);
+
+   double short_entries[3];
+   short_entries[0] = 1.25000;
+   short_entries[1] = 1.25040;
+   short_entries[2] = 1.25080;
+   int short_layers[3];
+   short_layers[0] = 0;
+   short_layers[1] = 1;
+   short_layers[2] = 2;
+   int short_ranks[];
+   Grind_ExitQRanks(short_entries, short_layers, n, false, short_ranks);
+   int short_rank_25000 = -1;
+   int short_rank_25040 = -1;
+   int short_rank_25080 = -1;
+   for(int j = 0; j < n; j++) {
+      if(MathAbs(short_entries[j] - 1.25000) < 1e-12)
+         short_rank_25000 = short_ranks[j];
+      if(MathAbs(short_entries[j] - 1.25040) < 1e-12)
+         short_rank_25040 = short_ranks[j];
+      if(MathAbs(short_entries[j] - 1.25080) < 1e-12)
+         short_rank_25080 = short_ranks[j];
+   }
+   AssertTrue("ADR153 short rank 25080", short_rank_25080 == 0);
+   AssertTrue("ADR153 short rank 25040", short_rank_25040 == 1);
+   AssertTrue("ADR153 short rank 25000", short_rank_25000 == 2);
+   const double short_t0 = Grind_ExitPrice(1.25080, exit_pips, _Point, -1);
+   const double short_t1 = Grind_ExitPrice(1.25040, exit_pips, _Point, -1);
+   const double short_t2 = Grind_ExitPrice(1.25000, exit_pips, _Point, -1);
+   AssertTrue("ADR153 short targets fall", short_t0 > short_t1 && short_t1 > short_t2);
 }
 
 void Test_T18_EmptyBookGenesis()
@@ -6414,6 +6482,7 @@ void OnStart()
    Test_T16_SimulatorParity();
    Test_T17_AddWidthRelationship();
    Test_ADR153_OnInitGeometry();
+   Test_ADR153_AddGreaterThanExitRanks();
    Test_T18_EmptyBookGenesis();
    Test_T19b_SingleLayerAppend();
    Test_T19c_AppendUpToMaxLayersParallel();

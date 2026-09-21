@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed -- 2026-09-20. Revision 3, same day.
+Accepted -- 2026-09-20. Revision 3, same day.
 
 - Rev 1 broke the `add == 2 x width` link and tied stranded to width.
 - Rev 2 corrected a sign error and a wrong threshold derivation found by
@@ -125,11 +125,12 @@ the budget guard does not cover. Worse: when re-quoting drives the counter
 to 1,900, the stop blocks ENTRIES -- the requests that earn money -- while
 the re-quotes carry on.
 
-`Grind_TryRecenterOppositeL0` returns early when the entry stop is active,
-exactly like the five paths above. **Recommended, not required for this
-ADR:** a lower re-quote-specific threshold (e.g. stop recentring at the
-1,800 soft-warn level) so re-quotes yield to entries before entries are
-cut.
+`Grind_TryRecenterOppositeL0` returns early when
+`Grind_ApiCounterSoftWarnActive()` -- the 1,800 soft-warn level --
+while entries and adds keep their 1,900 stop. **Required, per Gemini's
+ruling of 2026-09-20:** re-quotes earn nothing, so they must yield to
+entries and adds, leaving a 100-request buffer for revenue-generating
+orders.
 
 ## Consequences
 
@@ -273,3 +274,8 @@ orders are placed).
 - **Rev 3** removes the stranded floor (a preference, not a safety rule)
   and gates the recentre on the API budget.
 - **Outstanding:** Gemini's sign-off on rev 3, then the Cursor spec.
+- **DeepSeek audited the implementation 2026-09-20**
+  (`prompts/adr153_impl_deepseek_response.md`): findings 1-5 and 8-10
+  resolved; 6 verified clear by grep across `ea/`; 7 closed by source
+  reasoning (ranking is by entry only) plus
+  `Test_ADR153_AddGreaterThanExitRanks`. Implementation accepted.
