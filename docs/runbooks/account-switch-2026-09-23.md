@@ -59,9 +59,16 @@ quoting with the old build and the old presets.
 `GRIND2226_MAGIC_LOCK_*`, `GRIND_MAE_REPORTER_HEARTBEAT` / `_MAGIC` /
 `_CLAIM_LOCK`.
 
-The PERSISTENT ones survive a restart and must be deleted. With Algo
-Trading still OFF and NO EA attached, run the script
-`grind_gv_clean` (Scripts). It deletes exactly these prefixes:
+The PERSISTENT ones survive a restart and must be deleted.
+
+- [ ] Copy the script into the terminal -- `deploy.ps1` does NOT carry the
+      repo's `scripts\` folder:
+      `Copy-Item C:\fxmatrix\scripts\grind_gv_clean.mq5 "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\MQL5\Scripts\" -Force`
+      then compile it in MetaEditor (`0 errors, 0 warnings`).
+- [ ] With Algo Trading still OFF and NO EA attached, run
+      `grind_gv_clean` from the Navigator's Scripts, `InpForce` left
+      false. If it prints ABORT, the terminal was not restarted -- restart
+      and run again. It deletes exactly these prefixes:
 
 | prefix | what it is | why it must go |
 |---|---|---|
@@ -147,4 +154,4 @@ Do NOT compile to clear it. Status URL plus the Experts lines around the
 halt, then diagnose. A halt at startup on a flat book is a defect, not
 a state to clear.
 
-Line count: 150
+Line count: 157

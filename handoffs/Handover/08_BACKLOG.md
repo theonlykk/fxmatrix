@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-21 15:30Z.
+Last reviewed 2026-09-21 17:00Z.
 
 ---
 
@@ -22,8 +22,8 @@ Last reviewed 2026-09-21 15:30Z.
 | A3 | **Fleet: DECIDED -- nine pairs, one arm, cap 8.** Written up as the cycle-3 pre-registration, `docs/architecture/geometry-cycle3.md` | decided |
 | A4 | **Presets: WRITTEN 2026-09-21** -- nine `ea/presets/*_opt.set` (ALT presets untouched, unattached). EURGBP exit 5 (fills). Deploy with A9 | ready |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
-| A7 | **GlobalVariable clean-up list**, source-verified. A terminal restart does NOT clear them. `GRIND_MAE_*` anchors on the OLD account's equity; carry keys are ticket-dead; slot/magic locks, cap exposure, `GRIND_DEINIT_`, `GRIND_CLOSEBY_EXHAUSTED` unread | not started |
-| A9 | **Deploy sequence.** Detach all 16 on the OLD account BEFORE switching login (attached EAs reinit on the new account and start quoting), switch, restart, clear GVs (A7), deploy build + presets, tag `vps-<sha7>`, attach | not started |
+| A7 | **GlobalVariable clean-up: DONE 2026-09-21.** `scripts/grind_gv_clean.mq5` (merged `18aeab5`) deletes the ten persistent prefixes; the temporary ones (locks, reporter lease) are cleared by the terminal restart. Used in runbook step 3 | done |
+| A9 | **Deploy sequence: WRITTEN** -- `docs/runbooks/account-switch-2026-09-23.md`. Includes the F1 first-live check (B1) | ready |
 
 ## B. WEDNESDAY, OPTIONAL BUT CHEAP
 

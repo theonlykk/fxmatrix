@@ -623,10 +623,14 @@ per scalp on EURGBP and 1.05 on AUDNZD. It is an FTMO account charge, not
 spread, and it is not evidence that the strategy crosses the spread --
 report gross AND net and let the reader choose.
 
-**A terminal restart does NOT clear GlobalVariables.** They persist across
-restarts and across an account switch, in the terminal's own store. The new
-account on Wednesday needs an explicit, source-verified clean-up list --
-`GRIND_MAE_*` in particular anchors on the OLD account's equity.
+**A terminal restart clears only TEMPORARY GlobalVariables.** Those
+created with `GlobalVariableTemp` -- the slot lock, cap lock, magic locks
+and the MAE reporter lease -- vanish when the terminal closes. PERSISTENT
+ones survive restarts AND account switches: the API counter, the MAE day
+anchor and equity low (anchored on the OLD account's balance), carry state,
+cap exposure, deinit records. `scripts/grind_gv_clean.mq5` deletes exactly
+those; run it after the restart. Also: GlobalVariables belong to ONE
+TERMINAL, not to the account -- the desktop and the VPS never share them.
 
 **Never push the deals dump to git.** The repo is public and the dump is the
 complete fill history. Upload it to the chat instead; 341 KB is nothing.
