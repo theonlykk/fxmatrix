@@ -2434,6 +2434,10 @@ void Grind_TestAppendDeal(const ulong deal_ticket,
    g_grind_deal_test_count++;
 }
 
+void Grind_TestClearCarryState()
+{
+}
+
 void Grind_TestResetSideState()
 {
    ArrayResize(g_grind_long.layers, 0);
@@ -6290,6 +6294,7 @@ void Test_IV4_I7LongDepthDetail()
 
 void Test_IV5_InvariantDetailClearsOnPass()
 {
+   Grind_TestClearCarryState();
    GrindReconLayerScratch layers[1];
    Grind_TestInitLayerScratch(layers[0], 0, 1.25000, 1001UL);
    layers[0].has_exit_order = true;
@@ -6383,6 +6388,7 @@ void Test_EF2_I6LargeFavourableFillLong()
 
 void Test_EF3_I6ShortFillMirror()
 {
+   Grind_TestClearCarryState();
    const double point = 0.00001;
    const double entry = 0.58531;
    const double exit_pips = 5.0;
@@ -6408,6 +6414,31 @@ void Test_EF3_I6ShortFillMirror()
    layers[0].exit_target = 0.58495;
    AssertFalse("EF3 fourteen adverse fail",
                Grind_TestReconCheckInvariants(empty, 0, layers, 1, exit_pips, point, 12, reason));
+}
+
+void Test_RESET1_SideResetClearsCarryState()
+{
+   GlobalVariableSet(Grind_CarryShiftGvName(1001UL), 0.00050);
+   GlobalVariableSet(Grind_CarryAccruedGvName(1001UL), 0.00020);
+   GlobalVariableSet(Grind_CarryReleaseGvNameLocal(1001UL), 1.0);
+   GlobalVariableSet(Grind_CarryShiftGvName(7777UL), 0.00050);
+   GlobalVariableSet(Grind_CarryAccruedGvName(7777UL), 0.00020);
+   GlobalVariableSet(Grind_CarryReleaseGvNameLocal(7777UL), 1.0);
+   Grind_TestResetSideState();
+   AssertFalse("RESET1 shift 1001", GlobalVariableCheck(Grind_CarryShiftGvName(1001UL)));
+   AssertFalse("RESET1 accrued 1001", GlobalVariableCheck(Grind_CarryAccruedGvName(1001UL)));
+   AssertFalse("RESET1 release 1001", GlobalVariableCheck(Grind_CarryReleaseGvNameLocal(1001UL)));
+   AssertFalse("RESET1 shift 7777", GlobalVariableCheck(Grind_CarryShiftGvName(7777UL)));
+   AssertFalse("RESET1 accrued 7777", GlobalVariableCheck(Grind_CarryAccruedGvName(7777UL)));
+   AssertFalse("RESET1 release 7777", GlobalVariableCheck(Grind_CarryReleaseGvNameLocal(7777UL)));
+}
+
+void Test_RESET2_PoisonedShiftIsCleared()
+{
+   GlobalVariableSet(Grind_CarryShiftGvName(1001UL), 0.00050);
+   GlobalVariableSet(Grind_CarryReleaseGvNameLocal(1001UL), 1.0);
+   Grind_TestClearCarryState();
+   AssertTrue("RESET2 recon shift zero", Grind_CarryShiftGetForRecon(1001UL) == 0.0);
 }
 
 void Test_EF4_I6AdverseFillQuarantinable()
@@ -6842,6 +6873,8 @@ void OnStart()
    Test_T10_horizon_gap_missed_once();
    Test_T10b_horizon_gap_lands_in_floor();
    Test_T_invariant_held_pending_exclusive();
+   Test_RESET1_SideResetClearsCarryState();
+   Test_RESET2_PoisonedShiftIsCleared();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
