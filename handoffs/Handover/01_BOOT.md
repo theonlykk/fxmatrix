@@ -183,10 +183,10 @@ status read `c70`.
 
 | | |
 |---|---|
-| fxmatrix main | `10af8da` |
+| fxmatrix main | `29df88f` |
 | VPS running | `5454358`, compiled 01:18:50Z 20-Sep. **DETACHED HEAD**. Terminal verified byte-identical, 66 of 66 files |
 | Delta main vs VPS | F1 barbell, **ADR-153** (geometry independence, recentre API budget), 12 presets (cycle 2, superseded), tooling. **None deployed** |
-| MQL5 suite | `main` **1377/1380**; the 3 failures (IV5 x2, EF3) are pre-existing and environment-dependent -- backlog C12 |
+| MQL5 suite | `main` **1387/1387**, verified on two charts (GBPUSD, AUDCAD) 2026-09-21. Runs from `MQL5\Scripts\` |
 | Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok`. NZDCHF never attached |
 | Book | 104 positions, 60 orders, 30 resting entries. **Guard 194** |
 | Account | demo 1514582088, MTM -207; both AUDCAD arms capped short 8/8. **New account Wednesday** |

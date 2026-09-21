@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-21 05:00Z.
+Last reviewed 2026-09-21 14:50Z.
 
 ---
 
@@ -45,7 +45,8 @@ Last reviewed 2026-09-21 05:00Z.
 | C7 | **Monitoring for N accounts.** One pass/fail across accounts: anything halted, any account near its loss limit, any book near 200, any API count near cap, anything stopped reporting. See `07_ROADMAP.md` s4 | not started |
 | C8 | **NZDCHF.** Rejected in ADR-146, never attached, presets still in the repo. Reopen only as part of ring selection, not as a one-off | idea |
 | C11 | **NZDCHF -- ADR-154.** Rejected in ADR-146 on a SIMULATOR tail-window gate (2015 SNB) at width 7 -- a geometry, not the pair; the same ADR shows width 3 surviving 60-74% and admits the live CHF pairs fail the same gate. Completes the AUD/CAD/CHF/NZD block, and CHF instance count FALLS (4 today -> 3). Needs a short ADR superseding ADR-146 D1 before it is attached | not started |
-| C12 | **Flaky suite: IV5 (x2) and EF3 fail on `main` and every branch (1351/1354 on `main`, 2026-09-20).** Green at `605bc85` in another week. `Grind_CarryShiftGetForRecon` reads the chart symbol's LIVE swap rates and tries to select position 1001 on the live account, and a shift for 1001 is left behind mid-run by an earlier test. So a green suite depends on the day it is run. Fix: those tests seed their own swap rates and clear carry state for 1001 (`F2_TestClearPositionCarry(1001)`) first | not started |
+| C12 | **Twelve tests price against the LIVE chart.** T45, T46, T46b, T46c, T57b, S1, S1b, S3, S4, S5, S6, Q10 reach exit placement on the 1001 fixture without `Grind_MarketTestSeed`. Their own assertions pass either way and the carry leak they caused is fixed (`29df88f`), but they still read live quotes. Seed the market in each | hygiene |
+| C13 | **Stale `MQL5\Experts\fxmatrix\fxgrind_tests.mq5` on the desktop terminal.** `desktop_sync.ps1` does not write there; the suite runs from `MQL5\Scripts\`. Compiling the stale copy gives an old suite and a misleading result. Delete it, or have the sync maintain it | small |
 | C9 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot (not public). Deferred from Wednesday: rotating means touching every chart's inputs. Do it at a reattach that is happening anyway. **The separate, larger exposure is the pipshed READ token, which is in every handoff in a PUBLIC repo** -- see the standing question in `NEW_CHAT_PROMPT.md` | deferred |
 | C10 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
 
@@ -57,4 +58,4 @@ Last reviewed 2026-09-21 05:00Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 60
+Line count: 61

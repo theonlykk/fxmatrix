@@ -652,9 +652,12 @@ running in your system". Ubuntu's own Wine 9 works. Details in
 **Check the suite TOTAL, not just the FAIL rows.** A stale compile of
 `main`'s tests produced exactly the same FAIL rows as the branch -- only
 the total (1354 against the branch's 1380) gave it away. After every
-checkout, run `desktop_sync.ps1` BEFORE compiling, and confirm a
-branch-only symbol is present in the terminal copy, e.g.
-`Select-String -Path "$env:APPDATA\MetaQuotes\Terminal\*\MQL5\Experts\fxmatrix\fxgrind_tests.mq5" -Pattern "<new test name>"`.
+checkout, run `.\desktop_sync.ps1` (repo ROOT, not `scripts\`) BEFORE
+compiling, and confirm a branch-only symbol is present in the copy that
+actually runs. **The suite runs from `MQL5\Scripts\`**:
+`Select-String -Path "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\MQL5\Scripts\fxgrind_tests.mq5" -Pattern "<new test name>"`.
+A stale copy also sits in `MQL5\Experts\fxmatrix\` which the sync does
+NOT update -- compiling that one silently runs an old suite (backlog C13).
 
 **Cursor's self-reported hashes and line counts are unreliable.** Twice in
 one ADR its response document recorded a commit hash from before an amend
@@ -662,10 +665,19 @@ one ADR its response document recorded a commit hash from before an amend
 The code was right both times. Verify every hash against origin and count
 every file.
 
-**A green suite can depend on the week you run it.** IV5 and EF3 read live
-swap rates through `Grind_CarryShiftGetForRecon` and fail on `main` since
-the week opened (backlog C12). Before blaming a branch for a failure, run
-`main` -- it settles "ours or pre-existing" in one compile.
+**A green suite can depend on the chart you run it on.** IV5 and EF3
+failed on `main` for a week. Cause: twelve tests place exits on the 1001
+fixture WITHOUT seeding the market, so `Grind_MarketBid/Ask` return the
+LIVE quote of the chart; depending on its price an exit clamped, and the
+clamp stored a shift plus a release flag for 1001 that nobody deleted.
+The release flag bypasses the bound check, so IV5 and EF3 inherited a
+non-zero shift. (An earlier diagnosis blamed live swap rates -- wrong.)
+Fixed in `29df88f`: the shared reset clears carry state, and IV5/EF3 clear
+it themselves. Proof was running the suite on two charts at very
+different prices (GBPUSD, AUDCAD): 1387/1387 on both.
+
+Before blaming a branch for a failure, run `main` -- it settles "ours or
+pre-existing" in one compile.
 
 **A test that passes can be passing for the wrong reason.**
 `Test_PO4_RecenterOppositeL0StillWorks` passed for weeks because the
