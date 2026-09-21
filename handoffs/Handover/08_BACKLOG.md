@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-21 14:50Z.
+Last reviewed 2026-09-21 15:30Z.
 
 ---
 
@@ -18,12 +18,11 @@ Last reviewed 2026-09-21 14:50Z.
 
 | # | Item | Status |
 |---|---|---|
-| A2 | **Lots: pips or dollars.** Gemini ruled evenness should be measured in DOLLARS, which makes `InpLots` a second lever. Lot step is 0.01, so only 0.01 / 0.02 are available: putting AUDCAD, NZDCAD and AUDNZD on 0.02 narrows USD/pip dispersion from 2.3x to 1.4x and doubles their exposure. **Operator decision; changes the presets** | open |
-| A3 | **Fleet: DECIDED IN PRINCIPLE 2026-09-20 -- nine pairs, ONE arm each, cap 8.** GBPUSD, EURUSD, EURGBP plus the complete AUD/CAD/CHF/NZD block (AUDCAD, AUDCHF, AUDNZD, CADCHF, NZDCAD, NZDCHF). Modelled from the fills: peak ~144 slots, median ~112, against 16 instances on cycle 3 at 251. OPT/ALT paused: the objective (even pips per pair) is cross-sectional, volume is high-count, and a staggered mid-week schedule replaces the second arm as the control. Needs the cycle-3 revision doc: pre-registered metric (scalps/day as a ratio to the fleet median), stagger schedule, starting geometry | write-up next |
-| A4 | **Presets.** UNBLOCKED by ADR-153 (merged `01b71d8`). Starting geometry proposed in chat 2026-09-20 (add / exit / width / stranded): GBPUSD 10/10/5/10, EURUSD 8/10/7/14, EURGBP 4/**?**/3/8, AUDCAD 7/10/5/10, AUDCHF 6/10/5/10, CADCHF 6/10/5/10, NZDCAD 10/10/5/10, AUDNZD 10/10/7/14, NZDCHF 6/10/3/8. **EURGBP's exit is an operator call: 5 (fills), 8 (middle), 11 (replay).** Exit and cap are FIXED for the cycle (I6/I7 halt on a mid-cycle change); add, width, stranded and deadband are reconstruction-safe mid-week dials | EURGBP exit open |
+| A2 | **Lots: DECIDED 2026-09-21 -- 0.01 on every instance.** Overrides Gemini's dollars ruling: 0.01 is the broker minimum so no partial fill is possible, and the EA assumes full fills (C14) | decided |
+| A3 | **Fleet: DECIDED -- nine pairs, one arm, cap 8.** Written up as the cycle-3 pre-registration, `docs/architecture/geometry-cycle3.md` | decided |
+| A4 | **Presets: WRITTEN 2026-09-21** -- nine `ea/presets/*_opt.set` (ALT presets untouched, unattached). EURGBP exit 5 (fills). Deploy with A9 | ready |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
 | A7 | **GlobalVariable clean-up list**, source-verified. A terminal restart does NOT clear them. `GRIND_MAE_*` anchors on the OLD account's equity; carry keys are ticket-dead; slot/magic locks, cap exposure, `GRIND_DEINIT_`, `GRIND_CLOSEBY_EXHAUSTED` unread | not started |
-| A8 | **Superseded by A3.** With one arm per pair there is no EURGBP OPT-vs-ALT exit test; EURGBP's exit becomes a single choice in A4 | superseded |
 | A9 | **Deploy sequence.** Detach all 16 on the OLD account BEFORE switching login (attached EAs reinit on the new account and start quoting), switch, restart, clear GVs (A7), deploy build + presets, tag `vps-<sha7>`, attach | not started |
 
 ## B. WEDNESDAY, OPTIONAL BUT CHEAP
@@ -44,9 +43,8 @@ Last reviewed 2026-09-21 14:50Z.
 | C6 | **Linux box qualification.** Run `fxgrind_tests` there (Strategy Tester); whitelist the pipshed URL and prove telemetry; systemd service so the terminal survives a reboot; watch for Wine crashes. Only then consider moving a fleet to it. `OrderSend` under Wine stays unproven until a live instance runs | partly done |
 | C7 | **Monitoring for N accounts.** One pass/fail across accounts: anything halted, any account near its loss limit, any book near 200, any API count near cap, anything stopped reporting. See `07_ROADMAP.md` s4 | not started |
 | C8 | **NZDCHF.** Rejected in ADR-146, never attached, presets still in the repo. Reopen only as part of ring selection, not as a one-off | idea |
-| C11 | **NZDCHF -- ADR-154.** Rejected in ADR-146 on a SIMULATOR tail-window gate (2015 SNB) at width 7 -- a geometry, not the pair; the same ADR shows width 3 surviving 60-74% and admits the live CHF pairs fail the same gate. Completes the AUD/CAD/CHF/NZD block, and CHF instance count FALLS (4 today -> 3). Needs a short ADR superseding ADR-146 D1 before it is attached | not started |
 | C12 | **Twelve tests price against the LIVE chart.** T45, T46, T46b, T46c, T57b, S1, S1b, S3, S4, S5, S6, Q10 reach exit placement on the 1001 fixture without `Grind_MarketTestSeed`. Their own assertions pass either way and the carry leak they caused is fixed (`29df88f`), but they still read live quotes. Seed the market in each | hygiene |
-| C13 | **Stale `MQL5\Experts\fxmatrix\fxgrind_tests.mq5` on the desktop terminal.** `desktop_sync.ps1` does not write there; the suite runs from `MQL5\Scripts\`. Compiling the stale copy gives an old suite and a misleading result. Delete it, or have the sync maintain it | small |
+| C14 | **Partial-fill handling -- prerequisite for any lot above 0.01.** The EA reads filled volume only to LOG it (`grind_engine.mqh:1651`) and places each exit for `InpLots`. A partial fill leaves an exit sized for volume that never filled; CloseBy then nets part of it and leaves an unowned opposite position, and the second partial deal's handling is untraced. Operator wants to scale (e.g. 0.1 on a 100k account), so this gates growth. Tied to the API budget: handling partials costs requests | not started |
 | C9 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot (not public). Deferred from Wednesday: rotating means touching every chart's inputs. Do it at a reattach that is happening anyway. **The separate, larger exposure is the pipshed READ token, which is in every handoff in a PUBLIC repo** -- see the standing question in `NEW_CHAT_PROMPT.md` | deferred |
 | C10 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
 
@@ -58,4 +56,4 @@ Last reviewed 2026-09-21 14:50Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 61
+Line count: 59

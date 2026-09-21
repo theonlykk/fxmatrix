@@ -1,0 +1,175 @@
+This message has a line count at the bottom
+
+# GEOMETRY CYCLE 3 -- NINE PAIRS, ONE ARM, TRADE-VOLUME TARGETS
+
+Decided 2026-09-20/21 by the operator, with Gemini consulted throughout.
+Supersedes the 16-instance proposal in `prompts/gemini_memo_geometry_cycle3.md`
+(and cycle 2, `e1efa23`). Runs on the NEW demo account from Wednesday
+2026-09-23, flat book.
+
+**This file is the pre-registration.** The metric, target band and change
+rules in s4-s5 are fixed BEFORE the first fill. Changing them after
+looking is an amendment and is recorded as one in s8.
+
+---
+
+## 1. OBJECTIVE
+
+**Maximise pips captured per day, evenly across pairs.** Judged on TRADE
+VOLUME from fills -- scalps and pips per day, per pair -- not on price
+action or simulation. Operator, 2026-09-21: "backtesting is not useful. I
+want to trust and leverage actual trades."
+
+"Even" is per PAIR, not per currency. AUD, CAD, CHF and NZD each appear in
+three pairs and so see more aggregate activity than USD, EUR and GBP
+(two each); that is accepted. Correct toward two-thirds per pair only if
+that block runs heavy.
+
+---
+
+## 2. THE FLEET
+
+Nine instances, ONE arm each (the OPT magic and slot; ALT presets stay in
+the repo, unattached). Cap 8 layers per side.
+
+- the EUR/GBP/USD triangle: GBPUSD, EURUSD, EURGBP
+- the complete AUD/CAD/CHF/NZD block (every pairing of the four): AUDCAD,
+  AUDCHF, AUDNZD, CADCHF, NZDCAD, NZDCHF
+
+NZDCHF is reinstated by ADR-154.
+
+**Why nine, not sixteen.** Modelled from the 10-18 Sep fills with each
+side's depth replayed and scaled for the new add spacing: 16 instances on
+the tighter geometry would peak near **251** slots against a 200 limit and
+a 194 guard; nine single-arm instances peak near **144**, median ~112.
+
+**Why one arm.** The objective is cross-sectional, volume is a high-count
+measurement that moves within a day or two, and the staggered schedule in
+s5 gives each pair a same-week control. The paired arm was buying that
+control; the stagger buys it across nine pairs instead of eight.
+
+**Lots: 0.01 on every instance.** Gemini ruled evenness should be measured
+in dollars, which would put some pairs on 0.02. Overridden: 0.01 is the
+broker minimum, so an order cannot fill in pieces, and **the EA assumes
+every entry fills in full** -- it reads the filled volume only to log it
+(`grind_engine.mqh:1651`) and places each exit for `InpLots`. A partial
+fill at 0.02 would leave an exit sized for volume that was never filled.
+Partial-fill handling is a prerequisite for any lot above 0.01 (backlog).
+
+---
+
+## 3. STARTING GEOMETRY
+
+add / exit / width / stranded in pips; deadband 4 on all; cap 8.
+
+| pair | add | exit | width | stranded | basis |
+|---|---:|---:|---:|---:|---|
+| GBPUSD | 10 | 10 | 5 | 10 | benchmark; exit 10 beat 7 by 39% on fills. **Held fixed all cycle** |
+| EURUSD | 8 | 10 | 7 | 14 | half GBPUSD's volume at add 14 |
+| EURGBP | 4 | **5** | 3 | 8 | low volume even at add 6; exit 5 beat 8 on fills (36.7 vs 30.0 pips/day) |
+| AUDCAD | 7 | 10 | 5 | 10 | two-thirds of GBPUSD's volume at add 10 |
+| AUDCHF | 6 | 10 | 5 | 10 | half AUDCAD's volume |
+| CADCHF | 6 | 10 | 5 | 10 | half AUDCAD's volume |
+| NZDCAD | 10 | 10 | 5 | 10 | already at AUDCAD's volume |
+| AUDNZD | 10 | 10 | 7 | 14 | add 14 too wide for its range |
+| NZDCHF | 6 | 10 | 3 | 8 | no fills yet; width 3 per ADR-146's own survival data |
+
+Exit 10 on eight pairs follows the fills: at add 10 the crosses pooled
+beat exit 5 by +11% gross / +19% net, and GBPUSD's 10 beat 7 by 39%.
+EURGBP is the exception its own fills showed.
+
+Widths are unchanged from cycle 2 except NZDCHF. Stranded is the rescue
+convention (`2 x width`, floored at `width + deadband + 1` for EURGBP and
+NZDCHF) -- a preset choice since ADR-153, not a rule.
+
+These are STARTING points: gentler than the earlier cycle-3 proposal on
+the CHF pairs, because the mid-week dials exist.
+
+---
+
+## 4. PRE-REGISTERED METRIC
+
+**Primary:** each pair's **scalps per day, divided by the fleet median
+scalps per day** over the same days. Target band **0.7 to 1.3**.
+
+Dividing by the fleet median removes the week's common market regime --
+a quiet day lowers every pair together and leaves the ratio unchanged.
+
+**Secondary, reported, not used to trigger changes:** pips per day per
+pair, and the top-to-bottom spread of pips per day (4.2x in the 10-18 Sep
+window; aim below 2x).
+
+**Source:** the deals, via the archive -- scalps are CloseBy pairs of an
+ENT and an EXT on the same instance. Not the dashboard's running counters.
+
+---
+
+## 5. MID-CYCLE CHANGES -- THE RULES
+
+**What may change mid-cycle:** `InpAddPips`, `InpWidthPips`,
+`InpStrandedThreshPips`, `InpDeadbandPips`. None enters a reconstruction
+invariant (I8 checks only that the pending add EXISTS; I7 checks depth
+against the cap), so a reattach with new values reconstructs cleanly.
+Invariants verified; the engine's re-pricing of a resting add after the
+change is NOT yet traced -- **watch the first change closely.**
+
+**What must NOT change mid-cycle:**
+- `InpExitPips` -- I6 halts any instance whose resting exits differ from
+  the new value, in any market.
+- `InpMaxLayers` downward below current depth -- I7 halts.
+
+**Groups, for the stagger:**
+
+| group | pairs |
+|---|---|
+| fixed | GBPUSD -- never changed this cycle; the benchmark |
+| A | EURGBP, AUDCHF, NZDCAD, NZDCHF |
+| B | EURUSD, AUDCAD, CADCHF, AUDNZD |
+
+**Schedule:**
+
+1. Wednesday to Thursday close: no changes. Two full days of fills.
+2. Friday before the London open: evaluate ALL pairs on Wed-Thu.
+   **Group A** pairs outside the band change; group B does not.
+3. The following Tuesday before the London open: evaluate on Fri-Mon.
+   **Group B** pairs outside the band change; group A is the control.
+
+**The change rule, per pair outside the band:**
+- ratio below 0.7: tighten add by ONE step
+- ratio above 1.3: widen add by ONE step
+- one step = 2 pips on pairs with add >= 8, 1 pip below that
+- never past the `0.5 <= add/width <= 4` guard; never below add 3
+- width, stranded and deadband move only if the add change forces it
+
+**One change per pair per evaluation.** No chasing within a window.
+
+---
+
+## 6. WHAT WOULD STOP THE CYCLE
+
+- Guard at or above 194 for more than two hours running on two days.
+- Any halt that is not understood within the day.
+- A pair capped on one side for more than 48 hours with no exit fill.
+- API counter over 1,800 before 18:00 broker on any day.
+
+A stop means: no further changes until the cause is written down.
+
+---
+
+## 7. NOT IN SCOPE THIS CYCLE
+
+- Exit distance tests (no second arm).
+- Lots above 0.01 (partial fills).
+- Carry (off).
+- Passive ejection (not built).
+- Live two-sided L0 quoting (`stranded ~ width`): possible since
+  ADR-153, deferred to a later cycle so this one changes one thing at a
+  time.
+
+---
+
+## 8. AMENDMENTS
+
+None yet.
+
+Line count: 175

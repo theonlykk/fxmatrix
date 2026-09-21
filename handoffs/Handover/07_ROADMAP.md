@@ -128,6 +128,16 @@ script the second time it is built, not the fifth.**
 
 ---
 
+## 6b. LOT SIZE -- GATED ON PARTIAL FILLS
+
+The operator wants to scale lot size as accounts grow (e.g. 0.1 on a
+100k account). Today every instance runs 0.01, the broker minimum, and
+the EA silently depends on that: it assumes every entry fills in full and
+sizes each exit from `InpLots`, not from the filled volume. At 0.01 a
+partial fill is impossible; at anything larger it is not. **Partial-fill
+handling (backlog C14) must land before any lot above 0.01**, and it costs
+API requests, so it interacts with the per-account budget in s1.
+
 ## 7. WHAT WOULD CHANGE THIS PLAN
 
 - **A funded account** would make the daily-loss limit, not the slot
@@ -139,4 +149,4 @@ script the second time it is built, not the fifth.**
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 142
+Line count: 152
