@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed -- 2026-09-21, revised after Gemini's ruling the same day
-(dedicated offset variable, not accrual). Backlog C15. Needs DeepSeek
+Proposed -- 2026-09-21. Rev 2 after Gemini (dedicated offset, not
+accrual); rev 3 after DeepSeek (`prompts/adr155_deepseek_response.md`,
+branch `review/adr155-deepseek` at `ebcf171`), which found the carry pass
+bypasses the formula. Backlog C15. Next: a tests-first Cursor spec
 (ARCHITECT s2: it moves live orders), then a tests-first Cursor spec.
 **Depends on F1** (barbell): the deepest layer must have a resting exit.
 F1 goes live with cycle 3 on 2026-09-23; this ships after, mid-cycle,
@@ -82,6 +84,20 @@ and it is added everywhere the exit target is computed:
 first restart after an ejection halts the instance (`I6_*_EXIT`) -- the same
 failure as the F1 migration and the AUDCAD ALT reattach.
 
+**Five more places, found by the DeepSeek audit, all verified in source:**
+
+| where | what it does today | change |
+|---|---|---|
+| `Grind_CarryExitPassBegin` / `Grind_CarryExitShiftLayer` (`grind_carry.mqh:796, 804`) | computes the exit from the RAW formula and modifies the order directly, bypassing `Grind_ExitQFormulaTarget` | **skip any layer with a non-zero eject offset.** Otherwise the first rollover with carry on moves the exit back to formula, and the next restart halts on I6. Inert today only because carry is off (`grind_carry.mqh:954`) |
+| `GrindLayer.exit_target` | `Grind_TryPlaceExitForLayer` places at this field (`grind_engine.mqh:840`) | the command sets `layer.exit_target` to the ejected price as well as writing the offset |
+| `Grind_HandleSideDealFill`, on `DEAL_ENTRY_OUT_BY` | deletes shift and accrual when a layer closes | also `Grind_EjectOffsetDelete`. NOT folded into `Grind_CarryShiftDelete`, which also runs on a trim cancel where the offset must survive |
+| `Grind_CarryPruneShiftGvs` | prunes orphan shift and release variables | also prune orphan `GRIND_EJECT_OFFSET_` -- **by that exact prefix only.** The command variable `GRIND_EJECT_<magic>` is keyed by MAGIC; pruning the broad `GRIND_EJECT_` prefix would treat a magic as a missing ticket and delete a pending command |
+| `Grind_InvariantDetailI6` (`grind_recon.mqh:125`) | logs an "expected" price WITHOUT accrual -- a **pre-existing bug**: the real check at `:364` includes it | include accrual and the eject offset, and add both to the payload |
+
+The wholesale clean-ups (`scripts/grind_gv_clean.mq5`,
+`Grind_TestClearCarryState`) DO use the broad `GRIND_EJECT_` prefix, so the
+command and the offset are both removed.
+
 Lifecycle of the variable:
 - **written** once, when a command is accepted
 - **deleted** when the layer closes, alongside the existing
@@ -147,6 +163,14 @@ ordinary scalps.
   EJECTED price, not the formula price
 - exit fills: CloseBy, layer removed, `GRIND_EJECT_OFFSET_` deleted,
   side's next add re-quoted
+- **carry rollover after an ejection:** with the carry pass enabled and in
+  its window, the ejected layer is skipped -- its exit stays at the ejected
+  price and I6 still passes on a restart afterwards
+- **large move then re-release:** an ejected exit trimmed and re-released
+  after the market has moved far keeps its offset; nothing bound-deletes it
+- **prune:** an orphan `GRIND_EJECT_OFFSET_` is pruned; a pending
+  `GRIND_EJECT_<magic>` command is NOT
+- **I6 detail:** the logged expected price includes accrual and the offset
 - ranking after an ejection: the ejected layer keeps rank `depth - 1`, and
   its exit stays required, even when its ejected price is nearer the
   market than a newer layer's formula target
