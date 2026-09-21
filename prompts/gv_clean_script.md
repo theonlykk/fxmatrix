@@ -18,13 +18,31 @@ doc). Push. Do NOT merge. Do NOT open a PR.
 
 ## DESIGN
 
-An MQL5 **script** (`#property script_show_inputs`), no inputs.
+An MQL5 **script** (`#property script_show_inputs`) with ONE input:
 
-**1. Refuse if the fleet may be running.** If `GRIND_MAE_REPORTER_HEARTBEAT`
-exists and its value is within 180 seconds of `TimeCurrent()`, `Print`
-`"grind_gv_clean: ABORT -- an fxgrind reporter heartbeat is fresh; detach
-all EAs and restart the terminal first"` and return WITHOUT deleting
-anything.
+    input bool InpForce = false;   // bypass the running-fleet guard
+
+**1. Refuse if the fleet may be running -- by EXISTENCE, not by time.**
+`GRIND_MAE_REPORTER_HEARTBEAT` is created with `GlobalVariableTemp`
+(`ea/grind_mae.mqh:256`), so a terminal restart deletes it, and the
+runbook restarts the terminal before this script runs. Therefore:
+
+    if(GlobalVariableCheck("GRIND_MAE_REPORTER_HEARTBEAT") && !InpForce)
+    {
+       Print("grind_gv_clean: ABORT -- GRIND_MAE_REPORTER_HEARTBEAT exists. ",
+             "Detach all fxgrind EAs, CLOSE and reopen the terminal, then run again. ",
+             "Use InpForce=true ONLY if all EAs are detached, the terminal has been ",
+             "restarted, and the variable still exists.");
+       return;
+    }
+
+**Do NOT compare against any clock.** `TimeCurrent()` freezes when no
+ticks arrive (weekends, disconnects), so a time-based guard would abort
+falsely. `GlobalVariableTime()` returns last ACCESS time, which a read can
+refresh. Existence after a restart is unambiguous.
+
+If `InpForce` is true and the heartbeat exists, `Print` a WARNING line
+naming it, then proceed.
 
 **2. Delete by prefix**, each with `GlobalVariablesDeleteAll(prefix)`,
 in this order, printing each prefix and the count it returned:
@@ -70,4 +88,4 @@ ORIGIN, the diff stat, the grep evidence for each prefix, and a true line
 count in the footer. Reply in chat with ONLY the branch name, the hashes,
 and one line saying it is pushed.
 
-Line count: 73
+Line count: 91
