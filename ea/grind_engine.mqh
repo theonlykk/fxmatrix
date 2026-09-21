@@ -1490,12 +1490,14 @@ void Grind_TryRecenterOppositeL0(GrindSideState &opposite_side,
 {
    if(Grind_SideDepth(opposite_side) != 0)
       return;
+   if(Grind_ApiCounterSoftWarnActive())
+      return;
    if(opposite_side.l0_pending_ticket == 0)
       return;
    if(!Grind_SelectOurOrder(opposite_side.l0_pending_ticket, magic))
       return;
 
-   const double resting = OrderGetDouble(ORDER_PRICE_OPEN);
+   const double resting = Grind_OrderGetPriceOpen(opposite_side.l0_pending_ticket);
    const double dist_pips = Grind_StrandedDistMidPips(resting, current_mid, _Point);
    if(!Grind_ShouldRecenter(dist_pips, stranded_thresh_pips))
       return;

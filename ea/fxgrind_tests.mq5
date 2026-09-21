@@ -210,8 +210,8 @@ void Test_T11_PoisonedDefaults()
 {
    AssertTrue("T11 width validate", !Grind_ValidateGeometryInputs(-1.0, 3.0, 12, 18.0, 10.0));
    AssertTrue("T11 exit validate", !Grind_ValidateGeometryInputs(9.0, -1.0, 12, 18.0, 10.0));
-   AssertTrue("T11 width OnInit", Grind_TestOnInitGeometryCheck(-1.0, 3.0, 12, 18.0, 10.0, 22260101UL) == INIT_FAILED);
-   AssertTrue("T11 exit OnInit", Grind_TestOnInitGeometryCheck(9.0, -1.0, 12, 18.0, 10.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("T11 width OnInit", Grind_TestOnInitGeometryCheck(-1.0, 3.0, 12, 18.0, 10.0, 4.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("T11 exit OnInit", Grind_TestOnInitGeometryCheck(9.0, -1.0, 12, 18.0, 10.0, 4.0, 22260101UL) == INIT_FAILED);
 }
 
 void Test_T12_UnconfiguredAddPips()
@@ -256,8 +256,97 @@ void Test_T16_SimulatorParity()
 
 void Test_T17_AddWidthRelationship()
 {
-   AssertTrue("T17 mismatch", !Grind_ValidateAddWidthRelationship(5.0, 9.0));
-   AssertTrue("T17 match", Grind_ValidateAddWidthRelationship(5.0, 10.0));
+   AssertFalse("T17a ratio low", Grind_ValidateAddWidthRatio(10.0, 4.9));
+   AssertTrue("T17b ratio min", Grind_ValidateAddWidthRatio(10.0, 5.0));
+   AssertTrue("T17c ratio mid", Grind_ValidateAddWidthRatio(5.0, 10.0));
+   AssertTrue("T17d ratio max", Grind_ValidateAddWidthRatio(5.0, 20.0));
+   AssertFalse("T17e ratio high", Grind_ValidateAddWidthRatio(5.0, 20.05));
+   AssertTrue("T17f cycle3", Grind_ValidateAddWidthRatio(5.0, 4.0));
+   AssertTrue("T17g deadband zero", Grind_ValidateDeadband(0.0));
+   AssertFalse("T17h deadband neg", Grind_ValidateDeadband(-1.0));
+   AssertTrue("T17i deadband ok", Grind_ValidateDeadband(4.0));
+}
+
+void Test_ADR153_OnInitGeometry()
+{
+   AssertTrue("G1 ratio fail",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 10.0, 20.05, 4.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("G2 cycle3 ok",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 10.0, 4.0, 4.0, 22260101UL) == INIT_SUCCEEDED);
+   AssertTrue("G3 stranded eq width",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 5.0, 10.0, 6.0, 22260101UL) == INIT_SUCCEEDED);
+   AssertTrue("G4 deadband fail",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 10.0, 10.0, -1.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("G5 eurgbp ok",
+              Grind_TestOnInitGeometryCheck(3.0, 8.0, 8, 6.0, 6.0, 4.0, 22260101UL) == INIT_SUCCEEDED);
+   AssertTrue("G6 stranded zero",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, 0.0, 10.0, 4.0, 22260101UL) == INIT_FAILED);
+   AssertTrue("G7 stranded neg",
+              Grind_TestOnInitGeometryCheck(5.0, 10.0, 8, -1.0, 10.0, 4.0, 22260101UL) == INIT_FAILED);
+}
+
+void Test_ADR153_AddGreaterThanExitRanks()
+{
+   const double exit_pips = 2.0;
+   const int n = 3;
+
+   double long_entries[3];
+   long_entries[0] = 1.25000;
+   long_entries[1] = 1.24960;
+   long_entries[2] = 1.24920;
+   int long_layers[3];
+   long_layers[0] = 0;
+   long_layers[1] = 1;
+   long_layers[2] = 2;
+   int long_ranks[];
+   Grind_ExitQRanks(long_entries, long_layers, n, true, long_ranks);
+   int long_rank_25000 = -1;
+   int long_rank_24960 = -1;
+   int long_rank_24920 = -1;
+   for(int i = 0; i < n; i++) {
+      if(MathAbs(long_entries[i] - 1.25000) < 1e-12)
+         long_rank_25000 = long_ranks[i];
+      if(MathAbs(long_entries[i] - 1.24960) < 1e-12)
+         long_rank_24960 = long_ranks[i];
+      if(MathAbs(long_entries[i] - 1.24920) < 1e-12)
+         long_rank_24920 = long_ranks[i];
+   }
+   AssertTrue("ADR153 long rank 24920", long_rank_24920 == 0);
+   AssertTrue("ADR153 long rank 24960", long_rank_24960 == 1);
+   AssertTrue("ADR153 long rank 25000", long_rank_25000 == 2);
+   const double long_t0 = Grind_ExitPrice(1.24920, exit_pips, _Point, 1);
+   const double long_t1 = Grind_ExitPrice(1.24960, exit_pips, _Point, 1);
+   const double long_t2 = Grind_ExitPrice(1.25000, exit_pips, _Point, 1);
+   AssertTrue("ADR153 long targets rise", long_t0 < long_t1 && long_t1 < long_t2);
+
+   double short_entries[3];
+   short_entries[0] = 1.25000;
+   short_entries[1] = 1.25040;
+   short_entries[2] = 1.25080;
+   int short_layers[3];
+   short_layers[0] = 0;
+   short_layers[1] = 1;
+   short_layers[2] = 2;
+   int short_ranks[];
+   Grind_ExitQRanks(short_entries, short_layers, n, false, short_ranks);
+   int short_rank_25000 = -1;
+   int short_rank_25040 = -1;
+   int short_rank_25080 = -1;
+   for(int j = 0; j < n; j++) {
+      if(MathAbs(short_entries[j] - 1.25000) < 1e-12)
+         short_rank_25000 = short_ranks[j];
+      if(MathAbs(short_entries[j] - 1.25040) < 1e-12)
+         short_rank_25040 = short_ranks[j];
+      if(MathAbs(short_entries[j] - 1.25080) < 1e-12)
+         short_rank_25080 = short_ranks[j];
+   }
+   AssertTrue("ADR153 short rank 25080", short_rank_25080 == 0);
+   AssertTrue("ADR153 short rank 25040", short_rank_25040 == 1);
+   AssertTrue("ADR153 short rank 25000", short_rank_25000 == 2);
+   const double short_t0 = Grind_ExitPrice(1.25080, exit_pips, _Point, -1);
+   const double short_t1 = Grind_ExitPrice(1.25040, exit_pips, _Point, -1);
+   const double short_t2 = Grind_ExitPrice(1.25000, exit_pips, _Point, -1);
+   AssertTrue("ADR153 short targets fall", short_t0 > short_t1 && short_t1 > short_t2);
 }
 
 void Test_T18_EmptyBookGenesis()
@@ -5971,6 +6060,90 @@ void Test_PO4_RecenterOppositeL0StillWorks()
    Grind_TestResetSideState();
 }
 
+void Test_PO4b_RecenterSkipsFreshL0()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   Grind_TestSetupLongDepth1(1.24900);
+   g_grind_short.l0_pending_ticket = 6001;
+   const double mid = 1.25000;
+   const double width_pips = 5.0;
+   const double stranded_thresh_pips = 10.0;
+   const double fresh = Grind_StraddleSellPrice(mid, width_pips, _Point);
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", fresh,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_MarketTestSeed(1.24998, 1.25002, 0);
+   Grind_TryRecenterOppositeL0(g_grind_short, false, mid, magic, "OPT",
+                               width_pips, stranded_thresh_pips, 4.0);
+   AssertTrue("PO4b no modify", g_grind_order_test_modify_calls == 0);
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PO4c_RecenterBlockedAtSoftWarn()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   Grind_ApiCounterTestSeed(GRIND_DAILY_API_SOFT_WARN);
+   Grind_TestSetupLongDepth1(1.24900);
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   const double mid = 1.25000;
+   const double width_pips = 5.0;
+   const double stranded_thresh_pips = 10.0;
+   Grind_MarketTestSeed(1.24998, 1.25002, 0);
+   Grind_TryRecenterOppositeL0(g_grind_short, false, mid, magic, "OPT",
+                               width_pips, stranded_thresh_pips, 4.0);
+   AssertTrue("PO4c no modify", g_grind_order_test_modify_calls == 0);
+   Adr152_TestResetAll();
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
+void Test_PO4d_RecenterAllowedBelowSoftWarn()
+{
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const ulong magic = 22260101UL;
+   Grind_ApiCounterTestSeed(GRIND_DAILY_API_SOFT_WARN - 1);
+   Grind_TestSetupLongDepth1(1.24900);
+   g_grind_short.l0_pending_ticket = 6001;
+   Grind_OrderTestUpsert(6001, (long)magic, "GRIND|OPT|S|L00|ENT", 1.26050,
+                         (long)ORDER_TYPE_SELL_LIMIT);
+   const double mid = 1.25000;
+   const double width_pips = 5.0;
+   const double stranded_thresh_pips = 10.0;
+   const double expected = Grind_StraddleSellPrice(mid, width_pips, _Point);
+   Grind_MarketTestSeed(1.24998, 1.25002, 0);
+   Grind_TryRecenterOppositeL0(g_grind_short, false, mid, magic, "OPT",
+                               width_pips, stranded_thresh_pips, 4.0);
+   GrindOrderTestRecord rec;
+   Grind_OrderTestFind(6001, rec);
+   AssertTrue("PO4d modify once", g_grind_order_test_modify_calls == 1);
+   AssertTrue("PO4d recentred", MathAbs(rec.price - expected) < 1e-12);
+   Adr152_TestResetAll();
+   Grind_DealTestReset();
+   Grind_MarketTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+}
+
 void Test_FB1_I6LiveBoundaryShort()
 {
    Grind_TestResetLayerDetailState();
@@ -6308,6 +6481,8 @@ void OnStart()
    Test_T15_IdenticalSpacingAtDepth();
    Test_T16_SimulatorParity();
    Test_T17_AddWidthRelationship();
+   Test_ADR153_OnInitGeometry();
+   Test_ADR153_AddGreaterThanExitRanks();
    Test_T18_EmptyBookGenesis();
    Test_T19b_SingleLayerAppend();
    Test_T19c_AppendUpToMaxLayersParallel();
@@ -6458,6 +6633,9 @@ void OnStart()
    Test_PO2_TryPlaceL0IgnoresLargeNoiseMove();
    Test_PO3_TryPlaceL0PlacesWhenEmpty();
    Test_PO4_RecenterOppositeL0StillWorks();
+   Test_PO4b_RecenterSkipsFreshL0();
+   Test_PO4c_RecenterBlockedAtSoftWarn();
+   Test_PO4d_RecenterAllowedBelowSoftWarn();
    Test_FB1_I6LiveBoundaryShort();
    Test_FB2_I6RejectsRealBreachShort();
    Test_FB3_I6BoundaryLong();
