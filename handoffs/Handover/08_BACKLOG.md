@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-21 17:00Z.
+Last reviewed 2026-09-21 17:30Z.
 
 ---
 
@@ -44,6 +44,8 @@ Last reviewed 2026-09-21 17:00Z.
 | C7 | **Monitoring for N accounts.** One pass/fail across accounts: anything halted, any account near its loss limit, any book near 200, any API count near cap, anything stopped reporting. See `07_ROADMAP.md` s4 | not started |
 | C8 | **NZDCHF.** Rejected in ADR-146, never attached, presets still in the repo. Reopen only as part of ring selection, not as a one-off | idea |
 | C12 | **Twelve tests price against the LIVE chart.** T45, T46, T46b, T46c, T57b, S1, S1b, S3, S4, S5, S6, Q10 reach exit placement on the 1001 fixture without `Grind_MarketTestSeed`. Their own assertions pass either way and the carry leak they caused is fixed (`29df88f`), but they still read live quotes. Seed the market in each | hygiene |
+| C15 | **Commanded ejection -- FIRST BUILD AFTER WEDNESDAY.** A script (`grind_eject`, inputs magic + ticket) writes `GRIND_EJECT_<magic>`; the EA validates the ticket is its DEEPEST layer on a side, cancels that side's ENT, closes the position through its OWN path, updates its book (no quarantine, no reattach, no preset trap), clears the command and emits an `EJECT` telemetry event so pipshed records it. The engine's normal add re-quote then completes the roll. Separates MECHANISM (build and test once) from POLICY (human-triggered until the roll log and the retrace study say what the rule is). Passive ejection later = this mechanism + a trigger. EA code touching layer state: spec, tests first, DeepSeek. Must survive restart (I6) | not started |
+| C16 | **Retrace study** -- from the M1 bid/ask data and fills: for each capped side, how often a retrace of `X` pips came within 24h vs how often price returned to the deepest layer's exit. Turns roll vs eject-and-wait into a number. Operator insight 2026-09-21: with add `a` < exit `X`, a retrace earns ~`X/a` pips per pip beyond the first `X` -- favours rolling | not started |
 | C14 | **Partial-fill handling -- prerequisite for any lot above 0.01.** The EA reads filled volume only to LOG it (`grind_engine.mqh:1651`) and places each exit for `InpLots`. A partial fill leaves an exit sized for volume that never filled; CloseBy then nets part of it and leaves an unowned opposite position, and the second partial deal's handling is untraced. Operator wants to scale (e.g. 0.1 on a 100k account), so this gates growth. Tied to the API budget: handling partials costs requests | not started |
 | C9 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot (not public). Deferred from Wednesday: rotating means touching every chart's inputs. Do it at a reattach that is happening anyway. **The separate, larger exposure is the pipshed READ token, which is in every handoff in a PUBLIC repo** -- see the standing question in `NEW_CHAT_PROMPT.md` | deferred |
 | C10 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
@@ -56,4 +58,4 @@ Last reviewed 2026-09-21 17:00Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 59
+Line count: 61
