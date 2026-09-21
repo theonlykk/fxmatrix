@@ -44,11 +44,25 @@ bool Grind_ValidateAddWidthRelationship(const double width_pips,
 }
 
 //+------------------------------------------------------------------+
+bool Grind_ValidateAddWidthRatio(const double width_pips,
+                                 const double add_pips)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ValidateDeadband(const double deadband_pips)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
 int Grind_TestOnInitGeometryCheck(const double width_pips,
                                   const double exit_pips,
                                   const int max_layers,
                                   const double stranded_thresh_pips,
                                   const double add_pips,
+                                  const double deadband_pips,
                                   const ulong magic)
 {
    if(!Grind_ValidateGeometryInputs(width_pips, exit_pips, max_layers,
