@@ -178,21 +178,22 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-20 21:15Z, market OPEN (reopened 21:00Z Sunday).** Evidence:
-`HANDOFF_2026-09-20.md`, status read `c67` at 21:13:15Z.
+**As of 2026-09-21 05:10Z, market OPEN.** Evidence: `HANDOFF_2026-09-21.md`,
+status read `c70`.
 
 | | |
 |---|---|
-| fxmatrix main | `761dc94` |
-| VPS running | `5454358`, compiled 01:18:50Z 20-Sep. **DETACHED HEAD**. Terminal verified byte-identical to that commit, 66 of 66 files |
-| Delta main vs VPS | `grind_engine.mqh`, `grind_exitq.mqh`, `grind_recon.mqh` (F1) + 12 presets (geometry cycle 2) + tooling. **None of it deployed** |
-| MQL5 suite | **1354/1354** at `605bc85`, operator-run |
-| Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok` at 21:13:15Z. NZDCHF never attached |
-| Book | 104 positions, 61 orders, 29 resting entries. **Guard 194** -- exactly at the limit |
-| Account | demo 1514582088, MTM -247. **Cycle ends; new account Wednesday**, same VPS terminal, restarted |
+| fxmatrix main | `10af8da` |
+| VPS running | `5454358`, compiled 01:18:50Z 20-Sep. **DETACHED HEAD**. Terminal verified byte-identical, 66 of 66 files |
+| Delta main vs VPS | F1 barbell, **ADR-153** (geometry independence, recentre API budget), 12 presets (cycle 2, superseded), tooling. **None deployed** |
+| MQL5 suite | `main` **1377/1380**; the 3 failures (IV5 x2, EF3) are pre-existing and environment-dependent -- backlog C12 |
+| Fleet | 16 attached, **0 halted**, all `recon_ok` / `invariant_ok`. NZDCHF never attached |
+| Book | 104 positions, 60 orders, 30 resting entries. **Guard 194** |
+| Account | demo 1514582088, MTM -207; both AUDCAD arms capped short 8/8. **New account Wednesday** |
+| Next fleet | **9 pairs x 1 arm, cap 8** -- see `HANDOFF_2026-09-21.md` s2 |
 | Carry | OFF in all presets. `OnInit` FATAL guard intact |
 | Tags | `vps-19b6faa` (K=1/H=0), `vps-5454358` (current) |
-| Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- compiles and runs MT5, algo OFF. See `06_LINUX_WINE_BOX.md` |
+| Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 
 **The stale-offset fix has now run live and priced correctly.** At 21:09:17Z
 AUDCAD ALT's capped short side released: the deepest short exit filled
