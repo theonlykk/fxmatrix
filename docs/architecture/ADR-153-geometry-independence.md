@@ -14,8 +14,9 @@ Proposed -- 2026-09-20. Revision 3, same day.
   the one path that burned 139 requests in a night -- was the one path
   that budget did not cover.
 
-Gemini approved revs 1-2; rev 3 removes a floor he approved and needs his
-sign-off. Cursor implementation outstanding.
+Gemini approved rev 3; recentre gate at 1,800 per his ruling.
+Implementation on feat/adr153-geometry-independence; DeepSeek audit of the
+branch pending.
 
 Supersedes the fixed relationship set by ADR-125 (`0bd0877`, 2026-09-06).
 
