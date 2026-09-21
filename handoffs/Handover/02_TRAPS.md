@@ -647,3 +647,39 @@ Rotate at the next planned reattach, which is Wednesday.
 running in your system". Ubuntu's own Wine 9 works. Details in
 `06_LINUX_WINE_BOX.md`.
 
+## TRAPS FROM ADR-153 (2026-09-20, overnight)
+
+**Check the suite TOTAL, not just the FAIL rows.** A stale compile of
+`main`'s tests produced exactly the same FAIL rows as the branch -- only
+the total (1354 against the branch's 1380) gave it away. After every
+checkout, run `desktop_sync.ps1` BEFORE compiling, and confirm a
+branch-only symbol is present in the terminal copy, e.g.
+`Select-String -Path "$env:APPDATA\MetaQuotes\Terminal\*\MQL5\Experts\fxmatrix\fxgrind_tests.mq5" -Pattern "<new test name>"`.
+
+**Cursor's self-reported hashes and line counts are unreliable.** Twice in
+one ADR its response document recorded a commit hash from before an amend
+(`ceb8c31` for `c9997b2`, `74f1b93` for `ce0cb28`) and a wrong line count.
+The code was right both times. Verify every hash against origin and count
+every file.
+
+**A green suite can depend on the week you run it.** IV5 and EF3 read live
+swap rates through `Grind_CarryShiftGetForRecon` and fail on `main` since
+the week opened (backlog C12). Before blaming a branch for a failure, run
+`main` -- it settles "ours or pre-existing" in one compile.
+
+**A test that passes can be passing for the wrong reason.**
+`Test_PO4_RecenterOppositeL0StillWorks` passed for weeks because the
+recentre read `OrderGetDouble` directly, which returns 0.0 under the test
+harness, so the distance from mid was always enormous and the recentre
+always fired. Only a test expecting NO recentre (PO4b) exposed it. When a
+test asserts that something happens, add its negative twin.
+
+**An inequality in an ADR is not automatically a safety rule.** ADR-153's
+`stranded >= max(2 x width, width + deadband + 1)` was derived in one
+evening, approved, audited, and then removed: it encoded one quoting
+design and would have forbidden another. Ask what a fatal check protects
+against; if the answer is "a preference", it is a preset convention.
+
+**Say which parameter TYPE a direction argument is.** `Grind_ExitQRanks`
+takes `bool is_long`; `Grind_ExitPrice` takes `int direction`. Passing
+`-1` to a `bool` coerces to `true`. Specs must name the value per function.

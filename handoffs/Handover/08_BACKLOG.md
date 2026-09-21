@@ -10,7 +10,7 @@ Rules: an item stays until it ships or is explicitly dropped. Each one says
 what it is, why it is blocked or not, and where the evidence lives. Delete
 when done -- the handoff records that it happened.
 
-Last reviewed 2026-09-20 22:15Z.
+Last reviewed 2026-09-21 05:00Z.
 
 ---
 
@@ -18,13 +18,12 @@ Last reviewed 2026-09-20 22:15Z.
 
 | # | Item | Status |
 |---|---|---|
-| A1 | **ADR-153: remove the `add == 2 x width` rule** (`fxgrind.mq5:119`, `GRIND_ADD_WIDTH_MULTIPLE`, ADR-125 `0bd0877`) -- blocks every cycle-3 add value. Replace with a range check `0.5 <= add/width <= 4`, still fatal. **Gemini approved 2026-09-20** (retracted his keep-the-link ruling). **Scope also covers the stranded threshold**: it must follow WIDTH at `2 x width`, NOT add. Below `width` the stranded gate is permanently open -- a fresh L0 rests exactly `width` from mid -- and the deadband silently becomes the only brake on the ADR-124 recentre, costing `OrderModify` calls against the 2,000/day API cap. Add a startup check `stranded > width + deadband`. Next: Cursor spec, tests first, then DeepSeek (ARCHITECT s2: grid geometry AND it changes when orders are placed) | spec next |
 | A2 | **Lots: pips or dollars.** Gemini ruled evenness should be measured in DOLLARS, which makes `InpLots` a second lever. Lot step is 0.01, so only 0.01 / 0.02 are available: putting AUDCAD, NZDCAD and AUDNZD on 0.02 narrows USD/pip dispersion from 2.3x to 1.4x and doubles their exposure. **Operator decision; changes the presets** | open |
-| A3 | **Fleet size.** The book sat at guard 194-195 with 16 instances. Cycle 3 makes nearly every pair trade MORE, and F1 adds one resting exit per side of depth >= 2 (30 slots on Friday's book). Measure peak book per instance from the archive and choose the count | not started |
-| A4 | **Cycle-3 presets.** add / exit / width / stranded per arm, from `prompts/gemini_memo_geometry_cycle3.md`, with EURGBP OPT 4/5 and ALT 4/11 (A8) and **stranded = 2 x width on every arm** (A1). Blocked by A1, shaped by A2 and A3 | blocked |
+| A3 | **Fleet: DECIDED IN PRINCIPLE 2026-09-20 -- nine pairs, ONE arm each, cap 8.** GBPUSD, EURUSD, EURGBP plus the complete AUD/CAD/CHF/NZD block (AUDCAD, AUDCHF, AUDNZD, CADCHF, NZDCAD, NZDCHF). Modelled from the fills: peak ~144 slots, median ~112, against 16 instances on cycle 3 at 251. OPT/ALT paused: the objective (even pips per pair) is cross-sectional, volume is high-count, and a staggered mid-week schedule replaces the second arm as the control. Needs the cycle-3 revision doc: pre-registered metric (scalps/day as a ratio to the fleet median), stagger schedule, starting geometry | write-up next |
+| A4 | **Presets.** UNBLOCKED by ADR-153 (merged `01b71d8`). Starting geometry proposed in chat 2026-09-20 (add / exit / width / stranded): GBPUSD 10/10/5/10, EURUSD 8/10/7/14, EURGBP 4/**?**/3/8, AUDCAD 7/10/5/10, AUDCHF 6/10/5/10, CADCHF 6/10/5/10, NZDCAD 10/10/5/10, AUDNZD 10/10/7/14, NZDCHF 6/10/3/8. **EURGBP's exit is an operator call: 5 (fills), 8 (middle), 11 (replay).** Exit and cap are FIXED for the cycle (I6/I7 halt on a mid-cycle change); add, width, stranded and deadband are reconstruction-safe mid-week dials | EURGBP exit open |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
 | A7 | **GlobalVariable clean-up list**, source-verified. A terminal restart does NOT clear them. `GRIND_MAE_*` anchors on the OLD account's equity; carry keys are ticket-dead; slot/magic locks, cap exposure, `GRIND_DEINIT_`, `GRIND_CLOSEBY_EXHAUSTED` unread | not started |
-| A8 | **EURGBP exit to 11.** Cleared the holdout AND the swap check (`prompts/exit_counterfactual_results.md` s7, +93 pips, interval [+32, +145]). Ship on one arm with the other at 8 as a control, or hold for the new account? | decision |
+| A8 | **Superseded by A3.** With one arm per pair there is no EURGBP OPT-vs-ALT exit test; EURGBP's exit becomes a single choice in A4 | superseded |
 | A9 | **Deploy sequence.** Detach all 16 on the OLD account BEFORE switching login (attached EAs reinit on the new account and start quoting), switch, restart, clear GVs (A7), deploy build + presets, tag `vps-<sha7>`, attach | not started |
 
 ## B. WEDNESDAY, OPTIONAL BUT CHEAP
@@ -45,6 +44,8 @@ Last reviewed 2026-09-20 22:15Z.
 | C6 | **Linux box qualification.** Run `fxgrind_tests` there (Strategy Tester); whitelist the pipshed URL and prove telemetry; systemd service so the terminal survives a reboot; watch for Wine crashes. Only then consider moving a fleet to it. `OrderSend` under Wine stays unproven until a live instance runs | partly done |
 | C7 | **Monitoring for N accounts.** One pass/fail across accounts: anything halted, any account near its loss limit, any book near 200, any API count near cap, anything stopped reporting. See `07_ROADMAP.md` s4 | not started |
 | C8 | **NZDCHF.** Rejected in ADR-146, never attached, presets still in the repo. Reopen only as part of ring selection, not as a one-off | idea |
+| C11 | **NZDCHF -- ADR-154.** Rejected in ADR-146 on a SIMULATOR tail-window gate (2015 SNB) at width 7 -- a geometry, not the pair; the same ADR shows width 3 surviving 60-74% and admits the live CHF pairs fail the same gate. Completes the AUD/CAD/CHF/NZD block, and CHF instance count FALLS (4 today -> 3). Needs a short ADR superseding ADR-146 D1 before it is attached | not started |
+| C12 | **Flaky suite: IV5 (x2) and EF3 fail on `main` and every branch (1351/1354 on `main`, 2026-09-20).** Green at `605bc85` in another week. `Grind_CarryShiftGetForRecon` reads the chart symbol's LIVE swap rates and tries to select position 1001 on the live account, and a shift for 1001 is left behind mid-run by an earlier test. So a green suite depends on the day it is run. Fix: those tests seed their own swap rates and clear carry state for 1001 (`F2_TestClearPositionCarry(1001)`) first | not started |
 | C9 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot (not public). Deferred from Wednesday: rotating means touching every chart's inputs. Do it at a reattach that is happening anyway. **The separate, larger exposure is the pipshed READ token, which is in every handoff in a PUBLIC repo** -- see the standing question in `NEW_CHAT_PROMPT.md` | deferred |
 | C10 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
 
@@ -56,4 +57,4 @@ Last reviewed 2026-09-20 22:15Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 59
+Line count: 60
