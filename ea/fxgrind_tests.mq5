@@ -2436,10 +2436,14 @@ void Grind_TestAppendDeal(const ulong deal_ticket,
 
 void Grind_TestClearCarryState()
 {
+   GlobalVariablesDeleteAll("GRIND_CARRY_SHIFT_");
+   GlobalVariablesDeleteAll("GRIND_CARRY_ACCRUED_");
+   GlobalVariablesDeleteAll(GRIND_CARRY_RELEASE_PREFIX);
 }
 
 void Grind_TestResetSideState()
 {
+   Grind_TestClearCarryState();
    ArrayResize(g_grind_long.layers, 0);
    ArrayResize(g_grind_short.layers, 0);
    g_grind_long.l0_pending_ticket = 0;
