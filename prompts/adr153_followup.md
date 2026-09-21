@@ -36,12 +36,26 @@ immediately after `Test_ADR153_OnInitGeometry();`:
   assert the targets are strictly increasing in rank order (rank 0 target
   < rank 1 target < rank 2 target).
 - Mirror the whole test for a SHORT ladder (entries 1.25000, 1.25040,
-  1.25080; `dir = -1`; newest is the highest; targets strictly
-  decreasing in rank order).
+  1.25080; newest is the highest; targets strictly decreasing in rank
+  order).
 
-Use `Grind_ExitQRanks`'s real signature at `grind_exitq.mqh:84`. If it
-differs from `(entries[], layer_indices[], n, is_long, ranks_out[])`, STOP
-and report.
+**The two functions take direction in DIFFERENT TYPES. Get this right:**
+
+| function | parameter | long | short |
+|---|---|---|---|
+| `Grind_ExitQRanks` (`grind_exitq.mqh:84`) | `const bool is_long` | `true` | **`false`** |
+| `Grind_ExitPrice` (`grind_pure.mqh:116`) | `const int direction` | `1` | **`-1`** |
+
+**Never pass `-1` to `is_long`.** A non-zero integer coerces to `true`, so
+the short ladder would be ranked as long and the assertions would fail for
+a reason unrelated to the code under test. If an assertion in this test
+fails, check these arguments BEFORE touching anything else, and do not
+modify ranking or pricing code to make it pass -- this change touches
+tests and the ADR only.
+
+Use the real signatures. If `Grind_ExitQRanks` differs from
+`(entries[], layer_indices[], n, is_long, ranks_out[])` or `Grind_ExitPrice`
+from `(entry, exit_pips, point, direction)`, STOP and report.
 
 ### 2. `stranded <= 0` rejection (audit gap)
 
@@ -101,4 +115,4 @@ line saying it is pushed.
 Compile and run the suite on the branch head. Expect 1367 + the new
 assertions passing, with exactly the same 3 pre-existing failures.
 
-Line count: 104
+Line count: 118
