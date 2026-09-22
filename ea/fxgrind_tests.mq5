@@ -6154,6 +6154,262 @@ void Test_Y19_CommitAccrualTruthTable()
    AssertFalse("Y19 modify fail", Grind_CarryShouldCommitAccrual(true, false, false));
 }
 
+void Grind_TestEjectHarnessReset()
+{
+   Grind_TestClearCarryState();
+   Grind_TestResetSideState();
+   Grind_OrderTestReset();
+   Grind_MarketTestReset();
+}
+
+void AssertEqInt(const string name, const int got, const int expected)
+{
+   AssertTrue(name, got == expected);
+}
+
+void Grind_TestEjectFixtureDepth2()
+{
+   const ulong magic = 22260101UL;
+   g_grind_order_test_active = true;
+   g_grind_order_test_send_ok = true;
+   ArrayResize(g_grind_long.layers, 2);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].position_ticket = 1001UL;
+   g_grind_long.layers[0].exit_order_ticket = 2001UL;
+   g_grind_long.layers[0].exit_target = 1.25030;
+   g_grind_long.layers[0].layer_index = 0;
+   g_grind_long.layers[1].entry_price = 1.24900;
+   g_grind_long.layers[1].position_ticket = 1002UL;
+   g_grind_long.layers[1].exit_order_ticket = 2002UL;
+   g_grind_long.layers[1].exit_target = 1.24930;
+   g_grind_long.layers[1].layer_index = 1;
+   Grind_OrderTestUpsert(2001UL, (long)magic,
+                         GrindCommentBuild("OPT", "L", 0, "EXT"),
+                         1.25030, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_OrderTestUpsert(2002UL, (long)magic,
+                         GrindCommentBuild("OPT", "L", 1, "EXT"),
+                         1.24930, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_MarketTestSeed(1.24800, 1.24810, 0, 0);
+}
+
+void Test_Z1_ValidateOrder()
+{
+   Grind_TestEjectHarnessReset();
+   AssertEqInt("Z1 ok", Grind_EjectValidate(false, true, true, 3, 2, true), GRIND_EJECT_OK);
+   AssertEqInt("Z1 halted", Grind_EjectValidate(true, true, true, 3, 2, true), GRIND_EJECT_HALTED);
+   AssertEqInt("Z1 switch off", Grind_EjectValidate(false, false, true, 3, 2, true), GRIND_EJECT_SWITCH_OFF);
+   AssertEqInt("Z1 not found", Grind_EjectValidate(false, true, false, 3, 2, true), GRIND_EJECT_NOT_FOUND);
+   AssertEqInt("Z1 depth", Grind_EjectValidate(false, true, true, 1, 0, true), GRIND_EJECT_DEPTH_LT_2);
+   AssertEqInt("Z1 not deepest", Grind_EjectValidate(false, true, true, 3, 1, true), GRIND_EJECT_NOT_DEEPEST);
+   AssertEqInt("Z1 no exit", Grind_EjectValidate(false, true, true, 3, 2, false), GRIND_EJECT_NO_EXIT_ORDER);
+   AssertEqInt("Z1 halted first", Grind_EjectValidate(true, false, false, 1, 0, false), GRIND_EJECT_HALTED);
+   AssertEqInt("Z1 switch when off", Grind_EjectValidate(false, false, false, 1, 0, false), GRIND_EJECT_SWITCH_OFF);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z2_ReasonNames()
+{
+   Grind_TestEjectHarnessReset();
+   AssertEqStr("Z2 ok", Grind_EjectReasonName(GRIND_EJECT_OK), "OK");
+   AssertEqStr("Z2 switch", Grind_EjectReasonName(GRIND_EJECT_SWITCH_OFF), "SWITCH_OFF");
+   AssertEqStr("Z2 not found", Grind_EjectReasonName(GRIND_EJECT_NOT_FOUND), "NOT_FOUND");
+   AssertEqStr("Z2 depth", Grind_EjectReasonName(GRIND_EJECT_DEPTH_LT_2), "DEPTH_LT_2");
+   AssertEqStr("Z2 not deepest", Grind_EjectReasonName(GRIND_EJECT_NOT_DEEPEST), "NOT_DEEPEST");
+   AssertEqStr("Z2 no exit", Grind_EjectReasonName(GRIND_EJECT_NO_EXIT_ORDER), "NO_EXIT_ORDER");
+   AssertEqStr("Z2 modify", Grind_EjectReasonName(GRIND_EJECT_MODIFY_FAILED), "MODIFY_FAILED");
+   AssertEqStr("Z2 halted", Grind_EjectReasonName(GRIND_EJECT_HALTED), "HALTED");
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z3_OffsetFor()
+{
+   Grind_TestEjectHarnessReset();
+   // Z3: 1.24811 - 1.25030 - 0.00010 = -0.00229
+   AssertNear("Z3 offset", Grind_EjectOffsetFor(1.24811, 1.25030, 0.00010), -0.00229, 1e-9);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z4_TargetPrice()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_MarketTestSeed(1.24800, 1.24810, 0, 0);
+   // Z4 long: ask 1.24810 + 1 point = 1.24811
+   AssertNear("Z4 long", Grind_EjectTargetPrice(true), 1.24811, 1e-9);
+   // Z4 short: bid 1.24800 - 1 point = 1.24799
+   AssertNear("Z4 short", Grind_EjectTargetPrice(false), 1.24799, 1e-9);
+   Grind_MarketTestSeed(1.24800, 1.24810, 10, 0);
+   // Z4 long stops 10: ask + 10 points = 1.24820
+   AssertNear("Z4 long stops", Grind_EjectTargetPrice(true), 1.24820, 1e-9);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z5_NoCommandNoAction()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z5 no cmd", rc, -1);
+   AssertTrue("Z5 no modify", g_grind_order_test_modify_calls == 0);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z6_AcceptDeepest()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z6 ok", rc, GRIND_EJECT_OK);
+   AssertTrue("Z6 one modify", g_grind_order_test_modify_calls == 1);
+   // Z6: target = ask 1.24810 + 1 point = 1.24811; offset = 1.24811 - 1.25030 = -0.00219
+   AssertNear("Z6 order price", Grind_OrderGetPriceOpen(2001UL), 1.24811, 1e-9);
+   AssertNear("Z6 offset", Grind_EjectOffsetGet(1001UL), -0.00219, 1e-9);
+   AssertFalse("Z6 no shift", GlobalVariableCheck(Grind_CarryShiftGvName(1001UL)));
+   AssertNear("Z6 exit target", g_grind_long.layers[0].exit_target, 1.24811, 1e-9);
+   AssertFalse("Z6 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z7_I6AfterAccept()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertTrue("Z7 i6",
+              Grind_ReconExitMatchesEntry(1.25000, 1.24811, 3.0, 0.00001, true, 0.0, false, 1001UL));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z8_RefuseNotDeepest()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1002UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z8 code", rc, GRIND_EJECT_NOT_DEEPEST);
+   AssertTrue("Z8 no modify", g_grind_order_test_modify_calls == 0);
+   AssertNear("Z8 no offset", Grind_EjectOffsetGet(1002UL), 0.0, 1e-9);
+   AssertFalse("Z8 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z9_RefuseSwitchOff()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, false, 3.0, false);
+   AssertEqInt("Z9 code", rc, GRIND_EJECT_SWITCH_OFF);
+   AssertTrue("Z9 no modify", g_grind_order_test_modify_calls == 0);
+   AssertNear("Z9 no offset", Grind_EjectOffsetGet(1001UL), 0.0, 1e-9);
+   AssertFalse("Z9 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z10_RefuseDepth1()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   ArrayResize(g_grind_long.layers, 1);
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z10 code", rc, GRIND_EJECT_DEPTH_LT_2);
+   AssertTrue("Z10 no modify", g_grind_order_test_modify_calls == 0);
+   AssertFalse("Z10 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z11_RefuseNoExitOrder()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_long.layers[0].exit_order_ticket = 0;
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z11 code", rc, GRIND_EJECT_NO_EXIT_ORDER);
+   AssertTrue("Z11 no modify", g_grind_order_test_modify_calls == 0);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z12_ModifyFailsNoState()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_send_ok = false;
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z12 code", rc, GRIND_EJECT_MODIFY_FAILED);
+   AssertNear("Z12 no offset", Grind_EjectOffsetGet(1001UL), 0.0, 1e-9);
+   AssertNear("Z12 exit unchanged", g_grind_long.layers[0].exit_target, 1.25030, 1e-9);
+   AssertFalse("Z12 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z13_RanksIgnoreExitPrice()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   const int n = Grind_SideDepth(g_grind_long);
+   double entries[];
+   int layer_indices[];
+   int ranks[];
+   ArrayResize(entries, n);
+   ArrayResize(layer_indices, n);
+   for(int i = 0; i < n; i++) {
+      entries[i] = g_grind_long.layers[i].entry_price;
+      layer_indices[i] = g_grind_long.layers[i].layer_index;
+   }
+   Grind_ExitQRanks(entries, layer_indices, n, true, ranks);
+   AssertTrue("Z13 depth 2", n == 2);
+   if(n >= 2) {
+      AssertTrue("Z13 A deepest", ranks[0] == 1);
+      AssertTrue("Z13 B rank0", ranks[1] == 0);
+   }
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z14_AccruedCarriedIntoOffset()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   Grind_CarryAccruedSet(1001UL, 0.00010);
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   // Z14: offset = 1.24811 - 1.25030 - 0.00010 = -0.00229; accrued unchanged
+   AssertNear("Z14 offset", Grind_EjectOffsetGet(1001UL), -0.00229, 1e-9);
+   AssertNear("Z14 accrued", Grind_CarryAccruedGet(1001UL), 0.00010, 1e-9);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z15_RefuseHalted()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, true);
+   AssertEqInt("Z15 code", rc, GRIND_EJECT_HALTED);
+   AssertTrue("Z15 no modify", g_grind_order_test_modify_calls == 0);
+   AssertNear("Z15 no offset", Grind_EjectOffsetGet(1001UL), 0.0, 1e-9);
+   AssertFalse("Z15 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z16_RefuseQuarantined()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, true);
+   AssertEqInt("Z16 code", rc, GRIND_EJECT_HALTED);
+   AssertTrue("Z16 no modify", g_grind_order_test_modify_calls == 0);
+   AssertNear("Z16 no offset", Grind_EjectOffsetGet(1001UL), 0.0, 1e-9);
+   AssertFalse("Z16 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -7336,6 +7592,22 @@ void OnStart()
    Test_Y17_SignGuardPermitsEjected();
    Test_Y18_SignGuardBlocksOrdinary();
    Test_Y19_CommitAccrualTruthTable();
+   Test_Z1_ValidateOrder();
+   Test_Z2_ReasonNames();
+   Test_Z3_OffsetFor();
+   Test_Z4_TargetPrice();
+   Test_Z5_NoCommandNoAction();
+   Test_Z6_AcceptDeepest();
+   Test_Z7_I6AfterAccept();
+   Test_Z8_RefuseNotDeepest();
+   Test_Z9_RefuseSwitchOff();
+   Test_Z10_RefuseDepth1();
+   Test_Z11_RefuseNoExitOrder();
+   Test_Z12_ModifyFailsNoState();
+   Test_Z13_RanksIgnoreExitPrice();
+   Test_Z14_AccruedCarriedIntoOffset();
+   Test_Z15_RefuseHalted();
+   Test_Z16_RefuseQuarantined();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();

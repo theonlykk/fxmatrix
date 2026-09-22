@@ -543,6 +543,18 @@ bool Grind_EjectIsEjected(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+string Grind_EjectCommandName(const ulong magic)
+{
+   return "GRIND_EJECT_" + IntegerToString((long)magic);
+}
+
+//+------------------------------------------------------------------+
+double Grind_EjectTargetPrice(const bool is_long)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_CarrySignGuardAppliesAtShift(const ulong position_ticket,
                                         const double entry,
                                         const double new_exit,

@@ -376,6 +376,16 @@ bool Grind_SelectOurPosition(const ulong ticket, const ulong magic)
 }
 
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+int Grind_EjectPollCommand(const ulong magic,
+                           const bool enabled,
+                           const double exit_pips,
+                           const bool engine_blocked)
+{
+   return -1;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_ModifyPendingPrice(const ulong ticket,
                               const double new_price,
                               const ulong magic)
