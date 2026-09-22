@@ -288,6 +288,18 @@ int Grind_EjectValidate(const bool engine_blocked,
                         const int rank,
                         const bool has_exit_order)
 {
+   if(engine_blocked)
+      return GRIND_EJECT_HALTED;
+   if(!switch_on)
+      return GRIND_EJECT_SWITCH_OFF;
+   if(!found)
+      return GRIND_EJECT_NOT_FOUND;
+   if(depth < 2)
+      return GRIND_EJECT_DEPTH_LT_2;
+   if(rank != depth - 1)
+      return GRIND_EJECT_NOT_DEEPEST;
+   if(!has_exit_order)
+      return GRIND_EJECT_NO_EXIT_ORDER;
    return GRIND_EJECT_OK;
 }
 
@@ -312,7 +324,7 @@ double Grind_EjectOffsetFor(const double target,
                             const double raw,
                             const double accrued)
 {
-   return 0.0;
+   return target - raw - accrued;
 }
 
 #endif // GRIND_PURE_MQH
