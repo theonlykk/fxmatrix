@@ -5,6 +5,16 @@ This message has a line count at the bottom
 Operator procedure until the EA can eject on command (backlog C15).
 First done 2026-09-21 on AUDCAD OPT and ALT, cycle 2.
 
+**BUILD CHECK FIRST.** Under F1 (barbell exit queue) a roll is safe ONLY
+on a build containing ADR-156 (`main` `3f72b9f` or later). Without it the
+reattach halts permanently: the new deepest layer was a middle layer with
+no exit. Check on the VPS:
+`Select-String -Path C:\fxmatrix\ea\grind_recon.mqh -Pattern tolerate_exit_shortfall`
+No match = **do not roll.** A match = proceed. At reattach expect one
+Experts line `WARN STARTUP_EXIT_SHORTFALL long=1 short=0` (or `short=1`
+for a short-side roll); the exit is placed on the next pass. Do not roll
+or reattach near rollover (a close-only window can still halt).
+
 **What a roll is:** close the DEEPEST layer of a capped side at the
 market. The engine then re-quotes the side's next add, which lands near
 the market (clamped passive) -- so the ladder moves up to price rather
@@ -76,4 +86,4 @@ side re-cap; how far did price retrace from the roll price.
 That second half is what the ejection design needs: how often a fresh top
 layer pays, against how often the rolled layer would have come back.
 
-Line count: 79
+Line count: 89

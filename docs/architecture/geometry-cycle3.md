@@ -170,6 +170,10 @@ A stop means: no further changes until the cause is written down.
 
 ## 8. AMENDMENTS
 
-None yet.
+**A1 (2026-09-22).** s5 says a reattach with new add/width "reconstructs
+cleanly". Under F1 that became true only with ADR-156 (merged `3f72b9f`):
+a required exit missing at the reattach is now placed, not a permanent
+halt. Remaining caveat: do not reattach near rollover or session edges
+(backlog C18). The geometry rules are unchanged.
 
-Line count: 175
+Line count: 179

@@ -28,14 +28,14 @@ Last reviewed 2026-09-21 19:40Z.
 
 | # | Item | Status |
 |---|---|---|
-| B1 | **F1 (barbell) on the flat account.** Merged already; a flat book has nothing to fail reconstruction, so it deploys cleanly and is the groundwork for ejection. Add a test that it starts clean on an empty book first | ready |
+| B1 | **F1 (barbell) on the flat account.** Merged already; a flat book has nothing to fail reconstruction, so it deploys cleanly and is the groundwork for ejection. Empty-book test not written; ADR-156 tests cover reconstruction | ready |
 | B2 | **Carry ON?** F2 made the mechanism correct and it is inert while carry is off. The book currently pays ~47 pips (~4.4 USD) a night, triple on Wednesdays. Separate decision from A4 | decision |
 
 ## C. AFTER WEDNESDAY
 
 | # | Item | Status |
 |---|---|---|
-| C2 | **F1 migration path.** The barbell cannot deploy onto an EXISTING book: startup reconstruction demands an exit on `rank == depth - 1` and halts permanently. Needed for any mid-cycle change after Wednesday. Options: place-before-check at `OnInit`, or route the startup shortfall to quarantine | not started |
+| C2 | **DONE -- ADR-156, merged `3f72b9f` (2026-09-22).** Startup tolerates a missing required exit, places it, OnTick stays strict. Suite 1432/1432; DeepSeek audit `5e31430`; Gemini ruling `prompts/gemini_adr156_ruling.md` | done |
 | C3 | **Second exit study** on the new account, using a difference-from-reference selection rule (the flaw in `prompts/exit_counterfactual_results.md` s6). Needs a week of fills | waiting on data |
 | C4 | **Carry-skewed quoting.** Asymmetric L0 (e.g. mid -2 / mid +8) to prefer the positive-carry side. Breakeven is 2-3 nights held against a 3-pip skew, most holds are hours, and a fleet-wide skew becomes a carry trade. **First: split realised pips by side per pair, after swap, and see whether there is anything to capture** | analysis first |
 | C6 | **Linux box qualification.** Run `fxgrind_tests` there (Strategy Tester); whitelist the pipshed URL and prove telemetry; systemd service so the terminal survives a reboot; watch for Wine crashes. Only then consider moving a fleet to it. `OrderSend` under Wine stays unproven until a live instance runs | partly done |
@@ -47,6 +47,9 @@ Last reviewed 2026-09-21 19:40Z.
 | C14 | **Partial-fill handling -- prerequisite for any lot above 0.01.** The EA reads filled volume only to LOG it (`grind_engine.mqh:1651`) and places each exit for `InpLots`. A partial fill leaves an exit sized for volume that never filled; CloseBy then nets part of it and leaves an unowned opposite position, and the second partial deal's handling is untraced. Operator wants to scale (e.g. 0.1 on a 100k account), so this gates growth. Tied to the API budget: handling partials costs requests | not started |
 | C9 | **Rotate `TelemetryAPIKey`.** It appeared in a chat screenshot (not public). Deferred from Wednesday: rotating means touching every chart's inputs. Do it at a reattach that is happening anyway. **The separate, larger exposure is the pipshed READ token, which is in every handoff in a PUBLIC repo** -- see the standing question in `NEW_CHAT_PROMPT.md` | deferred |
 | C10 | **Carry cost of cycle 3.** Tighter grids hold more layers, so the nightly swap bill rises, and that is NOT in the pips-per-day figures cycle 3 was chosen on. Measure after a week of the new geometry | waiting on data |
+| C18 | **Quarantine escalates while the retry is blocked** (DeepSeek T-1 on ADR-156). Checks count even when `Grind_GuardsAllowTrading` is false, so ticks during a close-only window halt an instance that cannot repair itself. Smallest fix: count a check only when a retry was allowed. Quarantine-wide, so its own ADR (Gemini ruling item 4) | not started |
+| C19 | **Pipshed does not render `CRITICAL_*` events.** They are stored in `ea_events` but no dashboard view shows them, so `STARTUP_EXIT_SHORTFALL_SIDE` is visible only in the Experts tab or an archive query | not started |
+| C20 | **`r1_audit.py` carried a stale ADR-155 "AUDIT TASK" into the ADR-156 audit.** The run prompt edits only the config block; that text lives elsewhere in the local script (not in the candlelab repo). Find it and make it part of the per-audit config before the next audit | not started |
 
 ## D. STANDING / HYGIENE
 
@@ -56,4 +59,4 @@ Last reviewed 2026-09-21 19:40Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 59
+Line count: 62
