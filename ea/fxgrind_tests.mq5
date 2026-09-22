@@ -2699,6 +2699,300 @@ void Test_T49_InvariantRestingExtOrderPasses()
                                                      long_out, short_out, reason));
 }
 
+static const ulong ADR156_MAGIC = 22260101UL;
+static const double ADR156_POINT = 0.00001;
+static const double ADR156_EXIT_PIPS = 3.0;
+static const int ADR156_MAX_LAYERS = 12;
+
+void Grind_Adr156TestPreamble()
+{
+   Grind_TestClearCarryState();
+   g_grind_recon_exit_shortfall_long = 0;
+   g_grind_recon_exit_shortfall_short = 0;
+}
+
+void Grind_Adr156AppendEnt(GrindReconTicket &tickets[],
+                           int &n,
+                           const string side,
+                           const int layer,
+                           const double price,
+                           const ulong ticket)
+{
+   tickets[n].ticket = ticket;
+   tickets[n].magic = ADR156_MAGIC;
+   tickets[n].comment = GrindCommentBuild("OPT", side, layer, "ENT");
+   tickets[n].price = price;
+   tickets[n].kind = GRIND_RECON_TICKET_POSITION;
+   n++;
+}
+
+void Grind_Adr156AppendExt(GrindReconTicket &tickets[],
+                           int &n,
+                           const string side,
+                           const int layer,
+                           const double price,
+                           const ulong ticket)
+{
+   tickets[n].ticket = ticket;
+   tickets[n].magic = ADR156_MAGIC;
+   tickets[n].comment = GrindCommentBuild("OPT", side, layer, "EXT");
+   tickets[n].price = price;
+   tickets[n].kind = GRIND_RECON_TICKET_ORDER;
+   n++;
+}
+
+bool Grind_Adr156Rebuild(GrindReconTicket &tickets[],
+                         const int count,
+                         GrindSideState &long_out,
+                         GrindSideState &short_out,
+                         string &reason,
+                         const bool tolerate = false)
+{
+   return Grind_RebuildBookFromTickets(tickets, count, ADR156_MAGIC, "OPT",
+                                       ADR156_EXIT_PIPS, ADR156_MAX_LAYERS, ADR156_POINT,
+                                       long_out, short_out, reason, tolerate);
+}
+
+int Grind_Adr156FindLayerArrayIdx(GrindSideState &side, const int layer_index)
+{
+   return Grind_FindLayerByIndex(side, layer_index);
+}
+
+void Grind_Adr156BuildLongL0L1L2ExtL2(GrindReconTicket &tickets[], int &n)
+{
+   n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendExt(tickets, n, "L", 2, 1.24830, 2003);
+}
+
+void Test_X1_BarbellCoveredStrictOk()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[5];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendExt(tickets, n, "L", 0, 1.25030, 2001);
+   Grind_Adr156AppendExt(tickets, n, "L", 2, 1.24830, 2003);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X1 ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason));
+   AssertTrue("X1 long sf", g_grind_recon_exit_shortfall_long == 0);
+   AssertTrue("X1 short sf", g_grind_recon_exit_shortfall_short == 0);
+}
+
+void Test_X2_DeepestMissingStrictFails()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[4];
+   int n = 0;
+   Grind_Adr156BuildLongL0L1L2ExtL2(tickets, n);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X2 fail", !Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason));
+   AssertTrue("X2 I3", StringFind(reason, "I3_LONG_NAKED") >= 0);
+}
+
+void Test_X3_DeepestMissingTolerantOk()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[4];
+   int n = 0;
+   Grind_Adr156BuildLongL0L1L2ExtL2(tickets, n);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   // X3: depth 3; ranks 0 (L2) and 2 (L0) required; L0 uncovered = 1 long shortfall
+   AssertTrue("X3 ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
+   AssertTrue("X3 long sf", g_grind_recon_exit_shortfall_long == 1);
+   AssertTrue("X3 short sf", g_grind_recon_exit_shortfall_short == 0);
+   const int li = Grind_Adr156FindLayerArrayIdx(long_out, 0);
+   AssertTrue("X3 layer0", li >= 0);
+   if(li >= 0) {
+      AssertNear("X3 exit tgt", long_out.layers[li].exit_target, 1.25030, 1e-9);
+      AssertTrue("X3 no ext ord", long_out.layers[li].exit_order_ticket == 0);
+   }
+}
+
+void Test_X4_RollBookTolerantOk()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[3];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendExt(tickets, n, "L", 2, 1.24830, 2003);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X4a fail", !Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason));
+   AssertTrue("X4a I3", StringFind(reason, "I3_LONG_NAKED") >= 0);
+   Grind_Adr156TestPreamble();
+   reason = "";
+   // X4: depth 2; ranks 0 (L2) and 1 (L1) required; L1 uncovered = 1 long shortfall
+   AssertTrue("X4b ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
+   AssertTrue("X4b long sf", g_grind_recon_exit_shortfall_long == 1);
+   AssertTrue("X4b short sf", g_grind_recon_exit_shortfall_short == 0);
+}
+
+void Test_X5_ShortDeepestMissingTolerantOk()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[4];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "S", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "S", 1, 1.25100, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "S", 2, 1.25200, 1003);
+   Grind_Adr156AppendExt(tickets, n, "S", 2, 1.25170, 2003);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   // X5: depth 3; ranks 0 (S2) and 2 (S0) required; S0 uncovered = 1 short shortfall
+   AssertTrue("X5 ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
+   AssertTrue("X5 long sf", g_grind_recon_exit_shortfall_long == 0);
+   AssertTrue("X5 short sf", g_grind_recon_exit_shortfall_short == 1);
+   const int si = Grind_Adr156FindLayerArrayIdx(short_out, 0);
+   AssertTrue("X5 layer0", si >= 0);
+   if(si >= 0)
+      AssertNear("X5 exit tgt", short_out.layers[si].exit_target, 1.24970, 1e-9);
+}
+
+void Test_X6_ShortfallCountsBothSides()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[7];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendEnt(tickets, n, "S", 0, 1.25000, 1101);
+   Grind_Adr156AppendEnt(tickets, n, "S", 1, 1.25100, 1102);
+   Grind_Adr156AppendEnt(tickets, n, "S", 2, 1.25200, 1103);
+   Grind_Adr156AppendExt(tickets, n, "S", 2, 1.25170, 2103);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   // X6: long ranks 0 and 2 required, both uncovered = 2; short rank 0 uncovered = 1
+   AssertTrue("X6 ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
+   AssertTrue("X6 long sf", g_grind_recon_exit_shortfall_long == 2);
+   AssertTrue("X6 short sf", g_grind_recon_exit_shortfall_short == 1);
+}
+
+void Test_X7_TolerantStillFailsI6()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[5];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendExt(tickets, n, "L", 0, 1.25040, 2001);
+   Grind_Adr156AppendExt(tickets, n, "L", 2, 1.24830, 2003);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X7 fail", !Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
+   AssertTrue("X7 I6", StringFind(reason, "I6_LONG_EXIT") >= 0);
+}
+
+void Test_X8_TolerantStillFailsI4()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[6];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendExt(tickets, n, "L", 0, 1.25030, 2001);
+   Grind_Adr156AppendExt(tickets, n, "L", 2, 1.24830, 2003);
+   Grind_Adr156AppendExt(tickets, n, "L", 5, 1.24530, 2005);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X8 fail", !Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
+   AssertTrue("X8 I4", StringFind(reason, "I4_LONG_ORPHAN_EXIT") >= 0);
+}
+
+void Test_X9_DefaultIsStrict()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[4];
+   int n = 0;
+   Grind_Adr156BuildLongL0L1L2ExtL2(tickets, n);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X9 fail", !Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason));
+   AssertTrue("X9 I3", StringFind(reason, "I3_LONG_NAKED") >= 0);
+}
+
+void Test_X10_ShortfallCriticalHelper()
+{
+   Grind_Adr156TestPreamble();
+   AssertTrue("X10 2,1", Grind_StartupShortfallCritical(2, 1));
+   AssertTrue("X10 0,2", Grind_StartupShortfallCritical(0, 2));
+   AssertTrue("X10 2,2", Grind_StartupShortfallCritical(2, 2));
+   AssertTrue("X10 1,2", Grind_StartupShortfallCritical(1, 2));
+   AssertTrue("X10 2,0", Grind_StartupShortfallCritical(2, 0));
+   AssertTrue("X10 1,1 not", !Grind_StartupShortfallCritical(1, 1));
+   AssertTrue("X10 1,0 not", !Grind_StartupShortfallCritical(1, 0));
+   AssertTrue("X10 0,0 not", !Grind_StartupShortfallCritical(0, 0));
+
+   GrindReconTicket tickets[7];
+   int n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 0, 1.25000, 1001);
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendEnt(tickets, n, "S", 0, 1.25000, 1101);
+   Grind_Adr156AppendEnt(tickets, n, "S", 1, 1.25100, 1102);
+   Grind_Adr156AppendEnt(tickets, n, "S", 2, 1.25200, 1103);
+   Grind_Adr156AppendExt(tickets, n, "S", 2, 1.25170, 2103);
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true);
+   AssertTrue("X10 X6 crit", Grind_StartupShortfallCritical(g_grind_recon_exit_shortfall_long,
+                                                            g_grind_recon_exit_shortfall_short));
+
+   Grind_Adr156TestPreamble();
+   n = 0;
+   Grind_Adr156BuildLongL0L1L2ExtL2(tickets, n);
+   Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true);
+   AssertTrue("X10 X3 not crit", !Grind_StartupShortfallCritical(g_grind_recon_exit_shortfall_long,
+                                                                 g_grind_recon_exit_shortfall_short));
+
+   Grind_Adr156TestPreamble();
+   n = 0;
+   Grind_Adr156AppendEnt(tickets, n, "L", 1, 1.24900, 1002);
+   Grind_Adr156AppendEnt(tickets, n, "L", 2, 1.24800, 1003);
+   Grind_Adr156AppendExt(tickets, n, "L", 2, 1.24830, 2003);
+   Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true);
+   AssertTrue("X10 X4 not crit", !Grind_StartupShortfallCritical(g_grind_recon_exit_shortfall_long,
+                                                                 g_grind_recon_exit_shortfall_short));
+}
+
+void Test_X11_StrictRebuildResetsCounters()
+{
+   Grind_Adr156TestPreamble();
+   GrindReconTicket tickets[4];
+   int n = 0;
+   Grind_Adr156BuildLongL0L1L2ExtL2(tickets, n);
+   g_grind_recon_exit_shortfall_long = 99;
+   g_grind_recon_exit_shortfall_short = 99;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   AssertTrue("X11 fail", !Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason));
+   AssertTrue("X11 I3", StringFind(reason, "I3_LONG_NAKED") >= 0);
+   AssertTrue("X11 long ctr", g_grind_recon_exit_shortfall_long == 0);
+   AssertTrue("X11 short ctr", g_grind_recon_exit_shortfall_short == 0);
+}
+
 void Test_T50_InvariantOpenExtPositionPasses()
 {
    const ulong magic = 22260101UL;
@@ -6585,6 +6879,17 @@ void OnStart()
    Test_T47_CloseByExhaustionHaltsCritical();
    Test_T48_BackwardIterationProcessesAllThree();
    Test_T49_InvariantRestingExtOrderPasses();
+   Test_X1_BarbellCoveredStrictOk();
+   Test_X2_DeepestMissingStrictFails();
+   Test_X3_DeepestMissingTolerantOk();
+   Test_X4_RollBookTolerantOk();
+   Test_X5_ShortDeepestMissingTolerantOk();
+   Test_X6_ShortfallCountsBothSides();
+   Test_X7_TolerantStillFailsI6();
+   Test_X8_TolerantStillFailsI4();
+   Test_X9_DefaultIsStrict();
+   Test_X10_ShortfallCriticalHelper();
+   Test_X11_StrictRebuildResetsCounters();
    Test_T50_InvariantOpenExtPositionPasses();
    Test_T51_InvariantNeitherExitStillHalts();
    Test_T52_InvariantExtPositionWithEntNotOrphan();

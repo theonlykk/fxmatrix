@@ -23,6 +23,8 @@ ulong  g_grind_invariant_marker_ticket = 0;
 bool   g_grind_last_invariant_ok = true;
 bool   g_grind_recon_ok = false;
 bool   g_grind_recon_verbose = false;
+int    g_grind_recon_exit_shortfall_long = 0;
+int    g_grind_recon_exit_shortfall_short = 0;
 
 #include "grind_closeby.mqh"
 #include "grind_exitq.mqh"
@@ -452,7 +454,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const double exit_pips,
                                 const double point,
                                 const int max_layers,
-                                string &reason_out)
+                                string &reason_out,
+                                const bool tolerate_exit_shortfall = false)
 {
    reason_out = "";
    Grind_InvariantDetailReset();
@@ -491,6 +494,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       }
       const int long_rank = (i < ArraySize(long_ranks)) ? long_ranks[i] : 0;
       if(Grind_ExitQRequired(long_rank, long_count) && !Grind_ReconLayerHasExitCoverage(long_layers[i])) {
+         if(tolerate_exit_shortfall)
+            continue;
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
                                     Grind_InvariantDetailI3(long_layers[i], true, "no_exit_coverage"),
                                     long_layers[i].position_id);
@@ -518,6 +523,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       }
       const int short_rank = (i < ArraySize(short_ranks)) ? short_ranks[i] : 0;
       if(Grind_ExitQRequired(short_rank, short_count) && !Grind_ReconLayerHasExitCoverage(short_layers[i])) {
+         if(tolerate_exit_shortfall)
+            continue;
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
                                     Grind_InvariantDetailI3(short_layers[i], false,
                                                              "no_exit_coverage"),
@@ -825,10 +832,13 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                                        GrindSideState &long_out,
                                        GrindSideState &short_out,
                                        string &reason_out,
-                                       string &offending_comment_out)
+                                       string &offending_comment_out,
+                                       const bool tolerate_exit_shortfall = false)
 {
    reason_out = "";
    offending_comment_out = "";
+   g_grind_recon_exit_shortfall_long = 0;
+   g_grind_recon_exit_shortfall_short = 0;
    Grind_ReconResetSide(long_out);
    Grind_ReconResetSide(short_out);
 
@@ -1035,6 +1045,10 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       if(long_scratch[i].has_position &&
          Grind_ExitQRequired(rank, long_count) &&
          !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
+         if(tolerate_exit_shortfall) {
+            g_grind_recon_exit_shortfall_long++;
+            continue;
+         }
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, long_scratch[i].position_id);
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
@@ -1052,6 +1066,10 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       if(short_scratch[i].has_position &&
          Grind_ExitQRequired(rank, short_count) &&
          !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
+         if(tolerate_exit_shortfall) {
+            g_grind_recon_exit_shortfall_short++;
+            continue;
+         }
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, short_scratch[i].position_id);
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
@@ -1067,7 +1085,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
 
    if(!Grind_ReconCheckInvariants(long_scratch, long_count, long_ranks,
                                  short_scratch, short_count, short_ranks,
-                                 exit_pips, point, max_layers, reason_out)) {
+                                 exit_pips, point, max_layers, reason_out,
+                                 tolerate_exit_shortfall)) {
       if(offending_comment_out == "")
          offending_comment_out = Grind_ReconFailureOffendingForReason(
             tickets, ticket_count, reason_out,
@@ -1129,14 +1148,16 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                   const double point,
                                   GrindSideState &long_out,
                                   GrindSideState &short_out,
-                                  string &reason_out)
+                                  string &reason_out,
+                                  const bool tolerate_exit_shortfall = false)
 {
    string offending = "";
    const bool ok = Grind_RebuildBookFromTicketsInner(tickets, ticket_count,
                                                      magic, slot,
                                                      exit_pips, max_layers, point,
                                                      long_out, short_out,
-                                                     reason_out, offending);
+                                                     reason_out, offending,
+                                                     tolerate_exit_shortfall);
    if(ok) {
       Grind_ReconFailureClear();
       return true;
@@ -1238,7 +1259,8 @@ bool Grind_ReconstructState()
                                                 _Point,
                                                 g_grind_long,
                                                 g_grind_short,
-                                                reason);
+                                                reason,
+                                                true);
    g_grind_recon_ok = ok;
    g_grind_last_invariant_ok = ok;
 
