@@ -59,4 +59,4 @@ Last reviewed 2026-09-21 19:40Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 59
+Line count: 62
