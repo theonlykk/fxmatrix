@@ -255,4 +255,10 @@ int Grind_RestingOrderBudgetInstance(const int depth_long,
         + Grind_RestingOrderBudgetPerSide(depth_short);
 }
 
+//+------------------------------------------------------------------+
+bool Grind_StartupShortfallCritical(const int long_n, const int short_n)
+{
+   return false;
+}
+
 #endif // GRIND_PURE_MQH

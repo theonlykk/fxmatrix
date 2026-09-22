@@ -40,7 +40,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const double exit_pips,
                                 const double point,
                                 const int max_layers,
-                                string &reason_out);
+                                string &reason_out,
+                                const bool tolerate_exit_shortfall = false);
 
 //+------------------------------------------------------------------+
 void F2_TestClearPositionCarry(const ulong position_ticket)
