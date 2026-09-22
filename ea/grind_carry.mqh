@@ -551,18 +551,7 @@ string Grind_EjectCommandName(const ulong magic)
 //+------------------------------------------------------------------+
 double Grind_EjectTargetPrice(const bool is_long)
 {
-   const double bid = Grind_MarketBid();
-   const double ask = Grind_MarketAsk();
-   const double point = _Point;
-   const long stops = Grind_MarketStopsLevel();
-   const long freeze = Grind_MarketFreezeLevel();
-   double out = 0.0;
-   if(is_long) {
-      Grind_CarryClampLongExit(bid, bid, ask, point, stops, freeze, out);
-      return out;
-   }
-   Grind_CarryClampShortExit(ask, bid, ask, point, stops, freeze, out);
-   return out;
+   return 0.0;
 }
 
 //+------------------------------------------------------------------+

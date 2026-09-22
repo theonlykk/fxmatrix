@@ -303,9 +303,6 @@ void OnTick()
       }
    }
 
-   Grind_EjectPollCommand(InpMagic, InpEnableCommandedEject, InpExitPips,
-                          g_grind_halted || g_grind_quarantined);
-
    if(g_grind_halted)
       return;
 
