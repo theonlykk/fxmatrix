@@ -266,9 +266,7 @@ bool Grind_CarryShouldCommitAccrual(const bool has_exit_order,
                                     const bool guard_blocked,
                                     const bool modify_ok)
 {
-   if(!has_exit_order)
-      return true;
-   return (!guard_blocked && modify_ok);
+   return true;
 }
 
 #endif // GRIND_PURE_MQH

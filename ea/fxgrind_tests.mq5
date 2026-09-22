@@ -2439,7 +2439,6 @@ void Grind_TestClearCarryState()
    GlobalVariablesDeleteAll("GRIND_CARRY_SHIFT_");
    GlobalVariablesDeleteAll("GRIND_CARRY_ACCRUED_");
    GlobalVariablesDeleteAll(GRIND_CARRY_RELEASE_PREFIX);
-   GlobalVariablesDeleteAll("GRIND_EJECT_");
 }
 
 void Grind_TestResetSideState()

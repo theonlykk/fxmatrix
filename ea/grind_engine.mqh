@@ -884,8 +884,8 @@ void Grind_AppendLayer(GrindSideState &side,
    side.layers[n].layer_index = layer_index;
    side.layers[n].exit_order_ticket = 0;
    side.layers[n].exit_position_ticket = 0;
-   side.layers[n].exit_target = Grind_ExitQFormulaTarget(entry_price, exit_pips, _Point, is_long,
-                                                         position_ticket);
+   const int dir = is_long ? 1 : -1;
+   side.layers[n].exit_target = Grind_ExitPrice(entry_price, exit_pips, _Point, dir);
    g_grind_fill_count++;
 }
 
@@ -1406,7 +1406,6 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                                      close_time);
          Grind_CarryShiftDelete(side.layers[i].position_ticket);
          Grind_CarryAccruedDelete(side.layers[i].position_ticket);
-         Grind_EjectOffsetDelete(side.layers[i].position_ticket);
          Grind_RemoveLayerAt(side, i);
          Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
          return;
