@@ -2807,14 +2807,16 @@ void Test_X3_DeepestMissingTolerantOk()
    GrindSideState long_out;
    GrindSideState short_out;
    string reason = "";
-   // X3: rank 0 required (L0), no EXT on L0 = 1 long shortfall
+   // X3: depth 3; ranks 0 (L2) and 2 (L0) required; L0 uncovered = 1 long shortfall
    AssertTrue("X3 ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
    AssertTrue("X3 long sf", g_grind_recon_exit_shortfall_long == 1);
    AssertTrue("X3 short sf", g_grind_recon_exit_shortfall_short == 0);
    const int li = Grind_Adr156FindLayerArrayIdx(long_out, 0);
    AssertTrue("X3 layer0", li >= 0);
-   AssertNear("X3 exit tgt", long_out.layers[li].exit_target, 1.25030, 1e-9);
-   AssertTrue("X3 no ext ord", long_out.layers[li].exit_order_ticket == 0);
+   if(li >= 0) {
+      AssertNear("X3 exit tgt", long_out.layers[li].exit_target, 1.25030, 1e-9);
+      AssertTrue("X3 no ext ord", long_out.layers[li].exit_order_ticket == 0);
+   }
 }
 
 void Test_X4_RollBookTolerantOk()
@@ -2832,7 +2834,7 @@ void Test_X4_RollBookTolerantOk()
    AssertTrue("X4a I3", StringFind(reason, "I3_LONG_NAKED") >= 0);
    Grind_Adr156TestPreamble();
    reason = "";
-   // X4: depth 2; rank 0 (L1) required, no EXT on L1 = 1 long shortfall
+   // X4: depth 2; ranks 0 (L2) and 1 (L1) required; L1 uncovered = 1 long shortfall
    AssertTrue("X4b ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
    AssertTrue("X4b long sf", g_grind_recon_exit_shortfall_long == 1);
    AssertTrue("X4b short sf", g_grind_recon_exit_shortfall_short == 0);
@@ -2850,13 +2852,14 @@ void Test_X5_ShortDeepestMissingTolerantOk()
    GrindSideState long_out;
    GrindSideState short_out;
    string reason = "";
-   // X5: rank 0 required (S0), no EXT on S0 = 1 short shortfall
+   // X5: depth 3; ranks 0 (S2) and 2 (S0) required; S0 uncovered = 1 short shortfall
    AssertTrue("X5 ok", Grind_Adr156Rebuild(tickets, n, long_out, short_out, reason, true));
    AssertTrue("X5 long sf", g_grind_recon_exit_shortfall_long == 0);
    AssertTrue("X5 short sf", g_grind_recon_exit_shortfall_short == 1);
    const int si = Grind_Adr156FindLayerArrayIdx(short_out, 0);
    AssertTrue("X5 layer0", si >= 0);
-   AssertNear("X5 exit tgt", short_out.layers[si].exit_target, 1.24970, 1e-9);
+   if(si >= 0)
+      AssertNear("X5 exit tgt", short_out.layers[si].exit_target, 1.24970, 1e-9);
 }
 
 void Test_X6_ShortfallCountsBothSides()
