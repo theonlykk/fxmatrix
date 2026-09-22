@@ -178,7 +178,7 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-22 03:30Z, market OPEN.** Evidence: `HANDOFF_2026-09-21.md`, ADR-156.
+**As of 2026-09-22 04:00Z, market OPEN.** Evidence: `HANDOFF_2026-09-22.md`.
 
 | | |
 |---|---|
