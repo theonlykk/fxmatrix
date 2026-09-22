@@ -1422,6 +1422,7 @@ string Grind_TestSampleHeartbeatJson()
 
 void Grind_TestResetLayerDetailState()
 {
+   Grind_ReconFailureClear();
    Grind_TestResetSideState();
    Grind_OrderTestReset();
    Grind_HeartbeatTestReset();
@@ -6023,6 +6024,7 @@ void Test_Y11_ClearCarryStateRemovesBoth()
 
 void Test_Y12_ReconstructionWithEjectedExit()
 {
+   Grind_ReconFailureClear();
    Grind_TestClearCarryState();
    const ulong magic = 22260101UL;
    const double point = 0.00001;
@@ -6052,6 +6054,7 @@ void Test_Y12_ReconstructionWithEjectedExit()
    AssertFalse("Y12 without offset",
                Grind_RebuildBookFromTickets(tickets, 4, magic, "OPT", exit_pips, 12, point,
                                             long_out, short_out, reason));
+   Grind_ReconFailureClear();   // Y12 fails a rebuild on purpose; leave no record behind
 }
 
 void Test_Y13_I6DetailIncludesBoth()
