@@ -510,6 +510,43 @@ void Grind_CarryShiftDelete(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+string Grind_EjectOffsetName(const ulong position_ticket)
+{
+   return "GRIND_EJECT_OFFSET_" + IntegerToString((long)position_ticket);
+}
+
+//+------------------------------------------------------------------+
+double Grind_EjectOffsetGet(const ulong position_ticket)
+{
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+void Grind_EjectOffsetSet(const ulong position_ticket, const double offset_price)
+{
+}
+
+//+------------------------------------------------------------------+
+void Grind_EjectOffsetDelete(const ulong position_ticket)
+{
+}
+
+//+------------------------------------------------------------------+
+bool Grind_EjectIsEjected(const ulong position_ticket)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_CarrySignGuardAppliesAtShift(const ulong position_ticket,
+                                        const double entry,
+                                        const double new_exit,
+                                        const bool is_long)
+{
+   return Grind_CarrySignGuardBlocks(entry, new_exit, is_long);
+}
+
+//+------------------------------------------------------------------+
 string Grind_CarryAccruedGvName(const ulong position_ticket)
 {
    return "GRIND_CARRY_ACCRUED_" + IntegerToString((long)position_ticket);

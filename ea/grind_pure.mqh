@@ -261,4 +261,12 @@ bool Grind_StartupShortfallCritical(const int long_n, const int short_n)
    return (long_n >= 2 || short_n >= 2);
 }
 
+//+------------------------------------------------------------------+
+bool Grind_CarryShouldCommitAccrual(const bool has_exit_order,
+                                    const bool guard_blocked,
+                                    const bool modify_ok)
+{
+   return true;
+}
+
 #endif // GRIND_PURE_MQH
