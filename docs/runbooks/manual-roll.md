@@ -92,4 +92,4 @@ side re-cap; how far did price retrace from the roll price.
 That second half is what the ejection design needs: how often a fresh top
 layer pays, against how often the rolled layer would have come back.
 
-Line count: 96
+Line count: 95
