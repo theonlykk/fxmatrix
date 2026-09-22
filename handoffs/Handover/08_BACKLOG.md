@@ -50,6 +50,7 @@ Last reviewed 2026-09-21 19:40Z.
 | C18 | **Quarantine escalates while the retry is blocked** (DeepSeek T-1 on ADR-156). Checks count even when `Grind_GuardsAllowTrading` is false, so ticks during a close-only window halt an instance that cannot repair itself. Smallest fix: count a check only when a retry was allowed. Quarantine-wide, so its own ADR (Gemini ruling item 4) | not started |
 | C19 | **Pipshed does not render `CRITICAL_*` events.** They are stored in `ea_events` but no dashboard view shows them, so `STARTUP_EXIT_SHORTFALL_SIDE` is visible only in the Experts tab or an archive query | not started |
 | C20 | **`r1_audit.py` carried a stale ADR-155 "AUDIT TASK" into the ADR-156 audit.** The run prompt edits only the config block; that text lives elsewhere in the local script (not in the candlelab repo). Find it and make it part of the per-audit config before the next audit | not started |
+| C21 | **Guard ceiling rations entries by tick speed.** At `positions + orders + resting ENT > 194` every entry is blocked; each scalp frees room for about one entry, and the fastest-ticking instance takes it (2026-09-22: GBPUSD OPT took AUDCAD ALT's freed slot in 0.3 s). Safe (exits unaffected) but unfair. First: show the guard total in pipshed (`g_grind_last_guard_total` exists in the EA); watch it on the 9-instance account before designing any allocation | not started |
 
 ## D. STANDING / HYGIENE
 
@@ -59,4 +60,4 @@ Last reviewed 2026-09-21 19:40Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 62
+Line count: 63

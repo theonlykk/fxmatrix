@@ -5,15 +5,21 @@ This message has a line count at the bottom
 Operator procedure until the EA can eject on command (backlog C15).
 First done 2026-09-21 on AUDCAD OPT and ALT, cycle 2.
 
-**BUILD CHECK FIRST.** Under F1 (barbell exit queue) a roll is safe ONLY
-on a build containing ADR-156 (`main` `3f72b9f` or later). Without it the
-reattach halts permanently: the new deepest layer was a middle layer with
-no exit. Check on the VPS:
+**BUILD CHECK FIRST.** Rolls are safe on a PREFIX build (pre-F1, e.g. the
+VPS's `5454358`) and on an F1 build containing ADR-156 (`main` `3f72b9f`
+or later). They are NOT safe on an F1 build WITHOUT ADR-156: the reattach
+halts permanently, because the new deepest layer was a middle layer with
+no exit. On an F1 build, check on the VPS:
 `Select-String -Path C:\fxmatrix\ea\grind_recon.mqh -Pattern tolerate_exit_shortfall`
-No match = **do not roll.** A match = proceed. At reattach expect one
-Experts line `WARN STARTUP_EXIT_SHORTFALL long=1 short=0` (or `short=1`
-for a short-side roll); the exit is placed on the next pass. Do not roll
-or reattach near rollover (a close-only window can still halt).
+No match on an F1 build = **do not roll.** With ADR-156, expect one
+Experts line `WARN STARTUP_EXIT_SHORTFALL long=1 short=0` (or `short=1`)
+at reattach; the exit is placed on the next pass. Do not roll or reattach
+near rollover (a close-only window can still halt).
+
+**Check the guard first too.** A roll pays through the re-quoted add near
+the market. If the fleet guard is at its ceiling
+(`positions + orders + resting ENT > 194`), that add is blocked and the
+freed slot goes to whichever instance ticks first (2026-09-22 roll log).
 
 **What a roll is:** close the DEEPEST layer of a capped side at the
 market. The engine then re-quotes the side's next add, which lands near
@@ -86,4 +92,4 @@ side re-cap; how far did price retrace from the roll price.
 That second half is what the ejection design needs: how often a fresh top
 layer pays, against how often the rolled layer would have come back.
 
-Line count: 89
+Line count: 95

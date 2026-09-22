@@ -1,9 +1,9 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-21 19:45Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-22 04:00Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
-then `handoffs/HANDOFF_2026-09-21.md`, then `02_TRAPS.md`**, then this
+then `handoffs/HANDOFF_2026-09-22.md`, then `02_TRAPS.md`**, then this
 document. Verify `main`'s HEAD SHA against BOOT before anything else.
 
 ---
