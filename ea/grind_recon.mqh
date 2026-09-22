@@ -124,7 +124,14 @@ string Grind_InvariantDetailI6(const GrindReconLayerScratch &layer,
                                const double carry_shift)
 {
    const int dir = is_long ? 1 : -1;
-   const double expected = Grind_ExitPrice(layer.entry_price, exit_pips, point, dir) + carry_shift;
+   const double accrued = (layer.position_id > 0)
+                          ? Grind_CarryAccruedGet(layer.position_id)
+                          : 0.0;
+   const double eject_offset = (layer.position_id > 0)
+                               ? Grind_EjectOffsetGet(layer.position_id)
+                               : 0.0;
+   const double expected = Grind_ExitPrice(layer.entry_price, exit_pips, point, dir)
+                           + accrued + eject_offset + carry_shift;
    const double diff = layer.exit_target - expected;
    string exit_is = "null";
    ulong exit_ticket = 0;
@@ -138,6 +145,7 @@ string Grind_InvariantDetailI6(const GrindReconLayerScratch &layer,
    return StringFormat(
       "{\"layer_index\":%d,\"side\":\"%s\",\"entry\":%s,\"exit_target\":%s,"
       "\"expected\":%s,\"diff_points\":%d,\"tolerance_points\":2,"
+      "\"accrued\":%s,\"eject_offset\":%s,"
       "\"carry_shift\":%s,\"exit_is\":%s,\"position_ticket\":%s,\"exit_ticket\":%s}",
       layer.layer_index,
       is_long ? "L" : "S",
@@ -145,6 +153,8 @@ string Grind_InvariantDetailI6(const GrindReconLayerScratch &layer,
       Grind_InvariantJsonDouble(layer.exit_target, 5),
       Grind_InvariantJsonDouble(expected, 5),
       Grind_InvariantDiffPoints(diff, point),
+      Grind_InvariantJsonDouble(accrued, 5),
+      Grind_InvariantJsonDouble(eject_offset, 5),
       Grind_InvariantJsonDouble(carry_shift, 5),
       exit_is,
       Grind_InvariantJsonUlong(layer.position_id),
@@ -363,7 +373,8 @@ bool Grind_ReconExitMatchesEntry(const double entry,
 {
    const int dir = is_long ? 1 : -1;
    const double accrued = (position_id > 0) ? Grind_CarryAccruedGet(position_id) : 0.0;
-   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + accrued + shift;
+   const double eject_offset = (position_id > 0) ? Grind_EjectOffsetGet(position_id) : 0.0;
+   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + accrued + eject_offset + shift;
    const double diff = exit_target - expected;
    if(exit_is_filled) {
       if(is_long && diff >= 0.0)

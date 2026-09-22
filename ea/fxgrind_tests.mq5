@@ -1422,6 +1422,7 @@ string Grind_TestSampleHeartbeatJson()
 
 void Grind_TestResetLayerDetailState()
 {
+   Grind_ReconFailureClear();
    Grind_TestResetSideState();
    Grind_OrderTestReset();
    Grind_HeartbeatTestReset();
@@ -2439,6 +2440,7 @@ void Grind_TestClearCarryState()
    GlobalVariablesDeleteAll("GRIND_CARRY_SHIFT_");
    GlobalVariablesDeleteAll("GRIND_CARRY_ACCRUED_");
    GlobalVariablesDeleteAll(GRIND_CARRY_RELEASE_PREFIX);
+   GlobalVariablesDeleteAll("GRIND_EJECT_");
 }
 
 void Grind_TestResetSideState()
@@ -5880,6 +5882,278 @@ void Test_CX3_PendingUsesTomorrowMult()
    Grind_OrderTestReset();
 }
 
+void Test_Y1_NoOffsetUnchanged()
+{
+   Grind_TestClearCarryState();
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const ulong ticket = 1001UL;
+   // Y1: 1.25000 + 3 pips (0.00030) + no offset = 1.25030
+   AssertNear("Y1 formula target",
+              Grind_ExitQFormulaTarget(entry, exit_pips, point, true, ticket),
+              1.25030, 1e-9);
+}
+
+void Test_Y2_OffsetAddedToFormula()
+{
+   Grind_TestClearCarryState();
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const ulong ticket = 1001UL;
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   // Y2: 1.25030 + offset 0.00040 = 1.25070
+   AssertNear("Y2 formula target",
+              Grind_ExitQFormulaTarget(entry, exit_pips, point, true, ticket),
+              1.25070, 1e-9);
+}
+
+void Test_Y3_OffsetAndAccrued()
+{
+   Grind_TestClearCarryState();
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const ulong ticket = 1001UL;
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   Grind_CarryAccruedSet(ticket, 0.00010);
+   // Y3: 1.25000 + 3 pips (0.00030) + accrued 0.00010 + offset 0.00040 = 1.25080
+   AssertNear("Y3 formula target",
+              Grind_ExitQFormulaTarget(entry, exit_pips, point, true, ticket),
+              1.25080, 1e-9);
+}
+
+void Test_Y4_ShortOffset()
+{
+   Grind_TestClearCarryState();
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const ulong ticket = 1001UL;
+   Grind_EjectOffsetSet(ticket, -0.00040);
+   // Y4: 1.24970 - 0.00040 = 1.24930
+   AssertNear("Y4 short target",
+              Grind_ExitQFormulaTarget(entry, exit_pips, point, false, ticket),
+              1.24930, 1e-9);
+}
+
+void Test_Y5_I6AcceptsEjectedExit()
+{
+   Grind_TestClearCarryState();
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const ulong ticket = 1001UL;
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   // Y5: expected 1.25070 matches ejected exit; without offset same exit is false
+   AssertTrue("Y5 ejected ok",
+              Grind_ReconExitMatchesEntry(entry, 1.25070, exit_pips, point, true, 0.0, false, ticket));
+   Grind_EjectOffsetDelete(ticket);
+   AssertFalse("Y5 no offset fail",
+               Grind_ReconExitMatchesEntry(entry, 1.25070, exit_pips, point, true, 0.0, false, ticket));
+}
+
+void Test_Y6_I6ShortEjected()
+{
+   Grind_TestClearCarryState();
+   const double entry = 1.25000;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   const ulong ticket = 1001UL;
+   Grind_EjectOffsetSet(ticket, -0.00040);
+   // Y6: short formula 1.24970 - 0.00040 = 1.24930
+   AssertTrue("Y6 short ejected ok",
+              Grind_ReconExitMatchesEntry(entry, 1.24930, exit_pips, point, false, 0.0, false, ticket));
+}
+
+void Test_Y7_EjectIsEjected()
+{
+   Grind_TestClearCarryState();
+   const ulong ticket = 1001UL;
+   AssertFalse("Y7 zero offset", Grind_EjectIsEjected(ticket));
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   AssertTrue("Y7 with offset", Grind_EjectIsEjected(ticket));
+   Grind_EjectOffsetDelete(ticket);
+   AssertFalse("Y7 after delete", Grind_EjectIsEjected(ticket));
+}
+
+void Test_Y8_ShiftDeleteKeepsOffset()
+{
+   Grind_TestClearCarryState();
+   const ulong ticket = 1001UL;
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   Grind_CarryShiftDelete(ticket);
+   // Y8: trim cancel clears shift only; ejection offset must survive
+   AssertNear("Y8 offset kept", Grind_EjectOffsetGet(ticket), 0.00040, 1e-9);
+   Grind_EjectOffsetDelete(ticket);
+}
+
+void Test_Y9_AccruedUnchangedByOffset()
+{
+   Grind_TestClearCarryState();
+   const ulong ticket = 1001UL;
+   Grind_CarryAccruedSet(ticket, 0.00010);
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   AssertNear("Y9 accrued alone", Grind_CarryAccruedGet(ticket), 0.00010, 1e-9);
+}
+
+void Test_Y10_PrunePrefix()
+{
+   Grind_TestClearCarryState();
+   g_grind_order_test_active = true;
+   const ulong orphan = 8888UL;
+   Grind_EjectOffsetSet(orphan, 0.00040);
+   GlobalVariableSet("GRIND_EJECT_22260101", 1001.0);
+   Grind_CarryPruneShiftGvs(22260101UL);
+   AssertFalse("Y10 offset pruned", GlobalVariableCheck(Grind_EjectOffsetName(orphan)));
+   AssertTrue("Y10 command kept", GlobalVariableCheck("GRIND_EJECT_22260101"));
+   GlobalVariableDel("GRIND_EJECT_22260101");
+   g_grind_order_test_active = false;
+}
+
+void Test_Y11_ClearCarryStateRemovesBoth()
+{
+   Grind_TestClearCarryState();
+   Grind_EjectOffsetSet(1001UL, 0.00040);
+   GlobalVariableSet("GRIND_EJECT_22260101", 1001.0);
+   Grind_TestClearCarryState();
+   AssertFalse("Y11 offset cleared", GlobalVariableCheck(Grind_EjectOffsetName(1001UL)));
+   AssertFalse("Y11 command cleared", GlobalVariableCheck("GRIND_EJECT_22260101"));
+}
+
+void Test_Y12_ReconstructionWithEjectedExit()
+{
+   Grind_ReconFailureClear();
+   Grind_TestClearCarryState();
+   const ulong magic = 22260101UL;
+   const double point = 0.00001;
+   const double exit_pips = 3.0;
+   Grind_EjectOffsetSet(1001UL, 0.00040);
+   GrindReconTicket tickets[4];
+   tickets[0].ticket = 1001; tickets[0].magic = magic;
+   tickets[0].comment = GrindCommentBuild("OPT", "L", 0, "ENT");
+   tickets[0].price = 1.25000; tickets[0].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[1].ticket = 2001; tickets[1].magic = magic;
+   tickets[1].comment = GrindCommentBuild("OPT", "L", 0, "EXT");
+   tickets[1].price = 1.25070; tickets[1].kind = GRIND_RECON_TICKET_ORDER;
+   tickets[2].ticket = 1002; tickets[2].magic = magic;
+   tickets[2].comment = GrindCommentBuild("OPT", "L", 1, "ENT");
+   tickets[2].price = 1.24900; tickets[2].kind = GRIND_RECON_TICKET_POSITION;
+   tickets[3].ticket = 2002; tickets[3].magic = magic;
+   tickets[3].comment = GrindCommentBuild("OPT", "L", 1, "EXT");
+   tickets[3].price = 1.24930; tickets[3].kind = GRIND_RECON_TICKET_ORDER;
+   GrindSideState long_out;
+   GrindSideState short_out;
+   string reason = "";
+   // Y12: L0 exit 1.25070 = formula 1.25030 + offset 0.00040
+   AssertTrue("Y12 with offset",
+              Grind_RebuildBookFromTickets(tickets, 4, magic, "OPT", exit_pips, 12, point,
+                                           long_out, short_out, reason));
+   Grind_EjectOffsetDelete(1001UL);
+   AssertFalse("Y12 without offset",
+               Grind_RebuildBookFromTickets(tickets, 4, magic, "OPT", exit_pips, 12, point,
+                                            long_out, short_out, reason));
+   Grind_ReconFailureClear();   // Y12 fails a rebuild on purpose; leave no record behind
+}
+
+void Test_Y13_I6DetailIncludesBoth()
+{
+   Grind_TestClearCarryState();
+   const ulong ticket = 1001UL;
+   const double exit_pips = 3.0;
+   const double point = 0.00001;
+   Grind_CarryAccruedSet(ticket, 0.00010);
+   Grind_EjectOffsetSet(ticket, 0.00040);
+   GrindReconLayerScratch layer;
+   Grind_TestInitLayerScratch(layer, 0, 1.25000, ticket);
+   layer.has_exit_order = true;
+   layer.exit_order_ticket = 2001;
+   layer.exit_target = 1.25080;
+   const string detail = Grind_InvariantDetailI6(layer, true, exit_pips, point, 0.0);
+   // Y13: 1.25000 + 3 pips + accrued 0.00010 + offset 0.00040 = 1.25080
+   AssertContains("Y13 expected price", detail, "\"expected\":1.25080");
+   AssertContains("Y13 accrued field", detail, "\"accrued\":");
+   AssertContains("Y13 eject field", detail, "\"eject_offset\":");
+}
+
+void Test_Y14_AppendUsesFormulaTarget()
+{
+   Grind_TestClearCarryState();
+   Grind_TestResetSideState();
+   Grind_EjectOffsetSet(1004UL, 0.00040);
+   Grind_AppendLayer(g_grind_long, 1.25000, 1004UL, 4, 3.0, true);
+   // Y14: append exit_target = formula 1.25030 + offset 0.00040 = 1.25070
+   AssertNear("Y14 exit target", g_grind_long.layers[0].exit_target, 1.25070, 1e-9);
+   Grind_TestResetSideState();
+}
+
+void Test_Y15_CarryPassBaseIncludesOffset()
+{
+   Grind_TestClearCarryState();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].position_ticket = 1001UL;
+   g_grind_long.layers[0].exit_order_ticket = 2001UL;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_EjectOffsetSet(1001UL, 0.00040);
+   Grind_CarryExitPassBegin(_Symbol, 22260101UL, 3.0);
+   // Y15: work base = raw 1.25030 + offset 0.00040 = 1.25070; layer not skipped
+   AssertTrue("Y15 one work item", g_grind_carry_exit_work_count == 1);
+   AssertNear("Y15 formula base", g_grind_carry_exit_work_formula[0], 1.25070, 1e-9);
+   Grind_CarryExitPassReset();
+   Grind_TestResetSideState();
+}
+
+void Test_Y16_CarryPassNoOffsetUnchanged()
+{
+   Grind_TestClearCarryState();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].position_ticket = 1001UL;
+   g_grind_long.layers[0].exit_order_ticket = 2001UL;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_CarryExitPassBegin(_Symbol, 22260101UL, 3.0);
+   // Y16: regression -- raw formula only = 1.25030
+   AssertNear("Y16 formula base", g_grind_carry_exit_work_formula[0], 1.25030, 1e-9);
+   Grind_CarryExitPassReset();
+   Grind_TestResetSideState();
+}
+
+void Test_Y17_SignGuardPermitsEjected()
+{
+   Grind_TestClearCarryState();
+   const ulong ticket = 1001UL;
+   const double entry = 1.25000;
+   Grind_EjectOffsetSet(ticket, -0.00130);
+   // Y17: ejected target 1.24900 is below entry; guard must not block ejected layers
+   const double ejected_target = 1.24900;
+   AssertFalse("Y17 ejected not blocked",
+               Grind_CarrySignGuardAppliesAtShift(ticket, entry, ejected_target, true));
+}
+
+void Test_Y18_SignGuardBlocksOrdinary()
+{
+   Grind_TestClearCarryState();
+   const ulong ticket = 1001UL;
+   const double entry = 1.25000;
+   const double bad_exit = 1.24900;
+   // Y18: same prices without ejection -- guard blocks (CX4 regression lock)
+   AssertTrue("Y18 ordinary blocked",
+              Grind_CarrySignGuardAppliesAtShift(ticket, entry, bad_exit, true));
+}
+
+void Test_Y19_CommitAccrualTruthTable()
+{
+   // Y19: commit when no order; when order+blocked or order+modify fail, do not
+   AssertTrue("Y19 no order", Grind_CarryShouldCommitAccrual(false, true, false));
+   AssertFalse("Y19 blocked", Grind_CarryShouldCommitAccrual(true, true, true));
+   AssertTrue("Y19 modify ok", Grind_CarryShouldCommitAccrual(true, false, true));
+   AssertFalse("Y19 modify fail", Grind_CarryShouldCommitAccrual(true, false, false));
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -7043,6 +7317,25 @@ void OnStart()
    Test_CX1_ShiftDirectionMath();
    Test_CX2_LedgerConversion();
    Test_CX3_PendingUsesTomorrowMult();
+   Test_Y1_NoOffsetUnchanged();
+   Test_Y2_OffsetAddedToFormula();
+   Test_Y3_OffsetAndAccrued();
+   Test_Y4_ShortOffset();
+   Test_Y5_I6AcceptsEjectedExit();
+   Test_Y6_I6ShortEjected();
+   Test_Y7_EjectIsEjected();
+   Test_Y8_ShiftDeleteKeepsOffset();
+   Test_Y9_AccruedUnchangedByOffset();
+   Test_Y10_PrunePrefix();
+   Test_Y11_ClearCarryStateRemovesBoth();
+   Test_Y12_ReconstructionWithEjectedExit();
+   Test_Y13_I6DetailIncludesBoth();
+   Test_Y14_AppendUsesFormulaTarget();
+   Test_Y15_CarryPassBaseIncludesOffset();
+   Test_Y16_CarryPassNoOffsetUnchanged();
+   Test_Y17_SignGuardPermitsEjected();
+   Test_Y18_SignGuardBlocksOrdinary();
+   Test_Y19_CommitAccrualTruthTable();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();
