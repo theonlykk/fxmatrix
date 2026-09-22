@@ -6,7 +6,7 @@ This message has a line count at the bottom
 
 | item | detail | status |
 |---|---|---|
-| Purpose | Delete the fleet's PERSISTENT GlobalVariables when switching the VPS terminal to a new account. Used once per cycle | runbook `docs/runbooks/account-switch-2026-09-23.md` s3 |
+| Purpose | Delete the fleet's PERSISTENT GlobalVariables when switching the VPS terminal to a new account. Used once per cycle | runbook `docs/runbooks/account-close-out.md` s4 |
 | Names | every name below verified in `ea/` at fxmatrix `bd76f14` | Claude |
 | Baseline | fxmatrix `origin/main` at `bd76f14` | read by Claude |
 | Scope | ONE new file `scripts/grind_gv_clean.mq5`. No EA change | this spec |
