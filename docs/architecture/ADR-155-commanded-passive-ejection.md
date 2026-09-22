@@ -5,7 +5,8 @@
 Proposed -- 2026-09-21. Rev 2 after Gemini (dedicated offset, not
 accrual); rev 3 after DeepSeek (`prompts/adr155_deepseek_response.md`,
 branch `review/adr155-deepseek` at `ebcf171`), which found the carry pass
-bypasses the formula. Backlog C15. Next: a tests-first Cursor spec
+bypasses the formula. Rev 4 after the operator (2026-09-22): the carry pass INCLUDES ejected
+    layers, base = raw + offset, replacing rev 3's skip. Backlog C15. Next: a tests-first Cursor spec
 (ARCHITECT s2: it moves live orders), then a tests-first Cursor spec.
 **Depends on F1** (barbell): the deepest layer must have a resting exit.
 F1 goes live with cycle 3 on 2026-09-23; this ships after, mid-cycle,
@@ -88,7 +89,7 @@ failure as the F1 migration and the AUDCAD ALT reattach.
 
 | where | what it does today | change |
 |---|---|---|
-| `Grind_CarryExitPassBegin` / `Grind_CarryExitShiftLayer` (`grind_carry.mqh:796, 804`) | computes the exit from the RAW formula and modifies the order directly, bypassing `Grind_ExitQFormulaTarget` | **skip any layer with a non-zero eject offset.** Otherwise the first rollover with carry on moves the exit back to formula, and the next restart halts on I6. Inert today only because carry is off (`grind_carry.mqh:954`) |
+| `Grind_CarryExitPassBegin` (`grind_carry.mqh:796`, `:804`) | builds each work item from the RAW formula, so the first rollover after an ejection would move the exit back to formula + accrued and wipe the ejection | **build the work item from `raw + eject offset`.** Do NOT skip ejected layers (rev 4, 2026-09-22): carry is a real cost on every open layer, so an ejected exit must drift with the swap it pays like any other; freezing it would leave an exit that no longer covers its funding. `Grind_CarryExitShiftLayer` is unchanged -- it adds accrual to whatever base it is given |
 | `GrindLayer.exit_target` | `Grind_TryPlaceExitForLayer` places at this field (`grind_engine.mqh:840`) | the command sets `layer.exit_target` to the ejected price as well as writing the offset |
 | `Grind_HandleSideDealFill`, on `DEAL_ENTRY_OUT_BY` | deletes shift and accrual when a layer closes | also `Grind_EjectOffsetDelete`. NOT folded into `Grind_CarryShiftDelete`, which also runs on a trim cancel where the offset must survive |
 | `Grind_CarryPruneShiftGvs` | prunes orphan shift and release variables | also prune orphan `GRIND_EJECT_OFFSET_` -- **by that exact prefix only.** The command variable `GRIND_EJECT_<magic>` is keyed by MAGIC; pruning the broad `GRIND_EJECT_` prefix would treat a magic as a missing ticket and delete a pending command |
