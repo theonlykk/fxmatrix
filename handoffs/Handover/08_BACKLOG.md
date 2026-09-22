@@ -22,7 +22,7 @@ Last reviewed 2026-09-21 19:40Z.
 | A3 | **Fleet: DECIDED -- nine pairs, one arm, cap 8.** Written up as the cycle-3 pre-registration, `docs/architecture/geometry-cycle3.md` | decided |
 | A4 | **Presets: WRITTEN 2026-09-21** -- nine `ea/presets/*_opt.set` (ALT presets untouched, unattached). EURGBP exit 5 (fills). Deploy with A9 | ready |
 | A5 | **Account identity in telemetry and archive.** Without it the two cycles' daily totals mix. Cheapest while there is one account | not started |
-| A9 | **Deploy sequence: WRITTEN** -- `docs/runbooks/account-switch-2026-09-23.md`. Includes the F1 first-live check (B1) | ready |
+| A9 | **Deploy sequence: WRITTEN** -- `docs/runbooks/account-close-out.md` + `docs/runbooks/cycle3-start.md`. Includes the F1 first-live check (B1) | ready |
 
 ## B. WEDNESDAY, OPTIONAL BUT CHEAP
 

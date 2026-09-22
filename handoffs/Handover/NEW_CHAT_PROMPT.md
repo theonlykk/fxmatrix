@@ -10,8 +10,12 @@ document. Verify `main`'s HEAD SHA against BOOT before anything else.
 
 ## 0. THE SINGLE MOST IMPORTANT FACT
 
-**Wednesday 2026-09-23 is the account switch and the start of cycle 3.**
-The runbook is `docs/runbooks/account-switch-2026-09-23.md`. Work it top
+**The account switch and the start of cycle 3 are now SEPARATE jobs.**
+Close out cycle 2 with `docs/runbooks/account-close-out.md`; start cycle
+3 with `docs/runbooks/cycle3-start.md` only when its readiness gate is
+met. There is no deadline between them: the code is finished first, so a
+pre-registered cycle is not blended with mid-cycle changes. Work each
+top
 to bottom. Every check in it exists because something went wrong once.
 
 **F1 (the barbell exit queue) DOES deploy on Wednesday.** It halted all 16
@@ -95,4 +99,4 @@ are safe under F1 again. Its follow-ups are backlog C18-C20.
 - Tests first; a new test must FAIL before the change. Write the negative
   twin of any test that asserts something happens.
 
-Line count: 98
+Line count: 102
