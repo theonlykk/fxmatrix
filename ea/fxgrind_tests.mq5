@@ -2753,9 +2753,9 @@ bool Grind_Adr156Rebuild(GrindReconTicket &tickets[],
                                        long_out, short_out, reason, tolerate);
 }
 
-int Grind_Adr156FindLayerArrayIdx(const GrindSideState &side, const int layer_index)
+int Grind_Adr156FindLayerArrayIdx(GrindSideState &side, const int layer_index)
 {
-   return Grind_FindLayerByIndex((GrindSideState &)side, layer_index);
+   return Grind_FindLayerByIndex(side, layer_index);
 }
 
 void Grind_Adr156BuildLongL0L1L2ExtL2(GrindReconTicket &tickets[], int &n)
