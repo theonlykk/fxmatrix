@@ -176,17 +176,6 @@ int OnInit()
       Print("CRITICAL: Grind_ReconstructState failed — halted in place (",
             g_grind_halt_reason, ")");
    } else {
-      const int a = g_grind_recon_exit_shortfall_long;
-      const int b = g_grind_recon_exit_shortfall_short;
-      if(a + b > 0) {
-         Print("WARN STARTUP_EXIT_SHORTFALL long=", a, " short=", b);
-         Grind_ArchiveMarker("WARN", "STARTUP_EXIT_SHORTFALL", "", 0,
-                             StringFormat("{\"long\":%d,\"short\":%d}", a, b));
-         if(Grind_StartupShortfallCritical(a, b))
-            Grind_TelemetryCritical(g_grind_telemetry_instance,
-                                    "STARTUP_EXIT_SHORTFALL_SIDE",
-                                    StringFormat("long=%d short=%d", a, b));
-      }
       Grind_RetryMissingExits(InpMagic, InpSlot, InpLots);
    }
 

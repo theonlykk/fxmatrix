@@ -459,6 +459,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
 {
    reason_out = "";
    Grind_InvariantDetailReset();
+   // tolerate_exit_shortfall: ADR-156 (ignored until implementation commit)
+   if(tolerate_exit_shortfall) { }
 
    if(long_count > max_layers) {
       return Grind_InvariantFail(reason_out, "I7_LONG_DEPTH",
@@ -494,8 +496,6 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       }
       const int long_rank = (i < ArraySize(long_ranks)) ? long_ranks[i] : 0;
       if(Grind_ExitQRequired(long_rank, long_count) && !Grind_ReconLayerHasExitCoverage(long_layers[i])) {
-         if(tolerate_exit_shortfall)
-            continue;
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
                                     Grind_InvariantDetailI3(long_layers[i], true, "no_exit_coverage"),
                                     long_layers[i].position_id);
@@ -523,8 +523,6 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       }
       const int short_rank = (i < ArraySize(short_ranks)) ? short_ranks[i] : 0;
       if(Grind_ExitQRequired(short_rank, short_count) && !Grind_ReconLayerHasExitCoverage(short_layers[i])) {
-         if(tolerate_exit_shortfall)
-            continue;
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
                                     Grind_InvariantDetailI3(short_layers[i], false,
                                                              "no_exit_coverage"),
@@ -837,8 +835,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
 {
    reason_out = "";
    offending_comment_out = "";
-   g_grind_recon_exit_shortfall_long = 0;
-   g_grind_recon_exit_shortfall_short = 0;
+   // tolerate_exit_shortfall: ADR-156 (ignored until implementation commit)
+   if(tolerate_exit_shortfall) { }
    Grind_ReconResetSide(long_out);
    Grind_ReconResetSide(short_out);
 
@@ -1045,10 +1043,6 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       if(long_scratch[i].has_position &&
          Grind_ExitQRequired(rank, long_count) &&
          !Grind_ReconLayerHasExitCoverage(long_scratch[i])) {
-         if(tolerate_exit_shortfall) {
-            g_grind_recon_exit_shortfall_long++;
-            continue;
-         }
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, long_scratch[i].position_id);
          return Grind_InvariantFail(reason_out, "I3_LONG_NAKED",
@@ -1066,10 +1060,6 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
       if(short_scratch[i].has_position &&
          Grind_ExitQRequired(rank, short_count) &&
          !Grind_ReconLayerHasExitCoverage(short_scratch[i])) {
-         if(tolerate_exit_shortfall) {
-            g_grind_recon_exit_shortfall_short++;
-            continue;
-         }
          offending_comment_out = Grind_ReconFailureFindTicketComment(
             tickets, ticket_count, short_scratch[i].position_id);
          return Grind_InvariantFail(reason_out, "I3_SHORT_NAKED",
@@ -1259,8 +1249,7 @@ bool Grind_ReconstructState()
                                                 _Point,
                                                 g_grind_long,
                                                 g_grind_short,
-                                                reason,
-                                                true);
+                                                reason);
    g_grind_recon_ok = ok;
    g_grind_last_invariant_ok = ok;
 
