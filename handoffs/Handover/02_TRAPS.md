@@ -535,14 +535,16 @@ permanent until a compile or reattach.
 needs BOTH `>= GRIND_QUARANTINE_MIN_MS` (3000) AND
 `>= GRIND_QUARANTINE_MIN_CHECKS` (3), and checks run only in `OnTick`
 (`fxgrind.mq5:277-278`). A shut market delivers no ticks, so quarantine does
-not escalate over a weekend. **Whether the retry succeeds at the open is
-UNVERIFIED:** the quarantine retry is gated by `Grind_GuardsAllowTrading`,
-which includes a feed-staleness check on the first post-weekend ticks, and
-whether `Grind_RetryMissingExits` places an exit for the `depth - 1` rank has
-not been read. Prove both with tests before relying on them.
+not escalate over a weekend. **Both questions are answered (read at `5124bd2`, 2026-09-21).**
+`Grind_RetryMissingExits` is `Grind_ExitQManageSide` on both sides and
+places every required rank, `depth - 1` included
+(`grind_engine.mqh:1530-1536`). The feed-staleness guard blocks ONE tick:
+it compares with the previous tick and then updates it, and after
+`OnInit` the stored value is 0 (`grind_pure.mqh:231-242`).
 
-**The test that must exist before F1 ships:** a book built under the OLD rule,
-run through the `OnInit` path under the new rule, expecting no halt.
+**That test was never written** -- judged moot because the new account
+starts flat. It was not moot: see "F1 CHANGES WHAT A RESTART NEEDS" at the
+end of this file. ADR-156 tests X1-X11 now cover it.
 
 ### How it got through
 
@@ -699,3 +701,24 @@ against; if the answer is "a preference", it is a preset convention.
 **Say which parameter TYPE a direction argument is.** `Grind_ExitQRanks`
 takes `bool is_long`; `Grind_ExitPrice` takes `int direction`. Passing
 `-1` to a `bool` coerces to `true`. Specs must name the value per function.
+
+## F1 CHANGES WHAT A RESTART NEEDS (2026-09-21)
+
+The barbell requires an exit on `depth - 1`, and before ADR-156 a missing
+required exit at startup was a PERMANENT halt (`fxgrind.mq5:175-180`).
+EVERY manual roll produced one (the new deepest was an uncovered middle
+layer), and so could any restart during a fill gap or a blocked
+placement. Both reviews of the Wednesday plan judged the old-book test
+moot because the account would be flat. **A flat START is not a flat book
+at the next restart.** Fixed by ADR-156 (`3f72b9f`).
+
+**MQL5 cannot cast away `const` on a reference.** ADR-156's first test
+helper did `(GrindSideState &)side` on a `const` parameter; it compiles
+in C++, fails in MetaEditor. Cursor cannot compile, and review missed
+it. Only the operator's MetaEditor compile catches this class.
+
+**Prove test-first with a stub-check branch.** Branch from the tested
+tip, `git revert` the implementation commit, run the suite: the new tests
+must fail by NAME and COUNT as predicted, nothing may crash (guard any
+array index a failing assert can make -1). ADR-156: 19 predicted, 19
+failed, 1410/1429; then 1432/1432 on the real branch.

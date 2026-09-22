@@ -23,6 +23,10 @@ something went wrong once. Tick as you go.
 
 ---
 
+- [ ] Deploy SHA contains ADR-156 (`3f72b9f` or a docs-only
+      descendant). Confirm after step 4 with
+      `Select-String -Path C:\fxmatrix\ea\grind_recon.mqh -Pattern tolerate_exit_shortfall`.
+
 ## 1. CLOSE OUT THE OLD ACCOUNT (VPS)
 
 - [ ] Take a final status read (fresh URL segment). Save it: final MTM,
@@ -148,10 +152,21 @@ For EACH, before OK:
       netted, scalp counted.
 - [ ] Guard well below 194 (nine instances, flat start).
 
+- [ ] **No `STARTUP_EXIT_SHORTFALL` line at the flat attach.** A flat
+      book has no exits to miss; any such line is a defect to report.
+
 ## 7. IF SOMETHING HALTS
 
 Do NOT compile to clear it. Status URL plus the Experts lines around the
 halt, then diagnose. A halt at startup on a flat book is a defect, not
 a state to clear.
 
-Line count: 157
+**Startup lines to know (ADR-156).** `WARN STARTUP_EXIT_SHORTFALL` means
+startup found required exits missing and is placing them -- expected
+after a manual roll, a defect signal otherwise. `CRITICAL
+STARTUP_EXIT_SHORTFALL_SIDE` means a side had EVERY required exit
+missing: investigate, but the EA keeps running and places them. A halt
+on `I3_*_NAKED` a few seconds after startup means placement kept failing
+(for example a close-only window): diagnose before reattaching.
+
+Line count: 172

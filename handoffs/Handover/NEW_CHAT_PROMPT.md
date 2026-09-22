@@ -25,10 +25,10 @@ migrate. **It must still never go onto an EXISTING book** (backlog C2).
 
 | | |
 |---|---|
-| fxmatrix `main` | `ada86a6` |
+| fxmatrix `main` | `3f72b9f` |
 | pipshed `main` | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, 16 instances, cycle-2 presets |
-| Suite | `main` **1387/1387**, verified on two chart symbols |
+| Suite | `main` **1432/1432**, AUDCAD + GBPUSD |
 | Account | demo 1514582088, $10k, FTMO daily limit $500. **Worst day -$420** |
 | Next | Wednesday: new account, 9 instances, one arm each |
 
@@ -37,7 +37,8 @@ migrate. **It must still never go onto an EXISTING book** (backlog C2).
 ## 2. WHAT WEDNESDAY DEPLOYS
 
 `main`: F1 barbell + ADR-153 (add/width lock removed, recentre stops at
-the 1,800 API soft-warn) + the suite fix + nine cycle-3 presets.
+the 1,800 API soft-warn) + ADR-156 (startup places missing exits) +
+the suite fix + nine cycle-3 presets.
 
 Cycle 3 (`docs/architecture/geometry-cycle3.md`, the pre-registration):
 GBPUSD, EURUSD, EURGBP, AUDCAD, AUDCHF, CADCHF, NZDCAD, AUDNZD, NZDCHF
@@ -48,6 +49,9 @@ stranded and deadband may.
 ---
 
 ## 3. AFTER WEDNESDAY, IN ORDER
+
+**C2 / ADR-156 is DONE** (merged `3f72b9f`): manual rolls and restarts
+are safe under F1 again. Its follow-ups are backlog C18-C20.
 
 1. **C17 account daily-loss circuit breaker.** Portfolio-level only. At
    ~80% of the FTMO daily limit, every instance stops NEW entries; exits
@@ -91,4 +95,4 @@ stranded and deadband may.
 - Tests first; a new test must FAIL before the change. Write the negative
   twin of any test that asserts something happens.
 
-Line count: 94
+Line count: 98

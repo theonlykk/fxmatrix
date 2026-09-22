@@ -178,15 +178,15 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-21 19:45Z, market OPEN.** Evidence: `HANDOFF_2026-09-21.md`.
+**As of 2026-09-22 03:30Z, market OPEN.** Evidence: `HANDOFF_2026-09-21.md`, ADR-156.
 
 | | |
 |---|---|
-| fxmatrix main | `9f43bbd` |
+| fxmatrix main | `3f72b9f` |
 | pipshed main | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, cycle-2 presets. **Nothing newer deployed** |
-| Delta main vs VPS | F1 barbell, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
-| MQL5 suite | `main` **1387/1387**, two charts. Runs from `MQL5\Scripts\` |
+| Delta main vs VPS | F1 barbell, **ADR-156 startup exit shortfall**, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
+| MQL5 suite | `main` **1432/1432**, AUDCAD + GBPUSD. Runs from `MQL5\Scripts\` |
 | Fleet | 16 attached (cycle 2), 0 halted. AUDCAD rolled four times by hand -- see `docs/runbooks/roll-log.md` |
 | Account | demo 1514582088, $10k, FTMO daily limit $500 -- **worst day -$420**. Nothing in the EA enforces it (backlog C17) |
 | **Next** | **Wednesday 2026-09-23: new account, cycle 3.** Runbook `docs/runbooks/account-switch-2026-09-23.md` |
@@ -194,102 +194,41 @@ whenever you judge one is warranted. You do not need to ask first.
 | Carry | OFF in all presets |
 | Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 
-**The stale-offset fix has now run live and priced correctly.** At 21:09:17Z
-AUDCAD ALT's capped short side released: the deepest short exit filled
-(+0.82), rank rotation promoted L06, and its exit was placed at 0.99414 =
-entry 0.99594 - 10 pips exactly, with no stale offset. Fleet-wide
-`exit_penetration_pips_mean` 0.0 and `exit_touch_revert_count` 0 through the
-Sunday open.
+**Wednesday deploys `3f72b9f`: F1 + ADR-156 on a FLAT book.** F1 must
+still never go onto a book built under the PREFIX rule (the 2026-09-20
+halt, 02_TRAPS).
 
-**THE VPS IS IN DETACHED HEAD.** `deploy.ps1` begins with
-`git pull origin main` and would reintroduce F1. **Do not run it until you
-mean to.**
+**F1 changed what a RESTART needs; ADR-156 answers it.** The barbell
+requires an exit on `depth - 1`. Before ADR-156, `OnInit` halted
+permanently on any missing required exit, and EVERY manual roll produced
+one. Now startup rebuilds, places the missing exits, and logs `WARN
+STARTUP_EXIT_SHORTFALL`; the OnTick check stays strict. Caveat: ticks
+during a close-only window can still escalate quarantine to a halt
+(backlog C18) -- no restarts near rollover.
 
-**`MQL5\Presets` already holds the NEW geometry** (written by
-`deploy_presets.ps1`, which injects the telemetry key from
-`c:\fxmatrix-local\telemetry.key`, outside the repo because it is public).
-Chart inputs still carry the old values: no EA has been attached or detached
-since Friday, only compiled, and a compile reinitialises with the chart's
-existing inputs. So nothing has changed -- but **reattaching any chart picks
-up the new grid, and for six arms that halts the instance.**
+**THE VPS IS IN DETACHED HEAD** until Wednesday. `deploy.ps1` begins with
+`git pull origin main`. Do not run it before the runbook says so.
 
-**Reattach hazard.** I6 checks every resting exit against the CURRENT
-`InpExitPips` (`fxgrind.mq5:149` -> `g_grind_recon_exit_pips` ->
-`grind_recon.mqh:502-536`, 2-point tolerance). Six arms change `exit_pips`:
-EURUSD OPT, EURUSD ALT, EURGBP ALT, AUDCAD ALT, AUDCHF ALT, CADCHF ALT. All
-six hold resting exits priced to the old value. Reattaching any of them with
-the new preset fails I6 in `OnInit` and halts in place -- same mechanism as
-F1 below. **Until geometry is staged, an emergency reattach must use the OLD
-values.**
+**Cycle-2 books (VPS, until Wednesday):** `MQL5\Presets` already holds
+new geometry and the chart inputs hold the old values. Reattaching any
+cycle-2 chart with the new preset halts on I6 for the six arms whose exit
+changed. An emergency reattach before Wednesday must use the OLD values.
+The VPS build (`5454358`) is PREFIX rule, so rolls there are safe.
 
-**Geometry cycle 2 is superseded, not ratified.** It had no spec, no DeepSeek
-audit (mandatory for grid spacing, ARCHITECT s2) and no pre-registered
-holdout (s12); its derivation is now committed at
-`docs/architecture/geometry-cycle2-derivation.md` with a source-review
-addendum. Six of its presets cannot start at all: `OnInit` enforces
-`add_pips == 2.0 x width_pips` (`fxgrind.mq5:119`, ADR-125).
+**Geometry cycle 3** is pre-registered in
+`docs/architecture/geometry-cycle3.md` (nine pairs, one OPT arm, cap 8,
+lots 0.01). ADR-153 removed the `add == 2 x width` rule; `OnInit` guards
+add/width inside [0.5, 4.0]. Exit and cap may not change mid-cycle
+(I6/I7); add, width, stranded and deadband may (amendment A1).
 
-**What replaces it is geometry cycle 3**, in
-`prompts/gemini_memo_geometry_cycle3.md` with Gemini's ruling in
-`prompts/gemini_ruling_geometry_cycle3.md`. Objective: maximise pips per day
-AND even the distribution across pairs (4.2x top-to-bottom today), judged on
-trade volume from fills. Every pair except GBPUSD gets a tighter add; GBPUSD
-is the benchmark and same-week control. Open with the operator: keep the
-width link (width = add / 2, presets only) or break it (code + ADR); even in
-pips or in dollars (`InpLots`); fleet size against the 200 limit.
+**Cycle 4 idea** (not scheduled): live per-side geometry search,
+`docs/architecture/cycle4-live-geometry-search.md`.
 
-**The exit question is settled for now.** A pre-registered counterfactual on
-the real fills (`prompts/exit_counterfactual_prereg.md`, results in
-`prompts/exit_counterfactual_results.md`) found only one clear result --
-EURGBP should widen to about 11, pending a swap check. Majors keep 7/10;
-crosses inconclusive. Its limit: it held entries FIXED, so it could not see
-the entry-volume problem that cycle 3 addresses.
+**Live on the VPS until Wednesday:** `5454358` -- ADR-151 K=1/H=0 PREFIX
+queue, the stale-offset fix (`241a905`), F2 carry accrual (inert, carry
+off).
 
-### F1 halted the fleet tonight. It is merged and must not be redeployed.
-
-Deployed 01:08Z, all 16 halted on `I3_LONG_NAKED` within two minutes,
-reverted 01:20Z, all 16 recovered with books intact.
-
-**Cause:** the barbell requires an exit on the most underwater layer
-(`rank == depth - 1`). Every existing book was built under the PREFIX rule, so
-no such layer has one. Reconstruction runs I3 before the queue can place the
-missing exits, and **a failed reconstruction in `OnInit` is a PERMANENT halt
-in any market**: `Grind_RetryMissingExits` sits in the `else` branch at
-`fxgrind.mq5:170`, the halt path sets `g_grind_halted`, `OnTick` does nothing
-while halted, and `OnInit` never enters quarantine.
-
-**The shut market was incidental.** The `[Market closed]` lines were the halt
-path cancelling ENT orders (`Grind_CancelOwnEntryOrders`), not exits being
-refused. The same compile in a live market halts all 16 the same way.
-(Corrected 2026-09-20; the first version of this block said the halt was
-normally self-healing. It was never checked against source.)
-
-**F1 needs a migration path before it ships.** See `02_TRAPS`.
-
-### What IS live
-
-**ADR-151 K=1/H=0 PREFIX queue.** Per side only the nearest exit rests;
-everything deeper is held (`has_exit_order false`, formula `exit_target`).
-The most underwater layer has NO resting exit -- that is the defect F1 was
-built to fix.
-
-**The stale-offset fix** (`241a905`) -- `GRIND_CARRY_SHIFT_` is now cleared on
-cancel and on unclamped placement. Closed a live latent halt that would fire
-on a clamp, demotion, then unclamped re-placement.
-
-**F2 held-layer carry accrual** -- `GRIND_CARRY_ACCRUED_<ticket>`, written
-only by the carry pass, read by the queue and I6 alongside the clamp shift.
-**Inert while carry is off.**
-
-**THE BINDING CONSTRAINT IS THE COMMITMENT GUARD, NOT THE ACCOUNT.**
-Entries need `positions + orders + resting_entries <= 194`. Currently 195.
-Exits need 1 free slot and are unaffected.
-
-**A compile or reattach clears a halt** (`OnInit`). There is no "parked across
-a compile". To keep an instance out, detach it.
-
-**Carry is OFF and that is a known economic leak**, not a safe default. F2
-made the mechanism correct; enabling it is a separate decision and needs the
-pipshed carry table fixed first -- it builds the pips columns from
-`mult_tomorrow`, which is 0 at weekends, so **the table was displaying the
-weekend, not a fault.**
+**Standing facts.** The binding constraint is the commitment guard
+(entries need `positions + orders + resting_entries <= 194`; exits need 1
+free slot). A compile or reattach clears a halt and re-runs `OnInit`.
+Carry is OFF in every preset -- decided after the C10 measurement.
