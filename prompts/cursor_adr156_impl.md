@@ -1,11 +1,10 @@
 This message has a line count at the bottom
 
-# CURSOR -- ADR-156 STARTUP EXIT SHORTFALL (C2), TESTS FIRST -- REV 2
+# CURSOR -- ADR-156 STARTUP EXIT SHORTFALL (C2), TESTS FIRST -- REV 3
 
-**Gemini has ruled (folded into this rev). Do not start until the
-operator says the DeepSeek audit is in.** If DeepSeek amends the design,
-the operator will say so and this spec will be revised. Do not guess at
-amendments.
+**Cleared to start.** Gemini has ruled and DeepSeek has audited
+(`prompts/deepseek_adr156_audit_response.md`, `5e31430`); both are folded
+into this rev. Do not guess at further amendments.
 
 ## AUDIT TRAIL
 
@@ -24,15 +23,10 @@ amendments.
 3. `git checkout -b adr156-startup-shortfall`
 4. `git branch --show-current` before EVERY commit. It must print
    `adr156-startup-shortfall`.
-5. **Commit 0 (docs).** The operator has saved rev 2 of
-   `docs/architecture/ADR-156-startup-exit-shortfall.md`, rev 2 of this
-   file (`prompts/cursor_adr156_impl.md`), and
-   `prompts/gemini_adr156_ruling.md`. For each one, check line 1 and the
-   `Line count:` footer against a mechanical count (STOP on mismatch).
-   Then commit
-   ONLY the ones that differ from `origin/main`, by explicit path, with
-   message `ADR-156 rev 2 (Gemini ruling) + impl spec rev 2`. If none
-   differ, skip commit 0 and say so.
+5. Confirm `origin/main` holds ADR-156 rev 3 and this spec rev 3:
+   `docs/architecture/ADR-156-startup-exit-shortfall.md` is 196 lines and
+   `prompts/cursor_adr156_impl.md` is 168 lines (the operator pushes both
+   before sending this). STOP if either differs.
 
 ## COMMIT 1 -- STUBS AND TESTS ONLY
 
@@ -81,17 +75,18 @@ S0 1.24970, S2 1.25170.
 | `Test_X7_TolerantStillFailsI6` | X1 but EXT L0 priced 1.25040 | `true` | false; reason `I6_LONG_EXIT` |
 | `Test_X8_TolerantStillFailsI4` | X1 + EXT order for layer 5, no position | `true` | false; reason `I4_LONG_ORPHAN_EXIT` |
 | `Test_X9_DefaultIsStrict` | same as X2 | 10-arg | false; reason `I3_LONG_NAKED` (locks the OnTick path) |
-| `Test_X10_ShortfallCriticalHelper` | none (pure), then X6, X3, X4 books tolerant | helper | (2,1) true; (0,2) true; (1,1) false; (1,0) false; (0,0) false; helper on X6's per-side counts true, on X3's false, on X4's false |
+| `Test_X10_ShortfallCriticalHelper` | none (pure), then X6, X3, X4 books tolerant | helper | (2,1) true; (0,2) true; (2,2) true; (1,2) true; (2,0) true; (1,1) false; (1,0) false; (0,0) false; helper on X6's per-side counts true, on X3's false, on X4's false |
+| `Test_X11_StrictRebuildResetsCounters` | same as X2; set BOTH counters to 99 just before the call | 10-arg | false; reason `I3_LONG_NAKED`; both counters == 0 |
 
 Find each layer in the output by `layer_index`, not by array position.
 For each shortfall value, write the hand derivation in a comment above
 the assert. Example: "X6: long ranks 0 and 2 required, both uncovered =
 2; short rank 2 uncovered = 1."
 
-**Commit 1 message:** `ADR-156 tests and stubs (X3-X6, X10 true cases expected to fail)`
+**Commit 1 message:** `ADR-156 tests and stubs (X3-X6, X10 true cases, X11 expected to fail)`
 
-**Expected against the stub:** X3, X4 (tolerant half), X5, X6, and X10's
-TRUE cases (the pure (2,1) and (0,2), and the one on X6's counts) FAIL.
+**Expected against the stub:** X3, X4 (tolerant half), X5, X6, X11, and X10's
+TRUE cases (the five pure true cases, and the one on X6's counts) FAIL.
 X1, X2, X7, X8, X9 and X10's FALSE cases PASS; these are regression locks,
 so report them as passing in both states. If X1's shortfall asserts fail,
 or any of the expected failures passes against the stub, STOP and
@@ -166,9 +161,8 @@ COMMIT2: <sha from git log>              files: <list>
 PUSHED: <git ls-remote origin adr156-startup-shortfall>
 LINES:  <wc -l of every changed file>
 DIFF:   <git diff --stat origin/main..adr156-startup-shortfall>
-COMMIT0: <sha or SKIPPED>                files: <list>
-STUB-STATE EXPECTATION: X3,X4b,X5,X6,X10-true fail; X1,X2,X4a,X7,X8,X9,X10-false pass (not run)
+STUB-STATE EXPECTATION: X3,X4b,X5,X6,X10-true,X11 fail; X1,X2,X4a,X7,X8,X9,X10-false pass (not run)
 DEVIATIONS: <none, or each one with reason>
 ```
 
-Line count: 174
+Line count: 168

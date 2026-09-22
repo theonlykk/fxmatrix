@@ -2,9 +2,10 @@ This message has a line count at the bottom
 
 # ADR-156 -- STARTUP EXIT SHORTFALL: PLACE, THEN CHECK
 
-**Status:** Approved by Gemini 2026-09-21 (rev 2 folds in his ruling,
-`prompts/gemini_adr156_ruling.md`). DeepSeek audit pending (it changes
-when orders are placed; ARCHITECT s2). Backlog C2.
+**Status:** Approved by Gemini 2026-09-21 (`prompts/gemini_adr156_ruling.md`).
+Audited by DeepSeek (`prompts/deepseek_adr156_audit_response.md`, commit
+`5e31430`): premise holds, no new halt path. Rev 3 corrects two s5 claims
+and adds X11 plus two X10 cases from that audit. Backlog C2.
 **Base:** `main` `5124bd2`. All line numbers below are at that SHA.
 
 ---
@@ -121,16 +122,24 @@ the requirement, place, then check under the full rule on the first tick.
 - **T1 fixed.** A manual roll's reattach rebuilds cleanly, then places the
   new deepest exit. `manual-roll.md` becomes valid again once this is
   live.
-- **T2 and T3 fixed** for startup. An exit that cannot be placed ends in
-  the same quarantine-then-halt as it would without a restart.
+- **T2 and T3 fixed for startup, with one exception.** An exit that cannot
+  be placed ends in the same quarantine-then-halt as it would without a
+  restart. **Exception (DeepSeek T-1):** if ticks keep arriving while the
+  symbol is not in FULL trade mode (for example close-only), the retry is
+  blocked, quarantine still counts checks, and the instance halts after
+  3 s / 3 checks. That is no worse than today, and the fix is
+  quarantine-wide (Gemini: a separate ADR). Until then, avoid restarts
+  near rollover and session edges.
 - **Weekend restart** (VPS maintenance with the market shut): the rebuild
   passes, placement fails (market closed), and no ticks arrive so there is
   no escalation. At the open the first tick quarantines and retries (F-5:
   not stale), the second tick passes.
-- **Risk: a bug that drops exits is now invisible at startup.** It is not
-  invisible for long: the strict OnTick check sees it on the first tick,
-  and the archive marker records the count. A shortfall on a clean flat
-  start is a defect signal.
+- **Risk: a bug that drops exits is masked at startup.** If the retry
+  places the missing exit, the first strict check PASSES and never sees
+  the drop (DeepSeek T-4; an earlier draft wrongly said the check would
+  catch it). The ONLY record is the `WARN STARTUP_EXIT_SHORTFALL` line and
+  archive marker. Any shortfall outside a manual roll, on a restart with
+  no known cause, is a defect signal to investigate.
 
 ---
 
@@ -144,19 +153,20 @@ entry - 0.00030.
 
 | id | book | call | expect |
 |---|---|---|---|
-| X1 | long, EXT on L2 + L0 | strict | ok, shortfall 0 |
+| X1 | long, EXT on L2 + L0 | strict | ok, long 0 / short 0 |
 | X2 | long, EXT on L2 only | strict | FAIL `I3_LONG_NAKED` |
-| X3 | long, EXT on L2 only | tolerant | ok, shortfall 1; L0 rebuilt `exit_target` 1.25030, `exit_order_ticket` 0 |
-| X4 | ROLL: L1 + L2 only, EXT on L2 only | strict / tolerant | FAIL `I3_LONG_NAKED` / ok, shortfall 1 |
-| X5 | short, EXT on S2 only | tolerant | ok, shortfall 1; S0 `exit_target` 1.24970 |
-| X6 | long no EXT at all + short EXT on S2 only | tolerant | ok, shortfall 3 |
+| X3 | long, EXT on L2 only | tolerant | ok, long 1 / short 0; L0 rebuilt `exit_target` 1.25030, `exit_order_ticket` 0 |
+| X4 | ROLL: L1 + L2 only, EXT on L2 only | strict / tolerant | FAIL `I3_LONG_NAKED` / ok, long 1 / short 0 |
+| X5 | short, EXT on S2 only | tolerant | ok, long 0 / short 1; S0 `exit_target` 1.24970 |
+| X6 | long no EXT at all + short EXT on S2 only | tolerant | ok, long 2 / short 1 |
 | X7 | long, EXT on L2 + L0, L0's EXT at 1.25040 | tolerant | FAIL `I6_LONG_EXIT` |
 | X8 | X1 + EXT order for layer 5, no position | tolerant | FAIL `I4_LONG_ORPHAN_EXIT` |
 | X9 | X2, 10-argument call (default) | default | FAIL `I3_LONG_NAKED` |
-| X10 | helper truth table | -- | (2,1) T, (0,2) T, (1,1) F, (1,0) F, (0,0) F; on X6 counts T, on X3 and X4 counts F |
+| X10 | helper truth table | -- | (2,1) T, (0,2) T, (2,2) T, (1,2) T, (2,0) T, (1,1) F, (1,0) F, (0,0) F; on X6 counts T, on X3 and X4 counts F |
+| X11 | X2, both counters pre-set to 99 | strict (10-arg) | FAIL `I3_LONG_NAKED`; both counters == 0 (every rebuild resets them; strict never counts) |
 
 Shortfalls are per side (long/short): X1 0/0, X3 1/0, X4 1/0, X5 0/1,
-X6 2/1. X3-X6 and X10's TRUE cases must FAIL against a stub that accepts
+X6 2/1. X3-X6, X10's TRUE cases and X11 must FAIL against a stub that accepts
 the parameter and ignores it, and a helper that returns false.
 X1, X2, X7, X8 and X9 are regression locks that pass in both states.
 Report them as such.
@@ -183,4 +193,4 @@ Original questions:
   before `Grind_MaeInit` and `Grind_CapPublishOwnExposure`, depends on
   state not yet initialised? It already runs there today.
 
-Line count: 186
+Line count: 196
