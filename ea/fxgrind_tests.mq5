@@ -6532,6 +6532,64 @@ void Test_W3_UnclampClearsMarker()
    Grind_CarryTestReset();
 }
 
+void Test_V1_FlushClearsDirty()
+{
+   Grind_CarryTestReset();
+   g_grind_gv_dirty = false;
+   Grind_GvMarkDirty();
+   AssertTrue("V1 dirty after mark", g_grind_gv_dirty);
+   const bool r1 = Grind_GvFlushIfDirty();
+   AssertTrue("V1 first flush true", r1);
+   AssertFalse("V1 dirty cleared", g_grind_gv_dirty);
+   const bool r2 = Grind_GvFlushIfDirty();
+   AssertFalse("V1 second flush false", r2);
+   Grind_CarryTestReset();
+}
+
+void Test_V2_WritersMarkDirty()
+{
+   Grind_CarryTestReset();
+   const ulong t = 88021UL;
+   g_grind_gv_dirty = false;
+   Grind_CarryShiftSet(t, 0.0001);
+   AssertTrue("V2 Grind_CarryShiftSet", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryShiftDelete(t);
+   AssertTrue("V2 Grind_CarryShiftDelete", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryRecordShift(t, 0.0001, true);
+   AssertTrue("V2 Grind_CarryRecordShift clamped", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryRecordShift(t, 0.0001, false);
+   AssertTrue("V2 Grind_CarryRecordShift unclamped", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryAccruedSet(t, 0.0001);
+   AssertTrue("V2 Grind_CarryAccruedSet", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryAccruedDelete(t);
+   AssertTrue("V2 Grind_CarryAccruedDelete", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_EjectOffsetSet(t, 0.0001);
+   AssertTrue("V2 Grind_EjectOffsetSet", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_EjectOffsetDelete(t);
+   AssertTrue("V2 Grind_EjectOffsetDelete", g_grind_gv_dirty);
+   Grind_CarryShiftDelete(t);
+   Grind_CarryAccruedDelete(t);
+   Grind_CarryTestReset();
+}
+
+void Test_V3_PruneMarksDirty()
+{
+   Grind_CarryTestReset();
+   GlobalVariableSet("GRIND_CARRY_SHIFT_88022", 0.0001);
+   g_grind_gv_dirty = false;
+   Grind_CarryPruneShiftGvs(22260101UL);
+   AssertFalse("V3 orphan gone", GlobalVariableCheck("GRIND_CARRY_SHIFT_88022"));
+   AssertTrue("V3 prune marks dirty", g_grind_gv_dirty);
+   Grind_CarryTestReset();
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -7737,6 +7795,9 @@ void OnStart()
    Test_W1_ClampSetsReleaseMarker();
    Test_W2_NoClampNoMarker();
    Test_W3_UnclampClearsMarker();
+   Test_V1_FlushClearsDirty();
+   Test_V2_WritersMarkDirty();
+   Test_V3_PruneMarksDirty();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();

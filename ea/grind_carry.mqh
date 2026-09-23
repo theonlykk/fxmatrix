@@ -482,6 +482,22 @@ string Grind_CarryShiftGvName(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+// C25/T-3: persistent GV state must reach disk; MT5 saves GVs only on
+// a clean terminal close. Writers mark dirty; OnTimer flushes.
+bool g_grind_gv_dirty = false;
+
+void Grind_GvMarkDirty()
+{
+   // stub
+}
+
+bool Grind_GvFlushIfDirty()
+{
+   // stub
+   return false;
+}
+
+//+------------------------------------------------------------------+
 double Grind_CarryShiftGet(const ulong position_ticket)
 {
    const string name = Grind_CarryShiftGvName(position_ticket);
