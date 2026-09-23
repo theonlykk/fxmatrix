@@ -388,31 +388,63 @@ bool Grind_AutoEjectWindowIntact(const datetime oldest_close,
 }
 
 //+------------------------------------------------------------------+
+datetime Grind_LastSundayMonthUtc(const int year, const int month)
+{
+   MqlDateTime dt;
+   dt.year = year;
+   dt.mon = month;
+   dt.day = 31;
+   dt.hour = 1;
+   dt.min = 0;
+   dt.sec = 0;
+   datetime t = StructToTime(dt);
+   while(true) {
+      TimeToStruct(t, dt);
+      if(dt.mon != month) {
+         t -= 86400;
+         continue;
+      }
+      if(dt.day_of_week == 0)
+         return t;
+      t -= 86400;
+   }
+   return 0;
+}
+
+//+------------------------------------------------------------------+
 int Grind_PragueUtcOffset(const datetime gmt)
 {
-   // stub
+   MqlDateTime dt;
+   TimeToStruct(gmt, dt);
+   const datetime dst_start = Grind_LastSundayMonthUtc(dt.year, 3);
+   const datetime dst_end = Grind_LastSundayMonthUtc(dt.year, 10);
+   if(gmt >= dst_start && gmt < dst_end)
+      return 2;
    return 1;
 }
 
 //+------------------------------------------------------------------+
 datetime Grind_FtmoDayStartGmt(const datetime gmt)
 {
-   // stub
-   return 0;
+   const int off = Grind_PragueUtcOffset(gmt);
+   const long local = (long)gmt + (long)off * 3600L;
+   const long day_start_local = local - (local % 86400L);
+   return (datetime)(day_start_local - (long)off * 3600L);
 }
 
 //+------------------------------------------------------------------+
 string Grind_FtmoDayKey(const datetime gmt)
 {
-   // stub
-   return "";
+   const int off = Grind_PragueUtcOffset(gmt);
+   return TimeToString(gmt + off * 3600, TIME_DATE);
 }
 
 //+------------------------------------------------------------------+
 int Grind_FtmoSecondsIntoDay(const datetime gmt)
 {
-   // stub
-   return 0;
+   const int off = Grind_PragueUtcOffset(gmt);
+   const long local = (long)gmt + (long)off * 3600L;
+   return (int)(local % 86400L);
 }
 
 //+------------------------------------------------------------------+
@@ -420,16 +452,26 @@ double Grind_BreakerAnchor(const double balance_now,
                            const double &amounts[], const datetime &times[],
                            const int n, const datetime boundary)
 {
-   // stub
-   return balance_now;
+   double sum = 0.0;
+   for(int i = 0; i < n; i++) {
+      if(times[i] >= boundary)
+         sum += amounts[i];
+   }
+   return balance_now - sum;
 }
 
 //+------------------------------------------------------------------+
 double Grind_BreakerInitialDeposit(const double &amounts[],
                                    const datetime &times[], const int n)
 {
-   // stub
-   return 0.0;
+   if(n <= 0)
+      return 0.0;
+   int best = 0;
+   for(int i = 1; i < n; i++) {
+      if(times[i] < times[best])
+         best = i;
+   }
+   return amounts[best];
 }
 
 //+------------------------------------------------------------------+
@@ -439,24 +481,27 @@ double Grind_BreakerDayAnchor(const double balance_now,
                               const double initial_deposit,
                               const datetime initial_time)
 {
-   // stub
-   return balance_now;
+   if(initial_time >= boundary)
+      return initial_deposit;
+   return Grind_BreakerAnchor(balance_now, amounts, times, n, boundary);
 }
 
 //+------------------------------------------------------------------+
 bool Grind_BreakerShouldTrip(const double equity, const double anchor,
                              const double allowance, const double frac)
 {
-   // stub
-   return false;
+   if(anchor <= 0.0 || allowance <= 0.0)
+      return false;
+   return (equity <= anchor - frac * allowance);
 }
 
 //+------------------------------------------------------------------+
 bool Grind_BreakerPreMidnightHalt(const int sec_into_day, const double equity,
                                   const double balance, const double allowance)
 {
-   // stub
-   return false;
+   if(sec_into_day < 82800)
+      return false;
+   return ((balance - equity) >= 0.5 * allowance);
 }
 
 #endif // GRIND_PURE_MQH
