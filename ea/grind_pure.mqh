@@ -380,4 +380,12 @@ bool Grind_AutoEjectTargetWorse(const bool is_long, const double new_target,
    return (new_target - resting >= min_dist);
 }
 
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectWindowIntact(const datetime oldest_close,
+                                 const datetime now, const int window_sec)
+{
+   // stub: today's behaviour -- no wall-clock check
+   return true;
+}
+
 #endif // GRIND_PURE_MQH

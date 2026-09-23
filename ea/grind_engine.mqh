@@ -512,6 +512,16 @@ int Grind_EjectPollCommand(const ulong magic,
 }
 
 //+------------------------------------------------------------------+
+datetime g_grind_auto_eject_backoff_long  = 0;
+datetime g_grind_auto_eject_backoff_short = 0;
+
+void Grind_AutoEjectResetBackoff()
+{
+   g_grind_auto_eject_backoff_long  = 0;
+   g_grind_auto_eject_backoff_short = 0;
+}
+
+//+------------------------------------------------------------------+
 int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
                            const double exit_pips, const int max_layers,
                            const bool enabled, const bool blocked,

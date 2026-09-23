@@ -6846,6 +6846,101 @@ void Test_E16_OrphanTrailBlockedBySpread()
    Grind_TestEjectHarnessReset();
 }
 
+int Grind_TestAutoEjectTrySideE(const datetime now, const double current_spread = 10.0)
+{
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   return Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                 times, vals, 10, spreads, 4, current_spread, now, 5, 1.5);
+}
+
+void Test_F1_BackoffAfterModifyFail()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_AutoEjectResetBackoff();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   g_grind_order_test_send_ok = false;
+   // F1: first tick hits MODIFY_FAILED; within W minutes no retry
+   AssertEqInt("F1 first fail", Grind_TestAutoEjectTrySideE(now), GRIND_EJECT_MODIFY_FAILED);
+   AssertTrue("F1 one modify", g_grind_order_test_modify_calls == 1);
+   AssertEqInt("F1 backoff tick", Grind_TestAutoEjectTrySideE(now + 60), -1);
+   AssertTrue("F1 still one modify", g_grind_order_test_modify_calls == 1);
+   g_grind_order_test_send_ok = true;
+   // F1: at now + W*60 backoff expires
+   AssertEqInt("F1 after backoff", Grind_TestAutoEjectTrySideE(now + 300), GRIND_EJECT_OK);
+   AssertTrue("F1 two modifies", g_grind_order_test_modify_calls == 2);
+   Grind_AutoEjectResetBackoff();
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_F2_OrphanUsesOrderPrice()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_AutoEjectResetBackoff();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   AssertEqInt("F2 accept", Grind_TestAutoEjectTrySideE(now), GRIND_EJECT_OK);
+   // F2: stale layer.exit_target below order; trail uses order 1.24811 not stale 1.24711
+   g_grind_long.layers[0].exit_target = 1.24711;
+   Grind_MarketTestSeed(1.24750, 1.24760, 0, 0);
+   AssertEqInt("F2 trail", Grind_TestAutoEjectTrySideE(now), GRIND_EJECT_OK);
+   AssertTrue("F2 two modifies", g_grind_order_test_modify_calls == 2);
+   AssertNear("F2 order price", Grind_OrderGetPriceOpen(2001UL), 1.24761, 1e-9);
+   AssertNear("F2 offset", Grind_EjectOffsetGet(1001UL), -0.00269, 1e-9);
+   Grind_AutoEjectResetBackoff();
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_F3_OrphanHoldsVsOrderPrice()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_AutoEjectResetBackoff();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   AssertEqInt("F3 accept", Grind_TestAutoEjectTrySideE(now), GRIND_EJECT_OK);
+   // F3: stale exit_target above order; target 1.24811 equals order -> no worse move
+   g_grind_long.layers[0].exit_target = 1.24911;
+   AssertEqInt("F3 hold", Grind_TestAutoEjectTrySideE(now), -1);
+   AssertTrue("F3 one modify", g_grind_order_test_modify_calls == 1);
+   Grind_AutoEjectResetBackoff();
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_F4_WindowIntact()
+{
+   const datetime now = D'2026.09.23 10:00';
+   const int window = 600;
+   // F4: oldest close within window passes; gap beyond window fails
+   AssertTrue("F4 570s ok", Grind_AutoEjectWindowIntact(now - 570, now, window));
+   AssertTrue("F4 600s ok", Grind_AutoEjectWindowIntact(now - 600, now, window));
+   AssertFalse("F4 7200s gap", Grind_AutoEjectWindowIntact(now - 7200, now, window));
+}
+
+void Test_F5_CarryWorkBaseFresh()
+{
+   Grind_TestClearCarryState();
+   Grind_TestResetSideState();
+   ArrayResize(g_grind_long.layers, 1);
+   g_grind_long.layers[0].entry_price = 1.25000;
+   g_grind_long.layers[0].position_ticket = 1001UL;
+   g_grind_long.layers[0].exit_order_ticket = 2001UL;
+   g_grind_long.layers[0].layer_index = 0;
+   Grind_EjectOffsetSet(1001UL, 0.00040);
+   Grind_CarryExitPassBegin(_Symbol, 22260101UL, 3.0);
+   Grind_EjectOffsetSet(1001UL, -0.00219);
+   // F5: processing base uses current offset -0.00219 -> 1.24811, not snapshot 1.25070
+   AssertNear("F5 fresh base", Grind_CarryWorkBase(0, 3.0, 0.00001), 1.24811, 1e-9);
+   Grind_CarryExitPassReset();
+   Grind_TestResetSideState();
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -8070,6 +8165,11 @@ void OnStart()
    Test_E14_NoRefireSameMarket();
    Test_E15_TrailsOrphan();
    Test_E16_OrphanTrailBlockedBySpread();
+   Test_F1_BackoffAfterModifyFail();
+   Test_F2_OrphanUsesOrderPrice();
+   Test_F3_OrphanHoldsVsOrderPrice();
+   Test_F4_WindowIntact();
+   Test_F5_CarryWorkBaseFresh();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();

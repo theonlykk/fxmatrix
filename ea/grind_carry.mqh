@@ -922,6 +922,13 @@ void Grind_CarryExitPassBegin(const string symbol,
 }
 
 //+------------------------------------------------------------------+
+double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point)
+{
+   // stub: today's behaviour -- the base snapshotted at pass begin
+   return g_grind_carry_exit_work_formula[idx];
+}
+
+//+------------------------------------------------------------------+
 void Grind_CarryPruneShiftGvs(const ulong magic)
 {
    for(int g = GlobalVariablesTotal() - 1; g >= 0; g--) {
