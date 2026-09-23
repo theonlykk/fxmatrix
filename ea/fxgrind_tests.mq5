@@ -761,7 +761,7 @@ void Test_CM2_CapSumIteratesLegCarryingMagics()
    g_grind_cap_thresh_b = 0.0;
    g_grind_recon_magic = 22260101UL;
 
-   const ulong expected[16] =
+   const ulong expected[18] =
    {
       22260101UL, 22260102UL,
       22260201UL, 22260202UL,
@@ -770,12 +770,13 @@ void Test_CM2_CapSumIteratesLegCarryingMagics()
       22260501UL, 22260502UL,
       22260601UL, 22260602UL,
       22260801UL, 22260802UL,
-      22260901UL, 22260902UL
+      22260901UL, 22260902UL,
+      22260701UL, 22260702UL
    };
 
-   string keys[16];
-   string time_keys[16];
-   for(int i = 0; i < 16; i++) {
+   string keys[18];
+   string time_keys[18];
+   for(int i = 0; i < 18; i++) {
       const ulong magic = expected[i];
       keys[i] = Grind_CapExposureKey(magic, "CHF");
       time_keys[i] = Grind_CapTimestampKey(keys[i]);
@@ -784,18 +785,16 @@ void Test_CM2_CapSumIteratesLegCarryingMagics()
    }
 
    // ADR-149 leg isolation: only CHF-carrying magics contribute.
-   // All sixteen are seeded deliberately so this proves non-CHF magics
-   // are EXCLUDED. CHF carriers are indices 8-11
-   // (22260501, 22260502, 22260601, 22260602):
-   //   0.09 + 0.10 + 0.11 + 0.12 = 0.42
-   // Superseded ADR-143 expectation was 0.78 (all twelve summed).
+   // All eighteen are seeded deliberately so this proves non-CHF magics
+   // are EXCLUDED. CHF carriers are indices 8-11 and 16-17:
+   //   0.09 + 0.10 + 0.11 + 0.12 + 0.17 + 0.18 = 0.77
    double total = 0.0;
    bool peer_failed = true;
    Grind_CapSumLegExposure("CHF", 22260101UL, total, peer_failed);
-   AssertNear("CM2 total", total, 0.42, 1e-9);
+   AssertNear("CM2 total", total, 0.77, 1e-9);
    AssertFalse("CM2 peer_failed", peer_failed);
 
-   for(int i = 0; i < 16; i++) {
+   for(int i = 0; i < 18; i++) {
       GlobalVariableDel(keys[i]);
       GlobalVariableDel(time_keys[i]);
    }
