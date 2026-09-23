@@ -6410,6 +6410,81 @@ void Test_Z16_RefuseQuarantined()
    Grind_TestEjectHarnessReset();
 }
 
+void Test_Z17_RefuseZeroTicket()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_long.layers[0].position_ticket = 0;
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), 0.0);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   // Z17: ticket 0 must not match any layer; poll refuses as NOT_FOUND
+   AssertEqInt("Z17 code", rc, GRIND_EJECT_NOT_FOUND);
+   AssertTrue("Z17 no modify", g_grind_order_test_modify_calls == 0);
+   AssertFalse("Z17 cmd gone", GlobalVariableCheck(Grind_EjectCommandName(22260101UL)));
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_Z18_EjectedShiftSurvivesBound()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const ulong pos = 88003UL;
+   const datetime open_time = D'2026.08.01 12:00';
+   const double nightly_max = 3.0;
+   Grind_CarryShiftDelete(pos);
+   Grind_EjectOffsetDelete(pos);
+   // Z18: ejected layer keeps shift 5.0 even when bound would delete it
+   Grind_EjectOffsetSet(pos, -0.00219);
+   Grind_CarryShiftSet(pos, 5.0);
+   AssertFalse("Z18 out of bound", Grind_CarryShiftWithinBound(pos, 5.0, open_time, nightly_max));
+   AssertNear("Z18 shift kept", Grind_CarryShiftGetValidated(pos, open_time, nightly_max), 5.0, 1e-12);
+   AssertTrue("Z18 gv remains", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   Grind_CarryShiftDelete(pos);
+   Grind_EjectOffsetDelete(pos);
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_Z19_OrdinaryShiftStillBounded()
+{
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+   const ulong pos = 88003UL;
+   const datetime open_time = D'2026.08.01 12:00';
+   const double nightly_max = 3.0;
+   Grind_CarryShiftDelete(pos);
+   Grind_EjectOffsetDelete(pos);
+   Grind_CarryShiftSet(pos, 5.0);
+   AssertFalse("Z19 corrupt", Grind_CarryShiftWithinBound(pos, 5.0, open_time, nightly_max));
+   // Z19: no eject offset -- same regression lock as CX8
+   AssertNear("Z19 deleted", Grind_CarryShiftGetValidated(pos, open_time, nightly_max), 0.0, 1e-12);
+   AssertFalse("Z19 gv gone", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   Grind_CarryTestReset();
+   Grind_ArchiveTestReset();
+   Grind_OrderTestReset();
+}
+
+void Test_Z20_ReEjectOverwrites()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   AssertEqInt("Z20 first ok", Grind_EjectPollCommand(22260101UL, true, 3.0, false), GRIND_EJECT_OK);
+   Grind_MarketTestSeed(1.24700, 1.24710, 0, 0);
+   GlobalVariableSet(Grind_EjectCommandName(22260101UL), (double)1001UL);
+   const int rc = Grind_EjectPollCommand(22260101UL, true, 3.0, false);
+   AssertEqInt("Z20 second ok", rc, GRIND_EJECT_OK);
+   // Z20: ask 1.24710 + 1 point = 1.24711; offset = 1.24711 - 1.25030 = -0.00319
+   AssertNear("Z20 order price", Grind_OrderGetPriceOpen(2001UL), 1.24711, 1e-9);
+   AssertNear("Z20 offset", Grind_EjectOffsetGet(1001UL), -0.00319, 1e-9);
+   AssertNear("Z20 exit target", g_grind_long.layers[0].exit_target, 1.24711, 1e-9);
+   Grind_EjectOffsetDelete(1001UL);
+   Grind_TestEjectHarnessReset();
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -7608,6 +7683,10 @@ void OnStart()
    Test_Z14_AccruedCarriedIntoOffset();
    Test_Z15_RefuseHalted();
    Test_Z16_RefuseQuarantined();
+   Test_Z17_RefuseZeroTicket();
+   Test_Z18_EjectedShiftSurvivesBound();
+   Test_Z19_OrdinaryShiftStillBounded();
+   Test_Z20_ReEjectOverwrites();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();
