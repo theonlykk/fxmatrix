@@ -178,19 +178,19 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-23 01:25Z, market OPEN.** Evidence: `HANDOFF_2026-09-23.md`.
+**As of 2026-09-23 02:35Z, market OPEN.** Evidence: `HANDOFF_2026-09-23.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `f870598` |
+| fxmatrix main | `ce6e985` |
 | pipshed main | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, cycle-2 presets. **Nothing newer deployed** |
-| Delta main vs VPS | F1 barbell, **ADR-156 startup exit shortfall**, **ADR-155 commanded ejection (A+B, switch off)**, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
-| MQL5 suite | `main` **1561/1561**, GBPUSD. Runs from `MQL5\Scripts\` |
+| Delta main vs VPS | F1 barbell, **ADR-156 startup exit shortfall**, **ADR-155 commanded ejection (A+B)**, **ADR-157 automatic passive ejection** (both switches off), **C25 carry unblocked + GV flush**, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
+| MQL5 suite | `main` **1619/1619**, GBPUSD. Runs from `MQL5\Scripts\` |
 | Fleet | 16 attached (cycle 2), 0 halted. AUDCAD rolled four times by hand -- see `docs/runbooks/roll-log.md` |
 | Account | demo 1514582088, $10k, FTMO daily limit $500 -- **worst day -$420**. Nothing in the EA enforces it (backlog C17) |
 | **Next** | **Close out cycle 2** (`docs/runbooks/account-close-out.md`), then start cycle 3 when its readiness gate is met (`docs/runbooks/cycle3-start.md`). **No deadline between them** |
-| After that | Cycle-3 readiness gate: C17 breaker, C24/C19 pipshed, A5, carry ON in presets (C25 done, guard removed), pre-registration amendment. C15 ejection DONE (dormant) |
+| After that | Cycle-3 readiness gate: C17 breaker (now more urgent: auto-ejection realises losses), C24/C19 pipshed, A5, carry ON and auto-eject ON in presets, pre-registration amendment. C15/C27 ejection and C25 carry DONE |
 | Carry | OFF in all presets |
 | Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 

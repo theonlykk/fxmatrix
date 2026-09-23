@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-23 01:25Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-23 02:35Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
 then `handoffs/HANDOFF_2026-09-23.md`, then `02_TRAPS.md`**, then this
@@ -29,10 +29,10 @@ migrate. **It must still never go onto an EXISTING book** (backlog C2).
 
 | | |
 |---|---|
-| fxmatrix `main` | `f870598` |
+| fxmatrix `main` | `ce6e985` |
 | pipshed `main` | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, 16 instances, cycle-2 presets |
-| Suite | `main` **1561/1561**, GBPUSD |
+| Suite | `main` **1619/1619**, GBPUSD |
 | Account | demo 1514582088, $10k, FTMO daily limit $500. **Worst day -$420** |
 | Next | Wednesday: new account, 9 instances, one arm each |
 
@@ -55,8 +55,9 @@ stranded and deadband may.
 ## 3. NEXT, IN ORDER
 
 **Done:** C2 / ADR-156 (`3f72b9f`), C15 / ADR-155 commanded passive
-ejection (`95c89c6`, switch default off), and C25 / carry unblocked plus
-GlobalVariable flushing (`f870598`). Close-out and the cycle-3
+ejection (`95c89c6`), C25 / carry unblocked plus GlobalVariable flushing
+(`f870598`), and C27 / ADR-157 automatic passive ejection trigger
+(`ce6e985`); both ejection switches default off. Close-out and the cycle-3
 start are SEPARATE: close out before the demo expires; start cycle 3
 only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 
@@ -64,8 +65,8 @@ only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 2. **C17 account daily-loss circuit breaker.** First pin how FTMO
    computes today's permitted loss and when the day resets.
 3. **C24 daily snapshot and C19 CRITICAL events** in pipshed.
-4. **A5 account identity; carry ON in the nine presets; the
-   pre-registration amendment** (carry ON, ejection switchable, USD
+4. **A5 account identity; carry ON and auto-eject ON in the nine
+   presets; the pre-registration amendment** (carry ON, ejection, USD
    reported with no target) -- all before the first fill.
 
 ---
@@ -101,4 +102,4 @@ only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 - Tests first; a new test must FAIL before the change. Write the negative
   twin of any test that asserts something happens.
 
-Line count: 104
+Line count: 105
