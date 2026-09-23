@@ -327,4 +327,38 @@ double Grind_EjectOffsetFor(const double target,
    return target - raw - accrued;
 }
 
+//+------------------------------------------------------------------+
+int Grind_ExtremeIndexMostRecent(const double &vals[], const int n,
+                                 const bool want_min)
+{
+   // stub
+   return -1;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectStable(const datetime &times[], const double &vals[],
+                           const int n, const datetime now,
+                           const int window_sec, const bool want_min)
+{
+   // stub
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectSpreadOk(const double current_points,
+                             const double &baseline[], const int n,
+                             const double k)
+{
+   // stub
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectTargetWorse(const bool is_long, const double new_target,
+                                const double resting, const double min_dist)
+{
+   // stub
+   return false;
+}
+
 #endif // GRIND_PURE_MQH

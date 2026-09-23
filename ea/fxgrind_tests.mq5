@@ -6590,6 +6590,262 @@ void Test_V3_PruneMarksDirty()
    Grind_CarryTestReset();
 }
 
+void Grind_TestAutoEjectSeriesA(datetime &times[], double &vals[], const datetime now)
+{
+   const int n = 10;
+   ArrayResize(times, n);
+   ArrayResize(vals, n);
+   for(int i = 0; i < n; i++) {
+      times[i] = now - (10 - i) * 60;
+      vals[i] = 1.2500;
+   }
+}
+
+void Test_E1_ExtremeMostRecent()
+{
+   // E1: tied min 3 at indices 1 and 3 -> most recent is 3; max 4 at index 2
+   double vals[5] = {5, 3, 4, 3, 6};
+   AssertEqInt("E1 want_min", Grind_ExtremeIndexMostRecent(vals, 5, true), 3);
+   AssertEqInt("E1 want_max", Grind_ExtremeIndexMostRecent(vals, 5, false), 2);
+}
+
+void Test_E2_StableOldLow()
+{
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   // E2: low at i=2, age now-times[2]=480s >= window 300
+   AssertTrue("E2 stable old low", Grind_AutoEjectStable(times, vals, 10, now, 300, true));
+}
+
+void Test_E3_UnstableRecentLow()
+{
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[8] = 1.2400;
+   // E3: most recent low at i=8, age 120s < 300
+   AssertFalse("E3 recent low", Grind_AutoEjectStable(times, vals, 10, now, 300, true));
+}
+
+void Test_E4_RetestIsNewLow()
+{
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   vals[8] = 1.2400;
+   // E4: tied low; most recent tie i=8 age 120s -> not stable
+   AssertFalse("E4 retest resets", Grind_AutoEjectStable(times, vals, 10, now, 300, true));
+}
+
+void Test_E5_ShortSide()
+{
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2600;
+   // E5: max at i=2 age 480 >= 300
+   AssertTrue("E5 max at i=2", Grind_AutoEjectStable(times, vals, 10, now, 300, false));
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   // E5: flat highs -> most recent max i=9 age 60
+   AssertFalse("E5 flat at i=8 window", Grind_AutoEjectStable(times, vals, 10, now, 300, false));
+}
+
+void Test_E6_NoBars()
+{
+   datetime times[];
+   double vals[];
+   AssertFalse("E6 n=0", Grind_AutoEjectStable(times, vals, 0, D'2026.09.23 10:00', 300, true));
+}
+
+void Test_E7_SpreadGate()
+{
+   double baseline[4] = {10, 10, 10, 10};
+   // E7: mean 10, k=1.5 -> cap 15
+   AssertTrue("E7 at cap", Grind_AutoEjectSpreadOk(15.0, baseline, 4, 1.5));
+   AssertFalse("E7 over cap", Grind_AutoEjectSpreadOk(16.0, baseline, 4, 1.5));
+   AssertFalse("E7 no baseline", Grind_AutoEjectSpreadOk(10.0, baseline, 0, 1.5));
+}
+
+void Test_E8_TargetWorse()
+{
+   const double min_dist = 0.00001;
+   // E8: long worse = resting lower than new target by min_dist
+   AssertTrue("E8 long worse", Grind_AutoEjectTargetWorse(true, 1.24711, 1.24811, min_dist));
+   AssertFalse("E8 long equal", Grind_AutoEjectTargetWorse(true, 1.24811, 1.24811, min_dist));
+   AssertTrue("E8 short worse", Grind_AutoEjectTargetWorse(false, 1.25289, 1.25189, min_dist));
+   AssertFalse("E8 short equal", Grind_AutoEjectTargetWorse(false, 1.25189, 1.25189, min_dist));
+}
+
+void Test_E9_FiresWhenCappedStable()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                         times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E9 rc", rc, GRIND_EJECT_OK);
+   AssertTrue("E9 one modify", g_grind_order_test_modify_calls == 1);
+   AssertNear("E9 order price", Grind_OrderGetPriceOpen(2001UL), 1.24811, 1e-9);
+   AssertNear("E9 offset", Grind_EjectOffsetGet(1001UL), -0.00219, 1e-9);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E10_NotStable()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[8] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                         times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E10 rc", rc, -1);
+   AssertTrue("E10 no modify", g_grind_order_test_modify_calls == 0);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E11_SpreadWide()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                         times, vals, 10, spreads, 4, 16.0, now, 5, 1.5);
+   AssertEqInt("E11 rc", rc, -1);
+   AssertTrue("E11 no modify", g_grind_order_test_modify_calls == 0);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E12_NotAtCap()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 3, true, false,
+                                         times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E12 rc", rc, -1);
+   AssertTrue("E12 no modify", g_grind_order_test_modify_calls == 0);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E13_BlockedOrDisabled()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, true,
+                                   times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E13 blocked", rc, -1);
+   rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, false, false,
+                               times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E13 disabled", rc, -1);
+   AssertTrue("E13 no modify", g_grind_order_test_modify_calls == 0);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E14_NoRefireSameMarket()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   AssertEqInt("E14 first", Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                                   times, vals, 10, spreads, 4, 10.0, now, 5, 1.5),
+               GRIND_EJECT_OK);
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                         times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E14 second", rc, -1);
+   AssertTrue("E14 still one modify", g_grind_order_test_modify_calls == 1);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E15_TrailsOrphan()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   AssertEqInt("E15 first", Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                                   times, vals, 10, spreads, 4, 10.0, now, 5, 1.5),
+               GRIND_EJECT_OK);
+   Grind_MarketTestSeed(1.24700, 1.24710, 0, 0);
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                         times, vals, 10, spreads, 4, 10.0, now, 5, 1.5);
+   AssertEqInt("E15 trail", rc, GRIND_EJECT_OK);
+   AssertTrue("E15 two modifies", g_grind_order_test_modify_calls == 2);
+   AssertNear("E15 order price", Grind_OrderGetPriceOpen(2001UL), 1.24711, 1e-9);
+   AssertNear("E15 offset", Grind_EjectOffsetGet(1001UL), -0.00319, 1e-9);
+   Grind_TestEjectHarnessReset();
+}
+
+void Test_E16_OrphanTrailBlockedBySpread()
+{
+   Grind_TestEjectHarnessReset();
+   Grind_TestEjectFixtureDepth2();
+   g_grind_order_test_modify_calls = 0;
+   const datetime now = D'2026.09.23 10:00';
+   datetime times[];
+   double vals[];
+   Grind_TestAutoEjectSeriesA(times, vals, now);
+   vals[2] = 1.2400;
+   double spreads[4] = {10, 10, 10, 10};
+   AssertEqInt("E16 first", Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                                   times, vals, 10, spreads, 4, 10.0, now, 5, 1.5),
+               GRIND_EJECT_OK);
+   Grind_MarketTestSeed(1.24700, 1.24710, 0, 0);
+   const int rc = Grind_AutoEjectTrySide(true, 22260101UL, 3.0, 2, true, false,
+                                         times, vals, 10, spreads, 4, 16.0, now, 5, 1.5);
+   AssertEqInt("E16 spread block", rc, -1);
+   AssertTrue("E16 one modify", g_grind_order_test_modify_calls == 1);
+   AssertNear("E16 offset unchanged", Grind_EjectOffsetGet(1001UL), -0.00219, 1e-9);
+   Grind_TestEjectHarnessReset();
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -7798,6 +8054,22 @@ void OnStart()
    Test_V1_FlushClearsDirty();
    Test_V2_WritersMarkDirty();
    Test_V3_PruneMarksDirty();
+   Test_E1_ExtremeMostRecent();
+   Test_E2_StableOldLow();
+   Test_E3_UnstableRecentLow();
+   Test_E4_RetestIsNewLow();
+   Test_E5_ShortSide();
+   Test_E6_NoBars();
+   Test_E7_SpreadGate();
+   Test_E8_TargetWorse();
+   Test_E9_FiresWhenCappedStable();
+   Test_E10_NotStable();
+   Test_E11_SpreadWide();
+   Test_E12_NotAtCap();
+   Test_E13_BlockedOrDisabled();
+   Test_E14_NoRefireSameMarket();
+   Test_E15_TrailsOrphan();
+   Test_E16_OrphanTrailBlockedBySpread();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();

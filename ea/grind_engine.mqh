@@ -500,6 +500,29 @@ int Grind_EjectPollCommand(const ulong magic,
 }
 
 //+------------------------------------------------------------------+
+int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
+                           const double exit_pips, const int max_layers,
+                           const bool enabled, const bool blocked,
+                           const datetime &times[], const double &vals[], const int n,
+                           const double &spreads[], const int ns,
+                           const double current_spread_points,
+                           const datetime now, const int stable_minutes,
+                           const double k)
+{
+   // stub
+   return -1;
+}
+
+//+------------------------------------------------------------------+
+void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
+                           const double exit_pips, const int max_layers,
+                           const bool blocked, const int stable_minutes,
+                           const double k)
+{
+   // stub
+}
+
+//+------------------------------------------------------------------+
 bool Grind_ModifyPendingPrice(const ulong ticket,
                               const double new_price,
                               const ulong magic)
