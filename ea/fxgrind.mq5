@@ -269,6 +269,7 @@ void OnDeinit(const int reason)
 void OnTimer()
 {
    Grind_GvFlushIfDirty();
+   Grind_SnapshotOnTimer();
    Grind_ArchiveFlush(false);
 
    const ulong now_tick = GetTickCount64();

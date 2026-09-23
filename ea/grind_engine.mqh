@@ -399,7 +399,7 @@ int Grind_EjectAcceptLayer(const bool is_long, const int idx, const ulong magic,
          "{\"ticket\":" + IntegerToString((long)position_ticket) +
          ",\"reason\":\"MODIFY_FAILED\"" +
          ",\"source\":\"" + source + "\"}";
-      Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_REFUSED", detail);
+      Grind_EjectReport("EJECT_REFUSED", position_ticket, detail);
       Print("INFO: eject refused ticket=", position_ticket, " reason=MODIFY_FAILED");
       return GRIND_EJECT_MODIFY_FAILED;
    }
@@ -423,7 +423,7 @@ int Grind_EjectAcceptLayer(const bool is_long, const int idx, const ulong magic,
       ",\"target\":" + Grind_ArchiveJsonDouble(target, 5) +
       ",\"offset\":" + Grind_ArchiveJsonDouble(offset, 5) +
       ",\"source\":\"" + source + "\"}";
-   Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_ACCEPTED", accepted);
+   Grind_EjectReport("EJECT_ACCEPTED", position_ticket, accepted);
    Print("INFO: eject accepted ticket=", position_ticket,
          " target=", DoubleToString(target, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)));
    return GRIND_EJECT_OK;
@@ -502,7 +502,7 @@ int Grind_EjectPollCommand(const ulong magic,
       const string detail =
          "{\"ticket\":" + IntegerToString((long)position_ticket) +
          ",\"reason\":\"" + Grind_EjectReasonName(code) + "\"}";
-      Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_REFUSED", detail);
+      Grind_EjectReport("EJECT_REFUSED", position_ticket, detail);
       Print("INFO: eject refused ticket=", position_ticket,
             " reason=", Grind_EjectReasonName(code));
       return code;
@@ -877,17 +877,29 @@ void Grind_BreakerLoadInitialDeposit()
 
 void Grind_EjectReport(const string code, const ulong ticket, const string detail)
 {
+   Grind_TelemetryEmit(g_grind_telemetry_instance, code, detail);
+   Grind_ArchiveMarker("INFO", code, "", ticket, detail);
 }
 
 //+------------------------------------------------------------------+
 bool Grind_BreakerMarkPremidnight(const string key)
 {
-   return false;
+   const string gv = "GRIND_BREAKER_PREMID_" + key;
+   if(GlobalVariableCheck(gv))
+      return false;
+   GlobalVariableSet(gv, 1.0);
+   Grind_GvMarkDirty();
+   Grind_ArchiveMarker("INFO", "BREAKER_PREMIDNIGHT", key, 0,
+                       "{\"day\":\"" + key + "\"}");
+   return true;
 }
 
 //+------------------------------------------------------------------+
 void Grind_BreakerAdoptPeerTrip(const string key)
 {
+   if(!g_grind_breaker_tripped
+      && GlobalVariableCheck("GRIND_BREAKER_TRIPPED_" + key))
+      g_grind_breaker_tripped = true;
 }
 
 //+------------------------------------------------------------------+
@@ -953,6 +965,8 @@ void Grind_BreakerOnTick(const ulong magic, const string slot, const bool enable
    const double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    const double balance = AccountInfoDouble(ACCOUNT_BALANCE);
 
+   Grind_BreakerAdoptPeerTrip(key);
+
    if(!g_grind_breaker_tripped
       && Grind_BreakerShouldTrip(equity, g_grind_breaker_anchor_value,
                                  g_grind_breaker_allowance, 0.8)) {
@@ -975,6 +989,8 @@ void Grind_BreakerOnTick(const ulong magic, const string slot, const bool enable
    g_grind_breaker_premidnight = Grind_BreakerPreMidnightHalt(Grind_FtmoSecondsIntoDay(gmt),
                                                              equity, balance,
                                                              g_grind_breaker_allowance);
+   if(g_grind_breaker_premidnight)
+      Grind_BreakerMarkPremidnight(key);
 }
 
 //+------------------------------------------------------------------+
@@ -1232,6 +1248,7 @@ bool Grind_TryPlaceL0(GrindSideState &side,
    const int used = Grind_SlotUsed();
    const int resting_ent = Grind_SlotRestingEnt();
    g_grind_last_guard_total = used + resting_ent;
+   g_grind_last_guard_time = TimeGMT();
    if(!Grind_SlotEntryAllowed(limit, used, resting_ent, true)) {
       Grind_SlotLockRelease(slot_token);
       return false;
@@ -1490,6 +1507,7 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
    const int used = Grind_SlotUsed();
    const int resting_ent = Grind_SlotRestingEnt();
    g_grind_last_guard_total = used + resting_ent;
+   g_grind_last_guard_time = TimeGMT();
    if(!Grind_SlotEntryAllowed(limit, used, resting_ent, near_market)) {
       if(!near_market)
          g_grind_near_reserve_blocks++;
@@ -1853,6 +1871,8 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          const int layer_depth = side.layers[i].layer_index;
          const double entry_price = side.layers[i].entry_price;
          const datetime close_time = (datetime)Grind_DealGetInteger(deal_ticket, DEAL_TIME);
+         const ulong closed_position = side.layers[i].position_ticket;
+         const bool was_ejected = Grind_EjectIsEjected(closed_position);
          Grind_QueueScalpClosedEvent(g_grind_telemetry_instance,
                                      _Symbol,
                                      is_long ? "LONG" : "SHORT",
@@ -1862,16 +1882,15 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                                      stack_depth,
                                      net_pnl,
                                      close_time,
-                                     false,
-                                     0,
-                                     0);
-         const ulong closed_position = side.layers[i].position_ticket;
-         if(Grind_EjectIsEjected(closed_position)) {
+                                     was_ejected,
+                                     (long)(TimeTradeServer() - TimeGMT()),
+                                     AccountInfoInteger(ACCOUNT_LOGIN));
+         if(was_ejected) {
             const double eject_off = Grind_EjectOffsetGet(closed_position);
             const string filled_detail =
                "{\"ticket\":" + IntegerToString((long)closed_position) +
                ",\"offset\":" + Grind_ArchiveJsonDouble(eject_off, 5) + "}";
-            Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_FILLED", filled_detail);
+            Grind_EjectReport("EJECT_FILLED", closed_position, filled_detail);
          }
          Grind_CarryShiftDelete(closed_position);
          Grind_CarryAccruedDelete(closed_position);

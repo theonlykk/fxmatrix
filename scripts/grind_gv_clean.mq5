@@ -35,6 +35,7 @@ void OnStart()
       "GRIND_CARRY_RELEASE_",
       "GRIND_EJECT_",
       "GRIND_BREAKER_",
+      "GRIND_SNAPSHOT_",
       "GRIND2226_",
       "GRIND_DEINIT_"
    };

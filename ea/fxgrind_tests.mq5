@@ -720,7 +720,7 @@ void Test_T30_CapDoesNotBlockNonEntry()
 
 void Test_CM1_CapMagicsCoverFleet()
 {
-   const ulong expected[16] =
+   const ulong expected[18] =
    {
       22260101UL, 22260102UL,
       22260201UL, 22260202UL,
@@ -729,11 +729,12 @@ void Test_CM1_CapMagicsCoverFleet()
       22260501UL, 22260502UL,
       22260601UL, 22260602UL,
       22260801UL, 22260802UL,
-      22260901UL, 22260902UL
+      22260901UL, 22260902UL,
+      22260701UL, 22260702UL
    };
 
-   AssertTrue("CM1 array size 16", ArraySize(GRIND_CAP_ALL_MAGICS) == 16);
-   for(int i = 0; i < 16; i++) {
+   AssertTrue("CM1 array size 18", ArraySize(GRIND_CAP_ALL_MAGICS) == 18);
+   for(int i = 0; i < 18; i++) {
       bool found = false;
       for(int j = 0; j < ArraySize(GRIND_CAP_ALL_MAGICS); j++) {
          if(GRIND_CAP_ALL_MAGICS[j] == expected[i]) {
