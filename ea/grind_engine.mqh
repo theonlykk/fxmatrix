@@ -533,6 +533,8 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
 {
    if(!enabled || blocked)
       return -1;
+   if(now < (is_long ? g_grind_auto_eject_backoff_long : g_grind_auto_eject_backoff_short))
+      return -1;
 
    const int depth = is_long ? Grind_SideDepth(g_grind_long) : Grind_SideDepth(g_grind_short);
    if(depth < max_layers)
@@ -591,9 +593,9 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
                                  ? g_grind_long.layers[idx].position_ticket
                                  : g_grind_short.layers[idx].position_ticket;
    if(Grind_EjectIsEjected(position_ticket)) {
-      const double resting = is_long
-                             ? g_grind_long.layers[idx].exit_target
-                             : g_grind_short.layers[idx].exit_target;
+      const double resting = Grind_OrderGetPriceOpen(exit_order_ticket);
+      if(resting <= 0.0)
+         return -1;
       const double min_dist = Grind_CarryMinPassiveDistance(_Point,
                                                             Grind_MarketStopsLevel(),
                                                             Grind_MarketFreezeLevel());
@@ -602,7 +604,14 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
          return -1;
    }
 
-   return Grind_EjectAcceptLayer(is_long, idx, magic, exit_pips, "auto");
+   const int rc = Grind_EjectAcceptLayer(is_long, idx, magic, exit_pips, "auto");
+   if(rc == GRIND_EJECT_MODIFY_FAILED) {
+      if(is_long)
+         g_grind_auto_eject_backoff_long = now + stable_minutes * 60;
+      else
+         g_grind_auto_eject_backoff_short = now + stable_minutes * 60;
+   }
+   return rc;
 }
 
 //+------------------------------------------------------------------+
@@ -615,6 +624,11 @@ void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
       return;
    if(max_layers < 1 || stable_minutes < 1)
       return;
+   if(Grind_SideDepth(g_grind_long) < max_layers
+      && Grind_SideDepth(g_grind_short) < max_layers)
+      return;
+
+   const datetime now = TimeCurrent();
 
    MqlRates spread_rates[];
    const int ns = CopyRates(_Symbol, PERIOD_M1, 0, 60, spread_rates);
@@ -630,6 +644,8 @@ void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
    const int copied = CopyRates(_Symbol, PERIOD_M1, 0, bar_count, rates);
    if(copied < bar_count)
       return;
+   if(!Grind_AutoEjectWindowIntact(rates[0].time + 60, now, 2 * stable_minutes * 60))
+      return;
 
    datetime times[];
    double vals_long[];
@@ -643,7 +659,6 @@ void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
       vals_short[i] = rates[i].high + rates[i].spread * _Point;
    }
 
-   const datetime now = TimeCurrent();
    const double current = (Grind_MarketAsk() - Grind_MarketBid()) / _Point;
 
    if(Grind_SideDepth(g_grind_long) >= max_layers) {
