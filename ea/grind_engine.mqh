@@ -818,6 +818,22 @@ void Grind_EntryHorizonCheckGap(GrindSideState &side,
 }
 
 //+------------------------------------------------------------------+
+bool g_grind_breaker_enabled     = false;
+bool g_grind_breaker_tripped     = false;
+bool g_grind_breaker_premidnight = false;
+
+bool Grind_BreakerBlocksEntries()
+{
+   // stub: today's behaviour -- never blocks
+   return false;
+}
+
+bool Grind_EntriesBlocked()
+{
+   return Grind_ApiCounterEntryStopped() || Grind_BreakerBlocksEntries();
+}
+
+//+------------------------------------------------------------------+
 int Grind_ApplyEntryHorizon(GrindSideState &side,
                              const bool is_long,
                              const ulong magic,

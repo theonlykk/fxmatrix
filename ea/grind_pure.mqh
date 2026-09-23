@@ -387,4 +387,76 @@ bool Grind_AutoEjectWindowIntact(const datetime oldest_close,
    return ((int)(now - oldest_close) <= window_sec);
 }
 
+//+------------------------------------------------------------------+
+int Grind_PragueUtcOffset(const datetime gmt)
+{
+   // stub
+   return 1;
+}
+
+//+------------------------------------------------------------------+
+datetime Grind_FtmoDayStartGmt(const datetime gmt)
+{
+   // stub
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+string Grind_FtmoDayKey(const datetime gmt)
+{
+   // stub
+   return "";
+}
+
+//+------------------------------------------------------------------+
+int Grind_FtmoSecondsIntoDay(const datetime gmt)
+{
+   // stub
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+double Grind_BreakerAnchor(const double balance_now,
+                           const double &amounts[], const datetime &times[],
+                           const int n, const datetime boundary)
+{
+   // stub
+   return balance_now;
+}
+
+//+------------------------------------------------------------------+
+double Grind_BreakerInitialDeposit(const double &amounts[],
+                                   const datetime &times[], const int n)
+{
+   // stub
+   return 0.0;
+}
+
+//+------------------------------------------------------------------+
+double Grind_BreakerDayAnchor(const double balance_now,
+                              const double &amounts[], const datetime &times[],
+                              const int n, const datetime boundary,
+                              const double initial_deposit,
+                              const datetime initial_time)
+{
+   // stub
+   return balance_now;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_BreakerShouldTrip(const double equity, const double anchor,
+                             const double allowance, const double frac)
+{
+   // stub
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_BreakerPreMidnightHalt(const int sec_into_day, const double equity,
+                                  const double balance, const double allowance)
+{
+   // stub
+   return false;
+}
+
 #endif // GRIND_PURE_MQH
