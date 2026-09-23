@@ -818,6 +818,150 @@ void Grind_EntryHorizonCheckGap(GrindSideState &side,
 }
 
 //+------------------------------------------------------------------+
+bool g_grind_breaker_enabled     = false;
+bool g_grind_breaker_tripped     = false;
+bool g_grind_breaker_premidnight = false;
+
+bool Grind_BreakerBlocksEntries()
+{
+   return g_grind_breaker_enabled
+          && (g_grind_breaker_tripped || g_grind_breaker_premidnight);
+}
+
+bool Grind_EntriesBlocked()
+{
+   return Grind_ApiCounterEntryStopped() || Grind_BreakerBlocksEntries();
+}
+
+//+------------------------------------------------------------------+
+string   g_grind_breaker_day_key           = "";
+double   g_grind_breaker_anchor_value      = 0.0;
+double   g_grind_breaker_allowance         = 0.0;
+bool     g_grind_breaker_cancel_done       = false;
+bool     g_grind_breaker_initial_known     = false;
+double   g_grind_breaker_initial_deposit   = 0.0;
+datetime g_grind_breaker_initial_time      = 0;
+bool     g_grind_breaker_no_basis_emitted  = false;
+
+void Grind_BreakerLoadInitialDeposit()
+{
+   if(g_grind_breaker_initial_known)
+      return;
+   const datetime to = TimeTradeServer() + 60;
+   if(!HistorySelect(0, to))
+      return;
+   const int total = HistoryDealsTotal();
+   datetime best_time = 0;
+   double best_amount = 0.0;
+   bool found = false;
+   for(int i = 0; i < total; i++) {
+      const ulong ticket = HistoryDealGetTicket(i);
+      if(ticket == 0)
+         continue;
+      if((ENUM_DEAL_TYPE)HistoryDealGetInteger(ticket, DEAL_TYPE) != DEAL_TYPE_BALANCE)
+         continue;
+      const datetime t = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+      const double amt = HistoryDealGetDouble(ticket, DEAL_PROFIT);
+      if(!found || t < best_time) {
+         best_time = t;
+         best_amount = amt;
+         found = true;
+      }
+   }
+   if(found) {
+      g_grind_breaker_initial_known = true;
+      g_grind_breaker_initial_deposit = best_amount;
+      g_grind_breaker_initial_time = best_time;
+   }
+}
+
+void Grind_BreakerCollectDealHistory(const datetime from, const datetime to,
+                                     double &amounts[], datetime &times[], int &n)
+{
+   n = 0;
+   if(!HistorySelect(from, to))
+      return;
+   const int total = HistoryDealsTotal();
+   ArrayResize(amounts, total);
+   ArrayResize(times, total);
+   for(int i = 0; i < total; i++) {
+      const ulong ticket = HistoryDealGetTicket(i);
+      if(ticket == 0)
+         continue;
+      amounts[n] = HistoryDealGetDouble(ticket, DEAL_PROFIT)
+                   + HistoryDealGetDouble(ticket, DEAL_SWAP)
+                   + HistoryDealGetDouble(ticket, DEAL_COMMISSION)
+                   + HistoryDealGetDouble(ticket, DEAL_FEE);
+      times[n] = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+      n++;
+   }
+}
+
+void Grind_BreakerOnTick(const ulong magic, const string slot, const bool enabled)
+{
+   g_grind_breaker_enabled = enabled;
+   if(!enabled)
+      return;
+
+   const datetime gmt = TimeGMT();
+   const string key = Grind_FtmoDayKey(gmt);
+   if(key != g_grind_breaker_day_key) {
+      g_grind_breaker_day_key = key;
+      g_grind_breaker_tripped = false;
+      g_grind_breaker_premidnight = false;
+      g_grind_breaker_cancel_done = false;
+
+      Grind_BreakerLoadInitialDeposit();
+      g_grind_breaker_allowance = 0.05 * g_grind_breaker_initial_deposit;
+      if(g_grind_breaker_allowance <= 0.0) {
+         if(!g_grind_breaker_no_basis_emitted) {
+            Grind_TelemetryCritical(g_grind_telemetry_instance, "BREAKER_NO_BASIS", "{}");
+            g_grind_breaker_no_basis_emitted = true;
+         }
+         return;
+      }
+
+      const datetime boundary = Grind_FtmoDayStartGmt(gmt)
+                                + (TimeTradeServer() - TimeGMT());
+      double amounts[];
+      datetime times[];
+      int n = 0;
+      Grind_BreakerCollectDealHistory(boundary, TimeTradeServer() + 60, amounts, times, n);
+      const double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+      g_grind_breaker_anchor_value = Grind_BreakerDayAnchor(balance, amounts, times, n, boundary,
+                                                            g_grind_breaker_initial_deposit,
+                                                            g_grind_breaker_initial_time);
+      g_grind_breaker_tripped = GlobalVariableCheck("GRIND_BREAKER_TRIPPED_" + key);
+   }
+
+   const double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   const double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+
+   if(!g_grind_breaker_tripped
+      && Grind_BreakerShouldTrip(equity, g_grind_breaker_anchor_value,
+                                 g_grind_breaker_allowance, 0.8)) {
+      g_grind_breaker_tripped = true;
+      GlobalVariableSet("GRIND_BREAKER_TRIPPED_" + key, 1.0);
+      Grind_GvMarkDirty();
+      const string detail =
+         "{\"anchor\":" + Grind_ArchiveJsonDouble(g_grind_breaker_anchor_value, 2) +
+         ",\"equity\":" + Grind_ArchiveJsonDouble(equity, 2) +
+         ",\"allowance\":" + Grind_ArchiveJsonDouble(g_grind_breaker_allowance, 2) +
+         ",\"day\":\"" + key + "\"}";
+      Grind_TelemetryCritical(g_grind_telemetry_instance, "BREAKER_TRIPPED", detail);
+   }
+
+   if(g_grind_breaker_tripped && !g_grind_breaker_cancel_done) {
+      Grind_CancelOwnEntryOrders(magic, slot);
+      g_grind_breaker_cancel_done = true;
+   }
+
+   g_grind_breaker_premidnight = Grind_BreakerPreMidnightHalt(Grind_FtmoSecondsIntoDay(gmt),
+                                                             equity, balance,
+                                                             g_grind_breaker_allowance);
+}
+
+//+------------------------------------------------------------------+
 int Grind_ApplyEntryHorizon(GrindSideState &side,
                              const bool is_long,
                              const ulong magic,
@@ -835,7 +979,7 @@ int Grind_ApplyEntryHorizon(GrindSideState &side,
       return 0;
    if(!Grind_CapAllowsEntry(is_long, lots))
       return 0;
-   if(Grind_ApiCounterEntryStopped())
+   if(Grind_EntriesBlocked())
       return 0;
 
    Grind_Adr152AssertHeldPendingExclusive(side);
@@ -1061,7 +1205,7 @@ bool Grind_TryPlaceL0(GrindSideState &side,
 
    if(g_grind_ent_sent_this_tick)
       return false;
-   if(Grind_ApiCounterEntryStopped())
+   if(Grind_EntriesBlocked())
       return false;
 
    double slot_token = 0.0;
@@ -1269,7 +1413,7 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
       return false;
    if(!Grind_CapAllowsEntry(is_long, lots))
       return false;
-   if(Grind_ApiCounterEntryStopped())
+   if(Grind_EntriesBlocked())
       return false;
 
    if(side.add_pending_ticket != 0) {
@@ -1372,7 +1516,7 @@ void Grind_TryPlaceAddAtFill(GrindSideState &side,
 {
    if(!g_grind_fill_time_place)
       return;
-   if(Grind_ApiCounterEntryStopped())
+   if(Grind_EntriesBlocked())
       return;
 
    g_grind_entry_place_latency_ms = 0;
@@ -1483,7 +1627,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
    }
    if(!Grind_CapAllowsEntry(is_long, lots))
       return;
-   if(Grind_ApiCounterEntryStopped())
+   if(Grind_EntriesBlocked())
       return;
 
    if(Grind_EntryHorizonActive()) {

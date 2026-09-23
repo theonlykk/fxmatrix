@@ -6941,6 +6941,116 @@ void Test_F5_CarryWorkBaseFresh()
    Grind_TestResetSideState();
 }
 
+void Test_B1_PragueOffset()
+{
+   // B1: CEST Mar 29 01:00 UTC through Oct 25 01:00 UTC exclusive
+   AssertEqInt("B1 Sep CEST", Grind_PragueUtcOffset(D'2026.09.23 10:00'), 2);
+   AssertEqInt("B1 Dec CET", Grind_PragueUtcOffset(D'2026.12.01 10:00'), 1);
+   AssertEqInt("B1 Mar pre", Grind_PragueUtcOffset(D'2026.03.29 00:59'), 1);
+   AssertEqInt("B1 Mar CEST", Grind_PragueUtcOffset(D'2026.03.29 01:00'), 2);
+   AssertEqInt("B1 Oct CEST", Grind_PragueUtcOffset(D'2026.10.25 00:59'), 2);
+   AssertEqInt("B1 Oct CET", Grind_PragueUtcOffset(D'2026.10.25 01:00'), 1);
+}
+
+void Test_B2_FtmoDayStart()
+{
+   AssertTrue("B2 mid-day", Grind_FtmoDayStartGmt(D'2026.09.23 10:00') == D'2026.09.22 22:00');
+   AssertTrue("B2 before roll", Grind_FtmoDayStartGmt(D'2026.09.22 21:59') == D'2026.09.21 22:00');
+   AssertTrue("B2 Dec CET", Grind_FtmoDayStartGmt(D'2026.12.01 10:00') == D'2026.11.30 23:00');
+}
+
+void Test_B3_FtmoDayKey()
+{
+   AssertEqStr("B3 new day", Grind_FtmoDayKey(D'2026.09.22 22:00'), "2026.09.23");
+   AssertEqStr("B3 prev day", Grind_FtmoDayKey(D'2026.09.22 21:59'), "2026.09.22");
+}
+
+void Test_B4_SecondsIntoDay()
+{
+   // B4: 21:00 UTC + 2h = 23:00 Prague -> 82800 s
+   AssertEqInt("B4 23h Prague", Grind_FtmoSecondsIntoDay(D'2026.09.22 21:00'), 82800);
+}
+
+void Test_B5_AnchorFromDeals()
+{
+   const datetime b = D'2026.09.22 22:00';
+   double amounts[3] = {20, -30, 5};
+   datetime times[3];
+   times[0] = b - 60;
+   times[1] = b + 10;
+   times[2] = b + 100;
+   // B5: sum since b = -25 -> anchor 10000 - (-25) = 10025
+   AssertNear("B5 anchor", Grind_BreakerAnchor(10000.0, amounts, times, 3, b), 10025.0, 1e-9);
+}
+
+void Test_B6_InitialDeposit()
+{
+   const datetime t = D'2026.01.01 00:00';
+   double amounts[3] = {50, 10000, 7};
+   datetime times[3];
+   times[0] = t + 100;
+   times[1] = t;
+   times[2] = t + 200;
+   AssertNear("B6 earliest", Grind_BreakerInitialDeposit(amounts, times, 3), 10000.0, 1e-9);
+   AssertNear("B6 empty", Grind_BreakerInitialDeposit(amounts, times, 0), 0.0, 1e-9);
+}
+
+void Test_B7_ShouldTrip()
+{
+   AssertTrue("B7 at limit", Grind_BreakerShouldTrip(9600.0, 10000.0, 500.0, 0.8));
+   AssertFalse("B7 above", Grind_BreakerShouldTrip(9601.0, 10000.0, 500.0, 0.8));
+   AssertFalse("B7 no anchor", Grind_BreakerShouldTrip(9600.0, 0.0, 500.0, 0.8));
+}
+
+void Test_B8_PreMidnightHalt()
+{
+   const double allowance = 500.0;
+   const double balance = 10000.0;
+   // B8: 23:00 Prague and float loss 250 = 50% allowance
+   AssertTrue("B8 halt", Grind_BreakerPreMidnightHalt(82800, 9750.0, balance, allowance));
+   AssertFalse("B8 before 23", Grind_BreakerPreMidnightHalt(82799, 9750.0, balance, allowance));
+   AssertFalse("B8 float small", Grind_BreakerPreMidnightHalt(82800, 9751.0, balance, allowance));
+}
+
+void Test_B10_DayOneAnchor()
+{
+   const datetime b = D'2026.09.22 22:00';
+   double amounts[2] = {10000, 20};
+   datetime times[2];
+   times[0] = b + 60;
+   times[1] = b + 120;
+   // B10: deposit after boundary -> anchor = deposit
+   AssertNear("B10 day1", Grind_BreakerDayAnchor(10020.0, amounts, times, 2, b, 10000.0, b + 60), 10000.0, 1e-9);
+   double amounts2[1] = {20};
+   datetime times2[1];
+   times2[0] = b + 120;
+   AssertNear("B10 ordinary", Grind_BreakerDayAnchor(10020.0, amounts2, times2, 1, b, 10000.0, b - 3600), 10000.0, 1e-9);
+}
+
+void Test_B9_EntriesBlocked()
+{
+   const bool save_en = g_grind_breaker_enabled;
+   const bool save_trip = g_grind_breaker_tripped;
+   const bool save_pre = g_grind_breaker_premidnight;
+   g_grind_breaker_enabled = true;
+   g_grind_breaker_tripped = true;
+   g_grind_breaker_premidnight = false;
+   AssertTrue("B9 enabled tripped", Grind_BreakerBlocksEntries());
+   g_grind_breaker_enabled = false;
+   AssertFalse("B9 tripped off switch", Grind_BreakerBlocksEntries());
+   g_grind_breaker_enabled = true;
+   g_grind_breaker_tripped = false;
+   g_grind_breaker_premidnight = true;
+   AssertTrue("B9 premidnight", Grind_BreakerBlocksEntries());
+   g_grind_breaker_enabled = false;
+   g_grind_breaker_tripped = false;
+   g_grind_breaker_premidnight = false;
+   AssertFalse("B9 clear", Grind_BreakerBlocksEntries());
+   g_grind_breaker_enabled = save_en;
+   g_grind_breaker_tripped = save_trip;
+   g_grind_breaker_premidnight = save_pre;
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -8170,6 +8280,16 @@ void OnStart()
    Test_F3_OrphanHoldsVsOrderPrice();
    Test_F4_WindowIntact();
    Test_F5_CarryWorkBaseFresh();
+   Test_B1_PragueOffset();
+   Test_B2_FtmoDayStart();
+   Test_B3_FtmoDayKey();
+   Test_B4_SecondsIntoDay();
+   Test_B5_AnchorFromDeals();
+   Test_B6_InitialDeposit();
+   Test_B7_ShouldTrip();
+   Test_B8_PreMidnightHalt();
+   Test_B10_DayOneAnchor();
+   Test_B9_EntriesBlocked();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();
