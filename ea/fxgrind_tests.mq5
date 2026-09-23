@@ -5232,6 +5232,17 @@ void Test_SN14_FleetMagicNzdchf()
    Grind_SN_TestResetState();
 }
 
+void Test_SN15_SwapDayNonZero()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(true, 10000.00, 9900.00, -10.00, 0.0,
+                         10000.00, 9880.00, -25.00, -3.00, s);
+   // swap_day = -3.00 + (-25.00 - (-10.00)) = -18.00
+   AssertNear("SN15 swap_day", s.swap_day, -18.00, 1e-6);
+   Grind_SN_TestResetState();
+}
+
 void Grind_ArchiveTestConfigureCommon()
 {
    Grind_ArchiveConfigureAt(true,
