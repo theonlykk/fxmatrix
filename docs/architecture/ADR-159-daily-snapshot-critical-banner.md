@@ -2,8 +2,10 @@ This message has a line count at the bottom
 
 # ADR-159 -- DAILY SNAPSHOT, CRITICAL BANNER, ACCOUNT IDENTITY, EJECTED-FILL EXCLUSION (C24 + C19 + A5 + A2 point 4)
 
-**Status:** DRAFT rev 1, 2026-09-23, for Gemini. rev 1 folds in the
-previous chat's review of rev 0 (`930cd27`): F5 fixed here as D9 and
+**Status:** ACCEPTED rev 2, 2026-09-23, pending the operator's
+confirmation. Gemini ruled on G1-G8; his rulings and our verification of
+each are in section 10. History: rev 0 `930cd27`; rev 1 `8703226`
+folded in the previous chat's review of rev 0: F5 fixed here as D9 and
 recorded as an ADR-158 rev 2 note; F6 corrected; event days from the EA's
 UTC clock, not ingest time; broker offset reported, never assumed. Spans two repos (fxmatrix
 EA, pipshed). Gates cycle 3 (pre-registration A2 point 8). Operator stance:
@@ -186,12 +188,15 @@ fix, and a correction to section 1: "01:00 broker" holds in summer only
 - Publish `fxmatrix:daily:table` (JSON, newest first) to Redis for the
   dashboard, as `fxmatrix:carry:table` is published.
 
-**P3. CRITICAL banner (C19).** Every 60 s the worker publishes
-`fxmatrix:critical:last24h`: `ea_events` with `level='CRITICAL'` and
-`received_at > now() - 24h`, grouped by (`instance_id`, `code`) with a
-count and first/last times. Duplicates are expected (each instance trips
-the breaker itself), so the grouping matters. The dashboard shows a red
-banner while the list is non-empty. It ages out after 24 h with no
+**P3. CRITICAL banner (C19), with an amber tier (G4 ruling).** Every
+60 s the worker publishes `fxmatrix:critical:last24h`: `ea_events` with
+`level='CRITICAL'` (red), or `level='WARN'` AND `code IN
+('STARTUP_EXIT_SHORTFALL', 'QUARANTINE_ENTER', 'WARN_API_ENTRY_STOP')`
+(amber), and `received_at > now() - 24h`, grouped by (`instance_id`, `code`) with a
+count, first/last times and level. Duplicates are expected (several
+instances can emit the same code), so the grouping matters. The dashboard
+shows a red banner while any CRITICAL row exists, otherwise an amber one
+while any WARN row exists. `STRAY_L0_*` is never shown. It ages out after 24 h with no
 acknowledge action (previous chat and operator stance). (G4)
 
 **P4. Dashboard.** Add a "Daily (FTMO day)" card beside the carry table,
@@ -202,9 +207,10 @@ guard, breaker/pre-midnight flags, and the ejection columns. A row with
 **P5. s4 counter (A2 point 4, F8).** New read-only
 `scripts/s4_scalps.py` (same connection pattern as `archive_counts.py`).
 Per instance per FTMO day (day from `fill_logs.ea_time_ms`, F10), it
-counts CloseBy pairs from `fill_logs` (`entry_type='OUT_BY'`, one per
-pair), EXCLUDING any `position_id` that
-matches an `EJECT_FILLED.ticket`, and prints each pair's ratio to the
+counts CloseBy pairs from `fill_logs` as DISTINCT `order_ticket` over
+`entry_type='OUT_BY'` rows (both deals of one close-by share its order;
+see section 10, G6), EXCLUDING any pair in which either row's
+`position_id` matches an `EJECT_FILLED.ticket`, and prints each pair's ratio to the
 fleet median (s4). It also prints the `scalp_history` count with
 `ejected IS NOT TRUE`, and flags any day where the two disagree.
 **Proposed as canonical; operator to confirm.** It replaces the
@@ -309,4 +315,53 @@ fixture rows, including one ejected pair.
   Please confirm from the reconstruction code rather than from this
   statement.
 
-Line count: 312
+---
+
+## 10. RULINGS (Gemini, 2026-09-23) AND OUR VERIFICATION
+
+Gemini's reply carried no line-count footer. His verdicts are adopted.
+Where his stated REASON does not match this codebase, that is recorded
+here, so the ruling is not later defended on the wrong grounds.
+
+- **G1 swap: ACCEPTED as designed.** Closed-deal swap plus the change in
+  open `POSITION_SWAP`. Reason sound.
+- **G2 claim: ACCEPTED.** Single CAS variable; the first-creation race is
+  absorbed by the DB unique key. Reason sound.
+- **G3 / D9 latch: ACCEPTED, per tick, not throttled.** Verified: in
+  `OnTick`, `Grind_BreakerOnTick` runs before `Grind_OnTickEngine` and
+  before the halted return (`fxgrind.mq5` ~307-333). So a latch adopted
+  on a tick blocks that same tick's entries.
+- **G4 banner: ACCEPTED, amber tier added (P3).** His reason is wrong in
+  its detail: neither code means "halted". `QUARANTINE_ENTER` precedes a
+  possible halt, and `STARTUP_EXIT_SHORTFALL` means the EA placed the
+  missing exits and carried on (ADR-156). The verdict stands on a
+  different ground: both are states the operator should know about
+  within 24 h. He named two codes; `WARN_API_ENTRY_STOP` stays on the
+  list as proposed (it stops entries account-wide) unless he objects.
+- **G5 7-day window: ACCEPTED.**
+- **G6 s4 dedupe: verdict ACCEPTED, mechanism specified here.** He said
+  to group "by the CloseBy match" without saying how. `fill_logs` has no
+  comment column, and its `role` is parsed from `DEAL_COMMENT`
+  (`grind_archive.mqh` ~415-422). The research script identifies CloseBy
+  deals by a `#` comment, which `GrindCommentParse` very likely rejects,
+  leaving `role` null on both OUT_BY rows (INFERRED). So P5 dedupes by
+  DISTINCT `order_ticket`, because both deals of one close-by share its
+  order (MT5 semantics, INFERRED). **Cursor verifies both on real
+  archive rows before building:** OUT_BY rows exist in `fill_logs` (they
+  pass the magic filter in `Grind_ArchiveRecordFill`), they come in
+  pairs per `order_ticket`, and their `role` values.
+- **G7 outage: ACCEPTED -- the day just ended only, no back-fill.** Note:
+  his reasoning ("rows with null primary metrics break aggregations")
+  would, if applied, also drop D3's missed-START rows (e.g. a restart
+  across FTMO midnight). Those rows STAY, as agreed with the previous
+  chat: a row with honest unknowns beats a silent gap. The dashboard
+  shows a dash, and any aggregation skips `start_known=false`.
+- **G8 invariants: verdict CONFIRMED by us, not by his reasoning.** He
+  cites `Grind_GridReconstruct`, which does not exist in the repo. Our
+  check: the only EA code that enumerates GVs by prefix is the carry
+  prune (`grind_carry.mqh` ~936-941: `GRIND_CARRY_SHIFT_`,
+  `GRIND_CARRY_RELEASE_`), and `grind_recon.mqh` reads no GV directly.
+  `GRIND_SNAPSHOT_*` and `GRIND_BREAKER_PREMID_*` match neither prefix,
+  and no invariant reads them.
+
+Line count: 367
