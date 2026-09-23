@@ -19,6 +19,7 @@ int  g_grind_api_counter_test_count = 0;
 bool g_grind_api_entry_stop_warn_emitted = false;
 int  g_grind_near_reserve_blocks = 0;
 int  g_grind_last_guard_total = 0;
+datetime g_grind_last_guard_time = 0;
 long g_grind_entry_place_latency_ms = 0;
 
 //+------------------------------------------------------------------+

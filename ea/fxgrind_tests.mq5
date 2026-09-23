@@ -12,6 +12,7 @@
 #include "grind_archive.mqh"
 #include "grind_archive_flush.mqh"
 #include "grind_engine.mqh"
+#include "grind_snapshot.mqh"
 #include "grind_pnl.mqh"
 #include "grind_magic_lock.mqh"
 #include "grind_config.mqh"
@@ -4233,7 +4234,10 @@ void Test_S2_ScalpPayloadNineFields()
       2,
       3,
       2.00,
-      close_time
+      close_time,
+      false,
+      10800,
+      1514582088
    );
 
    AssertContains("S2 close_time", payload, "\"close_time\":\"2026-09-06T14:30:00Z\"");
@@ -4941,6 +4945,290 @@ void Test_SB8_ReconcileLeavesEmptySideL0()
    Grind_MarketTestReset();
    Grind_OrderTestReset();
    Grind_TestResetSideState();
+}
+
+void Grind_SN_TestCleanupGvs()
+{
+   if(GlobalVariableCheck("GRIND_TEST_SNAPSHOT_CLAIM"))
+      GlobalVariableDel("GRIND_TEST_SNAPSHOT_CLAIM");
+   GlobalVariablesDeleteAll("GRIND_BREAKER_PREMID_2099.");
+   GlobalVariablesDeleteAll("GRIND_BREAKER_TRIPPED_2099.");
+}
+
+void Grind_SN_TestResetState()
+{
+   Grind_ArchiveTestReset();
+   Grind_TestResetSideState();
+   g_grind_snapshot_day_key = "";
+   g_grind_breaker_tripped = false;
+   g_grind_breaker_cancel_done = false;
+   Grind_SN_TestCleanupGvs();
+}
+
+int Grind_SN_CapMagicIndex(const ulong magic)
+{
+   for(int i = 0; i < GRIND_CAP_MAGIC_COUNT; i++) {
+      if(GRIND_CAP_ALL_MAGICS[i] == magic)
+         return i;
+   }
+   return -1;
+}
+
+void Test_SN1_ComputeKnownStart()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   // stored bal 10190.96, eq 9860.50, pswap -15.67; end bal 9685.62, eq 9685.62
+   Grind_SnapshotCompute(true,
+                         10190.96, 9860.50, -15.67,
+                         0.0,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   // realised = 9685.62 - 10190.96 = -505.34
+   AssertNear("SN1 realised", s.realised, -505.34, 1e-6);
+   // inventory = (0) - (9860.50 - 10190.96) = 330.46
+   AssertNear("SN1 inventory_pnl", s.inventory_pnl, 330.46, 1e-6);
+   // total = 9685.62 - 9860.50 = -174.88
+   AssertNear("SN1 total", s.total, -174.88, 1e-6);
+   // swap_day = -15.67 + (0 - (-15.67)) = 0
+   AssertNear("SN1 swap_day", s.swap_day, 0.0, 1e-6);
+   AssertEqStr("SN1 balance_start_source", s.balance_start_source, "stored");
+   AssertNear("SN1 balance_start", s.balance_start, 10190.96, 1e-6);
+   Grind_SN_TestResetState();
+}
+
+void Test_SN2_ComputeUnknownStart()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(false,
+                         0.0, 0.0, 0.0,
+                         10190.96,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   AssertNear("SN2 balance_start", s.balance_start, 10190.96, 1e-6);
+   AssertNear("SN2 realised", s.realised, -505.34, 1e-6);
+   AssertEqStr("SN2 balance_start_source", s.balance_start_source, "history");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN3_JsonContract()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(true,
+                         10190.96, 9860.50, -15.67,
+                         0.0,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   s.account_login = 1514582088;
+   s.ftmo_day = "2026.09.23";
+   s.start_known = true;
+   s.guard_known = true;
+   s.guard_total = 5;
+   s.guard_age_s = 60;
+   s.breaker_tripped = false;
+   s.premidnight_seen = false;
+   s.broker_utc_offset_s = 10800;
+   const string json = Grind_SnapshotJson(s);
+   AssertContains("SN3 ftmo_day", json, "\"ftmo_day\":\"2026.09.23\"");
+   AssertContains("SN3 account_login", json, "\"account_login\":1514582088");
+   AssertContains("SN3 start_known", json, "\"start_known\":true");
+   AssertContains("SN3 balance_start", json, "\"balance_start\":");
+   AssertContains("SN3 equity_start", json, "\"equity_start\":");
+   AssertContains("SN3 balance_end", json, "\"balance_end\":");
+   AssertContains("SN3 equity_end", json, "\"equity_end\":");
+   AssertContains("SN3 realised", json, "\"realised\":");
+   AssertContains("SN3 nontrade", json, "\"nontrade\":");
+   AssertContains("SN3 inventory_pnl", json, "\"inventory_pnl\":");
+   AssertContains("SN3 total", json, "\"total\":");
+   AssertContains("SN3 swap_day", json, "\"swap_day\":");
+   AssertContains("SN3 positions_long", json, "\"positions_long\":");
+   AssertContains("SN3 positions_short", json, "\"positions_short\":");
+   AssertContains("SN3 orders", json, "\"orders\":");
+   AssertContains("SN3 guard_total", json, "\"guard_total\":");
+   AssertContains("SN3 guard_age_s", json, "\"guard_age_s\":");
+   AssertContains("SN3 breaker_tripped", json, "\"breaker_tripped\":");
+   AssertContains("SN3 premidnight_seen", json, "\"premidnight_seen\":");
+   AssertContains("SN3 broker_utc_offset_s", json, "\"broker_utc_offset_s\":");
+   AssertContains("SN3 balance_start_source", json, "\"balance_start_source\":");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN4_JsonNulls()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(false,
+                         0.0, 0.0, 0.0,
+                         10190.96,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   s.start_known = false;
+   s.guard_known = false;
+   s.balance_start_source = "history";
+   const string json = Grind_SnapshotJson(s);
+   AssertContains("SN4 equity_start null", json, "\"equity_start\":null");
+   AssertContains("SN4 inventory_pnl null", json, "\"inventory_pnl\":null");
+   AssertContains("SN4 total null", json, "\"total\":null");
+   AssertContains("SN4 swap_day null", json, "\"swap_day\":null");
+   AssertContains("SN4 guard_age_s null", json, "\"guard_age_s\":null");
+   AssertContains("SN4 start_known false", json, "\"start_known\":false");
+   AssertContains("SN4 balance_start_source history", json, "\"balance_start_source\":\"history\"");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN5_DayNum()
+{
+   Grind_SN_TestResetState();
+   AssertTrue("SN5 valid key", Grind_FtmoDayNum("2026.09.23") == 20260923);
+   AssertTrue("SN5 empty", Grind_FtmoDayNum("") == 0);
+   AssertTrue("SN5 wrong shape", Grind_FtmoDayNum("2026-09-23") == 0);
+   Grind_SN_TestResetState();
+}
+
+void Test_SN6_Claim()
+{
+   Grind_SN_TestResetState();
+   const string gv = "GRIND_TEST_SNAPSHOT_CLAIM";
+   AssertTrue("SN6 first claim", Grind_SnapshotClaim(gv, 20990102));
+   AssertFalse("SN6 duplicate", Grind_SnapshotClaim(gv, 20990102));
+   AssertFalse("SN6 older day", Grind_SnapshotClaim(gv, 20990101));
+   AssertTrue("SN6 newer day", Grind_SnapshotClaim(gv, 20990103));
+   if(GlobalVariableCheck(gv))
+      GlobalVariableDel(gv);
+   Grind_SN_TestResetState();
+}
+
+void Test_SN7_RollDue()
+{
+   Grind_SN_TestResetState();
+   const string k = "2099.01.02";
+   AssertFalse("SN7 empty last", Grind_SnapshotRollDue("", k));
+   AssertFalse("SN7 same day", Grind_SnapshotRollDue(k, k));
+   AssertTrue("SN7 roll", Grind_SnapshotRollDue("2099.01.01", "2099.01.02"));
+   Grind_SN_TestResetState();
+}
+
+void Test_SN8_PremidnightOnce()
+{
+   Grind_SN_TestResetState();
+   Grind_ArchiveTestConfigureCommon();
+   const string key = "2099.01.04";
+   const int before = Grind_ArchiveQueueCount();
+   AssertTrue("SN8 first mark", Grind_BreakerMarkPremidnight(key));
+   AssertTrue("SN8 gv exists", GlobalVariableCheck("GRIND_BREAKER_PREMID_" + key));
+   AssertTrue("SN8 queue grew", Grind_ArchiveQueueCount() == before + 1);
+   AssertContains("SN8 peek code", Grind_ArchiveQueuePeek(before), "BREAKER_PREMIDNIGHT");
+   const int after_first = Grind_ArchiveQueueCount();
+   AssertFalse("SN8 second mark", Grind_BreakerMarkPremidnight(key));
+   AssertTrue("SN8 count unchanged", Grind_ArchiveQueueCount() == after_first);
+   GlobalVariableDel("GRIND_BREAKER_PREMID_" + key);
+   Grind_SN_TestResetState();
+}
+
+void Test_SN9_AdoptPeerTrip()
+{
+   Grind_SN_TestResetState();
+   const string key = "2099.01.05";
+   g_grind_breaker_tripped = false;
+   g_grind_breaker_cancel_done = false;
+   GlobalVariableSet("GRIND_BREAKER_TRIPPED_" + key, 1.0);
+   Grind_BreakerAdoptPeerTrip(key);
+   AssertTrue("SN9 tripped adopted", g_grind_breaker_tripped);
+   AssertFalse("SN9 cancel not done", g_grind_breaker_cancel_done);
+   AssertTrue("SN9 queue empty", Grind_ArchiveQueueCount() == 0);
+   GlobalVariableDel("GRIND_BREAKER_TRIPPED_" + key);
+   g_grind_breaker_tripped = false;
+   Grind_BreakerAdoptPeerTrip(key);
+   AssertFalse("SN9 no gv stays false", g_grind_breaker_tripped);
+   Grind_SN_TestResetState();
+}
+
+void Test_SN10_EjectReport()
+{
+   Grind_SN_TestResetState();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_EjectReport("EJECT_FILLED", 5001, "{\"ticket\":5001}");
+   AssertTrue("SN10 count", Grind_ArchiveQueueCount() == 1);
+   AssertContains("SN10 code", Grind_ArchiveQueuePeek(0), "EJECT_FILLED");
+   AssertContains("SN10 ticket", Grind_ArchiveQueuePeek(0), "5001");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN11_ScalpPayloadNewFields()
+{
+   Grind_SN_TestResetState();
+   const string on = Grind_BuildScalpClosedPayload(
+      "GRIND_GBPUSD_OPT", "GBPUSD", "LONG", 1.25, 1.26, 1, 1, 1.0,
+      D'2026.09.06 14:30:00', true, 10800, 1514582088);
+   AssertContains("SN11 ejected true", on, "\"ejected\":true");
+   AssertContains("SN11 offset", on, "\"broker_utc_offset_s\":10800");
+   AssertContains("SN11 account_login", on, "\"account_login\":1514582088");
+   const string off = Grind_BuildScalpClosedPayload(
+      "GRIND_GBPUSD_OPT", "GBPUSD", "LONG", 1.25, 1.26, 1, 1, 1.0,
+      D'2026.09.06 14:30:00', false, 0, 0);
+   AssertContains("SN11 ejected false", off, "\"ejected\":false");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN12_OutByCarriesEjectedFlag()
+{
+   Grind_SN_TestResetState();
+   Grind_DealTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpTelemetryConfigure(true,
+                                 "https://pipshed.com/api/telemetry/push",
+                                 "test-key",
+                                 false);
+   const ulong ent_pos = 1001;
+   Grind_TestSetupScalpCloseLongLayer(ent_pos, 3002, 0, 1.25000, 1.25030);
+   Grind_EjectOffsetSet(ent_pos, 0.00010);
+   g_grind_deal_test_active = true;
+   Grind_TestAppendDeal(9101, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, ent_pos,
+                        2.50, -0.30, -0.20, 1.25030);
+   Grind_TestAppendDeal(9102, "#1001 by #3002", DEAL_ENTRY_OUT_BY, 0, 3002,
+                        0.00, 0.00, 0.00, 1.25030);
+   Grind_HandleSideDealFill(g_grind_long, true, 9101, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   Grind_HandleSideDealFill(g_grind_long, true, 9102, 22260101UL, "OPT",
+                            3.0, 4.0, 12, 0.01);
+   AssertContains("SN12 ejected true", Grind_ScalpEventQueuePeek(), "\"ejected\":true");
+   AssertFalse("SN12 offset deleted", Grind_EjectIsEjected(ent_pos));
+   Grind_EjectOffsetDelete(ent_pos);
+   Grind_DealTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ScalpEventReset();
+   Grind_TestResetSideState();
+   Grind_SN_TestResetState();
+}
+
+void Test_SN13_HeartbeatLogin()
+{
+   Grind_SN_TestResetState();
+   const string hb = Grind_TelemetryHeartbeatJson(
+      "GRIND_GBPUSD_OPT", 0, 0, 0, 0,
+      false, false, "", true, true,
+      0.0, 0.0, 0.0, 0.0, false,
+      22260101UL, "OPT", 5.0, 10.0, 5.0, 12, "GBP", "USD");
+   AssertContains("SN13 account_login", hb, "\"account_login\":");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN14_FleetMagicNzdchf()
+{
+   Grind_SN_TestResetState();
+   AssertTrue("SN14 magic 22260701 fleet", Grind_IsFleetMagic(22260701));
+   AssertTrue("SN14 magic 22260702 fleet", Grind_IsFleetMagic(22260702));
+   const int idx_opt = Grind_SN_CapMagicIndex(22260701UL);
+   const int idx_alt = Grind_SN_CapMagicIndex(22260702UL);
+   AssertTrue("SN14 60701 NZD", Grind_CapMagicCarriesLeg(idx_opt, "NZD"));
+   AssertTrue("SN14 60701 CHF", Grind_CapMagicCarriesLeg(idx_opt, "CHF"));
+   AssertFalse("SN14 60701 USD", Grind_CapMagicCarriesLeg(idx_opt, "USD"));
+   AssertTrue("SN14 60702 NZD", Grind_CapMagicCarriesLeg(idx_alt, "NZD"));
+   AssertTrue("SN14 60702 CHF", Grind_CapMagicCarriesLeg(idx_alt, "CHF"));
+   AssertFalse("SN14 60702 USD", Grind_CapMagicCarriesLeg(idx_alt, "USD"));
+   Grind_SN_TestResetState();
 }
 
 void Grind_ArchiveTestConfigureCommon()
@@ -8116,6 +8404,20 @@ void OnStart()
    Test_S4_LayerDepthUsesIntrinsicIndex();
    Test_S5_FailedPostDoesNotBlockScalpAccounting();
    Test_S6_GrossPnlMatchesRealisedPnlToday();
+   Test_SN1_ComputeKnownStart();
+   Test_SN2_ComputeUnknownStart();
+   Test_SN3_JsonContract();
+   Test_SN4_JsonNulls();
+   Test_SN5_DayNum();
+   Test_SN6_Claim();
+   Test_SN7_RollDue();
+   Test_SN8_PremidnightOnce();
+   Test_SN9_AdoptPeerTrip();
+   Test_SN10_EjectReport();
+   Test_SN11_ScalpPayloadNewFields();
+   Test_SN12_OutByCarriesEjectedFlag();
+   Test_SN13_HeartbeatLogin();
+   Test_SN14_FleetMagicNzdchf();
    Test_CB1_DispatcherShortCloseByEmitsAndRemoves();
    Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
    Test_CB3_DispatcherShortCloseLeavesLongLayer();

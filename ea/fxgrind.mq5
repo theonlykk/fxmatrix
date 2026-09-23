@@ -7,6 +7,7 @@
 #property strict
 
 #include "grind_engine.mqh"
+#include "grind_snapshot.mqh"
 #include "grind_magic_lock.mqh"
 #include "grind_config.mqh"
 

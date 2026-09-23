@@ -875,6 +875,22 @@ void Grind_BreakerLoadInitialDeposit()
    }
 }
 
+void Grind_EjectReport(const string code, const ulong ticket, const string detail)
+{
+}
+
+//+------------------------------------------------------------------+
+bool Grind_BreakerMarkPremidnight(const string key)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_BreakerAdoptPeerTrip(const string key)
+{
+}
+
+//+------------------------------------------------------------------+
 void Grind_BreakerCollectDealHistory(const datetime from, const datetime to,
                                      double &amounts[], datetime &times[], int &n)
 {
@@ -1845,7 +1861,10 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                                      layer_depth,
                                      stack_depth,
                                      net_pnl,
-                                     close_time);
+                                     close_time,
+                                     false,
+                                     0,
+                                     0);
          const ulong closed_position = side.layers[i].position_ticket;
          if(Grind_EjectIsEjected(closed_position)) {
             const double eject_off = Grind_EjectOffsetGet(closed_position);
