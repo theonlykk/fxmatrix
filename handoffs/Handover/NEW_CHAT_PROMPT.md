@@ -63,7 +63,8 @@ only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 2. **C17 account daily-loss circuit breaker.** First pin how FTMO
    computes today's permitted loss and when the day resets.
 3. **C24 daily snapshot and C19 CRITICAL events** in pipshed.
-4. **A5 account identity; carry ON in the nine presets; the
+4. **C25 (ADR-151 Phase B closure -- `OnInit` refuses carry today), then
+   A5 account identity; carry ON in the nine presets; the
    pre-registration amendment** (carry ON, ejection switchable, USD
    reported with no target) -- all before the first fill.
 
@@ -100,4 +101,4 @@ only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 - Tests first; a new test must FAIL before the change. Write the negative
   twin of any test that asserts something happens.
 
-Line count: 103
+Line count: 104

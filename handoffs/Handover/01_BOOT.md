@@ -190,7 +190,7 @@ whenever you judge one is warranted. You do not need to ask first.
 | Fleet | 16 attached (cycle 2), 0 halted. AUDCAD rolled four times by hand -- see `docs/runbooks/roll-log.md` |
 | Account | demo 1514582088, $10k, FTMO daily limit $500 -- **worst day -$420**. Nothing in the EA enforces it (backlog C17) |
 | **Next** | **Close out cycle 2** (`docs/runbooks/account-close-out.md`), then start cycle 3 when its readiness gate is met (`docs/runbooks/cycle3-start.md`). **No deadline between them** |
-| After that | Cycle-3 readiness gate: C17 breaker, C24/C19 pipshed, A5, carry ON in presets, pre-registration amendment. C15 ejection DONE (dormant) |
+| After that | Cycle-3 readiness gate: C17 breaker, C24/C19 pipshed, A5, **C25 unblock carry (OnInit refuses it today)** then carry ON in presets, pre-registration amendment. C15 ejection DONE (dormant) |
 | Carry | OFF in all presets |
 | Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 
@@ -231,4 +231,5 @@ off).
 **Standing facts.** The binding constraint is the commitment guard
 (entries need `positions + orders + resting_entries <= 194`; exits need 1
 free slot). A compile or reattach clears a halt and re-runs `OnInit`.
-Carry is OFF in every preset -- decided after the C10 measurement.
+Carry is OFF in every preset today, and `OnInit` refuses it (ADR-151
+phase A guard). Cycle 3 turns it ON only after C25 removes the guard.
