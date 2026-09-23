@@ -253,6 +253,7 @@ void OnDeinit(const int reason)
 {
    Grind_ArchiveRecordDeinit(InpMagic, reason, TimeCurrent(), g_grind_archive_anchor_ms);
 
+   GlobalVariablesFlush();
    EventKillTimer();
    Grind_MagicLockRelease(InpMagic);
    if(InpVerboseLog)
@@ -262,6 +263,7 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   Grind_GvFlushIfDirty();
    Grind_ArchiveFlush(false);
 
    const ulong now_tick = GetTickCount64();
