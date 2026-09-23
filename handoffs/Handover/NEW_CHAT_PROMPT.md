@@ -1,9 +1,9 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-22 04:00Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-23 00:45Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
-then `handoffs/HANDOFF_2026-09-22.md`, then `02_TRAPS.md`**, then this
+then `handoffs/HANDOFF_2026-09-23.md`, then `02_TRAPS.md`**, then this
 document. Verify `main`'s HEAD SHA against BOOT before anything else.
 
 ---
@@ -29,10 +29,10 @@ migrate. **It must still never go onto an EXISTING book** (backlog C2).
 
 | | |
 |---|---|
-| fxmatrix `main` | `3f72b9f` |
+| fxmatrix `main` | `95c89c6` |
 | pipshed `main` | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, 16 instances, cycle-2 presets |
-| Suite | `main` **1432/1432**, AUDCAD + GBPUSD |
+| Suite | `main` **1538/1538**, GBPUSD |
 | Account | demo 1514582088, $10k, FTMO daily limit $500. **Worst day -$420** |
 | Next | Wednesday: new account, 9 instances, one arm each |
 
@@ -52,19 +52,20 @@ stranded and deadband may.
 
 ---
 
-## 3. AFTER WEDNESDAY, IN ORDER
+## 3. NEXT, IN ORDER
 
-**C2 / ADR-156 is DONE** (merged `3f72b9f`): manual rolls and restarts
-are safe under F1 again. Its follow-ups are backlog C18-C20.
+**Done:** C2 / ADR-156 (`3f72b9f`) and C15 / ADR-155 commanded passive
+ejection (`95c89c6`, switch default off). Close-out and the cycle-3
+start are SEPARATE: close out before the demo expires; start cycle 3
+only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 
-1. **C17 account daily-loss circuit breaker.** Portfolio-level only. At
-   ~80% of the FTMO daily limit, every instance stops NEW entries; exits
-   keep working. The EA today only REPORTS the loss floor. First confirm
-   how FTMO computes "today's permitted loss".
-2. **C15 commanded ejection** -- ADR-155 rev 3 (Proposed, Gemini and
-   DeepSeek reviewed) to a Cursor spec. Moves the deepest layer's exit to
-   a passive market price on an operator command. Replaces manual rolls.
-3. **C16 retrace study**, then week-one measurements (C3 exit, C10 carry).
+1. **Close-out** (`docs/runbooks/account-close-out.md`) -- today.
+2. **C17 account daily-loss circuit breaker.** First pin how FTMO
+   computes today's permitted loss and when the day resets.
+3. **C24 daily snapshot and C19 CRITICAL events** in pipshed.
+4. **A5 account identity; carry ON in the nine presets; the
+   pre-registration amendment** (carry ON, ejection switchable, USD
+   reported with no target) -- all before the first fill.
 
 ---
 
@@ -99,4 +100,4 @@ are safe under F1 again. Its follow-ups are backlog C18-C20.
 - Tests first; a new test must FAIL before the change. Write the negative
   twin of any test that asserts something happens.
 
-Line count: 102
+Line count: 103
