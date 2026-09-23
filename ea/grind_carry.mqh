@@ -543,6 +543,29 @@ bool Grind_EjectIsEjected(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+string Grind_EjectCommandName(const ulong magic)
+{
+   return "GRIND_EJECT_" + IntegerToString((long)magic);
+}
+
+//+------------------------------------------------------------------+
+double Grind_EjectTargetPrice(const bool is_long)
+{
+   const double bid = Grind_MarketBid();
+   const double ask = Grind_MarketAsk();
+   const double point = _Point;
+   const long stops = Grind_MarketStopsLevel();
+   const long freeze = Grind_MarketFreezeLevel();
+   double out = 0.0;
+   if(is_long) {
+      Grind_CarryClampLongExit(bid, bid, ask, point, stops, freeze, out);
+      return out;
+   }
+   Grind_CarryClampShortExit(ask, bid, ask, point, stops, freeze, out);
+   return out;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_CarrySignGuardAppliesAtShift(const ulong position_ticket,
                                         const double entry,
                                         const double new_exit,
@@ -607,6 +630,11 @@ double Grind_CarryShiftGetValidated(const ulong position_ticket,
 {
    const string release_gv = Grind_CarryReleaseGvNameLocal(position_ticket);
    if(GlobalVariableCheck(release_gv))
+      return Grind_CarryShiftGet(position_ticket);
+
+   // ADR-155: an ejected exit sits at the market; a clamp residual on it
+   // (e.g. rollover spread) is legitimate and must not be bound-deleted.
+   if(Grind_EjectIsEjected(position_ticket))
       return Grind_CarryShiftGet(position_ticket);
 
    const double shift = Grind_CarryShiftGet(position_ticket);

@@ -376,6 +376,130 @@ bool Grind_SelectOurPosition(const ulong ticket, const ulong magic)
 }
 
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+int Grind_EjectPollCommand(const ulong magic,
+                           const bool enabled,
+                           const double exit_pips,
+                           const bool engine_blocked)
+{
+   const string cmd_name = Grind_EjectCommandName(magic);
+   if(!GlobalVariableCheck(cmd_name))
+      return -1;
+
+   const ulong position_ticket = (ulong)GlobalVariableGet(cmd_name);
+   GlobalVariableDel(cmd_name);
+
+   bool found = false;
+   bool is_long = true;
+   int idx = -1;
+   for(int i = 0; i < Grind_SideDepth(g_grind_long); i++) {
+      if(g_grind_long.layers[i].position_ticket != 0
+         && g_grind_long.layers[i].position_ticket == position_ticket) {
+         found = true;
+         is_long = true;
+         idx = i;
+         break;
+      }
+   }
+   if(!found) {
+      for(int i = 0; i < Grind_SideDepth(g_grind_short); i++) {
+         if(g_grind_short.layers[i].position_ticket != 0
+            && g_grind_short.layers[i].position_ticket == position_ticket) {
+            found = true;
+            is_long = false;
+            idx = i;
+            break;
+         }
+      }
+   }
+
+   const int depth = found
+                       ? (is_long ? Grind_SideDepth(g_grind_long) : Grind_SideDepth(g_grind_short))
+                       : 0;
+   int rank = 0;
+   bool has_exit_order = false;
+   if(found && idx >= 0) {
+      const int n = depth;
+      double entries[];
+      int layer_indices[];
+      int ranks[];
+      ArrayResize(entries, n);
+      ArrayResize(layer_indices, n);
+      if(is_long) {
+         for(int i = 0; i < n; i++) {
+            entries[i] = g_grind_long.layers[i].entry_price;
+            layer_indices[i] = g_grind_long.layers[i].layer_index;
+         }
+         Grind_ExitQRanks(entries, layer_indices, n, true, ranks);
+         rank = ranks[idx];
+         has_exit_order = (g_grind_long.layers[idx].exit_order_ticket != 0);
+      } else {
+         for(int i = 0; i < n; i++) {
+            entries[i] = g_grind_short.layers[i].entry_price;
+            layer_indices[i] = g_grind_short.layers[i].layer_index;
+         }
+         Grind_ExitQRanks(entries, layer_indices, n, false, ranks);
+         rank = ranks[idx];
+         has_exit_order = (g_grind_short.layers[idx].exit_order_ticket != 0);
+      }
+   }
+
+   const int code = Grind_EjectValidate(engine_blocked, enabled, found, depth, rank, has_exit_order);
+   if(code != GRIND_EJECT_OK) {
+      const string detail =
+         "{\"ticket\":" + IntegerToString((long)position_ticket) +
+         ",\"reason\":\"" + Grind_EjectReasonName(code) + "\"}";
+      Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_REFUSED", detail);
+      Print("INFO: eject refused ticket=", position_ticket,
+            " reason=", Grind_EjectReasonName(code));
+      return code;
+   }
+
+   const double target = Grind_EjectTargetPrice(is_long);
+   ulong exit_order_ticket = 0;
+   double entry_price = 0.0;
+   if(is_long) {
+      exit_order_ticket = g_grind_long.layers[idx].exit_order_ticket;
+      entry_price = g_grind_long.layers[idx].entry_price;
+   } else {
+      exit_order_ticket = g_grind_short.layers[idx].exit_order_ticket;
+      entry_price = g_grind_short.layers[idx].entry_price;
+   }
+
+   if(!Grind_ModifyPendingPrice(exit_order_ticket, target, magic)) {
+      const string detail =
+         "{\"ticket\":" + IntegerToString((long)position_ticket) +
+         ",\"reason\":\"MODIFY_FAILED\"}";
+      Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_REFUSED", detail);
+      Print("INFO: eject refused ticket=", position_ticket, " reason=MODIFY_FAILED");
+      return GRIND_EJECT_MODIFY_FAILED;
+   }
+
+   const int dir = is_long ? 1 : -1;
+   const double raw = Grind_ExitPrice(entry_price, exit_pips, _Point, dir);
+   const double accrued = Grind_CarryAccruedGet(position_ticket);
+   const double offset = Grind_EjectOffsetFor(target, raw, accrued);
+   Grind_EjectOffsetSet(position_ticket, offset);
+   Grind_CarryShiftDelete(position_ticket);
+   if(is_long)
+      g_grind_long.layers[idx].exit_target = target;
+   else
+      g_grind_short.layers[idx].exit_target = target;
+
+   const string accepted =
+      "{\"ticket\":" + IntegerToString((long)position_ticket) +
+      ",\"entry\":" + Grind_ArchiveJsonDouble(entry_price, 5) +
+      ",\"raw\":" + Grind_ArchiveJsonDouble(raw, 5) +
+      ",\"accrued\":" + Grind_ArchiveJsonDouble(accrued, 5) +
+      ",\"target\":" + Grind_ArchiveJsonDouble(target, 5) +
+      ",\"offset\":" + Grind_ArchiveJsonDouble(offset, 5) + "}";
+   Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_ACCEPTED", accepted);
+   Print("INFO: eject accepted ticket=", position_ticket,
+         " target=", DoubleToString(target, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)));
+   return GRIND_EJECT_OK;
+}
+
+//+------------------------------------------------------------------+
 bool Grind_ModifyPendingPrice(const ulong ticket,
                               const double new_price,
                               const ulong magic)
@@ -1404,9 +1528,17 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                                      stack_depth,
                                      net_pnl,
                                      close_time);
-         Grind_CarryShiftDelete(side.layers[i].position_ticket);
-         Grind_CarryAccruedDelete(side.layers[i].position_ticket);
-         Grind_EjectOffsetDelete(side.layers[i].position_ticket);
+         const ulong closed_position = side.layers[i].position_ticket;
+         if(Grind_EjectIsEjected(closed_position)) {
+            const double eject_off = Grind_EjectOffsetGet(closed_position);
+            const string filled_detail =
+               "{\"ticket\":" + IntegerToString((long)closed_position) +
+               ",\"offset\":" + Grind_ArchiveJsonDouble(eject_off, 5) + "}";
+            Grind_TelemetryEmit(g_grind_telemetry_instance, "EJECT_FILLED", filled_detail);
+         }
+         Grind_CarryShiftDelete(closed_position);
+         Grind_CarryAccruedDelete(closed_position);
+         Grind_EjectOffsetDelete(closed_position);
          Grind_RemoveLayerAt(side, i);
          Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
          return;

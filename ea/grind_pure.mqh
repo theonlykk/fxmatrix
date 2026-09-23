@@ -271,4 +271,60 @@ bool Grind_CarryShouldCommitAccrual(const bool has_exit_order,
    return (!guard_blocked && modify_ok);
 }
 
+#define GRIND_EJECT_OK             0
+#define GRIND_EJECT_SWITCH_OFF     1
+#define GRIND_EJECT_NOT_FOUND      2
+#define GRIND_EJECT_DEPTH_LT_2     3
+#define GRIND_EJECT_NOT_DEEPEST    4
+#define GRIND_EJECT_NO_EXIT_ORDER  5
+#define GRIND_EJECT_MODIFY_FAILED  6
+#define GRIND_EJECT_HALTED         7
+
+//+------------------------------------------------------------------+
+int Grind_EjectValidate(const bool engine_blocked,
+                        const bool switch_on,
+                        const bool found,
+                        const int depth,
+                        const int rank,
+                        const bool has_exit_order)
+{
+   if(engine_blocked)
+      return GRIND_EJECT_HALTED;
+   if(!switch_on)
+      return GRIND_EJECT_SWITCH_OFF;
+   if(!found)
+      return GRIND_EJECT_NOT_FOUND;
+   if(depth < 2)
+      return GRIND_EJECT_DEPTH_LT_2;
+   if(rank != depth - 1)
+      return GRIND_EJECT_NOT_DEEPEST;
+   if(!has_exit_order)
+      return GRIND_EJECT_NO_EXIT_ORDER;
+   return GRIND_EJECT_OK;
+}
+
+//+------------------------------------------------------------------+
+string Grind_EjectReasonName(const int code)
+{
+   switch(code) {
+      case GRIND_EJECT_OK:             return "OK";
+      case GRIND_EJECT_SWITCH_OFF:     return "SWITCH_OFF";
+      case GRIND_EJECT_NOT_FOUND:      return "NOT_FOUND";
+      case GRIND_EJECT_DEPTH_LT_2:     return "DEPTH_LT_2";
+      case GRIND_EJECT_NOT_DEEPEST:    return "NOT_DEEPEST";
+      case GRIND_EJECT_NO_EXIT_ORDER:  return "NO_EXIT_ORDER";
+      case GRIND_EJECT_MODIFY_FAILED:  return "MODIFY_FAILED";
+      case GRIND_EJECT_HALTED:         return "HALTED";
+   }
+   return "UNKNOWN";
+}
+
+//+------------------------------------------------------------------+
+double Grind_EjectOffsetFor(const double target,
+                            const double raw,
+                            const double accrued)
+{
+   return target - raw - accrued;
+}
+
 #endif // GRIND_PURE_MQH
