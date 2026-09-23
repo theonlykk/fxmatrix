@@ -305,9 +305,6 @@ void OnTick()
 
    Grind_EjectPollCommand(InpMagic, InpEnableCommandedEject, InpExitPips,
                           g_grind_halted || g_grind_quarantined);
-   Grind_AutoEjectOnTick(InpMagic, InpAutoEject, InpExitPips, InpMaxLayers,
-                         g_grind_halted || g_grind_quarantined,
-                         InpAutoEjectStableMinutes, InpAutoEjectSpreadMult);
 
    if(g_grind_halted)
       return;
