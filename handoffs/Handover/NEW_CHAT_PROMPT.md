@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-23 02:35Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-23 03:05Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
 then `handoffs/HANDOFF_2026-09-23.md`, then `02_TRAPS.md`**, then this
@@ -29,10 +29,10 @@ migrate. **It must still never go onto an EXISTING book** (backlog C2).
 
 | | |
 |---|---|
-| fxmatrix `main` | `ce6e985` |
+| fxmatrix `main` | `8df6ffa` |
 | pipshed `main` | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, 16 instances, cycle-2 presets |
-| Suite | `main` **1619/1619**, GBPUSD |
+| Suite | `main` **1646/1646**, GBPUSD |
 | Account | demo 1514582088, $10k, FTMO daily limit $500. **Worst day -$420** |
 | Next | Wednesday: new account, 9 instances, one arm each |
 
@@ -56,16 +56,16 @@ stranded and deadband may.
 
 **Done:** C2 / ADR-156 (`3f72b9f`), C15 / ADR-155 commanded passive
 ejection (`95c89c6`), C25 / carry unblocked plus GlobalVariable flushing
-(`f870598`), and C27 / ADR-157 automatic passive ejection trigger
-(`ce6e985`); both ejection switches default off. Close-out and the cycle-3
+(`f870598`), C27 / ADR-157 automatic passive ejection trigger
+(`ce6e985`; both ejection switches default off), and C17 / ADR-158
+account daily-loss breaker (`8df6ffa`, on by default). Close-out and the cycle-3
 start are SEPARATE: close out before the demo expires; start cycle 3
 only when its readiness gate is met (`docs/runbooks/cycle3-start.md`).
 
 1. **Close-out** (`docs/runbooks/account-close-out.md`) -- today.
-2. **C17 account daily-loss circuit breaker.** First pin how FTMO
-   computes today's permitted loss and when the day resets.
-3. **C24 daily snapshot and C19 CRITICAL events** in pipshed.
-4. **A5 account identity; carry ON and auto-eject ON in the nine
+2. **C24 daily snapshot and C19 CRITICAL events** in pipshed (C17's
+   `BREAKER_TRIPPED` is invisible on the dashboard until C19).
+3. **A5 account identity; carry ON and auto-eject ON in the nine
    presets; the pre-registration amendment** (carry ON, ejection, USD
    reported with no target) -- all before the first fill.
 
