@@ -393,7 +393,8 @@ int Grind_EjectPollCommand(const ulong magic,
    bool is_long = true;
    int idx = -1;
    for(int i = 0; i < Grind_SideDepth(g_grind_long); i++) {
-      if(g_grind_long.layers[i].position_ticket == position_ticket) {
+      if(g_grind_long.layers[i].position_ticket != 0
+         && g_grind_long.layers[i].position_ticket == position_ticket) {
          found = true;
          is_long = true;
          idx = i;
@@ -402,7 +403,8 @@ int Grind_EjectPollCommand(const ulong magic,
    }
    if(!found) {
       for(int i = 0; i < Grind_SideDepth(g_grind_short); i++) {
-         if(g_grind_short.layers[i].position_ticket == position_ticket) {
+         if(g_grind_short.layers[i].position_ticket != 0
+            && g_grind_short.layers[i].position_ticket == position_ticket) {
             found = true;
             is_long = false;
             idx = i;

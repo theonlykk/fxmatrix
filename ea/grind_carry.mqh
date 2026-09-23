@@ -632,6 +632,11 @@ double Grind_CarryShiftGetValidated(const ulong position_ticket,
    if(GlobalVariableCheck(release_gv))
       return Grind_CarryShiftGet(position_ticket);
 
+   // ADR-155: an ejected exit sits at the market; a clamp residual on it
+   // (e.g. rollover spread) is legitimate and must not be bound-deleted.
+   if(Grind_EjectIsEjected(position_ticket))
+      return Grind_CarryShiftGet(position_ticket);
+
    const double shift = Grind_CarryShiftGet(position_ticket);
    if(shift == 0.0)
       return 0.0;
