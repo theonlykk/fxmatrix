@@ -8430,6 +8430,7 @@ void OnStart()
    Test_SN12_OutByCarriesEjectedFlag();
    Test_SN13_HeartbeatLogin();
    Test_SN14_FleetMagicNzdchf();
+   Test_SN15_SwapDayNonZero();
    Test_CB1_DispatcherShortCloseByEmitsAndRemoves();
    Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
    Test_CB3_DispatcherShortCloseLeavesLongLayer();
