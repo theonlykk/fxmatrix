@@ -132,11 +132,6 @@ int OnInit()
       return INIT_FAILED;
    }
 
-   if(InpEnableCarryPass) {
-      Print("FATAL: ADR-151 phase A requires InpEnableCarryPass=false");
-      return INIT_FAILED;
-   }
-
    if(!Grind_MagicLockClaim(InpMagic)) {
       Print("FATAL: duplicate magic ", InpMagic,
             " — another fxgrind instance is already running on this magic");
@@ -258,6 +253,7 @@ void OnDeinit(const int reason)
 {
    Grind_ArchiveRecordDeinit(InpMagic, reason, TimeCurrent(), g_grind_archive_anchor_ms);
 
+   GlobalVariablesFlush();
    EventKillTimer();
    Grind_MagicLockRelease(InpMagic);
    if(InpVerboseLog)
@@ -267,6 +263,7 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   Grind_GvFlushIfDirty();
    Grind_ArchiveFlush(false);
 
    const ulong now_tick = GetTickCount64();

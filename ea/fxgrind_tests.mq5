@@ -6485,6 +6485,111 @@ void Test_Z20_ReEjectOverwrites()
    Grind_TestEjectHarnessReset();
 }
 
+void Test_W1_ClampSetsReleaseMarker()
+{
+   Grind_CarryTestReset();
+   const ulong pos = 88011UL;
+   const datetime open_time = D'2026.08.01 12:00';
+   const double nightly_max = 3.0;
+   Grind_CarryShiftDelete(pos);
+   // W1: bound = (nights+7) * 3.0 pips * 2; shift 5.0 is far outside -- marker must keep it
+   Grind_CarryRecordShift(pos, 5.0, true);
+   AssertNear("W1 shift gv", Grind_CarryShiftGet(pos), 5.0, 1e-12);
+   AssertTrue("W1 release marker", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+   AssertNear("W1 validated", Grind_CarryShiftGetValidated(pos, open_time, nightly_max), 5.0, 1e-12);
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryTestReset();
+}
+
+void Test_W2_NoClampNoMarker()
+{
+   Grind_CarryTestReset();
+   const ulong pos = 88012UL;
+   const datetime open_time = D'2026.08.01 12:00';
+   const double nightly_max = 3.0;
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryRecordShift(pos, 5.0, false);
+   AssertNear("W2 shift before validate", Grind_CarryShiftGet(pos), 5.0, 1e-12);
+   AssertFalse("W2 no release", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+   // W2: corrupt shift without marker is bound-deleted (CX8 regression lock)
+   AssertNear("W2 validated zero", Grind_CarryShiftGetValidated(pos, open_time, nightly_max), 0.0, 1e-12);
+   AssertFalse("W2 shift gone", GlobalVariableCheck(Grind_CarryShiftGvName(pos)));
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryTestReset();
+}
+
+void Test_W3_UnclampClearsMarker()
+{
+   Grind_CarryTestReset();
+   const ulong pos = 88013UL;
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryRecordShift(pos, 5.0, true);
+   Grind_CarryRecordShift(pos, 0.0, false);
+   // W3: un-clamped pass clears the release marker and zeroes the shift
+   AssertFalse("W3 release gone", GlobalVariableCheck(Grind_CarryReleaseGvName(pos)));
+   AssertNear("W3 shift zero", Grind_CarryShiftGet(pos), 0.0, 1e-12);
+   Grind_CarryShiftDelete(pos);
+   Grind_CarryTestReset();
+}
+
+void Test_V1_FlushClearsDirty()
+{
+   Grind_CarryTestReset();
+   g_grind_gv_dirty = false;
+   Grind_GvMarkDirty();
+   AssertTrue("V1 dirty after mark", g_grind_gv_dirty);
+   const bool r1 = Grind_GvFlushIfDirty();
+   AssertTrue("V1 first flush true", r1);
+   AssertFalse("V1 dirty cleared", g_grind_gv_dirty);
+   const bool r2 = Grind_GvFlushIfDirty();
+   AssertFalse("V1 second flush false", r2);
+   Grind_CarryTestReset();
+}
+
+void Test_V2_WritersMarkDirty()
+{
+   Grind_CarryTestReset();
+   const ulong t = 88021UL;
+   g_grind_gv_dirty = false;
+   Grind_CarryShiftSet(t, 0.0001);
+   AssertTrue("V2 Grind_CarryShiftSet", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryShiftDelete(t);
+   AssertTrue("V2 Grind_CarryShiftDelete", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryRecordShift(t, 0.0001, true);
+   AssertTrue("V2 Grind_CarryRecordShift clamped", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryRecordShift(t, 0.0001, false);
+   AssertTrue("V2 Grind_CarryRecordShift unclamped", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryAccruedSet(t, 0.0001);
+   AssertTrue("V2 Grind_CarryAccruedSet", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_CarryAccruedDelete(t);
+   AssertTrue("V2 Grind_CarryAccruedDelete", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_EjectOffsetSet(t, 0.0001);
+   AssertTrue("V2 Grind_EjectOffsetSet", g_grind_gv_dirty);
+   g_grind_gv_dirty = false;
+   Grind_EjectOffsetDelete(t);
+   AssertTrue("V2 Grind_EjectOffsetDelete", g_grind_gv_dirty);
+   Grind_CarryShiftDelete(t);
+   Grind_CarryAccruedDelete(t);
+   Grind_CarryTestReset();
+}
+
+void Test_V3_PruneMarksDirty()
+{
+   Grind_CarryTestReset();
+   GlobalVariableSet("GRIND_CARRY_SHIFT_88022", 0.0001);
+   g_grind_gv_dirty = false;
+   Grind_CarryPruneShiftGvs(22260101UL);
+   AssertFalse("V3 orphan gone", GlobalVariableCheck("GRIND_CARRY_SHIFT_88022"));
+   AssertTrue("V3 prune marks dirty", g_grind_gv_dirty);
+   Grind_CarryTestReset();
+}
+
 void Test_CX4_SignGuard()
 {
    Grind_CarryTestReset();
@@ -7687,6 +7792,12 @@ void OnStart()
    Test_Z18_EjectedShiftSurvivesBound();
    Test_Z19_OrdinaryShiftStillBounded();
    Test_Z20_ReEjectOverwrites();
+   Test_W1_ClampSetsReleaseMarker();
+   Test_W2_NoClampNoMarker();
+   Test_W3_UnclampClearsMarker();
+   Test_V1_FlushClearsDirty();
+   Test_V2_WritersMarkDirty();
+   Test_V3_PruneMarksDirty();
    Test_CX4_SignGuard();
    Test_CX5_ClampLongExit();
    Test_CX6_I6ShiftTolerance();

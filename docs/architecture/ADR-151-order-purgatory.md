@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **ACCEPTED** (Gemini: approved with amendments, 2026-09-16). Phase A implemented under this ADR; Phase B deferred |
+| Status | **ACCEPTED** (Gemini: approved with amendments, 2026-09-16). Phase A implemented under this ADR; Phase B CLOSED 2026-09-23 (C25), carry may be enabled |
 | Date | 2026-09-16 |
 | Design record | `docs/architecture/MEMO_2026-09-16_order_purgatory.md` (rev 5, `38c358e`) |
 | Red team | DeepSeek R1: rev 1 `e83b52f`, rev 3 `9f67f0f`, rev 4 `96af7b1` (premise survives) |
@@ -133,4 +133,19 @@ them). Fixed in Phase A (decision 8).
   - Phase B carry-aware queue.
   - Heartbeat fields for slots and held exits (pipshed).
 
-Line count: 136
+## Phase B closure (2026-09-23, C25)
+
+1. Carry-aware target from the swap ledger: done -- ADR-135b
+   (`a0b4d84`), F2 held-layer accrual (`1939c8b`), accrual committed
+   only after a successful modify (ADR-155A).
+2. Reconstruction of carry-shifted held targets: done -- the release
+   path and the rebuild price through `Grind_ExitQFormulaTarget`.
+3. Target promotion with a rank deadband: moot -- under the F1
+   barbell, ranks are by entry price only; carry cannot reorder them.
+4. Gap closed: the CARRY PASS now sets the release marker on a clamp
+   (decision 3), as the release path always did. Without it a
+   rollover-spread clamp on the nearest exit could be bound-deleted
+   and halt the instance on I6.
+The OnInit guard is removed. Carry is enabled per preset.
+
+Line count: 151

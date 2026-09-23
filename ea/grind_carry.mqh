@@ -482,6 +482,25 @@ string Grind_CarryShiftGvName(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+// C25/T-3: persistent GV state must reach disk; MT5 saves GVs only on
+// a clean terminal close. Writers mark dirty; OnTimer flushes.
+bool g_grind_gv_dirty = false;
+
+void Grind_GvMarkDirty()
+{
+   g_grind_gv_dirty = true;
+}
+
+bool Grind_GvFlushIfDirty()
+{
+   if(!g_grind_gv_dirty)
+      return false;
+   GlobalVariablesFlush();
+   g_grind_gv_dirty = false;
+   return true;
+}
+
+//+------------------------------------------------------------------+
 double Grind_CarryShiftGet(const ulong position_ticket)
 {
    const string name = Grind_CarryShiftGvName(position_ticket);
@@ -494,6 +513,7 @@ double Grind_CarryShiftGet(const ulong position_ticket)
 void Grind_CarryShiftSet(const ulong position_ticket, const double shift_price)
 {
    GlobalVariableSet(Grind_CarryShiftGvName(position_ticket), shift_price);
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
@@ -507,6 +527,20 @@ void Grind_CarryShiftDelete(const ulong position_ticket)
 {
    GlobalVariableDel(Grind_CarryShiftGvName(position_ticket));
    GlobalVariableDel(Grind_CarryReleaseGvNameLocal(position_ticket));
+   Grind_GvMarkDirty();
+}
+
+//+------------------------------------------------------------------+
+void Grind_CarryRecordShift(const ulong position_ticket,
+                            const double applied_shift,
+                            const bool clamped)
+{
+   Grind_CarryShiftSet(position_ticket, applied_shift);
+   if(clamped)
+      GlobalVariableSet(Grind_CarryReleaseGvNameLocal(position_ticket), 1.0);
+   else
+      GlobalVariableDel(Grind_CarryReleaseGvNameLocal(position_ticket));
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
@@ -528,12 +562,14 @@ double Grind_EjectOffsetGet(const ulong position_ticket)
 void Grind_EjectOffsetSet(const ulong position_ticket, const double offset_price)
 {
    GlobalVariableSet(Grind_EjectOffsetName(position_ticket), offset_price);
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
 void Grind_EjectOffsetDelete(const ulong position_ticket)
 {
    GlobalVariableDel(Grind_EjectOffsetName(position_ticket));
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
@@ -595,12 +631,14 @@ double Grind_CarryAccruedGet(const ulong position_ticket)
 void Grind_CarryAccruedSet(const ulong position_ticket, const double accrued_price)
 {
    GlobalVariableSet(Grind_CarryAccruedGvName(position_ticket), accrued_price);
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
 void Grind_CarryAccruedDelete(const ulong position_ticket)
 {
    GlobalVariableDel(Grind_CarryAccruedGvName(position_ticket));
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
@@ -907,7 +945,10 @@ void Grind_CarryPruneShiftGvs(const ulong magic)
                           ? Grind_PositionTestExistsAnyMagic(ticket)
                           : PositionSelectByTicket(ticket);
       if(!exists)
+      {
          GlobalVariableDel(name);
+         Grind_GvMarkDirty();
+      }
    }
 }
 
@@ -1005,7 +1046,7 @@ bool Grind_CarryExitShiftLayer(const ulong position_ticket,
 
    const double intended = formula_exit + accrued_price;
    const double applied_shift = Grind_Normalize(new_exit) - intended;
-   Grind_CarryShiftSet(position_ticket, applied_shift);
+   Grind_CarryRecordShift(position_ticket, applied_shift, clamped_out);
    if(clamped_out)
       g_grind_carry_exit_clamped++;
    g_grind_carry_exit_shifted++;

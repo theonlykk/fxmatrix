@@ -1977,8 +1977,7 @@ void Grind_ExitQManageSide(GrindSideState &side,
       side.layers[i].exit_order_ticket = ticket;
       side.layers[i].exit_target = price;
       if(clamped || MathAbs(price - formula) > _Point * 0.5) {
-         Grind_CarryShiftSet(side.layers[i].position_ticket, price - formula);
-         GlobalVariableSet(Grind_CarryReleaseGvName(side.layers[i].position_ticket), 1.0);
+         Grind_CarryRecordShift(side.layers[i].position_ticket, price - formula, true);
       } else {
          Grind_CarryShiftDelete(side.layers[i].position_ticket);
       }
