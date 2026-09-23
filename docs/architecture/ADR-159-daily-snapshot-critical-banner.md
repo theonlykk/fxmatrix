@@ -2,7 +2,10 @@ This message has a line count at the bottom
 
 # ADR-159 -- DAILY SNAPSHOT, CRITICAL BANNER, ACCOUNT IDENTITY, EJECTED-FILL EXCLUSION (C24 + C19 + A5 + A2 point 4)
 
-**Status:** DRAFT rev 0, 2026-09-23, for Gemini. Spans two repos (fxmatrix
+**Status:** DRAFT rev 1, 2026-09-23, for Gemini. rev 1 folds in the
+previous chat's review of rev 0 (`930cd27`): F5 fixed here as D9 and
+recorded as an ADR-158 rev 2 note; F6 corrected; event days from the EA's
+UTC clock, not ingest time; broker offset reported, never assumed. Spans two repos (fxmatrix
 EA, pipshed). Gates cycle 3 (pre-registration A2 point 8). Operator stance:
 demo mode -- ship a clear rule, learn from the demo, adjust. No arbitrary
 barriers.
@@ -24,10 +27,12 @@ Verified at fxmatrix `53a38d2` (code tree == tested `646b526`) and pipshed
 | F2 | `scalp_closed` is queued BEFORE the ejected check and carries no ejected flag, so the dashboard's scalp counts and `scalp_history` include ejected fills | `grind_engine.mqh` ~1840 (queue) vs ~1850 (`Grind_EjectIsEjected`) | fix here (D7) |
 | F3 | `ea_events` are deleted after 90 days. A daily table rebuilt from events would lose history | pipshed `archive_worker.py` `run_retention_if_due` | fix here (P1) |
 | F4 | The pre-midnight entry halt sets a flag and emits NOTHING. A2 point 5 reports it | `grind_engine.mqh:959` | fix here (D4) |
-| F5 | **Breaker latch read only at a day-key change.** `GRIND_BREAKER_TRIPPED_<day>` is read at `:934` only when the key changes. An instance that did not itself see equity under the trip keeps entering after another instance tripped, if equity recovers first. ADR-158 decision 4 says "all instances agree" | `grind_engine.mqh:906-935,940-952` | G3 |
-| F6 | C19's own example (`STARTUP_EXIT_SHORTFALL`) is archived at level WARN, so a CRITICAL-only banner will not show it | `fxgrind.mq5:183` | G4 |
-| F7 | Breaker day logic runs only in `OnTick`. There are no ticks at weekends, so a roll detector there misses Saturday and Sunday | `fxgrind.mq5:312` | D1 uses `OnTimer` |
-| F8 | No canonical s4 scalp counter exists. `archive_counts.py` has no scalp mode; A2 says only "the deals, via the archive" | pipshed `scripts/archive_counts.py` | P4, operator to confirm |
+| F5 | **Breaker latch read only at a day-key change.** `GRIND_BREAKER_TRIPPED_<day>` is read at `:934` only when the key changes. An instance that did not itself see equity under the trip keeps entering after another instance tripped, if equity recovers first. ADR-158 decision 4 says "all instances agree". Previous chat: a spec bug, not a design choice | `grind_engine.mqh:906-935,940-952` | fix here (D9) |
+| F6 | ADR-156 has two events: WARN `STARTUP_EXIT_SHORTFALL` on any shortfall, and CRITICAL `STARTUP_EXIT_SHORTFALL_SIDE` (archived via `Grind_TelemetryCritical`) when a side has every required exit missing. C19's example is the CRITICAL one, so a CRITICAL-only banner shows it | `fxgrind.mq5:182-188` | G4 (WARN tier only) |
+| F7 | Breaker day logic runs only in `OnTick`. That is deliberate and harmless for the breaker (entries only happen on ticks). But a snapshot roll detector there would miss Saturday and Sunday | `fxgrind.mq5:312` | D1 uses `OnTimer` |
+| F8 | No canonical s4 scalp counter exists. `archive_counts.py` has no scalp mode. The cycle-3 figures (4.2x dispersion) came from `scripts/measure_geometry_depth_holdtime.py` on the UNMERGED branch `research/geometry-depth-holdtime`. It reads a CSV deals dump (`data/deals_dump_20260918_2354.csv`) and takes CloseBy as `entry == OUT_BY` with a `#` comment; it does not read the archive | pipshed `scripts/archive_counts.py`; branch `afcf214` | P5, operator to confirm |
+| F10 | `ea_time_ms` is UTC epoch milliseconds: the archive clock is anchored from `TimeGMT()*1000` at configure and advanced by the tick counter. It is on every archived row EXCEPT `scalp_history` (built from the `scalp_closed` POST) | `grind_archive.mqh:112,126-132,268`; `archive_worker.py` `build_row` | P2 uses it |
+| F11 | Broker time is UTC+3 in September (observed). It is NOT verified year-round; a server of this kind may run +2 in winter and may switch on US rather than EU dates (INFERRED). ADR-158 already derives the offset at runtime (`TimeTradeServer() - TimeGMT()`). ADR-158 section 1's "01:00 broker" is a summer statement | `grind_engine.mqh:924-925` | D3/D7 report it |
 | F9 | Existing and usable: `CARRY_PASS_SUMMARY` / `_INCOMPLETE` are already archived with a `clamped` count (C26 source); `BREAKER_TRIPPED` is archived CRITICAL; `config_events.account_login` is set on every ONINIT/DEINIT | `grind_carry.mqh:820-836`; `grind_telemetry.mqh:162-183`; `archive_worker.py` CONFIG_EVENT_FIELDS | reuse |
 
 ---
@@ -84,6 +89,7 @@ new day's start values (persistent, dirty-flushed):
 | `guard_total` | the emitter's `g_grind_last_guard_total`, plus `guard_age_s` (the value is tick-driven and may be stale at a weekend roll) |
 | `breaker_tripped` | `GlobalVariableCheck("GRIND_BREAKER_TRIPPED_" + D)` |
 | `premidnight_seen` | `GlobalVariableCheck("GRIND_BREAKER_PREMID_" + D)` (D4) |
+| `broker_utc_offset_s` | `TimeTradeServer() - TimeGMT()` at emission (F11) |
 | `start_known` | true if the stored start day == D |
 | `balance_start_source` | `stored` or `history` |
 
@@ -123,11 +129,28 @@ today. `EJECT_FILLED` has no `source`; pipshed joins it to the latest
 `const bool was_ejected = Grind_EjectIsEjected(position_ticket)` BEFORE
 `Grind_QueueScalpClosedEvent`, and pass it through, so the payload
 carries `"ejected":true|false`. This ordering matters: the offset is
-deleted a few lines later (`Grind_EjectOffsetDelete`).
+deleted a few lines later (`Grind_EjectOffsetDelete`). The same payload
+also gains `broker_utc_offset_s` (F11), because `close_time` is broker
+time and `scalp_history` has no `ea_time_ms` (F10).
+
+Refusals (previous chat): auto-eject refusals are silent by ADR-157
+design, so only command refusals and failed modifies reach the archive,
+and failed modifies are limited to one per side per W minutes by the
+backoff.
 
 **D8. Clean-up script:** add `GRIND_SNAPSHOT_` to
 `scripts/grind_gv_clean.mq5`'s prefix list. The script is
 documentation-adjacent but runs on the VPS: compile 0/0 is required.
+
+**D9. Breaker latch read every tick (F5; ADR-158 rev 2 note).** In
+`Grind_BreakerOnTick`, while not tripped, check
+`GlobalVariableCheck("GRIND_BREAKER_TRIPPED_" + key)` on every tick. If it
+is set, adopt the trip: set `g_grind_breaker_tripped = true`, and cancel
+resting entries once through the existing `g_grind_breaker_cancel_done`
+path. Do NOT emit a second `BREAKER_TRIPPED`; the instance that set the
+GV already did. ADR-158 gets a one-paragraph rev 2 note recording the
+fix, and a correction to section 1: "01:00 broker" holds in summer only
+(F11).
 
 ---
 
@@ -138,20 +161,24 @@ documentation-adjacent but runs on the VPS: compile 0/0 is required.
   jsonb` (raw), `received_at`, and the derived columns in P2.
   `UNIQUE (account_login, ftmo_day)`, insert `ON CONFLICT DO NOTHING`.
   **No retention.**
-- `scalp_history`: add `ejected boolean NULL` (NULL = before ADR-159).
-  Add `ejected` to `SCALP_FIELDS`.
+- `scalp_history`: add `ejected boolean NULL` (NULL = before ADR-159) and
+  `broker_utc_offset_s integer NULL`. Add both to `SCALP_FIELDS`.
 
 **P2. Worker.**
 - When an `ea_event` with `code='DAILY_SNAPSHOT'` is inserted, also
   insert its row into `daily_snapshots`, in the same transaction.
 - **Derived columns, built INTO the table** (because `ea_events` expire),
   hourly like the carry table. The build recomputes only the last 7 FTMO
-  days; older rows are frozen. (G5) The FTMO day of an event is
-  `(received_at AT TIME ZONE 'Europe/Prague')::date`. Derived:
+  days; older rows are frozen. (G5) The FTMO day of an event comes from
+  the EA's own UTC clock (F10), not from `received_at`, because ingest
+  can lag across 22:00Z:
+  `(to_timestamp(ea_time_ms / 1000.0) AT TIME ZONE 'Europe/Prague')::date`.
+  For `scalp_history`, which has no `ea_time_ms`, use `close_time_broker
+  - broker_utc_offset_s` for rows that carry the offset; skip older rows.
+  Derived:
   - `ejections_auto`, `ejections_command` (`EJECT_ACCEPTED` by `source`);
   - `ejected_fills` and `ejected_realised` (`scalp_history` rows with
-    `ejected=true`, by FTMO day of `close_time_broker`, where broker time
-    = UTC+3 -- INFERRED from ADR-158 section 1, so Cursor verifies it);
+    `ejected=true`; day as above; no hard-coded broker offset anywhere);
   - `eject_filled_events` (count of `EJECT_FILLED`) as the cross-check,
     with `eject_mismatch` = `ejected_fills - eject_filled_events`;
   - `carry_clamps` (sum of `clamped` over `CARRY_PASS_*` events);
@@ -174,12 +201,15 @@ guard, breaker/pre-midnight flags, and the ejection columns. A row with
 
 **P5. s4 counter (A2 point 4, F8).** New read-only
 `scripts/s4_scalps.py` (same connection pattern as `archive_counts.py`).
-Per instance per FTMO day, it counts CloseBy pairs from `fill_logs`
-(`entry_type='OUT_BY'`, one per pair), EXCLUDING any `position_id` that
+Per instance per FTMO day (day from `fill_logs.ea_time_ms`, F10), it
+counts CloseBy pairs from `fill_logs` (`entry_type='OUT_BY'`, one per
+pair), EXCLUDING any `position_id` that
 matches an `EJECT_FILLED.ticket`, and prints each pair's ratio to the
 fleet median (s4). It also prints the `scalp_history` count with
 `ejected IS NOT TRUE`, and flags any day where the two disagree.
-**Proposed as canonical; operator to confirm.** (G6)
+**Proposed as canonical; operator to confirm.** It replaces the
+unmerged research script (F8), which read a deals dump rather than the
+archive. (G6)
 
 ---
 
@@ -202,11 +232,13 @@ values derived by hand. Cases, at minimum:
 - unknown start -> nulls + `start_known=false` + balance from history;
 - CAS: already-claimed, won, lost;
 - day key across the CET/CEST change (last Sunday of October);
+- `broker_utc_offset_s` present in `DAILY_SNAPSHOT` and `scalp_closed`;
 - `nontrade` does not change `realised`;
 - `was_ejected` true and false in the `scalp_closed` payload;
 - `EJECT_*` markers enqueued to the archive;
 - pre-midnight GV set once, and marker emitted once;
-- (if G3 is accepted) the latch is read mid-day.
+- D9: an instance that did not see the dip adopts a GV trip mid-day,
+  blocks entries, cancels once, and emits nothing.
 
 Pipshed: `scripts/verify_daily_snapshots.py` in the existing `verify_*`
 style, covering: insert + conflict; derived columns; the 7-day freeze;
@@ -217,8 +249,10 @@ fixture rows, including one ejected pair.
 
 ## 7. NEGATIVE SPACE
 
-- No change to entry, exit, carry or ejection DECISIONS (G3 excepted, if
-  accepted). This ADR only reports.
+- No change to entry, exit, carry or ejection DECISIONS, except D9
+  (which makes ADR-158's stated intent true). Otherwise this ADR only
+  reports.
+- No hard-coded broker UTC offset, in either repo.
 - No USD target anywhere (A2).
 - No per-instance P&L split in the snapshot. Instances share one account
   balance, so a split is attribution, not measurement.
@@ -246,19 +280,19 @@ fixture rows, including one ejected pair.
   `POSITION_SWAP` and reaches the balance only as `DEAL_SWAP` at close.
   So a day's swap = the closed-deal swap booked in D + the change in the
   open-position swap sum. Is that correct, and worth the extra stored
-  value, or is closed-deal swap alone enough?
+  value, or is closed-deal swap alone enough? (The previous chat agrees
+  it is worth it: cycle 3 turns carry on, and swap is an A2 measure.)
 - **G2 claim.** Is a single CAS variable acceptable, given the
   first-creation race absorbed by the DB unique key? Or do you want a
   lock around creation (the MAE claim-lock pattern)?
-- **G3 breaker latch (F5).** Read `GRIND_BREAKER_TRIPPED_<key>` on every
-  tick while not tripped: one `GlobalVariableCheck`, with no emit on a
-  latch inherited from another instance. Fold it into ADR-159 (it gates
-  the same cycle and is about ten lines plus a test), or make it its own
-  ADR-158 rev 2?
-- **G4 banner scope.** CRITICAL only, as C19 says? Or CRITICAL (red) plus
-  an allow-list of WARN codes (amber): `STARTUP_EXIT_SHORTFALL`,
-  `QUARANTINE_ENTER`, `WARN_API_ENTRY_STOP`? Not the noisy
-  `STRAY_L0_*`.
+- **G3 breaker latch (D9).** The previous chat confirms F5 is a spec
+  bug. Confirm D9: adopt the GV trip on the next tick, cancel resting
+  entries once, and no second event. Is a per-tick `GlobalVariableCheck`
+  cheap enough, or do you want it throttled?
+- **G4 banner scope.** CRITICAL already covers `STARTUP_EXIT_SHORTFALL_SIDE`
+  (F6). Is that enough? Or add an amber tier from an allow-list of WARN
+  codes: `STARTUP_EXIT_SHORTFALL`, `QUARANTINE_ENTER`,
+  `WARN_API_ENTRY_STOP` (not the noisy `STRAY_L0_*`)?
 - **G5 freeze.** Recompute derived columns for the last 7 FTMO days, then
   freeze. Is that right, given 90-day event retention and late archive
   delivery?
@@ -275,4 +309,4 @@ fixture rows, including one ejected pair.
   Please confirm from the reconstruction code rather than from this
   statement.
 
-Line count: 278
+Line count: 312
