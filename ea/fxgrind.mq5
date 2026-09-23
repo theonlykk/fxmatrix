@@ -21,6 +21,9 @@ input double InpStrandedThreshPips = -1.0;
 input double InpDeadbandPips       = 4.0;
 input bool   InpEnableCarryPass    = false;   // ADR-135b carry exit shift
 input bool   InpEnableCommandedEject = false;   // ADR-155 operator ejection switch
+input bool   InpAutoEject              = false;  // ADR-157 automatic passive ejection
+input int    InpAutoEjectStableMinutes = 5;      // ADR-157 W: no new extreme for W of the last 2W minutes
+input double InpAutoEjectSpreadMult    = 1.5;    // ADR-157 k: spread <= k x mean of last 60 M1 bars
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
 input int    InpSlotNearReserve    = 0;       // preset opts in; Q = GRIND_SLOT_NEAR_RESERVE
 input double InpEntryHorizonPips   = 0.0;   // D3 kill switch, 0 = off; preset opts in
@@ -302,6 +305,9 @@ void OnTick()
 
    Grind_EjectPollCommand(InpMagic, InpEnableCommandedEject, InpExitPips,
                           g_grind_halted || g_grind_quarantined);
+   Grind_AutoEjectOnTick(InpMagic, InpAutoEject, InpExitPips, InpMaxLayers,
+                         g_grind_halted || g_grind_quarantined,
+                         InpAutoEjectStableMinutes, InpAutoEjectSpreadMult);
 
    if(g_grind_halted)
       return;

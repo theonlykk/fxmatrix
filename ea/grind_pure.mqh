@@ -327,4 +327,64 @@ double Grind_EjectOffsetFor(const double target,
    return target - raw - accrued;
 }
 
+//+------------------------------------------------------------------+
+int Grind_ExtremeIndexMostRecent(const double &vals[], const int n,
+                                 const bool want_min)
+{
+   if(n <= 0)
+      return -1;
+   int best = 0;
+   for(int i = 1; i < n; i++) {
+      if(want_min) {
+         if(vals[i] < vals[best] || (vals[i] == vals[best] && i > best))
+            best = i;
+      } else {
+         if(vals[i] > vals[best] || (vals[i] == vals[best] && i > best))
+            best = i;
+      }
+   }
+   return best;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectStable(const datetime &times[], const double &vals[],
+                           const int n, const datetime now,
+                           const int window_sec, const bool want_min)
+{
+   const int idx = Grind_ExtremeIndexMostRecent(vals, n, want_min);
+   if(idx < 0)
+      return false;
+   return ((int)(now - times[idx]) >= window_sec);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectSpreadOk(const double current_points,
+                             const double &baseline[], const int n,
+                             const double k)
+{
+   if(n <= 0)
+      return false;
+   double sum = 0.0;
+   for(int i = 0; i < n; i++)
+      sum += baseline[i];
+   const double mean = sum / (double)n;
+   return (current_points <= k * mean);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectTargetWorse(const bool is_long, const double new_target,
+                                const double resting, const double min_dist)
+{
+   if(is_long)
+      return (resting - new_target >= min_dist);
+   return (new_target - resting >= min_dist);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_AutoEjectWindowIntact(const datetime oldest_close,
+                                 const datetime now, const int window_sec)
+{
+   return ((int)(now - oldest_close) <= window_sec);
+}
+
 #endif // GRIND_PURE_MQH

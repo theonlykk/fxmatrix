@@ -922,6 +922,14 @@ void Grind_CarryExitPassBegin(const string symbol,
 }
 
 //+------------------------------------------------------------------+
+double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point)
+{
+   const int dir = g_grind_carry_exit_work_long[idx] ? 1 : -1;
+   return Grind_ExitPrice(g_grind_carry_exit_work_entry[idx], exit_pips, point, dir)
+          + Grind_EjectOffsetGet(g_grind_carry_exit_work_pos[idx]);
+}
+
+//+------------------------------------------------------------------+
 void Grind_CarryPruneShiftGvs(const ulong magic)
 {
    for(int g = GlobalVariablesTotal() - 1; g >= 0; g--) {
@@ -1109,7 +1117,8 @@ int Grind_CarryExitPassStep(const string symbol,
       if(Grind_CarryExitShiftLayer(g_grind_carry_exit_work_pos[idx],
                                    g_grind_carry_exit_work_exit[idx],
                                    g_grind_carry_exit_work_entry[idx],
-                                   g_grind_carry_exit_work_formula[idx],
+                                   Grind_CarryWorkBase(idx, exit_pips,
+                                                       SymbolInfoDouble(symbol, SYMBOL_POINT)),
                                    g_grind_carry_exit_work_long[idx],
                                    g_grind_carry_exit_work_layer[idx],
                                    magic, symbol, exit_pips,
