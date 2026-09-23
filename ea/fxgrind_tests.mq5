@@ -6603,10 +6603,10 @@ void Grind_TestAutoEjectSeriesA(datetime &times[], double &vals[], const datetim
 
 void Test_E1_ExtremeMostRecent()
 {
-   // E1: tied min 3 at indices 1 and 3 -> most recent is 3; max 4 at index 2
+   // E1: tied min 3 at indices 1 and 3 -> most recent is 3; max 6 at index 4
    double vals[5] = {5, 3, 4, 3, 6};
    AssertEqInt("E1 want_min", Grind_ExtremeIndexMostRecent(vals, 5, true), 3);
-   AssertEqInt("E1 want_max", Grind_ExtremeIndexMostRecent(vals, 5, false), 2);
+   AssertEqInt("E1 want_max", Grind_ExtremeIndexMostRecent(vals, 5, false), 4);
 }
 
 void Test_E2_StableOldLow()
