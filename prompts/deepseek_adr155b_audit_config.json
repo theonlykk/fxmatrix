@@ -1,0 +1,18 @@
+{
+  "files_to_audit": {
+    "fxgrind.mq5": "d:/fxmatrix/ea/fxgrind.mq5",
+    "grind_engine.mqh": "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_carry.mqh": "d:/fxmatrix/ea/grind_carry.mqh",
+    "grind_pure.mqh": "d:/fxmatrix/ea/grind_pure.mqh",
+    "grind_exitq.mqh": "d:/fxmatrix/ea/grind_exitq.mqh",
+    "grind_recon.mqh": "d:/fxmatrix/ea/grind_recon.mqh",
+    "grind_eject.mq5": "d:/fxmatrix/scripts/grind_eject.mq5"
+  },
+  "docs_to_include": {
+    "ADR-155-commanded-passive-ejection.md": "d:/fxmatrix/docs/architecture/ADR-155-commanded-passive-ejection.md"
+  },
+  "prompt_path": "d:/fxmatrix/prompts/deepseek_adr155b_audit.md",
+  "latest_adr": null,
+  "output_path": "d:/fxmatrix/prompts/deepseek_adr155b_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr155b_preview.md"
+}
