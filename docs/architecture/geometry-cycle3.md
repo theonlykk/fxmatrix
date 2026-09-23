@@ -176,4 +176,44 @@ a required exit missing at the reattach is now placed, not a permanent
 halt. Remaining caveat: do not reattach near rollover or session edges
 (backlog C18). The geometry rules are unchanged.
 
-Line count: 179
+**A2 (2026-09-23) -- STRUCTURE ADDED BEFORE THE FIRST FILL.** Operator
+decision 2026-09-22: cycle 3 tests STRUCTURAL changes, not only geometry.
+Written before any cycle-3 fill; it amends, it does not rewrite s1-s7.
+
+1. **Code at the start:** `main` at `8df6ffa` or a later tested build --
+   F1 barbell, ADR-156 (startup), ADR-155 + ADR-157 (ejection, manual and
+   automatic), C25 (carry unblocked, state flushed), ADR-158 (daily-loss
+   breaker).
+2. **Configuration, all nine presets:** `InpEnableCarryPass=true`;
+   `InpEnableCommandedEject=true`; `InpAutoEject=true` with
+   `InpAutoEjectStableMinutes=5` and `InpAutoEjectSpreadMult=1.5`;
+   `InpBreakerEnable=true`. Geometry (s3) unchanged.
+3. **s7 superseded in part:** "Carry (off)" and "Passive ejection (not
+   built)" no longer apply -- both are IN scope. The rest of s7 stands.
+4. **Primary metric unchanged** (s4). **An ejected exit's fill is NOT a
+   scalp**: it is an ENT/EXT close, so s4's source would count it. Scalp
+   counts exclude any close whose layer carried a `GRIND_EJECT_OFFSET_`
+   (the EA emits `EJECT_FILLED` for these). Ejections are counted
+   separately.
+5. **Secondary, reported, never triggers** -- per FTMO day (00:00 CE(S)T):
+   - equity change, realised (balance change), inventory P&L (change in
+     equity - balance), swap charged;
+   - ejections per pair: count, realised USD, `auto` vs `command`;
+   - carry-pass clamps per pass (backlog C26);
+   - breaker trips and pre-midnight halts;
+   - everything in USD beside pips (C22) -- with **no USD target**.
+6. **Mid-cycle dials:** `W` and `k` may change mid-cycle by reattach
+   (exit and cap stay frozen, s5); each change is recorded here with its
+   time. The carry and ejection switches are the structure under test:
+   turning either OFF mid-cycle is a STOP (s6), not a dial.
+7. **Stop conditions added to s6:** any halt involving an ejected layer or
+   a carry-shifted exit (I3/I6); any API retry storm (counter rising
+   without order changes). A breaker trip is RECORDED, not a stop -- it is
+   the breaker working.
+8. **Before the first fill** (readiness gate, `docs/runbooks/cycle3-start.md`):
+   C24 daily snapshot and C19 CRITICAL events in pipshed (ADR-159, which
+   also implements the scalp exclusion in point 4); A5 account identity;
+   `TimeGMT()` on the VPS checked against real UTC (ADR-158 computes the
+   FTMO day from it).
+
+Line count: 219
