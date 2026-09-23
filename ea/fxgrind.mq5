@@ -132,11 +132,6 @@ int OnInit()
       return INIT_FAILED;
    }
 
-   if(InpEnableCarryPass) {
-      Print("FATAL: ADR-151 phase A requires InpEnableCarryPass=false");
-      return INIT_FAILED;
-   }
-
    if(!Grind_MagicLockClaim(InpMagic)) {
       Print("FATAL: duplicate magic ", InpMagic,
             " — another fxgrind instance is already running on this magic");
