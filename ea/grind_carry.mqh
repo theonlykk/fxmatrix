@@ -510,6 +510,15 @@ void Grind_CarryShiftDelete(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+void Grind_CarryRecordShift(const ulong position_ticket,
+                            const double applied_shift,
+                            const bool clamped)
+{
+   // C25 stub: today's behaviour -- store the shift, no release marker
+   Grind_CarryShiftSet(position_ticket, applied_shift);
+}
+
+//+------------------------------------------------------------------+
 string Grind_EjectOffsetName(const ulong position_ticket)
 {
    return "GRIND_EJECT_OFFSET_" + IntegerToString((long)position_ticket);
