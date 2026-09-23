@@ -24,7 +24,6 @@ input bool   InpEnableCommandedEject = false;   // ADR-155 operator ejection swi
 input bool   InpAutoEject              = false;  // ADR-157 automatic passive ejection
 input int    InpAutoEjectStableMinutes = 5;      // ADR-157 W: no new extreme for W of the last 2W minutes
 input double InpAutoEjectSpreadMult    = 1.5;    // ADR-157 k: spread <= k x mean of last 60 M1 bars
-input bool   InpBreakerEnable = true;   // ADR-158 account daily-loss breaker
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
 input int    InpSlotNearReserve    = 0;       // preset opts in; Q = GRIND_SLOT_NEAR_RESERVE
 input double InpEntryHorizonPips   = 0.0;   // D3 kill switch, 0 = off; preset opts in
@@ -309,7 +308,6 @@ void OnTick()
    Grind_AutoEjectOnTick(InpMagic, InpAutoEject, InpExitPips, InpMaxLayers,
                          g_grind_halted || g_grind_quarantined,
                          InpAutoEjectStableMinutes, InpAutoEjectSpreadMult);
-   Grind_BreakerOnTick(InpMagic, InpSlot, InpBreakerEnable);
 
    if(g_grind_halted)
       return;
