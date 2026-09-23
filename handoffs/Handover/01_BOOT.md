@@ -178,25 +178,25 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-23 03:05Z, market OPEN.** Evidence: `HANDOFF_2026-09-23.md`.
+**As of 2026-09-23 03:40Z, market OPEN.** Evidence: `HANDOFF_2026-09-23.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `8df6ffa` |
+| fxmatrix main | `87ab20e` or a docs-only descendant (code = tested `646b526`) |
 | pipshed main | `5153977` |
 | VPS running | `5454358`, DETACHED HEAD, cycle-2 presets. **Nothing newer deployed** |
-| Delta main vs VPS | F1 barbell, **ADR-156 startup exit shortfall**, **ADR-155 commanded ejection (A+B)**, **ADR-157 automatic passive ejection** (both switches off), **C25 carry unblocked + GV flush**, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
+| Delta main vs VPS | F1 barbell, **ADR-156 startup exit shortfall**, **ADR-155 commanded ejection (A+B)**, **ADR-157 automatic passive ejection** (both switches off), **C25 carry unblocked + GV flush**, **ADR-158 daily-loss breaker (on)**, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
 | MQL5 suite | `main` **1646/1646**, GBPUSD. Runs from `MQL5\Scripts\` |
 | Fleet | 16 attached (cycle 2), 0 halted. AUDCAD rolled four times by hand -- see `docs/runbooks/roll-log.md` |
-| Account | demo 1514582088, $10k, FTMO daily limit $500 -- **worst day -$420**. Nothing in the EA enforces it (backlog C17) |
+| Account | demo 1514582088, $10k, FTMO 2-Step $500/day -- worst day -$420. **Enforced from cycle 3 by the ADR-158 breaker**; the VPS build does not have it. Demo expires Wednesday |
 | **Next** | **Close out cycle 2** (`docs/runbooks/account-close-out.md`), then start cycle 3 when its readiness gate is met (`docs/runbooks/cycle3-start.md`). **No deadline between them** |
-| After that | Cycle-3 readiness gate: C24/C19 pipshed, A5, carry ON and auto-eject ON in presets, pre-registration amendment. C15/C27 ejection, C25 carry and C17 breaker DONE |
-| Carry | OFF in all presets |
+| After that | Cycle-3 readiness gate: ADR-159 (C24 daily snapshot + C19 CRITICAL events + A5, EA and pipshed), presets to A2 point 2, attach. Pre-registration A2 DONE (`87ab20e`) |
+| Carry | OFF in all presets today; cycle 3 turns it ON (A2), with both ejection switches |
 | Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 
-**Wednesday deploys `3f72b9f`: F1 + ADR-156 on a FLAT book.** F1 must
-still never go onto a book built under the PREFIX rule (the 2026-09-20
-halt, 02_TRAPS).
+**Cycle 3 deploys `main` (>= `87ab20e`) on a FLAT book once its gate is
+met.** F1 must still never go onto a book built under the PREFIX rule (the
+2026-09-20 halt, 02_TRAPS).
 
 **F1 changed what a RESTART needs; ADR-156 answers it.** The barbell
 requires an exit on `depth - 1`. Before ADR-156, `OnInit` halted

@@ -722,3 +722,46 @@ tip, `git revert` the implementation commit, run the suite: the new tests
 must fail by NAME and COUNT as predicted, nothing may crash (guard any
 array index a failing assert can make -1). ADR-156: 19 predicted, 19
 failed, 1410/1429; then 1432/1432 on the real branch.
+
+## TRAPS FROM 2026-09-22/23 (ejection, carry, breaker)
+
+**A default-off guard can hide a live bug for months.** `OnInit` refused
+carry (ADR-151 phase A); the carry pass wrote accrual BEFORE its modify, so
+a sign-guard block or a rejected modify left state ahead of the order ->
+I6 halt. It would have gone live the day carry was switched on. Before
+enabling any dormant path, re-audit it as if new.
+
+**MT5 GlobalVariables reach disk only on a clean terminal close.** The EA
+never called `GlobalVariablesFlush()`; a crash after the nightly carry pass
+would have restarted every carry-shifted instance into an I6 halt. Fixed
+(C25): writers mark dirty, `OnTimer` flushes. A lost DELETE is as bad as a
+lost write.
+
+**Snapshotting state at the start of a multi-minute pass is a TOCTOU
+race.** The carry pass captured each exit base at pass start; an ejection
+mid-pass was reverted -> I6 halt. Recompute at processing time (ADR-157).
+
+**Anything that fires every tick needs a backoff.** A failed auto-eject
+modify retried every tick (~600 requests/min/side). And fetch history only
+when it can matter (cap-first).
+
+**Bars by COUNT span gaps.** After a weekend, 10 M1 bars reach back to
+Friday; check the wall-clock window.
+
+**In-memory fields drift from the book.** The carry pass moves orders but
+never updates `layer.exit_target`; read the order's own price when it
+matters.
+
+**FTMO's daily anchor is BALANCE at 00:00 CE(S)T, not equity, and not broker
+midnight** (01:00 broker, UTC+3). Floating loss carried over FTMO midnight
+spends the new day's allowance before any trade.
+
+**Reviewer models complete templates.** A prompt ending in an unfilled
+"FINAL REPORT" got a fabricated one back from Gemini (non-existent SHAs).
+Verify every SHA in git.
+
+**Windows PowerShell 5.1:** no `-NoNewline`; BOM-less UTF-8 is read as
+ANSI. Use `[System.IO.File]` with `UTF8Encoding($false)`.
+
+**Specs must be unambiguous about index vs value.** "want_max -> 4" meant
+index 4; Cursor wrote value 4 (index 2). Say "index".
