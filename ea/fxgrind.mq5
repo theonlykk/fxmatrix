@@ -26,6 +26,7 @@ input bool   InpAutoEject              = false;  // ADR-157 automatic passive ej
 input int    InpAutoEjectStableMinutes = 5;      // ADR-157 W: no new extreme for W of the last 2W minutes
 input double InpAutoEjectSpreadMult    = 1.5;    // ADR-157 k: spread <= k x mean of last 60 M1 bars
 input bool   InpBreakerEnable = true;   // ADR-158 account daily-loss breaker
+input bool   InpSessionEnable = false;   // ADR-161 entry window 07:00-16:55 Toronto (Fleet B)
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
 input int    InpSlotNearReserve    = 0;       // preset opts in; Q = GRIND_SLOT_NEAR_RESERVE
 input double InpEntryHorizonPips   = 0.0;   // D3 kill switch, 0 = off; preset opts in
@@ -249,6 +250,10 @@ int OnInit()
 
    Grind_CarryEmitSnapshot(_Symbol, InpMagic);
 
+   Grind_SessionStep(InpMagic, InpSlot, InpSessionEnable, TimeGMT(), false);
+   Print("GRIND_SESSION enable=", InpSessionEnable,
+         " toronto_utc_offset=", Grind_TorontoUtcOffset(TimeGMT()),
+         " open_now=", Grind_SessionOpenAt(TimeGMT()));
    EventSetTimer(1);
    return INIT_SUCCEEDED;
 }
@@ -271,6 +276,7 @@ void OnTimer()
    Grind_GvFlushIfDirty();
    Grind_SnapshotOnTimer();
    Grind_ArchiveFlush(false);
+   Grind_SessionStep(InpMagic, InpSlot, InpSessionEnable, TimeGMT(), false);
 
    const ulong now_tick = GetTickCount64();
    if(Grind_TimerTelemetryDue(now_tick, g_grind_last_telemetry_tick, TelemetryIntervalSec)) {
@@ -314,6 +320,7 @@ void OnTick()
    Grind_AutoEjectOnTick(InpMagic, InpAutoEject, InpExitPips, InpMaxLayers,
                          g_grind_halted || g_grind_quarantined,
                          InpAutoEjectStableMinutes, InpAutoEjectSpreadMult);
+   Grind_SessionStep(InpMagic, InpSlot, InpSessionEnable, TimeGMT(), true);
    Grind_BreakerOnTick(InpMagic, InpSlot, InpBreakerEnable);
 
    if(g_grind_halted)
