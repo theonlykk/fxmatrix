@@ -15,7 +15,7 @@ FTMO account or the VPS.
 |---|---|
 | Account | IC Markets demo **53066709**, server `ICMarketsSC-Demo`, **Hedge**, Raw Spread, USD, 1:100, **$10,000** as the single opening deposit (so the breaker allowance is $500 and the ADR-160 gate $250, as on FTMO) |
 | Box | Vultr `fxgrind-wine-test`, 207.148.14.197, Ubuntu 24.04, Wine 9, portable MT5 (`06_LINUX_WINE_BOX.md`) |
-| Code | `main` at `87765be` (EA code = cycle 3's `6c57830`); EA and tests 0/0 on the box; suite **1766/1766** on the box, 2026-09-24 02:14Z |
+| Code | EA sources copied and compiled from `main` at `87765be` (EA code = cycle 3's `6c57830`); presets pulled later at `85cd555` (EA code identical); EA and tests 0/0 on the box; suite **1766/1766** on the box, 2026-09-24 02:14Z |
 | Presets | `ea/presets_b/*_b.set`: cycle 3's eleven presets, identical except `InpTelemetryInstance` (`GRIND_<PAIR>_OPTB`, `_ALTB` for the two duplicates) and the label. Magics are shared with cycle 3: separate account, separate terminal, separate GlobalVariable store |
 | Telemetry | pipshed accepts any instance id; Fleet B is archived in full and its daily snapshots are kept apart by account login. It has no dashboard cards yet (pipshed ring config lists cycle 3 only). The cycle-3 s4 counter ignores it (median over ids ending `_OPT` only) |
 
@@ -29,7 +29,9 @@ cycle 3 on the same days it measures the **broker effect** alone
 (IC Markets raw spread vs FTMO), with no window.
 
 **Phase 1 -- ADR-161 on, same fleet, same broker.** New entries only
-between **07:00 and 17:00 Toronto time** (EDT until 1 Nov, EST after);
+between **07:00 and 16:55 Toronto time**, Mon-Fri (EDT until 1 Nov, EST
+after; amended 2026-09-24 from 17:00, ADR-161 G1: the close must precede
+the 17:00 rollover so the Friday cancel lands in an open market);
 outside the window resting entry orders are cancelled and only exits,
 the carry pass and ejection run. Compared with Phase 0 it measures the
 **window effect** without the broker confound. The switch time is
@@ -65,13 +67,17 @@ No USD target. Fleet B is not pre-registered against cycle 3's s4.
 ## 5. RECORD
 
 - **Phase 0 started 2026-09-24:** GBPUSD attached ~02:38Z, all eleven by
-  ~02:50Z; code `85cd555`; telemetry confirmed (`grind telemetry POST ok`).
+  ~02:50Z; EA compiled from `87765be`, presets `85cd555`; telemetry
+  confirmed (`grind telemetry POST ok`).
 - **Read it:** `https://pipshed.com/api/g/k7m9p2x4q/status_b/<cachebuster>`
   (pipshed `0390f0e`), or per instance
   `/api/telemetry/live?instance=GRIND_GBPUSD_OPTB`. Daily snapshots: the
   Daily card, account 53066709.
 - **Dashboard:** `https://linux.pipshed.com` (pipshed `39df6e0`, second Railway service,
   `GRIND_FLEET=B`; Cloudflare CNAME to Railway, proxied; `https://pipshed-copy-production.up.railway.app` also serves it).
-- **Phase 1 switch:** not yet (ADR-161).
+- **Superseded since writing:** s1's "no dashboard cards yet" and s4's
+  last bullet -- the dashboard is live (C38).
+- **Phase 1 switch:** not yet. ADR-161 merged `25a5f93` 2026-09-24,
+  default OFF; deploy plan in ADR-161 s6.
 
-Line count: 77
+Line count: 83
