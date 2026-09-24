@@ -1,9 +1,9 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-24 ~03:15Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-24 ~04:00Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
-then `handoffs/HANDOFF_2026-09-24.md` (to the end: section 7 is Fleet B),
+then `handoffs/HANDOFF_2026-09-24.md` (to the end: sections 7-8 are Fleet B and its dashboard),
 then the two newest sections of `02_TRAPS.md` (2026-09-23/24 and 24 night)**, then this document. Verify `main`'s HEAD
 SHA against section 1 before anything else.
 
@@ -31,12 +31,12 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 | | |
 |---|---|
 | fxmatrix `main` | `85cd555` or a docs-only descendant (EA code = `c22e9ff` = tested `6c57830`: `git diff --stat 6c57830 origin/main -- ea/*.mq5 ea/*.mqh scripts/ tools/` must be empty; presets changed since) |
-| pipshed `main` | `0390f0e` (ADR-159, migration `002`; Fleet B `/status_b`); env `CYCLE_START_DATE=2026-09-24` |
+| pipshed `main` | `39df6e0` (ADR-159; `/status_b`; fleet chosen by env `GRIND_FLEET`); two web services on Railway: `pipshed` (cycle 3, `pipshed.com`) and "pipshed Copy" (`GRIND_FLEET=B`, Fleet B) sharing Redis; one archive worker |
 | VPS | branch `main` at `a01a5d4`, tag `vps-a01a5d4`, 11 instances, Algo ON |
 | Suite | **1766/1766** (GBPUSD and EURUSD); EA compiles 0/0 |
 | Account | FTMO free trial 1514731800, $10k, $500/day, 14 days |
 | Fleet at 01:35Z | 11 live, 0 halted; first scalps closed; F1 confirmed live (AUDNZD depth 2, exits on both layers) |
-| **Fleet B** | IC Markets demo **53066709** on the Linux box (Vultr 207.148.14.197), 11 live since ~02:50Z, Phase 0 = cycle-3 config; `docs/architecture/fleet-b.md`; read `/api/g/<token>/status_b/<n>` |
+| **Fleet B** | IC Markets demo **53066709** on the Linux box (Vultr 207.148.14.197), 11 live since ~02:50Z, Phase 0 = cycle-3 config; `docs/architecture/fleet-b.md`; dashboard `https://pipshed-copy-production.up.railway.app` (`linux.pipshed.com` pending) |
 
 ---
 
@@ -62,7 +62,8 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 4. **Pipshed D5** (ADR-160, C36): migration `003` (`gated_seconds`,
    `history_ok` columns, backfilled from `detail`), a Gated column,
    gated hours in `s4_scalps.py`. One Cursor prompt, pipshed only.
-5. **Fleet B on the dashboard (C38).** Keep BOOT s6 current each session.
+5. **C40:** benign I3 quarantines when F1 moves an exit (~200 ms); watch the
+   episode count. Keep BOOT s6 current each session.
 6. **Watch daily (both fleets):** the Carried column (day-start equity minus balance),
    `guard_total` (budget ~mid-170s vs 194), gate episodes, breaker trips.
 
@@ -105,4 +106,4 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 - One shell step per message; the operator pastes output back.
 - Operator stance: demo mode -- ship a clear rule, learn, adjust.
 
-Line count: 108
+Line count: 109

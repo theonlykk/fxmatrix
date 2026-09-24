@@ -190,7 +190,9 @@ Done that night, in order; each step is repeatable.
    UTF-16) and `<install>/logs/YYYYMMDD.log` for the journal. Heartbeats
    per instance: `iconv -f UTF-16LE -t UTF-8 <log> | grep -o
    'TELEM|GRIND_[A-Z]*_[A-Z]*|HEARTBEAT' | sort | uniq -c`.
-10. **Read it from anywhere:** `https://pipshed.com/api/g/k7m9p2x4q/status_b/<n>`.
+10. **Read it from anywhere:** the Fleet B dashboard `https://pipshed-copy-production.up.railway.app`
+    (`linux.pipshed.com` pending), or JSON at
+    `https://pipshed.com/api/g/k7m9p2x4q/status_b/<n>`.
 
 The box clock is UTC.
 
@@ -199,4 +201,4 @@ The box clock is UTC.
 Destroy the instance (billing is hourly) or take a snapshot first, which
 costs pennies a month and rebuilds in minutes.
 
-Line count: 202
+Line count: 204

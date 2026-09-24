@@ -70,6 +70,8 @@ No USD target. Fleet B is not pre-registered against cycle 3's s4.
   (pipshed `0390f0e`), or per instance
   `/api/telemetry/live?instance=GRIND_GBPUSD_OPTB`. Daily snapshots: the
   Daily card, account 53066709.
+- **Dashboard:** `https://pipshed-copy-production.up.railway.app` (pipshed `39df6e0`, second Railway service,
+  `GRIND_FLEET=B`); `linux.pipshed.com` to follow.
 - **Phase 1 switch:** not yet (ADR-161).
 
-Line count: 75
+Line count: 77

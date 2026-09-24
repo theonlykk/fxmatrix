@@ -850,3 +850,18 @@ BOTH repos on GitHub and `git status` in both working copies afterwards.
 **Never write a commit hash from memory.** A hash quoted in a summary
 without looking it up was wrong; every hash in a message must come from
 `git`.
+
+**Railway: "Duplicate" is on the canvas card's right-click menu, not in
+Settings; a new service's networking cannot load until its first deploy.**
+Add variables BEFORE the first deploy. Never move the custom domain to the
+copy; never duplicate the archive worker (one worker serves both fleets).
+
+**A spec can contradict itself.** The fleet-select spec asked for a CSS
+class `fleet-label` AND a check that the page lacks `fleet-label` when no
+label is set; the stylesheet made that impossible. Cursor narrowed the
+check to the rendered element. Read a test's assertion against everything
+else the same spec adds to the page.
+
+**A log filter with "last N matches" can drop the lines you need.** The
+quarantine search kept the last 25 matches; heartbeats (which contain the
+word) crowded out the ENTER lines. Exclude heartbeats first.
