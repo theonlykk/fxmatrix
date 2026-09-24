@@ -447,6 +447,60 @@ int Grind_FtmoSecondsIntoDay(const datetime gmt)
    return (int)(local % 86400L);
 }
 
+#define GRIND_SESSION_OPEN_SEC          25200
+#define GRIND_SESSION_CLOSE_SEC         60900
+#define GRIND_SESSION_CANCEL_RETRY_SEC  10
+#define GRIND_SESSION_STUCK_WARN_SEC    300
+
+//+------------------------------------------------------------------+
+datetime Grind_NthSundayMonthUtc(const int year, const int month,
+                                 const int n, const int hour_utc)
+{
+   MqlDateTime dt;
+   dt.year = year;
+   dt.mon = month;
+   dt.day = 1;
+   dt.hour = hour_utc;
+   dt.min = 0;
+   dt.sec = 0;
+   datetime t = StructToTime(dt);
+   while(true) {
+      TimeToStruct(t, dt);
+      if(dt.day_of_week == 0)
+         break;
+      t += 86400;
+   }
+   if(n > 1)
+      t += (n - 1) * 7 * 86400;
+   return t;
+}
+
+//+------------------------------------------------------------------+
+int Grind_TorontoUtcOffset(const datetime gmt)
+{
+   MqlDateTime dt;
+   TimeToStruct(gmt, dt);
+   const datetime dst_start = Grind_NthSundayMonthUtc(dt.year, 3, 2, 7);
+   const datetime dst_end = Grind_NthSundayMonthUtc(dt.year, 11, 1, 6);
+   if(gmt >= dst_start && gmt < dst_end)
+      return -4;
+   return -5;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_SessionOpenAt(const datetime gmt)
+{
+   const int off = Grind_TorontoUtcOffset(gmt);
+   const datetime local_stamp = gmt + off * 3600;
+   MqlDateTime dt;
+   TimeToStruct(local_stamp, dt);
+   if(dt.day_of_week < 1 || dt.day_of_week > 5)
+      return false;
+   const long local = (long)gmt + (long)off * 3600L;
+   const int sec = (int)(local % 86400L);
+   return (sec >= GRIND_SESSION_OPEN_SEC && sec < GRIND_SESSION_CLOSE_SEC);
+}
+
 //+------------------------------------------------------------------+
 double Grind_BreakerAnchor(const double balance_now,
                            const double &amounts[], const datetime &times[],
