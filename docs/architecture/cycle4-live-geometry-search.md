@@ -5,6 +5,9 @@ This message has a line count at the bottom
 **Status:** Draft idea, 2026-09-21, rev 2 after Gemini's critique (s7).
 Not an ADR and not scheduled. Cycle 3
 (pre-registered, one arm per pair) runs first and is untouched by this.
+**Rev 3 pending (operator, 2026-09-24):** step add/exit INCREMENTALLY on
+a live book as scalps accrue, per side, replacing R5's flat restart;
+built on per-layer exits (backlog C46-C48).
 **Origin:** the operator (Lead Quant), in conversation, written up by
 Claude.
 
@@ -142,4 +145,4 @@ calibration data.
 | 4 | The sim must match micro-structure, not just totals; offsetting errors can fake agreement | **Agreed on the point, not the standard.** The target is trade-level reconciliation, which is what defeats offsetting errors. Tick-for-tick identity is neither achievable nor needed |
 | 5 | Mark-to-market in the score steps on noise; draining losers hog slots for weeks | **Accepted, and fixed.** R2 now scores completed scalps (ejections excluded) with depth policed separately; R5 clears retired arms by ejection |
 
-Line count: 145
+Line count: 148
