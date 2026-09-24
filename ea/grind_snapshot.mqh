@@ -143,7 +143,12 @@ string Grind_SnapshotJson(const GrindSnapshot &s)
    const string eq_start = Grind_SnapshotJsonFieldMoney(s.equity_start, s.start_known);
    const string inv = Grind_SnapshotJsonFieldMoney(s.inventory_pnl, s.start_known);
    const string total = Grind_SnapshotJsonFieldMoney(s.total, s.start_known);
-   const string swap_day = Grind_SnapshotJsonFieldMoney(s.swap_day, s.start_known);
+   const bool swap_known = s.start_known && s.history_ok;
+   const string swap_day = Grind_SnapshotJsonFieldMoney(s.swap_day, swap_known);
+   const bool bal_real_known = s.start_known || s.history_ok;
+   const string balance_start = Grind_SnapshotJsonFieldMoney(s.balance_start, bal_real_known);
+   const string realised = Grind_SnapshotJsonFieldMoney(s.realised, bal_real_known);
+   const string nontrade = Grind_SnapshotJsonFieldMoney(s.nontrade, s.history_ok);
    const string guard_age = s.guard_known
                             ? IntegerToString(s.guard_age_s)
                             : "null";
@@ -169,16 +174,17 @@ string Grind_SnapshotJson(const GrindSnapshot &s)
       "\"premidnight_seen\":%s,"
       "\"broker_utc_offset_s\":%d,"
       "\"start_known\":%s,"
-      "\"balance_start_source\":\"%s\""
+      "\"balance_start_source\":\"%s\","
+      "\"history_ok\":%s"
       "}",
       s.account_login,
       s.ftmo_day,
-      Grind_ArchiveJsonDouble(s.balance_start, 2),
+      balance_start,
       eq_start,
       Grind_ArchiveJsonDouble(s.balance_end, 2),
       Grind_ArchiveJsonDouble(s.equity_end, 2),
-      Grind_ArchiveJsonDouble(s.realised, 2),
-      Grind_ArchiveJsonDouble(s.nontrade, 2),
+      realised,
+      nontrade,
       inv,
       total,
       swap_day,
@@ -191,7 +197,8 @@ string Grind_SnapshotJson(const GrindSnapshot &s)
       s.premidnight_seen ? "true" : "false",
       s.broker_utc_offset_s,
       s.start_known ? "true" : "false",
-      s.balance_start_source
+      s.balance_start_source,
+      s.history_ok ? "true" : "false"
    );
 }
 
@@ -237,7 +244,8 @@ void Grind_SnapshotEmit(const string ended_key)
 
    double deal_swap_day = 0.0;
    double nontrade = 0.0;
-   if(HistorySelect(win_from, win_to)) {
+   const bool history_ok = HistorySelect(win_from, win_to);
+   if(history_ok) {
       const int total = HistoryDealsTotal();
       for(int i = 0; i < total; i++) {
          const ulong ticket = HistoryDealGetTicket(i);
@@ -256,8 +264,13 @@ void Grind_SnapshotEmit(const string ended_key)
 
    const double pswap_now = Grind_SnapshotSumPositionSwap();
    const int ended_num = Grind_FtmoDayNum(ended_key);
-   const bool start_known = GlobalVariableCheck(GRIND_SNAPSHOT_START_DAY)
-                            && (int)GlobalVariableGet(GRIND_SNAPSHOT_START_DAY) == ended_num;
+   const long login_now = AccountInfoInteger(ACCOUNT_LOGIN);
+   const bool day_exists = GlobalVariableCheck(GRIND_SNAPSHOT_START_DAY);
+   const int stored_day = day_exists ? (int)GlobalVariableGet(GRIND_SNAPSHOT_START_DAY) : 0;
+   const bool login_exists = GlobalVariableCheck(GRIND_SNAPSHOT_START_LOGIN);
+   const long stored_login = login_exists ? (long)GlobalVariableGet(GRIND_SNAPSHOT_START_LOGIN) : 0;
+   const bool start_known = Grind_SnapshotStartKnown(day_exists, stored_day, ended_num,
+                                                     login_exists, stored_login, login_now);
    double stored_bal = 0.0;
    double stored_eq = 0.0;
    double stored_pswap = 0.0;
@@ -284,6 +297,7 @@ void Grind_SnapshotEmit(const string ended_key)
    GrindSnapshot s;
    Grind_SnapshotCompute(start_known, stored_bal, stored_eq, stored_pswap,
                          hist_bal_start, bal_end, eq_end, pswap_now, deal_swap_day, s);
+   s.history_ok = history_ok;
    s.nontrade = nontrade;
    s.ftmo_day = ended_key;
    s.account_login = AccountInfoInteger(ACCOUNT_LOGIN);
@@ -302,6 +316,7 @@ void Grind_SnapshotEmit(const string ended_key)
    GlobalVariableSet(GRIND_SNAPSHOT_START_BAL, bal_end);
    GlobalVariableSet(GRIND_SNAPSHOT_START_EQ, eq_end);
    GlobalVariableSet(GRIND_SNAPSHOT_START_PSWAP, pswap_now);
+   GlobalVariableSet(GRIND_SNAPSHOT_START_LOGIN, (double)login_now);
    Grind_GvMarkDirty();
 
    const string json = Grind_SnapshotJson(s);
