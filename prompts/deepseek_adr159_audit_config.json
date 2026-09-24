@@ -1,0 +1,20 @@
+{
+  "files_to_audit": {
+    "fxgrind.mq5":             "d:/fxmatrix/ea/fxgrind.mq5",
+    "grind_engine.mqh":        "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_snapshot.mqh":      "d:/fxmatrix/ea/grind_snapshot.mqh",
+    "grind_scalp_events.mqh":  "d:/fxmatrix/ea/grind_scalp_events.mqh",
+    "grind_archive.mqh":       "d:/fxmatrix/ea/grind_archive.mqh",
+    "grind_archive_flush.mqh": "d:/fxmatrix/ea/grind_archive_flush.mqh",
+    "grind_cap.mqh":           "d:/fxmatrix/ea/grind_cap.mqh",
+    "grind_magic_lock.mqh":    "d:/fxmatrix/ea/grind_magic_lock.mqh"
+  },
+  "docs_to_include": {
+    "ADR-159-daily-snapshot-critical-banner.md": "d:/fxmatrix/docs/architecture/ADR-159-daily-snapshot-critical-banner.md",
+    "ADR-158-daily-loss-breaker.md":             "d:/fxmatrix/docs/architecture/ADR-158-daily-loss-breaker.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_adr159_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_adr159_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr159_preview.md"
+}

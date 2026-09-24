@@ -60,7 +60,10 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
                                      const int layer_depth,
                                      const int stack_depth,
                                      const double gross_pnl,
-                                     const datetime close_time)
+                                     const datetime close_time,
+                                     const bool ejected,
+                                     const long broker_utc_offset_s,
+                                     const long account_login)
 {
    const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    return StringFormat(
@@ -73,7 +76,10 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
       "\"layer_depth\":%d,"
       "\"stack_depth\":%d,"
       "\"gross_pnl\":%.2f,"
-      "\"instance_id\":\"%s\""
+      "\"instance_id\":\"%s\","
+      "\"ejected\":%s,"
+      "\"broker_utc_offset_s\":%d,"
+      "\"account_login\":%I64d"
       "}",
       Grind_IsoUtc(close_time),
       instrument,
@@ -83,7 +89,10 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
       layer_depth,
       stack_depth,
       gross_pnl,
-      instance_id
+      instance_id,
+      ejected ? "true" : "false",
+      (int)broker_utc_offset_s,
+      account_login
    );
 }
 
@@ -96,7 +105,10 @@ void Grind_QueueScalpClosedEvent(const string instance_id,
                                  const int layer_depth,
                                  const int stack_depth,
                                  const double gross_pnl,
-                                 const datetime close_time)
+                                 const datetime close_time,
+                                 const bool ejected,
+                                 const long broker_utc_offset_s,
+                                 const long account_login)
 {
    const string payload = Grind_BuildScalpClosedPayload(
       instance_id,
@@ -107,7 +119,10 @@ void Grind_QueueScalpClosedEvent(const string instance_id,
       layer_depth,
       stack_depth,
       gross_pnl,
-      close_time
+      close_time,
+      ejected,
+      broker_utc_offset_s,
+      account_login
    );
 
    if(g_grind_scalp_event_queue_count >= GRIND_SCALP_EVENT_QUEUE_MAX) {

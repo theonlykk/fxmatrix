@@ -7,6 +7,7 @@
 #property strict
 
 #include "grind_engine.mqh"
+#include "grind_snapshot.mqh"
 #include "grind_magic_lock.mqh"
 #include "grind_config.mqh"
 
@@ -268,6 +269,7 @@ void OnDeinit(const int reason)
 void OnTimer()
 {
    Grind_GvFlushIfDirty();
+   Grind_SnapshotOnTimer();
    Grind_ArchiveFlush(false);
 
    const ulong now_tick = GetTickCount64();

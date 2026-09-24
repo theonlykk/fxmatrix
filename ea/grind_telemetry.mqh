@@ -228,6 +228,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       "\"exit_penetration_pips_last\":%.4f,\"exit_penetration_pips_mean\":%.4f,"
       "\"exit_touch_revert_count\":%d,"
       "\"account_balance\":%s,\"account_equity\":%s,"
+      "\"account_login\":%I64d,"
       "\"intraday_mae\":%s",
       instance_name,
       open_layers_long,
@@ -266,6 +267,7 @@ string Grind_TelemetryHeartbeatJson(const string instance_name,
       g_grind_exit_touch_revert_count,
       Grind_MaeAccountBalanceJson(),
       Grind_MaeAccountEquityJson(),
+      AccountInfoInteger(ACCOUNT_LOGIN),
       Grind_MaeIntradayMaeJson(instance_name)
    );
 

@@ -14,8 +14,8 @@
 #define GRIND_CAP_MAXED_VALUE       1.0e12
 #define GRIND_CAP_CAS_MAX_RETRIES   50
 
-// All sixteen live fxgrind instance magics (2226xxxx namespace).
-const ulong GRIND_CAP_ALL_MAGICS[16] =
+// All eighteen known fxgrind magics (2226xxxx namespace).
+const ulong GRIND_CAP_ALL_MAGICS[18] =
 {
    22260101UL, 22260102UL,
    22260201UL, 22260202UL,
@@ -24,14 +24,15 @@ const ulong GRIND_CAP_ALL_MAGICS[16] =
    22260501UL, 22260502UL,
    22260601UL, 22260602UL,
    22260801UL, 22260802UL,
-   22260901UL, 22260902UL
+   22260901UL, 22260902UL,
+   22260701UL, 22260702UL
 };
 
-#define GRIND_CAP_MAGIC_COUNT 16
+#define GRIND_CAP_MAGIC_COUNT 18
 
 // Currency legs carried by each magic in GRIND_CAP_ALL_MAGICS, same order.
 // A peer contributes to, and can only fail, a leg it actually carries.
-const string GRIND_CAP_MAGIC_LEG_A[16] =
+const string GRIND_CAP_MAGIC_LEG_A[18] =
 {
    "GBP", "GBP",
    "EUR", "EUR",
@@ -40,9 +41,10 @@ const string GRIND_CAP_MAGIC_LEG_A[16] =
    "AUD", "AUD",
    "CAD", "CAD",
    "NZD", "NZD",
-   "AUD", "AUD"
+   "AUD", "AUD",
+   "NZD", "NZD"
 };
-const string GRIND_CAP_MAGIC_LEG_B[16] =
+const string GRIND_CAP_MAGIC_LEG_B[18] =
 {
    "USD", "USD",
    "USD", "USD",
@@ -51,7 +53,8 @@ const string GRIND_CAP_MAGIC_LEG_B[16] =
    "CHF", "CHF",
    "CHF", "CHF",
    "CAD", "CAD",
-   "NZD", "NZD"
+   "NZD", "NZD",
+   "CHF", "CHF"
 };
 
 //+------------------------------------------------------------------+
