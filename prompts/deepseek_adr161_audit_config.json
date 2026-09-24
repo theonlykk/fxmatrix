@@ -1,0 +1,17 @@
+{
+  "files_to_audit": {
+    "fxgrind.mq5":             "d:/fxmatrix/ea/fxgrind.mq5",
+    "grind_engine.mqh":        "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_pure.mqh":          "d:/fxmatrix/ea/grind_pure.mqh",
+    "grind_closeby.mqh":       "d:/fxmatrix/ea/grind_closeby.mqh",
+    "grind_comment.mqh":       "d:/fxmatrix/ea/grind_comment.mqh"
+  },
+  "docs_to_include": {
+    "cursor_adr161_session_window.md": "d:/fxmatrix/prompts/cursor_adr161_session_window.md",
+    "fleet-b.md":                      "d:/fxmatrix/docs/architecture/fleet-b.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_adr161_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_adr161_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr161_preview.md"
+}
