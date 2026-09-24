@@ -5244,6 +5244,98 @@ void Test_SN15_SwapDayNonZero()
    Grind_SN_TestResetState();
 }
 
+void Test_SN16_StartKnownRequiresLogin()
+{
+   Grind_SN_TestResetState();
+   AssertTrue("SN16 match",
+              Grind_SnapshotStartKnown(true, 20260923, 20260923,
+                                       true, 1514582088, 1514582088));
+   AssertFalse("SN16 day mismatch",
+               Grind_SnapshotStartKnown(true, 20260922, 20260923,
+                                        true, 1514582088, 1514582088));
+   AssertFalse("SN16 login mismatch",
+               Grind_SnapshotStartKnown(true, 20260923, 20260923,
+                                        true, 1514264399, 1514582088));
+   AssertFalse("SN16 login missing",
+               Grind_SnapshotStartKnown(true, 20260923, 20260923,
+                                        false, 0, 1514582088));
+   AssertFalse("SN16 day missing",
+               Grind_SnapshotStartKnown(false, 0, 20260923,
+                                        true, 1514582088, 1514582088));
+   Grind_SN_TestResetState();
+}
+
+void Test_SN17_JsonHistoryFailedKnownStart()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(true,
+                         10190.96, 9860.50, -15.67,
+                         0.0,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   s.start_known = true;
+   s.history_ok = false;
+   s.account_login = 1514582088;
+   s.ftmo_day = "2026.09.23";
+   s.guard_known = true;
+   s.guard_total = 5;
+   s.guard_age_s = 60;
+   s.breaker_tripped = false;
+   s.premidnight_seen = false;
+   s.broker_utc_offset_s = 10800;
+   // inventory = 330.46 from SN1 derivation
+   const string json = Grind_SnapshotJson(s);
+   AssertContains("SN17 nontrade null", json, "\"nontrade\":null");
+   AssertContains("SN17 swap_day null", json, "\"swap_day\":null");
+   AssertContains("SN17 history_ok false", json, "\"history_ok\":false");
+   AssertContains("SN17 balance_start kept", json, "\"balance_start\":10190.96");
+   AssertContains("SN17 inventory kept", json, "\"inventory_pnl\":330.46");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN18_JsonHistoryFailedUnknownStart()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(false,
+                         0.0, 0.0, 0.0,
+                         10190.96,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   s.start_known = false;
+   s.history_ok = false;
+   s.balance_start_source = "history";
+   const string json = Grind_SnapshotJson(s);
+   AssertContains("SN18 balance_start null", json, "\"balance_start\":null");
+   AssertContains("SN18 realised null", json, "\"realised\":null");
+   AssertContains("SN18 nontrade null", json, "\"nontrade\":null");
+   AssertContains("SN18 swap_day null", json, "\"swap_day\":null");
+   Grind_SN_TestResetState();
+}
+
+void Test_SN19_JsonHistoryOkDefault()
+{
+   Grind_SN_TestResetState();
+   GrindSnapshot s;
+   Grind_SnapshotCompute(true,
+                         10190.96, 9860.50, -15.67,
+                         0.0,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   s.account_login = 1514582088;
+   s.ftmo_day = "2026.09.23";
+   s.guard_known = true;
+   s.guard_total = 5;
+   s.guard_age_s = 60;
+   s.breaker_tripped = false;
+   s.premidnight_seen = false;
+   s.broker_utc_offset_s = 10800;
+   const string json = Grind_SnapshotJson(s);
+   AssertContains("SN19 history_ok true", json, "\"history_ok\":true");
+   Grind_SN_TestResetState();
+}
+
 void Grind_ArchiveTestConfigureCommon()
 {
    Grind_ArchiveConfigureAt(true,
@@ -8432,6 +8524,10 @@ void OnStart()
    Test_SN13_HeartbeatLogin();
    Test_SN14_FleetMagicNzdchf();
    Test_SN15_SwapDayNonZero();
+   Test_SN16_StartKnownRequiresLogin();
+   Test_SN17_JsonHistoryFailedKnownStart();
+   Test_SN18_JsonHistoryFailedUnknownStart();
+   Test_SN19_JsonHistoryOkDefault();
    Test_CB1_DispatcherShortCloseByEmitsAndRemoves();
    Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
    Test_CB3_DispatcherShortCloseLeavesLongLayer();

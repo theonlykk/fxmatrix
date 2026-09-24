@@ -16,6 +16,7 @@
 #define GRIND_SNAPSHOT_START_BAL   "GRIND_SNAPSHOT_START_BAL"
 #define GRIND_SNAPSHOT_START_EQ    "GRIND_SNAPSHOT_START_EQ"
 #define GRIND_SNAPSHOT_START_PSWAP  "GRIND_SNAPSHOT_START_PSWAP"
+#define GRIND_SNAPSHOT_START_LOGIN  "GRIND_SNAPSHOT_START_LOGIN"
 
 string g_grind_snapshot_day_key = "";
 
@@ -43,7 +44,20 @@ struct GrindSnapshot
    bool   start_known;
    string balance_start_source;
    bool   guard_known;
+   bool   history_ok;
 };
+
+//+------------------------------------------------------------------+
+bool Grind_SnapshotStartKnown(const bool day_exists,
+                              const int stored_day,
+                              const int ended_num,
+                              const bool login_exists,
+                              const long stored_login,
+                              const long login_now)
+{
+   return (day_exists && stored_day == ended_num
+           && login_exists && stored_login == login_now);
+}
 
 //+------------------------------------------------------------------+
 bool Grind_SnapshotRollDue(const string last_key, const string key)
@@ -90,6 +104,7 @@ void Grind_SnapshotCompute(const bool start_known,
                            const double deal_swap_day,
                            GrindSnapshot &s)
 {
+   s.history_ok = true;
    s.start_known = start_known;
    if(start_known) {
       s.balance_start = stored_bal_start;
