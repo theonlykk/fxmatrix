@@ -228,4 +228,38 @@ and when the reporter; GV cleaned up); the snapshot JSON carries
 adoption, or the pre-midnight halt; no cancellation of resting entries;
 no new inputs (the thresholds are constants, like ADR-158's).
 
-Line count: 231
+---
+
+## 10. IMPLEMENTATION RECORD (2026-09-23/24)
+
+**Status: EA IMPLEMENTED** (merge `c22e9ff`, tested at `6c57830`: suite
+1766/1766 on GBPUSD and EURUSD; EA compile 0/0 on desktop and VPS). Live
+from cycle 3's start (~01:00Z 24 Sep, build `a01a5d4`). Pipshed D5 is
+backlog C36 (the data is already stored in each snapshot's `detail`).
+
+Spec `prompts/cursor_adr160_ea.md` (`46d9d96`, Gemini Q1 accepted). The
+stub commit was behaviour-neutral and failed exactly the 16 predicted
+assertions (1750/1766); the real branch passed 1766/1766. No fix-ups.
+
+**DeepSeek R1 audit** (`prompts/deepseek_adr160_audit_response.md`),
+verified in source:
+- T-1 HOLDS (confirmed): both eject paths take `g_grind_halted ||
+  g_grind_quarantined` as their block (`fxgrind.mq5:312-315`); the exit
+  queue, carry and CloseBy code never consult the gate. The unwind stays
+  open.
+- T-2 HOLDS: at most one resting entry per side, so a side gains at most
+  one layer while gated.
+- T-3 REJECTED (stuck-ON gate after a no-basis day): the gate needs an
+  allowance > 0, which needs the initial deposit known;
+  `g_grind_breaker_initial_known` is set once (`grind_engine.mqh:888`) and
+  never cleared in a session, so a no-basis day cannot follow a gated day;
+  a restart starts the gate false. Even if it occurred, it blocks one tick.
+- T-4, T-7 HOLD.
+- T-5 / T-6 (gated-seconds and transition accuracy) ACCEPTED AS BOUNDED
+  REPORTING ERROR: a reporter with the breaker off is excluded by C35's
+  presets; a quiet reporter lags by its inter-tick gap (minutes); a lease
+  handover may double-count one interval; transitions may duplicate or be
+  missed on a lease change or restart. None affects whether entries are
+  blocked; s4 does not depend on gated time (section 8, G5).
+
+Line count: 265

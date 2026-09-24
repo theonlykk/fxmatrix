@@ -37,11 +37,12 @@ judgement is finely balanced.
 branches, never to main. Honest when something does not work, and it has caught
 errors in specs.
 
-**DeepSeek -- adversarial red-team audits.** Pre-implementation critique of
-mathematical frameworks; finding pathologies before code exists. Reached by the
-API through `D:\candlelab\scripts\r1_audit.py`, which Cursor edits and runs --
-see `04_DEEPSEEK_COURIER.md` (the old "switch Cursor to DeepSeek" courier is not
-how it is actually done).
+**DeepSeek -- adversarial red-team audits.** Pre-implementation critique and
+pre-merge audits of anything that places, moves or cancels orders. Reached by
+the API through the in-repo runner `tools/r1_audit/r1_audit.py --config
+prompts/<audit>_config.json`; Cursor runs it from a runner task and commits the
+inputs and the response (`docs/deepseek_prompts_templates/deepseek_r1_audit_pattern_HOWTO.md`).
+It overstates and mis-assumes: check every verdict against source.
 
 **The operator (Khalid) merges, compiles and deploys.** You never do.
 
@@ -106,7 +107,9 @@ file. There is no git pull step in it: the desktop repo IS the working copy.
 `.\deploy.ps1` copies files; **only the MetaEditor compile reloads the EAs**,
 and a compile REINITIALISES every attached instance (which resets in-memory
 daily counters -- use the archive for daily totals). `deploy.ps1` does NOT copy
-`ea\presets\*.set` into `MQL5\Presets`; that is a manual step (17e s4). The
+`ea\presets\*.set` into `MQL5\Presets`; `scripts\deploy_presets.ps1` does, with the
+telemetry key injected (an untracked copy at the VPS repo root is a leftover --
+do not run it). The
 terminal hash above identifies the install path, not the machine: the desktop
 install shares it, so it does not tell you which box you are on.
 
@@ -126,7 +129,9 @@ is live:
 
 That makes the restore path `git checkout vps-<sha7>`, `.\deploy.ps1`,
 compile -- named rather than remembered. Existing tags: `vps-19b6faa`
-(K=1/H=0, carry off), `vps-5454358` (stale-offset fix + F2, carry still off).
+(K=1/H=0, carry off), `vps-5454358` (stale-offset fix + F2, carry still off),
+`vps-a01a5d4` (cycle 3: ADR-159 + ADR-160, eleven presets; lightweight, and
+created FROM THE VPS on 2026-09-24 against this rule -- do not repeat).
 
 **Surface** (`C:\fxmatrix`) -- dedicated research machine. Python venv, all
 sweeps. RDP, drive mapped from the desktop. Watch path depth; a copy once landed
@@ -178,59 +183,38 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-23 03:40Z, market OPEN.** Evidence: `HANDOFF_2026-09-23.md`.
+**As of 2026-09-24 ~01:30Z, market OPEN, cycle 3 LIVE.** Evidence:
+`HANDOFF_2026-09-24.md`.
 
 | | |
 |---|---|
-| fxmatrix main | `87ab20e` or a docs-only descendant (code = tested `646b526`) |
-| pipshed main | `5153977` |
-| VPS running | `5454358`, DETACHED HEAD, cycle-2 presets. **Nothing newer deployed** |
-| Delta main vs VPS | F1 barbell, **ADR-156 startup exit shortfall**, **ADR-155 commanded ejection (A+B)**, **ADR-157 automatic passive ejection** (both switches off), **C25 carry unblocked + GV flush**, **ADR-158 daily-loss breaker (on)**, ADR-153, suite fix, **cycle-3 presets** (9 x OPT), `scripts/grind_gv_clean.mq5`, tooling |
-| MQL5 suite | `main` **1646/1646**, GBPUSD. Runs from `MQL5\Scripts\` |
-| Fleet | 16 attached (cycle 2), 0 halted. AUDCAD rolled four times by hand -- see `docs/runbooks/roll-log.md` |
-| Account | demo 1514582088, $10k, FTMO 2-Step $500/day -- worst day -$420. **Enforced from cycle 3 by the ADR-158 breaker**; the VPS build does not have it. Demo expires Wednesday |
-| **Next** | **Close out cycle 2** (`docs/runbooks/account-close-out.md`), then start cycle 3 when its readiness gate is met (`docs/runbooks/cycle3-start.md`). **No deadline between them** |
-| After that | Cycle-3 readiness gate: ADR-159 (C24 daily snapshot + C19 CRITICAL events + A5, EA and pipshed), presets to A2 point 2, attach. Pre-registration A2 DONE (`87ab20e`) |
-| Carry | OFF in all presets today; cycle 3 turns it ON (A2), with both ejection switches |
+| fxmatrix main | `a01a5d4` or a docs-only descendant (code = merge `c22e9ff` = tested `6c57830`) |
+| pipshed main | `e475506`, migration `002` applied; Railway env `CYCLE_START_DATE=2026-09-24` |
+| VPS running | branch `main` at `a01a5d4` (NOT detached), tag `vps-a01a5d4`, `.ex5` 2026-09-24 00:57Z |
+| MQL5 suite | **1766/1766** on GBPUSD and EURUSD. Runs from `MQL5\Scripts\` |
+| Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
+| Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
+| Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
+| Carry / ejection | ON in all eleven presets (A2 point 2): carry, commanded and auto ejection, W 5, k 1.5 |
+| **Next** | first scalp and first depth-2 side (F1 check); first `DAILY_SNAPSHOT` 22:00Z Thu 24 Sep; pipshed D5 (ADR-160 columns) |
 | Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
 
-**Cycle 3 deploys `main` (>= `87ab20e`) on a FLAT book once its gate is
-met.** F1 must still never go onto a book built under the PREFIX rule (the
-2026-09-20 halt, 02_TRAPS).
+**Nothing lands in the EA mid-cycle** except a defect fix; every compile or
+reattach restarts the fleet. Pipshed and docs may change.
 
-**F1 changed what a RESTART needs; ADR-156 answers it.** The barbell
-requires an exit on `depth - 1`. Before ADR-156, `OnInit` halted
-permanently on any missing required exit, and EVERY manual roll produced
-one. Now startup rebuilds, places the missing exits, and logs `WARN
-STARTUP_EXIT_SHORTFALL`; the OnTick check stays strict. Caveat: ticks
-during a close-only window can still escalate quarantine to a halt
-(backlog C18) -- no restarts near rollover.
+**The VPS clock is UTC** (the terminal reports GMT+0), so `TimeGMT()` and
+the FTMO day (22:00Z in summer) are right.
 
-**THE VPS IS IN DETACHED HEAD** until Wednesday. `deploy.ps1` begins with
-`git pull origin main`. Do not run it before the runbook says so.
-
-**Cycle-2 books (VPS, until Wednesday):** `MQL5\Presets` already holds
-new geometry and the chart inputs hold the old values. Reattaching any
-cycle-2 chart with the new preset halts on I6 for the six arms whose exit
-changed. An emergency reattach before Wednesday must use the OLD values.
-The VPS build (`5454358`) is PREFIX rule, so rolls there are safe.
+**Attaching on this terminal needs Algo Trading ON first;** each EA starts
+trading on OK, so every input is read back BEFORE OK.
 
 **Geometry cycle 3** is pre-registered in
-`docs/architecture/geometry-cycle3.md` (nine pairs, one OPT arm, cap 8,
-lots 0.01). ADR-153 removed the `add == 2 x width` rule; `OnInit` guards
-add/width inside [0.5, 4.0]. Exit and cap may not change mid-cycle
-(I6/I7); add, width, stranded and deadband may (amendment A1).
-
-**Cycle 4 idea** (not scheduled): live per-side geometry search,
-`docs/architecture/cycle4-live-geometry-search.md`.
-
-**Live on the VPS until Wednesday:** `5454358` -- ADR-151 K=1/H=0 PREFIX
-queue, the stale-offset fix (`241a905`), F2 carry accrual (inert, carry
-off).
+`docs/architecture/geometry-cycle3.md` (amendments A1-A3). Exit and cap may
+not change mid-cycle (I6/I7); add, width, stranded and deadband may (A1).
 
 **Standing facts.** The binding constraint is the commitment guard
 (entries need `positions + orders + resting_entries <= 194`; exits need 1
 free slot). A compile or reattach clears a halt and re-runs `OnInit`.
-Carry is OFF in every preset today; C25 (`f870598`) removed the ADR-151
-phase-A guard, so cycle 3 turns it ON in the presets. Persistent GV state
-is flushed to disk within 1 s of any write (C25/T-3).
+Persistent GV state is flushed to disk within 1 s of any write (C25/T-3).
+The currency cap is disabled (thresholds 0.0) and cannot be enabled with a
+partial fleet (C32).

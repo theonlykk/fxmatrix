@@ -44,7 +44,9 @@ wait, not to start and patch later.
 
 ## 1. DEPLOY THE BUILD (VPS)
 
-- [ ] `cd C:\fxmatrix; git fetch origin; git checkout <SHA from step 0>`
+- [ ] `cd C:\fxmatrix; git fetch origin; git checkout main; git pull --ff-only`
+      (`deploy.ps1` itself runs `git pull origin main`, so deploy from
+      `main` -- the step-0 SHA must BE `main`, not a detached commit).
 - [ ] `git log --oneline -1` shows that SHA.
 - [ ] `.\deploy.ps1` -- sources into the terminal.
 - [ ] `.\scripts\deploy_presets.ps1` -- presets, with the telemetry key
@@ -55,13 +57,17 @@ wait, not to start and patch later.
       only an include changed).
 - [ ] Byte-check the terminal copy against the repo: every `.mq5`/`.mqh`
       identical, count matches.
-- [ ] `git tag vps-<sha7> && git push origin vps-<sha7>`
+- [ ] On the DESKTOP (never push from the VPS, BOOT s3): an annotated tag
+      `git tag -a vps-<sha7> -m "VPS build <UTC time>: ..." <sha7>` and
+      `git push origin vps-<sha7>`.
 
 ---
 
 ## 2. ATTACH THE ELEVEN (VPS)
 
-Algo Trading still OFF. For each pair: open a chart (M5), drag `fxgrind`
+**Algo Trading ON first** -- on this terminal an EA attached with it off
+stays inactive -- so each EA starts trading the moment you click OK: the
+read-back below is the only check. For each pair: open a chart (M5), drag `fxgrind`
 on, **Load** the preset, check the inputs, OK.
 
 | chart | preset | magic |
@@ -145,4 +151,4 @@ missing: investigate, but the EA keeps running and places them. A halt
 on `I3_*_NAKED` a few seconds after startup means placement kept failing
 (for example a close-only window): diagnose before reattaching.
 
-Line count: 148
+Line count: 154

@@ -765,3 +765,62 @@ ANSI. Use `[System.IO.File]` with `UTF8Encoding($false)`.
 
 **Specs must be unambiguous about index vs value.** "want_max -> 4" meant
 index 4; Cursor wrote value 4 (index 2). Say "index".
+
+## TRAPS FROM 2026-09-23/24 (ADR-159, ADR-160, cycle-3 attach)
+
+**The daily limit kills on carried inventory, not on the day's trading.**
+FTMO measures from the day-start BALANCE and equity includes open MTM;
+cycle 2 opened its last day ~$330 down and died at -$505. A breaker that
+trips on the day's move cannot save a day that STARTS spent (ADR-160).
+
+**A test whose expected value is zero passes against a stub.** SN1's
+`swap_day` expected 0.00; the stub never computed it and still passed. Use
+non-zero expectations, and mutation-test anything that converts clocks or
+units (pipshed DS11 passed with the broker offset disabled).
+
+**Verify every agent change item by item.** Cursor made 1 of 4 specified
+fixture changes in one commit; added a test without registering it in the
+run list; and once implemented pure functions inside a "stub" commit,
+which blunts the stub check. Read the diff against the spec's list.
+
+**Changing a shared table breaks fixtures that encode it.** Growing the
+fleet magic table from 16 to 18 failed CM2, CL1-CL2, CL4 and RX3, which
+seeded or asserted the 16-magic fleet. Grep the tests for literal magic
+lists, sizes and hand sums before changing any table.
+
+**A swallowed exception must roll the DB connection back.** Postgres keeps
+a transaction aborted after a failed statement; every later statement on
+that connection fails until a rollback (pipshed fix 1).
+
+**DeepSeek mis-assumes and overstates.** It assumed a 5000 ms WebRequest
+timeout (the code passes 200), and called a stuck-ON gate reachable when the
+state that feeds it cannot recur in a session. Each verdict needs the line
+that confirms or refutes it.
+
+**A fresh Gemini chat has no codebase memory.** It cited an invented
+`Grind_GridReconstruct`. Send `01_BOOT.md` with the prompt and point at
+files; adopt verdicts, but record wrong reasons as wrong.
+
+**PowerShell `Write-Host` bypasses the pipeline.** `Select-String` cannot
+filter `desktop_sync.ps1` or `deploy.ps1` output; check files by hash. Their
+closing "Done - ... byte-identical" line is the script's own, not an
+agent's claim.
+
+**Railway Postgres is private.** `railway run` injects
+`postgres.railway.internal`, which only resolves inside Railway; run DB
+scripts with `railway ssh --service archive-worker <command>` after the code
+that needs them is deployed.
+
+**`deploy.ps1` runs `git pull origin main`.** Pin the VPS by being ON
+`main` at the intended commit, not on a detached SHA.
+
+**The VPS checkout may predate a script the runbook copies.** The close-out
+step copied `grind_gv_clean.mq5` from a detached build that did not have it;
+copy from `origin/main` with `git show` (runbook fixed).
+
+**On the VPS terminal, Algo Trading must be ON before attaching,** so each
+EA trades on OK. Read every input back BEFORE OK; if one is wrong, remove it
+AND delete its pending orders by hand (removing an EA leaves its orders).
+
+**Tag on the desktop.** `vps-a01a5d4` was created and pushed from the VPS
+(lightweight). Harmless for a tag; the rule stands (BOOT s3).

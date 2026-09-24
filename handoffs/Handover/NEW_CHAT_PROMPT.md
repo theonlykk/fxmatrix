@@ -1,26 +1,26 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-23 03:40Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-24 ~01:30Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
-then `handoffs/HANDOFF_2026-09-23.md` (read its UPDATE sections to the
-end), then `02_TRAPS.md`**, then this document. Verify `main`'s HEAD SHA
-against section 1 before anything else.
+then `handoffs/HANDOFF_2026-09-24.md`, then the newest section of
+`02_TRAPS.md` (2026-09-23/24)**, then this document. Verify `main`'s HEAD
+SHA against section 1 before anything else.
 
 ---
 
 ## 0. THE SINGLE MOST IMPORTANT FACT
 
-**Cycle 2 is ending; cycle 3 starts only when its readiness gate is met.**
-Close out the old demo with `docs/runbooks/account-close-out.md` BEFORE it
-expires (Wednesday 2026-09-23; record equity, balance and open MTM first).
-Start cycle 3 with `docs/runbooks/cycle3-start.md` when the gate is met --
-no deadline. Cycle 3 is pre-registered (`docs/architecture/geometry-cycle3.md`,
-amendment **A2**) and tests STRUCTURE: F1 barbell, carry ON, automatic and
-manual passive ejection, the FTMO daily-loss breaker.
+**Cycle 3 is LIVE and pre-registered.** Eleven instances on account
+1514731800 since ~01:00Z Thu 24 Sep (`docs/architecture/geometry-cycle3.md`
+with amendments A1-A3). Nothing lands in the EA mid-cycle except a defect
+fix: every compile or reattach is a fleet restart and blends two regimes.
+Pipshed and docs may change freely.
 
-F1 must never go onto a book built under the old PREFIX rule (the
-2026-09-20 halt). The new account starts flat, so it is safe there.
+The account dies on FTMO's DAILY limit ($500 from the day-start BALANCE,
+equity includes open MTM), not on bad trading: that is how cycle 2 ended
+(`docs/FULL_TRIAL_RECORD_1514582088.md`). ADR-158's 80% breaker and
+ADR-160's 50/40 floating-loss entry gate are the defences.
 
 ---
 
@@ -28,12 +28,12 @@ F1 must never go onto a book built under the old PREFIX rule (the
 
 | | |
 |---|---|
-| fxmatrix `main` | `87ab20e` or a docs-only descendant (code = tested `646b526`: `git diff --stat 646b526 origin/main -- ea/ scripts/ tools/` must be empty) |
-| pipshed `main` | `5153977` |
-| VPS running | `5454358`, DETACHED HEAD, 16 instances, cycle-2 presets |
-| Suite | `main` **1646/1646**, GBPUSD; EA compiles 0/0 |
-| Account | demo 1514582088, $10k, FTMO 2-Step: $500/day. Expires Wednesday |
-| Live book 03:22Z | 16 live, 0 halted; open MTM ~ -$377; five sides capped (GBPUSD x2 long, CADCHF ALT long, AUDCAD x2 short) |
+| fxmatrix `main` | `a01a5d4` or a docs-only descendant (code = `c22e9ff` = tested `6c57830`: `git diff --stat 6c57830 origin/main -- ea/ scripts/ tools/` must be empty) |
+| pipshed `main` | `e475506` (migration `002` applied); env `CYCLE_START_DATE=2026-09-24` |
+| VPS | branch `main` at `a01a5d4`, tag `vps-a01a5d4`, 11 instances, Algo ON |
+| Suite | **1766/1766** (GBPUSD and EURUSD); EA compiles 0/0 |
+| Account | FTMO free trial 1514731800, $10k, $500/day, 14 days |
+| Fleet at 01:08Z | 11 live, 0 halted, flat, L0 straddles resting, API 22 |
 
 ---
 
@@ -41,82 +41,65 @@ F1 must never go onto a book built under the old PREFIX rule (the
 
 | item | what | where |
 |---|---|---|
-| ADR-156 | startup places a missing required exit instead of halting | `3f72b9f` |
-| ADR-155 (C15) | manual passive ejection: `scripts/grind_eject.mq5` moves the deepest exit to the best passive price; `InpEnableCommandedEject` | `95c89c6` |
-| C25 | ADR-151 Phase B closed -- carry may be enabled; persistent GVs flushed to disk within 1 s (the EA had NEVER flushed) | `f870598` |
-| ADR-157 (C27) | automatic passive ejection: at cap, no new extreme for W=5 of 2W min, spread <= 1.5 x hourly mean, trails an orphaned exit, 5-min backoff on a failed modify; `InpAutoEject` | `ce6e985` |
-| ADR-158 (C17) | FTMO daily-loss breaker: FTMO day from GMT; anchor from deal history; 80% trip latched per day; blocks + cancels entries; exits/carry/ejection stay on; pre-midnight entry halt; `InpBreakerEnable` default true | `8df6ffa` |
-| C20 | DeepSeek runner in the repo: `tools/r1_audit/`, per-audit JSON config | `e9d8d24` |
-| A2 | pre-registration amendment: carry and ejection in scope; ejected fills are NOT scalps; new secondary measures in USD, no USD target | `87ab20e` |
-
-Switch defaults in code: ejection OFF, carry OFF, breaker ON. Cycle 3's
-presets turn carry and both ejections ON (A2 point 2) -- **not yet done**.
+| ADR-159 | daily `DAILY_SNAPSHOT` per FTMO day (22 keys); CRITICAL + amber banner; ejections archived; `ejected` flag on scalps; account login everywhere; breaker latch read every tick (ADR-158 rev 2); NZDCHF in the fleet table (18 magics) | EA `1c4a549`, pipshed `e475506` |
+| ADR-160 | all-day entry gate: no new entries while floating loss >= 50% of the allowance, clears at 40%; transitions archived; `gated_seconds` in the snapshot | EA `c22e9ff` |
+| A3 | eleven instances: nine OPT + AUDNZD and NZDCAD duplicates (OPT geometry, ALT magics 22260902 / 22260802); carry and both ejections ON; breaker explicit | `a01a5d4` |
 
 ---
 
 ## 3. NEXT, IN ORDER
 
-1. **Close-out**, Wednesday before the demo expires (~17 h after
-   03:40Z): capture a fresh status URL plus terminal equity, balance, open
-   MTM; then the runbook.
-2. **ADR-159 = C24 + C19 (+ A5)**, two repos, est. 3-4 h:
-   - EA: a `DAILY_SNAPSHOT` event at each FTMO day ROLL for the day just
-     ended (realised = balance change; inventory P&L = change in equity -
-     balance; total = equity change; swap), emitted ONCE per account (claim
-     GV), carrying the account login (A5).
-   - pipshed: `archive_worker.py` builds a daily table from those events
-     (same pattern as the carry table) and a last-24h list of
-     `level=CRITICAL` events -> Redis -> dashboard (a red banner; C17's
-     `BREAKER_TRIPPED` is invisible until then).
-   - Implement A2 point 4: ejected fills excluded from scalp counts
-     (`EJECT_FILLED` marks them).
-   - Draft the ADR for Gemini first; then one Cursor prompt per repo.
-3. **Presets:** nine cycle-3 presets to A2 point 2 (`InpEnableCarryPass`,
-   `InpEnableCommandedEject`, `InpAutoEject` true; W 5, k 1.5), byte-checked.
-4. **Attach** per `cycle3-start.md`; check `TimeGMT()` on the VPS against
-   real UTC (the breaker's FTMO day depends on it).
+1. **First-hour checks still open** (`cycle3-start.md` s3): the first
+   scalp (exit at entry +/- exit pips, CloseBy netted); the first side at
+   depth 2 (F1: exits on rank 0 AND the deepest layer, by hand).
+2. **22:00Z Thu 24 Sep: the first `DAILY_SNAPSHOT`.** Expect
+   `start_known=false` (partial day) and one row on the Daily card. Every
+   later day should be `start_known=true`.
+3. **Pipshed D5** (ADR-160): migration `003` (`gated_seconds`,
+   `history_ok` columns, backfilled from `detail`), a Gated column,
+   gated hours in `s4_scalps.py`. One Cursor prompt, pipshed only.
+4. **Docs:** ADR-160 implementation record is in section 10 (done with
+   this handoff); keep BOOT s6 current each session.
+5. **Watch daily:** the Carried column (day-start equity minus balance),
+   `guard_total` (budget ~mid-170s vs 194), gate episodes, breaker trips.
 
 ---
 
-## 4. TRAPS (full list in 02_TRAPS; newest section is 2026-09-22/23)
+## 4. TRAPS (full list in 02_TRAPS; newest section is 2026-09-23/24)
 
-- **Reviewer models complete unfilled templates.** Gemini once invented a
-  whole Cursor "final report" with SHAs that do not exist. Verify EVERY
-  SHA against git; never accept one from a model.
-- **Cursor sometimes commits without pushing.** Every prompt ends with
-  an explicit push + `git ls-remote` check. On "cursor done", fetch
-  origin before reviewing.
-- **Windows PowerShell 5.1** has no `Set-Content -NoNewline` and decodes
-  BOM-less UTF-8 as ANSI. Edit files with
-  `[System.IO.File]::ReadAllText/WriteAllText(path, text, UTF8Encoding($false))`.
-- **Tests leak state through globals** (Y12 left a recon-failure record
-  that broke R1). Shared resets must be complete; a test that fails a
-  rebuild on purpose cleans up after itself.
-- **Test names collide by letter** (old B1-B6, F1-F7 exist). Keep
-  assertion names distinct and read failures by full name.
-- **Presets in `MQL5\Presets` must match what is attached** (I6); read
-  every input back before OK.
-- **Never close a position under a running EA** -- quarantine, then halt.
+- **Verify every agent claim in git.** Cursor did 1 of 4 changes once;
+  added a test without registering it once; implemented pure functions
+  inside a "stub" commit once.
+- **A test whose expected value is 0 passes against a stub.** Use non-zero
+  expectations, and mutation-test anything that converts units or clocks.
+- **DeepSeek overstates and mis-assumes** (a 5000 ms timeout that is 200;
+  a "stuck" state that cannot occur). Check each verdict against source.
+- **A fresh Gemini chat reasons from general architecture** (it invented
+  `Grind_GridReconstruct`). Send BOOT with the prompt and point at files.
+- **Fleet-table changes break fixtures** that encode the 16-magic fleet;
+  grep the tests for magic lists and sizes.
+- **`Write-Host` output cannot be filtered** with `Select-String`
+  (`desktop_sync.ps1`, `deploy.ps1`); check files by hash instead.
+- **Railway Postgres is private:** `railway run` cannot reach it from the
+  desktop; run DB scripts via `railway ssh --service archive-worker`.
+- **Algo Trading must be ON before attaching** on this terminal; each EA
+  trades on OK, so read inputs back before OK.
 
 ---
 
 ## 5. WORKING PRACTICE
 
-- **Workflow:** Claude writes Cursor prompts in the artifact window with
-  any questions for Gemini INSIDE the prompt; the operator sends it to
-  Gemini, then to Cursor. No separate Gemini briefs. Design questions go
-  to Gemini as a DRAFT ADR with the questions inside.
-- **Tests first, proven by a stub-check branch:** revert the
-  implementation commit, predict the failing assertions BY NAME and the
-  exact SUMMARY, run, then run the real branch. Every item tonight matched
-  its prediction exactly.
-- **DeepSeek** (`tools/r1_audit/r1_audit.py --config prompts/<audit>_config.json`,
-  interpreter `D:\candlelab\venv\Scripts\python.exe`) is mandatory for
-  anything that places or moves orders. Dry-run the config first; verify
-  every finding in source before acting -- it both misses and overstates.
-- Verify against committed source; never trust an agent's claim or CLI
-  compile output. Mechanically count every file with a footer.
-- The operator's stance: demo mode -- ship a clear rule, learn from the
-  demo, adjust. Avoid analysis paralysis and arbitrary barriers.
+- Claude writes specs to files (bookends, ASCII, audit trail, negative
+  space, failure modes); Gemini reviews every Cursor prompt with his
+  questions inside it; Cursor implements on a branch; the operator
+  compiles, runs the suite, merges and deploys.
+- Tests first, stub commit behaviour-neutral, failures predicted BY NAME;
+  both runs by the operator.
+- DeepSeek via the Cursor runner task
+  (`docs/deepseek_prompts_templates/deepseek_r1_audit_pattern_HOWTO.md`;
+  config-driven `tools/r1_audit/r1_audit.py --config`), mandatory for
+  anything that places, moves or cancels orders.
+- One shell step per message; the operator pastes output back.
+- Operator stance: demo mode -- ship a clear rule, learn, adjust.
 
-Line count: 122
+Line count: 105
