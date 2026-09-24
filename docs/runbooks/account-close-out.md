@@ -69,10 +69,22 @@ quoting with the old build and the old presets.
 
 The PERSISTENT ones survive a restart and must be deleted.
 
-- [ ] Copy the script into the terminal -- `deploy.ps1` does NOT carry the
-      repo's `scripts\` folder:
-      `Copy-Item C:\fxmatrix\scripts\grind_gv_clean.mq5 "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\MQL5\Scripts\" -Force`
-      then compile it in MetaEditor (`0 errors, 0 warnings`).
+- [ ] Copy the script into the terminal FROM `origin/main` -- `deploy.ps1`
+      does NOT carry the repo's `scripts\` folder, and the VPS checkout is
+      usually a detached older build that may not contain the current script
+      (on 2026-09-23 it was `5454358`, which predates it). `git fetch` does
+      not move HEAD, so this is safe with the old build still checked out:
+
+```powershell
+git -C C:\fxmatrix fetch origin
+$dst = "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\MQL5\Scripts\grind_gv_clean.mq5"
+$t = (git -C C:\fxmatrix show origin/main:scripts/grind_gv_clean.mq5) -join "`r`n"
+[System.IO.File]::WriteAllText($dst, $t + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
+Select-String -Path $dst -Pattern 'GRIND_SNAPSHOT_|GRIND_BREAKER_'
+```
+
+      The last line must show both prefixes. Then compile it in MetaEditor
+      (`0 errors, 0 warnings`).
 - [ ] With Algo Trading still OFF and NO EA attached, run
       `grind_gv_clean` from the Navigator's Scripts, `InpForce` left
       false. If it prints ABORT, the terminal was not restarted -- restart
@@ -84,6 +96,9 @@ The PERSISTENT ones survive a restart and must be deleted.
 | `GRIND_MAE_ANCHOR_`, `GRIND_MAE_EQUITY_LOW_` | the day's starting balance and equity low | the distance to the daily-loss floor would be measured from the OLD account's balance |
 | `GRIND_CARRY_DAY_` | carry pass gate, per magic | stale day stamp |
 | `GRIND_CARRY_SHIFT_`, `GRIND_CARRY_ACCRUED_`, `GRIND_CARRY_RELEASE_` | per-position exit offsets | keyed by the OLD account's tickets; dead weight, and a release flag bypasses the bound check if a ticket number ever repeats |
+| `GRIND_EJECT_` | ejection offsets and commands, per position | keyed by the OLD account's tickets |
+| `GRIND_BREAKER_` | breaker trip latch and pre-midnight marker, per FTMO day | a stale trip for the same day would block the new account |
+| `GRIND_SNAPSHOT_` | daily-snapshot claim and day-start values | the new account's first row would compare against the old start |
 | `GRIND2226_` | cap exposure per magic and leg, plus `_time` | the old book's exposure |
 | `GRIND_DEINIT_` | deinit reason/time/anchor per magic | the old fleet's shutdown records |
 
@@ -107,4 +122,4 @@ met.
 - [ ] Record the close-out in the next handoff: cycle 2's equity result,
       the switch time, and the deleted-variable count.
 
-Line count: 110
+Line count: 125

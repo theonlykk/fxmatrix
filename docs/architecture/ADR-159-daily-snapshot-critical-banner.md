@@ -2,8 +2,9 @@ This message has a line count at the bottom
 
 # ADR-159 -- DAILY SNAPSHOT, CRITICAL BANNER, ACCOUNT IDENTITY, EJECTED-FILL EXCLUSION (C24 + C19 + A5 + A2 point 4)
 
-**Status:** ACCEPTED rev 2, 2026-09-23, pending the operator's
-confirmation. Gemini ruled on G1-G8; his rulings and our verification of
+**Status:** IMPLEMENTED 2026-09-23 (section 11). pipshed `e475506`
+(migration 002 applied); fxmatrix EA `1c4a549`, suite 1739/1739. Accepted
+rev 2, 2026-09-23 (operator confirmed). Gemini ruled on G1-G8; his rulings and our verification of
 each are in section 10. History: rev 0 `930cd27`; rev 1 `8703226`
 folded in the previous chat's review of rev 0: F5 fixed here as D9 and
 recorded as an ADR-158 rev 2 note; F6 corrected; event days from the EA's
@@ -364,4 +365,39 @@ here, so the ruling is not later defended on the wrong grounds.
   `GRIND_SNAPSHOT_*` and `GRIND_BREAKER_PREMID_*` match neither prefix,
   and no invariant reads them.
 
-Line count: 367
+---
+
+## 11. IMPLEMENTATION RECORD (2026-09-23)
+
+**Pipshed** (P1-P5): spec `prompts/adr159_pipshed.md` (`b81a339`) and fix 1
+(`93b1611`), merged `e475506`; migration `002` applied from inside
+Railway (`railway ssh --service archive-worker python db_migrate.py`,
+because Postgres has no public network). Verify script 17/17. Fix 1: DS11
+did not guard the broker offset (proved by mutation); swallowed build
+errors now roll the connection back (including the pre-existing
+`try_carry_build`). `s4_scalps.py --probe` confirmed G6 on the archive
+itself: every CloseBy `order_ticket` has exactly two OUT_BY rows, `role`
+null. Archive vs broker dump: exact every FTMO day from 18 Sep; 16-17 Sep
+short by 3 and 4 scalps (backlog C34).
+
+**EA** (D1-D9, C29): spec `prompts/cursor_adr159_ea.md` (`40e8517`),
+fixes 1 (`26ac32c`) and 2 (`8a07157`), merged `1c4a549`. Stub checks
+matched their predictions by name each time. Found on the way:
+- SN1's `swap_day` expected 0.00, so a stub could pass it: SN15 added.
+- C29 grew the fleet table to 18, which broke four fixtures that encoded
+  the 16-magic fleet (CM2, CL1-CL2 helper, CL4, RX3): updated with
+  hand-derived sums (fix 1). No production effect: the cap is disabled.
+- DeepSeek R1 audit (`prompts/deepseek_adr159_audit_response.md`),
+  verified in source: T-4 (start values keyed by day only) and T-5
+  (silent zeros when history fails) ACCEPTED and fixed in fix 2
+  (`GRIND_SNAPSHOT_START_LOGIN`; `history_ok` with nulls). T-1 no-basis
+  REJECTED (the day key is set before the return; adoption is one tick
+  late); T-1 enable switch BY DESIGN (preset check, backlog C35); T-3
+  REJECTED (archive `WebRequest` timeout is 200 ms, not 5000); T-6
+  REJECTED (queue 5000, eject events are few).
+
+**Contract note:** the `DAILY_SNAPSHOT` JSON carries a 22nd key,
+`history_ok`, after `balance_start_source`. Pipshed keeps it in `detail`;
+it is not a column.
+
+Line count: 403
