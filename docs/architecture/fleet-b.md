@@ -60,4 +60,16 @@ No USD target. Fleet B is not pre-registered against cycle 3's s4.
   an FTMO account. That is intended -- it shows what happens after.
 - Dashboard cards and a Fleet B view: backlog (pipshed).
 
-Line count: 63
+---
+
+## 5. RECORD
+
+- **Phase 0 started 2026-09-24:** GBPUSD attached ~02:38Z, all eleven by
+  ~02:50Z; code `85cd555`; telemetry confirmed (`grind telemetry POST ok`).
+- **Read it:** `https://pipshed.com/api/g/k7m9p2x4q/status_b/<cachebuster>`
+  (pipshed `0390f0e`), or per instance
+  `/api/telemetry/live?instance=GRIND_GBPUSD_OPTB`. Daily snapshots: the
+  Daily card, account 53066709.
+- **Phase 1 switch:** not yet (ADR-161).
+
+Line count: 75

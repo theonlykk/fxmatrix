@@ -183,21 +183,22 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-24 ~01:30Z, market OPEN, cycle 3 LIVE.** Evidence:
-`HANDOFF_2026-09-24.md`.
+**As of 2026-09-24 ~03:15Z, market OPEN, cycle 3 AND Fleet B LIVE.**
+Evidence: `HANDOFF_2026-09-24.md` (read its section 7 update).
 
 | | |
 |---|---|
-| fxmatrix main | `a01a5d4` or a docs-only descendant (code = merge `c22e9ff` = tested `6c57830`) |
-| pipshed main | `e475506`, migration `002` applied; Railway env `CYCLE_START_DATE=2026-09-24` |
+| fxmatrix main | `85cd555` or a docs-only descendant (EA code = merge `c22e9ff` = tested `6c57830`; presets and `ea/presets_b/` added since) |
+| pipshed main | `0390f0e`: ADR-159 (migration `002` applied) + Fleet B `/status_b` route; Railway env `CYCLE_START_DATE=2026-09-24` |
 | VPS running | branch `main` at `a01a5d4` (NOT detached), tag `vps-a01a5d4`, `.ex5` 2026-09-24 00:57Z |
 | MQL5 suite | **1766/1766** on GBPUSD and EURUSD. Runs from `MQL5\Scripts\` |
 | Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
 | Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
 | Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
 | Carry / ejection | ON in all eleven presets (A2 point 2): carry, commanded and auto ejection, W 5, k 1.5 |
-| **Next** | first scalp and first depth-2 side (F1 check); first `DAILY_SNAPSHOT` 22:00Z Thu 24 Sep; pipshed D5 (ADR-160 columns) |
-| Second machine | Vultr Ubuntu/Wine box, 207.148.14.197 -- algo OFF. See `06_LINUX_WINE_BOX.md` |
+| **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; read via `/status_b` |
+| **Next** | first `DAILY_SNAPSHOT` for both accounts 22:00Z Thu 24 Sep; ADR-161 session window (C37) for Fleet B Phase 1; pipshed D5 (C36); Fleet B dashboard cards (C38) |
+| Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or
 reattach restarts the fleet. Pipshed and docs may change.

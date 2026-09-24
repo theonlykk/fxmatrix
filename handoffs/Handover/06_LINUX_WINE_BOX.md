@@ -2,10 +2,11 @@ This message has a line count at the bottom
 
 # THE LINUX / WINE BOX
 
-A second machine that can compile `fxgrind` and run the suite, so Cursor's
-inability to execute is no longer a single point of failure. Built
-2026-09-20. **Proof of concept only: algo trading is OFF and stays off
-until we decide otherwise.**
+A second machine that can compile `fxgrind` and run the suite. Built
+2026-09-20. **Since 2026-09-24 it runs FLEET B** (IC Markets demo 53066709,
+Algo ON, `docs/architecture/fleet-b.md`) -- a different account from cycle
+3, so the order limit and the GlobalVariable store are NOT shared. Never log
+this terminal into the FTMO account while Algo is on.
 
 ---
 
@@ -24,7 +25,8 @@ until we decide otherwise.**
 **It is not capacity relief.** The 200 positions+orders limit is per
 ACCOUNT. A second terminal on the same account shares that limit and,
 worse, has its own GlobalVariable store -- so the slot lock and the
-commitment guard stop being fleet-wide. Hence: algo off.
+commitment guard stop being fleet-wide. Hence: never Algo ON here on the
+SAME account as the VPS. Fleet B is a different account, so it is safe.
 
 ---
 
@@ -130,7 +132,10 @@ Proven:
 - MetaEditor compiles `fxgrind.mq5`: **0 errors, 0 warnings, 6787 ms**.
 - The terminal's own full recompile: 131 files, no errors.
 
-Not done yet:
+Done since (2026-09-24): the suite (1766/1766), telemetry to pipshed, the
+pending restart. Fleet B runs here (section 7).
+
+Not done yet (original list, now superseded):
 
 - `fxgrind_tests` has not been compiled or run here. Run it in the
   **Strategy Tester**, not on a live chart, so nothing touches the
@@ -152,9 +157,46 @@ Gotchas met on the way, all avoidable next time:
 
 ---
 
-## 7. IF IT IS NOT NEEDED
+## 7. RUNNING FLEET B (2026-09-24)
+
+Done that night, in order; each step is repeatable.
+
+1. **Access.** Only port 22 is open. From the desktop: `ssh root@207.148.14.197`
+   works; for the desktop session run `ssh -L 3390:localhost:3389
+   root@207.148.14.197` in its own PowerShell window and `mstsc` to
+   `localhost:3390`, session Xorg, user `khalid`. If RDP will not log in,
+   check `systemctl is-active xrdp` and reboot (stale sessions).
+2. **Account.** IC Markets demo **53066709** (`ICMarketsSC-Demo`), opened on
+   the IC Markets website (no ID needed when the field is left blank), then
+   File -> Login in this terminal. Title bar must read `... - Hedge - Raw
+   Trading Ltd`.
+3. **Terminal options.** Tools -> Options: Expert Advisors -> allow
+   WebRequest for `https://pipshed.com`; Trade -> One Click Trading OFF.
+4. **Code, by git on the box** (no scp): `~/fxmatrix-repo` is a clone;
+   `git -C ~/fxmatrix-repo pull --ff-only`, then copy `ea/*.mq5 ea/*.mqh`
+   into BOTH `<MQL5 root>/Experts/fxmatrix` and `<MQL5 root>/Scripts/fxmatrix`
+   (67 files each at `85cd555`; check with `cmp`), Refresh in MetaEditor,
+   compile `fxgrind.mq5` and `fxgrind_tests.mq5`.
+5. **Suite:** run `fxgrind_tests` on a GBPUSD chart (Algo off is fine; it
+   does not trade). 1766/1766 at `85cd555`.
+6. **Telemetry key:** in `~/.fxgrind_telemetry.key` (outside the repo,
+   `chmod 600`, 44 bytes). Never in git, never pasted in chat.
+7. **Presets:** `ea/presets_b/*_b.set` from the repo, written into
+   `<MQL5 root>/Presets` with the key substituted by `sed` into the
+   `TelemetryAPIKey=` line; check `SAME_EXCEPT_KEY` against the repo copy.
+8. **Attach:** Algo Trading ON first; one pilot (GBPUSD) until
+   `grind telemetry POST ok` appears, then the other ten.
+9. **Logs:** `<MQL5 root>/logs/YYYYMMDD.log` (lowercase `logs`, UTC date,
+   UTF-16) and `<install>/logs/YYYYMMDD.log` for the journal. Heartbeats
+   per instance: `iconv -f UTF-16LE -t UTF-8 <log> | grep -o
+   'TELEM|GRIND_[A-Z]*_[A-Z]*|HEARTBEAT' | sort | uniq -c`.
+10. **Read it from anywhere:** `https://pipshed.com/api/g/k7m9p2x4q/status_b/<n>`.
+
+The box clock is UTC.
+
+## 8. IF IT IS NOT NEEDED
 
 Destroy the instance (billing is hourly) or take a snapshot first, which
 costs pennies a month and rebuilds in minutes.
 
-Line count: 160
+Line count: 202

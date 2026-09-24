@@ -824,3 +824,29 @@ AND delete its pending orders by hand (removing an EA leaves its orders).
 
 **Tag on the desktop.** `vps-a01a5d4` was created and pushed from the VPS
 (lightweight). Harmless for a tag; the rule stands (BOOT s3).
+
+## TRAPS FROM 2026-09-24 NIGHT (FLEET B, LINUX BOX)
+
+**Linux is case-sensitive: MT5 under Wine writes `MQL5/logs`, lowercase.**
+A path with `Logs` does not exist; find logs with `find ~/.mt5 -name
+'*.log' -mmin -60`. The logs are UTF-16: `iconv -f UTF-16LE -t UTF-8`
+before `grep`.
+
+**A broker portal can add, not set.** IC Markets' "Set Balance" added
+$10k to a $10k demo. The breaker's allowance is 5% of the FIRST deposit,
+so open a fresh demo with the right balance rather than repair one.
+
+**A portal can hide the account you asked for.** The Raw Spread demo was
+created under "Hidden Accounts" while the visible card said Standard.
+Check the title bar after login: account, server, Hedge/Netting, entity.
+
+**Hedge, not netting, for any new account.** The EA does not check it at
+startup; a netting account breaks CloseBy.
+
+**Cursor opened in the wrong workspace can commit to the wrong repo.**
+It did not tonight (the prompt named `D:\pipshed`), but check
+BOTH repos on GitHub and `git status` in both working copies afterwards.
+
+**Never write a commit hash from memory.** A hash quoted in a summary
+without looking it up was wrong; every hash in a message must come from
+`git`.

@@ -1,15 +1,17 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-24 ~01:30Z
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-24 ~03:15Z
 
 You are picking up mid-project. **Read `handoffs/Handover/01_BOOT.md`,
-then `handoffs/HANDOFF_2026-09-24.md`, then the newest section of
-`02_TRAPS.md` (2026-09-23/24)**, then this document. Verify `main`'s HEAD
+then `handoffs/HANDOFF_2026-09-24.md` (to the end: section 7 is Fleet B),
+then the two newest sections of `02_TRAPS.md` (2026-09-23/24 and 24 night)**, then this document. Verify `main`'s HEAD
 SHA against section 1 before anything else.
 
 ---
 
 ## 0. THE SINGLE MOST IMPORTANT FACT
+
+**Two fleets are LIVE.** Fleet B (section 1) is the second.
 
 **Cycle 3 is LIVE and pre-registered.** Eleven instances on account
 1514731800 since ~01:00Z Thu 24 Sep (`docs/architecture/geometry-cycle3.md`
@@ -28,12 +30,13 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 
 | | |
 |---|---|
-| fxmatrix `main` | `a01a5d4` or a docs-only descendant (code = `c22e9ff` = tested `6c57830`: `git diff --stat 6c57830 origin/main -- ea/ scripts/ tools/` must be empty) |
-| pipshed `main` | `e475506` (migration `002` applied); env `CYCLE_START_DATE=2026-09-24` |
+| fxmatrix `main` | `85cd555` or a docs-only descendant (EA code = `c22e9ff` = tested `6c57830`: `git diff --stat 6c57830 origin/main -- ea/*.mq5 ea/*.mqh scripts/ tools/` must be empty; presets changed since) |
+| pipshed `main` | `0390f0e` (ADR-159, migration `002`; Fleet B `/status_b`); env `CYCLE_START_DATE=2026-09-24` |
 | VPS | branch `main` at `a01a5d4`, tag `vps-a01a5d4`, 11 instances, Algo ON |
 | Suite | **1766/1766** (GBPUSD and EURUSD); EA compiles 0/0 |
 | Account | FTMO free trial 1514731800, $10k, $500/day, 14 days |
-| Fleet at 01:08Z | 11 live, 0 halted, flat, L0 straddles resting, API 22 |
+| Fleet at 01:35Z | 11 live, 0 halted; first scalps closed; F1 confirmed live (AUDNZD depth 2, exits on both layers) |
+| **Fleet B** | IC Markets demo **53066709** on the Linux box (Vultr 207.148.14.197), 11 live since ~02:50Z, Phase 0 = cycle-3 config; `docs/architecture/fleet-b.md`; read `/api/g/<token>/status_b/<n>` |
 
 ---
 
@@ -49,18 +52,18 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 
 ## 3. NEXT, IN ORDER
 
-1. **First-hour checks still open** (`cycle3-start.md` s3): the first
-   scalp (exit at entry +/- exit pips, CloseBy netted); the first side at
-   depth 2 (F1: exits on rank 0 AND the deepest layer, by hand).
+1. **Cycle 3 first-hour checks: DONE** (scalps closing, F1 seen live).
 2. **22:00Z Thu 24 Sep: the first `DAILY_SNAPSHOT`.** Expect
    `start_known=false` (partial day) and one row on the Daily card. Every
    later day should be `start_known=true`.
-3. **Pipshed D5** (ADR-160): migration `003` (`gated_seconds`,
+3. **ADR-161 session window (C37)** -- Fleet B Phase 1: entries only
+   07:00-17:00 Toronto, cancel resting entries at the close, default OFF.
+   Tests first, Gemini, DeepSeek. Deploy on the Linux box ONLY.
+4. **Pipshed D5** (ADR-160, C36): migration `003` (`gated_seconds`,
    `history_ok` columns, backfilled from `detail`), a Gated column,
    gated hours in `s4_scalps.py`. One Cursor prompt, pipshed only.
-4. **Docs:** ADR-160 implementation record is in section 10 (done with
-   this handoff); keep BOOT s6 current each session.
-5. **Watch daily:** the Carried column (day-start equity minus balance),
+5. **Fleet B on the dashboard (C38).** Keep BOOT s6 current each session.
+6. **Watch daily (both fleets):** the Carried column (day-start equity minus balance),
    `guard_total` (budget ~mid-170s vs 194), gate episodes, breaker trips.
 
 ---
@@ -102,4 +105,4 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 - One shell step per message; the operator pastes output back.
 - Operator stance: demo mode -- ship a clear rule, learn, adjust.
 
-Line count: 105
+Line count: 108

@@ -66,6 +66,9 @@ Last reviewed 2026-09-21 19:40Z.
 | C34 | **Archive short of the broker on 16-17 Sep:** 3 and 4 scalps missing in `fill_logs` against the deal dump (exact on every other day from 14 Sep). The FOMC halt days; look for `TELEMETRY_QUEUE_DROPPED` / `TELEMETRY_BATCH_REJECTED` markers then. Historical only | not started |
 | C35 | **No preset may set `InpBreakerEnable=false`.** It is ADR-158's per-instance off switch, so one disabled instance never adopts a peer's trip (DeepSeek ADR-159 T-1, by design). Add to the cycle-3 preset byte-check (A4) and the attach read-back | done: `InpBreakerEnable=true` explicit in all eleven presets; in the attach checklist |
 | C36 | **Pipshed ADR-160 D5:** migration `003` adds nullable `gated_seconds` and `history_ok` columns to `daily_snapshots`, backfilled from `detail` (both keys are already in every snapshot's JSON); a Gated column (hours, 1 dp) on the Daily card; gated hours per day in `s4_scalps.py`. Pipshed only, safe mid-cycle | not started |
+| C37 | **ADR-161: entry session window** (Fleet B Phase 1). New entries only 07:00-17:00 Toronto (North American DST rule); at the close, cancel this instance's resting entries once via the breaker's existing path (`Grind_CancelOwnEntryOrders`, which also clears `add_pending_ticket` so I8 stays green); evaluate in `OnTimer`; inputs default OFF so cycle 3 is untouched. Tests first, Gemini, DeepSeek | not started |
+| C38 | **Fleet B on the dashboard.** Today only the JSON `/status_b` route shows it; the dashboard is built on one global `GRIND_INSTANCES` list (~12 uses). Make it fleet-aware or add a Fleet B page | not started |
+| C39 | **Cycle-4 precursor idea (operator, 2026-09-24):** a non-USD five-currency ring (EURCAD, EURGBP, GBPCHF, AUDCHF, AUDCAD -- each currency twice) with three arms per pair in a corner layout in (add, exit) space (OPT; OPT + d add; OPT + d exit), cap 7, and a pooled plane fit across the ring (15 points, 7 unknowns) to point at the next geometry. Needs the new pairs' magics in the fleet table (C29 lesson), a slot model (~210 peak vs 194), and its own ADR | idea |
 
 ## D. STANDING / HYGIENE
 
@@ -75,4 +78,4 @@ Last reviewed 2026-09-21 19:40Z.
 | D2 | **`research/geometry-depth-holdtime` is not merged**, though the cycle-2 memo says it is | small |
 | D3 | **`.gitattributes` comment says "Docs stored CRLF"**, but `eol=crlf` controls the working copy; the repo stores LF | cosmetic |
 
-Line count: 78
+Line count: 81
