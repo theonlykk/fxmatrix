@@ -5483,6 +5483,271 @@ void Test_GT6_SnapshotGatedSeconds()
    g_grind_gate_last_add = 0;
 }
 
+void Grind_TestSessionGlobalsReset()
+{
+   g_grind_session_enabled = false;
+   g_grind_session_closed = false;
+   g_grind_session_closed_since = 0;
+   g_grind_session_last_cancel = 0;
+   g_grind_session_stuck_warned = false;
+}
+
+void Test_SW1_NthSunday()
+{
+   Grind_TestSessionGlobalsReset();
+   AssertTrue("SW1 mar 2026", Grind_NthSundayMonthUtc(2026, 3, 2, 7) == D'2026.03.08 07:00');
+   AssertTrue("SW1 nov 2026", Grind_NthSundayMonthUtc(2026, 11, 1, 6) == D'2026.11.01 06:00');
+   AssertTrue("SW1 mar 2027", Grind_NthSundayMonthUtc(2027, 3, 2, 7) == D'2027.03.14 07:00');
+   AssertTrue("SW1 nov 2027", Grind_NthSundayMonthUtc(2027, 11, 1, 6) == D'2027.11.07 06:00');
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW2_TorontoOffset()
+{
+   Grind_TestSessionGlobalsReset();
+   AssertEqInt("SW2 2026 spring before", Grind_TorontoUtcOffset(D'2026.03.08 06:59:59'), -5);
+   AssertEqInt("SW2 2026 spring at", Grind_TorontoUtcOffset(D'2026.03.08 07:00:00'), -4);
+   AssertEqInt("SW2 2026 fall before", Grind_TorontoUtcOffset(D'2026.11.01 05:59:59'), -4);
+   AssertEqInt("SW2 2026 fall at", Grind_TorontoUtcOffset(D'2026.11.01 06:00:00'), -5);
+   AssertEqInt("SW2 2027 spring before", Grind_TorontoUtcOffset(D'2027.03.14 06:59:59'), -5);
+   AssertEqInt("SW2 2027 spring at", Grind_TorontoUtcOffset(D'2027.03.14 07:00:00'), -4);
+   AssertEqInt("SW2 2027 fall before", Grind_TorontoUtcOffset(D'2027.11.07 05:59:59'), -4);
+   AssertEqInt("SW2 2027 fall at", Grind_TorontoUtcOffset(D'2027.11.07 06:00:00'), -5);
+   AssertEqInt("SW2 summer", Grind_TorontoUtcOffset(D'2026.09.24 12:00:00'), -4);
+   AssertEqInt("SW2 winter", Grind_TorontoUtcOffset(D'2026.12.15 12:00:00'), -5);
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW3_SessionOpenAt()
+{
+   Grind_TestSessionGlobalsReset();
+   AssertTrue("SW3 thu 07:00 open", Grind_SessionOpenAt(D'2026.09.24 11:00:00'));
+   AssertTrue("SW3 thu 16:54:59 open", Grind_SessionOpenAt(D'2026.09.24 20:54:59'));
+   AssertTrue("SW3 tue winter 07:00 open", Grind_SessionOpenAt(D'2026.12.15 12:00:00'));
+   AssertTrue("SW3 tue winter 16:54:59 open", Grind_SessionOpenAt(D'2026.12.15 21:54:59'));
+   AssertTrue("SW3 mon 07:00 open", Grind_SessionOpenAt(D'2026.09.28 11:00:00'));
+   AssertTrue("SW3 fri 16:54:59 open", Grind_SessionOpenAt(D'2026.09.25 20:54:59'));
+   AssertTrue("SW3 mon after fall-back 07:00 open", Grind_SessionOpenAt(D'2026.11.02 12:00:00'));
+   AssertFalse("SW3 thu 06:59:59 closed", Grind_SessionOpenAt(D'2026.09.24 10:59:59'));
+   AssertFalse("SW3 thu 16:55 closed", Grind_SessionOpenAt(D'2026.09.24 20:55:00'));
+   AssertFalse("SW3 tue winter 06:59:59 closed", Grind_SessionOpenAt(D'2026.12.15 11:59:59'));
+   AssertFalse("SW3 tue winter 16:55 closed", Grind_SessionOpenAt(D'2026.12.15 21:55:00'));
+   AssertFalse("SW3 sat closed", Grind_SessionOpenAt(D'2026.09.26 15:00:00'));
+   AssertFalse("SW3 sun closed", Grind_SessionOpenAt(D'2026.09.27 15:00:00'));
+   AssertFalse("SW3 mon after fall-back 06:00 closed", Grind_SessionOpenAt(D'2026.11.02 11:00:00'));
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW4_Blocks()
+{
+   Grind_TestSessionGlobalsReset();
+   g_grind_session_enabled = true;
+   g_grind_session_closed = true;
+   AssertTrue("SW4 closed blocks", Grind_SessionBlocksEntries());
+   AssertTrue("SW4 entries blocked", Grind_EntriesBlocked());
+   g_grind_session_closed = false;
+   AssertFalse("SW4 open no block", Grind_SessionBlocksEntries());
+   g_grind_session_enabled = false;
+   g_grind_session_closed = true;
+   AssertFalse("SW4 disabled no block", Grind_SessionBlocksEntries());
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW5_L0Blocked()
+{
+   Grind_TestSessionGlobalsReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const bool save_breaker = g_grind_breaker_enabled;
+   g_grind_breaker_enabled = false;
+   const ulong magic = 22260101UL;
+   g_grind_short.l0_pending_ticket = 5001UL;
+   g_grind_session_enabled = true;
+   g_grind_session_closed = true;
+   bool r = Grind_TryPlaceL0(g_grind_short, false, 1.26050, magic, "OPT", 12, 0.01);
+   AssertFalse("SW5 closed r", r);
+   AssertTrue("SW5 closed no place", g_grind_order_test_place_calls == 0);
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   g_grind_short.l0_pending_ticket = 5001UL;
+   g_grind_session_enabled = true;
+   g_grind_session_closed = false;
+   r = Grind_TryPlaceL0(g_grind_short, false, 1.26050, magic, "OPT", 12, 0.01);
+   AssertTrue("SW5 open r", r);
+   AssertTrue("SW5 open place", g_grind_order_test_place_calls == 1);
+   g_grind_breaker_enabled = save_breaker;
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestSessionGlobalsReset();
+}
+
+bool Grind_TestOrderTestRecordExists(const ulong ticket)
+{
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      if(g_grind_order_test_records[i].ticket == ticket)
+         return true;
+   }
+   return false;
+}
+
+void Test_SW6_CloseCancels()
+{
+   Grind_TestSessionGlobalsReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const bool save_breaker = g_grind_breaker_enabled;
+   g_grind_breaker_enabled = false;
+   const ulong magic = 22260101UL;
+   Grind_OrderTestUpsert(7001UL, (long)magic, GrindCommentBuild("OPT", "L", 0, "ENT"), 1.0, (long)ORDER_TYPE_BUY_LIMIT);
+   Grind_OrderTestUpsert(7003UL, (long)magic, GrindCommentBuild("OPT", "L", 1, "EXT"), 1.0, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_OrderTestUpsert(7002UL, (long)magic, GrindCommentBuild("OPT", "S", 2, "ENT"), 1.0, (long)ORDER_TYPE_SELL_LIMIT);
+   Grind_OrderTestUpsert(7004UL, (long)22260301UL, GrindCommentBuild("OPT", "L", 0, "ENT"), 1.0, (long)ORDER_TYPE_BUY_LIMIT);
+   g_grind_long.l0_pending_ticket = 7001UL;
+   g_grind_short.add_pending_ticket = 7002UL;
+   g_grind_order_test_remove_calls = 0;
+   Grind_SessionStep(magic, "OPT", true, D'2026.09.24 12:00:00', false);
+   AssertTrue("SW6 open no cancel", g_grind_order_test_remove_calls == 0);
+   AssertEqInt("SW6 open count", Grind_OwnRestingEntryCount(magic, "OPT"), 2);
+   g_grind_order_test_remove_calls = 0;
+   Grind_SessionStep(magic, "OPT", true, D'2026.09.24 21:00:00', false);
+   AssertTrue("SW6 closed flag", g_grind_session_closed);
+   AssertTrue("SW6 closed removes", g_grind_order_test_remove_calls == 2);
+   AssertEqInt("SW6 own ent gone", g_grind_order_test_count, 2);
+   AssertTrue("SW6 l0 cleared", g_grind_long.l0_pending_ticket == 0);
+   AssertTrue("SW6 add cleared", g_grind_short.add_pending_ticket == 0);
+   AssertTrue("SW6 exit kept", Grind_TestOrderTestRecordExists(7003UL));
+   AssertTrue("SW6 foreign kept", Grind_TestOrderTestRecordExists(7004UL));
+   g_grind_breaker_enabled = save_breaker;
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW7_Retry()
+{
+   Grind_TestSessionGlobalsReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const bool save_breaker = g_grind_breaker_enabled;
+   g_grind_breaker_enabled = false;
+   const ulong magic = 22260101UL;
+   Grind_OrderTestUpsert(7001UL, (long)magic, GrindCommentBuild("OPT", "L", 0, "ENT"), 1.0, (long)ORDER_TYPE_BUY_LIMIT);
+   g_grind_order_test_send_ok = false;
+   g_grind_order_test_remove_calls = 0;
+   const datetime t0 = D'2026.09.24 21:00:00';
+   Grind_SessionStep(magic, "OPT", true, t0, false);
+   AssertTrue("SW7 transition attempt", g_grind_order_test_remove_calls == 1);
+   Grind_SessionStep(magic, "OPT", true, t0 + 20, false);
+   AssertTrue("SW7 timer no retry", g_grind_order_test_remove_calls == 1);
+   Grind_SessionStep(magic, "OPT", true, t0 + 25, true);
+   AssertTrue("SW7 tick retry", g_grind_order_test_remove_calls == 2);
+   Grind_SessionStep(magic, "OPT", true, t0 + 30, true);
+   AssertTrue("SW7 throttled", g_grind_order_test_remove_calls == 2);
+   g_grind_order_test_send_ok = true;
+   Grind_SessionStep(magic, "OPT", true, t0 + 35, true);
+   AssertTrue("SW7 retry succeeds", g_grind_order_test_remove_calls == 3);
+   AssertEqInt("SW7 none left", g_grind_order_test_count, 0);
+   Grind_SessionStep(magic, "OPT", true, t0 + 60, true);
+   AssertTrue("SW7 no call when none", g_grind_order_test_remove_calls == 3);
+   g_grind_breaker_enabled = save_breaker;
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW8_StuckWarn()
+{
+   Grind_TestSessionGlobalsReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const bool save_breaker = g_grind_breaker_enabled;
+   g_grind_breaker_enabled = false;
+   const ulong magic = 22260101UL;
+   Grind_OrderTestUpsert(7001UL, (long)magic, GrindCommentBuild("OPT", "L", 0, "ENT"), 1.0, (long)ORDER_TYPE_BUY_LIMIT);
+   g_grind_order_test_send_ok = false;
+   const int base = Grind_ArchiveQueueCount();
+   const datetime t0 = D'2026.09.24 21:00:00';
+   Grind_SessionStep(magic, "OPT", true, t0, false);
+   Grind_SessionStep(magic, "OPT", true, t0 + 299, false);
+   AssertTrue("SW8 no warn yet", Grind_ArchiveQueueCount() == base + 1);
+   Grind_SessionStep(magic, "OPT", true, t0 + 300, false);
+   AssertTrue("SW8 warn", Grind_ArchiveQueueCount() == base + 2);
+   AssertContains("SW8 warn code", Grind_ArchiveQueuePeek(base + 1), "SESSION_CANCEL_STUCK");
+   Grind_SessionStep(magic, "OPT", true, t0 + 400, false);
+   AssertTrue("SW8 warn once", Grind_ArchiveQueueCount() == base + 2);
+   g_grind_breaker_enabled = save_breaker;
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestSessionGlobalsReset();
+}
+
+void Test_SW9_Transitions()
+{
+   Grind_TestSessionGlobalsReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_order_test_active = true;
+   g_grind_cap_thresh_a = 0.0;
+   g_grind_cap_thresh_b = 0.0;
+   const bool save_breaker = g_grind_breaker_enabled;
+   g_grind_breaker_enabled = false;
+   const ulong magic = 22260101UL;
+   const int base = Grind_ArchiveQueueCount();
+   Grind_SessionStep(magic, "OPT", true, D'2026.09.24 12:00:00', false);
+   AssertTrue("SW9 initial open silent", Grind_ArchiveQueueCount() == base);
+   Grind_SessionStep(magic, "OPT", true, D'2026.09.24 21:00:00', false);
+   AssertTrue("SW9 close count", Grind_ArchiveQueueCount() == base + 1);
+   AssertContains("SW9 close code", Grind_ArchiveQueuePeek(base), "SESSION_CLOSE");
+   Grind_SessionStep(magic, "OPT", true, D'2026.09.24 21:00:30', false);
+   AssertTrue("SW9 no repeat", Grind_ArchiveQueueCount() == base + 1);
+   Grind_SessionStep(magic, "OPT", true, D'2026.09.25 12:00:00', false);
+   AssertTrue("SW9 open count", Grind_ArchiveQueueCount() == base + 2);
+   AssertContains("SW9 open code", Grind_ArchiveQueuePeek(base + 1), "SESSION_OPEN");
+   const int mid = Grind_ArchiveQueueCount();
+   Grind_SessionStep(magic, "OPT", false, D'2026.09.25 21:00:00', false);
+   AssertTrue("SW9 disabled silent", Grind_ArchiveQueueCount() == mid);
+   AssertFalse("SW9 disabled clears flag", g_grind_session_closed);
+   g_grind_breaker_enabled = save_breaker;
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_OrderTestReset();
+   Grind_TestResetSideState();
+   Grind_TestSessionGlobalsReset();
+}
+
 void Grind_ArchiveTestConfigureCommon()
 {
    Grind_ArchiveConfigureAt(true,
@@ -8681,6 +8946,15 @@ void OnStart()
    Test_GT4_Accumulate();
    Test_GT5_Transition();
    Test_GT6_SnapshotGatedSeconds();
+   Test_SW1_NthSunday();
+   Test_SW2_TorontoOffset();
+   Test_SW3_SessionOpenAt();
+   Test_SW4_Blocks();
+   Test_SW5_L0Blocked();
+   Test_SW6_CloseCancels();
+   Test_SW7_Retry();
+   Test_SW8_StuckWarn();
+   Test_SW9_Transitions();
    Test_CB1_DispatcherShortCloseByEmitsAndRemoves();
    Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
    Test_CB3_DispatcherShortCloseLeavesLongLayer();

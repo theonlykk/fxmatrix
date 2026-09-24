@@ -447,6 +447,33 @@ int Grind_FtmoSecondsIntoDay(const datetime gmt)
    return (int)(local % 86400L);
 }
 
+#define GRIND_SESSION_OPEN_SEC          25200
+#define GRIND_SESSION_CLOSE_SEC         60900
+#define GRIND_SESSION_CANCEL_RETRY_SEC  10
+#define GRIND_SESSION_STUCK_WARN_SEC    300
+
+//+------------------------------------------------------------------+
+datetime Grind_NthSundayMonthUtc(const int year, const int month,
+                                 const int n, const int hour_utc)
+{
+   // stub
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+int Grind_TorontoUtcOffset(const datetime gmt)
+{
+   // stub
+   return -5;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_SessionOpenAt(const datetime gmt)
+{
+   // stub
+   return false;
+}
+
 //+------------------------------------------------------------------+
 double Grind_BreakerAnchor(const double balance_now,
                            const double &amounts[], const datetime &times[],

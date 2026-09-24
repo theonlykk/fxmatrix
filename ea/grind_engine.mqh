@@ -748,6 +748,7 @@ bool Grind_CancelPendingOrder(const ulong ticket, const ulong magic)
 
 //+------------------------------------------------------------------+
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
+int  Grind_OwnRestingEntryCount(const ulong magic, const string slot);
 
 //+------------------------------------------------------------------+
 void Grind_EngineConfigureAdr152(const bool fill_time_place,
@@ -842,6 +843,18 @@ bool Grind_BreakerBlocksEntries()
    return g_grind_breaker_enabled
           && (g_grind_breaker_tripped || g_grind_breaker_premidnight
               || g_grind_breaker_gated);
+}
+
+bool     g_grind_session_enabled           = false;
+bool     g_grind_session_closed            = false;
+datetime g_grind_session_closed_since      = 0;
+datetime g_grind_session_last_cancel       = 0;
+bool     g_grind_session_stuck_warned      = false;
+
+bool Grind_SessionBlocksEntries()
+{
+   // stub
+   return false;
 }
 
 bool Grind_EntriesBlocked()
@@ -1014,6 +1027,13 @@ void Grind_BreakerOnTick(const ulong magic, const string slot, const bool enable
    Grind_BreakerGateTransition(was_gated, g_grind_breaker_gated,
                              g_grind_mae_is_reporter, balance - equity,
                              g_grind_breaker_allowance, key);
+}
+
+//+------------------------------------------------------------------+
+void Grind_SessionStep(const ulong magic, const string slot, const bool enabled,
+                       const datetime gmt, const bool from_tick)
+{
+   // stub
 }
 
 //+------------------------------------------------------------------+
@@ -2435,6 +2455,13 @@ void Grind_CancelOwnEntryOrders(const ulong magic, const string slot)
             g_grind_short.add_pending_ticket = 0;
       }
    }
+}
+
+//+------------------------------------------------------------------+
+int Grind_OwnRestingEntryCount(const ulong magic, const string slot)
+{
+   // stub
+   return 0;
 }
 
 #include "grind_heartbeat_detail.mqh"
