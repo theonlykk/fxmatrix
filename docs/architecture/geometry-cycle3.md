@@ -216,4 +216,42 @@ Written before any cycle-3 fill; it amends, it does not rewrite s1-s7.
    `TimeGMT()` on the VPS checked against real UTC (ADR-158 computes the
    FTMO day from it).
 
-Line count: 219
+**A3 (2026-09-23) -- ELEVEN INSTANCES AND THE FLOATING-LOSS GATE, BEFORE
+THE FIRST FILL.** Written after cycle 2 ended on FTMO's daily limit
+(`docs/FULL_TRIAL_RECORD_1514582088.md`) and before any cycle-3 fill; it
+amends, it does not rewrite s1-s7 or A1-A2.
+
+1. **Code at the start:** `main` at `c22e9ff` or a later tested build. It
+   adds ADR-159 (daily snapshot, CRITICAL banner, ejections archived, the
+   breaker latch read every tick, NZDCHF in the fleet table) and ADR-160
+   (the all-day floating-loss entry gate).
+2. **Fleet: eleven instances** (operator decision, backlog C30; pairs
+   chosen by Claude). The nine of s2, plus DUPLICATES of **AUDNZD** and
+   **NZDCAD**: the same geometry as their OPT instance, on the pair's ALT
+   magic and instance id (`22260902` / `GRIND_AUDNZD_ALT`, `22260802` /
+   `GRIND_NZDCAD_ALT`), presets `audnzd_dup.set` and `nzdcad_dup.set`.
+   **Why:** equal 0.01 lots give unequal dollars per pip; measured from
+   cycle-2 closes, AUDNZD is $0.057 and NZDCAD $0.071 per pip against
+   $0.100 for the USD pairs, so doubling them raises the book's dollar
+   weight where it is cheapest. NZDCAD rather than AUDCAD because AUD was
+   cycle 2's second-largest exposure (25 layers net long); in the two
+   duplicates NZD sits on opposite sides and partly offsets. 0.02 lots
+   stay out (s2: partial fills).
+3. **s4 unchanged.** Each pair is measured on its OPT instance; the fleet
+   median is over the nine OPT instances. The duplicates are reported and
+   are NOT in the median (`scripts/s4_scalps.py` in pipshed already takes
+   the median over `_OPT` instances only).
+4. **The floating-loss gate (ADR-160 R4) is in scope:** no new entries
+   while floating loss is at least 50% of the daily allowance, clearing at
+   40%; exits, carry and ejection unaffected. It is ACCOUNT-WIDE, so every
+   pair is gated together and the fleet median cancels it; s4 is read as
+   before. Gated time is reported per FTMO day (`gated_seconds` in the
+   daily snapshot). A gate episode is RECORDED, not a stop -- like a
+   breaker trip (A2 point 7).
+5. **Slot budget, not re-modelled:** s2's model put nine instances near a
+   144-slot peak; two more cheap-pair instances scale that to roughly the
+   mid-170s against the 194 guard. Watch `guard_total` in the daily row.
+6. **Configuration** of all eleven presets as A2 point 2, with
+   `InpBreakerEnable=true` written explicitly in every file (backlog C35).
+
+Line count: 257

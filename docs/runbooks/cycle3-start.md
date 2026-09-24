@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# RUNBOOK -- START CYCLE 3 (NINE PAIRS, ONE ARM EACH)
+# RUNBOOK -- START CYCLE 3 (ELEVEN INSTANCES: NINE PAIRS + TWO DUPLICATES)
 
 Run this only after `docs/runbooks/account-close-out.md` and only when
 the readiness gate below is met. **There is no deadline.** Cycle 3 is a
@@ -25,12 +25,17 @@ wait, not to start and patch later.
       on TWO chart symbols. Total: `________`.
 - [ ] EA compiles on the desktop: `0 errors, 0 warnings`.
 - [ ] Deploy SHA contains ADR-156: `Select-String -Path C:\fxmatrix\ea\grind_recon.mqh -Pattern tolerate_exit_shortfall`.
-- [ ] Instruments in place for what this cycle must measure:
-      - [ ] C24 daily close snapshot (equity, balance, realised, MTM
-            change, swap, layers, guard) -- captured before 21:00Z
-      - [ ] C19 guard total visible in pipshed
-      - [ ] any C15 ejection work intended for this cycle is MERGED, not
-            pending
+- [ ] Instruments in place (A2 point 8, A3):
+      - [ ] ADR-159 live in pipshed (daily snapshot table, CRITICAL
+            banner, migration `002` applied) and merged in the EA
+      - [ ] ADR-160 floating-loss gate merged in the EA; its pipshed
+            columns (`gated_seconds`, migration `003`) live
+      - [ ] `TimeGMT()` on the VPS matches real UTC (ADR-158/159/160 take
+            the FTMO day from it): `________`
+- [ ] All eleven presets carry `InpEnableCarryPass=true`,
+      `InpEnableCommandedEject=true`, `InpAutoEject=true`,
+      `InpAutoEjectStableMinutes=5`, `InpAutoEjectSpreadMult=1.5`,
+      `InpBreakerEnable=true` (A2 point 2, A3 point 6, backlog C35).
 - [ ] Telemetry key decided: rotate now (backlog C9) or keep.
 - [ ] `geometry-cycle3.md` still describes what is about to run; if the
       plan changed, amend the pre-registration FIRST (s8).
@@ -54,7 +59,7 @@ wait, not to start and patch later.
 
 ---
 
-## 2. ATTACH THE NINE (VPS)
+## 2. ATTACH THE ELEVEN (VPS)
 
 Algo Trading still OFF. For each pair: open a chart (M5), drag `fxgrind`
 on, **Load** the preset, check the inputs, OK.
@@ -70,27 +75,32 @@ on, **Load** the preset, check the inputs, OK.
 | NZDCHF | `nzdchf_opt.set` | 22260701 |
 | NZDCAD | `nzdcad_opt.set` | 22260801 |
 | AUDNZD | `audnzd_opt.set` | 22260901 |
+| AUDNZD (second chart) | `audnzd_dup.set` | 22260902 |
+| NZDCAD (second chart) | `nzdcad_dup.set` | 22260802 |
 
 For EACH, before OK:
 - [ ] chart symbol matches the preset's pair
 - [ ] `InpAddPips` / `InpExitPips` / `InpWidthPips` match the table in
       `geometry-cycle3.md` s3
 - [ ] `InpLots` = 0.01
+- [ ] carry, commanded eject and auto eject `true`; W `5`; k `1.5`;
+      `InpBreakerEnable` `true`
 - [ ] `TelemetryAPIKey` is NOT blank
 - [ ] Experts tab: no `FATAL`, no `INIT_FAILED`
 
 **Read every input back before OK** -- loading a preset silently resets
-values typed before it. **Do NOT attach any `_alt` preset.** Cycle 3 is
-one arm per pair.
+values typed before it. **Do NOT attach any `_alt` preset** (the cycle-2
+ALT geometry). The two `_dup` presets ARE attached (A3): the OPT geometry
+on the pair's ALT magic.
 
-- [ ] All nine attached, then **Algo Trading ON**. Note the start time,
+- [ ] All eleven attached, then **Algo Trading ON**. Note the start time,
       broker and UTC: `________`.
 
 ---
 
 ## 3. FIRST HOUR
 
-- [ ] Status read within 5 minutes: **9 live**, 0 halted, all
+- [ ] Status read within 5 minutes: **11 live**, 0 halted, all
       `recon_ok` / `invariant_ok`, API count near zero.
 - [ ] Account figures show the NEW balance; distance to the loss floor
       is sensible.
@@ -103,8 +113,9 @@ one arm per pair.
       side by hand.
 - [ ] First scalp: exit filled at entry +/- `InpExitPips`, CloseBy
       netted, scalp counted.
-- [ ] Guard well below 194 (nine instances, flat start).
-- [ ] First C24 daily snapshot taken before 21:00Z.
+- [ ] Guard well below 194 (eleven instances, flat start).
+- [ ] The first `DAILY_SNAPSHOT` arrives at the first FTMO roll (22:00Z
+      in summer): check the pipshed Daily card.
 
 ---
 
@@ -134,4 +145,4 @@ missing: investigate, but the EA keeps running and places them. A halt
 on `I3_*_NAKED` a few seconds after startup means placement kept failing
 (for example a close-only window): diagnose before reattaching.
 
-Line count: 137
+Line count: 148
