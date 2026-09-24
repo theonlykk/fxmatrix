@@ -19,6 +19,12 @@
 #define GRIND_SNAPSHOT_START_LOGIN  "GRIND_SNAPSHOT_START_LOGIN"
 
 string g_grind_snapshot_day_key = "";
+datetime g_grind_gate_last_add = 0;
+
+void Grind_GateAccumulate(const string gv_name, const bool is_reporter,
+                          const bool gated, const datetime now, const int cap)
+{
+}
 
 struct GrindSnapshot
 {
@@ -45,6 +51,7 @@ struct GrindSnapshot
    string balance_start_source;
    bool   guard_known;
    bool   history_ok;
+   int    gated_seconds;
 };
 
 //+------------------------------------------------------------------+

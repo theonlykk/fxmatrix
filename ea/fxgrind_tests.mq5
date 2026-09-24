@@ -5336,6 +5336,153 @@ void Test_SN19_JsonHistoryOkDefault()
    Grind_SN_TestResetState();
 }
 
+double Grind_GT_ReadGatedSeconds(const string gv)
+{
+   if(!GlobalVariableCheck(gv))
+      return 0.0;
+   return GlobalVariableGet(gv);
+}
+
+void Test_GT1_FloatGate()
+{
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+   const double allowance = 500.0;
+   AssertTrue("GT1 engage at 250",
+              Grind_BreakerFloatGate(false, 250.00, allowance));
+   AssertFalse("GT1 below 250",
+               Grind_BreakerFloatGate(false, 249.99, allowance));
+   AssertTrue("GT1 hold at 200.01",
+              Grind_BreakerFloatGate(true, 200.01, allowance));
+   AssertFalse("GT1 clear at 200",
+               Grind_BreakerFloatGate(true, 200.00, allowance));
+   AssertFalse("GT1 no allowance off",
+               Grind_BreakerFloatGate(false, 300.0, 0.0));
+   AssertFalse("GT1 no allowance gated off",
+               Grind_BreakerFloatGate(true, 300.0, 0.0));
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+}
+
+void Test_GT2_BlocksWhenGated()
+{
+   const bool save_en = g_grind_breaker_enabled;
+   const bool save_trip = g_grind_breaker_tripped;
+   const bool save_pre = g_grind_breaker_premidnight;
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+   g_grind_breaker_enabled = true;
+   g_grind_breaker_tripped = false;
+   g_grind_breaker_premidnight = false;
+   g_grind_breaker_gated = true;
+   AssertTrue("GT2 gated blocks", Grind_BreakerBlocksEntries());
+   g_grind_breaker_enabled = false;
+   AssertFalse("GT2 gated off switch", Grind_BreakerBlocksEntries());
+   g_grind_breaker_enabled = save_en;
+   g_grind_breaker_tripped = save_trip;
+   g_grind_breaker_premidnight = save_pre;
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+}
+
+void Test_GT3_AddSeconds()
+{
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+   const int cap = 120;
+   AssertTrue("GT3 first call", Grind_GateAddSeconds(0, 1000, cap) == 0);
+   AssertTrue("GT3 normal", Grind_GateAddSeconds(1000, 1060, cap) == 60);
+   AssertTrue("GT3 capped", Grind_GateAddSeconds(1000, 1500, cap) == 120);
+   AssertTrue("GT3 zero", Grind_GateAddSeconds(1060, 1060, cap) == 0);
+   AssertTrue("GT3 backwards", Grind_GateAddSeconds(1100, 1000, cap) == 0);
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+}
+
+void Test_GT4_Accumulate()
+{
+   const string gv = "GRIND_TEST_GATED_S";
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+   if(GlobalVariableCheck(gv))
+      GlobalVariableDel(gv);
+   const int cap = 120;
+   Grind_GateAccumulate(gv, true, true, (datetime)1000, cap);
+   AssertTrue("GT4 first zero", Grind_GT_ReadGatedSeconds(gv) == 0.0);
+   Grind_GateAccumulate(gv, true, true, (datetime)1060, cap);
+   AssertTrue("GT4 plus 60", Grind_GT_ReadGatedSeconds(gv) == 60.0);
+   Grind_GateAccumulate(gv, true, false, (datetime)1120, cap);
+   AssertTrue("GT4 not gated", Grind_GT_ReadGatedSeconds(gv) == 60.0);
+   Grind_GateAccumulate(gv, false, true, (datetime)1180, cap);
+   AssertTrue("GT4 not reporter", Grind_GT_ReadGatedSeconds(gv) == 60.0);
+   Grind_GateAccumulate(gv, true, true, (datetime)1240, cap);
+   AssertTrue("GT4 lease regained", Grind_GT_ReadGatedSeconds(gv) == 60.0);
+   Grind_GateAccumulate(gv, true, true, (datetime)1300, cap);
+   AssertTrue("GT4 total 120", Grind_GT_ReadGatedSeconds(gv) == 120.0);
+   if(GlobalVariableCheck(gv))
+      GlobalVariableDel(gv);
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+}
+
+void Test_GT5_Transition()
+{
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+   const double floating = 260.0;
+   const double allowance = 500.0;
+   const string key = "2099.01.07";
+   const int base = Grind_ArchiveQueueCount();
+   Grind_BreakerGateTransition(false, true, true, floating, allowance, key);
+   AssertTrue("GT5 on count", Grind_ArchiveQueueCount() == base + 1);
+   AssertContains("GT5 on code", Grind_ArchiveQueuePeek(base), "BREAKER_GATE_ON");
+   Grind_BreakerGateTransition(true, false, true, floating, allowance, key);
+   AssertTrue("GT5 off count", Grind_ArchiveQueueCount() == base + 2);
+   AssertContains("GT5 off code", Grind_ArchiveQueuePeek(base + 1), "BREAKER_GATE_OFF");
+   const int mid = Grind_ArchiveQueueCount();
+   Grind_BreakerGateTransition(false, true, false, floating, allowance, key);
+   AssertTrue("GT5 not reporter", Grind_ArchiveQueueCount() == mid);
+   Grind_BreakerGateTransition(true, true, true, floating, allowance, key);
+   AssertTrue("GT5 unchanged", Grind_ArchiveQueueCount() == mid);
+   Grind_ArchiveTestReset();
+   Grind_TelemetryTestReset();
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+}
+
+void Test_GT6_SnapshotGatedSeconds()
+{
+   Grind_SN_TestResetState();
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+   GrindSnapshot s;
+   Grind_SnapshotCompute(true,
+                         10190.96, 9860.50, -15.67,
+                         0.0,
+                         9685.62, 9685.62, 0.0, -15.67,
+                         s);
+   s.account_login = 1514582088;
+   s.ftmo_day = "2026.09.23";
+   s.start_known = true;
+   s.guard_known = true;
+   s.guard_total = 5;
+   s.guard_age_s = 60;
+   s.breaker_tripped = false;
+   s.premidnight_seen = false;
+   s.broker_utc_offset_s = 10800;
+   string json = Grind_SnapshotJson(s);
+   AssertContains("GT6 default zero", json, "\"gated_seconds\":0");
+   s.gated_seconds = 3600;
+   json = Grind_SnapshotJson(s);
+   AssertContains("GT6 3600", json, "\"gated_seconds\":3600");
+   Grind_SN_TestResetState();
+   g_grind_breaker_gated = false;
+   g_grind_gate_last_add = 0;
+}
+
 void Grind_ArchiveTestConfigureCommon()
 {
    Grind_ArchiveConfigureAt(true,
@@ -8528,6 +8675,12 @@ void OnStart()
    Test_SN17_JsonHistoryFailedKnownStart();
    Test_SN18_JsonHistoryFailedUnknownStart();
    Test_SN19_JsonHistoryOkDefault();
+   Test_GT1_FloatGate();
+   Test_GT2_BlocksWhenGated();
+   Test_GT3_AddSeconds();
+   Test_GT4_Accumulate();
+   Test_GT5_Transition();
+   Test_GT6_SnapshotGatedSeconds();
    Test_CB1_DispatcherShortCloseByEmitsAndRemoves();
    Test_CB2_DispatcherLongCloseByEmitsAndRemoves();
    Test_CB3_DispatcherShortCloseLeavesLongLayer();

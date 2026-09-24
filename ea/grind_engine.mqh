@@ -821,6 +821,13 @@ void Grind_EntryHorizonCheckGap(GrindSideState &side,
 bool g_grind_breaker_enabled     = false;
 bool g_grind_breaker_tripped     = false;
 bool g_grind_breaker_premidnight = false;
+bool g_grind_breaker_gated       = false;
+
+void Grind_BreakerGateTransition(const bool was_gated, const bool now_gated,
+                                 const bool is_reporter, const double floating,
+                                 const double allowance, const string key)
+{
+}
 
 bool Grind_BreakerBlocksEntries()
 {

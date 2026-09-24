@@ -504,4 +504,17 @@ bool Grind_BreakerPreMidnightHalt(const int sec_into_day, const double equity,
    return ((balance - equity) >= 0.5 * allowance);
 }
 
+//+------------------------------------------------------------------+
+bool Grind_BreakerFloatGate(const bool was_gated, const double floating,
+                            const double allowance)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+int Grind_GateAddSeconds(const datetime last, const datetime now, const int cap)
+{
+   return 0;
+}
+
 #endif // GRIND_PURE_MQH
