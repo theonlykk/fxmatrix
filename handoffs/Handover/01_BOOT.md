@@ -183,8 +183,8 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-24 ~03:15Z, market OPEN, cycle 3 AND Fleet B LIVE.**
-Evidence: `HANDOFF_2026-09-24.md` (read its section 7 update).
+**As of 2026-09-24 ~04:10Z, market OPEN, cycle 3 AND Fleet B LIVE.**
+Evidence: `HANDOFF_2026-09-24.md` (read its section 7 and 8 updates).
 
 | | |
 |---|---|
@@ -196,7 +196,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read its section 7 update).
 | Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
 | Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
 | Carry / ejection | ON in all eleven presets (A2 point 2): carry, commanded and auto ejection, W 5, k 1.5 |
-| **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://pipshed-copy-production.up.railway.app` (second Railway service, `GRIND_FLEET=B`; `linux.pipshed.com` pending) |
+| **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Next** | first `DAILY_SNAPSHOT` for both accounts 22:00Z Thu 24 Sep; ADR-161 session window (C37) for Fleet B Phase 1; pipshed D5 (C36); C40 watch (I3 transients on F1 exit moves) |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 

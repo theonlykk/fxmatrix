@@ -36,7 +36,7 @@ ADR-160's 50/40 floating-loss entry gate are the defences.
 | Suite | **1766/1766** (GBPUSD and EURUSD); EA compiles 0/0 |
 | Account | FTMO free trial 1514731800, $10k, $500/day, 14 days |
 | Fleet at 01:35Z | 11 live, 0 halted; first scalps closed; F1 confirmed live (AUDNZD depth 2, exits on both layers) |
-| **Fleet B** | IC Markets demo **53066709** on the Linux box (Vultr 207.148.14.197), 11 live since ~02:50Z, Phase 0 = cycle-3 config; `docs/architecture/fleet-b.md`; dashboard `https://pipshed-copy-production.up.railway.app` (`linux.pipshed.com` pending) |
+| **Fleet B** | IC Markets demo **53066709** on the Linux box (Vultr 207.148.14.197), 11 live since ~02:50Z, Phase 0 = cycle-3 config; `docs/architecture/fleet-b.md`; dashboard `https://linux.pipshed.com` (live; also `https://pipshed-copy-production.up.railway.app`) |
 
 ---
 
