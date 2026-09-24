@@ -2,7 +2,9 @@ This message has a line count at the bottom
 
 # ADR-160 -- CARRIED OPEN MTM AGAINST THE FTMO DAILY LIMIT (C28)
 
-**Status:** DRAFT rev 0, 2026-09-23, for Gemini. Gates cycle 3. Operator
+**Status:** ACCEPTED rev 1, 2026-09-23 (Gemini ruled G1-G5; R4 with
+hysteresis; rulings and our verification in section 8; design in section
+9). History: rev 0 `6e360ba`. Gates cycle 3. Operator
 stance: demo mode -- ship a clear rule, learn from the demo, adjust; no
 arbitrary barriers (fixed pip depths, long waits).
 
@@ -136,4 +138,94 @@ clears by itself when price recovers.
 - Sources: `docs/FULL_TRIAL_RECORD_1514582088.md`; the deal dump
   `data/local/deals_dump_20260923_1741.csv` (not committed).
 
-Line count: 139
+---
+
+## 8. RULINGS (Gemini, 2026-09-23) AND OUR VERIFICATION
+
+Gemini's reply carried no line-count footer. Verdicts adopted; where a
+stated reason does not match this codebase, it is recorded so the rule is
+not later defended on the wrong grounds.
+
+- **G1: a rule is required** (R0 alone is not enough). Adopted. His reason
+  holds: halving size shrinks the stacks but a persistent trend still
+  builds past $250 on one arm.
+- **G2: R4.** Adopted. R1 acts late and R2 only at the open; the limit is
+  continuous.
+- **G3: hysteresis, engage at 50%, clear at 40%.** Adopted. **His reason
+  is overstated:** he assumes the gate cancels resting entries each time it
+  engages, so flicker would churn place and cancel. In source it does not:
+  all five entry sites only `return` when `Grind_EntriesBlocked()` is true
+  (`grind_engine.mqh` ~1014, ~1240, ~1449, ~1553, ~1664); nothing
+  cancels. Flicker could only cause one extra placement per side per
+  clear. Hysteresis stays because it is free and makes the state read
+  cleanly. His "600 calls a minute" figure does not appear anywhere in
+  this project (the EA's own figure is a 1,800-a-day soft warning);
+  treated as unverified.
+- **G4: 50% / 40%.** Adopted. His point (a) is right and matters: resting
+  entries are NOT cancelled, so each side can still gain at most the one
+  layer already resting; the buffer absorbs it.
+- **G5: report gated time.** Adopted as reporting. **His metric concern
+  does not apply as stated:** the gate is ACCOUNT-WIDE (every instance
+  evaluates the same account balance and equity), so all pairs are gated
+  together, and s4 divides each pair's scalps by the FLEET MEDIAN on the
+  same day, which cancels a common cause (that is what the median is
+  for). No `scalps_per_ungated_hour` is needed. Gated seconds are still
+  reported per day as context for s4 and the USD measures, through
+  amendment A3.
+
+## 9. DESIGN (R4 + hysteresis + reporting)
+
+**D1 -- the gate.** Pure: `bool Grind_BreakerFloatGate(const bool
+was_gated, const double floating, const double allowance)`: false if
+`allowance <= 0`; if not gated, engage when `floating >= 0.5 x allowance`;
+if gated, stay gated while `floating > 0.4 x allowance`.
+`floating = balance - equity`. New global `g_grind_breaker_gated`,
+updated every tick in `Grind_BreakerOnTick` beside the pre-midnight
+line; reset at an FTMO day-key change is NOT required (the gate is not a
+daily latch), but it is recomputed from scratch on the first tick after a
+start.
+
+**D2 -- the block.** `Grind_BreakerBlocksEntries()` becomes `enabled &&
+(tripped || premidnight || gated)`. Entries only; exits, carry and
+ejection unaffected; nothing is cancelled (as today's pre-midnight halt).
+The pre-midnight halt stays as written: it is now redundant (the gate
+engages whenever it would), but removing it would change ADR-158's tested
+code and the D4 marker for no gain.
+
+**D3 -- transitions archived once per account.** The instance holding the
+MAE reporter lease (`g_grind_mae_is_reporter`) emits `INFO
+BREAKER_GATE_ON` / `BREAKER_GATE_OFF` (detail: floating, allowance, day)
+when its own gate flips. Other instances flip silently.
+
+**D4 -- gated seconds.** In `OnTimer`'s telemetry-interval block, beside
+`Grind_MaeOnTimer()`, the lease holder adds the elapsed interval (seconds
+since its last addition, capped at twice `TelemetryIntervalSec`) to
+persistent GV `GRIND_SNAPSHOT_GATED_S_<ftmo day key>` while
+`g_grind_breaker_gated` is true. Not every second: that would flush the GV
+file to disk every second for hours. Resolution is one telemetry interval,
+enough for an hours figure. Dirty-flushed; the clean-up prefix
+`GRIND_SNAPSHOT_` covers it. The lease can move; the count continues
+because the GV is shared.
+
+**D5 -- the snapshot.** `DAILY_SNAPSHOT` gains `"gated_seconds":<n>` from
+`GRIND_SNAPSHOT_GATED_S_<ended day>` (0 if absent), after `history_ok`.
+Pipshed: a nullable `gated_seconds` column (migration 003), a "Gated"
+column on the daily card (hours, one decimal), and `s4_scalps.py` prints
+gated hours per day beside the counts.
+
+**D6 -- pre-registration.** Amendment A3 to `geometry-cycle3.md`: R4 is in
+scope; s4 is read as before (the fleet median cancels an account-wide
+gate); gated hours are reported per day.
+
+**Tests (EA), tests first against stubs:** the pure gate (engage at
+exactly 250 on a 500 allowance, not at 249.99; stay at 200.01; clear at
+200.00; no allowance never gates); `Grind_BreakerBlocksEntries` with each
+flag; the D4 accumulator on a test day key (increments only when gated
+and when the reporter; GV cleaned up); the snapshot JSON carries
+`gated_seconds`.
+
+**Negative space:** no change to the breaker's 80% trip, its latch, D9
+adoption, or the pre-midnight halt; no cancellation of resting entries;
+no new inputs (the thresholds are constants, like ADR-158's).
+
+Line count: 231
