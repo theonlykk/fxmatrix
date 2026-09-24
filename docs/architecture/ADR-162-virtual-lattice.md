@@ -40,9 +40,16 @@ nothing changes for a book that never reaches cap.
       level 60 crossed -> L0 effective 60, exit 65
       level 50 crossed -> L1 effective 50, exit 55
       level 40, 30, 20 -> L2, L3, L4 effective 40, 30, 20; exits 45, 35, 25
-    market lifts to 25: L4's exit fills (its "virtual layer" scalped)
-      depth 7; lowest effective entry is L3's 30 -> next real add at 20,
-      exactly where a real grid would re-add. Back to scalping.
+    market lifts to 25: L4's rolled exit (a SELL at 25) fills
+      depth 7 -> the engine places ONE REAL add (a BUY). Virtual adds are
+      never placed; only their exits are.
+      today's code anchors that buy on the highest layer_index = the last
+      REAL layer, L7 at 70 -> target 60 -> above the market -> clamped
+      passive to ~25 (enters at the market, lattice out of step)
+      with the effective entry it anchors on the last VIRTUAL level held,
+      L3's 30 -> buy at 20, below the market, exactly where a real grid
+      would re-add (as a normal scalp re-opens its own level today:
+      L0 100 / L1 90 / L1 exits at 95 -> the add returns to 90, not 85).
 
 ## 4. COST: FIXED AND BOUNDED
 
@@ -120,4 +127,4 @@ realised against what ADR-155/157 did.
   cost as `entry(Lk) - (level + exit)` per roll (known at firing) and
   keep the worst-case bound as `cap` rolls. Accept?
 
-Line count: 123
+Line count: 130
