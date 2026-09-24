@@ -276,6 +276,9 @@ void OnTimer()
    if(Grind_TimerTelemetryDue(now_tick, g_grind_last_telemetry_tick, TelemetryIntervalSec)) {
       Grind_ResetDailyPnlIfNewDay();
       Grind_MaeOnTimer();
+      Grind_GateAccumulate("GRIND_SNAPSHOT_GATED_S_" + Grind_FtmoDayKey(TimeGMT()),
+                            g_grind_mae_is_reporter, g_grind_breaker_gated, TimeGMT(),
+                            2 * TelemetryIntervalSec);
       Grind_ProcessPendingExitMicrostructure();
       Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();

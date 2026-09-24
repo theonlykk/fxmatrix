@@ -1,0 +1,18 @@
+{
+  "files_to_audit": {
+    "fxgrind.mq5":             "d:/fxmatrix/ea/fxgrind.mq5",
+    "grind_engine.mqh":        "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_pure.mqh":          "d:/fxmatrix/ea/grind_pure.mqh",
+    "grind_snapshot.mqh":      "d:/fxmatrix/ea/grind_snapshot.mqh",
+    "grind_mae.mqh":           "d:/fxmatrix/ea/grind_mae.mqh",
+    "grind_exitq.mqh":         "d:/fxmatrix/ea/grind_exitq.mqh"
+  },
+  "docs_to_include": {
+    "ADR-160-carried-mtm-daily-limit.md": "d:/fxmatrix/docs/architecture/ADR-160-carried-mtm-daily-limit.md",
+    "ADR-158-daily-loss-breaker.md":      "d:/fxmatrix/docs/architecture/ADR-158-daily-loss-breaker.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_adr160_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_adr160_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr160_preview.md"
+}
