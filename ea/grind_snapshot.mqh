@@ -24,6 +24,19 @@ datetime g_grind_gate_last_add = 0;
 void Grind_GateAccumulate(const string gv_name, const bool is_reporter,
                           const bool gated, const datetime now, const int cap)
 {
+   if(!is_reporter) {
+      g_grind_gate_last_add = 0;
+      return;
+   }
+   const int add = Grind_GateAddSeconds(g_grind_gate_last_add, now, cap);
+   g_grind_gate_last_add = now;
+   if(gated && add > 0) {
+      double cur = 0.0;
+      if(GlobalVariableCheck(gv_name))
+         cur = GlobalVariableGet(gv_name);
+      GlobalVariableSet(gv_name, cur + add);
+      Grind_GvMarkDirty();
+   }
 }
 
 struct GrindSnapshot
@@ -112,6 +125,7 @@ void Grind_SnapshotCompute(const bool start_known,
                            GrindSnapshot &s)
 {
    s.history_ok = true;
+   s.gated_seconds = 0;
    s.start_known = start_known;
    if(start_known) {
       s.balance_start = stored_bal_start;
@@ -182,7 +196,8 @@ string Grind_SnapshotJson(const GrindSnapshot &s)
       "\"broker_utc_offset_s\":%d,"
       "\"start_known\":%s,"
       "\"balance_start_source\":\"%s\","
-      "\"history_ok\":%s"
+      "\"history_ok\":%s,"
+      "\"gated_seconds\":%d"
       "}",
       s.account_login,
       s.ftmo_day,
@@ -205,7 +220,8 @@ string Grind_SnapshotJson(const GrindSnapshot &s)
       s.broker_utc_offset_s,
       s.start_known ? "true" : "false",
       s.balance_start_source,
-      s.history_ok ? "true" : "false"
+      s.history_ok ? "true" : "false",
+      s.gated_seconds
    );
 }
 
@@ -316,6 +332,8 @@ void Grind_SnapshotEmit(const string ended_key)
    s.guard_age_s = s.guard_known ? (int)(now_gmt - g_grind_last_guard_time) : 0;
    s.breaker_tripped = GlobalVariableCheck("GRIND_BREAKER_TRIPPED_" + ended_key);
    s.premidnight_seen = GlobalVariableCheck("GRIND_BREAKER_PREMID_" + ended_key);
+   const string gated_gv = "GRIND_SNAPSHOT_GATED_S_" + ended_key;
+   s.gated_seconds = GlobalVariableCheck(gated_gv) ? (int)GlobalVariableGet(gated_gv) : 0;
 
    const string current_key = Grind_FtmoDayKey(now_gmt);
    const int current_num = Grind_FtmoDayNum(current_key);

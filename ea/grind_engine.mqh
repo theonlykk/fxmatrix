@@ -827,12 +827,21 @@ void Grind_BreakerGateTransition(const bool was_gated, const bool now_gated,
                                  const bool is_reporter, const double floating,
                                  const double allowance, const string key)
 {
+   if(was_gated == now_gated || !is_reporter)
+      return;
+   const string detail =
+      "{\"floating\":" + Grind_ArchiveJsonDouble(floating, 2) +
+      ",\"allowance\":" + Grind_ArchiveJsonDouble(allowance, 2) +
+      ",\"day\":\"" + key + "\"}";
+   Grind_ArchiveMarker("INFO", now_gated ? "BREAKER_GATE_ON" : "BREAKER_GATE_OFF",
+                       key, 0, detail);
 }
 
 bool Grind_BreakerBlocksEntries()
 {
    return g_grind_breaker_enabled
-          && (g_grind_breaker_tripped || g_grind_breaker_premidnight);
+          && (g_grind_breaker_tripped || g_grind_breaker_premidnight
+              || g_grind_breaker_gated);
 }
 
 bool Grind_EntriesBlocked()
@@ -998,6 +1007,13 @@ void Grind_BreakerOnTick(const ulong magic, const string slot, const bool enable
                                                              g_grind_breaker_allowance);
    if(g_grind_breaker_premidnight)
       Grind_BreakerMarkPremidnight(key);
+
+   const bool was_gated = g_grind_breaker_gated;
+   g_grind_breaker_gated = Grind_BreakerFloatGate(was_gated, balance - equity,
+                                                  g_grind_breaker_allowance);
+   Grind_BreakerGateTransition(was_gated, g_grind_breaker_gated,
+                             g_grind_mae_is_reporter, balance - equity,
+                             g_grind_breaker_allowance, key);
 }
 
 //+------------------------------------------------------------------+
