@@ -21,6 +21,7 @@
 #include "fxgrind_tests_adr162.mqh"
 #include "fxgrind_tests_c52.mqh"
 #include "fxgrind_tests_adr162b.mqh"
+#include "fxgrind_tests_c54.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9327,6 +9328,13 @@ void OnStart()
    Test_LB30_RestartRolledStartup();
    Test_LB31_RollDetail();
    Test_LB32_BackoffCapNoOverflow();
+   Test_LB33_OrderGoneNoBackoff();
+   Test_LB34_RollRefusals();
+   Test_LB35_FailCountReset();
+   Test_LB36_ShortGapFiresEveryLevel();
+   Test_LB37_PassThenRollBranchM();
+   Test_LB38_RollThenPassBranchM();
+   Test_LB39_RollMidPassBranchS();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

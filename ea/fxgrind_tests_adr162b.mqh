@@ -635,12 +635,15 @@ void Test_LB30_RestartRolledStartup()
    AssertTrue("LB30 startup ok",
               Grind_RebuildBookFromTickets(tickets, 6, magic, "OPT", exit_pips, 12, point,
                                            long_out, short_out, reason, true));
+   bool found = false;
    for(int i = 0; i < Grind_SideDepth(long_out); i++) {
       if(long_out.layers[i].position_ticket == 1001UL) {
+         found = true;
          AssertNear("LB30 rolled target", long_out.layers[i].exit_target, 1.10030, 1e-9);
          break;
       }
    }
+   AssertTrue("LB30 rolled layer found", found);
    // five = VL8's tickets minus 2001 (index 1): the rolled L0's exit is missing
    GrindReconTicket five[5];
    int k = 0;
