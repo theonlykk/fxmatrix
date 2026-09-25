@@ -979,3 +979,6 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Merge `main` into a long-lived feature branch before its audit**
   when `main` changed code the feature touches (C52 vs B1): test and
   audit what will ship, then merge back `--no-ff`.
+- **MQL5 rejects `static` on file-scope functions** ("cannot be declared
+  static"): C55's six helpers failed the GUI compile. There is no
+  precedent in this codebase; do not accept it from a spec or an agent.

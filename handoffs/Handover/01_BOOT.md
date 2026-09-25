@@ -194,10 +194,10 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 7 to 12).
 
 | | |
 |---|---|
-| fxmatrix main | `db86ede` or a docs-only descendant: ADR-162 B1 + C54 merged (lattice default OFF; ADR-162 s14). BOTH fleets still run `5685e4f` (C52) since 25 Sep (Fleet B 04:42:55Z, VPS 04:50:36Z); B1 deploys nowhere until B2 (C55). A deploy of `main` also prints `GRIND_LATTICE enable=false` per instance at init |
+| fxmatrix main | `669da60` or a docs-only descendant: ADR-162 complete (A, B1 + C54, B2; lattice default OFF; ADR-162 s15). BOTH fleets still run `5685e4f` (C52) since 25 Sep (Fleet B 04:42:55Z, VPS 04:50:36Z); the lattice deploys only to Fleet B after C56 and the Wine tick-history check. A deploy of `main` also prints `GRIND_LATTICE enable=false` per instance at init |
 | pipshed main | `c0a5f44`: `archive_counts --carrypass` (verify `0fd3b63`, 13/13 on a scratch PostgreSQL 16), the nightly carry check. Before it `2f3e749`: D5 (`405573c`, migration `003` applied: generated `gated_seconds`/`history_ok`, Gated (h) column), daily-card Decimal fix; `/status_b`; fleet by env `GRIND_FLEET`; verify 23/23. Both web services auto-deploy from `main` |
 | VPS running | branch `main` at `5685e4f`, tag `vps-5685e4f` (compiled 2026-09-25 04:50:36Z); restore `vps-a01a5d4` |
-| MQL5 suite | **2057/2057** on GBPUSD and EURUSD at `c7855da` (EA code of `db86ede`); **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
+| MQL5 suite | **2114/2114** on GBPUSD and EURUSD at `00e0e4e` (EA code of `669da60`); **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
 | Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
 | Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
 | Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
@@ -205,7 +205,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 7 to 12).
 | **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
 | **Fleet C** | NOT BUILT and WAITING (operator 2026-09-25): after the carry fix (C52) and the ADR-162 work (C54-C56); see C51 |
-| **Next** | Confirm tonight's carry pass (~20:50Z) ran clean on both fleets (`--carrypass`, below); C55 B2 (widened by the C54 audit); C56 pipshed; then Fleet C (C51). Fleet B group A dials Mon 28 Sep before London (A4) unchanged |
+| **Next** | Confirm tonight's carry pass (~20:50Z) ran clean on both fleets (`--carrypass`, below); C56 pipshed, then the lattice on Fleet B (ADR-162 s15 preconditions); then Fleet C (C51). Fleet B group A dials Mon 28 Sep before London (A4) unchanged |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or

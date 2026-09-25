@@ -2,9 +2,10 @@ This message has a line count at the bottom
 
 # ADR-162 -- THE GRID CONTINUES PAST CAP: VIRTUAL LAYERS, REAL EXITS
 
-**Status:** Phase A MERGED `c12901a` 2026-09-25 (inert plumbing, s12);
-Phase B1 built on branch `adr162-phase-b1`, NOT merged (s13);
-B2 not started. Drafted 2026-09-24. Replaces ADR-157's trigger
+**Status:** Phase A MERGED `c12901a` (s12); B1 + C54 MERGED `db86ede`
+(s13-s14); B2 MERGED `669da60` (s15), all 2026-09-25, default OFF.
+Deploy: Fleet B by preset, after C56 (pipshed) and a read-only check that
+tick history works on the Wine box. Drafted 2026-09-24. Replaces ADR-157's trigger
 (backlog C45). Not mid-cycle 3 (auto-eject is pre-registered ON there);
 default-OFF input for a Fleet B phase or cycle 4. Operator's standard:
 simple, boring, predictable. Every site below was read in `main` at
@@ -313,4 +314,44 @@ the spec's declared preconditions.
 (pipshed's archive ignores it until C56), and empty VL lookups. Deploys
 nowhere until B2.
 
-Line count: 316
+## 15. PHASE B2 -- MERGED `669da60` (2026-09-25)
+
+**Design changes from s10 G4 / backlog C55 (operator, Gemini GD1-GD6):**
+catch-up reads TICK HISTORY (`CopyTicksRange`, exact bid and ask of every
+tick, including ticks `OnTick` never saw), not M1 bars (bid bars with the
+bar's MINIMUM spread would roll a long side on a rollover spread spike).
+Per side at cap the lattice keeps a RUNNING EXTREME (lowest ask / highest
+bid) since the side reached cap: window from 1 s after its newest open,
+at most 24 h back, cursor past the last tick read, reset below cap, no
+GV. A level traded through while a roll was held off (backoff, closing,
+quarantine) rolls afterwards even if the market has come back: operator,
+2026-09-25, "if we are 8 deep and the market is gapping, i would rather
+we were active in these demos than not". ROLL_STRANDED: every layer
+rolled and the LIVE market 2 add steps beyond the lowest effective level,
+one WARN per episode. ROLL_CLOSING_STUCK: the candidate "closing" 60 s on
+the same position (DeepSeek C54 T-1), latched. Tick-read failure: silent
+retry (GD6).
+
+**Built:** spec `prompts/cursor_c55_adr162_phase_b2.md`; Cursor `4ca8119`
+(stubs, seams, 57 tests), `9db6b85` (implementation); Claude `00e0e4e`
+(MQL5 rejects `static` on file-scope functions: six removed). Suites
+(GBPUSD and EURUSD): stubs 2091/2114 failing exactly the 23 predicted;
+`00e0e4e` 2114/2114.
+
+**DeepSeek `bb7b942`, checked:** every threat HOLDS. T-2 (a stale extreme
+across a refill) verified in source: a rolled exit's OUT_BY path never
+places an add, and the re-add is placed only by the tick engine, which
+runs after the lattice's tracking, so the reset always comes first.
+Follow-ups (backlog C62, none blocking): a defensive reset when the
+side's newest open changes; a sanity band on historical tick prices
+(T-1: a bad print would roll, as it would on the live path today); tests
+for the live `CopyTicksRange` branch (never executed in tests: the seam
+takes over), the live-price-only fold and an open-time lookup failure;
+`stuck_s` reports the constant 60.
+
+**Before the lattice goes on Fleet B:** C56; a read-only script on the
+box proving `CopyTicksRange(COPY_TICKS_INFO)` returns ticks (GD6 note);
+presets `InpVirtualLattice=true`, `InpAutoEject=false` (OnInit refuses
+otherwise); a weekday during the session, not a dial day.
+
+Line count: 357
