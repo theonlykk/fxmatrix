@@ -579,6 +579,15 @@ bool Grind_EjectIsEjected(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
+string Grind_VLName(const ulong position_ticket)        { return ""; }
+double Grind_VLGet(const ulong position_ticket)         { return 0.0; }
+bool   Grind_VLHas(const ulong position_ticket)         { return false; }
+void   Grind_VLSet(const ulong position_ticket, const double level) { }
+void   Grind_VLDelete(const ulong position_ticket)      { }
+double Grind_EffectiveEntry(const double entry, const ulong position_ticket)
+                                                        { return entry; }
+
+//+------------------------------------------------------------------+
 string Grind_EjectCommandName(const ulong magic)
 {
    return "GRIND_EJECT_" + IntegerToString((long)magic);
