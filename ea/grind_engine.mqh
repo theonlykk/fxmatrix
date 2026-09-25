@@ -683,12 +683,75 @@ datetime g_grind_vl_backoff_short = 0;
 int      g_grind_vl_fail_count_long  = 0;
 int      g_grind_vl_fail_count_short = 0;
 
+bool     g_grind_vl_tracking_long  = false;
+bool     g_grind_vl_tracking_short = false;
+double   g_grind_vl_extreme_long   = 0.0;
+double   g_grind_vl_extreme_short  = 0.0;
+long     g_grind_vl_from_msc_long  = 0;
+long     g_grind_vl_from_msc_short = 0;
+bool     g_grind_vl_stranded_warned_long  = false;
+bool     g_grind_vl_stranded_warned_short = false;
+ulong    g_grind_vl_closing_ticket_long   = 0;
+ulong    g_grind_vl_closing_ticket_short  = 0;
+datetime g_grind_vl_closing_since_long    = 0;
+datetime g_grind_vl_closing_since_short   = 0;
+bool     g_grind_vl_closing_warned_long   = false;
+bool     g_grind_vl_closing_warned_short  = false;
+// test seam: used whenever g_grind_order_test_active is true
+long     g_grind_vl_test_tick_msc[];
+double   g_grind_vl_test_tick_bid[];
+double   g_grind_vl_test_tick_ask[];
+bool     g_grind_vl_test_ticks_fail = false;
+
+void Grind_LatticeTestTicksReset()
+{
+   ArrayResize(g_grind_vl_test_tick_msc, 0);
+   ArrayResize(g_grind_vl_test_tick_bid, 0);
+   ArrayResize(g_grind_vl_test_tick_ask, 0);
+   g_grind_vl_test_ticks_fail = false;
+}
+
+void Grind_LatticeTestAddTick(const datetime t, const double bid, const double ask)
+{
+   const int n = ArraySize(g_grind_vl_test_tick_msc);
+   ArrayResize(g_grind_vl_test_tick_msc, n + 1);
+   ArrayResize(g_grind_vl_test_tick_bid, n + 1);
+   ArrayResize(g_grind_vl_test_tick_ask, n + 1);
+   g_grind_vl_test_tick_msc[n] = (long)t * 1000;
+   g_grind_vl_test_tick_bid[n] = bid;
+   g_grind_vl_test_tick_ask[n] = ask;
+}
+
+int Grind_LatticeCopyTicks(const long from_msc, long &msc[], double &bid[], double &ask[])
+{
+   return -1;
+}
+
+void Grind_LatticeTrackExtremes(const ulong magic, const int max_layers, const datetime now)
+{
+}
+
 void Grind_LatticeResetBackoff()
 {
    g_grind_vl_backoff_long = 0;
    g_grind_vl_backoff_short = 0;
    g_grind_vl_fail_count_long = 0;
    g_grind_vl_fail_count_short = 0;
+   g_grind_vl_tracking_long = false;
+   g_grind_vl_tracking_short = false;
+   g_grind_vl_extreme_long = 0.0;
+   g_grind_vl_extreme_short = 0.0;
+   g_grind_vl_from_msc_long = 0;
+   g_grind_vl_from_msc_short = 0;
+   g_grind_vl_stranded_warned_long = false;
+   g_grind_vl_stranded_warned_short = false;
+   g_grind_vl_closing_ticket_long = 0;
+   g_grind_vl_closing_ticket_short = 0;
+   g_grind_vl_closing_since_long = 0;
+   g_grind_vl_closing_since_short = 0;
+   g_grind_vl_closing_warned_long = false;
+   g_grind_vl_closing_warned_short = false;
+   Grind_LatticeTestTicksReset();
 }
 
 int Grind_LatticeCandidateIndex(const GrindSideState &side, const bool is_long)

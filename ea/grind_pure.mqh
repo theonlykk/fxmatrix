@@ -415,6 +415,17 @@ double Grind_LatticeRollCost(const double entry, const double level,
    return Grind_ExitPrice(level, exit_pips, point, -1) - entry;
 }
 
+// C55: lowest ask (long) / highest bid (short) over ticks with
+// msc >= from_msc; ticks with a non-positive ask (long) or bid
+// (short) are ignored. Returns false if none qualifies.
+bool Grind_LatticeTickExtreme(const long &msc[], const double &bid[],
+                              const double &ask[], const int n,
+                              const long from_msc, const bool is_long,
+                              double &extreme_out)
+{
+   return false;
+}
+
 //+------------------------------------------------------------------+
 datetime Grind_LastSundayMonthUtc(const int year, const int month)
 {

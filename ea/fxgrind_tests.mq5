@@ -22,6 +22,7 @@
 #include "fxgrind_tests_c52.mqh"
 #include "fxgrind_tests_adr162b.mqh"
 #include "fxgrind_tests_c54.mqh"
+#include "fxgrind_tests_c55.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9335,6 +9336,26 @@ void OnStart()
    Test_LB37_PassThenRollBranchM();
    Test_LB38_RollThenPassBranchM();
    Test_LB39_RollMidPassBranchS();
+   Test_VC1_TickExtremeLong();
+   Test_VC2_TickExtremeShort();
+   Test_VC3_MissedDipRolls();
+   Test_VC4_DipBeforeNewestOpen();
+   Test_VC5_BidDipIsNotAskDip();
+   Test_VC6_ShortMissedSpike();
+   Test_VC7_GapFromHistory();
+   Test_VC8_ExtremeAcrossTicks();
+   Test_VC9_CopyFailureRetries();
+   Test_VC10_LookbackCap();
+   Test_VC11_BelowCapResets();
+   Test_VC12_BackoffKeepsExtreme();
+   Test_VS1_StrandedWarnOnce();
+   Test_VS2_StrandedShort();
+   Test_VCS1_ClosingStuckWarn();
+   Test_VCS2_OrderGoneStuckWarn();
+   Test_LB40_ShortRollThenPass();
+   Test_LB41_GapLoopDuringPass();
+   Test_LB42_ClampedCatchupRollThenPass();
+   Test_LB43_SignGuardAfterRoll();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
