@@ -9292,6 +9292,8 @@ void OnStart()
    Test_CR1_ReleasedMidPass();
    Test_CR2_DemotedMidPass();
    Test_CR3_ClosingMidPass();
+   Test_CR4_ShortReleasedMidPass();
+   Test_CR5_MissingFromBookMidPass();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
