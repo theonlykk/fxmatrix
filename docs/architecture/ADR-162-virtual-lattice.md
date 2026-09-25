@@ -2,7 +2,8 @@ This message has a line count at the bottom
 
 # ADR-162 -- THE GRID CONTINUES PAST CAP: VIRTUAL LAYERS, REAL EXITS
 
-**Status:** DRAFT for Gemini (2026-09-24). Replaces ADR-157's trigger
+**Status:** Phase A MERGED `c12901a` 2026-09-25 (inert plumbing, s12);
+Phase B not started. Drafted 2026-09-24. Replaces ADR-157's trigger
 (backlog C45). Not mid-cycle 3 (auto-eject is pre-registered ON there);
 default-OFF input for a Fleet B phase or cycle 4. Operator's standard:
 simple, boring, predictable. Every site below was read in `main` at
@@ -165,4 +166,51 @@ His reply: 13 lines as pasted, no line-count footer.
   L1 130 -> 55 = -75); state the cost per roll as
   `entry(Lk) - (level + exit)`, known when it fires.
 
-Line count: 168
+## 12. PHASE A -- MERGED `c12901a` (2026-09-25)
+
+**Landed** (EA code = tested `9466b22`; spec with Gemini GA1-GA5, all
+accepted: `prompts/cursor_adr162_phase_a.md`). GV `GRIND_VL_<ticket>`
+(entry space) and `Grind_EffectiveEntry` (carry 617), substituted at
+every exit-price formula (exitq 253; recon 133, 378; carry 952, 962,
+976; engine 408) and every rank array (engine 484, 493, 556, 569, 2426;
+recon 447). Add anchor on the effective extreme only when the side holds
+a VL (engine 1514, GA1); carry sign guard on the effective entry (carry
+650, GA2); a hand eject of a rolled layer is allowed (GA3). VL deleted on
+close (engine 2026), pruned with its position (carry 997), in
+`scripts/grind_gv_clean.mq5`; heartbeat `virtual_level` on rolled layers
+only. No input, no trigger, no roll: nothing outside tests sets a VL, so
+a live book is unchanged by construction. Reporting keeps the actual
+entry; the `EJECT_ACCEPTED` `raw` field is effective-based by design.
+
+**Verified:** stub `cb4c51f` 1850/1874 on GBPUSD and EURUSD, exactly the
+24 predicted failures; tip `9466b22` 1875/1875 on both.
+
+**Found after Cursor, fixed on the branch:** (1) the spec missed a sixth
+exit-price site, `Grind_CarryWorkBase` (carry 976), the base the nightly
+pass actually modifies to; VL10 had checked only the stored copy
+(`g_grind_carry_exit_work_formula`). Test `268bde0`, fix `b982f77`.
+(2) The new assertion then failed for a setup reason: `PassBegin` ends
+with the prune, which deleted the test's VL (test position 1001 does not
+exist); `9466b22` re-sets it after `PassBegin`, as F5 does for the offset.
+
+**DeepSeek `6e10967`** (each verdict checked in source): G1-G9 verified;
+T-2 (missed site), T-4 (eject a rolled layer), T-5 (sign guard) HOLD.
+Carried to Phase B:
+- **B1** (T-1/T-6): `Grind_VLHas` false for ticket 0 (the anchor loop,
+  engine 1524, has no ticket-0 guard; unreachable today, every layer
+  carries a position ticket).
+- **B2** (T-3): when may a VL be deleted? The prune deletes it whenever
+  `PositionSelectByTicket` fails. At `OnInit` it runs after
+  reconstruction (`fxgrind.mq5` 195) and the EA has no connection check
+  anywhere, so it rests on the premise reconstruction already rests on
+  (offset and carry GVs too). A lost live VL fails I6 on the rolled
+  exit. For Gemini: close path only, or prune gated on a healthy
+  reconstruction.
+- **B3** (T-8): tests for command ranks (engine 484/493), auto ranks
+  (556/569), the short side of I6, sign guard, anchor, queue, carry base
+  and close; a live VL surviving the prune; a restart with a VL through
+  `Grind_ReconstructState`.
+- **B4** (GA5): a rolled exit's fill is flagged in `scalp_closed` and not
+  counted as a scalp (s4, Daily card).
+
+Line count: 216

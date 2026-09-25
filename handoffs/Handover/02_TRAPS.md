@@ -891,3 +891,23 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   trim-before-protect ranks by floating loss (false: barbell rank
   predicate, same as I3). His unsourced IC Markets 23:59-00:01 claim
   turned out right. Verify each either way.
+
+## TRAPS FROM 2026-09-25 (ADR-162 PHASE A)
+
+- **A stored copy is not the value used.** The carry pass stores
+  `g_grind_carry_exit_work_formula` but modifies to `Grind_CarryWorkBase`,
+  which recomputes from the entry. Listing "formula sites" from one field
+  misses the recomputation; test the price the ORDER is sent at.
+- **A prune inside the function under test eats test fixtures.**
+  `Grind_CarryExitPassBegin` ends with `Grind_CarryPruneShiftGvs`, which
+  deletes per-ticket GVs of positions that do not exist: every test
+  position. Set per-ticket GVs AFTER `PassBegin` (F5, VL10).
+- **A test can fail for two reasons at once.** VL10's new assertion
+  failed before the fix (no substitution) and after it (pruned VL), so
+  the before-fix run proved less than claimed. When a fix does not turn a
+  test green, read source before blaming the build.
+- **Tell Cursor to push its branch.** "Commit to a branch" alone leaves
+  it local, and GitHub has nothing to verify.
+- **Every suite run is checkout, `desktop_sync.ps1`, GUI compile, run,**
+  with the compile time after the sync. `Get-FileHash` repo vs terminal
+  proves the sync, not the compile.
