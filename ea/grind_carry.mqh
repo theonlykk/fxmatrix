@@ -980,6 +980,27 @@ double Grind_CarryWorkBase(const int idx, const double exit_pips, const double p
 }
 
 //+------------------------------------------------------------------+
+// C52: the pass must act on the layer's CURRENT exit, not the one
+// captured at PassBegin (the queue releases and cancels mid-pass).
+bool Grind_CarryCurrentExitTicket(const ulong position_ticket,
+                                  const bool is_long,
+                                  ulong &exit_ticket_out,
+                                  bool &closing_out)
+{
+   exit_ticket_out = 0;
+   closing_out = false;
+   const GrindSideState side = is_long ? g_grind_long : g_grind_short;
+   for(int i = 0; i < ArraySize(side.layers); i++) {
+      if(side.layers[i].position_ticket != position_ticket)
+         continue;
+      exit_ticket_out = side.layers[i].exit_order_ticket;
+      closing_out = (side.layers[i].exit_position_ticket != 0);
+      return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
 void Grind_CarryPruneShiftGvs(const ulong magic)
 {
    for(int g = GlobalVariablesTotal() - 1; g >= 0; g--) {
@@ -1164,11 +1185,21 @@ int Grind_CarryExitPassStep(const string symbol,
          && g_grind_carry_exit_work_cursor < g_grind_carry_exit_work_count) {
       const int idx = g_grind_carry_exit_work_cursor;
       g_grind_carry_exit_work_cursor++;
+      ulong current_exit = 0;
+      bool closing = false;
+      if(!Grind_CarryCurrentExitTicket(g_grind_carry_exit_work_pos[idx],
+                                       g_grind_carry_exit_work_long[idx],
+                                       current_exit, closing)
+         || closing) {
+         g_grind_carry_exit_skipped++;
+         processed++;
+         continue;
+      }
       bool clamped = false;
       bool sign_skip = false;
       uint retcode = 0;
       if(Grind_CarryExitShiftLayer(g_grind_carry_exit_work_pos[idx],
-                                   g_grind_carry_exit_work_exit[idx],
+                                   current_exit,
                                    g_grind_carry_exit_work_entry[idx],
                                    Grind_CarryWorkBase(idx, exit_pips,
                                                        SymbolInfoDouble(symbol, SYMBOL_POINT)),

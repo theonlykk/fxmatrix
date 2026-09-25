@@ -19,6 +19,7 @@
 #include "fxgrind_tests_adr151.mqh"
 #include "fxgrind_tests_adr152.mqh"
 #include "fxgrind_tests_adr162.mqh"
+#include "fxgrind_tests_c52.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9288,6 +9289,11 @@ void OnStart()
    Test_VL14_HeartbeatVirtualLevel();
    Test_VL15_EjectRolledOffset();
    Test_VL16_ParseL100();
+   Test_CR1_ReleasedMidPass();
+   Test_CR2_DemotedMidPass();
+   Test_CR3_ClosingMidPass();
+   Test_CR4_ShortReleasedMidPass();
+   Test_CR5_MissingFromBookMidPass();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
