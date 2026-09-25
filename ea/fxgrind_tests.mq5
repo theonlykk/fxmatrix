@@ -9320,6 +9320,7 @@ void OnStart()
    Test_LB29_CloseRolledFlag();
    Test_LB30_RestartRolledStartup();
    Test_LB31_RollDetail();
+   Test_LB32_BackoffCapNoOverflow();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

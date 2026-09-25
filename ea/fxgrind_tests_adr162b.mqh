@@ -676,4 +676,23 @@ void Test_LB31_RollDetail()
    AssertContains("LB31 source", d, "\"source\":\"auto\"");
 }
 
+//+------------------------------------------------------------------+
+// LB32: the doubling backoff must stay capped at 1800 s however many
+// failures have accumulated (60 * 2^(n-1) overflows int from n = 27).
+void Test_LB32_BackoffCapNoOverflow()
+{
+   Adr162b_SeedLong8();
+   Grind_MarketTestSeed(1.20590, 1.20600, 0, 0);
+   g_grind_order_test_send_ok = false;
+   g_grind_vl_fail_count_long = 40;
+   const datetime now = D'2026.09.28 10:00';
+   Adr162b_TryLong(now);
+   AssertTrue("LB32 attempted", g_grind_order_test_modify_calls == 1);
+   Adr162b_TryLong(now + 1799);
+   AssertTrue("LB32 capped wait holds", g_grind_order_test_modify_calls == 1);
+   Adr162b_TryLong(now + 1800);
+   AssertTrue("LB32 retry at cap", g_grind_order_test_modify_calls == 2);
+   Adr162b_Reset();
+}
+
 #endif // FXGRIND_TESTS_ADR162B_MQH
