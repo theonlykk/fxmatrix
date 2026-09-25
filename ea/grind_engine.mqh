@@ -856,19 +856,19 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
          if(is_long) {
             g_grind_vl_fail_count_long++;
             const int n = g_grind_vl_fail_count_long;
-            const double mult = MathPow(2.0, (double)(n - 1));
-            int sec = (int)(GRIND_VL_RETRY_BACKOFF_SEC * mult);
-            if(sec > GRIND_VL_RETRY_BACKOFF_MAX_SEC)
-               sec = GRIND_VL_RETRY_BACKOFF_MAX_SEC;
-            g_grind_vl_backoff_long = now + sec;
+            // cap in double BEFORE the cast: 60 * 2^(n-1) overflows int from n = 27
+            const double sec = MathMin((double)GRIND_VL_RETRY_BACKOFF_SEC
+                                       * MathPow(2.0, (double)(n - 1)),
+                                       (double)GRIND_VL_RETRY_BACKOFF_MAX_SEC);
+            g_grind_vl_backoff_long = now + (int)sec;
          } else {
             g_grind_vl_fail_count_short++;
             const int n = g_grind_vl_fail_count_short;
-            const double mult = MathPow(2.0, (double)(n - 1));
-            int sec = (int)(GRIND_VL_RETRY_BACKOFF_SEC * mult);
-            if(sec > GRIND_VL_RETRY_BACKOFF_MAX_SEC)
-               sec = GRIND_VL_RETRY_BACKOFF_MAX_SEC;
-            g_grind_vl_backoff_short = now + sec;
+            // cap in double BEFORE the cast: 60 * 2^(n-1) overflows int from n = 27
+            const double sec = MathMin((double)GRIND_VL_RETRY_BACKOFF_SEC
+                                       * MathPow(2.0, (double)(n - 1)),
+                                       (double)GRIND_VL_RETRY_BACKOFF_MAX_SEC);
+            g_grind_vl_backoff_short = now + (int)sec;
          }
          break;
       }
