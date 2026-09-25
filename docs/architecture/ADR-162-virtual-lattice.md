@@ -3,7 +3,8 @@ This message has a line count at the bottom
 # ADR-162 -- THE GRID CONTINUES PAST CAP: VIRTUAL LAYERS, REAL EXITS
 
 **Status:** Phase A MERGED `c12901a` 2026-09-25 (inert plumbing, s12);
-Phase B not started. Drafted 2026-09-24. Replaces ADR-157's trigger
+Phase B1 built on branch `adr162-phase-b1`, NOT merged (s13);
+B2 not started. Drafted 2026-09-24. Replaces ADR-157's trigger
 (backlog C45). Not mid-cycle 3 (auto-eject is pre-registered ON there);
 default-OFF input for a Fleet B phase or cycle 4. Operator's standard:
 simple, boring, predictable. Every site below was read in `main` at
@@ -213,4 +214,67 @@ Carried to Phase B:
 - **B4** (GA5): a rolled exit's fill is flagged in `scalp_closed` and not
   counted as a scalp (s4, Daily card).
 
-Line count: 216
+## 13. PHASE B1 -- BUILT ON `adr162-phase-b1`, NOT MERGED (2026-09-25)
+
+**Operator decisions (2026-09-25).** Q1: fires at cap only, never for a
+gate-blocked add. No layer is ever rolled twice, by any path: one
+automatic sweep, then a stranded side (every layer rolled, market S or
+more add steps beyond the lowest effective level) raises ROLL_STRANDED
+(B2) and waits; the operator investigates first (it may be a fault, not a
+trend), then uses the ADR-155 hand eject or leaves it. "Roll here" is
+DEFERRED until B has run live (backlog C53): s6's "roll here" and C45's
+text are superseded. Q2 (inferred from ADR-161, not discussed with the
+operator): rolls run outside the session window; Fleet C does not run
+the lattice. Q4: deploy target at week end. Phase B is split: B1 (input,
+trigger, roll, gap loop, B1-B4), B2 (M1 catch-up, ROLL_STRANDED, C55),
+pipshed (C56).
+
+**Corrections to s5 and C45.** The roll target is `ExitPrice(level) +
+accrued` (the formula once the VL is set and any offset cleared), clamped
+passive; not "level +/- exit". A gap does NOT send all rolled exits at
+once: under K=1/H=0 only the newest rolled exit and the oldest unrolled
+layer's exit rest, and each fill releases the next. The gap loops per
+level (modify, store VL, queue cancels the old rank 0 and places the new
+highest): about 3 requests per level, at most cap levels per side per
+episode, against ONE fleet-wide daily count (2000; entries stop at 1900).
+
+**Spec** `prompts/cursor_adr162_phase_b1.md` (on the branch, rulings
+inside). GB1 modify first, VL only after success. GB2 VL deleted on the
+close path only (the prune lost its `GRIND_VL_` branch; Phase A test VL12
+flipped on purpose). GB3 a roll deletes a hand-eject offset and carry
+shift. GB4 a new `rolled` key in `scalp_closed` (reusing `ejected` breaks
+pipshed `eject_mismatch`). GB5 accepted on a wrong premise (a per-side
+budget) and amended by Claude: backoff doubles per consecutive failure
+from 60 s, capped at 1800 s; GB10 accepted the amendment. GB6 candidate =
+oldest unrolled by ACTUAL entry (branch S: a middle rank with no exit gets
+the VL and the queue places it). GB7 level = `Grind_ComputeAddTarget`.
+GB8 tick path only; B1 never deploys without B2. GB9 rolls ignore the
+entry gate, breaker, API entry stop and session window.
+
+**Built:** Cursor `5865060` (tests vs stubs), `f95d4b8` (implementation).
+Claude patches: `a949d65` (a test forward declaration with no body broke
+the compile), `867d3c8` (LB25 built layers without exit fields and passed
+3 of 4 on stale memory; LB30 dropped the wrong ticket), `d5cf777` (LB32),
+`3188f72` (the backoff overflowed `int` from 27 failures; capped in double
+before the cast). Audit inputs `9315e18`; DeepSeek response `73b1a8d`.
+
+**Verified:** stub plus compile fix 1927/1999 on GBPUSD (all 69 predicted
+plus the 3 LB25/LB30 faults); before the overflow fix 2000/2002 (only
+LB32: the overflow is real on this build); tip `3188f72` 2002/2002 on
+GBPUSD and EURUSD.
+
+**DeepSeek `73b1a8d`, each verdict checked in source.** G1-G8 verified.
+T-3 CORRECT: an exit filled at the broker but not yet processed fails the
+roll at `Grind_SelectOurOrder` with no broker call, reports ROLL_REFUSED
+and backs off for nothing; fix in C54. T-10 CORRECT: LB30's "rolled
+target" sits inside an `if`; the failure-count reset is not asserted; no
+short gap test; the refusals inside the roll are untested; tests in C54.
+T-4 REAL BUT PRE-EXISTING: the carry-pass race (C52), a live defect not
+caused by B1. T-1 (slot guard after a roll; unchecked GV writes):
+pre-existing and engine-wide. T-5 (anchor on the highest index): ruled
+GA1/GB7, and under K=1/H=0 the highest index is the lowest entry. T-2,
+T-6, T-7, T-8 hold; T-9 reduces to T-3.
+
+**Before merge:** C54. Deploys nowhere until B2 (C55).
+
+Line count: 280
