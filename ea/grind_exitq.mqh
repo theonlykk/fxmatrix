@@ -250,7 +250,8 @@ double Grind_ExitQFormulaTarget(const double entry,
    const double eject_offset = (position_ticket > 0)
                                ? Grind_EjectOffsetGet(position_ticket)
                                : 0.0;
-   return Grind_ExitPrice(entry, exit_pips, point, is_long ? 1 : -1) + accrued + eject_offset;
+   const double eff = Grind_EffectiveEntry(entry, position_ticket);
+   return Grind_ExitPrice(eff, exit_pips, point, is_long ? 1 : -1) + accrued + eject_offset;
 }
 
 //+------------------------------------------------------------------+

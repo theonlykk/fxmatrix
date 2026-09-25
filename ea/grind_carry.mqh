@@ -579,13 +579,49 @@ bool Grind_EjectIsEjected(const ulong position_ticket)
 }
 
 //+------------------------------------------------------------------+
-string Grind_VLName(const ulong position_ticket)        { return ""; }
-double Grind_VLGet(const ulong position_ticket)         { return 0.0; }
-bool   Grind_VLHas(const ulong position_ticket)         { return false; }
-void   Grind_VLSet(const ulong position_ticket, const double level) { }
-void   Grind_VLDelete(const ulong position_ticket)      { }
+string Grind_VLName(const ulong position_ticket)
+{
+   return "GRIND_VL_" + IntegerToString((long)position_ticket);
+}
+
+//+------------------------------------------------------------------+
+double Grind_VLGet(const ulong position_ticket)
+{
+   const string name = Grind_VLName(position_ticket);
+   if(!GlobalVariableCheck(name))
+      return 0.0;
+   return GlobalVariableGet(name);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_VLHas(const ulong position_ticket)
+{
+   return GlobalVariableCheck(Grind_VLName(position_ticket));
+}
+
+//+------------------------------------------------------------------+
+void Grind_VLSet(const ulong position_ticket, const double level)
+{
+   GlobalVariableSet(Grind_VLName(position_ticket), level);
+   Grind_GvMarkDirty();
+}
+
+//+------------------------------------------------------------------+
+void Grind_VLDelete(const ulong position_ticket)
+{
+   GlobalVariableDel(Grind_VLName(position_ticket));
+   Grind_GvMarkDirty();
+}
+
+//+------------------------------------------------------------------+
 double Grind_EffectiveEntry(const double entry, const ulong position_ticket)
-                                                        { return entry; }
+{
+   if(position_ticket == 0)
+      return entry;
+   if(!Grind_VLHas(position_ticket))
+      return entry;
+   return Grind_VLGet(position_ticket);
+}
 
 //+------------------------------------------------------------------+
 string Grind_EjectCommandName(const ulong magic)
@@ -618,7 +654,8 @@ bool Grind_CarrySignGuardAppliesAtShift(const ulong position_ticket,
 {
    if(Grind_EjectIsEjected(position_ticket))
       return false;
-   return Grind_CarrySignGuardBlocks(entry, new_exit, is_long);
+   const double eff = Grind_EffectiveEntry(entry, position_ticket);
+   return Grind_CarrySignGuardBlocks(eff, new_exit, is_long);
 }
 
 //+------------------------------------------------------------------+
@@ -912,7 +949,8 @@ void Grind_CarryExitPassBegin(const string symbol,
       const GrindLayer layer = g_grind_long.layers[i];
       if(layer.position_ticket == 0)
          continue;
-      const double formula = Grind_ExitPrice(layer.entry_price, exit_pips, point, 1)
+      const double formula = Grind_ExitPrice(Grind_EffectiveEntry(layer.entry_price, layer.position_ticket),
+                                             exit_pips, point, 1)
                              + Grind_EjectOffsetGet(layer.position_ticket);
       Grind_CarryExitPassAppendWork(layer.position_ticket, layer.exit_order_ticket,
                                     layer.entry_price, formula, true, layer.layer_index);
@@ -921,7 +959,8 @@ void Grind_CarryExitPassBegin(const string symbol,
       const GrindLayer layer = g_grind_short.layers[i];
       if(layer.position_ticket == 0)
          continue;
-      const double formula = Grind_ExitPrice(layer.entry_price, exit_pips, point, -1)
+      const double formula = Grind_ExitPrice(Grind_EffectiveEntry(layer.entry_price, layer.position_ticket),
+                                             exit_pips, point, -1)
                              + Grind_EjectOffsetGet(layer.position_ticket);
       Grind_CarryExitPassAppendWork(layer.position_ticket, layer.exit_order_ticket,
                                     layer.entry_price, formula, false, layer.layer_index);
@@ -952,6 +991,9 @@ void Grind_CarryPruneShiftGvs(const ulong magic)
          ticket = (ulong)StringToInteger(suffix);
       } else if(StringFind(name, "GRIND_EJECT_OFFSET_") == 0) {
          const string suffix = StringSubstr(name, StringLen("GRIND_EJECT_OFFSET_"));
+         ticket = (ulong)StringToInteger(suffix);
+      } else if(StringFind(name, "GRIND_VL_") == 0) {
+         const string suffix = StringSubstr(name, StringLen("GRIND_VL_"));
          ticket = (ulong)StringToInteger(suffix);
       } else {
          continue;

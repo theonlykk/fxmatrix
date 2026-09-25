@@ -405,7 +405,8 @@ int Grind_EjectAcceptLayer(const bool is_long, const int idx, const ulong magic,
    }
 
    const int dir = is_long ? 1 : -1;
-   const double raw = Grind_ExitPrice(entry_price, exit_pips, _Point, dir);
+   const double raw = Grind_ExitPrice(Grind_EffectiveEntry(entry_price, position_ticket),
+                                      exit_pips, _Point, dir);
    const double accrued = Grind_CarryAccruedGet(position_ticket);
    const double offset = Grind_EjectOffsetFor(target, raw, accrued);
    Grind_EjectOffsetSet(position_ticket, offset);
@@ -480,7 +481,8 @@ int Grind_EjectPollCommand(const ulong magic,
       ArrayResize(layer_indices, n);
       if(is_long) {
          for(int i = 0; i < n; i++) {
-            entries[i] = g_grind_long.layers[i].entry_price;
+            entries[i] = Grind_EffectiveEntry(g_grind_long.layers[i].entry_price,
+                                              g_grind_long.layers[i].position_ticket);
             layer_indices[i] = g_grind_long.layers[i].layer_index;
          }
          Grind_ExitQRanks(entries, layer_indices, n, true, ranks);
@@ -488,7 +490,8 @@ int Grind_EjectPollCommand(const ulong magic,
          has_exit_order = (g_grind_long.layers[idx].exit_order_ticket != 0);
       } else {
          for(int i = 0; i < n; i++) {
-            entries[i] = g_grind_short.layers[i].entry_price;
+            entries[i] = Grind_EffectiveEntry(g_grind_short.layers[i].entry_price,
+                                              g_grind_short.layers[i].position_ticket);
             layer_indices[i] = g_grind_short.layers[i].layer_index;
          }
          Grind_ExitQRanks(entries, layer_indices, n, false, ranks);
@@ -550,7 +553,8 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
    int idx = -1;
    if(is_long) {
       for(int i = 0; i < layer_count; i++) {
-         entries[i] = g_grind_long.layers[i].entry_price;
+         entries[i] = Grind_EffectiveEntry(g_grind_long.layers[i].entry_price,
+                                           g_grind_long.layers[i].position_ticket);
          layer_indices[i] = g_grind_long.layers[i].layer_index;
       }
       Grind_ExitQRanks(entries, layer_indices, layer_count, true, ranks);
@@ -562,7 +566,8 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
       }
    } else {
       for(int i = 0; i < layer_count; i++) {
-         entries[i] = g_grind_short.layers[i].entry_price;
+         entries[i] = Grind_EffectiveEntry(g_grind_short.layers[i].entry_price,
+                                           g_grind_short.layers[i].position_ticket);
          layer_indices[i] = g_grind_short.layers[i].layer_index;
       }
       Grind_ExitQRanks(entries, layer_indices, layer_count, false, ranks);
@@ -1510,10 +1515,38 @@ double Grind_ComputeAddTarget(const GrindSideState &side,
                               const bool is_long,
                               const double add_pips)
 {
-   const int depth_idx = Grind_FindDeepestLayerArrayIndex(side);
-   if(depth_idx < 0)
+   const int n = Grind_SideDepth(side);
+   if(n <= 0)
       return 0.0;
-   const double anchor = side.layers[depth_idx].entry_price;
+
+   bool any_vl = false;
+   for(int i = 0; i < n; i++) {
+      if(Grind_VLHas(side.layers[i].position_ticket)) {
+         any_vl = true;
+         break;
+      }
+   }
+
+   double anchor = 0.0;
+   if(!any_vl) {
+      const int depth_idx = Grind_FindDeepestLayerArrayIndex(side);
+      if(depth_idx < 0)
+         return 0.0;
+      anchor = side.layers[depth_idx].entry_price;
+   } else {
+      anchor = Grind_EffectiveEntry(side.layers[0].entry_price, side.layers[0].position_ticket);
+      for(int i = 1; i < n; i++) {
+         const double eff = Grind_EffectiveEntry(side.layers[i].entry_price,
+                                                 side.layers[i].position_ticket);
+         if(is_long) {
+            if(eff < anchor)
+               anchor = eff;
+         } else {
+            if(eff > anchor)
+               anchor = eff;
+         }
+      }
+   }
    return Grind_AddTargetPrice(anchor, add_pips, _Point, is_long ? 1 : -1);
 }
 
@@ -1990,6 +2023,7 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          Grind_CarryShiftDelete(closed_position);
          Grind_CarryAccruedDelete(closed_position);
          Grind_EjectOffsetDelete(closed_position);
+         Grind_VLDelete(closed_position);
          Grind_RemoveLayerAt(side, i);
          Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
          return;
@@ -2389,7 +2423,7 @@ void Grind_ExitQManageSide(GrindSideState &side,
    ArrayResize(entries, n);
    ArrayResize(layer_indices, n);
    for(int i = 0; i < n; i++) {
-      entries[i] = side.layers[i].entry_price;
+      entries[i] = Grind_EffectiveEntry(side.layers[i].entry_price, side.layers[i].position_ticket);
       layer_indices[i] = side.layers[i].layer_index;
    }
 

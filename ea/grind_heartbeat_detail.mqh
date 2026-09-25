@@ -244,15 +244,21 @@ string Grind_HeartbeatLayersJson(const ulong magic, const int digits)
          if(Grind_HeartbeatPositionComment(layer.position_ticket, magic, broker_comment))
             comment_json = Grind_HeartbeatQuotedCommentJson(broker_comment);
 
+         string vl_field = "";
+         if(layer.position_ticket != 0 && Grind_VLHas(layer.position_ticket))
+            vl_field = StringFormat(",\"virtual_level\":%s",
+                                    DoubleToString(Grind_VLGet(layer.position_ticket), digits));
+
          json += StringFormat(
             "{\"layer_index\":%d,\"side\":\"%s\","
-            "\"entry_price\":%s,\"exit_target\":%s,"
+            "\"entry_price\":%s,\"exit_target\":%s%s,"
             "\"has_exit_order\":%s,\"has_exit_position\":%s,"
             "\"comment\":%s}",
             layer.layer_index,
             side_letter,
             DoubleToString(layer.entry_price, digits),
             DoubleToString(layer.exit_target, digits),
+            vl_field,
             (layer.exit_order_ticket != 0 ? "true" : "false"),
             (layer.exit_position_ticket != 0 ? "true" : "false"),
             comment_json

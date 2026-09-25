@@ -34,6 +34,7 @@ void OnStart()
       "GRIND_CARRY_ACCRUED_",
       "GRIND_CARRY_RELEASE_",
       "GRIND_EJECT_",
+      "GRIND_VL_",
       "GRIND_BREAKER_",
       "GRIND_SNAPSHOT_",
       "GRIND2226_",
