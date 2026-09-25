@@ -127,4 +127,42 @@ realised against what ADR-155/157 did.
   cost as `entry(Lk) - (level + exit)` per roll (known at firing) and
   keep the worst-case bound as `cap` rolls. Accept?
 
-Line count: 130
+## 11. GEMINI RULINGS (2026-09-24) AND OUR VERIFICATION
+
+His reply: 13 lines as pasted, no line-count footer.
+
+- **G1 ACCEPTED AS A GUARD.** The effective entry is used ONLY at the
+  lattice sites in s5 (add anchor, exit ranks, exit target, I6, roll,
+  trigger). Reporting keeps the ACTUAL entry: the heartbeat's
+  `entry_price` (`grind_heartbeat_detail.mqh` 249-254) is unchanged and
+  gains a `virtual_level` field for rolled layers; P&L and MTM come from
+  the broker's position profit. His "margin allocation" point has no
+  target: the grind EA has no per-entry margin logic (its "margin" is
+  the commitment guard's spare slots).
+- **G2 ACCEPTED.** New `GRIND_VL_<ticket>` GV, entry space.
+- **G3 REJECTED (verified in source).** Trim-before-protect does not
+  rank by floating loss: it cancels live exits that the barbell
+  predicate `Grind_ExitQRequired(rank, depth)` does not require
+  (engine 2392-2405), and I3 coverage uses the SAME predicate (recon
+  507, 536, 1057). Queue and I3 must rank identically or every rolled
+  book fails I3. Ranking by ACTUAL entry is also what stalls the
+  lattice: the rolled L0 stays the highest rank, the next candidate
+  (L1) is a middle rank with no live exit, and ADR-155's validator
+  refuses it (`GRIND_EJECT_NOT_DEEPEST` / `NO_EXIT_ORDER`,
+  `grind_pure.mqh` 284). Effective ranks keep the oldest UNROLLED layer
+  at the highest rank. "True drawdown" stays visible through G1's
+  reporting rule.
+- **G4 ACCEPTED.** (His backtesting remark does not apply: this is live
+  detection.)
+- **G5 VERIFIED SAFE, test added.** Both parsers split on `|` and read
+  the integer after `L` (`GrindCommentParse`, `grind_comment.mqh`;
+  pipshed `_parse_grind_comment`, `app.py` 1164), so `L100` parses.
+  Layer arrays are dynamic and map labels by lookup
+  (`Grind_ReconEnsureLayer`, recon 310); no bound ties `layer_index` to
+  the cap (`Grind_CanPlaceEntryLayer` counts layers, not indices).
+  `GRIND|OPT|L|L100|EXT` is 20 of 31 chars. Add a parse test for L100.
+- **G6 CONFIRMED.** His arithmetic matches s4 (L0 140 -> 65 = -75,
+  L1 130 -> 55 = -75); state the cost per roll as
+  `entry(Lk) - (level + exit)`, known when it fires.
+
+Line count: 168
