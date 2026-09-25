@@ -226,7 +226,10 @@ void Test_VL10_CarryPassBaseRolled()
    Grind_CarryExitPassBegin(_Symbol, 22260101UL, 3.0);
    AssertTrue("VL10 one work item", g_grind_carry_exit_work_count == 1);
    AssertNear("VL10 base", g_grind_carry_exit_work_formula[0], 1.10030, 1e-9);
-   // VL10 shift base: the value the pass actually shifts from (carry 976), not only the stored formula
+   // VL10 shift base: the value the pass actually shifts from (carry 976), not only the stored formula.
+   // PassBegin ends with Grind_CarryPruneShiftGvs, which deletes GRIND_VL_1001 because test
+   // position 1001 does not exist; re-set it before reading the base (same as F5 does for the offset).
+   Grind_VLSet(1001UL, 1.10000);
    AssertNear("VL10 shift base", Grind_CarryWorkBase(0, 3.0, 0.00001), 1.10030, 1e-9);
    Grind_CarryExitPassReset();
    Grind_TestResetSideState();
