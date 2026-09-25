@@ -8,19 +8,6 @@
 #include "grind_comment.mqh"
 #include "grind_archive.mqh"
 
-void Grind_ArchiveTestReset();
-void Grind_ArchiveTestConfigureCommon();
-void Grind_TestEjectHarnessReset();
-void Adr151_TestResetAll();
-void Adr151_TestSeedSlotSeams(const int limit, const int used, const int resting);
-void Adr151_TestSetupLongLayer(GrindSideState &side, const int array_idx, const int layer_index,
-                               const double entry_price, const ulong position_ticket,
-                               const ulong exit_order_ticket, const double exit_pips = 3.0);
-int  Adr151_TestCountRestingExits(const GrindSideState &side);
-void Adr152_TestPrepareIsolation();
-void Adr152_TestResetAll();
-void Grind_TestAutoEjectSeriesA(datetime &times[], double &vals[], const datetime now);
-
 //+------------------------------------------------------------------+
 void Adr162b_Reset()
 {
