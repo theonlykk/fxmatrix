@@ -758,7 +758,7 @@ int Grind_LatticeCopyTicks(const long from_msc, long &msc[], double &bid[], doub
 }
 
 //+------------------------------------------------------------------+
-static void Grind_LatticeFoldExtreme(const bool is_long, const long from_msc,
+void Grind_LatticeFoldExtreme(const bool is_long, const long from_msc,
                                      const long &msc[], const double &bid[],
                                      const double &ask[], const int n,
                                      double &extreme)
@@ -784,7 +784,7 @@ static void Grind_LatticeFoldExtreme(const bool is_long, const long from_msc,
 }
 
 //+------------------------------------------------------------------+
-static void Grind_LatticeTrackOneSide(const GrindSideState &side, const bool is_long,
+void Grind_LatticeTrackOneSide(const GrindSideState &side, const bool is_long,
                                       const ulong magic, const int max_layers,
                                       const datetime now)
 {
@@ -1044,7 +1044,7 @@ int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int i
 }
 
 //+------------------------------------------------------------------+
-static double Grind_LatticeLowestEffective(const GrindSideState &side, const bool is_long)
+double Grind_LatticeLowestEffective(const GrindSideState &side, const bool is_long)
 {
    double v = 0.0;
    bool any = false;
@@ -1067,7 +1067,7 @@ static double Grind_LatticeLowestEffective(const GrindSideState &side, const boo
 }
 
 //+------------------------------------------------------------------+
-static void Grind_LatticeResetClosingState(const bool is_long)
+void Grind_LatticeResetClosingState(const bool is_long)
 {
    if(is_long) {
       g_grind_vl_closing_ticket_long = 0;
@@ -1081,7 +1081,7 @@ static void Grind_LatticeResetClosingState(const bool is_long)
 }
 
 //+------------------------------------------------------------------+
-static void Grind_LatticeNoteClosing(const bool is_long, const ulong pos, const datetime now)
+void Grind_LatticeNoteClosing(const bool is_long, const ulong pos, const datetime now)
 {
    if(is_long) {
       if(g_grind_vl_closing_ticket_long != pos) {
@@ -1117,7 +1117,7 @@ static void Grind_LatticeNoteClosing(const bool is_long, const ulong pos, const 
 }
 
 //+------------------------------------------------------------------+
-static void Grind_LatticeMaybeStranded(const GrindSideState &side, const bool is_long,
+void Grind_LatticeMaybeStranded(const GrindSideState &side, const bool is_long,
                                        const double level, const double mkt,
                                        const double add_pips, const int max_layers,
                                        const datetime now)
