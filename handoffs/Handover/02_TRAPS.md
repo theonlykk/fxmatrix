@@ -964,3 +964,18 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Before/after beats absolute.** A 3:1 heartbeat ratio after a deploy
   looked like a regression; the same window before the reload showed
   39:13 (C59).
+
+## TRAPS FROM 2026-09-25 (C54 AND THE CARRY CHECK)
+
+- **A red-team "BREAKS" can be a ruling it did not know.** DeepSeek
+  called the prune's missing `GRIND_VL_` branch a merge regression; B1
+  removed it on purpose (GB2). Check a verdict against the rulings, not
+  only against source.
+- **`CARRY_SNAPSHOT` is also written at every EA init.** A "newest row
+  per symbol" view (`--carry`) shows the reload, not the night; use
+  `--carrypass`.
+- **A roll or a pass modify at an unchanged price is a request, not a
+  no-op** (C60): count it before reading `failed` as a fault.
+- **Merge `main` into a long-lived feature branch before its audit**
+  when `main` changed code the feature touches (C52 vs B1): test and
+  audit what will ship, then merge back `--no-ff`.

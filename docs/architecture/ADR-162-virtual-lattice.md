@@ -277,4 +277,40 @@ T-6, T-7, T-8 hold; T-9 reduces to T-3.
 
 **Before merge:** C54. Deploys nowhere until B2 (C55).
 
-Line count: 280
+## 14. PHASE B1 + C54 -- MERGED `db86ede` (2026-09-25)
+
+**C54** (spec `prompts/cursor_c54_b1_post_audit.md`, Gemini GC1-GC5 all
+accepted, two of his reasons corrected in the spec). Commit 0 `47e7df5`
+merged `main` (C52) into the branch: only the test file conflicted.
+Tests `ee0d24a`: LB30 made unconditional ("found"); LB33-LB36 (T-3 and
+T-10: order-gone roll, refusals, failure-count reset, short gap); LB37-LB39
+(a roll during the carry pass: pass then roll, roll then pass, branch S).
+Fix `c7855da`: `Grind_LatticeRollLayer` returns CLOSING when the layer's
+exit order is set but not selectable (no broker call, no ROLL_REFUSED, no
+failure count, no backoff).
+
+**Verified:** merge state 2014/2014; tests 2052/2057 failing exactly the
+five predicted (three LB33, two LB34); fix 2057/2057; all on GBPUSD and
+EURUSD. LB37-LB39 passed in every state: B1 and C52 agree on the tested
+paths.
+
+**DeepSeek `9f9a86d`, each verdict checked.** G1-G5 verified; T-4, T-5
+HOLD. T-6 "BREAKS" REJECTED: the prune lost its `GRIND_VL_` branch on
+purpose (GB2), not in the merge. T-2 "stale VL with the lattice off"
+REJECTED: a VL is keyed by position ticket, tickets are never reused,
+and none exists live. T-1 CORRECT, pre-existing: a stale exit ticket on
+an allowed rank is cleared only by deal processing (the queue's cancel
+path clears non-allowed ranks); a hand delete trips I3 (loud), but a
+filled exit whose deal event is lost now makes the roll return CLOSING
+every tick silently -> a latched WARN in B2 (C55). T-3 (short side, sign
+guard on the effective entry): pre-existing GA2 semantics, a test gap ->
+short-side roll-during-pass tests in C55. T-7: its "vacuous" rows are
+the spec's declared preconditions.
+
+**With `InpVirtualLattice=false`** (every preset) the build differs from
+`5685e4f` only by: `GRIND_LATTICE enable=false` printed and a
+`LATTICE_CONFIG` marker at init, `rolled:false` in `scalp_closed`
+(pipshed's archive ignores it until C56), and empty VL lookups. Deploys
+nowhere until B2.
+
+Line count: 316
