@@ -254,4 +254,17 @@ amends, it does not rewrite s1-s7 or A1-A2.
 6. **Configuration** of all eleven presets as A2 point 2, with
    `InpBreakerEnable=true` written explicitly in every file (backlog C35).
 
-Line count: 257
+**A4 (2026-09-24, before the first s5 evaluation) -- CYCLE 3 FROZEN.**
+Operator: mid-cycle geometry tweaks are made only on the Linux fleet.
+1. Cycle 3's geometry and configuration are frozen for the whole cycle;
+   the s5 dial schedule no longer applies to cycle 3. Defect fixes only.
+2. The s5 rule (band 0.7-1.3, one step, groups A/B, GBPUSD fixed) is
+   applied to **Fleet B** instead (`fleet-b.md` s2): group A evaluated
+   before the London open on Mon 28 Sep on FTMO days 24 (partial) and 25
+   Sep, group B the following Wednesday. Cycle 3 is the untouched control.
+3. Why: one clean baseline for the whole cycle, no restarts on the FTMO
+   account, and the first mid-cycle add change (s5: re-pricing of the
+   resting add not yet traced) tried where nobody liquidates.
+4. s4 is still computed and reported for cycle 3.
+
+Line count: 270

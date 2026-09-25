@@ -50,6 +50,9 @@ without the footer and the blank before it).
   the Sunday gap. Adopted. His claim that IC Markets halts trading
   23:59-00:01 server time is UNSOURCED; the rule does not depend on it.
   To check on the box: Market Watch, symbol, Specification, sessions.
+  **VERIFIED 2026-09-24:** trade 00:01-23:59 server Mon-Thu, Fri to
+  23:57 (GBPUSD and AUDCHF): a 2-minute pause at 17:00 Toronto and a
+  16:57 Friday close. 16:55 leaves 2 minutes on Fridays.
 - **G2 -- cancel until none, tick-only retries** (replacing C37's "cancel
   once"). Adopted.
 - **G3 -- flat L0 cancelled too.** Adopted. The operator's words cover
@@ -117,6 +120,11 @@ concluded "not safe to merge"; every finding checked in source:
 
 ## 6. DEPLOY (Fleet B only, operator's call)
 
+**Superseded 2026-09-24 evening:** the window deploys on **Fleet C** (a
+second Vultr box, a new IC Markets Raw $10k demo), attached with
+`InpSessionEnable=true` from the first attach; Fleet B takes the geometry
+dials instead. The steps below apply to Fleet C's box.
+
 Phase 0 runs about two days first (operator). Plan: at the weekend,
 while the market is closed, on the box: `git pull --ff-only` of `main`,
 copy into Experts and Scripts (`06_LINUX_WINE_BOX.md` s7), compile 0/0,
@@ -127,4 +135,4 @@ back, then read each `GRIND_SESSION` line (expect offset -4 until 1 Nov,
 s5. First live check: Monday 16:55 Toronto, eleven `SESSION_CLOSE`
 markers and no resting ENT.
 
-Line count: 130
+Line count: 138

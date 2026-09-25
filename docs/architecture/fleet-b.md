@@ -61,6 +61,10 @@ No USD target. Fleet B is not pre-registered against cycle 3's s4.
 - Nobody liquidates Fleet B at $500: it can survive days that would end
   an FTMO account. That is intended -- it shows what happens after.
 - Dashboard cards and a Fleet B view: backlog (pipshed).
+- **Verified 2026-09-24 (Specification, AUDCHF and GBPUSD):** trade
+  00:01-23:59 server Mon-Thu, Fri to 23:57 (server = GMT+3 = NY close);
+  stops level 0; commission $3.5/lot/side ($0.07 per 0.01 scalp round
+  trip); filling Immediate or Cancel; swaps in points, triple Wednesday.
 
 ---
 
@@ -77,7 +81,10 @@ No USD target. Fleet B is not pre-registered against cycle 3's s4.
   `GRIND_FLEET=B`; Cloudflare CNAME to Railway, proxied; `https://pipshed-copy-production.up.railway.app` also serves it).
 - **Superseded since writing:** s1's "no dashboard cards yet" and s4's
   last bullet -- the dashboard is live (C38).
-- **Phase 1 switch:** not yet. ADR-161 merged `25a5f93` 2026-09-24,
-  default OFF; deploy plan in ADR-161 s6.
+- **Plan changed 2026-09-24 evening (operator):** Phase 1 is NOT the
+  window. From Mon 28 Sep Fleet B runs cycle 3's s5 dial rule on its own
+  ratios (geometry-cycle3 A4), changes by `presets_b` and reattach; cycle
+  3 is the control. The window (ADR-161) goes to Fleet C (new box, new IC
+  Raw demo). First Daily row: FTMO day 24 Sep realised $66.86, 90 scalps.
 
-Line count: 83
+Line count: 90

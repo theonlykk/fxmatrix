@@ -865,3 +865,29 @@ else the same spec adds to the page.
 **A log filter with "last N matches" can drop the lines you need.** The
 quarantine search kept the last 25 matches; heartbeats (which contain the
 word) crowded out the ENTER lines. Exclude heartbeats first.
+
+## TRAPS FROM 2026-09-24 EVENING (DELIVERY BY PATCH, FIRST REAL DATA)
+
+- **A publish path that never saw a real row fails on the first one.**
+  ADR-159's daily card was tested only with fake rows (floats). Real
+  `numeric` columns come back as `Decimal`; `json.dumps` raised, the
+  worker swallowed it, and the card sat empty for 1.5 hours after the
+  first snapshots landed. After deploying anything that publishes, check
+  the FIRST real datum end to end; test with database-typed values.
+- **A downloaded copy of a file a patch creates blocks `git am`**
+  ("already exists in working directory"). `git am --abort`, remove the
+  copy, re-apply. Keep review copies OUTSIDE the repo.
+- **Saving a downloaded copy over a committed file** shows it modified
+  with no text change (LF vs CRLF). `git restore <file>`.
+- **Cursor leaves its branch checked out.** A merge then says "Already up
+  to date". `git switch main` first, always.
+- **Claude's web fetch can return a cached page** (its own cache and
+  Cloudflare). Trust the operator's hard refresh or a fresh cache-buster
+  URL pasted by the operator; "pipshed Copy" also deploys minutes after
+  `pipshed`.
+- **A patch made but not presented is invisible** to the operator. Every
+  patch needs a present_files card, with its byte size to check.
+- **Gemini asserts code behaviour it has not read.** ADR-162 G3 claimed
+  trim-before-protect ranks by floating loss (false: barbell rank
+  predicate, same as I3). His unsourced IC Markets 23:59-00:01 claim
+  turned out right. Verify each either way.
