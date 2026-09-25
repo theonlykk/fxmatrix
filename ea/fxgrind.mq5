@@ -25,6 +25,7 @@ input bool   InpEnableCommandedEject = false;   // ADR-155 operator ejection swi
 input bool   InpAutoEject              = false;  // ADR-157 automatic passive ejection
 input int    InpAutoEjectStableMinutes = 5;      // ADR-157 W: no new extreme for W of the last 2W minutes
 input double InpAutoEjectSpreadMult    = 1.5;    // ADR-157 k: spread <= k x mean of last 60 M1 bars
+input bool   InpVirtualLattice = false; // ADR-162 virtual lattice past cap
 input bool   InpBreakerEnable = true;   // ADR-158 account daily-loss breaker
 input bool   InpSessionEnable = false;   // ADR-161 entry window 07:00-16:55 Toronto (Fleet B)
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
@@ -135,6 +136,10 @@ int OnInit()
    }
    if(InpMagic == 0) {
       Print("FATAL: InpMagic must be set from preset");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateLatticeInputs(InpVirtualLattice, InpAutoEject)) {
+      Print("FATAL: InpVirtualLattice requires InpAutoEject=false (ADR-162 s7)");
       return INIT_FAILED;
    }
 
@@ -254,6 +259,10 @@ int OnInit()
    Print("GRIND_SESSION enable=", InpSessionEnable,
          " toronto_utc_offset=", Grind_TorontoUtcOffset(TimeGMT()),
          " open_now=", Grind_SessionOpenAt(TimeGMT()));
+   Print("GRIND_LATTICE enable=", InpVirtualLattice);
+   Grind_ArchiveMarker("INFO", "LATTICE_CONFIG", "", 0,
+                       StringFormat("{\"enable\":%s}",
+                                    InpVirtualLattice ? "true" : "false"));
    EventSetTimer(1);
    return INIT_SUCCEEDED;
 }
@@ -320,6 +329,8 @@ void OnTick()
    Grind_AutoEjectOnTick(InpMagic, InpAutoEject, InpExitPips, InpMaxLayers,
                          g_grind_halted || g_grind_quarantined,
                          InpAutoEjectStableMinutes, InpAutoEjectSpreadMult);
+   Grind_LatticeOnTick(InpMagic, InpSlot, InpLots, InpVirtualLattice, InpExitPips, InpAddPips,
+                       InpMaxLayers, g_grind_halted || g_grind_quarantined, TimeCurrent());
    Grind_SessionStep(InpMagic, InpSlot, InpSessionEnable, TimeGMT(), true);
    Grind_BreakerOnTick(InpMagic, InpSlot, InpBreakerEnable);
 

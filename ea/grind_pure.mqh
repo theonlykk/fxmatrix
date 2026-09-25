@@ -392,12 +392,28 @@ bool Grind_AutoEjectWindowIntact(const datetime oldest_close,
 #define GRIND_ROLL_CLOSING        2
 #define GRIND_ROLL_ALREADY_ROLLED 3
 
-bool   Grind_ValidateLatticeInputs(const bool lattice, const bool auto_eject) { return true; }
-bool   Grind_LatticeLevelCrossed(const bool is_long, const double price,
-                                 const double level) { return false; }
+bool Grind_ValidateLatticeInputs(const bool lattice, const bool auto_eject)
+{
+   if(lattice && auto_eject)
+      return false;
+   return true;
+}
+
+bool Grind_LatticeLevelCrossed(const bool is_long, const double price, const double level)
+{
+   if(is_long)
+      return (price <= level + GRIND_PRICE_EPS);
+   return (price >= level - GRIND_PRICE_EPS);
+}
+
 double Grind_LatticeRollCost(const double entry, const double level,
                              const double exit_pips, const double point,
-                             const bool is_long) { return 0.0; }
+                             const bool is_long)
+{
+   if(is_long)
+      return entry - Grind_ExitPrice(level, exit_pips, point, 1);
+   return Grind_ExitPrice(level, exit_pips, point, -1) - entry;
+}
 
 //+------------------------------------------------------------------+
 datetime Grind_LastSundayMonthUtc(const int year, const int month)

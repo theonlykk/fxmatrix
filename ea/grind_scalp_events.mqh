@@ -79,6 +79,7 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
       "\"gross_pnl\":%.2f,"
       "\"instance_id\":\"%s\","
       "\"ejected\":%s,"
+      "\"rolled\":%s,"
       "\"broker_utc_offset_s\":%d,"
       "\"account_login\":%I64d"
       "}",
@@ -92,6 +93,7 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
       gross_pnl,
       instance_id,
       ejected ? "true" : "false",
+      rolled ? "true" : "false",
       (int)broker_utc_offset_s,
       account_login
    );

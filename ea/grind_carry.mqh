@@ -596,6 +596,8 @@ double Grind_VLGet(const ulong position_ticket)
 //+------------------------------------------------------------------+
 bool Grind_VLHas(const ulong position_ticket)
 {
+   if(position_ticket == 0)
+      return false;
    return GlobalVariableCheck(Grind_VLName(position_ticket));
 }
 
@@ -993,9 +995,6 @@ void Grind_CarryPruneShiftGvs(const ulong magic)
          ticket = (ulong)StringToInteger(suffix);
       } else if(StringFind(name, "GRIND_EJECT_OFFSET_") == 0) {
          const string suffix = StringSubstr(name, StringLen("GRIND_EJECT_OFFSET_"));
-         ticket = (ulong)StringToInteger(suffix);
-      } else if(StringFind(name, "GRIND_VL_") == 0) {
-         const string suffix = StringSubstr(name, StringLen("GRIND_VL_"));
          ticket = (ulong)StringToInteger(suffix);
       } else {
          continue;
