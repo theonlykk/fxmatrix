@@ -18,6 +18,7 @@
 #include "grind_config.mqh"
 #include "fxgrind_tests_adr151.mqh"
 #include "fxgrind_tests_adr152.mqh"
+#include "fxgrind_tests_adr162.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -2444,6 +2445,7 @@ void Grind_TestClearCarryState()
    GlobalVariablesDeleteAll("GRIND_CARRY_ACCRUED_");
    GlobalVariablesDeleteAll(GRIND_CARRY_RELEASE_PREFIX);
    GlobalVariablesDeleteAll("GRIND_EJECT_");
+   GlobalVariablesDeleteAll("GRIND_VL_");
 }
 
 void Grind_TestResetSideState()
@@ -9270,6 +9272,22 @@ void OnStart()
    Test_T_invariant_held_pending_exclusive();
    Test_RESET1_SideResetClearsCarryState();
    Test_RESET2_PoisonedShiftIsCleared();
+   Test_VL1_GvRoundTrip();
+   Test_VL2_EffectiveEntry();
+   Test_VL3_FormulaTargetRolled();
+   Test_VL4_FormulaTargetRolledAccrued();
+   Test_VL5_I6AcceptsRolledExit();
+   Test_VL6_I6DetailExpected();
+   Test_VL7_QueueRanksByEffective();
+   Test_VL8_RebuildRolledBook();
+   Test_VL9_AddAnchor();
+   Test_VL10_CarryPassBaseRolled();
+   Test_VL11_SignGuardEffective();
+   Test_VL12_PruneOrphanVL();
+   Test_VL13_CloseDeletesVL();
+   Test_VL14_HeartbeatVirtualLevel();
+   Test_VL15_EjectRolledOffset();
+   Test_VL16_ParseL100();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

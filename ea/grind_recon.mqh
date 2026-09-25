@@ -130,7 +130,8 @@ string Grind_InvariantDetailI6(const GrindReconLayerScratch &layer,
    const double eject_offset = (layer.position_id > 0)
                                ? Grind_EjectOffsetGet(layer.position_id)
                                : 0.0;
-   const double expected = Grind_ExitPrice(layer.entry_price, exit_pips, point, dir)
+   const double eff = Grind_EffectiveEntry(layer.entry_price, layer.position_id);
+   const double expected = Grind_ExitPrice(eff, exit_pips, point, dir)
                            + accrued + eject_offset + carry_shift;
    const double diff = layer.exit_target - expected;
    string exit_is = "null";
@@ -374,7 +375,8 @@ bool Grind_ReconExitMatchesEntry(const double entry,
    const int dir = is_long ? 1 : -1;
    const double accrued = (position_id > 0) ? Grind_CarryAccruedGet(position_id) : 0.0;
    const double eject_offset = (position_id > 0) ? Grind_EjectOffsetGet(position_id) : 0.0;
-   const double expected = Grind_ExitPrice(entry, exit_pips, point, dir) + accrued + eject_offset + shift;
+   const double eff = Grind_EffectiveEntry(entry, position_id);
+   const double expected = Grind_ExitPrice(eff, exit_pips, point, dir) + accrued + eject_offset + shift;
    const double diff = exit_target - expected;
    if(exit_is_filled) {
       if(is_long && diff >= 0.0)
@@ -442,7 +444,7 @@ void Grind_ReconComputeRanks(const GrindReconLayerScratch &layers[],
    for(int i = 0; i < layer_count; i++) {
       if(!layers[i].has_position)
          continue;
-      entries[k] = layers[i].entry_price;
+      entries[k] = Grind_EffectiveEntry(layers[i].entry_price, layers[i].position_id);
       indices[k] = layers[i].layer_index;
       map_back[k] = i;
       k++;
