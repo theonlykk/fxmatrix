@@ -15,6 +15,8 @@
 #define GRIND_SLOT_LOCK_STALE_MS      10000
 #define GRIND_SLOT_LOCK_MAX_RETRIES   50
 #define GRIND_CARRY_RELEASE_PREFIX    "GRIND_CARRY_RELEASE_"
+#define GRIND_VL_RETRY_BACKOFF_SEC     60
+#define GRIND_VL_RETRY_BACKOFF_MAX_SEC 1800
 
 //+------------------------------------------------------------------+
 string Grind_ConfigTelemetryKeyStatus(const string api_key)

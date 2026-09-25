@@ -678,6 +678,236 @@ void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
    }
 }
 
+datetime g_grind_vl_backoff_long  = 0;
+datetime g_grind_vl_backoff_short = 0;
+int      g_grind_vl_fail_count_long  = 0;
+int      g_grind_vl_fail_count_short = 0;
+
+void Grind_LatticeResetBackoff()
+{
+   g_grind_vl_backoff_long = 0;
+   g_grind_vl_backoff_short = 0;
+   g_grind_vl_fail_count_long = 0;
+   g_grind_vl_fail_count_short = 0;
+}
+
+int Grind_LatticeCandidateIndex(const GrindSideState &side, const bool is_long)
+{
+   const int n = Grind_SideDepth(side);
+   int best = -1;
+   for(int i = 0; i < n; i++) {
+      const ulong ticket = side.layers[i].position_ticket;
+      if(ticket == 0)
+         continue;
+      if(Grind_VLHas(ticket))
+         continue;
+      if(best < 0) {
+         best = i;
+         continue;
+      }
+      const double e = side.layers[i].entry_price;
+      const double be = side.layers[best].entry_price;
+      if(is_long) {
+         if(e > be || (e == be && side.layers[i].layer_index < side.layers[best].layer_index))
+            best = i;
+      } else {
+         if(e < be || (e == be && side.layers[i].layer_index < side.layers[best].layer_index))
+            best = i;
+      }
+   }
+   return best;
+}
+
+//+------------------------------------------------------------------+
+int Grind_LatticeCountRolled(const GrindSideState &side)
+{
+   int c = 0;
+   for(int i = 0; i < Grind_SideDepth(side); i++) {
+      if(Grind_VLHas(side.layers[i].position_ticket))
+         c++;
+   }
+   return c;
+}
+
+//+------------------------------------------------------------------+
+string Grind_LatticeRollDetail(const ulong ticket, const bool is_long, const int layer_index,
+                               const double entry, const double level, const double target,
+                               const double accrued, const bool clamped, const double cost,
+                               const int rolled, const bool was_ejected, const string source)
+{
+   const double cost_pips = cost / (10.0 * _Point);
+   return StringFormat(
+      "{\"ticket\":%s,\"side\":\"%s\",\"layer_index\":%d,"
+      "\"entry\":%s,\"level\":%s,\"target\":%s,"
+      "\"accrued\":%s,\"clamped\":%s,\"cost\":%s,\"cost_pips\":%s,"
+      "\"rolled\":%d,\"was_ejected\":%s,\"source\":\"%s\"}",
+      IntegerToString((long)ticket),
+      is_long ? "L" : "S",
+      layer_index,
+      Grind_ArchiveJsonDouble(entry, 5),
+      Grind_ArchiveJsonDouble(level, 5),
+      Grind_ArchiveJsonDouble(target, 5),
+      Grind_ArchiveJsonDouble(accrued, 5),
+      Grind_ArchiveJsonBool(clamped),
+      Grind_ArchiveJsonDouble(cost, 5),
+      Grind_ArchiveJsonDouble(cost_pips, 1),
+      rolled,
+      Grind_ArchiveJsonBool(was_ejected),
+      source);
+}
+
+//+------------------------------------------------------------------+
+int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int idx,
+                           const ulong magic, const string slot, const double lots,
+                           const double exit_pips, const double level,
+                           const string source)
+{
+   if(idx < 0 || idx >= Grind_SideDepth(side))
+      return GRIND_ROLL_MODIFY_FAILED;
+
+   GrindLayer layer = side.layers[idx];
+   const ulong pos = layer.position_ticket;
+   if(pos == 0)
+      return GRIND_ROLL_MODIFY_FAILED;
+
+   if(Grind_VLHas(pos))
+      return GRIND_ROLL_ALREADY_ROLLED;
+   if(layer.exit_position_ticket != 0)
+      return GRIND_ROLL_CLOSING;
+
+   // C54 (DeepSeek T-3): an exit on the layer that can no longer be
+   // selected has filled (deal not processed yet) or was removed: the
+   // layer is closing. Refuse without a broker call, a report or a
+   // backoff; the next tick sees the processed deal.
+   if(layer.exit_order_ticket != 0
+      && !Grind_SelectOurOrder(layer.exit_order_ticket, magic))
+      return GRIND_ROLL_CLOSING;
+
+   const int dir = is_long ? 1 : -1;
+   const double entry = layer.entry_price;
+   const double accrued = Grind_CarryAccruedGet(pos);
+   const double formula = Grind_ExitPrice(level, exit_pips, _Point, dir) + accrued;
+   double price = formula;
+   const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
+   const bool was_ejected = Grind_EjectIsEjected(pos);
+   const double cost = Grind_LatticeRollCost(entry, level, exit_pips, _Point, is_long);
+
+   if(layer.exit_order_ticket != 0) {
+      if(!Grind_ModifyPendingPrice(layer.exit_order_ticket, price, magic)) {
+         const string refused =
+            "{\"ticket\":" + IntegerToString((long)pos) +
+            ",\"reason\":\"MODIFY_FAILED\"" +
+            ",\"level\":" + Grind_ArchiveJsonDouble(level, 5) +
+            ",\"source\":\"" + source + "\"}";
+         Grind_EjectReport("ROLL_REFUSED", pos, refused);
+         return GRIND_ROLL_MODIFY_FAILED;
+      }
+      Grind_VLSet(pos, level);
+      Grind_EjectOffsetDelete(pos);
+      side.layers[idx].exit_target = price;
+      if(clamped || MathAbs(price - formula) > _Point * 0.5)
+         Grind_CarryRecordShift(pos, price - formula, true);
+      else
+         Grind_CarryShiftDelete(pos);
+   } else {
+      Grind_VLSet(pos, level);
+      Grind_EjectOffsetDelete(pos);
+      Grind_CarryShiftDelete(pos);
+      side.layers[idx].exit_target = formula;
+   }
+
+   const int rolled = Grind_LatticeCountRolled(side);
+   const string detail = Grind_LatticeRollDetail(pos, is_long, layer.layer_index, entry, level,
+                                                 side.layers[idx].exit_target, accrued, clamped,
+                                                 cost, rolled, was_ejected, source);
+   Grind_EjectReport("ROLL_ACCEPTED", pos, detail);
+   Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
+   return GRIND_ROLL_OK;
+}
+
+//+------------------------------------------------------------------+
+int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong magic,
+                         const string slot, const double lots, const double exit_pips,
+                         const double add_pips, const int max_layers, const bool enabled,
+                         const bool blocked, const datetime now)
+{
+   if(!enabled || blocked)
+      return 0;
+
+   datetime backoff = is_long ? g_grind_vl_backoff_long : g_grind_vl_backoff_short;
+   if(now < backoff)
+      return 0;
+
+   int rolled_count = 0;
+   for(int iter = 0; iter < max_layers; iter++) {
+      if(Grind_SideDepth(side) < max_layers)
+         break;
+
+      const double level = Grind_Normalize(Grind_ComputeAddTarget(side, is_long, add_pips));
+      if(level <= 0.0)
+         break;
+
+      const double mkt = is_long ? Grind_MarketAsk() : Grind_MarketBid();
+      if(!Grind_LatticeLevelCrossed(is_long, mkt, level))
+         break;
+
+      const int idx = Grind_LatticeCandidateIndex(side, is_long);
+      if(idx < 0)
+         break;
+
+      if(side.layers[idx].exit_position_ticket != 0)
+         break;
+
+      const int rc = Grind_LatticeRollLayer(side, is_long, idx, magic, slot, lots, exit_pips,
+                                           level, "auto");
+      if(rc == GRIND_ROLL_MODIFY_FAILED) {
+         if(is_long) {
+            g_grind_vl_fail_count_long++;
+            const int n = g_grind_vl_fail_count_long;
+            // cap in double BEFORE the cast: 60 * 2^(n-1) overflows int from n = 27
+            const double sec = MathMin((double)GRIND_VL_RETRY_BACKOFF_SEC
+                                       * MathPow(2.0, (double)(n - 1)),
+                                       (double)GRIND_VL_RETRY_BACKOFF_MAX_SEC);
+            g_grind_vl_backoff_long = now + (int)sec;
+         } else {
+            g_grind_vl_fail_count_short++;
+            const int n = g_grind_vl_fail_count_short;
+            // cap in double BEFORE the cast: 60 * 2^(n-1) overflows int from n = 27
+            const double sec = MathMin((double)GRIND_VL_RETRY_BACKOFF_SEC
+                                       * MathPow(2.0, (double)(n - 1)),
+                                       (double)GRIND_VL_RETRY_BACKOFF_MAX_SEC);
+            g_grind_vl_backoff_short = now + (int)sec;
+         }
+         break;
+      }
+      if(rc != GRIND_ROLL_OK)
+         break;
+
+      if(is_long)
+         g_grind_vl_fail_count_long = 0;
+      else
+         g_grind_vl_fail_count_short = 0;
+      rolled_count++;
+   }
+   return rolled_count;
+}
+
+//+------------------------------------------------------------------+
+void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots,
+                         const bool enabled, const double exit_pips, const double add_pips,
+                         const int max_layers, const bool blocked, const datetime now)
+{
+   if(!enabled || blocked)
+      return;
+
+   if(Grind_SideDepth(g_grind_long) >= max_layers)
+      Grind_LatticeTrySide(g_grind_long, true, magic, slot, lots, exit_pips, add_pips, max_layers,
+                           enabled, blocked, now);
+   if(Grind_SideDepth(g_grind_short) >= max_layers)
+      Grind_LatticeTrySide(g_grind_short, false, magic, slot, lots, exit_pips, add_pips,
+                           max_layers, enabled, blocked, now);
+}
+
 //+------------------------------------------------------------------+
 bool Grind_ModifyPendingPrice(const ulong ticket,
                               const double new_price,
@@ -2001,6 +2231,7 @@ void Grind_HandleSideDealFill(GrindSideState &side,
          const datetime close_time = (datetime)Grind_DealGetInteger(deal_ticket, DEAL_TIME);
          const ulong closed_position = side.layers[i].position_ticket;
          const bool was_ejected = Grind_EjectIsEjected(closed_position);
+         const bool was_rolled = Grind_VLHas(closed_position);
          Grind_QueueScalpClosedEvent(g_grind_telemetry_instance,
                                      _Symbol,
                                      is_long ? "LONG" : "SHORT",
@@ -2012,13 +2243,21 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                                      close_time,
                                      was_ejected,
                                      (long)(TimeTradeServer() - TimeGMT()),
-                                     AccountInfoInteger(ACCOUNT_LOGIN));
+                                     AccountInfoInteger(ACCOUNT_LOGIN),
+                                     was_rolled);
          if(was_ejected) {
             const double eject_off = Grind_EjectOffsetGet(closed_position);
             const string filled_detail =
                "{\"ticket\":" + IntegerToString((long)closed_position) +
                ",\"offset\":" + Grind_ArchiveJsonDouble(eject_off, 5) + "}";
             Grind_EjectReport("EJECT_FILLED", closed_position, filled_detail);
+         }
+         if(was_rolled) {
+            const double roll_level = Grind_VLGet(closed_position);
+            const string roll_filled =
+               "{\"ticket\":" + IntegerToString((long)closed_position) +
+               ",\"level\":" + Grind_ArchiveJsonDouble(roll_level, 5) + "}";
+            Grind_EjectReport("ROLL_FILLED", closed_position, roll_filled);
          }
          Grind_CarryShiftDelete(closed_position);
          Grind_CarryAccruedDelete(closed_position);

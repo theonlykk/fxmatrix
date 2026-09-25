@@ -63,7 +63,8 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
                                      const datetime close_time,
                                      const bool ejected,
                                      const long broker_utc_offset_s,
-                                     const long account_login)
+                                     const long account_login,
+                                     const bool rolled = false)
 {
    const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    return StringFormat(
@@ -78,6 +79,7 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
       "\"gross_pnl\":%.2f,"
       "\"instance_id\":\"%s\","
       "\"ejected\":%s,"
+      "\"rolled\":%s,"
       "\"broker_utc_offset_s\":%d,"
       "\"account_login\":%I64d"
       "}",
@@ -91,6 +93,7 @@ string Grind_BuildScalpClosedPayload(const string instance_id,
       gross_pnl,
       instance_id,
       ejected ? "true" : "false",
+      rolled ? "true" : "false",
       (int)broker_utc_offset_s,
       account_login
    );
@@ -108,7 +111,8 @@ void Grind_QueueScalpClosedEvent(const string instance_id,
                                  const datetime close_time,
                                  const bool ejected,
                                  const long broker_utc_offset_s,
-                                 const long account_login)
+                                 const long account_login,
+                                 const bool rolled = false)
 {
    const string payload = Grind_BuildScalpClosedPayload(
       instance_id,
@@ -122,7 +126,8 @@ void Grind_QueueScalpClosedEvent(const string instance_id,
       close_time,
       ejected,
       broker_utc_offset_s,
-      account_login
+      account_login,
+      rolled
    );
 
    if(g_grind_scalp_event_queue_count >= GRIND_SCALP_EVENT_QUEUE_MAX) {
