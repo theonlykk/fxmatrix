@@ -423,7 +423,27 @@ bool Grind_LatticeTickExtreme(const long &msc[], const double &bid[],
                               const long from_msc, const bool is_long,
                               double &extreme_out)
 {
-   return false;
+   bool found = false;
+   for(int i = 0; i < n; i++) {
+      if(msc[i] < from_msc)
+         continue;
+      if(is_long) {
+         if(ask[i] <= 0.0)
+            continue;
+         if(!found || ask[i] < extreme_out) {
+            extreme_out = ask[i];
+            found = true;
+         }
+      } else {
+         if(bid[i] <= 0.0)
+            continue;
+         if(!found || bid[i] > extreme_out) {
+            extreme_out = bid[i];
+            found = true;
+         }
+      }
+   }
+   return found;
 }
 
 //+------------------------------------------------------------------+

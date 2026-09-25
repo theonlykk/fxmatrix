@@ -724,11 +724,166 @@ void Grind_LatticeTestAddTick(const datetime t, const double bid, const double a
 
 int Grind_LatticeCopyTicks(const long from_msc, long &msc[], double &bid[], double &ask[])
 {
-   return -1;
+   if(g_grind_order_test_active) {
+      if(g_grind_vl_test_ticks_fail)
+         return -1;
+      int n = 0;
+      for(int i = 0; i < ArraySize(g_grind_vl_test_tick_msc); i++) {
+         if(g_grind_vl_test_tick_msc[i] < from_msc)
+            continue;
+         ArrayResize(msc, n + 1);
+         ArrayResize(bid, n + 1);
+         ArrayResize(ask, n + 1);
+         msc[n] = g_grind_vl_test_tick_msc[i];
+         bid[n] = g_grind_vl_test_tick_bid[i];
+         ask[n] = g_grind_vl_test_tick_ask[i];
+         n++;
+      }
+      return n;
+   }
+   MqlTick t[];
+   const int n = CopyTicksRange(_Symbol, t, COPY_TICKS_INFO, (ulong)from_msc,
+                                (ulong)Grind_MarketTimeMsc());
+   if(n < 0)
+      return -1;
+   ArrayResize(msc, n);
+   ArrayResize(bid, n);
+   ArrayResize(ask, n);
+   for(int i = 0; i < n; i++) {
+      msc[i] = (long)t[i].time_msc;
+      bid[i] = t[i].bid;
+      ask[i] = t[i].ask;
+   }
+   return n;
 }
 
+//+------------------------------------------------------------------+
+static void Grind_LatticeFoldExtreme(const bool is_long, const long from_msc,
+                                     const long &msc[], const double &bid[],
+                                     const double &ask[], const int n,
+                                     double &extreme)
+{
+   double x = 0.0;
+   if(Grind_LatticeTickExtreme(msc, bid, ask, n, from_msc, is_long, x)) {
+      if(extreme <= 0.0)
+         extreme = x;
+      else if(is_long)
+         extreme = MathMin(extreme, x);
+      else
+         extreme = MathMax(extreme, x);
+   }
+   const double live = is_long ? Grind_MarketAsk() : Grind_MarketBid();
+   if(live > 0.0) {
+      if(extreme <= 0.0)
+         extreme = live;
+      else if(is_long)
+         extreme = MathMin(extreme, live);
+      else
+         extreme = MathMax(extreme, live);
+   }
+}
+
+//+------------------------------------------------------------------+
+static void Grind_LatticeTrackOneSide(const GrindSideState &side, const bool is_long,
+                                      const ulong magic, const int max_layers,
+                                      const datetime now)
+{
+   const int depth = Grind_SideDepth(side);
+   if(depth < max_layers) {
+      if(is_long) {
+         g_grind_vl_tracking_long = false;
+         g_grind_vl_extreme_long = 0.0;
+         g_grind_vl_from_msc_long = 0;
+         g_grind_vl_stranded_warned_long = false;
+         g_grind_vl_closing_ticket_long = 0;
+         g_grind_vl_closing_since_long = 0;
+         g_grind_vl_closing_warned_long = false;
+      } else {
+         g_grind_vl_tracking_short = false;
+         g_grind_vl_extreme_short = 0.0;
+         g_grind_vl_from_msc_short = 0;
+         g_grind_vl_stranded_warned_short = false;
+         g_grind_vl_closing_ticket_short = 0;
+         g_grind_vl_closing_since_short = 0;
+         g_grind_vl_closing_warned_short = false;
+      }
+      return;
+   }
+
+   if(is_long) {
+      if(!g_grind_vl_tracking_long) {
+         datetime newest = 0;
+         bool any = false;
+         for(int i = 0; i < depth; i++) {
+            const ulong pos = side.layers[i].position_ticket;
+            if(pos == 0)
+               continue;
+            datetime ot = 0;
+            if(!Grind_CarryPositionOpenTime(pos, magic, ot))
+               return;
+            if(!any || ot > newest) {
+               newest = ot;
+               any = true;
+            }
+         }
+         if(!any)
+            return;
+         g_grind_vl_from_msc_long = MathMax((long)(newest + 1) * 1000,
+                                            (long)(now - GRIND_VL_CATCHUP_MAX_SEC) * 1000);
+         g_grind_vl_tracking_long = true;
+         g_grind_vl_extreme_long = 0.0;
+      }
+      long msc[];
+      double bid[];
+      double ask[];
+      const int n = Grind_LatticeCopyTicks(g_grind_vl_from_msc_long, msc, bid, ask);
+      if(n < 0)
+         return;
+      Grind_LatticeFoldExtreme(true, g_grind_vl_from_msc_long, msc, bid, ask, n,
+                               g_grind_vl_extreme_long);
+      if(n > 0)
+         g_grind_vl_from_msc_long = msc[n - 1] + 1;
+   } else {
+      if(!g_grind_vl_tracking_short) {
+         datetime newest = 0;
+         bool any = false;
+         for(int i = 0; i < depth; i++) {
+            const ulong pos = side.layers[i].position_ticket;
+            if(pos == 0)
+               continue;
+            datetime ot = 0;
+            if(!Grind_CarryPositionOpenTime(pos, magic, ot))
+               return;
+            if(!any || ot > newest) {
+               newest = ot;
+               any = true;
+            }
+         }
+         if(!any)
+            return;
+         g_grind_vl_from_msc_short = MathMax((long)(newest + 1) * 1000,
+                                             (long)(now - GRIND_VL_CATCHUP_MAX_SEC) * 1000);
+         g_grind_vl_tracking_short = true;
+         g_grind_vl_extreme_short = 0.0;
+      }
+      long msc[];
+      double bid[];
+      double ask[];
+      const int n = Grind_LatticeCopyTicks(g_grind_vl_from_msc_short, msc, bid, ask);
+      if(n < 0)
+         return;
+      Grind_LatticeFoldExtreme(false, g_grind_vl_from_msc_short, msc, bid, ask, n,
+                               g_grind_vl_extreme_short);
+      if(n > 0)
+         g_grind_vl_from_msc_short = msc[n - 1] + 1;
+   }
+}
+
+//+------------------------------------------------------------------+
 void Grind_LatticeTrackExtremes(const ulong magic, const int max_layers, const datetime now)
 {
+   Grind_LatticeTrackOneSide(g_grind_long, true, magic, max_layers, now);
+   Grind_LatticeTrackOneSide(g_grind_short, false, magic, max_layers, now);
 }
 
 void Grind_LatticeResetBackoff()
@@ -889,10 +1044,120 @@ int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int i
 }
 
 //+------------------------------------------------------------------+
+static double Grind_LatticeLowestEffective(const GrindSideState &side, const bool is_long)
+{
+   double v = 0.0;
+   bool any = false;
+   for(int i = 0; i < Grind_SideDepth(side); i++) {
+      const ulong pos = side.layers[i].position_ticket;
+      if(pos == 0)
+         continue;
+      const double eff = Grind_EffectiveEntry(side.layers[i].entry_price, pos);
+      if(!any) {
+         v = eff;
+         any = true;
+      } else if(is_long) {
+         if(eff < v)
+            v = eff;
+      } else if(eff > v) {
+         v = eff;
+      }
+   }
+   return v;
+}
+
+//+------------------------------------------------------------------+
+static void Grind_LatticeResetClosingState(const bool is_long)
+{
+   if(is_long) {
+      g_grind_vl_closing_ticket_long = 0;
+      g_grind_vl_closing_since_long = 0;
+      g_grind_vl_closing_warned_long = false;
+   } else {
+      g_grind_vl_closing_ticket_short = 0;
+      g_grind_vl_closing_since_short = 0;
+      g_grind_vl_closing_warned_short = false;
+   }
+}
+
+//+------------------------------------------------------------------+
+static void Grind_LatticeNoteClosing(const bool is_long, const ulong pos, const datetime now)
+{
+   if(is_long) {
+      if(g_grind_vl_closing_ticket_long != pos) {
+         g_grind_vl_closing_ticket_long = pos;
+         g_grind_vl_closing_since_long = now;
+         g_grind_vl_closing_warned_long = false;
+      } else if(!g_grind_vl_closing_warned_long
+                && now - g_grind_vl_closing_since_long >= GRIND_VL_CLOSING_WARN_SEC) {
+         const string detail =
+            "{\"side\":\"L\",\"ticket\":" + IntegerToString((long)pos) +
+            ",\"stuck_s\":" + IntegerToString(GRIND_VL_CLOSING_WARN_SEC) + "}";
+         Grind_ArchiveMarker("WARN", "ROLL_CLOSING_STUCK", "L", pos, detail);
+         Grind_TelemetryEmit(g_grind_telemetry_instance, "ROLL_CLOSING_STUCK", detail);
+         Print("WARN ROLL_CLOSING_STUCK ", detail);
+         g_grind_vl_closing_warned_long = true;
+      }
+   } else {
+      if(g_grind_vl_closing_ticket_short != pos) {
+         g_grind_vl_closing_ticket_short = pos;
+         g_grind_vl_closing_since_short = now;
+         g_grind_vl_closing_warned_short = false;
+      } else if(!g_grind_vl_closing_warned_short
+                && now - g_grind_vl_closing_since_short >= GRIND_VL_CLOSING_WARN_SEC) {
+         const string detail =
+            "{\"side\":\"S\",\"ticket\":" + IntegerToString((long)pos) +
+            ",\"stuck_s\":" + IntegerToString(GRIND_VL_CLOSING_WARN_SEC) + "}";
+         Grind_ArchiveMarker("WARN", "ROLL_CLOSING_STUCK", "S", pos, detail);
+         Grind_TelemetryEmit(g_grind_telemetry_instance, "ROLL_CLOSING_STUCK", detail);
+         Print("WARN ROLL_CLOSING_STUCK ", detail);
+         g_grind_vl_closing_warned_short = true;
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+static void Grind_LatticeMaybeStranded(const GrindSideState &side, const bool is_long,
+                                       const double level, const double mkt,
+                                       const double add_pips, const int max_layers,
+                                       const datetime now)
+{
+   if(is_long) {
+      if(g_grind_vl_stranded_warned_long)
+         return;
+   } else if(g_grind_vl_stranded_warned_short) {
+      return;
+   }
+   const double stranded_level =
+      Grind_Normalize(Grind_AddTargetPrice(level,
+                                           (GRIND_VL_STRANDED_STEPS - 1) * add_pips, _Point,
+                                           is_long ? 1 : -1));
+   if(!Grind_LatticeLevelCrossed(is_long, mkt, stranded_level))
+      return;
+   const int depth = Grind_SideDepth(side);
+   const int rolled = Grind_LatticeCountRolled(side);
+   const double lowest = Grind_LatticeLowestEffective(side, is_long);
+   const string detail =
+      "{\"side\":\"" + (is_long ? "L" : "S") + "\",\"depth\":" + IntegerToString(depth) +
+      ",\"rolled\":" + IntegerToString(rolled) +
+      ",\"lowest_effective\":" + Grind_ArchiveJsonDouble(lowest, 5) +
+      ",\"market\":" + Grind_ArchiveJsonDouble(mkt, 5) +
+      ",\"steps\":" + IntegerToString(GRIND_VL_STRANDED_STEPS) + "}";
+   Grind_ArchiveMarker("WARN", "ROLL_STRANDED", is_long ? "L" : "S", 0, detail);
+   Grind_TelemetryEmit(g_grind_telemetry_instance, "ROLL_STRANDED", detail);
+   Print("WARN ROLL_STRANDED ", detail);
+   if(is_long)
+      g_grind_vl_stranded_warned_long = true;
+   else
+      g_grind_vl_stranded_warned_short = true;
+}
+
+//+------------------------------------------------------------------+
 int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong magic,
                          const string slot, const double lots, const double exit_pips,
                          const double add_pips, const int max_layers, const bool enabled,
-                         const bool blocked, const datetime now)
+                         const bool blocked, const datetime now,
+                         const double extreme = 0.0)
 {
    if(!enabled || blocked)
       return 0;
@@ -901,6 +1166,14 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
    if(now < backoff)
       return 0;
 
+   if(Grind_LatticeCandidateIndex(side, is_long) >= 0) {
+      if(is_long)
+         g_grind_vl_stranded_warned_long = false;
+      else
+         g_grind_vl_stranded_warned_short = false;
+   }
+
+   bool closing_stop = false;
    int rolled_count = 0;
    for(int iter = 0; iter < max_layers; iter++) {
       if(Grind_SideDepth(side) < max_layers)
@@ -911,15 +1184,23 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
          break;
 
       const double mkt = is_long ? Grind_MarketAsk() : Grind_MarketBid();
-      if(!Grind_LatticeLevelCrossed(is_long, mkt, level))
+      const double probe = extreme > 0.0
+                           ? (is_long ? MathMin(mkt, extreme) : MathMax(mkt, extreme))
+                           : mkt;
+      if(!Grind_LatticeLevelCrossed(is_long, probe, level))
          break;
 
       const int idx = Grind_LatticeCandidateIndex(side, is_long);
-      if(idx < 0)
+      if(idx < 0) {
+         Grind_LatticeMaybeStranded(side, is_long, level, mkt, add_pips, max_layers, now);
          break;
+      }
 
-      if(side.layers[idx].exit_position_ticket != 0)
+      if(side.layers[idx].exit_position_ticket != 0) {
+         Grind_LatticeNoteClosing(is_long, side.layers[idx].position_ticket, now);
+         closing_stop = true;
          break;
+      }
 
       const int rc = Grind_LatticeRollLayer(side, is_long, idx, magic, slot, lots, exit_pips,
                                            level, "auto");
@@ -943,8 +1224,13 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
          }
          break;
       }
-      if(rc != GRIND_ROLL_OK)
+      if(rc != GRIND_ROLL_OK) {
+         if(rc == GRIND_ROLL_CLOSING) {
+            Grind_LatticeNoteClosing(is_long, side.layers[idx].position_ticket, now);
+            closing_stop = true;
+         }
          break;
+      }
 
       if(is_long)
          g_grind_vl_fail_count_long = 0;
@@ -952,6 +1238,9 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
          g_grind_vl_fail_count_short = 0;
       rolled_count++;
    }
+
+   if(!closing_stop)
+      Grind_LatticeResetClosingState(is_long);
    return rolled_count;
 }
 
@@ -960,15 +1249,18 @@ void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots
                          const bool enabled, const double exit_pips, const double add_pips,
                          const int max_layers, const bool blocked, const datetime now)
 {
-   if(!enabled || blocked)
+   if(!enabled)
+      return;
+   Grind_LatticeTrackExtremes(magic, max_layers, now);
+   if(blocked)
       return;
 
    if(Grind_SideDepth(g_grind_long) >= max_layers)
       Grind_LatticeTrySide(g_grind_long, true, magic, slot, lots, exit_pips, add_pips, max_layers,
-                           enabled, blocked, now);
+                           enabled, blocked, now, g_grind_vl_extreme_long);
    if(Grind_SideDepth(g_grind_short) >= max_layers)
       Grind_LatticeTrySide(g_grind_short, false, magic, slot, lots, exit_pips, add_pips,
-                           max_layers, enabled, blocked, now);
+                           max_layers, enabled, blocked, now, g_grind_vl_extreme_short);
 }
 
 //+------------------------------------------------------------------+
