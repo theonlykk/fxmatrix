@@ -940,3 +940,27 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Log greps meet heartbeats.** `halted` matches every heartbeat
   (`"halted":false`); drop `HEARTBEAT` lines first. The carry pass writes
   to the archive (`CARRY_PASS_SUMMARY`), not the Experts log.
+
+## TRAPS FROM 2026-09-25 (C52 FIX AND LIVE DEPLOY)
+
+- **NEVER run `fxgrind_tests` on a terminal with live EAs.** Its setup
+  deletes shared GVs by prefix (`GRIND_CARRY_SHIFT_`,
+  `GRIND_CARRY_ACCRUED_`, `GRIND_EJECT_`, `GRIND_VL_`) and some tests
+  write breaker GVs: on a live terminal that wipes every instance's carry
+  and trips I6 fleet-wide. `06_LINUX_WINE_BOX.md` s7 step 5 ran the suite
+  BEFORE Fleet B attached; it must not be repeated there now. The desktop
+  (no EAs) is the only place to run it.
+- **Deploy check lines:** 11 `deinit reason=2` + 11 `GRIND_SESSION
+  enable=...` at the compile second, then no RECON_FAIL / INVARIANT_FAIL /
+  CRITICAL / FATAL, and heartbeats from all 11.
+- **PowerShell `-match` is case-insensitive:** `WARN` matched
+  `InpConfigWarning` in the CONFIG dumps. Use `-cmatch` for codes.
+- **Git on the VPS may ask "Unlink of file ... pack ... failed. Should I
+  try again?"** during a pull: answer n. The old pack is left behind; the
+  pull completes.
+- **A patch that recreates a file you already saved in the repo fails
+  "does not match index":** keep downloaded prompts and patches in
+  Downloads, never in the repo, and `git restore` the file if it happens.
+- **Before/after beats absolute.** A 3:1 heartbeat ratio after a deploy
+  looked like a regression; the same window before the reload showed
+  39:13 (C59).

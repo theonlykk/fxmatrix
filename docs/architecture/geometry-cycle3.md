@@ -267,4 +267,21 @@ Operator: mid-cycle geometry tweaks are made only on the Linux fleet.
    resting add not yet traced) tried where nobody liquidates.
 4. s4 is still computed and reported for cycle 3.
 
-Line count: 270
+**A5 (2026-09-25 04:50Z) -- DEFECT FIX C52 DEPLOYED UNDER A4.1.**
+The nightly carry pass acted on exit tickets captured when it began: an
+exit the queue released mid-pass was left one night's swap behind its
+formula (I6 fails, the instance halts), and an exit cancelled mid-pass
+lost that night's accrual (backlog C52, HANDOFF s12). Not seen live.
+1. Fix: the pass looks up each layer's CURRENT exit in the book
+   (`main` `5685e4f`; suite 1887/1887 on GBPUSD and EURUSD; Gemini
+   CG1-CG6; DeepSeek `e7202e8`).
+2. Deployed as `main` (operator: option A), so the build also carries
+   ADR-161 (session window, default OFF: no preset sets it) and ADR-162
+   Phase A (inert: no VL GV exists). Geometry, presets and inputs are
+   unchanged.
+3. Reloads: Fleet B 04:42:55Z, VPS 04:50:36Z (tag `vps-5685e4f`); 11/11
+   each, clean reconstruction, no faults. Restore: `vps-a01a5d4`.
+4. The restarts reset in-memory daily counters on 25 Sep; daily totals
+   come from the archive, as for any compile.
+
+Line count: 287

@@ -187,15 +187,15 @@ needs close reading of code. The operator prefers this (2026-09-24).
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-25 ~04:00Z, market OPEN, cycle 3 AND Fleet B LIVE.**
-Evidence: `HANDOFF_2026-09-24.md` (read sections 7 to 11).
+**As of 2026-09-25 ~05:00Z, market OPEN, cycle 3 AND Fleet B LIVE on `5685e4f`.**
+Evidence: `HANDOFF_2026-09-24.md` (read sections 7 to 12).
 
 | | |
 |---|---|
-| fxmatrix main | `8f72d00` plus a docs-only descendant: EA code = tested `9466b22` (ADR-162 Phase A merged, inert; ADR-161 merged, default OFF). Branch `adr162-phase-b1` (ADR-162 B1, tip `3188f72` 2002/2002, DeepSeek `73b1a8d`) is NOT merged: C54 first. The VPS still runs `a01a5d4` (EA = `6c57830`); Fleet B still runs `87765be` |
+| fxmatrix main | `5685e4f` (C52 carry-pass fix merged) or a docs-only descendant. Branch `adr162-phase-b1` (ADR-162 B1, tip `3188f72` 2002/2002, DeepSeek `73b1a8d`) NOT merged: C54 next. BOTH fleets run `5685e4f` since 25 Sep (Fleet B 04:42:55Z, VPS 04:50:36Z) |
 | pipshed main | `2f3e749`: D5 (`405573c`, migration `003` applied: generated `gated_seconds`/`history_ok`, Gated (h) column), daily-card Decimal fix; `/status_b`; fleet by env `GRIND_FLEET`; verify 23/23. Both web services auto-deploy from `main` |
-| VPS running | branch `main` at `a01a5d4` (NOT detached), tag `vps-a01a5d4`, `.ex5` 2026-09-24 00:57Z |
-| MQL5 suite | **1875/1875** on GBPUSD and EURUSD at `9466b22` (1766/1766 at the deployed `6c57830`); **2002/2002** on the B1 branch at `3188f72`. Runs from `MQL5\Scripts\` |
+| VPS running | branch `main` at `5685e4f`, tag `vps-5685e4f` (compiled 2026-09-25 04:50:36Z); restore `vps-a01a5d4` |
+| MQL5 suite | **1887/1887** on GBPUSD and EURUSD at `5685e4f`; **2002/2002** on the B1 branch at `3188f72`. Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
 | Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
 | Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
 | Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
@@ -203,7 +203,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 7 to 11).
 | **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
 | **Fleet C** | NOT BUILT and WAITING (operator 2026-09-25): after the carry fix (C52) and the ADR-162 work (C54-C56); see C51 |
-| **Next** | **C52 carry-pass race fix FIRST** (live defect in cycle 3 and Fleet B; may land mid-cycle); C54 B1 post-audit patch then merge; C55 B2; C56 pipshed; then Fleet C (C51). Fleet B group A dials Mon 28 Sep before London (A4) unchanged; watch Daily rows and the red banner for I6 near the carry window |
+| **Next** | Confirm tonight's carry pass (~20:50Z) ran clean on both fleets (archive CARRY_PASS_SUMMARY, no I6); C54 B1 post-audit patch then merge; C55 B2; C56 pipshed; then Fleet C (C51). Fleet B group A dials Mon 28 Sep before London (A4) unchanged |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or
