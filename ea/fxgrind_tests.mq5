@@ -19,6 +19,7 @@
 #include "fxgrind_tests_adr151.mqh"
 #include "fxgrind_tests_adr152.mqh"
 #include "fxgrind_tests_adr162.mqh"
+#include "fxgrind_tests_adr162b.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9288,6 +9289,37 @@ void OnStart()
    Test_VL14_HeartbeatVirtualLevel();
    Test_VL15_EjectRolledOffset();
    Test_VL16_ParseL100();
+   Test_LB1_ValidateInputs();
+   Test_LB2_LevelCrossed();
+   Test_LB3_RollCost();
+   Test_LB4_Candidate();
+   Test_LB5_ThroughEntryNotExit();
+   Test_LB6_SingleRoll();
+   Test_LB7_GapFiresEveryLevel();
+   Test_LB8_NoReroll();
+   Test_LB9_BelowCap();
+   Test_LB10_EntryBlocksDoNotBlockRolls();
+   Test_LB11_BlockedAndOff();
+   Test_LB12_ClampRecordsShift();
+   Test_LB13_AccruedCarried();
+   Test_LB14_EjectedCandidate();
+   Test_LB15_ModifyFailBackoff();
+   Test_LB16_ShortSingleRoll();
+   Test_LB17_ClosingCandidate();
+   Test_LB18_CandidateWithoutExit();
+   Test_LB19_OnTickWiring();
+   Test_LB20_VLHasTicketZero();
+   Test_LB21_PruneScope();
+   Test_LB22_CommandRanksRolled();
+   Test_LB23_AutoRanksRolled();
+   Test_LB24_I6ShortRolled();
+   Test_LB25_QueueShortRolled();
+   Test_LB26_CarryBaseShortRolled();
+   Test_LB27_SignGuardShort();
+   Test_LB28_AnchorShort();
+   Test_LB29_CloseRolledFlag();
+   Test_LB30_RestartRolledStartup();
+   Test_LB31_RollDetail();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

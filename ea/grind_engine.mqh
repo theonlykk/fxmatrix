@@ -678,6 +678,51 @@ void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
    }
 }
 
+datetime g_grind_vl_backoff_long  = 0;
+datetime g_grind_vl_backoff_short = 0;
+int      g_grind_vl_fail_count_long  = 0;
+int      g_grind_vl_fail_count_short = 0;
+
+void Grind_LatticeResetBackoff()
+{
+   g_grind_vl_backoff_long = 0;
+   g_grind_vl_backoff_short = 0;
+   g_grind_vl_fail_count_long = 0;
+   g_grind_vl_fail_count_short = 0;
+}
+
+int Grind_LatticeCandidateIndex(const GrindSideState &side, const bool is_long) { return -1; }
+
+string Grind_LatticeRollDetail(const ulong ticket, const bool is_long, const int layer_index,
+                               const double entry, const double level, const double target,
+                               const double accrued, const bool clamped, const double cost,
+                               const int rolled, const bool was_ejected, const string source)
+{
+   return "";
+}
+
+int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int idx,
+                           const ulong magic, const string slot, const double lots,
+                           const double exit_pips, const double level,
+                           const string source)
+{
+   return -1;
+}
+
+int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong magic,
+                         const string slot, const double lots, const double exit_pips,
+                         const double add_pips, const int max_layers, const bool enabled,
+                         const bool blocked, const datetime now)
+{
+   return 0;
+}
+
+void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots,
+                         const bool enabled, const double exit_pips, const double add_pips,
+                         const int max_layers, const bool blocked, const datetime now)
+{
+}
+
 //+------------------------------------------------------------------+
 bool Grind_ModifyPendingPrice(const ulong ticket,
                               const double new_price,

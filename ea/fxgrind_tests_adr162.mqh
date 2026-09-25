@@ -256,7 +256,8 @@ void Test_VL12_PruneOrphanVL()
    g_grind_order_test_active = true;
    GlobalVariableSet("GRIND_VL_8888", 1.10000);
    Grind_CarryPruneShiftGvs(22260101UL);
-   AssertFalse("VL12 orphan pruned", GlobalVariableCheck("GRIND_VL_8888"));
+   AssertTrue("VL12 orphan kept", GlobalVariableCheck("GRIND_VL_8888"));
+   GlobalVariableDel("GRIND_VL_8888");
    g_grind_order_test_active = false;
 }
 

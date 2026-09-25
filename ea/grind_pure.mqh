@@ -387,6 +387,18 @@ bool Grind_AutoEjectWindowIntact(const datetime oldest_close,
    return ((int)(now - oldest_close) <= window_sec);
 }
 
+#define GRIND_ROLL_OK             0
+#define GRIND_ROLL_MODIFY_FAILED  1
+#define GRIND_ROLL_CLOSING        2
+#define GRIND_ROLL_ALREADY_ROLLED 3
+
+bool   Grind_ValidateLatticeInputs(const bool lattice, const bool auto_eject) { return true; }
+bool   Grind_LatticeLevelCrossed(const bool is_long, const double price,
+                                 const double level) { return false; }
+double Grind_LatticeRollCost(const double entry, const double level,
+                             const double exit_pips, const double point,
+                             const bool is_long) { return 0.0; }
+
 //+------------------------------------------------------------------+
 datetime Grind_LastSundayMonthUtc(const int year, const int month)
 {
