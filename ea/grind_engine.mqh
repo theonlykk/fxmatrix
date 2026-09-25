@@ -775,6 +775,14 @@ int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int i
    if(layer.exit_position_ticket != 0)
       return GRIND_ROLL_CLOSING;
 
+   // C54 (DeepSeek T-3): an exit on the layer that can no longer be
+   // selected has filled (deal not processed yet) or was removed: the
+   // layer is closing. Refuse without a broker call, a report or a
+   // backoff; the next tick sees the processed deal.
+   if(layer.exit_order_ticket != 0
+      && !Grind_SelectOurOrder(layer.exit_order_ticket, magic))
+      return GRIND_ROLL_CLOSING;
+
    const int dir = is_long ? 1 : -1;
    const double entry = layer.entry_price;
    const double accrued = Grind_CarryAccruedGet(pos);
