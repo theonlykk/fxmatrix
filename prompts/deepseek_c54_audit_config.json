@@ -1,0 +1,17 @@
+{
+  "files_to_audit": {
+    "grind_engine.mqh":            "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_carry.mqh":             "d:/fxmatrix/ea/grind_carry.mqh",
+    "grind_exitq.mqh":             "d:/fxmatrix/ea/grind_exitq.mqh",
+    "grind_recon.mqh":             "d:/fxmatrix/ea/grind_recon.mqh",
+    "fxgrind.mq5":                 "d:/fxmatrix/ea/fxgrind.mq5",
+    "fxgrind_tests_c54.mqh":       "d:/fxmatrix/ea/fxgrind_tests_c54.mqh"
+  },
+  "docs_to_include": {
+    "cursor_c54_b1_post_audit.md": "d:/fxmatrix/prompts/cursor_c54_b1_post_audit.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_c54_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_c54_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_c54_preview.md"
+}
