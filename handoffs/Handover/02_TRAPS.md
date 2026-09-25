@@ -911,3 +911,32 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Every suite run is checkout, `desktop_sync.ps1`, GUI compile, run,**
   with the compile time after the sync. `Get-FileHash` repo vs terminal
   proves the sync, not the compile.
+
+## TRAPS FROM 2026-09-25 (ADR-162 PHASE B1)
+
+- **A forward declaration with the wrong type is a second function.**
+  Cursor re-declared `Adr151_TestSeedSlotSeams(const int, ...)` (the real
+  one takes `long`); the calls matched the bodiless overload exactly and
+  the compile failed "must have a body". MQL5 resolves functions defined
+  later in the program: test headers need no forward declarations.
+- **ArrayResize does not clear structs.** LB25 resized a side's layers
+  and set only entry, index and ticket; the rest held a previous test's
+  book, so three assertions passed on leftovers and the queue placed
+  nothing. Set every field, or use a helper that does.
+- **A fixture can fail the right assertion for the wrong reason.** LB30
+  was to drop ticket 2001; Cursor copied `tickets[0..4]` and dropped the
+  last one. Read fixtures, not only assertion names.
+- **An assertion inside an `if` passes by not running** (LB30).
+- **Cap before the cast.** `(int)(60 * 2^(n-1))` overflowed at n = 27 and
+  the backoff went negative; LB32 proved it on this build (2000/2002
+  before the fix). Clamp in double, then cast.
+- **Check an advisor's premise, not only his conclusion.** Gemini
+  accepted a fixed 60 s backoff because 1,440 retries fit a 2,000 budget;
+  the budget is one GV for the whole fleet. Given the fact, he re-ruled.
+- **A red-team finding can be older than the change it audits.** DeepSeek
+  filed the carry-pass race (C52) against B1; it is live in cycle 3
+  already. Ask "does this need the new code?" before scoping the fix.
+- **PowerShell eats braces:** quote `'HEAD^{tree}'`.
+- **Log greps meet heartbeats.** `halted` matches every heartbeat
+  (`"halted":false`); drop `HEARTBEAT` lines first. The carry pass writes
+  to the archive (`CARRY_PASS_SUMMARY`), not the Experts log.
