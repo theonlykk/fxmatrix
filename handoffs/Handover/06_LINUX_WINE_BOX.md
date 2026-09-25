@@ -177,8 +177,12 @@ Done that night, in order; each step is repeatable.
    into BOTH `<MQL5 root>/Experts/fxmatrix` and `<MQL5 root>/Scripts/fxmatrix`
    (67 files each at `85cd555`; check with `cmp`), Refresh in MetaEditor,
    compile `fxgrind.mq5` and `fxgrind_tests.mq5`.
-5. **Suite:** run `fxgrind_tests` on a GBPUSD chart (Algo off is fine; it
-   does not trade). 1766/1766 at `85cd555`.
+5. **Suite, ONLY on a box with no live EAs:** run `fxgrind_tests` on a
+   GBPUSD chart (Algo off is fine; it does not trade). 1766/1766 at
+   `85cd555`, before Fleet B attached. **Never on this box now:** Fleet B
+   is live here, and the suite deletes shared carry, eject and VL GVs by
+   prefix, which trips I6 fleet-wide (traps 2026-09-25 C52). Skip this
+   step on a live box; the desktop runs the suite.
 6. **Telemetry key:** in `~/.fxgrind_telemetry.key` (outside the repo,
    `chmod 600`, 44 bytes). Never in git, never pasted in chat.
 7. **Presets:** `ea/presets_b/*_b.set` from the repo, written into
@@ -201,4 +205,4 @@ The box clock is UTC.
 Destroy the instance (billing is hourly) or take a snapshot first, which
 costs pennies a month and rebuilds in minutes.
 
-Line count: 204
+Line count: 208
