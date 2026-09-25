@@ -1,0 +1,17 @@
+{
+  "files_to_audit": {
+    "grind_engine.mqh":            "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_carry.mqh":             "d:/fxmatrix/ea/grind_carry.mqh",
+    "grind_exitq.mqh":             "d:/fxmatrix/ea/grind_exitq.mqh",
+    "grind_recon.mqh":             "d:/fxmatrix/ea/grind_recon.mqh",
+    "fxgrind_tests_adr162.mqh":    "d:/fxmatrix/ea/fxgrind_tests_adr162.mqh"
+  },
+  "docs_to_include": {
+    "ADR-162-virtual-lattice.md":  "d:/fxmatrix/docs/architecture/ADR-162-virtual-lattice.md",
+    "cursor_adr162_phase_a.md":    "d:/fxmatrix/prompts/cursor_adr162_phase_a.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_adr162a_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_adr162a_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr162a_preview.md"
+}
