@@ -1,7 +1,8 @@
 # HANDOVER -- START HERE
 
-You are picking up an active algorithmic FX market-making project. Fourteen EA
-instances trade live on an FTMO demo account right now.
+You are picking up an active algorithmic FX market-making project. Two fleets
+of eleven EA instances trade live on two demo accounts right now (cycle 3 on
+FTMO from the VPS; Fleet B on IC Markets from the Linux box).
 
 This folder is the entry point for a new chat. Read these in order.
 
@@ -39,9 +40,9 @@ Then read, in the fxmatrix repo:
 fxgrind is a passive limit-order FX market maker. Each instance posts a
 two-sided straddle around mid, adds layers as price moves against it,
 exits each layer a fixed distance from its own entry, and nets the pair
-with CloseBy. Fourteen attached instances: six pairs with both arms (OPT and
-ALT), plus the OPT arm of NZDCAD and AUDNZD (their ALT arms are detached).
-Caps are hard. It never crosses the spread.
+with CloseBy. Each fleet runs eleven instances: nine pairs on the OPT arm,
+plus second instances of AUDNZD and NZDCAD on OPT geometry. Caps are hard.
+It never crosses the spread.
 
 ## WHAT TO DO FIRST
 
