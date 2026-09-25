@@ -973,7 +973,9 @@ void Grind_CarryExitPassBegin(const string symbol,
 double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point)
 {
    const int dir = g_grind_carry_exit_work_long[idx] ? 1 : -1;
-   return Grind_ExitPrice(g_grind_carry_exit_work_entry[idx], exit_pips, point, dir)
+   return Grind_ExitPrice(Grind_EffectiveEntry(g_grind_carry_exit_work_entry[idx],
+                                               g_grind_carry_exit_work_pos[idx]),
+                          exit_pips, point, dir)
           + Grind_EjectOffsetGet(g_grind_carry_exit_work_pos[idx]);
 }
 
