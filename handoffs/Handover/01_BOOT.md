@@ -181,6 +181,10 @@ whenever you judge one is warranted. You do not need to ask first.
 
 ---
 
+**Long chats:** when a conversation gets long, Claude says so and
+proposes a handoff (docs patch + fresh chat) before starting work that
+needs close reading of code. The operator prefers this (2026-09-24).
+
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
 **As of 2026-09-25 ~00:30Z, market OPEN, cycle 3 AND Fleet B LIVE.**

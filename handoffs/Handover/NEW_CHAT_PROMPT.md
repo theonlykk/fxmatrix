@@ -95,5 +95,8 @@ ADR-160 gate are the defences.
   the operator compiles and runs both suites -> DeepSeek for anything
   that places, moves or cancels orders -> operator merges `--no-ff`.
 - Operator stance: boring is best; live trade history is the evidence.
+- **Watch the chat's length.** When the conversation gets long, say so
+  and propose a handoff (docs patch + fresh chat) BEFORE starting work
+  that needs close reading of code. The operator prefers this.
 
-Line count: 99
+Line count: 102
