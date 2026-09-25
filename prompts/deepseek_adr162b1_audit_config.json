@@ -1,0 +1,18 @@
+{
+  "files_to_audit": {
+    "grind_engine.mqh":            "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_carry.mqh":             "d:/fxmatrix/ea/grind_carry.mqh",
+    "grind_exitq.mqh":             "d:/fxmatrix/ea/grind_exitq.mqh",
+    "grind_pure.mqh":              "d:/fxmatrix/ea/grind_pure.mqh",
+    "grind_scalp_events.mqh":      "d:/fxmatrix/ea/grind_scalp_events.mqh",
+    "fxgrind.mq5":                 "d:/fxmatrix/ea/fxgrind.mq5",
+    "fxgrind_tests_adr162b.mqh":   "d:/fxmatrix/ea/fxgrind_tests_adr162b.mqh"
+  },
+  "docs_to_include": {
+    "cursor_adr162_phase_b1.md":   "d:/fxmatrix/prompts/cursor_adr162_phase_b1.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_adr162b1_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_adr162b1_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr162b1_preview.md"
+}
