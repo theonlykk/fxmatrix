@@ -73,6 +73,8 @@ Run from `D:\pipshed`:
 | `--slippage` | distribution by instance and direction, plus every fill breaching the 0.2-pip I6 tolerance |
 | `--carry` | swap mode and rates per symbol |
 | `--rollovers` | broker-midnight crossings counted from `fill_logs`, with `swap_usd` ground truth alongside |
+| `--codes A,B [--hours N]` | archived event counts per instance and code, first/last (pipshed `5e8b904`). Only `Grind_ArchiveMarker` codes are archived (EJECT_*, ROLL_*, QUARANTINE_*, WARN markers); `Grind_TelemetryEmit` codes such as `WARN_LAYER_CAP_REACHED` go to the Experts log only |
+| `--depth [--cap 8] [--hours N]` | per instance and side: scalps, the deepest `stack_depth` at a scalp, scalps closed at or above the cap. How often sides reach cap, from fills |
 | `--carrypass [--hours N]` | THE NIGHTLY CARRY CHECK (pipshed `c0a5f44`, default 30 h, honours `--instance`): every `CARRY_SNAPSHOT` (the 23:50-server ones land at 20:50Z = GMT+3; one is also written at every EA init), every `CARRY_PASS_SUMMARY`/`_INCOMPLETE` with its counts, and quarantine / invariant / critical markers grouped by reason, I6 first. `--carry` shows only the NEWEST snapshot per symbol, which after a reload is the init row, and it merges duplicate instances and both fleets |
 
 **Retention:** `send_logs`, `fill_logs` and `log_lines` 14 days;

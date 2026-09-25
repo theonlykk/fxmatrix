@@ -118,18 +118,22 @@ script the second time it is built, not the fifth.**
 
 ## 6. STRATEGY WORK THAT GATES THE ABOVE
 
-- **Passive ejection.** The cap is a hard ceiling with no way to clear a
-  stuck layer except a manual close. Blocked behind geometry; the
-  ratified trigger rule cannot fire and its corrected form is unwritten.
-  Needed before tight grids can run unattended.
+- **Passive ejection -- one of the two central planks (operator,
+  2026-09-25):** "it leans into the fact that we enter positions randomly
+  and hence should not feel any loyalty to them, especially if they are
+  wildly underwater." Built as ADR-162's virtual lattice (merged
+  `669da60`, default OFF); first live use on Fleet B (C63).
+- **Using the trade data we accrue -- the other plank** ("which we do
+  excessively in cycle 4"): per-layer exits, per-side add/exit, the plane
+  fit on the archive (backlog C46-C48).
 - **F1 migration.** The barbell is merged and cannot deploy onto an
   existing book (`02_TRAPS`). A flat account avoids it; any mid-cycle
   change does not.
 - **Geometry cycle 3.** Even the pips across pairs by widening entry
   volume on the quiet ones. Objective: maximise pips per day AND cut the
   4.2x dispersion between pairs.
-- **Carry.** OFF, and a known economic leak rather than a safe default.
-  F2 made the mechanism correct; enabling it is a separate decision.
+- **Carry.** ON since cycle 3; the carry-pass race fixed (C52) and its
+  first live pass clean (25 Sep). Open: C60, C61.
 - **A second exit study** on the new account, using a
   difference-from-reference selection rule (the flaw recorded in
   `prompts/exit_counterfactual_results.md` s6).
@@ -157,4 +161,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 160
+Line count: 164

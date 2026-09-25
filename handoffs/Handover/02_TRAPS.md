@@ -982,3 +982,10 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **MQL5 rejects `static` on file-scope functions** ("cannot be declared
   static"): C55's six helpers failed the GUI compile. There is no
   precedent in this codebase; do not accept it from a spec or an agent.
+- **Do not reattach with the market closed.** `OnInit` can place orders
+  (missing exits, a re-priced add); each fails "market closed", and the
+  first ticks after the Sunday open carry the widest spreads. Reattach
+  in the session once spreads settle.
+- **`send_logs` `duration_ms` 0 = the terminal refused the request
+  locally** (10025 no changes, 10027 algo off, 10018 market closed):
+  it never reached the broker.
