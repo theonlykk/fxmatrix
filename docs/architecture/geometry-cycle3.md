@@ -284,4 +284,28 @@ lost that night's accrual (backlog C52, HANDOFF s12). Not seen live.
 4. The restarts reset in-memory daily counters on 25 Sep; daily totals
    come from the archive, as for any compile.
 
-Line count: 287
+**A6 (2026-09-25 ~24:00Z) -- s5's re-pricing of a resting add, TRACED.** Source
+only, in `5685e4f` (the build Fleet B runs); `Grind_EnsureAddNext`,
+`Grind_ComputeAddTarget`, `Grind_SendNextAddEnt`, `Grind_SideNextIndex`,
+`Grind_TryPlaceAddAtFill` and `Grind_OnTickEngine` are byte-identical on
+`main` `669da60`. Rules unchanged.
+1. At a reattach, reconstruction adopts the resting ENT (label >= 1) as
+   the side's pending add whatever its price (`grind_recon.mqh` 1037,
+   1044); I8 checks only that it exists. No invariant reads its price.
+2. Every tick `Grind_EnsureAddNext` recomputes the target from the
+   deepest layer's entry with the NEW `InpAddPips` and modifies the
+   resting add only when the target differs by the deadband or more
+   (`grind_engine.mqh` 1824 at `5685e4f`; `Grind_PriceWithinDeadband`,
+   strict `<`; deadband 4 pips in every preset). Existing test:
+   `Test_A2_MatchingLabelDeadbandUnchanged`.
+3. So a 1-pip or 2-pip step does NOT move a resting add: it keeps the
+   old distance until it fills, or until the deepest layer scalps (its
+   label no longer matches the next index: cancelled, then placed at the
+   new distance on the next tick). Every add placed after the reattach
+   uses the new value; a change of 4 pips or more is modified on the
+   first tick.
+4. Consequence: at most one add per side on the old spacing after a
+   dial; no halt path and no extra requests. The deploy check lines are
+   enough; no special watch.
+
+Line count: 311
