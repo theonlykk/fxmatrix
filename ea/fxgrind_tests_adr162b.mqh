@@ -498,15 +498,27 @@ void Test_LB25_QueueShortRolled()
    g_grind_short.layers[0].entry_price = 1.10500;
    g_grind_short.layers[0].layer_index = 0;
    g_grind_short.layers[0].position_ticket = 5401UL;
+   g_grind_short.layers[0].exit_order_ticket = 0;
+   g_grind_short.layers[0].exit_position_ticket = 0;
+   g_grind_short.layers[0].exit_target = 0.0;
    g_grind_short.layers[1].entry_price = 1.10600;
    g_grind_short.layers[1].layer_index = 1;
    g_grind_short.layers[1].position_ticket = 5402UL;
+   g_grind_short.layers[1].exit_order_ticket = 0;
+   g_grind_short.layers[1].exit_position_ticket = 0;
+   g_grind_short.layers[1].exit_target = 0.0;
    g_grind_short.layers[2].entry_price = 1.10700;
    g_grind_short.layers[2].layer_index = 2;
    g_grind_short.layers[2].position_ticket = 5403UL;
+   g_grind_short.layers[2].exit_order_ticket = 0;
+   g_grind_short.layers[2].exit_position_ticket = 0;
+   g_grind_short.layers[2].exit_target = 0.0;
    g_grind_short.layers[3].entry_price = 1.10800;
    g_grind_short.layers[3].layer_index = 3;
    g_grind_short.layers[3].position_ticket = 5404UL;
+   g_grind_short.layers[3].exit_order_ticket = 0;
+   g_grind_short.layers[3].exit_position_ticket = 0;
+   g_grind_short.layers[3].exit_target = 0.0;
    Grind_VLSet(5401UL, 1.11000);
    Grind_ExitQManageSide(g_grind_short, false, 22260101UL, "OPT", 0.01, 3.0);
    AssertTrue("LB25 rolled S0 rests", g_grind_short.layers[0].exit_order_ticket != 0);
@@ -629,9 +641,15 @@ void Test_LB30_RestartRolledStartup()
          break;
       }
    }
+   // five = VL8's tickets minus 2001 (index 1): the rolled L0's exit is missing
    GrindReconTicket five[5];
-   for(int j = 0; j < 5; j++)
-      five[j] = tickets[j];
+   int k = 0;
+   for(int j = 0; j < 6; j++) {
+      if(j == 1)
+         continue;
+      five[k] = tickets[j];
+      k++;
+   }
    g_grind_recon_exit_shortfall_long = 0;
    AssertTrue("LB30 shortfall tolerated",
               Grind_RebuildBookFromTickets(five, 5, magic, "OPT", exit_pips, 12, point,
