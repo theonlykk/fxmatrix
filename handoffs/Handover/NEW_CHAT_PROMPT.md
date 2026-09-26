@@ -138,5 +138,38 @@ Use x11vnc on `:10` (06 s4). Do NOT reboot while Fleet B runs there.
   along the path of least resistance.
 - Long chats: keep working and keep docs current; propose a handoff only
   near the real limit.
+---
 
-Line count: 142
+## 6. THE MAIN THREADS (operator's list, 26 Sep; detail in the docs named)
+
+1. **Passive ejection.** Live: ADR-157 auto-eject (at cap only; never
+   fired, deepest side 7). Built, OFF: ADR-162 lattice (past cap every
+   level is virtual; the oldest layer's exit rolls there, bounded cost;
+   `ROLL_STRANDED` hands over). Preconditions met (probe, C56). Next: C63
+   on Fleet B. Limit: both act only at cap (why Reduced Hours is parked).
+2. **Carry.** C52 live on both fleets since 25 Sep, nightly passes clean;
+   C60 refused no-change modifies are harmless; open: C57 (GVs pruned at
+   init with no connection check), C58. Nightly `--carrypass` check. The
+   carry pass already rebuilds each exit from entry + CURRENT exit pips +
+   the broker's swap ledger (cycle-4 note s8.6).
+3. **Linux boxes.** Box 1 = Fleet B (IC, comparable to FTMO). Cycle 4:
+   three IC fleets, one box and account each, the SAME pairs, fleet 1
+   anchor, 2 and 3 probes (~11 EAs a box); one FTMO fleet runs anchors
+   only. RDP lockout: x11vnc, never reboot (06 s4).
+4. **The new EA** (C46-C48): add and exit per side; width follows add
+   (rule open); at start, exits rebuilt (entry + exit + carry) and resting
+   adds moved ignoring the deadband; stores only VL and eject offset; the
+   lattice per side. Blocker: I6 halts a new EXIT today; ADD is safe (A6).
+5. **The round** (cycle-4 note s8.4-s8.8): two FTMO days; per pair and
+   side, closed P&L (rolls, ejections, commission, swap; ledger) across
+   the three fleets; a probe beating the anchor by > $1/day becomes the
+   anchor; probes one pip either side, outward until bracketed, then
+   half pips; pipshed recommends and writes `.set`; the operator deploys
+   in session; anchors that hold go to FTMO if they fit its daily limit.
+6. **Schedule.** Sun 27 open: nothing to deploy; glance at `/ejection`.
+   Mon 28: C63 prep (fleet-b.md amendment, lattice presets, box-1
+   procedure). Tue 29 or Thu 1 Oct, in session: C63 deploy, then watch
+   rolls. Through the week: the cycle-4 EA spec; C64-C67 anywhere. Later:
+   boxes 2 and 3, accounts, round 1.
+
+Line count: 175
