@@ -1,37 +1,57 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-25 ~22:00Z (FRIDAY CLOSE)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-26 ~22:00Z (SATURDAY)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Read, in order:
-`handoffs/Handover/01_BOOT.md`; `handoffs/HANDOFF_2026-09-24.md` sections
-12 to 16 (s16 is the newest and holds the weekend plan); the four newest
-sections of `handoffs/Handover/02_TRAPS.md`; `handoffs/Handover/08_BACKLOG.md`;
-`docs/architecture/ADR-162-virtual-lattice.md` s13-s15;
-`docs/architecture/geometry-cycle3.md` s4-s5 and A4-A5;
-`docs/architecture/fleet-b.md`; the archive table in
-`handoffs/Handover/03_COOKBOOK.md`; then this. Verify HEADs in git first.
+`handoffs/Handover/01_BOOT.md`; `handoffs/HANDOFF_2026-09-24.md` s16 and
+ALL of s17 (four parts, 25-26 Sep); every section of
+`handoffs/Handover/02_TRAPS.md` dated 2026-09-25 or 2026-09-26;
+`handoffs/Handover/08_BACKLOG.md`; `docs/architecture/ADR-162-virtual-lattice.md`
+s13-s18; `docs/architecture/cycle4-live-geometry-search.md` s8 (rev 3);
+`docs/architecture/fleet-b.md`; `docs/architecture/geometry-cycle3.md` A6;
+`docs/architecture/ARCHITECT.md` s10; `handoffs/Handover/03_COOKBOOK.md`
+(live state, `/ejection`, archive); `handoffs/Handover/06_LINUX_WINE_BOX.md`
+s4 and s7; then this. Verify HEADs in git first.
 
 ---
 
 ## 0. THE SINGLE MOST IMPORTANT FACTS
 
-**Both fleets run `5685e4f` (C52) and the market is CLOSED until Sunday
-17:00 ET.** `main` carries ADR-162 COMPLETE (Phase A, B1 + C54, B2) with
-`InpVirtualLattice` default OFF; nothing of it is deployed.
+**Both fleets run `5685e4f` (C52); the market is CLOSED until Sunday 17:00
+ET (21:00Z).** `main`'s EA is `669da60`: ADR-162 COMPLETE, lattice default
+OFF, deployed nowhere.
 
-**Passive ejection is the operator's priority** -- "one of the central
-planks of this approach": entries are random, so no loyalty to a
-position, "especially if they are wildly underwater". The other plank:
-using the trade data we accrue (cycle 4). ROADMAP s6.
+**Passive ejection is the operator's priority**, and the next step is
+**C63: the lattice on Fleet B** (all 11 instances, `InpAutoEject=false`,
+commanded eject ON, cycle 3 stays on ADR-157 as the comparison), on a
+Tuesday or Thursday DURING the session. Both preconditions are met: the
+tick probe (ADR-162 s16) and C56 telemetry (s18). Box 1 must compile
+`main` BEFORE any lattice preset is loaded: `5685e4f` has no
+`InpVirtualLattice`, so a lattice preset there = auto-eject off, no lattice.
 
-**NEVER run `fxgrind_tests` on a terminal with live EAs** (VPS, Linux
-box). Only the desktop runs the suite. **Never reattach or deploy with the
-market closed** (traps): in the session, once spreads settle.
+**Read what the fleet did from pipshed, not logs** (C56, live, verified):
 
-**Cycle 3 (VPS, FTMO) is FROZEN** except for defect fixes. Dials and the
-lattice go to **Fleet B (the Linux box, IC Markets)** only.
+    https://linux.pipshed.com/api/g/k7m9p2x4q/ejection/a1?hours=96
+
+(change the last path segment every fetch; `pipshed.com` for cycle 3;
+503 = view missing or stale, never zero). Every roll and ejection, closed
+P&L per instance, side and FTMO day from the broker ledger, live depth.
+
+**Cycle 4 direction** (operator, 26 Sep; `cycle4-live-geometry-search.md`
+s8): a NEW EA with add and exit PER SIDE; three IC fleets with the SAME
+pairs and different settings (fleet 1 anchor, 2 and 3 probes); compass
+steps of one pip; score = CLOSED P&L incl. rolls, ejections, commission,
+swap; two-day rounds, $1/day margin. BLOCKER today: I6 halts an instance
+reattached with a new EXIT (an ADD change is safe, geometry-cycle3 A6).
+
+**NEVER run `fxgrind_tests` on a terminal with live EAs. Never reattach or
+deploy with the market closed. Cycle 3 (VPS, FTMO) is FROZEN** except for
+defect fixes.
+
+**RDP to box 1 is locked out** (xrdp-sesman lost the session holding MT5).
+Use x11vnc on `:10` (06 s4). Do NOT reboot while Fleet B runs there.
 
 ---
 
@@ -39,84 +59,84 @@ lattice go to **Fleet B (the Linux box, IC Markets)** only.
 
 | | |
 |---|---|
-| fxmatrix `main` | `d6d2d7a` or a docs-only descendant; EA == `669da60`: `git diff --stat 669da60 origin/main -- ea/ scripts/ tools/` must be empty |
-| pipshed `main` | `5e8b904` (`--codes`, `--depth`; `--carrypass` at `c0a5f44`) |
+| fxmatrix `main` | `e80da48` (docs); EA == `669da60`: `git diff --stat 669da60 origin/main -- ea/ tools/` must be empty |
+| pipshed `main` | `1e88b10` (C56 + fixes 1-3); migration 004 applied in production |
 | VPS (cycle 3) | `5685e4f`, tag `vps-5685e4f`, restore `vps-a01a5d4`; FTMO 1514731800; `pipshed.com` |
-| Box 1 (Fleet B) | `5685e4f` since 25 Sep 04:42:55Z; IC 53066709; `linux.pipshed.com` |
-| Suite | 2114/2114 at `00e0e4e` (EA of `669da60`); 1887/1887 at `5685e4f` (live build) |
-| Brokers | both servers GMT+3 (verified); carry window 20:50-20:59Z |
+| Box 1 (Fleet B) | `5685e4f`; IC 53066709; `linux.pipshed.com`; box repo at `5685e4f` (probe script copied to Scripts only) |
+| Suite | 2114/2114 at `00e0e4e` (EA of `669da60`); 1887/1887 at `5685e4f` |
+| Evidence | Fleet B closed net (11 instances): $68.82 on 24 Sep (from 02:50Z), $61.82 on 25 Sep; commission $0.08/scalp; no side at cap yet (deepest 7) |
 
 ---
 
-## 2. DONE IN THE LAST CHAT (25 Sep, HANDOFF s13-s16)
+## 2. DONE IN THE LAST CHAT (25-26 Sep, HANDOFF s17)
 
-- C54 (B1 post-audit) merged `db86ede`; C55 (B2: tick-history catch-up,
-  running extreme since cap, ROLL_STRANDED, ROLL_CLOSING_STUCK) merged
-  `669da60`; DeepSeek verdicts checked (ADR-162 s14-s15).
-- C52's first live carry pass CLEAN on both fleets; C60 confirmed
-  (Friday: 78 no-change modifies, refused locally, harmless).
-- pipshed `--carrypass`, `--codes`, `--depth`. 48 h evidence: no
-  ejections, no side at cap (deepest 7, AUDCAD short).
+- Resting-add re-pricing traced (geometry-cycle3 A6): a 1-2 pip ADD dial
+  leaves a resting add at the old distance until it fills or the deepest
+  layer scalps; no invariant.
+- Tick-history probe on the box: all nine symbols, 65-117 k ticks / 24 h,
+  4-14 ms (ADR-162 s16). GD6 precondition met.
+- Group A dial on Fleet B: evaluated and ruled, then WITHDRAWN unapplied
+  (design moved to cycle 4). A three-fleet plan was written and withdrawn
+  (never pushed). Reduced Hours (ADR-161) is parked: both ejection paths
+  act only at cap, so a windowed side below cap never ejects overnight.
+- Cycle 4 rev 3 written (s8). C56 shipped in four rounds (spec + three
+  fixes), verified on production: ledger closes = EA scalp rows = s4 on
+  22/22 instance-days.
 
 ---
 
-## 3. NEXT, IN ORDER (the weekend; HANDOFF s16)
+## 3. NEXT, IN ORDER
 
-1. **Resting-add trace** (Claude, source only): what the engine does to a
-   RESTING add when a reattach changes `InpAddPips` (geometry-cycle3 s5:
-   untraced). Needed before Sunday's dials.
-2. **Tick-history probe** for the box: a read-only script,
-   `CopyTicksRange(COPY_TICKS_INFO)` over the last 24 h (count, first/
-   last time, min ask, max bid). Works with the market closed. Clears
-   ADR-162 s15's GD6 precondition (C63).
-3. **C56 pipshed** (spec with Gemini questions inside -> Gemini -> Cursor,
-   tests on a real PostgreSQL): `rolled` column, rolled fills out of
-   scalp counts and the Daily card, ROLL_STRANDED and ROLL_CLOSING_STUCK
-   on the banner allow-list, roll counts.
-4. **Fleet B lattice pre-registration** (`fleet-b.md` amendment) and
-   `presets_b` (`InpVirtualLattice=true`, `InpAutoEject=false`), as
-   patches. OPEN QUESTION for the operator: all 11 instances, or a subset
-   kept on ADR-157 as a comparison.
-5. **Group A dials** (after 22:00Z Fri, any time this weekend):
-   `s4_scalps.py --days 2`; compute the `_OPTB` ratios yourself (the
-   script does `_OPT` only); patch `presets_b`; the operator reattaches
-   those charts on the box Sunday ~19:00-21:00 ET or before 03:00 ET
-   Monday. Preview: AUDCHF and NZDCHF tighten add 6 -> 5.
-6. **Deploy the lattice on Fleet B** (C63): Tuesday or Thursday during the
-   session (not a dial day).
-7. **Every night:** `archive_counts.py --carrypass --hours 2` after 21:00Z.
+1. **C63 prep** (docs and presets as patches): a `fleet-b.md` amendment
+   pre-registering the lattice on Fleet B (what is watched: rolls, roll
+   cost, strands, closed P&L by class, vs cycle 3 on ADR-157); the
+   `presets_b` lattice keys; the box-1 procedure (x11vnc; repo to `main`;
+   copy `ea/*`; compile 0/0; reattach all 11; check lines and STOP list;
+   read `/ejection`). Presets are loaded only after the compile.
+2. **C63 deploy**: Tuesday or Thursday, in session, spreads settled.
+3. **Every night:** `archive_counts.py --carrypass --hours 2` after 21:00Z.
+4. **Cycle 4** (C46-C48): the per-side EA spec (I6 must allow a rebuild
+   at start; exits and resting adds rebuilt; width tied to add, rule
+   open), then pipshed's compass. The big piece.
+5. **Small:** C64 (summary commission 0.05 vs 0.08), C65 (heartbeat
+   price and ticket), C66 (reconciliation gross basis), C67 (tidy
+   `D:\pipshed` untracked files, never `git clean`), C57, C62.
 
 ---
 
 ## 4. TRAPS (full list in 02_TRAPS)
 
-- Verify every agent claim in git; count lines mechanically.
-- Check an advisor's premise, not only his conclusion; a DeepSeek
-  "BREAKS" can be a ruling it did not know (C54 T-6).
-- MQL5 rejects `static` on file-scope functions.
-- `CARRY_SNAPSHOT` is also written at every EA init: use `--carrypass`,
-  not `--carry`, for the night.
-- `send_logs` `duration_ms` 0 = refused by the terminal, not the broker.
-- PowerShell: quote `'HEAD^{tree}'`; `-match` is case-insensitive.
+- Verify every agent claim in git; RUN every verify script yourself
+  (a "green" branch had a test that could not pass anywhere).
+- Pull a PRODUCTION sample before writing fixtures: `scalp_history` has
+  no deal tickets; commission is on IN deals only; the EA's gross
+  includes swap. Zeros are not data: unknown = NULL or 503.
+- The pipshed web never holds `DATABASE_URL` (ARCHITECT s10).
+- Check an advisor's premise, not only his conclusion (Gemini assumed a
+  pre-merge migration was possible; read an incomplete close as
+  corruption when `fill_logs` is simply never pruned).
+- PowerShell mangles nested quotes in `railway ssh ... python -c`: use a
+  shell inside the container (cookbook).
+- Claude's sandbox PostgreSQL can stop between runs: `select 1` first.
 
 ---
 
 ## 5. WORKING PRACTICE
 
-- One shell step per message; the operator pastes output back.
+- One shell step per message; the operator pastes output back. Say WHERE
+  each command runs (desktop PowerShell, box SSH, container, GUI).
 - Docs and small fixes: Claude commits in its sandbox, hands over
-  `git format-patch` files (present_files card, byte size, expected tree
-  hash); the operator `git am`s from Downloads and pushes; Claude
-  verifies on GitHub.
+  `git format-patch` files (byte size, expected tree hash); the operator
+  `git am`s from Downloads and pushes; Claude verifies on GitHub.
 - Features: spec (bookends, Gemini questions inside, tests first,
-  failures predicted BY NAME) -> Gemini -> Cursor on a branch, told to
-  PUSH -> Claude reads the commits -> the operator runs each suite state
-  on the DESKTOP -> DeepSeek (runner prompt by patch) for anything that
-  places, moves or cancels orders -> merge `--no-ff`.
-- Pipshed changes: tested on a real PostgreSQL in Claude's sandbox,
-  delivered by patch; pushing redeploys the archive worker (not inside
-  the carry window).
+  failures predicted BY NAME) -> Gemini -> Cursor on a branch, pushed ->
+  Claude reads the commits and runs every verify -> merge `--no-ff` ->
+  Claude checks production. Pipshed: pushing `main` redeploys; migrations
+  run inside the worker; avoid 20:50-21:00Z.
+- The operator (26 Sep): ask OPEN questions, not multiple choice, for a
+  while; say plainly when something sounds wrong; move strategically, not
+  along the path of least resistance.
 - Long chats: keep working and keep docs current; propose a handoff only
-  near the real limit (BOOT).
+  near the real limit.
 
-Line count: 122
+Line count: 142
