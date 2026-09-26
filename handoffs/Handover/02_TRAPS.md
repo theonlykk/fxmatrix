@@ -1027,3 +1027,28 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   when the write-up started. `git grep` the idea first.
 - **A resting limit is an option WE give.** Closer = more valuable to the
   market, not less.
+
+## TRAPS FROM 2026-09-26 (C56: THREE FIXES TO GET TELEMETRY RIGHT)
+
+- **Read ARCHITECT s10 before specifying ANY pipshed endpoint.** The web
+  service never holds `DATABASE_URL`; the worker reads Postgres and
+  publishes to Redis. C56's first endpoint queried Postgres from the web,
+  found no URL in production and built from empty lists.
+- **Zeros are not data.** Three times in one day an "unknown" rendered as
+  0.0 (no DB; no deal tickets; commission unknown). Unknown must be NULL
+  or a 503, with a count of what is missing.
+- **Pull a production sample BEFORE writing fixtures.** Production
+  `scalp_history` has NO deal tickets (360 rows, 0 tickets); commission
+  is on IN deals only (-0.04 each), 0 on OUT_BY; the EA's `gross_pnl`
+  includes swap. Every fixture assumed otherwise and every test passed.
+- **Fixed-date fixtures rot.** A test with 24 Sep data and a 48 h window
+  expired at 10:00Z on 26 Sep. Shift fixtures by whole days to "now".
+- **Run every verify script yourself; never trust "done".** Cursor
+  reported a branch green whose `verify_archive_codes_depth` could not
+  pass anywhere (duplicate unique key; checks reading the wrong output).
+- **Claude's sandbox PostgreSQL can stop between runs.** A burst of
+  "connection refused" is the harness, not the code: check `select 1`
+  and rerun before reading failures.
+- **Counts exclude, money includes.** Rolls and ejections leave scalp
+  COUNTS; they never leave P&L totals (fix 1 found the daily summary's
+  net dropping them).

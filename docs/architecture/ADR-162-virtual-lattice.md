@@ -374,4 +374,15 @@ at its largest window; GD6's silent retry is not expected to fire. Not
 covered: a cold terminal just after a restart, where history may still be
 syncing (the EA's retry is the answer there).
 
-Line count: 377
+## 18. TELEMETRY FOR THE LATTICE -- C56 DONE (2026-09-26)
+
+Pipshed `1e88b10`: every roll and ejection is visible without logs at
+`/api/g/<token>/ejection/<cachebust>?hours=N` (fleet by host): each
+`ROLL_*`/`EJECT_*` with prices, cost pips, status, minutes to fill and
+realised $ (from the broker ledger), per-day closed P&L split into
+scalps, rolls and ejections per instance and side, live depth / rolled
+layers / deepest effective price per side, `ROLL_STRANDED` and
+`ROLL_CLOSING_STUCK`, and reconciliation. Rolls are out of every scalp
+count. C63's last precondition is met.
+
+Line count: 388

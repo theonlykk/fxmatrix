@@ -189,13 +189,13 @@ pieces of work: the operator found chats rolling over too early
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-26 ~05:00Z (Saturday), market CLOSED; cycle 3 AND Fleet B on `5685e4f`. Cycle 4 direction: `cycle4-live-geometry-search.md` rev 3 (s8).**
+**As of 2026-09-26 ~21:45Z (Saturday), market CLOSED; cycle 3 AND Fleet B on `5685e4f`. C56 done (pipshed `1e88b10`). Cycle 4 direction: `cycle4-live-geometry-search.md` rev 3 (s8).**
 Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 17; s17 = 26 Sep: trace, probe, cycle-4 direction).
 
 | | |
 |---|---|
 | fxmatrix main | `669da60` or a docs-only descendant: ADR-162 complete (A, B1 + C54, B2; lattice default OFF; ADR-162 s15). BOTH fleets still run `5685e4f` (C52) since 25 Sep (Fleet B 04:42:55Z, VPS 04:50:36Z); the lattice deploys only to Fleet B after C56 and the Wine tick-history check. A deploy of `main` also prints `GRIND_LATTICE enable=false` per instance at init |
-| pipshed main | `5e8b904`: `archive_counts --codes` and `--depth` (verify `91f3316`, 12/12 on a scratch PostgreSQL 16); `c0a5f44`: `--carrypass`, the nightly carry check (verify `0fd3b63`, 13/13). Before them `2f3e749`: D5 (`405573c`, migration `003` applied: generated `gated_seconds`/`history_ok`, Gated (h) column), daily-card Decimal fix; `/status_b`; fleet by env `GRIND_FLEET`; verify 23/23. Both web services auto-deploy from `main` |
+| pipshed main | `1e88b10` (C56 + fixes 1-3, migration 004 applied): `/api/g/<token>/ejection` (worker-built, ledger closed P&L), rolls out of scalp counts, Daily roll columns, ROLL_* on the banner; earlier `5e8b904` `--codes`/`--depth`, `c0a5f44` `--carrypass` |
 | VPS running | branch `main` at `5685e4f`, tag `vps-5685e4f` (compiled 2026-09-25 04:50:36Z); restore `vps-a01a5d4` |
 | MQL5 suite | **2114/2114** on GBPUSD and EURUSD at `00e0e4e` (EA code of `669da60`); **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
 | Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
@@ -205,7 +205,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 17; s17 = 26 Sep: trace, 
 | **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
 | **Fleet C** | NOT BUILT and WAITING (operator 2026-09-25): after the carry fix (C52) and the ADR-162 work (C54-C56); see C51 |
-| **Next** | Cycle 4 (note rev 3, s8): the new per-side EA (C46, C47: I6 must allow a rebuild), pipshed's compass (C48), three IC fleets with the same pairs. Near term: C56 pipshed; C63 (lattice on Fleet B, a weekday in session). The Sunday group A dial on Fleet B is HELD (operator, s17). Every night: `--carrypass` (below) |
+| **Next** | C63: the lattice on Fleet B, a weekday in session (C56 done, probe met); presets_b lattice keys only after box 1 compiles `main`. Then cycle 4 (note rev 3, s8: C46-C48). Every night: `--carrypass` (below) |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or

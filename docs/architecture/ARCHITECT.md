@@ -414,6 +414,10 @@ Postgres and publishes computed views into Redis.
 - **Live book, scalps, carry table, summary, carry audit** -- pipshed
   endpoints under `/api/g/<token>/...`, each accepting a trailing
   cache-buster segment that must change on every fetch.
+- **Passive ejection and closed P&L** -- `/api/g/<token>/ejection`:
+  built by the WORKER every 60 s into Redis, served by the web (503 when
+  missing or stale). Closed P&L comes from `fill_logs` close-bys, not
+  from `scalp_history` (no deal tickets there). C56.
 - **Durable history** -- Postgres tables `send_logs`, `fill_logs`,
   `config_events`, `ea_events`, `scalp_history`. Query with
   `scripts/archive_counts.py` inside the worker via `railway ssh`.

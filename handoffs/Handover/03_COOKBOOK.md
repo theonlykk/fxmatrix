@@ -51,6 +51,20 @@ Reconciles derived financing against the broker ledger.
 
 The dashboard: account header, ring sections, scalps, broker book tables.
 
+    https://linux.pipshed.com/api/g/k7m9p2x4q/ejection/a1?hours=96
+
+Passive ejection and closed P&L (C56): rolls, ejections, per-day closed
+P&L by instance and side (scalps / rolls / ejections, commission, swap),
+live depth and deepest price, warnings, reconciliation. Worker-built;
+`view_age_s` says how old; 503 means the view is missing or stale, never
+read it as zero. `pipshed.com` for cycle 3, `linux.` for Fleet B.
+
+**Ad-hoc SQL on production:** PowerShell mangles nested quotes in
+`railway ssh ... python -c`. Open a shell in the worker
+(`railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519"`),
+then run `python -c '...'` at the container prompt with `%s` parameters
+instead of inner quotes; `exit` after.
+
 ---
 
 ## THE ARCHIVE -- Postgres, minutes old. THE PRIMARY DIAGNOSTIC ROUTE
