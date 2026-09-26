@@ -1,7 +1,7 @@
 InpMagic=22260701
 InpSlot=OPT
 InpWidthPips=3.0
-InpAddPips=6.0
+InpAddPips=3.0
 InpExitPips=10.0
 InpMaxLayers=8
 InpLots=0.01

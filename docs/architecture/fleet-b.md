@@ -87,4 +87,66 @@ No USD target. Fleet B is not pre-registered against cycle 3's s4.
   3 is the control. The window (ADR-161) goes to Fleet C (new box, new IC
   Raw demo). First Daily row: FTMO day 24 Sep realised $66.86, 90 scalps.
 
-Line count: 90
+---
+
+## 6. AMENDMENTS
+
+**B1 (2026-09-26 ~23:55Z) -- GRADED ADD DIAL ON ALL NINE PRIMARIES,
+PRE-REGISTERED. NOT YET APPLIED.** Operator decision, 26 Sep, replacing
+the s5 rule for this dial (band, one step, groups A/B, GBPUSD fixed):
+- **Aim: increase scalp volume**, and balance it: the less active a pair,
+  the larger its cut, to move it towards the high performers. A move the
+  other way is as useful a result. P&L is reported, not targeted (with
+  one lever, maximising P&L "seems silly"; P&L drives the cycle-4 dials).
+- **Graded cuts** give nine points of scalp response against the size of
+  the cut (the convexity of the add distance). Each point is a different
+  pair, so this is suggestive, not a fit.
+- **Controls.** The two duplicates (`GRIND_AUDNZD_ALTB`,
+  `GRIND_NZDCAD_ALTB`) stay at add 10: same pair, account and ticks as
+  their dialled primaries. Cycle 3 (VPS, frozen by A4) trades all nine
+  pairs unchanged: a twin per pair on another broker. So the s5 stagger
+  and the fixed GBPUSD are no longer needed for a control.
+
+Ratios: s4 = `scalp_history`, the nine `_OPTB` primaries, duplicates
+excluded, pooled over FTMO days 24 (from 02:50Z) and 25 Sep, divided by
+the median 16 (EURGBP); day 25 alone in brackets (computed ~01:30Z 26 Sep
+by the previous chat).
+
+| pair | ratio | add | cut | width | add/width | room to cap (8 x add) |
+|---|---|---|---|---|---|---|
+| AUDCAD | 1.81 (1.88) | 7 -> 6 | 14% | 5 | 1.20 | 56 -> 48 pips |
+| GBPUSD | 1.63 (1.25) | 10 -> 9 | 10% | 5 | 1.80 | 80 -> 72 |
+| EURUSD | 1.31 (1.13) | 8 -> 7 | 13% | 7 | 1.00 | 64 -> 56 |
+| NZDCAD | 1.13 (1.13) | 10 -> 8 | 20% | 5 | 1.60 | 80 -> 64 |
+| EURGBP | 1.00 (1.00) | 4 -> 3 | 25% | 3 | 1.00 | 32 -> 24 (add 3 is the floor) |
+| AUDNZD | 0.75 (0.88) | 10 -> 8 | 20% | 7 | 1.14 | 80 -> 64 |
+| AUDCHF | 0.56 (0.75) | 6 -> 4 | 33% | 5 | 0.80 | 48 -> 32 |
+| CADCHF | 0.44 (0.25) | 6 -> 4 | 33% | 5 | 0.80 | 48 -> 32 |
+| NZDCHF | 0.25 (0.13) | 6 -> 3 | 50% | 3 | 1.00 | 48 -> 24 |
+
+Guards: every add/width within 0.5-4.0; no add below 3. Width, exit,
+cap, stranded and deadband unchanged. Presets: the nine `*_opt_b.set`
+in `ea/presets_b` (the commit that adds this amendment); the two
+`*_dup_b.set` unchanged. The box build stays `5685e4f`: no compile.
+
+Applied by reloading the nine charts' inputs from the new presets
+(Properties, Load, OK: deinit reason 5), in session, never with the
+market closed. Every cut is 1-3 pips, inside the 4-pip deadband, so
+(geometry-cycle3 A6) each side's resting add keeps its old distance
+until it fills or the side's deepest layer scalps; every later add uses
+the new value. Record the reload times here in UTC.
+
+Expected side effects: sides reach cap sooner (last column), so ADR-157
+auto-eject (on in these presets, never yet fired live) may fire; deeper
+books raise open loss, so the ADR-158 breaker and the ADR-160 gate may
+block entries more often (gated hours on the Daily card); the slot guard
+is nearer (entries only). The CHF crosses carry the heaviest pip value.
+
+Watched, per FTMO day and instance: scalps against the 24-25 baseline,
+against the pair's `_ALTB` twin (AUDNZD, NZDCAD) and against its cycle-3
+twin; closed P&L from `/ejection`; gated hours; ejections. The lattice
+(C63) replaces ADR-157 on this fleet from Tuesday. A recount must use
+`s4_scalps.py --days 3` and read days 24 and 25 (after 22:00Z Saturday,
+`--days 2` returns 25 and 26).
+
+Line count: 152
