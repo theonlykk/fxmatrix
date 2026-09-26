@@ -189,8 +189,8 @@ pieces of work: the operator found chats rolling over too early
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-25 ~22:00Z (Friday), market CLOSED for the weekend; cycle 3 AND Fleet B on `5685e4f`.**
-Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 16; s16 = the weekend plan).
+**As of 2026-09-26 ~05:00Z (Saturday), market CLOSED; cycle 3 AND Fleet B on `5685e4f`. Cycle 4 direction: `cycle4-live-geometry-search.md` rev 3 (s8).**
+Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 17; s17 = 26 Sep: trace, probe, cycle-4 direction).
 
 | | |
 |---|---|
@@ -205,7 +205,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 16; s16 = the weekend pla
 | **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
 | **Fleet C** | NOT BUILT and WAITING (operator 2026-09-25): after the carry fix (C52) and the ADR-162 work (C54-C56); see C51 |
-| **Next** | Weekend (HANDOFF s16): C56 pipshed; the tick-history probe on the box; the resting-add trace; Fleet B lattice pre-registration + presets. Sun ~19:00-21:00 ET (or before 03:00 ET Mon): group A dials on Fleet B by reattach, market OPEN. Tue or Thu: lattice on Fleet B (C63). Then Fleet C (C51). Every night: `--carrypass` (below) |
+| **Next** | Cycle 4 (note rev 3, s8): the new per-side EA (C46, C47: I6 must allow a rebuild), pipshed's compass (C48), three IC fleets with the same pairs. Near term: C56 pipshed; C63 (lattice on Fleet B, a weekday in session). The Sunday group A dial on Fleet B is HELD (operator, s17). Every night: `--carrypass` (below) |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or

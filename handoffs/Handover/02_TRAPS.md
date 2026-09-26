@@ -1010,3 +1010,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Say where every command runs** (box SSH, desktop PowerShell, a GUI).
   "Install x11vnc" read as a Windows install; it goes on the BOX, the
   viewer on the desktop.
+
+## TRAPS FROM 2026-09-26 (CYCLE 4 DIRECTION)
+
+- **An EXIT change on a live book halts the instance today.** I6 checks
+  each resting exit against the CURRENT `InpExitPips` (2 points) at
+  reconstruction (`Grind_ReconExitMatchesEntry`). Claude first said the
+  nightly carry pass would re-price exits after a new exit: it would, but
+  the instance halts at init first. Read the invariants before claiming
+  what a reattach does. ADD changes are safe (geometry-cycle3 A6).
+- **Both ejection paths act only at cap.** A rule that stops adds (the
+  ADR-161 window, the breaker, the entry gate) also stops a side below
+  cap from reaching the lattice.
+- **Search the docs before designing.** The cycle-4 note (21 Sep) and
+  C46-C48 already held most of the 26 Sep direction; it was found only
+  when the write-up started. `git grep` the idea first.
+- **A resting limit is an option WE give.** Closer = more valuable to the
+  market, not less.

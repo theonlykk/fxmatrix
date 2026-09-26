@@ -5,9 +5,12 @@ This message has a line count at the bottom
 **Status:** Draft idea, 2026-09-21, rev 2 after Gemini's critique (s7).
 Not an ADR and not scheduled. Cycle 3
 (pre-registered, one arm per pair) runs first and is untouched by this.
-**Rev 3 pending (operator, 2026-09-24):** step add/exit INCREMENTALLY on
-a live book as scalps accrue, per side, replacing R5's flat restart;
-built on per-layer exits (backlog C46-C48).
+**Rev 3 (operator, 2026-09-26): s8.** The direction for cycle 4, still
+not an ADR. Arms are FLEETS (same pairs, one account and box each), steps
+by compass, the score is closed P&L; the live book is kept and rebuilt.
+Where s8 differs from s2-s6 (Part A's reflect, R1, R2, R5, s5's slots),
+s8 rules. The 24 Sep "rev 3 pending" (incremental steps on a live book,
+C46-C48) is folded in.
 **Origin:** the operator (Lead Quant), in conversation, written up by
 Claude.
 
@@ -145,4 +148,98 @@ calibration data.
 | 4 | The sim must match micro-structure, not just totals; offsetting errors can fake agreement | **Agreed on the point, not the standard.** The target is trade-level reconciliation, which is what defeats offsetting errors. Tick-for-tick identity is neither achievable nor needed |
 | 5 | Mark-to-market in the score steps on noise; draining losers hog slots for weeks | **Accepted, and fixed.** R2 now scores completed scalps (ejections excluded) with depth policed separately; R5 clears retired arms by ejection |
 
-Line count: 148
+## 8. REV 3 (2026-09-26, operator) -- ARMS AS FLEETS, COMPASS STEPS, CLOSED P&L
+
+Decided in conversation 2026-09-26 (HANDOFF s17), written up by Claude.
+
+**8.1 Objective.** Maximise CLOSED P&L: every closed trade (scalps, rolls,
+ejections) with commission and swap. Open P&L is the drag, handled by
+passive ejection (ADR-162); reported, never scored. Replaces R2 (scalps
+only, depth policed separately): with the lattice on, depth becomes
+realised roll cost, so the closed score polices depth itself. A tighter
+add books more scalps but shortens the breathing room (cap x add: 40 pips
+at add 5, 24 at add 3), so rolls come sooner and cheaper; the score, not
+a rule, decides whether that pays.
+
+**8.2 The new EA (C47).** Four levers: add and exit for the long side, add
+and exit for the short side. Width follows add (rule OPEN; the operator
+favours a very tight L0 to start trading at once; the ADR-153 add/width
+guard is re-derived, not inherited, since add 5 on width 1 breaks it).
+Everything that prices an add or an exit is per side: add targets, exits,
+the lattice's virtual levels and roll cost, the carry pass, the stranded
+threshold. Note on width: a resting limit is an option WE give the market;
+a closer one is worth more to it. The case for tight is getting into
+positions at once, not the option.
+
+**8.3 Arms are fleets.** Three IC Markets Raw demo accounts, one box each,
+the SAME pairs (today's eleven instances), different settings per fleet.
+Fleet 1 always holds the ANCHOR (best settings so far), fleets 2 and 3
+the PROBES; roles stay with the fleet. Per side, the three fleets are
+three points on that side's (add, exit) plane, on the same ticks.
+Replaces three arms per pair on one account: s5's slot arithmetic goes
+(eleven instances per account, as today; no cap-6 compromise), and each
+arm has its own breaker and daily limit (a reckless probe trips only its
+own fleet). Every fleet carries the whole book (portfolio effect).
+
+**8.4 The compass** (replaces s2's Nelder-Mead reflect; straight lines,
+modest steps). Per pair and side, after each round:
+- the best of the three becomes the anchor if it beats the anchor by more
+  than $1/day; otherwise the anchor stays;
+- two new probes, one pip from the anchor, one per lever, on the side the
+  evidence points to (a losing probe flips across the anchor);
+- explore OUTWARD while the anchor keeps losing on one side; once it beats
+  both sides of a lever, the peak is bracketed: refine INWARD (half pips).
+Example (long): anchor 5/5, probes 5/7 and 7/5, ranking 1 > 2 > 3: both
+wider steps lost, so next 5/5, 5/4, 4/5 (under a straight line, 6 cannot
+beat 5; beyond the anchor is the only place a line says "better").
+
+**8.5 Rounds.** Two full FTMO days; margin $1/day per pair per side (about
+one or two scalps a day). Replaces R1's ~190-scalp gate: the operator
+judges scalp volume high enough, the margin guards against noise. The
+inherited book is "part of the territory": no flat restarts (R5 is
+withdrawn, as the 24 Sep note said).
+
+**8.6 Changing settings on a live book: rebuild on start.** At every start
+(and nightly, as the carry pass does now) each exit is recomputed:
+`ExitPrice(effective entry, that side's CURRENT exit) + eject offset`,
+shifted by carry from the broker's own swap ledger (at start: ledger
+only; the nightly pass keeps adding tonight's pending swap). Resting adds
+move to the new distance at start, IGNORING the deadband (operator:
+absolutely; the deadband is for noise, not settings). Only two labels are
+stored: the lattice VL and the eject offset; all else is derived. The
+operator's delta alternative (add new - old to the resting exit) gives
+the same price in the clean case but needs the old value stored and
+carries forward clamped, skipped or queued exits' errors; the rebuild
+does neither and reuses the carry pass's formula.
+**BLOCKER TODAY -- I6.** Reconstruction checks every resting exit
+against the CURRENT `InpExitPips` within 2 points and halts on a mismatch
+(`Grind_ReconExitMatchesEntry`, `grind_recon.mqh` 366-388). A reattach
+with a new exit HALTS the instance today. The new EA must rebuild before
+enforcing I6, or check against each layer's own recorded exit (C46). An
+ADD change is safe today (geometry-cycle3 A6).
+
+**8.7 pipshed recommends; the operator deploys.** Per pair, side, fleet and
+FTMO day: closed P&L (and its parts); the compass's next settings; the
+next `.set` files. Deploy by reattach during the session.
+
+**8.8 Live.** One real FTMO fleet runs ANCHORS only. Promotion: an anchor
+held for several rounds (N OPEN) whose worst intraday closed P&L in the
+lab fits FTMO's daily limit (a lab scalper that ejects every ten minutes
+may earn and still breach $500 on a bad afternoon). The live fleet keeps
+being compared with its lab anchor (broker drift).
+
+**8.9 Unchanged from rev 2:** s3 (paired comparisons; the simulator
+reconciled to these arms is still the end goal), R3 (compare within a
+side, across arms; one side on one day mostly measures the trend), R4
+(carry needs weeks), R6 (never stop exploring), R7 (never intraday).
+
+**8.10 Parked or withdrawn.** Fleet Reduced Hours (ADR-161) with the
+window-aware lattice (both ejection paths act only at cap; outside the
+window a side below cap never gets there). The 26 Sep ~02:30Z plan (IC
+Control / Reduced Hours / Improve Adds) was withdrawn before push.
+
+**8.11 OPEN.** Width rule; first probe directions per pair and side; the
+two duplicates' role; N for promotion; the half-pip floor; the smallest
+exit worth its commission; box size; the new EA's name.
+
+Line count: 245
