@@ -354,4 +354,24 @@ box proving `CopyTicksRange(COPY_TICKS_INFO)` returns ticks (GD6 note);
 presets `InpVirtualLattice=true`, `InpAutoEject=false` (OnInit refuses
 otherwise); a weekday during the session, not a dial day.
 
-Line count: 357
+## 16. TICK-HISTORY PROBE ON THE BOX -- GD6 PRECONDITION MET (2026-09-26)
+
+`scripts/grind_tick_probe.mq5` (`65a7e83`), run once on the Fleet B
+terminal (IC 53066709, `ICMarketsSC-Demo`) at 00:43Z Sat 26 Sep, market
+closed. It makes the EA's exact call: `CopyTicksRange(COPY_TICKS_INFO)`,
+`to` = `SYMBOL_TIME_MSC` (Friday's last tick), `from` = 24 h earlier; two
+calls per symbol.
+
+All nine symbols: `err=0`; `n` 65,009 (EURUSD) to 116,632 (AUDNZD); first
+tick ~23:57 server Thu, last ~23:56:5x server Fri (20:56Z); no zero
+prices; call 1 and call 2 identical, 4-14 ms each (the history was
+already local: the terminal has run since Thursday). Largest gap between
+ticks 60-61 s on every symbol, consistent with the daily server-midnight
+pause (not checked tick by tick).
+
+So under Wine the call works, is complete over 24 h, and costs a few ms
+at its largest window; GD6's silent retry is not expected to fire. Not
+covered: a cold terminal just after a restart, where history may still be
+syncing (the EA's retry is the answer there).
+
+Line count: 377

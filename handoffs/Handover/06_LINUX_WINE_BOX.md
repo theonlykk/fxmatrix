@@ -88,6 +88,19 @@ PowerShell window ON THE DESKTOP (not an SSH session):
 Leave that window open, then `mstsc` to `localhost:3390`, session
 **Xorg**, user `khalid`.
 
+**If RDP will not log you in** (the login box reappears; sesman log:
+"window manager ... exited quickly"), `xrdp-sesman` has lost the running
+session (02_TRAPS, 2026-09-26). Do NOT reboot while Fleet B runs. Attach
+x11vnc to the live display instead (installed 26 Sep). In SSH as root:
+
+    sudo -u khalid x11vnc -display :10 -auth /home/khalid/.Xauthority -localhost -rfbport 5910 -nopw -once -shared -noxdamage -bg -o /tmp/x11vnc-khalid.log
+
+(`:10` is the display on 26 Sep; check with `pgrep -u khalid -af Xorg`.)
+Then, in a second PowerShell window on the desktop, `ssh -L
+5910:localhost:5910 root@207.148.14.197`, and point the VNC viewer at
+`localhost::5910`. Localhost only, behind SSH; it exits when the viewer
+disconnects (rerun to reconnect). It is the LIVE desktop.
+
 **RDP feels sluggish; the box is not.** Every redraw crosses Chicago to
 Toronto. The same compile takes ~6.8 s here against ~10.8 s on the
 desktop. Close MT5's chart windows, drop the RDP colour depth, and use
@@ -165,7 +178,7 @@ Done that night, in order; each step is repeatable.
    works; for the desktop session run `ssh -L 3390:localhost:3389
    root@207.148.14.197` in its own PowerShell window and `mstsc` to
    `localhost:3390`, session Xorg, user `khalid`. If RDP will not log in,
-   check `systemctl is-active xrdp` and reboot (stale sessions).
+   use x11vnc (s4); do NOT reboot while Fleet B runs (02_TRAPS 26 Sep).
 2. **Account.** IC Markets demo **53066709** (`ICMarketsSC-Demo`), opened on
    the IC Markets website (no ID needed when the field is left blank), then
    File -> Login in this terminal. Title bar must read `... - Hedge - Raw
@@ -205,4 +218,4 @@ The box clock is UTC.
 Destroy the instance (billing is hourly) or take a snapshot first, which
 costs pennies a month and rebuilds in minutes.
 
-Line count: 208
+Line count: 221

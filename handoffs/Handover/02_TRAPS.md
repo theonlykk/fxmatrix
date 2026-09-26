@@ -989,3 +989,24 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`send_logs` `duration_ms` 0 = the terminal refused the request
   locally** (10025 no changes, 10027 algo off, 10018 market closed):
   it never reached the broker.
+
+## TRAPS FROM 2026-09-26 (BOX DESKTOP ACCESS)
+
+- **RDP to the box can lock you out while the desktop is healthy.**
+  `xrdp-sesman` restarted at 06:27:40Z 25 Sep (almost certainly a service
+  restart after an unattended library upgrade; xrdp itself was not
+  upgraded) and forgot khalid's session on `:10`, where MT5 runs. Every
+  login then starts a NEW session on `:11`, whose XFCE dies at once
+  (khalid already has one): the login box just reappears. The sesman log
+  says "window manager ... exited quickly". No `mstsc` setting fixes it.
+- **Do not reboot to fix it while Fleet B runs there** (06 said "reboot";
+  corrected). Use x11vnc on `:10` (06 s4): no restart of anything. If a
+  reboot is ever wanted: market closed, close MT5 GRACEFULLY first
+  (`wine taskkill /IM terminal64.exe`, no `/F`) so every `OnDeinit`
+  flushes GlobalVariables, then reboot, restart MT5 by hand, check 11/11.
+  A hard kill skips the flush.
+- **Unattended upgrades never reboot the box** (`Automatic-Reboot` left at
+  its default, false; checked 26 Sep). They can still restart services.
+- **Say where every command runs** (box SSH, desktop PowerShell, a GUI).
+  "Install x11vnc" read as a Windows install; it goes on the BOX, the
+  viewer on the desktop.
