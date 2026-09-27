@@ -238,8 +238,15 @@ window-aware lattice (both ejection paths act only at cap; outside the
 window a side below cap never gets there). The 26 Sep ~02:30Z plan (IC
 Control / Reduced Hours / Improve Adds) was withdrawn before push.
 
+**8.10a Built so far (27 Sep).** The four levers (plus width per side)
+are merged as grind v2.0 (`main` `8f1f42d`, backlog C47). The rebuild of
+s8.6 is ADR-163 (ruled, not built; C69): the operator accepted a third
+stored value that GATES the rebuild (the exit each side was last priced
+for) and never prices, and ruled that a commanded-eject exit keeps its
+price on a rebuild.
+
 **8.11 OPEN.** Width rule; first probe directions per pair and side; the
 two duplicates' role; N for promotion; the half-pip floor; the smallest
 exit worth its commission; box size; the new EA's name.
 
-Line count: 245
+Line count: 252

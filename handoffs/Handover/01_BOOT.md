@@ -189,15 +189,15 @@ pieces of work: the operator found chats rolling over too early
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-26 ~21:45Z (Saturday), market CLOSED; cycle 3 AND Fleet B on `5685e4f`. C56 done (pipshed `1e88b10`). Cycle 4 direction: `cycle4-live-geometry-search.md` rev 3 (s8).**
-Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 17; s17 = 26 Sep: trace, probe, cycle-4 direction).
+**As of 2026-09-27 ~01:05Z (Sunday), market CLOSED (opens 21:00Z); cycle 3 AND Fleet B on `5685e4f`. grind v2.0 MERGED to `main` (`8f1f42d`): add, exit and width per side, inherit by default. Fleet B graded add dial STAGED on the box (fleet-b.md B1), reload in session Sunday evening.**
+Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 18; s18 = 26-27 Sep evening: dial staged, v2.0 built and merged, ADR-163 drafted and ruled).
 
 | | |
 |---|---|
-| fxmatrix main | `669da60` or a docs-only descendant: ADR-162 complete (A, B1 + C54, B2; lattice default OFF; ADR-162 s15). BOTH fleets still run `5685e4f` (C52) since 25 Sep (Fleet B 04:42:55Z, VPS 04:50:36Z); the lattice deploys only to Fleet B after C56 and the Wine tick-history check. A deploy of `main` also prints `GRIND_LATTICE enable=false` per instance at init |
+| fxmatrix main | `8f1f42d` or a docs-only descendant: grind v2.0 (per-side width/add/exit, six inputs default -1 = inherit; suite **2168/2168** GBPUSD+EURUSD at `907b1c7`; Gemini GV-Q1..Q8; DeepSeek `a19261d`) on top of ADR-162 complete (lattice default OFF). With every input inherited it behaves as `669da60`. BOTH fleets still run `5685e4f` (C52). A deploy of `main` prints `GRIND_LATTICE enable=` and `GRIND_GEOMETRY long ... short ...` per instance at init |
 | pipshed main | `1e88b10` (C56 + fixes 1-3, migration 004 applied): `/api/g/<token>/ejection` (worker-built, ledger closed P&L), rolls out of scalp counts, Daily roll columns, ROLL_* on the banner; earlier `5e8b904` `--codes`/`--depth`, `c0a5f44` `--carrypass` |
 | VPS running | branch `main` at `5685e4f`, tag `vps-5685e4f` (compiled 2026-09-25 04:50:36Z); restore `vps-a01a5d4` |
-| MQL5 suite | **2114/2114** on GBPUSD and EURUSD at `00e0e4e` (EA code of `669da60`); **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
+| MQL5 suite | **2168/2168** on GBPUSD and EURUSD at `907b1c7` (= `main` `8f1f42d` EA code); 2114/2114 at `00e0e4e`; **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
 | Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
 | Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
 | Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
@@ -205,7 +205,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 17; s17 = 26 Sep: trace, 
 | **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
 | **Fleet C** | NOT BUILT and WAITING (operator 2026-09-25): after the carry fix (C52) and the ADR-162 work (C54-C56); see C51 |
-| **Next** | C63: the lattice on Fleet B, a weekday in session (C56 done, probe met); presets_b lattice keys only after box 1 compiles `main`. Then cycle 4 (note rev 3, s8: C46-C48). Every night: `--carrypass` (below) |
+| **Next** | (1) Sun 27 in session: reload the nine Fleet B `_opt_b` charts from the staged presets (fleet-b.md B1; add only, no compile). (2) v2.1 = rebuild at start (`docs/architecture/ADR-163-rebuild-at-start.md`, Gemini ruled, operator confirmed the gate label) plus tests GV14/GV15 (DeepSeek `a19261d` gaps): needed before ANY exit change on a live book. (3) Box 2 (fresh, 06 s3) + new IC Raw demo + pipshed fleet letter: grindv2 with inherited (= Fleet B) settings as a code check. (4) C63 Tue/Thu: compile `main` on box 1 + lattice presets. Every night: `--carrypass` |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or

@@ -1052,3 +1052,29 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Counts exclude, money includes.** Rolls and ejections leave scalp
   COUNTS; they never leave P&L totals (fix 1 found the daily summary's
   net dropping them).
+
+## TRAPS FROM 2026-09-26/27 (GRIND V2.0 NIGHT)
+
+- **Name the workspace in every Cursor handover.** The v2.0 prompt was
+  pasted into the pipshed Cursor chat; it found none of the `ea/` files
+  and did nothing, but a looser prompt could have written into the wrong
+  repo. Start each task in a NEW Cursor chat in the named workspace and
+  check its first line names that path.
+- **Cite definition lines and call lines separately.** An audit row
+  mixing them ("PassStep (1148; 1175)") had the wrong definition lines;
+  an advisor then misread the call. Give each function's definition line
+  and each call line on its own.
+- **"X's setup" is ambiguous.** Cursor read "GV9's setup" as including
+  GV9's calls. Say which lines: "the setup lines of GV9, not its calls".
+- **Check a red-team verdict against the spec's rulings.** DeepSeek's
+  "NEEDS-FIX" (base inputs still required) was the spec's stated design,
+  and its DEINIT finding was pre-existing on `main`. Both went to the
+  backlog or were rejected with the reason, not "fixed".
+- **Experts logs are UTF-16.** A copied log saved without a byte-order
+  mark defeats `Select-String`; read the bytes and pick the encoding
+  (the parser in this chat). `git log`/`git branch` page with a `:`
+  prompt in PowerShell: use `git --no-pager`.
+- **An advisor can be wrong and still useful.** Gemini's "line 1175
+  cannot call PassBegin" was false, but it pointed at a real error next
+  to it. Verify the claim in source, then look at what made him think it.
+

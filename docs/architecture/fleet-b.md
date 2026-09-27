@@ -129,6 +129,13 @@ cap, stranded and deadband unchanged. Presets: the nine `*_opt_b.set`
 in `ea/presets_b` (the commit that adds this amendment); the two
 `*_dup_b.set` unchanged. The box build stays `5685e4f`: no compile.
 
+**Staged 2026-09-27 00:06Z:** the nine new presets written into
+`MQL5/Presets` on the box with the key (each checked equal to
+`dd4761e` + key; the old files first checked equal to `d2cfd87` + key and
+backed up to `/home/khalid/preset_backup_20260926`); the box repo
+fetched only (HEAD still `5685e4f`). Reloading from the backups restores
+the 24-26 Sep geometry.
+
 Applied by reloading the nine charts' inputs from the new presets
 (Properties, Load, OK: deinit reason 5), in session, never with the
 market closed. Every cut is 1-3 pips, inside the 4-pip deadband, so
@@ -149,4 +156,4 @@ twin; closed P&L from `/ejection`; gated hours; ejections. The lattice
 `s4_scalps.py --days 3` and read days 24 and 25 (after 22:00Z Saturday,
 `--days 2` returns 25 and 26).
 
-Line count: 152
+Line count: 159
