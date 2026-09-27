@@ -24,6 +24,7 @@
 #include "fxgrind_tests_c54.mqh"
 #include "fxgrind_tests_c55.mqh"
 #include "fxgrind_tests_gv.mqh"
+#include "fxgrind_tests_rb.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9369,6 +9370,20 @@ void OnStart()
    Test_GV11_LatticeShortPerSide();
    Test_GV12_CarryPerSide();
    Test_GV13_EjectShortPerSide();
+   Test_RB1_LongRebuild();
+   Test_RB2_ShortRebuild();
+   Test_RB3_EjectedKeepsPrice();
+   Test_RB4_RolledFromVL();
+   Test_RB5_AccruedKept();
+   Test_RB6_ClampRecordsShift();
+   Test_RB7_UnflaggedNoop();
+   Test_RB8_FailClosed();
+   Test_RB10_ReconTolerance();
+   Test_RB11_Labels();
+   Test_RB12_AddOneShot();
+   Test_GV14_DueAddShort();
+   Test_GV15_RecenterShortWidth();
+   Test_RB13_UnreadableExitFailsClosed();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

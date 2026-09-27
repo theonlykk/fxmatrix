@@ -24,6 +24,8 @@ long   g_grind_market_test_time_msc = 0;
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
 double g_grind_engine_add_pips_short = 0.0;
+bool   g_grind_start_add_reprice_long = false;
+bool   g_grind_start_add_reprice_short = false;
 double g_grind_engine_entry_horizon_pips = 0.0;
 
 //+------------------------------------------------------------------+
@@ -2417,9 +2419,16 @@ void Grind_EnsureAddNext(GrindSideState &side,
    if(!is_long && !Grind_SellLimitMarketable(clamped, bid))
       return;
 
+   const bool one_shot = is_long ? g_grind_start_add_reprice_long : g_grind_start_add_reprice_short;
+   if(is_long)
+      g_grind_start_add_reprice_long = false;
+   else
+      g_grind_start_add_reprice_short = false;
+   const double add_deadband = one_shot ? 0.05 : deadband_pips;
+
    if(side.add_pending_ticket != 0) {
       const double resting = Grind_OrderGetPriceOpen(side.add_pending_ticket);
-      if(Grind_PriceWithinDeadband(resting, clamped, deadband_pips, _Point))
+      if(Grind_PriceWithinDeadband(resting, clamped, add_deadband, _Point))
          return;
       Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);
       return;
@@ -2753,6 +2762,102 @@ void Grind_TryRecenterOppositeL0(GrindSideState &opposite_side,
       return;
 
    Grind_ModifyPendingPrice(opposite_side.l0_pending_ticket, clamped, magic);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_RebuildExitsAtStartSide(GrindSideState &side,
+                                   const bool is_long,
+                                   const ulong magic,
+                                   const double exit_pips)
+{
+   int repriced = 0;
+   int ejected_kept = 0;
+   int clamped_count = 0;
+   const int dir = is_long ? 1 : -1;
+   const string side_letter = is_long ? "L" : "S";
+
+   for(int i = 0; i < ArraySize(side.layers); i++) {
+      const ulong pos = side.layers[i].position_ticket;
+      const ulong exit_ticket = side.layers[i].exit_order_ticket;
+      if(exit_ticket == 0 || side.layers[i].exit_position_ticket != 0)
+         continue;
+
+      const double entry = side.layers[i].entry_price;
+      const double resting = Grind_OrderGetPriceOpen(exit_ticket);
+      if(resting <= 0.0) {
+         Grind_ArchiveMarker("WARN", "REBUILD_EXIT_UNREADABLE", side_letter, pos,
+                             StringFormat("{\"side\":\"%s\",\"ticket\":%I64u}",
+                                          side_letter, exit_ticket));
+         return false;
+      }
+
+      if(Grind_EjectIsEjected(pos) && !Grind_VLHas(pos)) {
+         ejected_kept++;
+         const double eff = Grind_EffectiveEntry(entry, pos);
+         const double raw = Grind_ExitPrice(eff, exit_pips, _Point, dir)
+                            + Grind_CarryAccruedGet(pos)
+                            + Grind_CarryShiftGetForRecon(pos);
+         const double offset = resting - raw;
+         Grind_EjectOffsetSet(pos, offset);
+         side.layers[i].exit_target = resting;
+         const string detail = StringFormat(
+            "{\"side\":\"%s\",\"old\":%.5f,\"new\":%.5f,\"clamped\":false,\"ejected_kept\":true}",
+            side_letter, resting, resting);
+         Grind_ArchiveMarker("INFO", "EXIT_REBUILT", side_letter, pos, detail);
+         continue;
+      }
+
+      const double formula = Grind_ExitQFormulaTarget(entry, exit_pips, _Point, is_long, pos);
+      double price = formula;
+      const bool clamped = Grind_ExitQClampPassive(is_long, formula, price);
+      const double old_price = resting;
+
+      if(MathAbs(resting - price) > _Point * 0.5) {
+         if(!Grind_ModifyPendingPrice(exit_ticket, price, magic))
+            return false;
+         repriced++;
+      }
+
+      side.layers[i].exit_target = price;
+
+      if(clamped || MathAbs(price - formula) > _Point * 0.5)
+         Grind_CarryRecordShift(pos, price - formula, true);
+      else
+         Grind_CarryShiftDelete(pos);
+
+      if(clamped)
+         clamped_count++;
+
+      const string detail = StringFormat(
+         "{\"side\":\"%s\",\"old\":%.5f,\"new\":%.5f,\"clamped\":%s,\"ejected_kept\":false}",
+         side_letter, old_price, price, clamped ? "true" : "false");
+      Grind_ArchiveMarker("INFO", "EXIT_REBUILT", side_letter, pos, detail);
+   }
+
+   const string summary = StringFormat(
+      "{\"side\":\"%s\",\"repriced\":%d,\"ejected_kept\":%d,\"clamped\":%d}",
+      side_letter, repriced, ejected_kept, clamped_count);
+   Grind_ArchiveMarker("INFO", "REBUILD_SUMMARY", side_letter, 0, summary);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_RebuildExitsAtStart(const ulong magic)
+{
+   if(!g_grind_rebuild_long && !g_grind_rebuild_short)
+      return true;
+
+   if(g_grind_rebuild_long) {
+      if(!Grind_RebuildExitsAtStartSide(g_grind_long, true, magic, g_grind_recon_exit_pips))
+         return false;
+   }
+   if(g_grind_rebuild_short) {
+      const double exit_s = Grind_SidePips(false, g_grind_recon_exit_pips,
+                                           g_grind_recon_exit_pips_short);
+      if(!Grind_RebuildExitsAtStartSide(g_grind_short, false, magic, exit_s))
+         return false;
+   }
+   return true;
 }
 
 //+------------------------------------------------------------------+
