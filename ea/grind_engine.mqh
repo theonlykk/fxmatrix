@@ -23,6 +23,7 @@ long   g_grind_market_test_time_msc = 0;
 
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
+double g_grind_engine_add_pips_short = 0.0;
 double g_grind_engine_entry_horizon_pips = 0.0;
 
 //+------------------------------------------------------------------+
@@ -434,7 +435,8 @@ int Grind_EjectAcceptLayer(const bool is_long, const int idx, const ulong magic,
 int Grind_EjectPollCommand(const ulong magic,
                            const bool enabled,
                            const double exit_pips,
-                           const bool engine_blocked)
+                           const bool engine_blocked,
+                           const double exit_pips_short = 0.0)
 {
    const string cmd_name = Grind_EjectCommandName(magic);
    if(!GlobalVariableCheck(cmd_name))
@@ -511,7 +513,8 @@ int Grind_EjectPollCommand(const ulong magic,
       return code;
    }
 
-   return Grind_EjectAcceptLayer(is_long, idx, magic, exit_pips, "command");
+   const double side_exit = Grind_SidePips(is_long, exit_pips, exit_pips_short);
+   return Grind_EjectAcceptLayer(is_long, idx, magic, side_exit, "command");
 }
 
 //+------------------------------------------------------------------+
@@ -623,7 +626,8 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
 void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
                            const double exit_pips, const int max_layers,
                            const bool blocked, const int stable_minutes,
-                           const double k)
+                           const double k,
+                           const double exit_pips_short = 0.0)
 {
    if(!enabled || blocked)
       return;
@@ -672,7 +676,8 @@ void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
                              stable_minutes, k);
    }
    if(Grind_SideDepth(g_grind_short) >= max_layers) {
-      Grind_AutoEjectTrySide(false, magic, exit_pips, max_layers, enabled, blocked,
+      const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
+      Grind_AutoEjectTrySide(false, magic, exit_s, max_layers, enabled, blocked,
                              times, vals_short, copied, spreads, ns, current, now,
                              stable_minutes, k);
    }
@@ -1247,7 +1252,9 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
 //+------------------------------------------------------------------+
 void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots,
                          const bool enabled, const double exit_pips, const double add_pips,
-                         const int max_layers, const bool blocked, const datetime now)
+                         const int max_layers, const bool blocked, const datetime now,
+                         const double exit_pips_short = 0.0,
+                         const double add_pips_short = 0.0)
 {
    if(!enabled)
       return;
@@ -1258,9 +1265,12 @@ void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots
    if(Grind_SideDepth(g_grind_long) >= max_layers)
       Grind_LatticeTrySide(g_grind_long, true, magic, slot, lots, exit_pips, add_pips, max_layers,
                            enabled, blocked, now, g_grind_vl_extreme_long);
-   if(Grind_SideDepth(g_grind_short) >= max_layers)
-      Grind_LatticeTrySide(g_grind_short, false, magic, slot, lots, exit_pips, add_pips,
+   if(Grind_SideDepth(g_grind_short) >= max_layers) {
+      const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
+      const double add_s = Grind_SidePips(false, add_pips, add_pips_short);
+      Grind_LatticeTrySide(g_grind_short, false, magic, slot, lots, exit_s, add_s,
                            max_layers, enabled, blocked, now, g_grind_vl_extreme_short);
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -2283,10 +2293,13 @@ void Grind_ServiceDueAddFlags(const ulong magic,
                               const double add_pips,
                               const double deadband_pips,
                               const int max_layers,
-                              const double lots)
+                              const double lots,
+                              const double add_pips_short = 0.0)
 {
    if(!g_grind_fill_time_place)
       return;
+
+   const double add_s = Grind_SidePips(false, add_pips, add_pips_short);
 
    if(g_grind_add_due_long && !g_grind_add_due_attempted_long) {
       g_grind_add_due_attempted_long = true;
@@ -2315,11 +2328,11 @@ void Grind_ServiceDueAddFlags(const ulong magic,
                 Grind_SelectOurOrder(g_grind_short.add_pending_ticket, magic)) {
          // defer stale-label handling to Grind_EnsureAddNext
       } else if(Grind_EntryHorizonActive()) {
-         Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_pips, deadband_pips,
+         Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_s, deadband_pips,
                              max_layers, lots);
          g_grind_add_due_short = false;
       } else {
-         Grind_SendNextAddEnt(g_grind_short, false, magic, slot, add_pips, max_layers, lots, false);
+         Grind_SendNextAddEnt(g_grind_short, false, magic, slot, add_s, max_layers, lots, false);
          g_grind_add_due_short = false;
       }
    }
@@ -2647,7 +2660,11 @@ void Grind_HandleSideDealFill(GrindSideState &side,
 
       Grind_AppendLayer(side, deal_price, position_id, c_layer, exit_pips, is_long);
       Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
-      Grind_TryPlaceAddAtFill(side, is_long, magic, slot, g_grind_engine_add_pips,
+      const double fill_add = is_long
+                              ? g_grind_engine_add_pips
+                              : Grind_SidePips(false, g_grind_engine_add_pips,
+                                               g_grind_engine_add_pips_short);
+      Grind_TryPlaceAddAtFill(side, is_long, magic, slot, fill_add,
                               deadband_pips, max_layers, lots, deal_ticket);
 
       if(c_layer == 0 && side.l0_pending_ticket != 0 &&
@@ -2743,8 +2760,10 @@ void Grind_RetryMissingExits(const ulong magic,
                              const string slot,
                              const double lots)
 {
+   const double exit_s = Grind_SidePips(false, g_grind_recon_exit_pips,
+                                        g_grind_recon_exit_pips_short);
    Grind_ExitQManageSide(g_grind_long, true, magic, slot, lots, g_grind_recon_exit_pips);
-   Grind_ExitQManageSide(g_grind_short, false, magic, slot, lots, g_grind_recon_exit_pips);
+   Grind_ExitQManageSide(g_grind_short, false, magic, slot, lots, exit_s);
 }
 
 //+------------------------------------------------------------------+
@@ -2756,7 +2775,9 @@ void Grind_OnTickEngine(const ulong magic,
                         const double stranded_thresh_pips,
                         const double deadband_pips,
                         const int max_layers,
-                        const double lots)
+                        const double lots,
+                        const double width_pips_short = 0.0,
+                        const double add_pips_short = 0.0)
 {
    if(!Grind_GuardsAllowTrading(magic, lots))
       return;
@@ -2764,9 +2785,12 @@ void Grind_OnTickEngine(const ulong magic,
    g_grind_ent_sent_this_tick = false;
    g_grind_add_due_attempted_long = false;
    g_grind_add_due_attempted_short = false;
+   const double width_s = Grind_SidePips(false, width_pips, width_pips_short);
+   const double add_s = Grind_SidePips(false, add_pips, add_pips_short);
    g_grind_engine_add_pips = add_pips;
+   g_grind_engine_add_pips_short = add_s;
    Grind_RetryMissingExits(magic, slot, lots);
-   Grind_ServiceDueAddFlags(magic, slot, add_pips, deadband_pips, max_layers, lots);
+   Grind_ServiceDueAddFlags(magic, slot, add_pips, deadband_pips, max_layers, lots, add_s);
 
    Grind_ReconcileStrayL0(g_grind_long, true, magic);
    Grind_ReconcileStrayL0(g_grind_short, false, magic);
@@ -2777,7 +2801,7 @@ void Grind_OnTickEngine(const ulong magic,
    const long stops = Grind_MarketStopsLevel();
 
    double buy_target = Grind_StraddleBuyPrice(mid, width_pips, _Point);
-   double sell_target = Grind_StraddleSellPrice(mid, width_pips, _Point);
+   double sell_target = Grind_StraddleSellPrice(mid, width_s, _Point);
    Grind_Adr013ClampBuy(buy_target, bid, _Point, stops, buy_target);
    Grind_Adr013ClampSell(sell_target, bid, ask, _Point, stops, sell_target);
 
@@ -2788,7 +2812,7 @@ void Grind_OnTickEngine(const ulong magic,
 
    if(Grind_SideDepth(g_grind_long) > 0 && Grind_SideDepth(g_grind_short) == 0)
       Grind_TryRecenterOppositeL0(g_grind_short, false, mid, magic, slot,
-                                  width_pips, stranded_thresh_pips, deadband_pips);
+                                  width_s, stranded_thresh_pips, deadband_pips);
    if(Grind_SideDepth(g_grind_short) > 0 && Grind_SideDepth(g_grind_long) == 0)
       Grind_TryRecenterOppositeL0(g_grind_long, true, mid, magic, slot,
                                   width_pips, stranded_thresh_pips, deadband_pips);
@@ -2799,7 +2823,7 @@ void Grind_OnTickEngine(const ulong magic,
    if(Grind_SideDepth(g_grind_long) > 0 || g_grind_long.add_pending_ticket != 0)
       Grind_EnsureAddNext(g_grind_long, true, magic, slot, add_pips, deadband_pips, max_layers, lots);
    if(Grind_SideDepth(g_grind_short) > 0 || g_grind_short.add_pending_ticket != 0)
-      Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_pips, deadband_pips, max_layers, lots);
+      Grind_EnsureAddNext(g_grind_short, false, magic, slot, add_s, deadband_pips, max_layers, lots);
 }
 
 //+------------------------------------------------------------------+
@@ -2895,7 +2919,9 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                                     const double add_pips,
                                     const double deadband_pips,
                                     const int max_layers,
-                                    const double lots)
+                                    const double lots,
+                                    const double exit_pips_short = 0.0,
+                                    const double add_pips_short = 0.0)
 {
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
       Grind_ArchiveRecordFill(trans.deal, magic);
@@ -2905,10 +2931,12 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
       return;
 
    g_grind_engine_add_pips = add_pips;
+   g_grind_engine_add_pips_short = Grind_SidePips(false, add_pips, add_pips_short);
+   const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
    Grind_HandleSideDealFill(g_grind_long, true, trans.deal, magic, slot,
                             exit_pips, deadband_pips, max_layers, lots);
    Grind_HandleSideDealFill(g_grind_short, false, trans.deal, magic, slot,
-                            exit_pips, deadband_pips, max_layers, lots);
+                            exit_s, deadband_pips, max_layers, lots);
 }
 
 bool Grind_ExitQFindExitDealPosition(const ulong order_ticket,

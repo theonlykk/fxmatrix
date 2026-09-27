@@ -26,22 +26,7 @@ void Grind_HandleSideDealFill(GrindSideState &side,
                               const double deadband_pips,
                               const int max_layers,
                               const double lots);
-int Grind_CarryExitPassStep(const string symbol,
-                            const ulong magic,
-                            const double exit_pips,
-                            const datetime now);
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
-bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
-                                const int long_count,
-                                const int &long_ranks[],
-                                const GrindReconLayerScratch &short_layers[],
-                                const int short_count,
-                                const int &short_ranks[],
-                                const double exit_pips,
-                                const double point,
-                                const int max_layers,
-                                string &reason_out,
-                                const bool tolerate_exit_shortfall = false);
 
 //+------------------------------------------------------------------+
 void F2_TestClearPositionCarry(const ulong position_ticket)

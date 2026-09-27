@@ -52,15 +52,6 @@ void Grind_TryPlaceAddAtFill(GrindSideState &side,
                              const double lots,
                              const ulong deal_ticket);
 bool Grind_ApiCounterEntryStopped();
-void Grind_OnTickEngine(const ulong magic,
-                        const string slot,
-                        const double width_pips,
-                        const double exit_pips,
-                        const double add_pips,
-                        const double stranded_thresh_pips,
-                        const double deadband_pips,
-                        const int max_layers,
-                        const double lots);
 
 extern bool g_grind_add_due_long;
 extern bool g_grind_add_due_short;

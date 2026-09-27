@@ -935,7 +935,8 @@ void Grind_CarryExitPassAppendWork(const ulong position_ticket,
 //+------------------------------------------------------------------+
 void Grind_CarryExitPassBegin(const string symbol,
                               const ulong magic,
-                              const double exit_pips)
+                              const double exit_pips,
+                              const double exit_pips_short = 0.0)
 {
    g_grind_carry_exit_pass_active = true;
    g_grind_carry_exit_work_count = 0;
@@ -961,8 +962,9 @@ void Grind_CarryExitPassBegin(const string symbol,
       const GrindLayer layer = g_grind_short.layers[i];
       if(layer.position_ticket == 0)
          continue;
+      const double short_exit = Grind_SidePips(false, exit_pips, exit_pips_short);
       const double formula = Grind_ExitPrice(Grind_EffectiveEntry(layer.entry_price, layer.position_ticket),
-                                             exit_pips, point, -1)
+                                             short_exit, point, -1)
                              + Grind_EjectOffsetGet(layer.position_ticket);
       Grind_CarryExitPassAppendWork(layer.position_ticket, layer.exit_order_ticket,
                                     layer.entry_price, formula, false, layer.layer_index);
@@ -972,12 +974,14 @@ void Grind_CarryExitPassBegin(const string symbol,
 }
 
 //+------------------------------------------------------------------+
-double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point)
+double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point,
+                           const double exit_pips_short = 0.0)
 {
    const int dir = g_grind_carry_exit_work_long[idx] ? 1 : -1;
+   const double side_exit = Grind_SidePips(dir > 0, exit_pips, exit_pips_short);
    return Grind_ExitPrice(Grind_EffectiveEntry(g_grind_carry_exit_work_entry[idx],
                                                g_grind_carry_exit_work_pos[idx]),
-                          exit_pips, point, dir)
+                          side_exit, point, dir)
           + Grind_EjectOffsetGet(g_grind_carry_exit_work_pos[idx]);
 }
 
@@ -1147,7 +1151,8 @@ void Grind_CarryOnTimerStep(const string symbol,
                             const ulong magic,
                             const double exit_pips,
                             const bool enable_carry_pass,
-                            const datetime carry_now)
+                            const datetime carry_now,
+                            const double exit_pips_short = 0.0)
 {
    if(Grind_CarryGateDue(magic, carry_now)) {
       if(!g_grind_carry_exit_snapshot_emitted) {
@@ -1156,14 +1161,15 @@ void Grind_CarryOnTimerStep(const string symbol,
       }
    }
    if(enable_carry_pass)
-      Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now);
+      Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now, exit_pips_short);
 }
 
 //+------------------------------------------------------------------+
 int Grind_CarryExitPassStep(const string symbol,
                             const ulong magic,
                             const double exit_pips,
-                            const datetime now)
+                            const datetime now,
+                            const double exit_pips_short = 0.0)
 {
    if(!Grind_CarryGateInWindow(now)) {
       if(g_grind_carry_exit_pass_active)
@@ -1172,7 +1178,7 @@ int Grind_CarryExitPassStep(const string symbol,
    }
 
    if(Grind_CarryGateDue(magic, now) && !g_grind_carry_exit_pass_active)
-      Grind_CarryExitPassBegin(symbol, magic, exit_pips);
+      Grind_CarryExitPassBegin(symbol, magic, exit_pips, exit_pips_short);
 
    if(!g_grind_carry_exit_pass_active)
       return 0;
@@ -1197,14 +1203,17 @@ int Grind_CarryExitPassStep(const string symbol,
       bool clamped = false;
       bool sign_skip = false;
       uint retcode = 0;
+      const double shift_exit = Grind_SidePips(g_grind_carry_exit_work_long[idx],
+                                               exit_pips, exit_pips_short);
       if(Grind_CarryExitShiftLayer(g_grind_carry_exit_work_pos[idx],
                                    current_exit,
                                    g_grind_carry_exit_work_entry[idx],
                                    Grind_CarryWorkBase(idx, exit_pips,
-                                                       SymbolInfoDouble(symbol, SYMBOL_POINT)),
+                                                       SymbolInfoDouble(symbol, SYMBOL_POINT),
+                                                       exit_pips_short),
                                    g_grind_carry_exit_work_long[idx],
                                    g_grind_carry_exit_work_layer[idx],
-                                   magic, symbol, exit_pips,
+                                   magic, symbol, shift_exit,
                                    clamped, sign_skip, retcode))
          g_grind_carry_exit_work_done++;
       processed++;

@@ -458,6 +458,22 @@ string Grind_ArchiveFillLogFields(const ulong deal,
 }
 
 //+------------------------------------------------------------------+
+string Grind_ArchiveGeometryFields(const double width_long,
+                                   const double add_long,
+                                   const double exit_long,
+                                   const double width_short,
+                                   const double add_short,
+                                   const double exit_short)
+{
+   return "\"width_pips_long\":" + Grind_ArchiveJsonDouble(width_long, 4) +
+          ",\"width_pips_short\":" + Grind_ArchiveJsonDouble(width_short, 4) +
+          ",\"add_pips_long\":" + Grind_ArchiveJsonDouble(add_long, 4) +
+          ",\"add_pips_short\":" + Grind_ArchiveJsonDouble(add_short, 4) +
+          ",\"exit_pips_long\":" + Grind_ArchiveJsonDouble(exit_long, 4) +
+          ",\"exit_pips_short\":" + Grind_ArchiveJsonDouble(exit_short, 4);
+}
+
+//+------------------------------------------------------------------+
 string Grind_ArchiveConfigFields(const string event,
                                  const int deinit_reason,
                                  const string symbol,

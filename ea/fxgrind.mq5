@@ -3,7 +3,7 @@
 //| One codebase, six .set presets, magic 2226xxxx namespace.        |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
-#property version   "1.00"
+#property version   "2.00"
 #property strict
 
 #include "grind_engine.mqh"
@@ -16,6 +16,12 @@ input string InpSlot               = "OPT";
 input double InpWidthPips          = -1.0;
 input double InpAddPips            = -1.0;
 input double InpExitPips           = -1.0;
+input double InpWidthPipsLong      = -1.0;  // v2: -1 = InpWidthPips
+input double InpWidthPipsShort     = -1.0;  // v2: -1 = InpWidthPips
+input double InpAddPipsLong        = -1.0;  // v2: -1 = InpAddPips
+input double InpAddPipsShort       = -1.0;  // v2: -1 = InpAddPips
+input double InpExitPipsLong       = -1.0;  // v2: -1 = InpExitPips
+input double InpExitPipsShort      = -1.0;  // v2: -1 = InpExitPips
 input int    InpMaxLayers          = -1;
 input double InpLots               = 0.01;
 input double InpStrandedThreshPips = -1.0;
@@ -47,6 +53,13 @@ input int    TelemetryIntervalSec = 60;
 
 ulong g_grind_last_telemetry_tick = 0;
 
+double g_geo_width_long  = 0.0;
+double g_geo_width_short = 0.0;
+double g_geo_add_long    = 0.0;
+double g_geo_add_short   = 0.0;
+double g_geo_exit_long   = 0.0;
+double g_geo_exit_short  = 0.0;
+
 //+------------------------------------------------------------------+
 string Grind_BuildHeartbeatJson()
 {
@@ -67,9 +80,9 @@ string Grind_BuildHeartbeatJson()
                                             g_grind_cap_peer_read_failed,
                                             InpMagic,
                                             InpSlot,
-                                            InpWidthPips,
-                                            InpAddPips,
-                                            InpExitPips,
+                                            g_geo_width_long,
+                                            g_geo_add_long,
+                                            g_geo_exit_long,
                                             InpMaxLayers,
                                             InpCapLegA,
                                             InpCapLegB);
@@ -85,7 +98,10 @@ string Grind_BuildHeartbeatJson()
       "\"add_held_target_long\":%s,\"add_held_target_short\":%s,"
       "\"entry_transitions_used_long\":%d,\"entry_transitions_used_short\":%d,"
       "\"add_gap_missed_long\":%d,\"add_gap_missed_short\":%d,"
-      "\"exit_clamped_promotions_long\":%d,\"exit_clamped_promotions_short\":%d}",
+      "\"exit_clamped_promotions_long\":%d,\"exit_clamped_promotions_short\":%d,"
+      "\"width_pips_long\":%.4f,\"width_pips_short\":%.4f,"
+      "\"add_pips_long\":%.4f,\"add_pips_short\":%.4f,"
+      "\"exit_pips_long\":%.4f,\"exit_pips_short\":%.4f}",
       g_grind_add_due_long ? "true" : "false",
       g_grind_add_due_short ? "true" : "false",
       Grind_ApiCounterEntryStopped() ? "true" : "false",
@@ -101,7 +117,13 @@ string Grind_BuildHeartbeatJson()
       g_grind_long.add_gap_missed,
       g_grind_short.add_gap_missed,
       g_grind_long.exit_clamped_promotions,
-      g_grind_short.exit_clamped_promotions);
+      g_grind_short.exit_clamped_promotions,
+      g_geo_width_long,
+      g_geo_width_short,
+      g_geo_add_long,
+      g_geo_add_short,
+      g_geo_exit_long,
+      g_geo_exit_short);
    return hb;
 }
 
@@ -118,6 +140,31 @@ void Grind_EmitHeartbeat()
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   if(!Grind_ResolveSideInput(InpWidthPips, InpWidthPipsLong, g_geo_width_long)) {
+      Print("FATAL: InpWidthPipsLong must be -1 (inherit) or > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ResolveSideInput(InpWidthPips, InpWidthPipsShort, g_geo_width_short)) {
+      Print("FATAL: InpWidthPipsShort must be -1 (inherit) or > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ResolveSideInput(InpAddPips, InpAddPipsLong, g_geo_add_long)) {
+      Print("FATAL: InpAddPipsLong must be -1 (inherit) or > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ResolveSideInput(InpAddPips, InpAddPipsShort, g_geo_add_short)) {
+      Print("FATAL: InpAddPipsShort must be -1 (inherit) or > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ResolveSideInput(InpExitPips, InpExitPipsLong, g_geo_exit_long)) {
+      Print("FATAL: InpExitPipsLong must be -1 (inherit) or > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ResolveSideInput(InpExitPips, InpExitPipsShort, g_geo_exit_short)) {
+      Print("FATAL: InpExitPipsShort must be -1 (inherit) or > 0");
+      return INIT_FAILED;
+   }
+
    if(!Grind_ValidateGeometryInputs(InpWidthPips, InpExitPips,
                                     InpMaxLayers, InpStrandedThreshPips,
                                     InpAddPips)) {
@@ -127,6 +174,28 @@ int OnInit()
    if(!Grind_ValidateAddWidthRatio(InpWidthPips, InpAddPips)) {
       Print("FATAL: InpAddPips / InpWidthPips = ", InpAddPips / InpWidthPips,
             " is outside [", GRIND_ADD_WIDTH_RATIO_MIN, ", ",
+            GRIND_ADD_WIDTH_RATIO_MAX, "] -- typo guard, ADR-153");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateGeometryInputs(g_geo_width_long, g_geo_exit_long,
+                                    InpMaxLayers, InpStrandedThreshPips,
+                                    g_geo_add_long)) {
+      Print("FATAL: long geometry not configured — width/add/exit/max_layers/stranded must be > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateAddWidthRatio(g_geo_width_long, g_geo_add_long)) {
+      Print("FATAL: long add/width ratio outside [", GRIND_ADD_WIDTH_RATIO_MIN, ", ",
+            GRIND_ADD_WIDTH_RATIO_MAX, "] -- typo guard, ADR-153");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateGeometryInputs(g_geo_width_short, g_geo_exit_short,
+                                    InpMaxLayers, InpStrandedThreshPips,
+                                    g_geo_add_short)) {
+      Print("FATAL: short geometry not configured — width/add/exit/max_layers/stranded must be > 0");
+      return INIT_FAILED;
+   }
+   if(!Grind_ValidateAddWidthRatio(g_geo_width_short, g_geo_add_short)) {
+      Print("FATAL: short add/width ratio outside [", GRIND_ADD_WIDTH_RATIO_MIN, ", ",
             GRIND_ADD_WIDTH_RATIO_MAX, "] -- typo guard, ADR-153");
       return INIT_FAILED;
    }
@@ -158,7 +227,8 @@ int OnInit()
    g_grind_cap_thresh_b = InpCapLegBThresh;
    g_grind_recon_magic = InpMagic;
    g_grind_recon_slot = InpSlot;
-   g_grind_recon_exit_pips = InpExitPips;
+   g_grind_recon_exit_pips = g_geo_exit_long;
+   g_grind_recon_exit_pips_short = g_geo_exit_short;
    g_grind_recon_max_layers = InpMaxLayers;
    g_grind_recon_verbose = InpVerboseLog;
    Grind_EngineConfigureAdr152(InpFillTimePlace, InpSlotNearReserve, InpEntryHorizonPips);
@@ -204,9 +274,9 @@ int OnInit()
    Print(Grind_ConfigDumpString(InpMagic,
                                 InpSlot,
                                 _Symbol,
-                                InpWidthPips,
-                                InpAddPips,
-                                InpExitPips,
+                                g_geo_width_long,
+                                g_geo_add_long,
+                                g_geo_exit_long,
                                 InpMaxLayers,
                                 InpStrandedThreshPips,
                                 InpDeadbandPips,
@@ -233,11 +303,13 @@ int OnInit()
       const string deinit_fields = Grind_ArchiveConfigFields(
          "DEINIT", prev_reason, _Symbol, InpSlot, GRIND_EA_BUILD,
          (long)AccountInfoInteger(ACCOUNT_LOGIN),
-         InpWidthPips, InpAddPips, InpExitPips, InpMaxLayers, InpLots,
+         g_geo_width_long, g_geo_add_long, g_geo_exit_long, InpMaxLayers, InpLots,
          InpDeadbandPips, InpStrandedThreshPips,
          InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
          InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
          EnableTelemetry, TelemetryIntervalSec, InpEnableCarryPass) +
+         "," + Grind_ArchiveGeometryFields(g_geo_width_long, g_geo_add_long, g_geo_exit_long,
+                                           g_geo_width_short, g_geo_add_short, g_geo_exit_short) +
          "," + Grind_ArchiveDeinitExtraFields(prev_time, InpMagic, prev_anchor);
       Grind_ArchiveEnqueue("config_event", deinit_fields);
       Grind_ArchiveClearPendingDeinit(InpMagic);
@@ -246,11 +318,13 @@ int OnInit()
    const string init_fields = Grind_ArchiveConfigFields(
       "INIT", 0, _Symbol, InpSlot, GRIND_EA_BUILD,
       (long)AccountInfoInteger(ACCOUNT_LOGIN),
-      InpWidthPips, InpAddPips, InpExitPips, InpMaxLayers, InpLots,
+      g_geo_width_long, g_geo_add_long, g_geo_exit_long, InpMaxLayers, InpLots,
       InpDeadbandPips, InpStrandedThreshPips,
       InpCapLegA, InpCapLegB, InpCapLegAThresh, InpCapLegBThresh,
       InpTelemetryInstance, InpVerboseLog, InpConfigWarning,
-      EnableTelemetry, TelemetryIntervalSec, InpEnableCarryPass);
+      EnableTelemetry, TelemetryIntervalSec, InpEnableCarryPass) +
+      "," + Grind_ArchiveGeometryFields(g_geo_width_long, g_geo_add_long, g_geo_exit_long,
+                                        g_geo_width_short, g_geo_add_short, g_geo_exit_short);
    Grind_ArchiveEnqueue("config_event", init_fields);
 
    Grind_CarryEmitSnapshot(_Symbol, InpMagic);
@@ -260,6 +334,12 @@ int OnInit()
          " toronto_utc_offset=", Grind_TorontoUtcOffset(TimeGMT()),
          " open_now=", Grind_SessionOpenAt(TimeGMT()));
    Print("GRIND_LATTICE enable=", InpVirtualLattice);
+   Print("GRIND_GEOMETRY long width=", DoubleToString(g_geo_width_long, 4),
+         " add=", DoubleToString(g_geo_add_long, 4),
+         " exit=", DoubleToString(g_geo_exit_long, 4),
+         " short width=", DoubleToString(g_geo_width_short, 4),
+         " add=", DoubleToString(g_geo_add_short, 4),
+         " exit=", DoubleToString(g_geo_exit_short, 4));
    Grind_ArchiveMarker("INFO", "LATTICE_CONFIG", "", 0,
                        StringFormat("{\"enable\":%s}",
                                     InpVirtualLattice ? "true" : "false"));
@@ -298,7 +378,8 @@ void OnTimer()
       Grind_DrainScalpEventQueue();
       Grind_EmitHeartbeat();
       const datetime carry_now = TimeTradeServer();
-      Grind_CarryOnTimerStep(_Symbol, InpMagic, InpExitPips, InpEnableCarryPass, carry_now);
+      Grind_CarryOnTimerStep(_Symbol, InpMagic, g_geo_exit_long, InpEnableCarryPass, carry_now,
+                             g_geo_exit_short);
       if(Grind_ApiCounterSoftWarnActive())
          Grind_TelemetryEmit(g_grind_telemetry_instance, "WARN_API_SOFT_LIMIT", "{}");
       g_grind_last_telemetry_tick = now_tick;
@@ -324,13 +405,16 @@ void OnTick()
       }
    }
 
-   Grind_EjectPollCommand(InpMagic, InpEnableCommandedEject, InpExitPips,
-                          g_grind_halted || g_grind_quarantined);
-   Grind_AutoEjectOnTick(InpMagic, InpAutoEject, InpExitPips, InpMaxLayers,
+   Grind_EjectPollCommand(InpMagic, InpEnableCommandedEject, g_geo_exit_long,
+                          g_grind_halted || g_grind_quarantined, g_geo_exit_short);
+   Grind_AutoEjectOnTick(InpMagic, InpAutoEject, g_geo_exit_long, InpMaxLayers,
                          g_grind_halted || g_grind_quarantined,
-                         InpAutoEjectStableMinutes, InpAutoEjectSpreadMult);
-   Grind_LatticeOnTick(InpMagic, InpSlot, InpLots, InpVirtualLattice, InpExitPips, InpAddPips,
-                       InpMaxLayers, g_grind_halted || g_grind_quarantined, TimeCurrent());
+                         InpAutoEjectStableMinutes, InpAutoEjectSpreadMult,
+                         g_geo_exit_short);
+   Grind_LatticeOnTick(InpMagic, InpSlot, InpLots, InpVirtualLattice,
+                       g_geo_exit_long, g_geo_add_long,
+                       InpMaxLayers, g_grind_halted || g_grind_quarantined, TimeCurrent(),
+                       g_geo_exit_short, g_geo_add_short);
    Grind_SessionStep(InpMagic, InpSlot, InpSessionEnable, TimeGMT(), true);
    Grind_BreakerOnTick(InpMagic, InpSlot, InpBreakerEnable);
 
@@ -345,13 +429,15 @@ void OnTick()
 
    Grind_OnTickEngine(InpMagic,
                       InpSlot,
-                      InpWidthPips,
-                      InpExitPips,
-                      InpAddPips,
+                      g_geo_width_long,
+                      g_geo_exit_long,
+                      g_geo_add_long,
                       InpStrandedThreshPips,
                       InpDeadbandPips,
                       InpMaxLayers,
-                      InpLots);
+                      InpLots,
+                      g_geo_width_short,
+                      g_geo_add_short);
 }
 
 //+------------------------------------------------------------------+
@@ -362,11 +448,13 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
    Grind_OnTradeTransactionEngine(trans,
                                   InpMagic,
                                   InpSlot,
-                                  InpExitPips,
-                                  InpAddPips,
+                                  g_geo_exit_long,
+                                  g_geo_add_long,
                                   InpDeadbandPips,
                                   InpMaxLayers,
-                                  InpLots);
+                                  InpLots,
+                                  g_geo_exit_short,
+                                  g_geo_add_short);
 }
 
 //+------------------------------------------------------------------+
