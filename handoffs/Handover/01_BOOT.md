@@ -189,7 +189,7 @@ pieces of work: the operator found chats rolling over too early
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-27 ~02:25Z (Sunday), market CLOSED (opens 21:00Z); cycle 3 AND Fleet B on `5685e4f`. grind v2.0 AND v2.1 MERGED to `main` (`6a1e9ad`): per-side width/add/exit (inherit by default) and the rebuild at start (ADR-163). Fleet B graded add dial STAGED on the box (fleet-b.md B1), reload in session Sunday evening. ROADMAP agreed: cycle-4 note s8.12. Box 2 (Fleet C) being built tonight.**
+**As of 2026-09-27 ~02:45Z (Sunday; handover to a new chat), market CLOSED (opens 21:00Z); cycle 3 AND Fleet B on `5685e4f`. grind v2.0 AND v2.1 MERGED to `main` (`6a1e9ad`): per-side width/add/exit (inherit by default) and the rebuild at start (ADR-163). Fleet B graded add dial STAGED on the box (fleet-b.md B1), reload in session Sunday evening. ROADMAP agreed: cycle-4 note s8.12. Box 2 (Fleet C) about to be created; `presets_c` and `fleet-c.md` NOT yet written (NEW_CHAT_PROMPT s2).**
 Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 18; s18 = 26-27 Sep evening: dial staged, v2.0 and v2.1 built and merged, pipshed Fleet C, roadmap).
 
 | | |
@@ -204,7 +204,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read sections 12 to 18; s18 = 26-27 Sep eveni
 | Carry / ejection | ON in all eleven presets (A2 point 2): carry, commanded and auto ejection, W 5, k 1.5 |
 | **Fleet B** | IC Markets demo **53066709** on the Linux box, 11 live since ~02:50Z 24 Sep, Phase 0 = cycle-3 config (`docs/architecture/fleet-b.md`); ids `GRIND_<PAIR>_OPTB`/`_ALTB`; dashboard `https://linux.pipshed.com` (live; Cloudflare CNAME to Railway, proxied; second Railway service, `GRIND_FLEET=B`; `https://pipshed-copy-production.up.railway.app` also serves it) |
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
-| **Fleet C** | = BOX 2 (C70; Gemini GC-1: the letter moved from the parked session-window fleet, C51). Being built 27 Sep: fresh Vultr box, new IC Markets Raw demo, `presets_c`, third Railway web service `GRIND_FLEET=C`. First job Monday: `main` at Fleet B's settings, a code check (roadmap s8.12 step 2) |
+| **Fleet C** | = BOX 2 (C70; build recipe 06 s9; Gemini GC-1: the letter moved from the parked session-window fleet, C51). Being built 27 Sep: fresh Vultr box, new IC Markets Raw demo, `presets_c`, third Railway web service `GRIND_FLEET=C`. First job Monday: `main` at Fleet B's settings, a code check (roadmap s8.12 step 2) |
 | **Next** | The ROADMAP is cycle-4 note s8.12. (1) Tonight: box 2 build (C70, 06 s3) + Fleet C Railway service and domain + `presets_c`. (2) Sun 27 in session (from ~19:00 ET): reload the nine Fleet B `_opt_b` charts from the staged presets (fleet-b.md B1; add only, box build `5685e4f`, no compile). (3) Mon session: box 2 attaches `main` at Fleet B's settings, code check, no flattening. (4) C63 Tue/Thu: `main` + lattice on box 1, box 2 matched; then a few days watching rolls. (5) Box 3, compass rounds (box 1 anchor). FTMO add-only until cycle 3 ends. Every night: `--carrypass` |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 

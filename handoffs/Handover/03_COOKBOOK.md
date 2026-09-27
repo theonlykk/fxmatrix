@@ -18,6 +18,10 @@ caused two wrong conclusions.
 
     https://pipshed.com/api/g/k7m9p2x4q/status/a1
 
+(Fleet B: `.../status_b/a1`; Fleet C, box 2: `.../status_c/a1`, pipshed
+`3184c88`. Each fleet's dashboard is its own Railway web service with
+`GRIND_FLEET` set; all read the same Redis.)
+
 The main one. Every instance: layers with entry and exit targets, resting
 levels, the full broker book with tickets, prices, millisecond timestamps and
 raw comments, `halted` / `halt_reason` / `invariant_ok` / `recon_ok`,

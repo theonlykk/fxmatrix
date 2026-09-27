@@ -218,4 +218,33 @@ The box clock is UTC.
 Destroy the instance (billing is hourly) or take a snapshot first, which
 costs pennies a month and rebuilds in minutes.
 
-Line count: 221
+## 9. BOX 2 = FLEET C (C70, 27 Sep; cycle-4 note s8.12)
+
+**Instance:** Vultr `fxgrind-wine-c`, Chicago, Ubuntu 24.04, vc2-2c-4gb,
+built FRESH (a snapshot of box 1 would carry its 53066709 login and Algo
+ON). IP: (record here). **Account:** a new IC Markets Raw demo (Hedge,
+USD, 1:100, $10k, one deposit): (record here).
+
+**Build:** s3 as root (Wine 9 from Ubuntu's own packages, s2; no
+WineHQ), MT5 as `khalid`; s4 access with THIS box's IP (RDP should work
+on a fresh box; x11vnc is the fallback). Then s7 steps 2-9 with these
+changes:
+- Step 2: the new demo; title bar `... - Hedge - Raw Trading Ltd`.
+- Step 4: `git clone https://github.com/theonlykk/fxmatrix ~/fxmatrix-repo`
+  at `main` (v2.1, NOT `5685e4f`); copy `ea/*.mq5 ea/*.mqh` into both
+  Experts/fxmatrix and Scripts/fxmatrix, `cmp` each, compile
+  `fxgrind.mq5` and `fxgrind_tests.mq5` 0/0.
+- Step 5: box 2 has no live EAs until Monday, so the suite MAY run here
+  ONCE, before any attach (GBPUSD chart; expect 2220/2220): it checks
+  v2.1 under Wine. Never again once an EA is attached.
+- Step 6: the same key as box 1, copied without passing through chat
+  (44 bytes, `chmod 600`).
+- Step 7: `ea/presets_c/*_c.set` (ids `GRIND_<PAIR>_OPTC`/`_ALTC`,
+  Fleet B's dialled values, per-side inputs at -1; C70).
+- Step 8: MONDAY in session, not before. Check lines per instance:
+  `GRIND_GEOMETRY`, `GRIND_REBUILD`, `GRIND_LATTICE enable=false`, clean
+  recon, POST ok.
+- Step 10: the Fleet C page (third Railway web service, `GRIND_FLEET=C`);
+  JSON at `https://pipshed.com/api/g/k7m9p2x4q/status_c/<n>`.
+
+Line count: 250

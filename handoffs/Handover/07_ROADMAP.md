@@ -10,6 +10,13 @@ the Handover folder so a new chat sees the direction, not just the state.
 Written 2026-09-20 from the operator's stated vision. Revisit when a
 horizon item becomes a live decision.
 
+**The CURRENT operational roadmap (operator, 27 Sep) is
+`docs/architecture/cycle4-live-geometry-search.md` s8.12:** box 2 (Fleet C),
+Monday code check, C63 lattice + dual add/exit on boxes 1 and 2, watch
+rolls, box 3 and compass rounds, best values into box 1, FTMO add-only
+until cycle 3 ends. The several-small-accounts direction below is what
+it is building.
+
 ---
 
 ## 1. THE SHAPE OF THE PROBLEM
@@ -161,4 +168,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 164
+Line count: 171
