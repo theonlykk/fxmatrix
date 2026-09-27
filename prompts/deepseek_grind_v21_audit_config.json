@@ -1,0 +1,16 @@
+{
+  "files_to_audit": {
+    "grind_engine.mqh":            "d:/fxmatrix/ea/grind_engine.mqh",
+    "grind_pure.mqh":              "d:/fxmatrix/ea/grind_pure.mqh",
+    "grind_carry.mqh":             "d:/fxmatrix/ea/grind_carry.mqh",
+    "grind_recon.mqh":             "d:/fxmatrix/ea/grind_recon.mqh",
+    "grind_exitq.mqh":             "d:/fxmatrix/ea/grind_exitq.mqh",
+    "fxgrind.mq5":                 "d:/fxmatrix/ea/fxgrind.mq5",
+    "fxgrind_tests_rb.mqh":        "d:/fxmatrix/ea/fxgrind_tests_rb.mqh"
+  },
+  "docs_to_include": {},
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_grind_v21_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_grind_v21_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_grind_v21_preview.md"
+}
