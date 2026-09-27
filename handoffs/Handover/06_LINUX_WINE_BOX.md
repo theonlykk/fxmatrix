@@ -222,8 +222,10 @@ costs pennies a month and rebuilds in minutes.
 
 **Instance:** Vultr `fxgrind-wine-c`, Chicago, Ubuntu 24.04, vc2-2c-4gb,
 built FRESH (a snapshot of box 1 would carry its 53066709 login and Algo
-ON). IP: (record here). **Account:** a new IC Markets Raw demo (Hedge,
-USD, 1:100, $10k, one deposit): (record here).
+ON). IP: **64.177.116.219** (created 03:55Z 27 Sep). **Account:** IC
+Markets Raw demo **53071896** (Hedge, USD, 1:100, $10k, one deposit),
+`ICMarketsSC-Demo`, Raw Trading Ltd. Built 27 Sep 03:55-04:46Z; record in
+`docs/architecture/fleet-c.md` s5.
 
 **Build:** s3 as root (Wine 9 from Ubuntu's own packages, s2; no
 WineHQ), MT5 as `khalid`; s4 access with THIS box's IP (RDP should work
@@ -247,4 +249,33 @@ changes:
 - Step 10: the Fleet C page (third Railway web service, `GRIND_FLEET=C`);
   JSON at `https://pipshed.com/api/g/k7m9p2x4q/status_c/<n>`.
 
-Line count: 250
+**Learned building box 2 (27 Sep); use for box 3:**
+- Vultr's Ubuntu image already has ufw with 22/tcp allowed ("Skipping
+  adding existing rule" is fine).
+- After `apt -y upgrade`, REBOOT while the box is still empty (a kernel
+  upgrade is usually pending; box 1 carried one for days and later could
+  not reboot under a live fleet).
+- `dpkg --add-architecture i386` needs `apt update` BEFORE `apt -y install
+  wine64 wine32 winbind` (06 s3 omits it). `wine --version` must print
+  `wine-9.0`.
+- Install `x11vnc` at build time, before anything trades (06 s4 fallback).
+- The first `winecfg` prints `err:ole ... RpcSs` lines: noise. Wine 9
+  defaults to Windows 10.
+- MT5 started from a terminal dies with that terminal: minimise it, or
+  start MT5 from the XFCE menu (Wine -> Programs).
+- MT5 build 6230 logs "unstable and unsupported Wine 9.0 ... upgrade to
+  Wine 10.0": a warning only (C71). A LiveUpdate right after install may
+  only refresh components (`mt5onnx64`); restart when nothing is attached.
+- IC server in the Login dropdown: pick **IC Markets Ltd /
+  ICMarketsInternational** in File -> Open an Account (then cancel) and
+  `ICMarketsSC-Demo` appears. Before authorisation the title reads
+  "Netting" whatever the account is; trust the Journal line
+  `demo account - hedging mode` and the title AFTER login.
+- Read which server a box uses without touching its GUI: in `<install>/logs`,
+  `iconv -f UTF-16LE -t UTF-8 <log> | grep -a -o "'[0-9]*': authorized on [^ ]*"`.
+- The key: `scp` it box 1 -> box 2 as root, then `chown khalid:khalid`,
+  `chmod 600`; compare `sha256sum | cut -c1-12` on both boxes.
+- The suite on a terminal that never had an EA leaves Global Variables
+  EMPTY (checked 04:43Z).
+
+Line count: 281
