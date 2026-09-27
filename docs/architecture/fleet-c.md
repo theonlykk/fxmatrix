@@ -130,8 +130,8 @@ box 2 becomes a PROBE fleet (step 5; box 1 the anchor).
   `MQL5/Presets` with the key (read loop, not `sed`); each
   `SAME_EXCEPT_KEY KEY_OK`; key 43 chars.
 - MT5 restarted detached 04:57Z (`setsid nohup ... &`, 06 s9; the Wine
-  menu entry calls `wine-stable` and does not start; that it survives
-  closing the terminal is not yet confirmed); re-authorised
+  menu entry calls `wine-stable` and does not start; it survived
+  closing the terminal, confirmed by the operator 05:13Z); re-authorised
   on `ICMarketsSC-Demo`, hedging mode, 0 positions, 0 orders.
 - Fleet C page 05:10Z: Railway service "pipshed Fleet C" (duplicate of
   Fleet B's web service; `GRIND_FLEET=C`, label "Fleet C - IC Markets
