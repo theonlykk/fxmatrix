@@ -2784,8 +2784,12 @@ bool Grind_RebuildExitsAtStartSide(GrindSideState &side,
 
       const double entry = side.layers[i].entry_price;
       const double resting = Grind_OrderGetPriceOpen(exit_ticket);
-      if(resting <= 0.0)
-         continue;
+      if(resting <= 0.0) {
+         Grind_ArchiveMarker("WARN", "REBUILD_EXIT_UNREADABLE", side_letter, pos,
+                             StringFormat("{\"side\":\"%s\",\"ticket\":%I64u}",
+                                          side_letter, exit_ticket));
+         return false;
+      }
 
       if(Grind_EjectIsEjected(pos) && !Grind_VLHas(pos)) {
          ejected_kept++;
