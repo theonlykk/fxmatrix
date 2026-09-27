@@ -16,6 +16,8 @@ ulong  g_grind_recon_magic = 0;
 string g_grind_recon_slot = "";
 double g_grind_recon_exit_pips = 0.0;
 double g_grind_recon_exit_pips_short = 0.0;
+bool   g_grind_rebuild_long = false;
+bool   g_grind_rebuild_short = false;
 int    g_grind_recon_max_layers = 0;
 string g_grind_halt_reason = "";
 string g_grind_invariant_reason = "";
@@ -470,7 +472,9 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const int max_layers,
                                 string &reason_out,
                                 const bool tolerate_exit_shortfall = false,
-                                const double exit_pips_short = 0.0)
+                                const double exit_pips_short = 0.0,
+                                const bool tolerate_exit_price_long = false,
+                                const bool tolerate_exit_price_short = false)
 {
    reason_out = "";
    Grind_InvariantDetailReset();
@@ -851,7 +855,9 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                                        string &reason_out,
                                        string &offending_comment_out,
                                        const bool tolerate_exit_shortfall = false,
-                                       const double exit_pips_short = 0.0)
+                                       const double exit_pips_short = 0.0,
+                                       const bool tolerate_exit_price_long = false,
+                                       const bool tolerate_exit_price_short = false)
 {
    reason_out = "";
    offending_comment_out = "";
@@ -1106,7 +1112,9 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
    if(!Grind_ReconCheckInvariants(long_scratch, long_count, long_ranks,
                                  short_scratch, short_count, short_ranks,
                                  exit_pips, point, max_layers, reason_out,
-                                 tolerate_exit_shortfall, exit_pips_short)) {
+                                 tolerate_exit_shortfall, exit_pips_short,
+                                 tolerate_exit_price_long,
+                                 tolerate_exit_price_short)) {
       if(offending_comment_out == "")
          offending_comment_out = Grind_ReconFailureOffendingForReason(
             tickets, ticket_count, reason_out,
@@ -1170,7 +1178,9 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                   GrindSideState &short_out,
                                   string &reason_out,
                                   const bool tolerate_exit_shortfall = false,
-                                  const double exit_pips_short = 0.0)
+                                  const double exit_pips_short = 0.0,
+                                  const bool tolerate_exit_price_long = false,
+                                  const bool tolerate_exit_price_short = false)
 {
    string offending = "";
    const bool ok = Grind_RebuildBookFromTicketsInner(tickets, ticket_count,
@@ -1179,7 +1189,9 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                                      long_out, short_out,
                                                      reason_out, offending,
                                                      tolerate_exit_shortfall,
-                                                     exit_pips_short);
+                                                     exit_pips_short,
+                                                     tolerate_exit_price_long,
+                                                     tolerate_exit_price_short);
    if(ok) {
       Grind_ReconFailureClear();
       return true;

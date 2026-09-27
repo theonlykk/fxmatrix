@@ -24,6 +24,8 @@ long   g_grind_market_test_time_msc = 0;
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
 double g_grind_engine_add_pips_short = 0.0;
+bool   g_grind_start_add_reprice_long = false;
+bool   g_grind_start_add_reprice_short = false;
 double g_grind_engine_entry_horizon_pips = 0.0;
 
 //+------------------------------------------------------------------+
@@ -2753,6 +2755,12 @@ void Grind_TryRecenterOppositeL0(GrindSideState &opposite_side,
       return;
 
    Grind_ModifyPendingPrice(opposite_side.l0_pending_ticket, clamped, magic);
+}
+
+//+------------------------------------------------------------------+
+bool Grind_RebuildExitsAtStart(const ulong magic)
+{
+   return true;                               // STUB
 }
 
 //+------------------------------------------------------------------+

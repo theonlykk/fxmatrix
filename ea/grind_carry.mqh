@@ -609,6 +609,37 @@ void Grind_VLSet(const ulong position_ticket, const double level)
 }
 
 //+------------------------------------------------------------------+
+string Grind_GeoExitGvName(const ulong magic, const bool is_long)
+{
+   return "GRIND_GEO_EXIT_" + IntegerToString((long)magic) + (is_long ? "_L" : "_S");
+}
+
+//+------------------------------------------------------------------+
+bool Grind_GeoExitGet(const ulong magic, const bool is_long, double &out)
+{
+   out = 0.0;
+   return false;                              // STUB
+}
+
+//+------------------------------------------------------------------+
+void Grind_GeoExitSet(const ulong magic, const bool is_long, const double exit_pips)
+{
+   // STUB
+}
+
+//+------------------------------------------------------------------+
+bool Grind_GeoExitChanged(const ulong magic, const bool is_long, const double current_exit)
+{
+   return false;                              // STUB
+}
+
+//+------------------------------------------------------------------+
+void Grind_GeoExitWriteLabels(const ulong magic, const double exit_long, const double exit_short)
+{
+   // STUB
+}
+
+//+------------------------------------------------------------------+
 void Grind_VLDelete(const ulong position_ticket)
 {
    GlobalVariableDel(Grind_VLName(position_ticket));
