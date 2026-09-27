@@ -475,4 +475,24 @@ void Test_GV15_RecenterShortWidth()
    RB_RestoreGlobals(saved_add, saved_recon);
 }
 
+//+------------------------------------------------------------------+
+void Test_RB13_UnreadableExitFailsClosed()
+{
+   const double saved_add = g_grind_engine_add_pips;
+   const double saved_recon = g_grind_recon_exit_pips;
+   RB_Reset();
+
+   RB_BookL3();
+   g_grind_recon_exit_pips = 7.0;
+   g_grind_rebuild_long = true;
+   Grind_OrderTestRemove(8003UL);
+   const bool ok = Grind_RebuildExitsAtStart(RB_MAGIC);
+
+   AssertFalse("RB13 fails closed", ok);
+   AssertNear("RB13 L0 moved before the failure", Grind_OrderGetPriceOpen(8001UL), 1.20570, 1e-9);
+
+   RB_Reset();
+   RB_RestoreGlobals(saved_add, saved_recon);
+}
+
 #endif

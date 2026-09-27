@@ -9383,6 +9383,7 @@ void OnStart()
    Test_RB12_AddOneShot();
    Test_GV14_DueAddShort();
    Test_GV15_RecenterShortWidth();
+   Test_RB13_UnreadableExitFailsClosed();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
