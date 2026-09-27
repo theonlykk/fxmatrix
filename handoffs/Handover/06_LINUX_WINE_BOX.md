@@ -246,8 +246,13 @@ changes:
 - Step 8: MONDAY in session, not before. Check lines per instance:
   `GRIND_GEOMETRY`, `GRIND_REBUILD`, `GRIND_LATTICE enable=false`, clean
   recon, POST ok.
-- Step 10: the Fleet C page (third Railway web service, `GRIND_FLEET=C`);
-  JSON at `https://pipshed.com/api/g/k7m9p2x4q/status_c/<n>`.
+- Step 10: the Fleet C page (third Railway web service "pipshed Fleet
+  C", `GRIND_FLEET=C`), `https://linuxc.pipshed.com`; JSON at
+  `https://pipshed.com/api/g/k7m9p2x4q/status_c/<n>`. Built by
+  duplicating Fleet B's web service: change `GRIND_FLEET` and the label,
+  check no `DATABASE_URL`; custom domain port = the generated domain's;
+  add the CNAME (proxied) and the `_railway-verify` TXT by hand in
+  Cloudflare (not "Connect").
 
 **Learned building box 2 (27 Sep); use for box 3:**
 - Vultr's Ubuntu image already has ufw with 22/tcp allowed ("Skipping
@@ -261,8 +266,11 @@ changes:
 - Install `x11vnc` at build time, before anything trades (06 s4 fallback).
 - The first `winecfg` prints `err:ole ... RpcSs` lines: noise. Wine 9
   defaults to Windows 10.
-- MT5 started from a terminal dies with that terminal: minimise it, or
-  start MT5 from the XFCE menu (Wine -> Programs).
+- MT5 started from a terminal dies with that terminal. The Wine menu
+  entry does NOT start it (its `Exec` calls `wine-stable`, a WineHQ name;
+  Ubuntu's package installs `wine`). Start it detached, from a terminal
+  in the desktop session, then close the terminal:
+  `setsid nohup env WINEPREFIX=$HOME/.mt5 wine "$HOME/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe" >/dev/null 2>&1 &`
 - MT5 build 6230 logs "unstable and unsupported Wine 9.0 ... upgrade to
   Wine 10.0": a warning only (C71). A LiveUpdate right after install may
   only refresh components (`mt5onnx64`); restart when nothing is attached.
@@ -278,4 +286,4 @@ changes:
 - The suite on a terminal that never had an EA leaves Global Variables
   EMPTY (checked 04:43Z).
 
-Line count: 281
+Line count: 289

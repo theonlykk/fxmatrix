@@ -61,7 +61,8 @@ Passive ejection and closed P&L (C56): rolls, ejections, per-day closed
 P&L by instance and side (scalps / rolls / ejections, commission, swap),
 live depth and deepest price, warnings, reconciliation. Worker-built;
 `view_age_s` says how old; 503 means the view is missing or stale, never
-read it as zero. `pipshed.com` for cycle 3, `linux.` for Fleet B.
+read it as zero. `pipshed.com` for cycle 3, `linux.` for Fleet B,
+`linuxc.` for Fleet C (box 2).
 
 **Ad-hoc SQL on production:** PowerShell mangles nested quotes in
 `railway ssh ... python -c`. Open a shell in the worker

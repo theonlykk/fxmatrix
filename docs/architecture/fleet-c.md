@@ -21,7 +21,7 @@ account, the VPS or Fleet B's account.
 | Code | `main` cloned on the box at `e2ac9fe` (EA code == `2ff62f4`, grind v2.1 = v2.0 + ADR-163 on ADR-162; `ea/ tools/` diff vs `6a1e9ad` empty); 74 files in Experts and Scripts, `cmp` clean; EA and tests compiled 0/0 in MetaEditor on the box; suite run ONCE before any attach: **2220/2220 on GBPUSD, 04:42:58Z** |
 | Presets | `ea/presets_c/*_c.set`: Fleet B's eleven presets AFTER the graded dial (`presets_b` at `dd4761e`, fleet-b.md B1), changed only in: `InpTelemetryInstance` (`GRIND_<PAIR>_OPTC`, `_ALTC` for the two duplicates); `InpConfigWarning` (the label; reporting only, it names Fleet C instead of Fleet B's account); six explicit per-side lines at -1 (`InpWidthPipsLong/Short`, `InpAddPipsLong/Short`, `InpExitPipsLong/Short` = inherit the base input). Key substituted on the box by `sed`, never in git |
 | Magics | shared with cycle 3 and Fleet B: separate account, separate terminal, separate GlobalVariable store |
-| Telemetry | ids `GRIND_<PAIR>_OPTC` / `_ALTC`; pipshed `3184c88` (`GRIND_C_INSTANCES`, `GRIND_FLEET=C`); JSON `https://pipshed.com/api/g/k7m9p2x4q/status_c/<n>`; dashboard: third Railway web service (`GRIND_FLEET=C`, `GRIND_FLEET_LABEL`, same Redis, NO `DATABASE_URL`), domain (record when live) |
+| Telemetry | ids `GRIND_<PAIR>_OPTC` / `_ALTC`; pipshed `3184c88` (`GRIND_C_INSTANCES`, `GRIND_FLEET=C`); JSON `https://pipshed.com/api/g/k7m9p2x4q/status_c/<n>`; dashboard: third Railway web service (`GRIND_FLEET=C`, `GRIND_FLEET_LABEL`, same Redis, NO `DATABASE_URL`): Railway service "pipshed Fleet C", domain **`https://linuxc.pipshed.com`** (proxied Cloudflare CNAME; also `https://pipshed-copy-copy-production.up.railway.app`) |
 
 Geometry (identical to Fleet B after B1; width / add / exit, pips; cap 8
 everywhere; auto-eject ON, lattice OFF, carry ON, commanded eject ON):
@@ -126,8 +126,18 @@ box 2 becomes a PROBE fleet (step 5; box 1 the anchor).
   (GBPUSD, 04:42:58Z); Global Variables empty after it.
 - Telemetry key copied box 1 -> box 2 by scp, 44 bytes, `chmod 600`,
   sha256 prefixes equal on both boxes (04:46Z).
-- Presets staged: (time; each checked `SAME_EXCEPT_KEY`).
-- Fleet C page: (Railway service, domain, time).
+- Presets staged 04:52Z: the eleven `*_c.set` from `ecdac67` into
+  `MQL5/Presets` with the key (read loop, not `sed`); each
+  `SAME_EXCEPT_KEY KEY_OK`; key 43 chars.
+- MT5 restarted detached 04:57Z (`setsid nohup ... &`, 06 s9; the Wine
+  menu entry calls `wine-stable` and does not start; that it survives
+  closing the terminal is not yet confirmed); re-authorised
+  on `ICMarketsSC-Demo`, hedging mode, 0 positions, 0 orders.
+- Fleet C page 05:10Z: Railway service "pipshed Fleet C" (duplicate of
+  Fleet B's web service; `GRIND_FLEET=C`, label "Fleet C - IC Markets
+  53071896", no `DATABASE_URL`), `linuxc.pipshed.com` (CNAME proxied +
+  `_railway-verify` TXT). `/ejection` on both hosts: fleet C, the eleven C
+  ids only, view 20 s old; `pipshed.com/.../status_c`: total 11, live 0.
 - Phase 1 attach: (pilot time, all eleven time).
 - Phase 1 verdict: (after Monday's session and that night's carry pass).
 
@@ -135,4 +145,4 @@ box 2 becomes a PROBE fleet (step 5; box 1 the anchor).
 
 (none yet)
 
-Line count: 138
+Line count: 148
