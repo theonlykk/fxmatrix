@@ -58,6 +58,22 @@ bool Grind_ValidateDeadband(const double deadband_pips)
 }
 
 //+------------------------------------------------------------------+
+double Grind_SidePips(const bool is_long, const double long_or_both,
+                      const double short_value)
+{
+   return long_or_both;                       // STUB
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ResolveSideInput(const double base_value,
+                            const double override_value,
+                            double &out_value)
+{
+   out_value = base_value;
+   return true;                               // STUB
+}
+
+//+------------------------------------------------------------------+
 int Grind_TestOnInitGeometryCheck(const double width_pips,
                                   const double exit_pips,
                                   const int max_layers,

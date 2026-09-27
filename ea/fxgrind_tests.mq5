@@ -23,6 +23,7 @@
 #include "fxgrind_tests_adr162b.mqh"
 #include "fxgrind_tests_c54.mqh"
 #include "fxgrind_tests_c55.mqh"
+#include "fxgrind_tests_gv.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9356,6 +9357,18 @@ void OnStart()
    Test_LB41_GapLoopDuringPass();
    Test_LB42_ClampedCatchupRollThenPass();
    Test_LB43_SignGuardAfterRoll();
+   Test_GV1_SidePips();
+   Test_GV2_ResolveSideInput();
+   Test_GV3_RetryMissingExitsPerSide();
+   Test_GV4_I6PerSide();
+   Test_GV5_RebuildPerSide();
+   Test_GV7_FillShortExitAndAdd();
+   Test_GV8_FillLongControl();
+   Test_GV9_L0WidthPerSide();
+   Test_GV10_AddNextPerSide();
+   Test_GV11_LatticeShortPerSide();
+   Test_GV12_CarryPerSide();
+   Test_GV13_EjectShortPerSide();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

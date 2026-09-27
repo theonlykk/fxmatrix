@@ -23,6 +23,7 @@ long   g_grind_market_test_time_msc = 0;
 
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
+double g_grind_engine_add_pips_short = 0.0;
 double g_grind_engine_entry_horizon_pips = 0.0;
 
 //+------------------------------------------------------------------+
@@ -434,7 +435,8 @@ int Grind_EjectAcceptLayer(const bool is_long, const int idx, const ulong magic,
 int Grind_EjectPollCommand(const ulong magic,
                            const bool enabled,
                            const double exit_pips,
-                           const bool engine_blocked)
+                           const bool engine_blocked,
+                           const double exit_pips_short = 0.0)
 {
    const string cmd_name = Grind_EjectCommandName(magic);
    if(!GlobalVariableCheck(cmd_name))
@@ -623,7 +625,8 @@ int Grind_AutoEjectTrySide(const bool is_long, const ulong magic,
 void Grind_AutoEjectOnTick(const ulong magic, const bool enabled,
                            const double exit_pips, const int max_layers,
                            const bool blocked, const int stable_minutes,
-                           const double k)
+                           const double k,
+                           const double exit_pips_short = 0.0)
 {
    if(!enabled || blocked)
       return;
@@ -1247,7 +1250,9 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
 //+------------------------------------------------------------------+
 void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots,
                          const bool enabled, const double exit_pips, const double add_pips,
-                         const int max_layers, const bool blocked, const datetime now)
+                         const int max_layers, const bool blocked, const datetime now,
+                         const double exit_pips_short = 0.0,
+                         const double add_pips_short = 0.0)
 {
    if(!enabled)
       return;
@@ -2283,7 +2288,8 @@ void Grind_ServiceDueAddFlags(const ulong magic,
                               const double add_pips,
                               const double deadband_pips,
                               const int max_layers,
-                              const double lots)
+                              const double lots,
+                              const double add_pips_short = 0.0)
 {
    if(!g_grind_fill_time_place)
       return;
@@ -2756,7 +2762,9 @@ void Grind_OnTickEngine(const ulong magic,
                         const double stranded_thresh_pips,
                         const double deadband_pips,
                         const int max_layers,
-                        const double lots)
+                        const double lots,
+                        const double width_pips_short = 0.0,
+                        const double add_pips_short = 0.0)
 {
    if(!Grind_GuardsAllowTrading(magic, lots))
       return;
@@ -2895,7 +2903,9 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
                                     const double add_pips,
                                     const double deadband_pips,
                                     const int max_layers,
-                                    const double lots)
+                                    const double lots,
+                                    const double exit_pips_short = 0.0,
+                                    const double add_pips_short = 0.0)
 {
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
       Grind_ArchiveRecordFill(trans.deal, magic);

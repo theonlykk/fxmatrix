@@ -935,7 +935,8 @@ void Grind_CarryExitPassAppendWork(const ulong position_ticket,
 //+------------------------------------------------------------------+
 void Grind_CarryExitPassBegin(const string symbol,
                               const ulong magic,
-                              const double exit_pips)
+                              const double exit_pips,
+                              const double exit_pips_short = 0.0)
 {
    g_grind_carry_exit_pass_active = true;
    g_grind_carry_exit_work_count = 0;
@@ -972,7 +973,8 @@ void Grind_CarryExitPassBegin(const string symbol,
 }
 
 //+------------------------------------------------------------------+
-double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point)
+double Grind_CarryWorkBase(const int idx, const double exit_pips, const double point,
+                           const double exit_pips_short = 0.0)
 {
    const int dir = g_grind_carry_exit_work_long[idx] ? 1 : -1;
    return Grind_ExitPrice(Grind_EffectiveEntry(g_grind_carry_exit_work_entry[idx],
@@ -1147,7 +1149,8 @@ void Grind_CarryOnTimerStep(const string symbol,
                             const ulong magic,
                             const double exit_pips,
                             const bool enable_carry_pass,
-                            const datetime carry_now)
+                            const datetime carry_now,
+                            const double exit_pips_short = 0.0)
 {
    if(Grind_CarryGateDue(magic, carry_now)) {
       if(!g_grind_carry_exit_snapshot_emitted) {
@@ -1156,14 +1159,15 @@ void Grind_CarryOnTimerStep(const string symbol,
       }
    }
    if(enable_carry_pass)
-      Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now);
+      Grind_CarryExitPassStep(symbol, magic, exit_pips, carry_now, exit_pips_short);
 }
 
 //+------------------------------------------------------------------+
 int Grind_CarryExitPassStep(const string symbol,
                             const ulong magic,
                             const double exit_pips,
-                            const datetime now)
+                            const datetime now,
+                            const double exit_pips_short = 0.0)
 {
    if(!Grind_CarryGateInWindow(now)) {
       if(g_grind_carry_exit_pass_active)

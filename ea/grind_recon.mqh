@@ -15,6 +15,7 @@
 ulong  g_grind_recon_magic = 0;
 string g_grind_recon_slot = "";
 double g_grind_recon_exit_pips = 0.0;
+double g_grind_recon_exit_pips_short = 0.0;
 int    g_grind_recon_max_layers = 0;
 string g_grind_halt_reason = "";
 string g_grind_invariant_reason = "";
@@ -468,7 +469,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
                                 const double point,
                                 const int max_layers,
                                 string &reason_out,
-                                const bool tolerate_exit_shortfall = false)
+                                const bool tolerate_exit_shortfall = false,
+                                const double exit_pips_short = 0.0)
 {
    reason_out = "";
    Grind_InvariantDetailReset();
@@ -846,7 +848,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
                                        GrindSideState &short_out,
                                        string &reason_out,
                                        string &offending_comment_out,
-                                       const bool tolerate_exit_shortfall = false)
+                                       const bool tolerate_exit_shortfall = false,
+                                       const double exit_pips_short = 0.0)
 {
    reason_out = "";
    offending_comment_out = "";
@@ -1162,7 +1165,8 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                   GrindSideState &long_out,
                                   GrindSideState &short_out,
                                   string &reason_out,
-                                  const bool tolerate_exit_shortfall = false)
+                                  const bool tolerate_exit_shortfall = false,
+                                  const double exit_pips_short = 0.0)
 {
    string offending = "";
    const bool ok = Grind_RebuildBookFromTicketsInner(tickets, ticket_count,
@@ -1170,7 +1174,8 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
                                                      exit_pips, max_layers, point,
                                                      long_out, short_out,
                                                      reason_out, offending,
-                                                     tolerate_exit_shortfall);
+                                                     tolerate_exit_shortfall,
+                                                     exit_pips_short);
    if(ok) {
       Grind_ReconFailureClear();
       return true;
