@@ -2,9 +2,9 @@ This message has a line count at the bottom
 
 # ADR-163 -- GRIND V2.1: REBUILD AT START (EXIT AND ADD CHANGES ON A LIVE BOOK)
 
-Status: RULED, NOT BUILT (2026-09-27 ~01:05Z). Drafted ~00:05Z; Gemini
-ruled ~00:15Z (s9: D1 narrowed, D7 becomes a gate); operator confirmed
-the gate label ~01:00Z (s10). Next: the v2.1 Cursor spec (backlog C69). Written by Claude from
+Status: BUILT AND MERGED (`main` `6a1e9ad`, 2026-09-27 ~01:45Z; s11).
+Drafted ~00:05Z; Gemini ruled ~00:15Z (s9); operator confirmed the gate
+label ~01:00Z (s10). Written by Claude from
 source at `main` `dd4761e` (EA == `669da60`). Builds on v2.0, merged since as
 `8f1f42d` (`prompts/cursor_grind_v2_per_side.md`; inherit by default).
 Record: cycle-4 note s8.6 (rebuild, operator ruling by acceptance),
@@ -238,4 +238,20 @@ corruption, which halts on I6 as today). Also ruled this chat: a
 COMMANDED-EJECT exit keeps its price on a rebuild (R3), because a hand
 eject means "get out at the market now".
 
-Line count: 241
+## 11. BUILT (2026-09-27)
+
+Spec `prompts/cursor_grind_v21_rebuild.md` (Gemini GR-S1..S6: the L0
+one-shot of D4 DROPPED, since an L0 target depends on the mid and would
+snap to it at every restart; a clamped resting add may be modified once
+per restart). Cursor `bc16f0d` (stubs, 50 tests: 2187/2218 failing the
+31 predicted) and `fbd3227` (2218/2218). DeepSeek `b31afd4`: T-1 CORRECT
+(an unreadable resting exit was skipped, the labels written, and every
+later init strict: no self-heal) -> fix `2ff62f4` (return false,
+`REBUILD_EXIT_UNREADABLE`, test RB13; 2220/2220; Gemini GF-1); T-6
+("halt with the market closed") REJECTED: the rebuild runs only after an
+operator exit change, and reattaching with the market closed is
+forbidden (GR-Q3, Gemini GF-2). Merged `6a1e9ad`. Deploy check: the
+`GRIND_REBUILD long=... short=...` line, and `EXIT_REBUILT` /
+`REBUILD_SUMMARY` / `REBUILD_EXIT_UNREADABLE` markers in `ea_events`.
+
+Line count: 257

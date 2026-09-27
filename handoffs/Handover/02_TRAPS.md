@@ -1077,4 +1077,3 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **An advisor can be wrong and still useful.** Gemini's "line 1175
   cannot call PassBegin" was false, but it pointed at a real error next
   to it. Verify the claim in source, then look at what made him think it.
-
