@@ -617,26 +617,34 @@ string Grind_GeoExitGvName(const ulong magic, const bool is_long)
 //+------------------------------------------------------------------+
 bool Grind_GeoExitGet(const ulong magic, const bool is_long, double &out)
 {
-   out = 0.0;
-   return false;                              // STUB
+   const string name = Grind_GeoExitGvName(magic, is_long);
+   if(!GlobalVariableCheck(name))
+      return false;
+   out = GlobalVariableGet(name);
+   return true;
 }
 
 //+------------------------------------------------------------------+
 void Grind_GeoExitSet(const ulong magic, const bool is_long, const double exit_pips)
 {
-   // STUB
+   GlobalVariableSet(Grind_GeoExitGvName(magic, is_long), exit_pips);
+   Grind_GvMarkDirty();
 }
 
 //+------------------------------------------------------------------+
 bool Grind_GeoExitChanged(const ulong magic, const bool is_long, const double current_exit)
 {
-   return false;                              // STUB
+   double label = 0.0;
+   if(!Grind_GeoExitGet(magic, is_long, label))
+      return false;
+   return (MathAbs(label - current_exit) > 1e-6);
 }
 
 //+------------------------------------------------------------------+
 void Grind_GeoExitWriteLabels(const ulong magic, const double exit_long, const double exit_short)
 {
-   // STUB
+   Grind_GeoExitSet(magic, true, exit_long);
+   Grind_GeoExitSet(magic, false, exit_short);
 }
 
 //+------------------------------------------------------------------+

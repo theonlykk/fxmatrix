@@ -265,6 +265,17 @@ int OnInit()
                                     StringFormat("long=%d short=%d", a, b));
       }
       Grind_RetryMissingExits(InpMagic, InpSlot, InpLots);
+      if(!Grind_RebuildExitsAtStart(InpMagic)) {
+         g_grind_halted = true;
+         g_grind_halt_reason = "REBUILD_EXIT_FAILED";
+         Grind_TelemetryCritical(g_grind_telemetry_instance, "REBUILD_EXIT_FAILED", "");
+         Grind_CancelOwnEntryOrders(InpMagic, InpSlot);
+         Print("CRITICAL: REBUILD_EXIT_FAILED -- halted in place");
+      } else {
+         Grind_GeoExitWriteLabels(InpMagic, g_geo_exit_long, g_geo_exit_short);
+         g_grind_start_add_reprice_long = true;
+         g_grind_start_add_reprice_short = true;
+      }
    }
 
    Grind_CarryPruneShiftGvs(InpMagic);
@@ -340,6 +351,8 @@ int OnInit()
          " short width=", DoubleToString(g_geo_width_short, 4),
          " add=", DoubleToString(g_geo_add_short, 4),
          " exit=", DoubleToString(g_geo_exit_short, 4));
+   Print("GRIND_REBUILD long=", g_grind_rebuild_long ? "true" : "false",
+         " short=", g_grind_rebuild_short ? "true" : "false");
    Grind_ArchiveMarker("INFO", "LATTICE_CONFIG", "", 0,
                        StringFormat("{\"enable\":%s}",
                                     InpVirtualLattice ? "true" : "false"));
