@@ -1077,3 +1077,10 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **An advisor can be wrong and still useful.** Gemini's "line 1175
   cannot call PassBegin" was false, but it pointed at a real error next
   to it. Verify the claim in source, then look at what made him think it.
+- **A Flask route that does not exist yet returns an HTML 404.** A test
+  that expects `404` with a JSON body (`{"error": "not found"}`, the
+  token check) FAILS before the route exists, since Flask's default page
+  is HTML. Pipshed FC6 was predicted to pass at the tests-only commit
+  and failed (3 of 9, not 4). When predicting a tests-first run, ask what
+  answers the request before the code exists, not only what the new code
+  will answer.

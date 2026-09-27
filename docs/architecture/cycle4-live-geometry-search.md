@@ -240,13 +240,54 @@ Control / Reduced Hours / Improve Adds) was withdrawn before push.
 
 **8.10a Built so far (27 Sep).** The four levers (plus width per side)
 are merged as grind v2.0 (`main` `8f1f42d`, backlog C47). The rebuild of
-s8.6 is ADR-163 (ruled, not built; C69): the operator accepted a third
-stored value that GATES the rebuild (the exit each side was last priced
-for) and never prices, and ruled that a commanded-eject exit keeps its
-price on a rebuild.
+s8.6 is ADR-163, built and merged as grind v2.1 (`main` `6a1e9ad`, suite
+2220/2220): the operator accepted a third stored value that GATES the
+rebuild (the exit each side was last priced for) and never prices, and
+ruled that a commanded-eject exit keeps its price on a rebuild. So s8.6's
+BLOCKER is gone on `main`: a reattach with a changed exit reprices the
+resting exits instead of halting. Both fleets still run `5685e4f`.
 
 **8.11 OPEN.** Width rule; first probe directions per pair and side; the
 two duplicates' role; N for promotion; the half-pip floor; the smallest
 exit worth its commission; box size; the new EA's name.
 
-Line count: 252
+**8.12 ROADMAP (operator, 27 Sep ~02:15Z; a starting point, to be
+tweaked).** The operator's list, with Claude's refinements (accepted).
+There is ONE EA now: `main` (v2.1) IS the dual add/exit EA, so a fix
+lands once and reaches every box by a compile.
+1. **Tonight (27 Sep):** box 2 = Fleet C (C70): fresh Vultr box from
+   `06_LINUX_WINE_BOX.md` s3, new IC Markets Raw demo, `presets_c`, and
+   its pipshed page (third Railway web service, `GRIND_FLEET=C`; pipshed
+   `3184c88` serves it).
+2. **Monday session: code check.** Box 2 attaches `main` at Fleet B's
+   settings (graded dial, fleet-b.md B1; the six per-side inputs at -1).
+   Pass: clean init (`GRIND_GEOMETRY`, `GRIND_REBUILD`, recon, POST ok),
+   a full session with no FATAL, CRITICAL, `INVARIANT_FAIL` or halt,
+   scalps booking. NO flattening of either box: the inherited book is
+   territory (s8.5); flattening Fleet B would reset the dial's baseline;
+   the EA cannot close positions; a code check needs no equal books. For
+   a like-for-like number, optional "fresh ladder" comparison: scalps on
+   ladders whose L0 opened after box 2's start, on both fleets.
+3. **C63 (Tue or Thu, in session):** compile `main` on box 1 with lattice
+   presets (`InpVirtualLattice=true`, `InpAutoEject=false`). This is the
+   operator's "update the EA on all Linux boxes to dual add/exit" and the
+   lattice in one step; box 2 gets the lattice at the same time so the two
+   stay matched.
+4. **A few days watching passive ejection (rolls).** It starts at step 3:
+   the lattice is on nowhere yet and ADR-157 auto-eject has never fired.
+   Works: carry on. Does not: fixes land in `main` (one EA) and redeploy
+   to both boxes.
+5. **Box 3 and the compass.** Box 3 (a third IC demo, Fleet D; the parked
+   session-window fleet takes a later letter if ever built), then proper
+   add/exit optimisation by compass rounds (s8.4-8.5): box 1 holds the
+   ANCHOR, boxes 2 and 3 the PROBES (s8.3). Box 2 may run a half-compass
+   (one probe per side) before box 3 exists.
+6. **The best values move into box 1** (the anchor), by reattach in
+   session (v2.1 rebuilds the exits on a changed exit).
+7. **FTMO.** Cycle 3 is frozen on `5685e4f` (geometry-cycle3 A4): only
+   ADD may change there (A1), so the lab can guide its add pips only.
+   FTMO moves to `main` when cycle 3 ends, or earlier if the operator
+   ends the cycle to run dual add/exit at once (his call). Promotion
+   follows s8.8's bar.
+
+Line count: 293
