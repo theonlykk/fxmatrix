@@ -475,6 +475,8 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
    reason_out = "";
    Grind_InvariantDetailReset();
 
+   const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
+
    if(long_count > max_layers) {
       return Grind_InvariantFail(reason_out, "I7_LONG_DEPTH",
                                  Grind_InvariantDetailI7(true, long_count, max_layers));
@@ -551,11 +553,11 @@ bool Grind_ReconCheckInvariants(const GrindReconLayerScratch &long_layers[],
       const bool short_exit_filled = short_layers[i].has_exit_position;
       if(!Grind_ReconExitMatchesEntry(short_layers[i].entry_price,
                                      short_layers[i].exit_target,
-                                     exit_pips, point, false, short_shift,
+                                     exit_s, point, false, short_shift,
                                      short_exit_filled, short_layers[i].position_id)) {
          const string i6_reason = short_exit_filled ? "I6_SHORT_EXIT_FILL_ADVERSE" : "I6_SHORT_EXIT";
          return Grind_InvariantFail(reason_out, i6_reason,
-                                    Grind_InvariantDetailI6(short_layers[i], false, exit_pips, point,
+                                    Grind_InvariantDetailI6(short_layers[i], false, exit_s, point,
                                                             short_shift),
                                     short_layers[i].position_id);
       }
@@ -858,6 +860,8 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
    Grind_ReconResetSide(long_out);
    Grind_ReconResetSide(short_out);
 
+   const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
+
    GrindReconLayerScratch long_scratch[];
    GrindReconLayerScratch short_scratch[];
    int long_indices[];
@@ -1102,7 +1106,7 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
    if(!Grind_ReconCheckInvariants(long_scratch, long_count, long_ranks,
                                  short_scratch, short_count, short_ranks,
                                  exit_pips, point, max_layers, reason_out,
-                                 tolerate_exit_shortfall)) {
+                                 tolerate_exit_shortfall, exit_pips_short)) {
       if(offending_comment_out == "")
          offending_comment_out = Grind_ReconFailureOffendingForReason(
             tickets, ticket_count, reason_out,
@@ -1143,7 +1147,7 @@ bool Grind_RebuildBookFromTicketsInner(const GrindReconTicket &tickets[],
          short_out.layers[n].exit_target = short_scratch[j].exit_target;
       else
          short_out.layers[n].exit_target =
-            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_pips, point, false,
+            Grind_ExitQFormulaTarget(short_scratch[j].entry_price, exit_s, point, false,
                                      short_scratch[j].position_id);
       short_out.layers[n].position_ticket = short_scratch[j].position_id;
       short_out.layers[n].exit_order_ticket = short_scratch[j].exit_order_ticket;
@@ -1244,7 +1248,9 @@ bool Grind_CheckBookInvariants()
                                                 g_grind_recon_exit_pips,
                                                 g_grind_recon_max_layers,
                                                 _Point,
-                                                long_tmp, short_tmp, reason);
+                                                long_tmp, short_tmp, reason,
+                                                false,
+                                                g_grind_recon_exit_pips_short);
    g_grind_last_invariant_ok = ok;
    if(!ok) {
       g_grind_invariant_reason = reason;
@@ -1278,7 +1284,8 @@ bool Grind_ReconstructState()
                                                 g_grind_long,
                                                 g_grind_short,
                                                 reason,
-                                                true);
+                                                true,
+                                                g_grind_recon_exit_pips_short);
    g_grind_recon_ok = ok;
    g_grind_last_invariant_ok = ok;
 
