@@ -310,4 +310,25 @@ MT5 kept trading. First look in daylight, READ-ONLY over `ssh box2`:
 locker on both boxes (a locked session is a likely cause). Fix before
 C63, which needs the GUI on box 2.
 
-Line count: 313
+**Box 2 GUI, 28 Sep daylight (C75, resolved for C63):** X on `:10` answers
+(`xdpyinfo` rc 0), XFCE runs, no locker running (light-locker and
+gnome-screensaver are installed, not running). sesman RECONNECTS every
+RDP login to `:10`; the 03:44Z one reached Xorg, then
+`xrdp_mm_chansrv_connect` failed four times and the link hung until the
+client dropped at 05:41Z (inferred: the teal screen, and why x11vnc hung
+then). **Use VNC on box 2** (works; RDP repair in a closed-market slot).
+In `ssh box2` as root:
+
+    sudo -u khalid x11vnc -display :10 -auth /home/khalid/.Xauthority -localhost -rfbport 5911 -nopw -once -shared -noxdamage -bg -o /tmp/x11vnc-box2.log
+
+then on the desktop `ssh -L 5911:localhost:5911 box2` (leave it open) and
+the viewer on `localhost::5911`. It exits when the viewer disconnects.
+
+**Files to box 2 (28 Sep):** scp from the desktop to `/root`, then as root
+`install -o khalid -g khalid -m 664 /root/<file> "<MQL5 root>/Scripts/fxmatrix/<file>"`
+(khalid cannot read `/root`); check `sha256sum | cut -c1-16`. The box's
+repo `~/fxmatrix-repo` is owned by khalid (`sudo -u khalid git -C ...`).
+**Box 1's repo stays on `5685e4f`** (the live build): do not pull `main`
+there; copy single scripts instead.
+
+Line count: 334

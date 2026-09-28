@@ -145,4 +145,43 @@ Operator: two exports and two bar dumps per run (copy files to the chat).
   The twins stay as a third check where they exist. STATUS: sent to
   Gemini 28 Sep; the analysis codes all three, so his answer changes
   only which is headline.
-Line count: 148
+
+## 8. 28 SEP AFTERNOON: CODE, PILOT, CORRECTIONS (CLAUDE)
+
+**Code:** `research/ejection_value/` (standard library only; README
+there): `ev_data` (export and bar loaders; server time -> UTC; the
+forming last bar dropped), `ev_book` (layers from the ledger: close-by
+pairs, all-in net; depth timelines; cap anchors; Q1), `ev_episodes`
+(ejections, carry-shifted exit, hit/MAE/mark, chains, F, V), `ev_controls`
+(GQ5-F: cross-fleet, twins, F per hour), `ev_report`. 19 synthetic tests,
+expected values by hand; every rule broken once and caught.
+
+**Pilot (28 Sep, export `--days 2` 16:24Z; IC bars from box 2, FTMO bars
+from the desktop):** Fleet C's six ejections E sum to -17.72 = the strip;
+A and B differ from the strip by exactly the ENT commissions of layers
+opened before the window; the rebuilt depth equals the EA's `stack_depth`
+on 45/45 scalps; every cap anchor consistent (spread 0). 26 ejections, all
+filled; 1-8 `EJECT_ACCEPTED` rows per ticket (trailing). No episode scored
+yet: 24/48 h of bars after each ejection are needed.
+
+**Data changes:** export `--days 14` (the depth rebuild needs every ENT
+since each fleet started; `fill_logs` keeps 14 days); IC bars from box 2
+(VNC works; box 1's repo stays on the live build); FTMO bars from the
+desktop terminal's flat `MQL5\Scripts\`. A close-by whose EXT IN deal is
+missing (a fill in a broker resync, C76) pairs on the layer's ENT leg;
+neither leg known -> skipped and counted.
+
+**Correction to GQ1 (for Gemini after ADR-164; one document at a time):**
+auto-eject takes the layer whose exit ranks depth-1 (`grind_engine.mqh`
+559-585): the exit furthest from the market, the MOST UNDERWATER layer,
+usually L0 (first live ejection: `layer_index` 0). So "F counts layers at
+`layer_index` >= the ejected index" counts every later layer, including
+those that exist in both worlds. The code decides by DEPTH: a layer is
+freed-slot when it was added while the held world was still at cap
+(visible depth + chain layers still held >= cap). **GQ6:** accept the
+depth rule? And `V_strict` = `V_doc` + the mark of freed-slot layers still
+open at the chain end (omitting them flatters ejection): headline which?
+
+**Inferred, not verified:** the night multiplier (Wed 3, Sat/Sun 0, else
+1; C61 is open).
+Line count: 187

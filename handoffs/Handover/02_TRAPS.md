@@ -1147,3 +1147,49 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Sandbox PostgreSQL stops between sessions:** start it with
   `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pgdata_c -o '-p 55432 -k /var/tmp' -l /var/tmp/pgdata_c/log start"`
   and give every verify run a fresh database.
+
+## TRAPS FROM 2026-09-28 AFTERNOON (RESYNC HALT, PIPSHED FIXES, PROBES)
+
+- **A fill during a broker resync has NO event.** Box 2 lost the trade
+  server for ~5 s (16:27:29-34Z); two fills in the gap reached the book
+  only through "terminal synchronized": no journal deal line, no
+  `OnTradeTransaction`, no `fill_logs` row, no layer (C76). A missed ENT
+  halts on I3; a missed EXT stalls silently. Read the terminal JOURNAL
+  (`<install>/logs`, not `MQL5/logs`) for `connection ... lost` first.
+- **`HistoryDealSelect` replaces the `HistorySelect` list** with that one
+  deal (MQL5 docs; P1 on box 2: 26 -> 1). Loop with `HistoryDealGetTicket`
+  and read by ticket; snapshot tickets before calling anything that may
+  select (C77, ADR-164 D1).
+- **An advisor's "confirmed safe" needs the docs, not only the source.**
+  Gemini's GQ3 ruled history selection safe by reading call sites; the
+  MQL5 documentation says otherwise. Praise and no questions again.
+- **The fetch tool invented "NONE FOUND"** for exit positions the raw
+  JSON listed. For anything that decides an action, save the raw JSON to
+  Downloads (`Invoke-WebRequest -UseBasicParsing -UserAgent "Mozilla/5.0"
+  <url> -OutFile ...`) and parse it; the sandbox cannot reach pipshed.
+- **MT5 reinitialises an EA only when an input changes.** Properties -> OK
+  with nothing changed does nothing; append " x" to `InpConfigWarning`
+  (reporting only: config line and archive record).
+- **The desktop terminal's scripts are flat in `MQL5\Scripts\`**
+  (`desktop_sync.ps1` 25-27); `Scripts\fxmatrix\` exists only on the Linux
+  boxes.
+- **Files scp'd to `/root` are unreadable to `khalid`:** `install -o khalid
+  -g khalid -m 664 <src> <dest>` as root. And `scp` to `box2` asks root's
+  password while `ssh box2` may not: the key is not used by scp (unchecked).
+- **PowerShell paths with a space and a trailing backslash** break a quoted
+  argument (`"$HOME\Downloads\"` -> `Downloads"`): give the full file name,
+  no trailing backslash.
+- **The daily summary took ABS pips**, so every ejection's loss counted as
+  + pips (Fleet B 28 Sep partial day +1382.9 old vs +618.3 net). Signed by
+  direction now; commission by account (FTMO 0.06, IC 0.08 per close from
+  the ledger). "Deepest stack" was long + short, not a side.
+- **Weekend nights write `CARRY_PASS_INCOMPLETE`** on every fleet (Sat and
+  Sun 21:00Z, 44 rows): the pass starts, finds eligible layers, cannot act
+  with the market closed. Nothing committed; no swap on those nights.
+  Noise, not a fault.
+- **A test that passes before the change is not testing it** (FS42 checked
+  the text summary only; FS32 passed on `invariant_ok` false, not on the
+  halted state). Run every new guard against the old code AND break the
+  new code once per rule.
+- **Study export: `--days 14`, not 7.** The depth timeline needs every ENT
+  since each fleet started; `fill_logs` keeps 14 days.

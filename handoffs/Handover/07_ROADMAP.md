@@ -20,8 +20,12 @@ it is building.
 **GATE BEFORE REAL MONEY (operator commitment, 27 Sep: "we will plug all
 the security issues before we go live with real money").** No fleet trades
 a funded or real account until each of these is closed:
-- C9: the telemetry key rotated (exposed in chat 27 Sep) AND the pipshed
-  read token out of the public repo (it is in every handoff);
+- C9: the telemetry key rotated (exposed in chat 27 Sep, and a key
+  committed in `ea/Globals.mqh` since 19 Jun) AND the pipshed read token
+  out of the public repo (it is in every handoff); operator, 28 Sep: the
+  REPO MADE PRIVATE before real money;
+- C76: a fill that arrives in a broker resync is adopted, not halted on or
+  silently stalled (ADR-164);
 - C31: an externally flattened book is detected and halts, not retries;
 - C18: quarantine does not escalate while a retry is blocked;
 - C14/C23: partial fills handled, if any lot above 0.01 is planned;
@@ -179,4 +183,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 182
+Line count: 186
