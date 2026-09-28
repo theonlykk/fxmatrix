@@ -34,7 +34,7 @@ Read-only analysis of files; standard library only (Python 3.9+).
 | `ev_episodes.py` | ejections, carry-shifted exit, hit / MAE / mark (M1 bid + bar spread), chains, freed-slot F, V |
 | `ev_controls.py` | GQ5-F controls: cross-fleet (B vs C), twins (`_ALT`), F per held-cap hour |
 | `ev_report.py` | the report |
-| `test_ejection_value.py` | 17 synthetic tests, expected values by hand; each of 8 deliberate code breaks fails its named test |
+| `test_ejection_value.py` | 19 synthetic tests, expected values by hand; each of 8 deliberate code breaks fails its named test, and each resync-fallback branch removed fails its test |
 
 ## Decisions in the code (see the module docstrings)
 
