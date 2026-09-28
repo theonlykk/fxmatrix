@@ -75,12 +75,16 @@ repo PRIVATE before real money (07 gate).
 
 ## 2. NEXT, IN ORDER
 
-1. **ADR-164 Cursor spec** (workspace `D:\fxmatrix`, branch off `main`):
-   tests first (DR1-DR11, EQ-H1/2 from the ADR) with failures predicted
-   BY NAME, AUDIT TRAIL, negative space, ASCII only, line count at the
-   bottom, open questions for Gemini inside. Then Cursor, Claude reads
-   the commits, DeepSeek (it moves orders), full suite on the DESKTOP
-   terminal only, merge `--no-ff`. Target: merged Wednesday.
+1. **ADR-164 Cursor spec WRITTEN** (28 Sep ~21:30Z):
+   `docs/architecture/ADR-164-cursor-spec.md` (499 lines; branch
+   `adr164-deal-replay`; tests DR1-DR17, EQH1/2, guards tagged
+   "(guard)"; Gemini SQ1-SQ7 in s9). WITH GEMINI: the operator brings
+   his rulings to the new chat. CHECK EACH AGAINST SOURCE, fold any
+   amendment into the spec (above its Gemini gate line), then Cursor in
+   `D:\fxmatrix`, Claude reads the commits, the operator runs the suite
+   on the DESKTOP at each commit (predicted fails = assertions without
+   "(guard)"), DeepSeek (it moves orders), merge `--no-ff`. Target:
+   merged Wednesday.
 2. **Every night after 21:00Z:** `--carrypass --hours 2` (01_BOOT). Expect
    33 summaries; the snapshot list can be short after a weekend (C79).
 3. **Wednesday, ejection study data** (study s3, README):
@@ -142,4 +146,4 @@ repo PRIVATE before real money (07 gate).
   orders -> merge `--no-ff`. One document at a time for Gemini.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 145
+Line count: 149
