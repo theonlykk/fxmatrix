@@ -1,16 +1,17 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-28 ~14:30Z (MONDAY, IN SESSION)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-28 ~21:30Z (MONDAY NIGHT)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
-order: `handoffs/Handover/01_BOOT.md`; `handoffs/HANDOFF_2026-09-24.md` s18,
-s19 (with its continuation) and **s20**; every section of
-`handoffs/Handover/02_TRAPS.md` dated 2026-09-25 to 2026-09-28;
-`handoffs/Handover/08_BACKLOG.md` (above all C7, C9, C16, C63, C72-C75);
-**`docs/research/ejection-value-study.md`**; `docs/architecture/fleet-c.md`
-(s2 pass criteria, s5 record); `docs/architecture/fleet-b.md` (B1);
+order: `handoffs/Handover/01_BOOT.md`; `handoffs/HANDOFF_2026-09-24.md` s18
+to **s21**; every section of `handoffs/Handover/02_TRAPS.md` dated
+2026-09-25 to 2026-09-28; `handoffs/Handover/08_BACKLOG.md` (above all C7,
+C9, C16, C63, C74, C76-C79); **`docs/architecture/ADR-164-missed-deal-replay.md`**;
+`docs/architecture/fleet-c.md` (s2, s3, s5 verdict);
+`docs/research/ejection-value-study.md` (s8) and
+`research/ejection_value/README.md`; `docs/architecture/fleet-b.md` (B1);
 `docs/architecture/cycle4-live-geometry-search.md` s8.12 (THE ROADMAP)
 and s8.13; `docs/architecture/ADR-163-rebuild-at-start.md`;
 `handoffs/Handover/06_LINUX_WINE_BOX.md` s4, s7 and s9;
@@ -22,37 +23,41 @@ and s8.13; `docs/architecture/ADR-163-rebuild-at-start.md`;
 
 ## 0. THE MOST IMPORTANT FACTS
 
-**Three fleets live, 11/11 each; no halt on any fleet since 25 Sep:**
+**Three fleets live, 11/11 each:**
 - **Cycle 3** (VPS, FTMO 1514731800, `5685e4f`): FROZEN except defect
   fixes.
 - **Fleet B** (box 1, IC 53066709, `5685e4f`): B1 graded add dial.
-- **Fleet C** (box 2, IC 53071896, `main` v2.1): PHASE 1 CODE CHECK;
-  verdict after Monday 28 Sep 17:00 ET plus that night's carry pass
-  (fleet-c.md s2), written in fleet-c.md s5.
+- **Fleet C** (box 2, IC 53071896, `main` v2.1): phase 1 VERDICT written
+  (fleet-c.md s5): code check PASS; cleared for C63 with ADR-164.
 
-**First live auto ejections 28 Sep** (18 by 13:22Z: A 5, B 9, C 4; all
-clean). **The ejection value study** (C16 revived) tests the operator's
-thesis -- "we can only control our pnl by trading; layer 8 means we
-can't trade; ergo it is bad" -- with numbers. Tools are merged; no
-data pulled yet; analysis code not yet written.
+**28 Sep 16:27Z: a broker resync swallowed two fills on GBPUSD_OPTC**
+(no `OnTradeTransaction` for fills during a resync: C76). A missed ENT
+halts on I3; a missed EXT stalls silently. Every fleet has the same
+gap. **ADR-164** (deal-history sweep, ACCEPTED rev 3, Gemini GF-1
+agreed) fixes it and C77; it ships WITH C63 on **THURSDAY 1 Oct**. Its
+Cursor spec is the next thing to write.
 
-**The EA code on `main` is FROZEN until C63.** Pipshed and docs may
-change.
+**The EA code on `main` is FROZEN until C63** (then v2.1 + ADR-164).
+Pipshed and docs may change. **MT5 reinitialises an EA only when an
+input changes:** to reattach, append " x" to `InpConfigWarning`.
 
-**Box 2's GUI is broken (C75):** RDP gives a teal screen, x11vnc hung;
-MT5 trades on. Fix it (read-only look first, 06 s9) BEFORE C63, which
-needs the GUI there. Box 1: RDP locked out; x11vnc over `ssh box1-vnc`.
+**Box 2's GUI:** x11vnc on port 5911 works (06 s9); RDP is still broken
+(repair in a closed-market slot). Box 1: `ssh box1-vnc`, port 5910.
+
+**The operator granted this chat his Downloads folder** when the desktop
+app is linked: read his exports there; deliver patches there.
 
 **One view of everything** (plain-text URL; change the last segment every
-fetch; ask the fetch tool for exact quotes):
+fetch; the fetch tool can invent text: for exact values have the
+operator save the raw JSON with `Invoke-WebRequest` into Downloads):
 
     https://pipshed.com/api/g/k7m9p2x4q/fleets/f1
 
 Never reattach, reload inputs or deploy with the market closed, or with
 spreads wider than the pairs' widths. **Never run `fxgrind_tests` on a
-terminal with live EAs.** The telemetry key was visible in a screenshot
-on 27 Sep: rotate at C63 (C9); never screenshot the Inputs tab's last
-rows.
+terminal with live EAs.** The telemetry key sits in `ea/Globals.mqh`
+since June and was seen in a screenshot 27 Sep: rotate at C63 (C9);
+repo PRIVATE before real money (07 gate).
 
 ---
 
@@ -60,49 +65,45 @@ rows.
 
 | | |
 |---|---|
-| fxmatrix `main` | `91dd953` or a docs-only descendant; `git diff --stat 6a1e9ad origin/main -- ea/*.mq5 ea/*.mqh tools/` must be empty |
-| pipshed `main` | `99a75a3`: `archive_counts.py --export-study` (5/5) on `4faaf1b` (fleet strip, 30/30) |
+| fxmatrix `main` | `306e38d` + the 28 Sep evening patches (docs, ADR-164, two read-only probe scripts, `research/ejection_value/`); `git diff --stat 6a1e9ad origin/main -- ea/*.mq5 ea/*.mqh tools/` must be empty |
+| pipshed `main` | `15ddeb7`: fleet cards in the daily summary layout (signed pips, commission by account, net) on `bb40cc2`, `d82ff26`, `b6a03d4` |
 | VPS (cycle 3) | `5685e4f`, `pipshed.com`; MetaTrader LiveUpdate pending (Later) |
-| Box 1 (Fleet B) | 207.148.14.197 (`ssh box1`); `5685e4f`; B1 applied |
-| Box 2 (Fleet C) | 64.177.116.219 (`ssh box2`); `main` `e2ac9fe`; 11 live; `linuxc.pipshed.com`; GUI broken (C75) |
+| Box 1 (Fleet B) | 207.148.14.197 (`ssh box1`); `5685e4f`; B1 applied; repo stays on `5685e4f` |
+| Box 2 (Fleet C) | 64.177.116.219 (`ssh box2`); `main` `e2ac9fe`; 11 live; `linuxc.pipshed.com`; GUI via VNC |
 
 ---
 
 ## 2. NEXT, IN ORDER
 
-1. **Monday 28 Sep after 17:00 ET:** Fleet C verdict (fleet-c.md s2:
-   no FATAL, CRITICAL, `INVARIANT_FAIL` or halt on any C id; scalps
-   booking) from the strip and `/critical`; after 21:00Z the carry pass
-   including the eleven C ids (`--carrypass --hours 2`, 01_BOOT).
-2. **Box 2 GUI (C75)**, in daylight: `ssh box2`, the read-only commands
-   in 06 s9; propose a fix that does not stop MT5; screen locker off on
-   both boxes.
-3. **Ejection study data** (docs/research/ejection-value-study.md s3):
-   a. Bar dump, desktop FTMO terminal (prices for fleet A): copy
-      `D:\fxmatrix\scripts\grind_bar_dump.mq5` into the terminal's
-      `MQL5\Scripts\fxmatrix\`, compile in MetaEditor (0/0, read the
-      log, not the CLI), open a spare chart, drag the script on, check
-      the Experts tab for `BARDUMP|BEGIN` ... nine `n=` lines ...
-      `BARDUMP|END`; files are `MQL5\Files\bars_<login>_<SYM>.csv`.
-   b. The same on BOX 1 (IC prices; box 1 and box 2 share
-      `ICMarketsSC-Demo`, and box 2's GUI is down) over x11vnc, on a
-      spare chart, never on an EA's chart; `scp` the CSVs back.
-   c. Export, desktop `D:\pipshed`, weekly (fill_logs keep 14 days):
-      `railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --export-study --days 7 | Set-Content -Encoding utf8 <file>`
-   d. Claude writes `research/ejection_value/` (depth timeline, episodes
-      and chains, E/H/F/V, hours at cap, GQ5-F controls) with tests on
-      synthetic cases, runs it on the files, commits by patch.
-   Interim report Thu 1 Oct; final ~9 Oct (>= 30 episodes). GQ5-F is
-   with Gemini (study s7); code all three controls either way.
-4. **Pipshed batch before C63** (one spec -> Gemini -> Cursor in
-   `D:\pipshed`): C72, C74, C7 rest (API count, 200 limit), C66, C64.
-5. **C63, Tue or Thu in session, once C75 is fixed:** `main` + lattice
+1. **ADR-164 Cursor spec** (workspace `D:\fxmatrix`, branch off `main`):
+   tests first (DR1-DR11, EQ-H1/2 from the ADR) with failures predicted
+   BY NAME, AUDIT TRAIL, negative space, ASCII only, line count at the
+   bottom, open questions for Gemini inside. Then Cursor, Claude reads
+   the commits, DeepSeek (it moves orders), full suite on the DESKTOP
+   terminal only, merge `--no-ff`. Target: merged Wednesday.
+2. **Every night after 21:00Z:** `--carrypass --hours 2` (01_BOOT). Expect
+   33 summaries; the snapshot list can be short after a weekend (C79).
+3. **Wednesday, ejection study data** (study s3, README):
+   a. Export, desktop `D:\pipshed`, `--days 14` (fill_logs keep 14
+      days; the depth timeline needs every ENT since the fleet started):
+      `railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --export-study --days 14 | Set-Content -Encoding utf8 "$HOME\Downloads\study_export_<date>.jsonl"`
+   b. Bar dump on the desktop FTMO terminal (flat `MQL5\Scripts\`) and on
+      BOX 2 over VNC (IC; `Scripts/fxmatrix/`, file recipe 06 s9), each on
+      a spare chart, never an EA's chart; files `MQL5\Files\bars_<login>_<SYM>.csv`.
+   c. Claude runs `research/ejection_value/ev_report.py` on the files.
+   Interim report Thu 1 Oct; final ~9 Oct (>= 30 episodes). After
+   ADR-164: GQ6 to Gemini (F by depth, V_strict).
+4. **C63, THURSDAY 1 Oct in session:** `main` (v2.1 + ADR-164) + lattice
    on box 1 and box 2 (fleet-c.md s3 amendment first); ROTATE the
-   telemetry key in the same reattach. From C63 B and C roll instead of
-   ejecting; A keeps ejecting; the study scores rolls the same way.
+   telemetry key in the same reattach (C9). From C63 B and C roll instead
+   of ejecting; A keeps ejecting; the study scores rolls the same way.
+5. **Pipshed, where it fits before C63** (small-fix route or one spec):
+   C74 (quarantine noise), C7 rest (API count; the 200 limit on the
+   cards, C78), C66.
 6. A few days watching rolls; EA batch v2.2 (C57, C62, C65, C60, C68,
-   C42) by the full route. Then box 3 (Fleet D). Before real money:
-   07_ROADMAP gate (C9, C31, C18, C14/C23).
+   C42, C79) by the full route. Then box 3 (Fleet D; operator: two full
+   rings to test the 200 limit). Before real money: 07_ROADMAP gate (C9,
+   C31, C18, C14/C23, repo private).
 
 ---
 
@@ -141,4 +142,4 @@ rows.
   orders -> merge `--no-ff`. One document at a time for Gemini.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 144
+Line count: 145
