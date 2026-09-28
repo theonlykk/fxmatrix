@@ -1193,3 +1193,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   new code once per rule.
 - **Study export: `--days 14`, not 7.** The depth timeline needs every ENT
   since each fleet started; `fill_logs` keeps 14 days.
+- **The Monday 20:50Z `CARRY_SNAPSHOT` is missing for any instance that ran
+  through the weekend** (C79): an incomplete weekend pass leaves the
+  snapshot flag set. Read the `CARRY_PASS_SUMMARY` rows, not the snapshot
+  list, for the nightly check. A parameter reload does not clear it
+  (inferred: MQL5 keeps program globals across a reason-5 reinit; a fresh
+  attach does).

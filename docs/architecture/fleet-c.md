@@ -147,7 +147,25 @@ box 2 becomes a PROBE fleet (step 5; box 1 the anchor).
   rebuild_true=0 lattice_true=0`, every CONFIG and GEOMETRY equal to s1,
   the twins 22260802/22260902 ALT add 10, no bad line. Card LIVE 11/11,
   green, 00:09Z; balance 9,999.96 (first commission).
-- Phase 1 verdict: (after Monday's session and that night's carry pass).
+- Phase 1 session (28 Sep): all eleven live the whole session except
+  GRIND_GBPUSD_OPTC, HALTED 16:27:38Z (I3_SHORT_NAKED): box 2 lost the IC
+  trade server 16:27:29-34Z and two fills in the gap (short L05 ENT, long
+  L00 EXT) arrived by synchronisation only, with no deal event (C76; the
+  same event gate on `5685e4f`). Reattached 16:57:11Z (InpConfigWarning +
+  " x"): derived close-by L00, `STARTUP_EXIT_SHORTFALL long=0 short=1`,
+  REBUILD false/false, both scalps closed by 16:59; clean since. No
+  FATAL, RECON_FAIL or other invariant failure on any C id. 88 scalps,
+  net +45.51 by 18:56Z (card).
+- Carry pass 20:51-20:55Z: 11/11 `CARRY_PASS_SUMMARY` for the C ids, none
+  incomplete, no I6; `failed` only on the tiny-swap AUDNZD/NZDCAD sides
+  (C60), rows reconcile. v2.0's per-side carry pass: clean on its first
+  live night.
+- **Phase 1 VERDICT (Claude, 28 Sep ~21:15Z; operator: "happy with your
+  judgement"): the v2.1 code check PASSES on everything v2.1 changed**
+  (init lines, geometry inherit, rebuild labels, per-side carry pass,
+  scalping). **The s2 session criterion FAILED once**, on a gap v2.1 did
+  not introduce and every fleet shares (C76). v2.1 is cleared for C63 on
+  Thursday **with ADR-164 in the same build**.
 
 ## 6. AMENDMENTS
 
@@ -157,4 +175,4 @@ open (about two hours) and after Fleet B's reload was confirmed clean,
 so one change at a time. The session for the verdict (s2) is therefore
 Asia to NY on Monday 28 Sep, to 17:00 ET, plus that night's carry pass.
 
-Line count: 160
+Line count: 178
