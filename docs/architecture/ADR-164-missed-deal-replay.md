@@ -3,7 +3,7 @@ This message has a line count at the bottom
 # ADR-164 -- REPLAY DEALS THE TERMINAL NEVER ANNOUNCED (C76)
 
 Status: DRAFT rev 2, 2026-09-28 ~17:35Z (rev 1 ~17:15Z; Gemini's rulings
-and Claude's check in s8; rev 2 corrects D1 and adds C77). Written by Claude from
+and Claude's check in s8; rev 2 corrects D1 and adds C77; P1 PASS 17:22Z). Written by Claude from
 source at `main` `306e38d` (EA == `6a1e9ad`) and `5685e4f` (the live
 build on the VPS and box 1). EA defect fix; nothing is built yet.
 Line numbers are `main` unless marked.
@@ -20,8 +20,8 @@ Line numbers are `main` unless marked.
 | A6 | Repair: reattach 16:57:11Z (InpConfigWarning + " x"): `derived CloseBy pair ... L00`, `STARTUP_EXIT_SHORTFALL long=0 short=1`, L05's exit placed; both scalps closed by 16:59:00 | Experts log | VERIFIED |
 | A7 | The event gate is the same on the live build: `Grind_OnTradeTransactionEngine`, `Grind_ArchiveRecordFill`, `Grind_DealSelect`, `Grind_AppendLayer` identical in effect at `5685e4f`; `Grind_HandleSideDealFill` differs only by roll telemetry and the per-side add | `git diff 5685e4f main` per function | VERIFIED |
 | A8 | Nothing in the EA reads `TERMINAL_CONNECTED` | `git grep` on `ea/grind_*.mqh`, `fxgrind.mq5` | VERIFIED |
-| A9 | After the resync the missed deals are in the terminal's LOCAL deal history (`HistorySelect` reaches them) | -- | INFERRED: probe P1 before build |
-| A10 | A successful `HistoryDealSelect` REPLACES the `HistorySelect` list with that one deal ("clears in a mql5-program the list of deals available for reference, and copies the single deal ... to go through all deals selected by HistorySelect() ... use HistoryDealGetTicket()") | MQL5 docs, HistoryDealSelect, Note | VERIFIED (docs, 28 Sep) |
+| A9 | After the resync the missed deals are in the terminal's LOCAL deal history (`HistorySelect` reaches them) | probe P1 on box 2, 17:22Z 28 Sep: deal 1583979787 (order 1970173871, IN, 1.32781, `GRIND\|OPT\|S\|L05\|ENT`) and deal 1583980820 (position 1968639465, IN, 1.32785, `GRIND\|OPT\|L\|L00\|EXT`), magic 22260101, both listed | VERIFIED (P1 PASS) |
+| A10 | A successful `HistoryDealSelect` REPLACES the `HistorySelect` list with that one deal ("clears in a mql5-program the list of deals available for reference, and copies the single deal ... to go through all deals selected by HistorySelect() ... use HistoryDealGetTicket()") | MQL5 docs, HistoryDealSelect, Note; P1 on box 2 (build 6230): `total_before=26`, one select, `total_after=1` | VERIFIED (docs and live) |
 | A11 | C77: `Grind_ExitQFindExitDealPosition` (engine 3047) calls `HistoryDealSelect` INSIDE its `HistorySelect` loop, so after the first deal it reads it can only match the account's newest deal in 30 days. On a miss its caller `Grind_ExitQHoldCancelLayer` (engine ~3106) zeroes the exit ticket and deletes the carry shift though the exit may have FILLED. The suite never runs the live branch (the deal-test seam takes over) | engine 3047-3100, 3106-3134 | VERIFIED in source; never observed live |
 
 ## 1. THE PROBLEM
@@ -129,6 +129,8 @@ deal of GBPUSD with ticket, order, position, entry, time_msc, price and
 comment. PASS: the L05 ENT deal (order 1970173871) and the L00 EXT deal
 (position 1968639465) are listed, with comments that parse. If not, the
 fallback of s3 is the design.
+**RESULT 28 Sep 17:22Z (box 2): PASS.** Six GBPUSD deals in the window,
+both missed deals among them (A9); A10 reproduced (26 -> 1).
 
 ## 6. TESTS TO WRITE (names later; tests first as always)
 
@@ -221,4 +223,4 @@ the v2.2 batch after C63, or before it. C63 does not add this exposure
 (box 1 has it on `5685e4f` today). Add to 07_ROADMAP's gate before real
 money.
 
-Line count: 224
+Line count: 226
