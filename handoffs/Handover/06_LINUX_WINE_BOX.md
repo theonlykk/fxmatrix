@@ -291,4 +291,23 @@ changes:
 - The suite on a terminal that never had an EA leaves Global Variables
   EMPTY (checked 04:43Z).
 
-Line count: 294
+
+**Desktop SSH short names (28 Sep; `~/.ssh/config` on the desktop):**
+`box1` (root@207.148.14.197), `box1-vnc` (box 1 + `LocalForward 5910
+localhost:5910`), `box2` (root@64.177.116.219), `box2-rdp` (box 2 +
+`LocalForward 3391 localhost:3389`); every host `ServerAliveInterval 30`
+and `ServerAliveCountMax 4` (idle sessions had been dropping), identity
+`~/.ssh/id_ed25519`. The file's ACL: SYSTEM and the operator only, set
+with one `icacls` option per call (02_TRAPS 28 Sep). Then `ssh box2-rdp`
+and `mstsc localhost:3391`, or `ssh box1-vnc` and the VNC viewer on
+`localhost:5910`.
+
+**Box 2 RDP fault (C75, 27/28 Sep night):** after login a teal screen
+only; logout slow; `:10` stopped answering new clients and x11vnc hung;
+MT5 kept trading. First look in daylight, READ-ONLY over `ssh box2`:
+`ps -ef | grep -i -E "xrdp|Xorg|xfce|x11vnc" | grep -v grep` and
+`tail -50 /var/log/xrdp-sesman.log`. Then switch off the XFCE screen
+locker on both boxes (a locked session is a likely cause). Fix before
+C63, which needs the GUI on box 2.
+
+Line count: 313

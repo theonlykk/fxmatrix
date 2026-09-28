@@ -1123,3 +1123,27 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   `InpMagic` first, Cancel if wrong.
 - **The Experts log file is named by UTC date:** a reload clicked before
   00:00Z and checked after it is in the previous day's file.
+
+## TRAPS FROM 2026-09-28 (FIRST EJECTIONS, STUDY TOOLS, BOX 2 RDP)
+
+- **Box 2 RDP can die while MT5 keeps trading:** a teal screen after
+  login, a slow logout, `:10` not answering, x11vnc hanging. The card
+  (LIVE 11/11) is the truth about the fleet, not the desktop. Do not
+  restart xrdp, the X session or the box with a live fleet on it
+  without a plan: MT5 runs in that X session (C75). C63 needs this GUI.
+- **icacls on Windows:** several options in ONE call processed 0 files;
+  one option per call worked (`/inheritance:r`, then each `/grant:r`).
+  OpenSSH refuses a config readable by others.
+- **Stop hook asks Claude to push a local branch:** decline; the
+  operator pushes. Once the operator's push lands (same tree, new
+  hashes), reset the sandbox `main` to `origin/main` and delete the
+  local branch.
+- **`export_m1_bidask.mq5` is quadratic** (a linear minute search per
+  tick, a bubble sort): fine for a day of one pair, not for a week of
+  nine beside live EAs. Use `grind_bar_dump.mq5` (CopyRates) instead.
+- **An M1 bar's `spread` is one stored value per bar** (typically its
+  lowest), so bid + spread can understate the ask in a spike; the study
+  flags hits within 1 pip as borderline.
+- **Sandbox PostgreSQL stops between sessions:** start it with
+  `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pgdata_c -o '-p 55432 -k /var/tmp' -l /var/tmp/pgdata_c/log start"`
+  and give every verify run a fresh database.
