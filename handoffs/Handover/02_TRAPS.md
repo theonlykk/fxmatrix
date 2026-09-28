@@ -1084,3 +1084,42 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   and failed (3 of 9, not 4). When predicting a tests-first run, ask what
   answers the request before the code exists, not only what the new code
   will answer.
+
+## TRAPS FROM 2026-09-27 (FLEET STRIP, SUNDAY OPEN, B1 RELOAD, FLEET C ATTACH)
+
+- **Only the MAE reporter's heartbeat carries balance and equity**
+  (`grind_mae.mqh` 314-326); every other instance sends null. A fixture
+  giving every instance a balance hides that (C72). Pull a production
+  heartbeat per fleet before writing fixtures (the C56 trap again).
+- **A daily snapshot row is keyed to the day that ENDED** (`s.ftmo_day =
+  ended_key`): "today's row" never exists during today. Today's start
+  balance is the latest earlier row's `balance_end` (GS-F1).
+- **`verify_ejection_telemetry` is not safe to rerun on a used
+  database:** ET2 fails on a duplicate key. Drop and create the database
+  before each run.
+- **The fetch tool caches by path for longer than a turn and its
+  summaries misquote** (it gave `ftmo_day` 26 when the raw value was 27;
+  it served a pre-deploy copy). Use a NEW last segment, and ask for exact
+  quotes of the fields that matter.
+- **Look at a page, not only its tests:** the v2 strip passed 28/28 with
+  an amber bar at 10.9%, "DAY_LOSS --:" and ISO timestamps; a local
+  render found all three.
+- **Sunday open spreads on IC:** 17:24 ET, 24 minutes in, the crosses
+  were 130-180 points and GBPUSD 72, wider than the L0 widths; normal
+  (1-6 points) by ~19:00 ET. Attach or reload only when every spread is
+  well under its pair's width.
+- **The weekend gap fills resting limits at BETTER than their price:**
+  21:05Z exits filled 6.4-11.2 pips beyond their limits, and long adds
+  5.7-13.2 pips below theirs (C73). The same gap adds inventory on the
+  other side; the day P&L moved -54 -> -70 while the scalps booked.
+- **An exit fill at the open shows as `QUARANTINE_ENTER`** on that
+  instance at the same second (the close-by gap, C40): harmless, amber.
+- **The EA Inputs dialog shows `TelemetryAPIKey` in clear.** A screenshot
+  of it puts the key in the chat (27 Sep, twice). Read the dialog back
+  yourself or crop the last rows (C9).
+- **Twin charts (AUDNZD, NZDCAD) need the identity read before Load:**
+  an `_opt` preset on the ALT chart gives it the OPT magic and the EA
+  stops with FATAL duplicate magic. Read `InpTelemetryInstance` and
+  `InpMagic` first, Cancel if wrong.
+- **The Experts log file is named by UTC date:** a reload clicked before
+  00:00Z and checked after it is in the previous day's file.

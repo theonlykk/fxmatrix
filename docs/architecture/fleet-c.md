@@ -138,11 +138,23 @@ box 2 becomes a PROBE fleet (step 5; box 1 the anchor).
   53071896", no `DATABASE_URL`), `linuxc.pipshed.com` (CNAME proxied +
   `_railway-verify` TXT). `/ejection` on both hosts: fleet C, the eleven C
   ids only, view 20 s old; `pipshed.com/.../status_c`: total 11, live 0.
-- Phase 1 attach: (pilot time, all eleven time).
+- Phase 1 attach: SUNDAY 27 Sep, in session, after Fleet B's reload and
+  once spreads were 1-6 points (see s6 A1). Algo ON first; the GBPUSD
+  pilot 23:57:41Z (inputs read back before OK; CONFIG add 9, LATTICE
+  false, GEOMETRY long = short = 5/9/10, REBUILD false/false, SESSION
+  false, POST ok; two L0 limits placed at 23:57:45/48Z, 0.01 each); then
+  the other ten, 00:00-00:07Z 28 Sep: `config=10 geometry=10
+  rebuild_true=0 lattice_true=0`, every CONFIG and GEOMETRY equal to s1,
+  the twins 22260802/22260902 ALT add 10, no bad line. Card LIVE 11/11,
+  green, 00:09Z; balance 9,999.96 (first commission).
 - Phase 1 verdict: (after Monday's session and that night's carry pass).
 
 ## 6. AMENDMENTS
 
-(none yet)
+**A1 (2026-09-27 ~23:55Z, operator).** Phase 1 attached on SUNDAY
+evening, in session, not Monday: once spreads had settled after the
+open (about two hours) and after Fleet B's reload was confirmed clean,
+so one change at a time. The session for the verdict (s2) is therefore
+Asia to NY on Monday 28 Sep, to 17:00 ET, plus that night's carry pass.
 
-Line count: 148
+Line count: 160

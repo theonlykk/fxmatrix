@@ -16,6 +16,20 @@ caused two wrong conclusions.
 
 ## LIVE STATE -- Redis, seconds old
 
+    https://pipshed.com/api/g/k7m9p2x4q/fleets/f1
+
+THE FLEET STRIP (pipshed `4faaf1b`, any host): one card per fleet (cycle
+3, B, C, D placeholder): badge LIVE/PARTIAL/NO CONNECTION, alerts (red
+= act, amber = look; codes in the page's legend), equity, balance, day
+P&L against $500 (anchored on the latest daily row before today), open
+risk, financing, today's ledger closes, cycle realised against $10,000.
+Ask the fetch tool for exact quotes of the fields that matter.
+
+    https://pipshed.com/api/g/k7m9p2x4q/critical/f2
+
+The last 24 h of CRITICAL and allow-listed WARN events, grouped by
+instance and code, with count, first and last time.
+
     https://pipshed.com/api/g/k7m9p2x4q/status/a1
 
 (Fleet B: `.../status_b/a1`; Fleet C, box 2: `.../status_c/a1`, pipshed

@@ -156,4 +156,18 @@ twin; closed P&L from `/ejection`; gated hours; ejections. The lattice
 `s4_scalps.py --days 3` and read days 24 and 25 (after 22:00Z Saturday,
 `--days 2` returns 25 and 26).
 
-Line count: 159
+**B1 APPLIED 2026-09-27 (Sunday evening, in session, spreads settled at
+1-6 points):** the nine `_opt_b` charts reloaded over VNC (Properties,
+Load, OK), each read back before OK; staged presets re-checked first
+(18:55Z: all nine `SAME_EXCEPT_KEY key=1` against `dd4761e`). Reload
+times (UTC): GBPUSD 23:05:24, EURUSD 23:43:13, EURGBP 23:44:32, AUDCAD
+23:45:17, AUDCHF 23:46:34, CADCHF 23:47:20, NZDCHF 23:48:26, NZDCAD_OPTB
+23:49:49, AUDNZD_OPTB 23:50:52. Each: `deinit reason=5`, a CONFIG line
+with the new `InpAddPips`, `GRIND_SESSION enable=false`, POST ok, no
+FATAL/CRITICAL/INVARIANT_FAIL/STARTUP_EXIT_SHORTFALL/RECON/duplicate;
+the day's log `reloads: 9`, no bad line. The two `_ALTB` twins untouched
+(one deinit per twin pair; card LIVE 11/11 at 23:52Z and 00:09Z). The
+first FTMO day under B1 is 28 Sep (from 22:00Z 27 Sep); 28 Sep also
+opens with gap fills (02_TRAPS 27 Sep).
+
+Line count: 173
