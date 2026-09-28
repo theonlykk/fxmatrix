@@ -17,6 +17,17 @@ rolls, box 3 and compass rounds, best values into box 1, FTMO add-only
 until cycle 3 ends. The several-small-accounts direction below is what
 it is building.
 
+**GATE BEFORE REAL MONEY (operator commitment, 27 Sep: "we will plug all
+the security issues before we go live with real money").** No fleet trades
+a funded or real account until each of these is closed:
+- C9: the telemetry key rotated (exposed in chat 27 Sep) AND the pipshed
+  read token out of the public repo (it is in every handoff);
+- C31: an externally flattened book is detected and halts, not retries;
+- C18: quarantine does not escalate while a retry is blocked;
+- C14/C23: partial fills handled, if any lot above 0.01 is planned;
+- the anchor promotion bar of the cycle-4 note s8.8 is met.
+Add to this list rather than removing from it.
+
 ---
 
 ## 1. THE SHAPE OF THE PROBLEM
@@ -168,4 +179,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 171
+Line count: 182

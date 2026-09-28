@@ -229,7 +229,12 @@ Markets Raw demo **53071896** (Hedge, USD, 1:100, $10k, one deposit),
 
 **Build:** s3 as root (Wine 9 from Ubuntu's own packages, s2; no
 WineHQ), MT5 as `khalid`; s4 access with THIS box's IP (RDP should work
-on a fresh box; x11vnc is the fallback). Then s7 steps 2-9 with these
+on a fresh box; x11vnc is the fallback).
+**Access (box 2):** RDP through `ssh -L 3391:localhost:3389
+root@64.177.116.219` and `mstsc localhost:3391` (3391, so it never mixes
+with box 1's 3390); x11vnc is installed for the s4 fallback (use port
+5911 for box 2 if both are open at once). The prompt names the box:
+`fxgrind-wine-test` = box 1, `fxgrind-wine-c` = box 2. Then s7 steps 2-9 with these
 changes:
 - Step 2: the new demo; title bar `... - Hedge - Raw Trading Ltd`.
 - Step 4: `git clone https://github.com/theonlykk/fxmatrix ~/fxmatrix-repo`
@@ -286,4 +291,4 @@ changes:
 - The suite on a terminal that never had an EA leaves Global Variables
   EMPTY (checked 04:43Z).
 
-Line count: 289
+Line count: 294

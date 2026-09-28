@@ -290,4 +290,15 @@ lands once and reaches every box by a compile.
    ends the cycle to run dual add/exit at once (his call). Promotion
    follows s8.8's bar.
 
-Line count: 293
+**8.13 PROGRESS (28 Sep ~00:15Z).** Step 1 DONE 27 Sep (box 2 built,
+`presets_c`, page `linuxc.pipshed.com`). Step 2 RUNNING: Fleet C attached
+Sunday evening 23:57Z-00:07Z, every init clean; verdict after Monday's
+17:00 ET close and the carry pass (fleet-c.md A1). Fleet B's B1 dial
+applied the same evening. Operator, 27 Sep: box 3 is NOT attached before
+box 1 runs v2.1 (C63), so every compass comparison is on the same code
+and the same lattice setting; building box 3 without attaching is fine
+any quiet time. First probe values: a `fleet-d.md` pre-registration
+(Gemini) after the roll-watch. The pipshed fleet strip (C7) now shows
+every fleet on one page.
+
+Line count: 304
