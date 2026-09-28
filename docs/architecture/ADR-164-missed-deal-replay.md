@@ -2,7 +2,8 @@ This message has a line count at the bottom
 
 # ADR-164 -- REPLAY DEALS THE TERMINAL NEVER ANNOUNCED (C76)
 
-Status: DRAFT for Gemini, 2026-09-28 ~17:15Z. Written by Claude from
+Status: DRAFT rev 2, 2026-09-28 ~17:35Z (rev 1 ~17:15Z; Gemini's rulings
+and Claude's check in s8; rev 2 corrects D1 and adds C77). Written by Claude from
 source at `main` `306e38d` (EA == `6a1e9ad`) and `5685e4f` (the live
 build on the VPS and box 1). EA defect fix; nothing is built yet.
 Line numbers are `main` unless marked.
@@ -20,6 +21,8 @@ Line numbers are `main` unless marked.
 | A7 | The event gate is the same on the live build: `Grind_OnTradeTransactionEngine`, `Grind_ArchiveRecordFill`, `Grind_DealSelect`, `Grind_AppendLayer` identical in effect at `5685e4f`; `Grind_HandleSideDealFill` differs only by roll telemetry and the per-side add | `git diff 5685e4f main` per function | VERIFIED |
 | A8 | Nothing in the EA reads `TERMINAL_CONNECTED` | `git grep` on `ea/grind_*.mqh`, `fxgrind.mq5` | VERIFIED |
 | A9 | After the resync the missed deals are in the terminal's LOCAL deal history (`HistorySelect` reaches them) | -- | INFERRED: probe P1 before build |
+| A10 | A successful `HistoryDealSelect` REPLACES the `HistorySelect` list with that one deal ("clears in a mql5-program the list of deals available for reference, and copies the single deal ... to go through all deals selected by HistorySelect() ... use HistoryDealGetTicket()") | MQL5 docs, HistoryDealSelect, Note | VERIFIED (docs, 28 Sep) |
+| A11 | C77: `Grind_ExitQFindExitDealPosition` (engine 3047) calls `HistoryDealSelect` INSIDE its `HistorySelect` loop, so after the first deal it reads it can only match the account's newest deal in 30 days. On a miss its caller `Grind_ExitQHoldCancelLayer` (engine ~3106) zeroes the exit ticket and deletes the carry shift though the exit may have FILLED. The suite never runs the live branch (the deal-test seam takes over) | engine 3047-3100, 3106-3134 | VERIFIED in source; never observed live |
 
 ## 1. THE PROBLEM
 
@@ -48,8 +51,10 @@ Broker disconnects are routine; a real-money fleet must heal itself.
 **D1. A deal-history sweep, on the 1 s timer.** `OnTimer` already runs
 every second (`EventSetTimer(1)`, `fxgrind.mq5` 359). Each call:
 `HistorySelect(from, now)` with `from` = the later of the EA's init time
-and the last sweep's time minus a margin (proposed 120 s); for every
-deal of this symbol and magic NOT in a new SEEN set, in deal-time order:
+and the last sweep's time minus a margin (120 s); COPY the tickets of
+every deal of this symbol and magic into a local array FIRST
+(`HistoryDealGetTicket` + `HistoryDealGet*` only, no `HistoryDealSelect`:
+A10), then, for each ticket NOT in a new SEEN set, in deal-time order:
 `Grind_ArchiveRecordFill(deal)` then the SAME two
 `Grind_HandleSideDealFill` calls the event path makes, then mark it seen,
 then one archive marker `DEAL_REPLAYED` (deal, entry type, parsed role,
@@ -77,6 +82,14 @@ win the 3 s race; this removes the race.
 timer; on a false -> true edge emit `CONNECTION_RESTORED` (down seconds)
 and force a sweep on the next timer call. Evidence for the log, not a
 second mechanism.
+
+**D6a. C77 in the same change.** `Grind_ExitQFindExitDealPosition` reads
+each deal by ticket from the `HistorySelect` list (drop the
+`HistoryDealSelect` in the loop, A10/A11); and its caller's miss branch
+must not delete the carry shift of an exit that may have filled: on a
+miss, leave the exit ticket as it is and let the sweep (D1) deliver the
+fill. Tests: EQ-H1 (the order's deal is NOT the newest: found), EQ-H2
+(miss: no zeroing, no shift delete).
 
 **D7. What does NOT change:** I3, the quarantine thresholds, reconstruction
 at init, the carry pass, the lattice, ejection, the processed list.
@@ -135,6 +148,11 @@ fallback of s3 is the design.
 - DR9 the tick-path sweep runs before the quarantine step; a replayed ENT
   releases the quarantine without a halt.
 - DR10 the sweep window: `from` never before init; margin applied.
+- DR11 several deals in one sweep, the handler calling `HistoryDealSelect`
+  on each: every deal is still handled (the ticket snapshot, A10).
+- EQ-H1, EQ-H2 (D6a). Note: the deal-test seam hides A10; each of these
+  needs a seam that models the list replacement, or the live branch is
+  still untested.
 
 ## 7. FOR GEMINI
 
@@ -160,14 +178,41 @@ Verified claims are marked in the audit trail; A9 is inferred.
   history per day per account is a linear scan of the window only; any
   reason to go slower?
 
-## 8. NOT IN SCOPE
+## 8. GEMINI'S RULINGS (28 Sep ~17:10Z) AND CLAUDE'S CHECK
+
+His sign-off came with praise and no questions (BOOT s1: persuasive, not
+necessarily correct), so each ruling was checked in source and docs.
+- GQ1 ACCEPTED (replay, not runtime reconstruction). Two of his reasons
+  overstate: `Grind_ReconResetCounters` resets fill and scalp COUNTS
+  (recon 292-296), not daily P&L; `Grind_ReconResetSide` clears the
+  ADR-152 held add (recon 282-283). Conclusion holds.
+- GQ2 ACCEPTED with his condition, which is the rev-1 proposal: mark SEEN
+  only after the deal was selected and read.
+- **GQ3 REJECTED.** "Confirmed safe ... strict Select -> Loop/Read within
+  one function" misses A10: the sweep's own loop calls the handler, which
+  calls `HistoryDealSelect` (engine 2490), replacing the list mid-loop.
+  Fixed in D1 (ticket snapshot). The same pattern already exists in
+  `Grind_ExitQFindExitDealPosition` (A11, C77, fixed in D6a). The
+  breaker (engine 1482, 1541) reads by ticket with no select: safe.
+- GQ4 ACCEPTED (sweep, then re-check the invariant on the same tick).
+- GQ5: his ruling is NO INPUT (always on). That departs from BOOT s4 (a
+  new behaviour defaults OFF so a stale preset stays on baseline); his
+  case is that OFF means the silent stall. OPERATOR TO DECIDE.
+- GQ6 ACCEPTED (120 s margin, 1 s cadence).
+- BOOT s4 rule: he agrees the sweep (missed events) and I3 (exit
+  coverage) are different conditions.
+- FOR GEMINI (GF-1): confirm D1's ticket snapshot and D6a (C77), in
+  particular that leaving the exit ticket on a lookup miss cannot strand
+  a layer whose exit was cancelled rather than filled.
+
+## 9. NOT IN SCOPE
 
 C31 (a book flattened by the broker: positions gone, not missed); C18
 (quarantine escalation while a retry is blocked); pipshed showing
 `DEAL_REPLAYED` / `CONNECTION_RESTORED` (a pipshed item after this
 lands); C42 (unparseable comments).
 
-## 9. DELIVERY
+## 10. DELIVERY
 
 Full route (spec, Gemini, Cursor tests first, DeepSeek: it changes what
 the engine does with orders). EA code on `main` is frozen until C63
@@ -176,4 +221,4 @@ the v2.2 batch after C63, or before it. C63 does not add this exposure
 (box 1 has it on `5685e4f` today). Add to 07_ROADMAP's gate before real
 money.
 
-Line count: 179
+Line count: 224
