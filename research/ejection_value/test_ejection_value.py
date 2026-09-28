@@ -169,6 +169,30 @@ class TestBook(unittest.TestCase):
         self.assertTrue(lay.net_complete)
         self.assertEqual(lay.side, "L")
 
+    def test_closeby_with_missing_exit_in_deal(self):
+        # 28 Sep GBPUSD_OPTC: the exit fill arrived in a resync with no event,
+        # so fill_logs has the layer's ENT IN deal and both OUT_BY legs only
+        f = Fx()
+        p = f.ent(T0, "L", 1.32686)
+        f.close(T0 + 600, p, "L", 1.32785, profit=0.99)
+        ex = f.export()
+        ex["fill_logs"] = [r for r in ex["fill_logs"] if r.get("role") != "EXT"]
+        lay = build_layers(ex)[INST][p]
+        self.assertTrue(lay.closed)
+        # 0.99 (close-by) - 0.04 (ENT IN); the missing EXT commission counts 0
+        self.assertAlmostEqual(lay.net(), 0.95)
+
+    def test_closeby_with_both_in_deals_missing_is_skipped(self):
+        import ev_book
+        f = Fx()
+        p = f.ent(T0, "L", 1.32686)
+        f.close(T0 + 600, p, "L", 1.32785, profit=0.99)
+        ex = f.export()
+        ex["fill_logs"] = [r for r in ex["fill_logs"] if r["entry_type"] != "IN"]
+        L = build_layers(ex)
+        self.assertEqual(len(L.get(INST, {})), 0)
+        self.assertEqual(len(ev_book.UNMATCHED_CLOSEBYS), 1)
+
     def test_depth_and_hidden(self):
         f = Fx()
         f.config(T0 - 3600)

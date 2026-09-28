@@ -62,8 +62,14 @@ def _num(x):
     return float(x) if x is not None else 0.0
 
 
+UNMATCHED_CLOSEBYS = []   # (instance, order_ticket) where neither leg's IN deal is known
+
+
 def build_layers(export, offset_s=DEFAULT_OFFSET_S):
-    """Return {instance: {position_id: Layer}} from export['fill_logs']."""
+    """Return {instance: {position_id: Layer}} from export['fill_logs'].
+    Close-bys whose two IN deals are both unknown are skipped and listed in
+    UNMATCHED_CLOSEBYS (reported, never guessed)."""
+    del UNMATCHED_CLOSEBYS[:]
     fills = export.get("fill_logs", [])
     layers = collections.defaultdict(dict)
     in_deals = {}                                   # (instance, position_id) -> row
@@ -92,17 +98,32 @@ def build_layers(export, offset_s=DEFAULT_OFFSET_S):
         # the layer is the leg whose IN deal is NOT the EXT fill
         legs = [(d, i) for d, i in zip(deals, ext_in)]
         ext_legs = [(d, i) for d, i in legs if i is not None and i.get("role") == "EXT"]
-        if len(ext_legs) != 1:
-            raise ValueError("cannot tell layer from exit in close-by %s %s" % (inst, _order))
-        ext_deal, ext_row = ext_legs[0]
-        lay_deal = deals[0] if deals[1] is ext_deal else deals[1]
+        ent_legs = [(d, i) for d, i in legs if i is not None and i.get("role") == "ENT"]
+        if len(ext_legs) == 1:
+            ext_deal, ext_row = ext_legs[0]
+            lay_deal = deals[0] if deals[1] is ext_deal else deals[1]
+        elif len(ent_legs) == 1:
+            # the EXT fill's own IN deal never reached the archive (a fill during
+            # a broker resync has no event, C76): the layer is the ENT leg
+            lay_deal = ent_legs[0][0]
+            ext_deal = deals[0] if deals[1] is lay_deal else deals[1]
+            ext_row = None
+        else:
+            UNMATCHED_CLOSEBYS.append((inst, _order))
+            continue
         lay = layers[inst].setdefault(lay_deal["position_id"], Layer(inst, lay_deal["position_id"]))
-        if lay.side is None:
+        if lay.side is None and ext_row is not None:
             lay.side = ext_row["side"]
             lay.layer_index = ext_row["layer_index"]
         lay.close_t = broker_msc_to_utc(lay_deal["deal_time_broker_msc"], offset_s)
-        lay.close_price = float(ext_row["deal_price"])
-        lay.exit_commission = _num(ext_row.get("commission"))
+        if ext_row is not None:
+            lay.close_price = float(ext_row["deal_price"])
+            lay.exit_commission = _num(ext_row.get("commission"))
+        else:
+            # the layer's own OUT_BY leg is priced at the exit (production rows:
+            # layer leg 0.85804 = exit; the exit position's leg = layer entry)
+            lay.close_price = float(lay_deal["deal_price"])
+            lay.exit_commission = 0.0          # unknown: its IN deal is missing
         lay.closeby_net = sum(_num(d.get("profit")) + _num(d.get("swap")) + _num(d.get("commission"))
                               for d in deals)
         lay.closeby_profit = sum(_num(d.get("profit")) for d in deals)
