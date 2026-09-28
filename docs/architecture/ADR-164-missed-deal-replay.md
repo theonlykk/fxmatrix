@@ -2,8 +2,9 @@ This message has a line count at the bottom
 
 # ADR-164 -- REPLAY DEALS THE TERMINAL NEVER ANNOUNCED (C76)
 
-Status: DRAFT rev 2, 2026-09-28 ~17:35Z (rev 1 ~17:15Z; Gemini's rulings
-and Claude's check in s8; rev 2 corrects D1 and adds C77; P1 PASS 17:22Z). Written by Claude from
+Status: ACCEPTED rev 3, 2026-09-28 ~20:50Z (rev 1 ~17:15Z; rev 2 ~17:35Z
+corrects D1 and adds C77; P1 PASS 17:22Z; rev 3 applies GF-1 to D6a).
+Gemini's rulings and Claude's check in s8. Next: the Cursor spec. Written by Claude from
 source at `main` `306e38d` (EA == `6a1e9ad`) and `5685e4f` (the live
 build on the VPS and box 1). EA defect fix; nothing is built yet.
 Line numbers are `main` unless marked.
@@ -83,13 +84,18 @@ timer; on a false -> true edge emit `CONNECTION_RESTORED` (down seconds)
 and force a sweep on the next timer call. Evidence for the log, not a
 second mechanism.
 
-**D6a. C77 in the same change.** `Grind_ExitQFindExitDealPosition` reads
-each deal by ticket from the `HistorySelect` list (drop the
-`HistoryDealSelect` in the loop, A10/A11); and its caller's miss branch
-must not delete the carry shift of an exit that may have filled: on a
-miss, leave the exit ticket as it is and let the sweep (D1) deliver the
-fill. Tests: EQ-H1 (the order's deal is NOT the newest: found), EQ-H2
-(miss: no zeroing, no shift delete).
+**D6a. C77 in the same change (rev 3, after GF-1).**
+`Grind_ExitQFindExitDealPosition` reads each deal by ticket from the
+`HistorySelect` list (drop the `HistoryDealSelect` in the loop, A10/A11).
+Its caller's miss branch is UNCHANGED: zero the exit ticket and delete the
+shift (a genuinely cancelled order must not leave a phantom ticket; Gemini
+GF-1). A fill that was only late reaches the layer anyway: the EXT branch
+of `Grind_HandleSideDealFill` falls back to `Grind_FindLayerByIndex` when
+the ticket is zeroed, by event or by the D1 sweep. Residual, as today: the
+deleted shift can make a filled, shifted-closer exit read "adverse" for the
+tick or two before its close-by (a quarantine transient). Tests: EQ-H1
+(the order's deal is NOT the newest: found), EQ-H2 (miss: ticket zeroed;
+a later EXT deal for that layer index re-attaches and queues the close-by).
 
 **D7. What does NOT change:** I3, the quarantine thresholds, reconstruction
 at init, the carry pass, the lattice, ejection, the processed list.
@@ -203,9 +209,12 @@ necessarily correct), so each ruling was checked in source and docs.
 - GQ6 ACCEPTED (120 s margin, 1 s cadence).
 - BOOT s4 rule: he agrees the sweep (missed events) and I3 (exit
   coverage) are different conditions.
-- FOR GEMINI (GF-1): confirm D1's ticket snapshot and D6a (C77), in
-  particular that leaving the exit ticket on a lookup miss cannot strand
-  a layer whose exit was cancelled rather than filled.
+- GF-1 (28 Sep ~20:45Z): D1's ticket snapshot ACCEPTED; D6a's "leave the
+  ticket on a miss" REJECTED (a cancelled order would leave a phantom
+  ticket); keep zeroing, the sweep delivers late fills. Claude's check:
+  correct; the EXT branch's `Grind_FindLayerByIndex` fallback verified in
+  source. GQ5 re-affirmed: no input. Cleared for the Cursor spec.
+- OPERATOR (28 Sep): no input (GQ5); deploy with C63 on Thursday.
 
 ## 9. NOT IN SCOPE
 
@@ -223,4 +232,4 @@ the v2.2 batch after C63, or before it. C63 does not add this exposure
 (box 1 has it on `5685e4f` today). Add to 07_ROADMAP's gate before real
 money.
 
-Line count: 226
+Line count: 235
