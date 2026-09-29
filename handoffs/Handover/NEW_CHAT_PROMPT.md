@@ -20,7 +20,9 @@ and s8.13; `docs/architecture/ADR-163-rebuild-at-start.md`;
 `docs/architecture/ADR-162-virtual-lattice.md` s13-s18;
 `handoffs/Handover/07_ROADMAP.md` (GATE BEFORE REAL MONEY);
 `handoffs/Handover/03_COOKBOOK.md`; `handoffs/Handover/09_EVENT_LOG.md`
-(notable events and how they were handled; add to it); then this.
+(notable events and how they were handled; add to it);
+`handoffs/Handover/10_GEOMETRY_REGISTER.md` (every geometry tried, by pair
+and date; add a row at every change); then this.
 
 ---
 
@@ -151,4 +153,4 @@ repo PRIVATE before real money (07 gate).
   step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 154
+Line count: 156

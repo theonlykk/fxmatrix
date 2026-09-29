@@ -1,0 +1,43 @@
+fleet,account,instance,pair,magic,side,width_pips,add_pips,exit_pips,cap,from_utc,to_utc,preset_commit,note
+A,FTMO 1514731800,GRIND_GBPUSD_OPT,GBPUSD,22260101,both,5,10,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_EURUSD_OPT,EURUSD,22260201,both,7,8,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_EURGBP_OPT,EURGBP,22260301,both,3,4,5,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_AUDCAD_OPT,AUDCAD,22260401,both,5,7,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_AUDCHF_OPT,AUDCHF,22260501,both,5,6,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_CADCHF_OPT,CADCHF,22260601,both,5,6,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_NZDCHF_OPT,NZDCHF,22260701,both,3,6,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_NZDCAD_OPT,NZDCAD,22260801,both,5,10,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_NZDCAD_ALT,NZDCAD,22260802,both,5,10,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_AUDNZD_OPT,AUDNZD,22260901,both,7,10,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+A,FTMO 1514731800,GRIND_AUDNZD_ALT,AUDNZD,22260902,both,7,10,10,8,2026-09-24T01:00Z,,a01a5d4,"cycle 3 attach ~01:00Z (approx); frozen by geometry-cycle3 A4 (add may change, A1)"
+B,IC 53066709,GRIND_GBPUSD_OPTB,GBPUSD,22260101,both,5,10,10,8,2026-09-24T02:50Z,2026-09-27T23:05:24Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_GBPUSD_OPTB,GBPUSD,22260101,both,5,9,10,8,2026-09-27T23:05:24Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_EURUSD_OPTB,EURUSD,22260201,both,7,8,10,8,2026-09-24T02:50Z,2026-09-27T23:43:13Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_EURUSD_OPTB,EURUSD,22260201,both,7,7,10,8,2026-09-27T23:43:13Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_EURGBP_OPTB,EURGBP,22260301,both,3,4,5,8,2026-09-24T02:50Z,2026-09-27T23:44:32Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_EURGBP_OPTB,EURGBP,22260301,both,3,3,5,8,2026-09-27T23:44:32Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_AUDCAD_OPTB,AUDCAD,22260401,both,5,7,10,8,2026-09-24T02:50Z,2026-09-27T23:45:17Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_AUDCAD_OPTB,AUDCAD,22260401,both,5,6,10,8,2026-09-27T23:45:17Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_AUDCHF_OPTB,AUDCHF,22260501,both,5,6,10,8,2026-09-24T02:50Z,2026-09-27T23:46:34Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_AUDCHF_OPTB,AUDCHF,22260501,both,5,4,10,8,2026-09-27T23:46:34Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_CADCHF_OPTB,CADCHF,22260601,both,5,6,10,8,2026-09-24T02:50Z,2026-09-27T23:47:20Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_CADCHF_OPTB,CADCHF,22260601,both,5,4,10,8,2026-09-27T23:47:20Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_NZDCHF_OPTB,NZDCHF,22260701,both,3,6,10,8,2026-09-24T02:50Z,2026-09-27T23:48:26Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_NZDCHF_OPTB,NZDCHF,22260701,both,3,3,10,8,2026-09-27T23:48:26Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_NZDCAD_OPTB,NZDCAD,22260801,both,5,10,10,8,2026-09-24T02:50Z,2026-09-27T23:49:49Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_NZDCAD_OPTB,NZDCAD,22260801,both,5,8,10,8,2026-09-27T23:49:49Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_NZDCAD_ALTB,NZDCAD,22260802,both,5,10,10,8,2026-09-24T02:50Z,,85cd555,"same-account control, unchanged by B1"
+B,IC 53066709,GRIND_AUDNZD_OPTB,AUDNZD,22260901,both,7,10,10,8,2026-09-24T02:50Z,2026-09-27T23:50:52Z,85cd555,phase 0 = cycle-3 config; attach ~02:50Z (approx)
+B,IC 53066709,GRIND_AUDNZD_OPTB,AUDNZD,22260901,both,7,8,10,8,2026-09-27T23:50:52Z,,dd4761e,B1 graded add dial (fleet-b.md B1); reload in session
+B,IC 53066709,GRIND_AUDNZD_ALTB,AUDNZD,22260902,both,7,10,10,8,2026-09-24T02:50Z,,85cd555,"same-account control, unchanged by B1"
+C,IC 53071896,GRIND_GBPUSD_OPTC,GBPUSD,22260101,both,5,9,10,8,2026-09-27T23:57:41Z,,ecdac67,"pilot attach; = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_EURUSD_OPTC,EURUSD,22260201,both,7,7,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_EURGBP_OPTC,EURGBP,22260301,both,3,3,5,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_AUDCAD_OPTC,AUDCAD,22260401,both,5,6,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_AUDCHF_OPTC,AUDCHF,22260501,both,5,4,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_CADCHF_OPTC,CADCHF,22260601,both,5,4,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_NZDCHF_OPTC,NZDCHF,22260701,both,3,3,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_NZDCAD_OPTC,NZDCAD,22260801,both,5,8,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_NZDCAD_ALTC,NZDCAD,22260802,both,5,10,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_AUDNZD_OPTC,AUDNZD,22260901,both,7,8,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
+C,IC 53071896,GRIND_AUDNZD_ALTC,AUDNZD,22260902,both,7,10,10,8,2026-09-28T00:07Z,,ecdac67,"attached 00:00-00:07Z (per-chart times not recorded); = B1 values, per-side inputs -1 (inherit)"
