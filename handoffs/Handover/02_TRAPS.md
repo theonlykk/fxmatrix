@@ -1199,3 +1199,46 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   list, for the nightly check. A parameter reload does not clear it
   (inferred: MQL5 keeps program globals across a reason-5 reinit; a fresh
   attach does).
+
+## TRAPS FROM 2026-09-28/29 NIGHT (ADR-164 BUILD, AUDIT, FIX ROUNDS)
+
+- **Derive every "(guard)" tag against the STUBS, not from intent.** Rev
+  1 of the ADR-164 spec tagged by intent: ~20 untagged assertions passed
+  against stubs returning 0/false ("sweep returns 0", "step false"), and
+  one "passes in both states" test FAILED at commit 1 (the history flag
+  alone left `Grind_DealSelect` live). Write down what each stub returns,
+  then derive each assertion from it. An independent re-derivation by a
+  second agent found three more (below).
+- **An init that reads the clock takes the clock at init.** Tests that
+  set the model's "now" to a later time BEFORE `Grind_ReplayInit` put
+  every fixture deal before init. Pin the clock to I around init.
+- **A reset called by init must not clear what the test set before
+  init** (test seams). Split state reset from test-seam reset.
+- **A two-step test script built as one step crashes the suite, not a
+  test.** `Adr164_ScriptInv` decided the entry count from an empty
+  reason; the second call would read past the array (critical error
+  stops the whole run). Pass the count explicitly.
+- **A fix prompt can move a gap instead of closing it.** "Mark seen
+  after processing" does not close "seen but never handled": a failing
+  handler select followed by a succeeding mark-seen select still loses
+  the deal. Model the failure at EVERY position in the call sequence
+  before claiming a fix; a transient between two calls can fail either
+  one. Gemini accepted the wrong premise ("mathematically guarantee").
+- **A prompt that forbids what its design needs makes Cursor improvise**
+  (round 1 forbade changing `Grind_ProcessDeal`'s signature while needing
+  it to report success). Check every design line against every "do not".
+- **Cursor can ignore a prompt entirely** (round 2's first run built its
+  own DR21/DR22 and reused the prompt's labels for other changes). The
+  gate: RESTATE AND STOP inside the prompt (BOOT s2); read every commit
+  before the operator compiles; revert, never force-push.
+- **A clock of 0 is not "no window".** `from = 0` selects the account's
+  whole history and replays every unseen deal of the magic: ghost layers
+  with exits. Defer instead (ADR-164 `REPLAY_INIT_DEFERRED`).
+- **`DEAL_REPLAYED` on a healthy day is not a fault.** The 1 s timer can
+  run before a fill's queued `OnTradeTransaction`; the sweep handles the
+  deal and the event is dropped as `DEAL_EVENT_AFTER_REPLAY`. Only
+  `DEAL_EVENT_MISSED` (no event 60 s after a replay) means C76.
+- **`git pull` from the desktop can fail "Recv failure: Connection was
+  reset"** and the rest of a `;` chain still runs. Check the output, and
+  re-run a failed push; a push onto a moved remote is refused, never
+  overwrites.

@@ -25,7 +25,8 @@ a funded or real account until each of these is closed:
   out of the public repo (it is in every handoff); operator, 28 Sep: the
   REPO MADE PRIVATE before real money;
 - C76: a fill that arrives in a broker resync is adopted, not halted on or
-  silently stalled (ADR-164);
+  silently stalled (ADR-164; MERGED `0335f25` 29 Sep, live on the IC
+  boxes from C63; the FTMO VPS still lacks it on `5685e4f`);
 - C31: an externally flattened book is detected and halts, not retries;
 - C18: quarantine does not escalate while a retry is blocked;
 - C14/C23: partial fills handled, if any lot above 0.01 is planned;
@@ -183,4 +184,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 186
+Line count: 187

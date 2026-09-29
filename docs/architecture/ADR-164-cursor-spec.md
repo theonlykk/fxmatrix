@@ -640,6 +640,10 @@ source.
   pairs are dropped). C5 DR11 had two long L00 layers. C6 fixtures on
   the real P1 values (A12, A13), including the OUT_BY shape. C7 the base
   commit is the one carrying this revision.
+- **SQ8 ACCEPTED (28 Sep ~23:00 ET):** `"owned":true` for an absorbed
+  ENT; his SQ2 ruling stands with our premise corrected. Built as
+  `04e665c`/`3a2d800`/`7ff1c97`; what shipped after the DeepSeek audit
+  differs from this spec (ADR-164 s11).
   C8 (from an independent re-derivation of every tag against the stubs
   and the design): init takes its time from `Grind_HistNow()`, so the
   fixture pins the model clock to I around init; `Grind_ReplayReset`
@@ -649,4 +653,4 @@ source.
   modify and remove calls; DR12 (a)'s commit-1 failure is two place
   calls (exit and add), derived.
 
-Line count: 652
+Line count: 656

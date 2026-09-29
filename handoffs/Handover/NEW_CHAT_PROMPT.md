@@ -1,14 +1,16 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-09-28 ~21:30Z (MONDAY NIGHT)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-09-29 ~04:15Z (TUESDAY, BEFORE THE OPEN)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
-order: `handoffs/Handover/01_BOOT.md`; `handoffs/HANDOFF_2026-09-24.md` s18
-to **s21**; every section of `handoffs/Handover/02_TRAPS.md` dated
-2026-09-25 to 2026-09-28; `handoffs/Handover/08_BACKLOG.md` (above all C7,
-C9, C16, C63, C74, C76-C79); **`docs/architecture/ADR-164-missed-deal-replay.md`**;
+order: `handoffs/Handover/01_BOOT.md` (s2 has the RESTATE-AND-STOP rule);
+`handoffs/HANDOFF_2026-09-24.md` s18 to **s22**; every section of
+`handoffs/Handover/02_TRAPS.md` dated 2026-09-25 to 2026-09-29;
+`handoffs/Handover/08_BACKLOG.md` (above all C7, C9, C16, C63, C74,
+C76-C80); **`docs/architecture/ADR-164-missed-deal-replay.md`** (s11: what
+shipped);
 `docs/architecture/fleet-c.md` (s2, s3, s5 verdict);
 `docs/research/ejection-value-study.md` (s8) and
 `research/ejection_value/README.md`; `docs/architecture/fleet-b.md` (B1);
@@ -30,14 +32,14 @@ and s8.13; `docs/architecture/ADR-163-rebuild-at-start.md`;
 - **Fleet C** (box 2, IC 53071896, `main` v2.1): phase 1 VERDICT written
   (fleet-c.md s5): code check PASS; cleared for C63 with ADR-164.
 
-**28 Sep 16:27Z: a broker resync swallowed two fills on GBPUSD_OPTC**
-(no `OnTradeTransaction` for fills during a resync: C76). A missed ENT
-halts on I3; a missed EXT stalls silently. Every fleet has the same
-gap. **ADR-164** (deal-history sweep, ACCEPTED rev 3, Gemini GF-1
-agreed) fixes it and C77; it ships WITH C63 on **THURSDAY 1 Oct**. Its
-Cursor spec is the next thing to write.
+**ADR-164 (C76: fills in a broker resync never reached the engine) and
+C77 are MERGED: `main` `0335f25`** (suite 2368/2368 GBPUSD and EURUSD;
+DeepSeek-audited; T-2 fixed after two rounds, HANDOFF s22). It ships
+WITH C63 on **THURSDAY 1 Oct** to box 1 and box 2. `DEAL_REPLAYED` rows
+on a healthy day are expected; `DEAL_EVENT_MISSED` is the fault signal.
+The VPS keeps the gap on `5685e4f` until cycle 3 ends.
 
-**The EA code on `main` is FROZEN until C63** (then v2.1 + ADR-164).
+**The EA code on `main` is FROZEN until C63** (`0335f25` deploys).
 Pipshed and docs may change. **MT5 reinitialises an EA only when an
 input changes:** to reattach, append " x" to `InpConfigWarning`.
 
@@ -65,7 +67,7 @@ repo PRIVATE before real money (07 gate).
 
 | | |
 |---|---|
-| fxmatrix `main` | `306e38d` + the 28 Sep evening patches (docs, ADR-164, two read-only probe scripts, `research/ejection_value/`); `git diff --stat 6a1e9ad origin/main -- ea/*.mq5 ea/*.mqh tools/` must be empty |
+| fxmatrix `main` | `0335f25` (merge of `adr164-deal-replay`, EA tree `dd2d1b98`) + the 29 Sep docs patch; `git diff --stat 0335f25 origin/main -- ea/ tools/` must be empty |
 | pipshed `main` | `15ddeb7`: fleet cards in the daily summary layout (signed pips, commission by account, net) on `bb40cc2`, `d82ff26`, `b6a03d4` |
 | VPS (cycle 3) | `5685e4f`, `pipshed.com`; MetaTrader LiveUpdate pending (Later) |
 | Box 1 (Fleet B) | 207.148.14.197 (`ssh box1`); `5685e4f`; B1 applied; repo stays on `5685e4f` |
@@ -75,16 +77,14 @@ repo PRIVATE before real money (07 gate).
 
 ## 2. NEXT, IN ORDER
 
-1. **ADR-164 Cursor spec WRITTEN** (28 Sep ~21:30Z):
-   `docs/architecture/ADR-164-cursor-spec.md` (499 lines; branch
-   `adr164-deal-replay`; tests DR1-DR17, EQH1/2, guards tagged
-   "(guard)"; Gemini SQ1-SQ7 in s9). WITH GEMINI: the operator brings
-   his rulings to the new chat. CHECK EACH AGAINST SOURCE, fold any
-   amendment into the spec (above its Gemini gate line), then Cursor in
-   `D:\fxmatrix`, Claude reads the commits, the operator runs the suite
-   on the DESKTOP at each commit (predicted fails = assertions without
-   "(guard)"), DeepSeek (it moves orders), merge `--no-ff`. Target:
-   merged Wednesday.
+1. **C63 prep, ONE document at a time for Gemini** (BOOT s2: the
+   prompt committed first, RESTATE AND STOP inside it): (a) fleet-c.md
+   s3 amendment (C63 on box 1 and box 2 the same day; box 1 gets `main`
+   for the first time: v2.0/v2.1 inherit, ADR-163 rebuild, ADR-164);
+   (b) lattice presets `presets_b`/`presets_c` (`InpVirtualLattice=true`,
+   `InpAutoEject=false`, key line for injection); (c) the key-rotation
+   plan (C9: new key in Railway, presets rebuilt, every chart on box 1,
+   box 2 and the VPS reloaded).
 2. **Every night after 21:00Z:** `--carrypass --hours 2` (01_BOOT). Expect
    33 summaries; the snapshot list can be short after a weekend (C79).
 3. **Wednesday, ejection study data** (study s3, README):
@@ -95,15 +95,16 @@ repo PRIVATE before real money (07 gate).
       BOX 2 over VNC (IC; `Scripts/fxmatrix/`, file recipe 06 s9), each on
       a spare chart, never an EA's chart; files `MQL5\Files\bars_<login>_<SYM>.csv`.
    c. Claude runs `research/ejection_value/ev_report.py` on the files.
-   Interim report Thu 1 Oct; final ~9 Oct (>= 30 episodes). After
-   ADR-164: GQ6 to Gemini (F by depth, V_strict).
-4. **C63, THURSDAY 1 Oct in session:** `main` (v2.1 + ADR-164) + lattice
+   Interim report Thu 1 Oct; final ~9 Oct (>= 30 episodes). GQ6 to
+   Gemini now that ADR-164 is merged (F by depth, V_strict), when no
+   other document is with him.
+4. **C63, THURSDAY 1 Oct in session:** `main` `0335f25` + lattice
    on box 1 and box 2 (fleet-c.md s3 amendment first); ROTATE the
    telemetry key in the same reattach (C9). From C63 B and C roll instead
    of ejecting; A keeps ejecting; the study scores rolls the same way.
 5. **Pipshed, where it fits before C63** (small-fix route or one spec):
    C74 (quarantine noise), C7 rest (API count; the 200 limit on the
-   cards, C78), C66.
+   cards, C78), C66. C80 (show the ADR-164 markers) after C63.
 6. A few days watching rolls; EA batch v2.2 (C57, C62, C65, C60, C68,
    C42, C79) by the full route. Then box 3 (Fleet D; operator: two full
    rings to test the 200 limit). Before real money: 07_ROADMAP gate (C9,
@@ -140,10 +141,13 @@ repo PRIVATE before real money (07 gate).
   `git am` on a clean clone); the operator `git am`s from Downloads,
   checks the tree, pushes; Claude verifies on GitHub. Claude never
   pushes (decline the stop hook's push request).
-- Features: spec (Gemini questions inside, tests first, failures
-  predicted BY NAME, line count at the bottom) -> Gemini -> Cursor on a
-  branch -> Claude reads the commits -> DeepSeek for anything that moves
-  orders -> merge `--no-ff`. One document at a time for Gemini.
+- Features: spec (Gemini questions inside, RESTATE AND STOP first,
+  tests first, "(guard)" tags DERIVED against the stubs, failures
+  predicted BY NAME, line count at the bottom), committed -> Gemini ->
+  Cursor reads it at that hash on a branch -> Claude reads the commits ->
+  operator runs the suite -> DeepSeek for anything that moves orders ->
+  merge `--no-ff`. One document at a time for Gemini. One paste per
+  step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 149
+Line count: 153

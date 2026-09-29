@@ -82,6 +82,18 @@ require that it be reported.
 is open, exit codes have been observed inverted, and a stale log reads as a
 current result. MetaEditor GUI compile by the operator is the authoritative gate.
 
+**Every Cursor prompt opens with RESTATE AND STOP (operator, 29 Sep).**
+Its first section tells Cursor to restate each change in one line,
+quoting the prompt, and to list the tests it adds, then STOP until the
+operator replies "go". The prompt is COMMITTED before Gemini sees it and
+Cursor is pointed at `prompts/<file>` at that hash, so Gemini reviews the
+bytes Cursor reads. One paste per step, for agents too. If Cursor drifts,
+the prompt was not good enough: an instruction added outside the
+reviewed prompt makes Gemini's review impossible. Before sending, check
+every design line against every "do not" line (29 Sep: a prompt that
+forbade changing `Grind_ProcessDeal`'s signature while needing it to
+report forced Cursor to improvise).
+
 **Do not ask Cursor to run the suite in the same prompt that forbids a
 compile.** The suite needs a compiled `.ex5`, so the two instructions conflict
 and Cursor resolves the conflict by doing more, not less. If the operator is to
@@ -189,15 +201,15 @@ pieces of work: the operator found chats rolling over too early
 
 ## 6. CURRENT STATE -- REWRITE THIS BLOCK EVERY SESSION
 
-**As of 2026-09-28 ~21:30Z (Monday night). THREE fleets live, 11/11 each: cycle 3 (VPS, FTMO, `5685e4f`), Fleet B (box 1, IC, `5685e4f`, B1 dial), Fleet C (box 2, IC, `main` v2.1). ONE halt today: GBPUSD_OPTC 16:27:38Z, a broker resync swallowed two fills (C76), repaired by reattach 16:57Z, clean since. Fleet C phase 1 VERDICT: v2.1 code check PASSES; cleared for C63 THURSDAY 1 Oct WITH ADR-164 (missed-deal replay, ACCEPTED rev 3) in the same build and the telemetry key rotated (C9). Carry pass 28 Sep: 33/33 clean. Box 2 GUI (C75): x11vnc works (06 s9); RDP still broken. Ejection study code written (`research/ejection_value/`), pilot run on 2 days.**
-Evidence: `HANDOFF_2026-09-24.md` (read s18 to s21; s21 = 28 Sep afternoon and evening: VNC, the resync halt, ADR-164, pipshed summary and cards, C78).
+**As of 2026-09-29 ~04:15Z (Tuesday, before the open). THREE fleets live, 11/11 each: cycle 3 (VPS, FTMO, `5685e4f`), Fleet B (box 1, IC, `5685e4f`, B1 dial), Fleet C (box 2, IC, `main` v2.1 `e2ac9fe`). ADR-164 (missed-deal replay, C76) and C77 MERGED into `main` `0335f25` (suite 2368/2368 GBPUSD and EURUSD, DeepSeek-audited, T-2 fixed). C63 THURSDAY 1 Oct: `main` `0335f25` + lattice on box 1 and box 2, key rotated (C9). Carry pass 28 Sep: 33/33 clean.**
+Evidence: `HANDOFF_2026-09-24.md` (read s18 to s22; s21 = 28 Sep afternoon and evening: VNC, the resync halt, pipshed; s22 = the ADR-164 build, audit, the two fix rounds and the merge).
 
 | | |
 |---|---|
-| fxmatrix main | `306e38d` + tonight's docs/study patches (docs, `scripts/grind_deal_probe.mq5`, `scripts/grind_account_probe.mq5`, `research/ejection_value/`; all read-only or offline): EA code still == `6a1e9ad` (`git diff --stat 6a1e9ad origin/main -- ea/*.mq5 ea/*.mqh tools/` empty). grind v2.1 = v2.0 (per-side width/add/exit, six inputs default -1 = inherit) + ADR-163 rebuild at start (label GVs `GRIND_GEO_EXIT_<magic>_L/_S`; a changed exit reprices resting exits at init; commanded-eject exits keep their price; failure = `REBUILD_EXIT_FAILED` halt) on top of ADR-162 (lattice default OFF). Suite **2220/2220** at `2ff62f4`. Box 1 and the VPS run `5685e4f`. **ADR-164** (`docs/architecture/ADR-164-missed-deal-replay.md`, ACCEPTED): deal-history sweep on the 1 s timer and before quarantine, no input; D6a fixes C77. Cursor spec next |
+| fxmatrix main | `0335f25` = `--no-ff` merge of `adr164-deal-replay` (tip `97a2cd1`) into `9c0217c`. EA = v2.1 + ADR-164: `ea/grind_replay.mqh` (SEEN set; `Grind_ReplayInit` in `OnInit` BEFORE reconstruction, DEFERRED to the first timer call if the server time is 0; sweep on every `OnTimer` and, throttled to 1 s, on the tick path before the quarantine step; markers `DEAL_REPLAYED`, `DEAL_EVENT_AFTER_REPLAY`, `DEAL_EVENT_MISSED` (60 s), `CONNECTION_RESTORED`, `REPLAY_INIT_DEFERRED`); `Grind_ProcessDeal` returns false if any deal select failed during it (the deal stays unseen and is replayed); handler guards (ENT already a layer, EXT already attached); C77: exit-deal lookup reads by ticket. No input. `DEAL_REPLAYED` rows from the timer on healthy days are EXPECTED (the timer ran before the fill's queued event); `DEAL_EVENT_MISSED` is the C76 fault signal. Box 1 and the VPS run `5685e4f`; box 2 runs `e2ac9fe` (v2.1 without ADR-164) |
 | pipshed main | `15ddeb7`: fleet cards drawn in the daily summary layout (scalps, ejections, rolls with SIGNED pips, commission by account FTMO 0.06 / IC 0.08 per close, net, per pair, deepest side; C72 fixed) on `bb40cc2` (the same in `/summary`) on `d82ff26` (`/critical` greys halt rows of a recovered instance) on `b6a03d4` (strip the same) on `99a75a3` (`--export-study`). Suites: strip 42, summary_carry 24, ejection_telemetry 32 (fresh PG), critical 5, daily 23, select 7, b 6, c 9. Web services: `pipshed.com` (A), `linux.` (B), `linuxc.` (C) |
 | VPS running | branch `main` at `5685e4f`, tag `vps-5685e4f` (compiled 2026-09-25 04:50:36Z); restore `vps-a01a5d4`; a MetaTrader LiveUpdate is PENDING on the VPS terminal (answered Later 27 Sep): install only at a planned in-session restart, never with the market closed |
-| MQL5 suite | **2220/2220** on GBPUSD and EURUSD at `2ff62f4` (= `main` `6a1e9ad` EA code); 2168/2168 at `907b1c7` (v2.0); **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
+| MQL5 suite | **2368/2368** on GBPUSD and EURUSD at `97a2cd1` (= `main` `0335f25` EA code); 2220/2220 at `2ff62f4` (v2.1); **1887/1887** at `5685e4f` (the live build). Desktop ONLY: never on a terminal with live EAs (traps 2026-09-25 C52). Runs from `MQL5\Scripts\` |
 | Fleet | **11 live** since ~01:00Z 24 Sep: nine OPT + `GRIND_AUDNZD_ALT` (22260902) + `GRIND_NZDCAD_ALT` (22260802), the two duplicates on OPT geometry (pre-registration A3) |
 | Account | FTMO free trial **1514731800**, $10k, $500/day. Cycle 2 (1514582088) ENDED on the daily limit 23 Sep: `docs/FULL_TRIAL_RECORD_1514582088.md` |
 | Defences | ADR-158 breaker (80%, latched, adopted by every instance per tick); ADR-160 entry gate (floating loss 50% on / 40% off); both in every preset |
@@ -206,7 +218,7 @@ Evidence: `HANDOFF_2026-09-24.md` (read s18 to s21; s21 = 28 Sep afternoon and e
 | **Cycle 3** | FROZEN for the whole cycle (geometry-cycle3 A4); first Daily row 24 Sep: realised $82.96, 111 scalps, gated 0.0h |
 | **Fleet C** | = BOX 2, 64.177.116.219, IC demo **53071896** (Hedge), `main` v2.1 (`e2ac9fe` compiled; EA == `2ff62f4`), 11 live since 00:07Z 28 Sep at B1 settings, lattice off. **Phase 1 verdict written (fleet-c.md s5): code check PASS; session criterion failed once on C76 (not a v2.1 gap).** GUI: x11vnc on port 5911 + `ssh -L 5911:localhost:5911 box2` (06 s9); reinit needs an input change (append " x" to `InpConfigWarning`). Page `https://linuxc.pipshed.com` |
 | **Ejection study** | C16: does ejecting at cap beat holding? Design + rulings `docs/research/ejection-value-study.md` (s8: code, pilot, GQ1 correction = F by depth, GQ6 for Gemini after ADR-164). Code `research/ejection_value/` (19 tests; `python -m research.ejection_value.ev_report`, README). Data: `--export-study --days 14` (fill_logs keep 14 days) + `grind_bar_dump.mq5` on the desktop FTMO terminal (flat `MQL5\Scripts\`) and on BOX 2 over VNC (IC). Interim Thu 1 Oct, final ~9 Oct |
-| **Next** | (1) Tue-Wed: ADR-164 Cursor spec WRITTEN (`docs/architecture/ADR-164-cursor-spec.md`, with Gemini: check his SQ1-SQ7 rulings against source, amend) -> Cursor in `D:\fxmatrix` -> DeepSeek -> merge `--no-ff`; suite on the DESKTOP. (2) Wed: `--days 14` export and bar dumps (desktop FTMO, box 2 IC); run the study. (3) **C63 THURSDAY 1 Oct in session:** `main` (v2.1 + ADR-164) + lattice on box 1 and box 2 (fleet-c.md s3 amendment first); ROTATE the telemetry key in the same reattach (C9). Interim study report the same day. (4) Pipshed before C63 where it fits: C74 (quarantine noise), C7 rest (API count, 200 limit on the cards), C66. (5) v2.2 batch after a few days of rolls (C57, C62, C65, C60, C68, C42, **C79**). (6) Box 3 (Fleet D; operator: two full rings to test the 200 limit, C78); box 2 RDP repair in a closed-market slot. FTMO add-only until cycle 3 ends. Every night: `--carrypass` |
+| **Next** | (1) Before Thursday, ONE document at a time for Gemini: fleet-c.md s3 amendment (C63 on boxes 1 and 2), lattice presets (`presets_b`, `presets_c`: `InpVirtualLattice=true`, `InpAutoEject=false`), key-rotation plan (C9). (2) Wed: `--days 14` export and bar dumps (desktop FTMO, box 2 IC); run the study. (3) **C63 THURSDAY 1 Oct in session:** `main` `0335f25` + lattice on box 1 and box 2; ROTATE the telemetry key in the same reattach. Interim study report the same day. (4) Pipshed before C63 where it fits: C74, C7 rest, C66; C80 (the new ADR-164 markers) after. (5) v2.2 batch after a few days of rolls (C57, C62, C65, C60, C68, C42, C79). (6) Box 3 (Fleet D); box 2 RDP repair in a closed-market slot. FTMO add-only until cycle 3 ends. Every night: `--carrypass` |
 | Linux box | Vultr Ubuntu/Wine, 207.148.14.197 -- **now runs Fleet B, Algo ON** (a different account from cycle 3). See `06_LINUX_WINE_BOX.md` |
 
 **Nothing lands in the EA mid-cycle** except a defect fix; every compile or

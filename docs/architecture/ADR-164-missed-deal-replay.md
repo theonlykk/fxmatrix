@@ -2,7 +2,8 @@ This message has a line count at the bottom
 
 # ADR-164 -- REPLAY DEALS THE TERMINAL NEVER ANNOUNCED (C76)
 
-Status: ACCEPTED rev 3, 2026-09-28 ~20:50Z (rev 1 ~17:15Z; rev 2 ~17:35Z
+Status: MERGED `main` `0335f25`, 2026-09-29 ~04:10Z (s11); deploys with C63.
+Was: ACCEPTED rev 3, 2026-09-28 ~20:50Z (rev 1 ~17:15Z; rev 2 ~17:35Z
 corrects D1 and adds C77; P1 PASS 17:22Z; rev 3 applies GF-1 to D6a).
 Gemini's rulings and Claude's check in s8. Next: the Cursor spec. Written by Claude from
 source at `main` `306e38d` (EA == `6a1e9ad`) and `5685e4f` (the live
@@ -232,4 +233,27 @@ the v2.2 batch after C63, or before it. C63 does not add this exposure
 (box 1 has it on `5685e4f` today). Add to 07_ROADMAP's gate before real
 money.
 
-Line count: 235
+## 11. BUILT AND MERGED (29 SEP) -- WHAT SHIPPED DIFFERS FROM s2 IN THREE PLACES
+
+Spec `docs/architecture/ADR-164-cursor-spec.md` rev 2 (`9c0217c`),
+Gemini SQ1-SQ8; tests `04e665c` (2259/2350, the 91 predicted), fixes
+`3a2d800`, implementation `7ff1c97` (2350/2350); DeepSeek `6e49b87`
+(checked, spec s9a and HANDOFF s22); fix round 2 `aa8ca67` (2360/2368,
+the 8 predicted) and `97a2cd1` (2368/2368, GBPUSD and EURUSD); merge
+`0335f25`. Differences from s2:
+- **Seed BEFORE reconstruction** (Gemini SQ5), not after; the handler
+  guards absorb a deal reconstruction already built.
+- **SEEN only when the deal was fully handled:** `Grind_ProcessDeal`
+  returns false if ANY deal select failed during it (a counter in
+  `Grind_DealSelect`, Gemini GB1); the event path then leaves the deal
+  unseen and the sweep replays it. D2's "mark seen after a successful
+  select" was not enough (DeepSeek T-2; round 1's reorder did not close
+  it either).
+- **Init deferred without a server time** (Gemini GB2): if the clock is 0
+  at init, `REPLAY_INIT_DEFERRED` and init at the first timer call with
+  one; never a window from epoch.
+Also: markers `DEAL_EVENT_AFTER_REPLAY` and `DEAL_EVENT_MISSED` (spec SQ1,
+SQ3). Pipshed display: backlog C80. The VPS (`5685e4f`) keeps the C76 gap
+until cycle 3 ends.
+
+Line count: 259
