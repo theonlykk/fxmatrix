@@ -9405,7 +9405,8 @@ void OnStart()
    Test_DR15_NotReady();
    Test_DR16_SeenOnlyAfterSelect();
    Test_DR19_EventSeenOnlyAfterProcess();
-   Test_DR20_EventMarkSeenAfterProcess();
+   Test_DR20_MarkSeenSelectFailErrsToDuplicate();
+   Test_DR21_InitDeferredWithoutServerTime();
    Test_DR17_Prune();
    Test_DR18_SeedBeforeReconGuardAbsorbs();
    Test_EQH1_FoundWhenNotNewest();

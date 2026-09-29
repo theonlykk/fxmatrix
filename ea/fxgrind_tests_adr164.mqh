@@ -546,8 +546,13 @@ void Test_DR10_WindowFrom()
    AssertTrue("DR10 case3",
               Grind_ReplayWindowFrom(D'2026.09.28 19:29:30', D'2026.09.28 19:30:00', 120) ==
               D'2026.09.28 19:29:30');
-   AssertTrue("DR10 init zero",
-              Grind_ReplayWindowFrom(0, D'2026.09.28 19:30:00', 120) == 0);
+   AssertTrue("DR10 init zero natural",
+              Grind_ReplayWindowFrom(0, D'2026.09.28 19:30:00', 120) ==
+              D'2026.09.28 19:28:00');
+   AssertTrue("DR10 probe 0 0 (guard)",
+              Grind_ReplayWindowFrom(0, 0, 120) == 0);
+   AssertTrue("DR10 probe 0 60 (guard)",
+              Grind_ReplayWindowFrom(0, 60, 120) == 0);
 }
 
 //+------------------------------------------------------------------+
@@ -764,7 +769,7 @@ void Test_DR19_EventSeenOnlyAfterProcess()
 }
 
 //+------------------------------------------------------------------+
-void Test_DR20_EventMarkSeenAfterProcess()
+void Test_DR20_MarkSeenSelectFailErrsToDuplicate()
 {
    const double saved_add = g_grind_engine_add_pips;
    const double saved_recon = g_grind_recon_exit_pips;
@@ -773,7 +778,7 @@ void Test_DR20_EventMarkSeenAfterProcess()
    Grind_ArchiveTestConfigureCommon();
    Adr164_ReplayInitAtI();
    Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
-   g_grind_hist_test_select_fail_on_call = 1;
+   g_grind_hist_test_select_fail_on_call = 5;
    g_grind_hist_test_select_fail_ticket = DR164_ENT_S;
    MqlTradeTransaction tr;
    ZeroMemory(tr);
@@ -781,9 +786,58 @@ void Test_DR20_EventMarkSeenAfterProcess()
    tr.deal = DR164_ENT_S;
    Grind_OnTradeTransactionEngine(tr, DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0);
 
-   AssertTrue("DR20 seen after ProcessDeal", Grind_ReplayIsSeen(DR164_ENT_S));
-   AssertTrue("DR20 depth 1", Grind_SideDepth(g_grind_short) == 1);
-   AssertTrue("DR20 sweep 0", Adr164_SweepTimer() == 0);
+   AssertTrue("DR20 depth 1 after event (guard)", Grind_SideDepth(g_grind_short) == 1);
+   AssertFalse("DR20 not seen (guard)", Grind_ReplayIsSeen(DR164_ENT_S));
+   g_grind_hist_test_select_fail_on_call = 0;
+   g_grind_hist_test_select_fail_ticket = 0;
+   AssertTrue("DR20 sweep 1 (guard)", Adr164_SweepTimer() == 1);
+   int pos_layers = 0;
+   for(int i = 0; i < ArraySize(g_grind_short.layers); i++) {
+      if(g_grind_short.layers[i].position_ticket == DR164_POS_ENT_S)
+         pos_layers++;
+   }
+   AssertTrue("DR20 one short layer pos (guard)", pos_layers == 1);
+
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_DR21_InitDeferredWithoutServerTime()
+{
+   const double saved_add = g_grind_engine_add_pips;
+   const double saved_recon = g_grind_recon_exit_pips;
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr164_SeedEntHarness();
+   Grind_ArchiveTestConfigureCommon();
+   g_grind_hist_test_now = 0;
+   Grind_ReplayInit(DR164_MAGIC, 1000);
+
+   AssertFalse("DR21 not ready when deferred", g_grind_replay_ready);
+   AssertTrue("DR21 deferred marker",
+              Adr164_ArchiveCountSubstr("REPLAY_INIT_DEFERRED") == 1);
+   AssertTrue("DR21 sweep while deferred 0 (guard)", Adr164_SweepTimer() == 0);
+
+   Grind_TestAppendDeal(1583900001UL,
+                        GrindCommentBuild("OPT", "S", 0, "ENT"),
+                        DEAL_ENTRY_IN,
+                        1970000001UL,
+                        1970000001UL,
+                        0.0, 0.0, 0.0,
+                        1.32700,
+                        D'2026.09.20 10:00:00');
+   Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
+   g_grind_hist_test_now = DR164_INIT_I;
+   Grind_ReplayOnTimer(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 5000);
+
+   AssertTrue("DR21 ready after timer (guard)", g_grind_replay_ready);
+   AssertFalse("DR21 old deal not replayed", Grind_ReplayWasReplayed(1583900001UL));
+   AssertFalse("DR21 ENT_S seeded not replayed", Grind_ReplayWasReplayed(DR164_ENT_S));
+
+   Adr164_SetupLayerL00();
+   Adr164_AppendExtL(D'2026.09.28 19:27:22');
+   g_grind_hist_test_now = DR164_AFTER_INIT;
+   AssertTrue("DR21 later deal replayed (guard)", Adr164_SweepTimer() == 1);
 
    Adr164_ResetHarness(saved_add, saved_recon);
    Adr152_TestResetAll();
