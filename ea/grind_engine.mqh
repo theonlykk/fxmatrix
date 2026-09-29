@@ -3176,9 +3176,11 @@ bool Grind_ProcessDeal(const ulong deal_ticket,
                        const double deadband_pips,
                        const int max_layers,
                        const double lots,
+                       long &deal_time_msc_out,
                        const double exit_pips_short = 0.0,
                        const double add_pips_short = 0.0)
 {
+   deal_time_msc_out = 0;
    if(!Grind_DealSelect(deal_ticket))
       return false;
    if(Grind_DealGetString(deal_ticket, DEAL_SYMBOL) != _Symbol)
@@ -3186,7 +3188,10 @@ bool Grind_ProcessDeal(const ulong deal_ticket,
    if(!Grind_MagicMatches(Grind_DealGetInteger(deal_ticket, DEAL_MAGIC), magic))
       return false;
 
-   Grind_ArchiveRecordFill(deal_ticket, magic);
+   deal_time_msc_out = Grind_DealGetInteger(deal_ticket, DEAL_TIME_MSC);
+
+   if(!Grind_DealWasProcessed(deal_ticket))
+      Grind_ArchiveRecordFill(deal_ticket, magic);
    if(g_grind_halted)
       return true;
 
@@ -3218,9 +3223,10 @@ void Grind_OnTradeTransactionEngine(const MqlTradeTransaction &trans,
       Grind_ArchiveMarker("INFO", "DEAL_EVENT_AFTER_REPLAY", "", trans.deal, "{}");
       return;
    }
+   long deal_msc = 0;
    if(Grind_ProcessDeal(trans.deal, magic, slot, exit_pips, add_pips, deadband_pips,
-                        max_layers, lots, exit_pips_short, add_pips_short))
-      Grind_ReplayMarkSeenIfOurs(trans.deal, magic);
+                        max_layers, lots, deal_msc, exit_pips_short, add_pips_short))
+      Grind_ReplayMarkSeen(trans.deal, deal_msc);
 }
 
 bool Grind_ExitQFindExitDealPosition(const ulong order_ticket,
