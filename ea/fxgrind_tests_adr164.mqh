@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_tests_adr164.mqh — ADR-164 missed-deal replay (DR*, EQH*) |
+//| fxgrind_tests_adr164.mqh -- ADR-164 missed-deal replay (DR*, EQH*) |
 //+------------------------------------------------------------------+
 #ifndef FXGRIND_TESTS_ADR164_MQH
 #define FXGRIND_TESTS_ADR164_MQH
@@ -152,8 +152,8 @@ void Test_DR1_ReplayMissedEnt()
    AssertNear("DR1 short add pending price",
               Grind_OrderGetPriceOpen(g_grind_short.add_pending_ticket), 1.32841, 1e-9);
    AssertTrue("DR1 one fill_log", Adr164_ArchiveCountSubstr("\"type\":\"fill_log\"") == 1);
+   AssertTrue("DR1 one DEAL_REPLAYED", Adr164_ArchiveCountSubstr("DEAL_REPLAYED") == 1);
    const string m0 = Adr164_ArchiveMarkerNth("DEAL_REPLAYED", 0);
-   AssertTrue("DR1 one DEAL_REPLAYED", m0 != "");
    AssertContains("DR1 marker role ENT", m0, "\"role\":\"ENT\"");
    AssertContains("DR1 marker side S", m0, "\"side\":\"S\"");
    AssertContains("DR1 marker layer 0", m0, "\"layer\":0");
@@ -273,12 +273,12 @@ void Test_DR4b_SweepThenEvent()
    Adr164_ReplayInitAtI();
    Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
    AssertTrue("DR4b sweep returns 1", Adr164_SweepTimer() == 1);
-   AssertTrue("DR4b one AFTER_REPLAY", Adr164_ArchiveCountSubstr("DEAL_EVENT_AFTER_REPLAY") == 1);
    MqlTradeTransaction tr;
    ZeroMemory(tr);
    tr.type = TRADE_TRANSACTION_DEAL_ADD;
    tr.deal = DR164_ENT_S;
    Grind_OnTradeTransactionEngine(tr, DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0);
+   AssertTrue("DR4b one AFTER_REPLAY", Adr164_ArchiveCountSubstr("DEAL_EVENT_AFTER_REPLAY") == 1);
    AssertTrue("DR4b depth 1 (guard)", Grind_SideDepth(g_grind_short) == 1);
    AssertTrue("DR4b fill_log 1 (guard)", Adr164_ArchiveCountSubstr("\"type\":\"fill_log\"") == 1);
 
@@ -430,12 +430,16 @@ void Test_DR8_Resync0928TimeOrder()
 }
 
 //+------------------------------------------------------------------+
-void Adr164_ScriptInv(const bool r0, const string reason0, const bool r1 = true, const string reason1 = "")
+void Adr164_ScriptInv(const int count,
+                      const bool r0,
+                      const string reason0,
+                      const bool r1 = false,
+                      const string reason1 = "")
 {
    g_grind_replay_test_inv_active = true;
    g_grind_replay_test_inv_index = 0;
    g_grind_replay_test_inv_calls = 0;
-   if(reason1 == "") {
+   if(count == 1) {
       ArrayResize(g_grind_replay_test_inv_results, 1);
       ArrayResize(g_grind_replay_test_inv_reasons, 1);
       g_grind_replay_test_inv_results[0] = r0;
@@ -461,7 +465,7 @@ void Test_DR9_TickSweepBeforeQuarantine()
    Adr164_ReplayInitAtI();
    Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
    g_grind_invariant_reason = "I3_SHORT_NAKED";
-   Adr164_ScriptInv(false, "I3_SHORT_NAKED", true, "");
+   Adr164_ScriptInv(2, false, "I3_SHORT_NAKED", true, "");
    const int inv0 = g_grind_replay_test_inv_calls;
    const bool ok = Grind_ReplayCheckInvariants(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 10000);
    const int action = Grind_QuarantineStep(ok, g_grind_invariant_reason, 10000);
@@ -470,7 +474,9 @@ void Test_DR9_TickSweepBeforeQuarantine()
    AssertTrue("DR9 inv seam calls 2", g_grind_replay_test_inv_calls - inv0 == 2);
    AssertTrue("DR9 quarantine ok", action == GRIND_INV_OK);
    AssertTrue("DR9 no QUARANTINE_ENTER", Adr164_ArchiveCountSubstr("QUARANTINE_ENTER") == 0);
-   AssertTrue("DR9 one DEAL_REPLAYED tick", Adr164_ArchiveCountSubstr("\"path\":\"tick\"") >= 1);
+   AssertTrue("DR9 one DEAL_REPLAYED tick",
+              Adr164_ArchiveCountSubstr("DEAL_REPLAYED") == 1 &&
+              Adr164_ArchiveCountSubstr("\"path\":\"tick\"") == 1);
 
    Adr164_ResetHarness(saved_add, saved_recon);
    Adr152_TestResetAll();
@@ -487,19 +493,19 @@ void Test_DR9b_TickThrottle()
    Adr164_ReplayInitAtI();
    Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
    g_grind_invariant_reason = "I3_SHORT_NAKED";
-   Adr164_ScriptInv(false, "I3_SHORT_NAKED", true, "");
+   Adr164_ScriptInv(2, false, "I3_SHORT_NAKED", true, "");
    Grind_ReplayCheckInvariants(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 10000);
 
    Adr164_SetupLayerL00();
    Adr164_AppendExtL(D'2026.09.28 19:27:22');
-   Adr164_ScriptInv(false, "I3_SHORT_NAKED");
+   Adr164_ScriptInv(1, false, "I3_SHORT_NAKED");
    const int inv0 = g_grind_replay_test_inv_calls;
    const bool ok1 = Grind_ReplayCheckInvariants(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 10500);
    AssertTrue("DR9b returns false (guard)", !ok1);
    AssertTrue("DR9b seam calls 1", g_grind_replay_test_inv_calls - inv0 == 1);
    AssertFalse("DR9b EXT not replayed (guard)", Grind_ReplayWasReplayed(DR164_EXT_L));
 
-   Adr164_ScriptInv(false, "I3_SHORT_NAKED", true, "");
+   Adr164_ScriptInv(2, false, "I3_SHORT_NAKED", true, "");
    const bool ok2 = Grind_ReplayCheckInvariants(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 11000);
    AssertTrue("DR9b second returns true", ok2);
    AssertTrue("DR9b EXT replayed", Grind_ReplayWasReplayed(DR164_EXT_L));
@@ -517,7 +523,7 @@ void Test_DR9c_NothingToReplayNoRecheck()
    Adr164_SeedEntHarness();
    Grind_ArchiveTestConfigureCommon();
    Adr164_ReplayInitAtI();
-   Adr164_ScriptInv(false, "I3_SHORT_NAKED");
+   Adr164_ScriptInv(1, false, "I3_SHORT_NAKED");
    const int inv0 = g_grind_replay_test_inv_calls;
    const bool ok = Grind_ReplayCheckInvariants(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 20000);
 
@@ -682,7 +688,7 @@ void Test_DR15_NotReady()
    Grind_ArchiveTestConfigureCommon();
    Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
    Grind_ReplayReset();
-   Adr164_ScriptInv(false, "I3_SHORT_NAKED");
+   Adr164_ScriptInv(1, false, "I3_SHORT_NAKED");
    const int inv0 = g_grind_replay_test_inv_calls;
    const bool ok = Grind_ReplayCheckInvariants(DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0, 10000);
 

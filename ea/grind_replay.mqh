@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| grind_replay.mqh — ADR-164 missed-deal replay (commit 1: stubs)   |
+//| grind_replay.mqh -- ADR-164 missed-deal replay                    |
 //+------------------------------------------------------------------+
 #ifndef GRIND_REPLAY_MQH
 #define GRIND_REPLAY_MQH
