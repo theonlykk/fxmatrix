@@ -260,9 +260,8 @@ int Grind_ReplaySweep(const ulong magic,
          layer = c_layer;
       }
 
-      long deal_msc = 0;
       if(!Grind_ProcessDeal(t, magic, slot, exit_pips, add_pips, deadband_pips,
-                            max_layers, lots, deal_msc, exit_pips_short, add_pips_short))
+                            max_layers, lots, exit_pips_short, add_pips_short))
          continue;
 
       Grind_ReplayMarkReplayed(t, snap_msc[i], now_ms);

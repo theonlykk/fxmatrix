@@ -773,7 +773,7 @@ void Test_DR20_EventMarkSeenAfterProcess()
    Grind_ArchiveTestConfigureCommon();
    Adr164_ReplayInitAtI();
    Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
-   g_grind_hist_test_select_fail_on_call = 5;
+   g_grind_hist_test_select_fail_on_call = 1;
    g_grind_hist_test_select_fail_ticket = DR164_ENT_S;
    MqlTradeTransaction tr;
    ZeroMemory(tr);
