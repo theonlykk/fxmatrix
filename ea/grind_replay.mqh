@@ -129,6 +129,10 @@ datetime Grind_ReplayWindowFrom(const datetime init_time,
                                 const datetime last_sweep_time,
                                 const int margin_s)
 {
+   if(init_time <= 0)
+      return 0;
+   if(last_sweep_time <= (datetime)margin_s)
+      return init_time;
    const datetime margin_back = last_sweep_time - margin_s;
    return (init_time > margin_back ? init_time : margin_back);
 }
@@ -256,8 +260,9 @@ int Grind_ReplaySweep(const ulong magic,
          layer = c_layer;
       }
 
-      Grind_ProcessDeal(t, magic, slot, exit_pips, add_pips, deadband_pips,
-                        max_layers, lots, exit_pips_short, add_pips_short);
+      if(!Grind_ProcessDeal(t, magic, slot, exit_pips, add_pips, deadband_pips,
+                            max_layers, lots, exit_pips_short, add_pips_short))
+         continue;
 
       Grind_ReplayMarkReplayed(t, snap_msc[i], now_ms);
 
