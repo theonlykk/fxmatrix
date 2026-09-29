@@ -249,6 +249,8 @@ int OnInit()
    g_grind_halt_reason = "";
    Grind_QuarantineReset();
 
+   Grind_ReplayInit(InpMagic, GetTickCount64());
+
    if(!Grind_ReconstructState()) {
       Print("CRITICAL: Grind_ReconstructState failed — halted in place (",
             g_grind_halt_reason, ")");
@@ -375,6 +377,9 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   Grind_ReplayOnTimer(InpMagic, InpSlot, g_geo_exit_long, g_geo_add_long, InpDeadbandPips,
+                       InpMaxLayers, InpLots, g_geo_exit_short, g_geo_add_short,
+                       GetTickCount64());
    Grind_GvFlushIfDirty();
    Grind_SnapshotOnTimer();
    Grind_ArchiveFlush(false);
@@ -406,7 +411,10 @@ void OnTick()
 
    if(!g_grind_halted) {
       Grind_CapPublishOwnExposure(InpMagic, InpCapLegA, InpCapLegB);
-      const bool ok = Grind_CheckBookInvariants();
+      const bool ok = Grind_ReplayCheckInvariants(InpMagic, InpSlot, g_geo_exit_long, g_geo_add_long,
+                                                  InpDeadbandPips, InpMaxLayers, InpLots,
+                                                  g_geo_exit_short, g_geo_add_short,
+                                                  GetTickCount64());
       const int action = Grind_QuarantineStep(ok, g_grind_invariant_reason, GetTickCount64());
       if(action == GRIND_INV_HALT) {
          g_grind_halted = true;

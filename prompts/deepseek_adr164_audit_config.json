@@ -1,0 +1,18 @@
+{
+  "files_to_audit": {
+    "grind_replay.mqh":            "d:/fxmatrix/ea/grind_replay.mqh",
+    "grind_engine.mqh":            "d:/fxmatrix/ea/grind_engine.mqh",
+    "fxgrind.mq5":                 "d:/fxmatrix/ea/fxgrind.mq5",
+    "grind_recon.mqh":             "d:/fxmatrix/ea/grind_recon.mqh",
+    "grind_quarantine.mqh":        "d:/fxmatrix/ea/grind_quarantine.mqh",
+    "grind_closeby.mqh":           "d:/fxmatrix/ea/grind_closeby.mqh",
+    "fxgrind_tests_adr164.mqh":    "d:/fxmatrix/ea/fxgrind_tests_adr164.mqh"
+  },
+  "docs_to_include": {
+    "ADR-164-missed-deal-replay.md": "d:/fxmatrix/docs/architecture/ADR-164-missed-deal-replay.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_adr164_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_adr164_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_adr164_preview.md"
+}

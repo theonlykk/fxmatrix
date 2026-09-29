@@ -25,6 +25,7 @@
 #include "fxgrind_tests_c55.mqh"
 #include "fxgrind_tests_gv.mqh"
 #include "fxgrind_tests_rb.mqh"
+#include "fxgrind_tests_adr164.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9384,6 +9385,32 @@ void OnStart()
    Test_GV14_DueAddShort();
    Test_GV15_RecenterShortWidth();
    Test_RB13_UnreadableExitFailsClosed();
+   Test_DR1_ReplayMissedEnt();
+   Test_DR2_ReplayMissedExt();
+   Test_DR3_ReplayMissedOutBy();
+   Test_DR4_EventThenSweep();
+   Test_DR4b_SweepThenEvent();
+   Test_DR5_InitSeedAndWindow();
+   Test_DR6_HaltedArchivesOnly();
+   Test_DR7_OtherMagicOrSymbolIgnored();
+   Test_DR8_Resync0928TimeOrder();
+   Test_DR9_TickSweepBeforeQuarantine();
+   Test_DR9b_TickThrottle();
+   Test_DR9c_NothingToReplayNoRecheck();
+   Test_DR10_WindowFrom();
+   Test_DR11_ListReplacedMidSweep();
+   Test_DR12_HandlerGuards();
+   Test_DR13_EventMissedDetector();
+   Test_DR14_ConnectionEdge();
+   Test_DR15_NotReady();
+   Test_DR16_SeenOnlyAfterSelect();
+   Test_DR19_EventSeenOnlyAfterProcess();
+   Test_DR20_MarkSeenSelectFailErrsToDuplicate();
+   Test_DR21_InitDeferredWithoutServerTime();
+   Test_DR17_Prune();
+   Test_DR18_SeedBeforeReconGuardAbsorbs();
+   Test_EQH1_FoundWhenNotNewest();
+   Test_EQH2_MissZeroesThenLateExtAttaches();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
