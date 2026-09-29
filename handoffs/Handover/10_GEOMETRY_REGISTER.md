@@ -52,7 +52,7 @@ cycle-3 value.
 
 ## NEXT EXPECTED ROWS
 
-C63 (Thursday) changes no geometry: lattice and key only, so no rows.
+C63 (Thursday) changes no geometry: code and lattice only, so no rows.
 The first new rows come with the compass rounds (cycle-4 note s8.4-8.5)
 and box 3 (Fleet D).
 

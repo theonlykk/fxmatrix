@@ -63,8 +63,9 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
 - **What:** the EA Inputs dialog shows `TelemetryAPIKey` in clear; a
   screenshot put the full key in a chat. A 43-char key has also sat in
   `ea/Globals.mqh` in the public repo since 19 Jun.
-- **Handled:** rotation scheduled with the C63 reattach (every chart is
-  reloaded anyway); never screenshot the Inputs tab's last rows.
+- **Handled:** rotation planned for the C63 reattach, then (29 Sep) moved
+  out of C63 to later in the week: pipshed must first accept a second
+  key during the changeover; never screenshot the Inputs tab's last rows.
 - **Changed:** C9; 07 gate (key rotated and repo private before real
   money).
 
@@ -160,4 +161,4 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 163
+Line count: 164

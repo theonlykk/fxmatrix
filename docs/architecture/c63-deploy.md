@@ -3,7 +3,7 @@ This message has a line count at the bottom
 # C63 -- DEPLOYMENT PRE-REGISTRATION: MAIN + LATTICE ON BOX 1 AND BOX 2 (THURSDAY 1 OCT)
 
 Status: ACCEPTED by Gemini 29 Sep ~22:05Z (s10) (document 1 of 3 before C63; 2 = lattice
-presets, 3 = key rotation and the step-by-step runbook). Written by
+presets; the key rotation is NOT part of C63: s11). Written by
 Claude from source at `main` `013b5c2` (EA == `0335f25`), 29 Sep ~22:10Z.
 Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
 `fleet-c.md` (A2), which point here.
@@ -26,7 +26,7 @@ Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
 | | Box 1 = Fleet B (IC 53066709) | Box 2 = Fleet C (IC 53071896) | VPS = cycle 3 (FTMO) |
 |---|---|---|---|
 | Code | `5685e4f` -> `0335f25` (first time on `main`) | `e2ac9fe` -> `0335f25` (adds ADR-164 and C77 only) | none: `5685e4f`, frozen (A4 of cycle 3) |
-| Inputs | `presets_b` + `InpVirtualLattice=true` + `InpAutoEject=false` + the NEW key | `presets_c` + the same two lines + the NEW key | the NEW key only (document 3) |
+| Inputs | `presets_b` + `InpVirtualLattice=true` + `InpAutoEject=false` (the CURRENT key, s11) | `presets_c` + the same two lines (current key) | none (s11: the key rotation is later) |
 | At cap | rolls (ADR-162) instead of ejecting | rolls | keeps ejecting (ADR-157): the comparison |
 | Unchanged | geometry, cap, carry ON, commanded eject ON (the only manual tool for a `ROLL_STRANDED` side), breaker, gate, session OFF | same | everything but the key |
 
@@ -35,10 +35,11 @@ Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
 - **P1** Box 2 tick probe: `grind_tick_probe.mq5` on a spare chart (VNC),
   nine symbols, `err=0` and ticks on each (A5). Wednesday.
 - **P2** Lattice presets committed and byte-checked for both boxes
-  (document 2), staged on each box with the new key.
-- **P3** Key rotation ordered so no instance loses telemetry longer than
-  its own reload (document 3: whether pipshed can accept two keys at
-  once decides the order).
+  (document 2), staged on each box with the CURRENT key.
+- **P3** WITHDRAWN 29 Sep (s11): the key rotation is not part of C63.
+  (Was: key rotation ordered so no instance loses telemetry longer than
+  its own reload; document 3: whether pipshed can accept two keys at
+  once decides the order.)
 - **P4** Desktop suite green at the deployed EA tree (MET: 2368/2368).
 - **P5** GUI on both boxes over VNC (MET 28 Sep; box 2 RDP still broken).
 - **P6** In session, every spread well under its pair's width, outside
@@ -77,7 +78,7 @@ exit (the labels written by the first v2.1 init).
 
 Stage 2 (reload): `deinit reason=5`; CONFIG with the new inputs;
 `GRIND_LATTICE enable=true` and the `LATTICE_CONFIG` marker; `GRIND_REBUILD
-long=false short=false`; `GRIND_REPLAY ready`; POST ok with the new key.
+long=false short=false`; `GRIND_REPLAY ready`; POST ok (current key).
 
 After each box: card LIVE 11/11, no red; that night's `--carrypass` reads
 33/33 with no I6.
@@ -94,7 +95,7 @@ time), a `GRIND_GEOMETRY` value different from the register, or no POST ok.
 ## 6. ROLLBACK (inputs, not code)
 
 Reload the chart from its PREVIOUS preset (lattice off, auto-eject on;
-the old key if the rotation is what failed). No recompile: `main` honours
+same key). No recompile: `main` honours
 the VLs of layers already rolled (A4), and ADR-164 stays. Recompiling
 `5685e4f` on box 1 is kept only for a fault in `main` itself; it also
 reads VLs (ADR-162 Phase A) but drops ADR-164 and the rebuild labels'
@@ -151,4 +152,18 @@ before he saw it.
   the BASE `InpExitPips`, not the long side's; both are the same value
   here. His conclusion matches A6 (verified in source).
 
-Line count: 154
+## 11. AMENDMENT 29 SEP ~23:30Z -- KEY ROTATION TAKEN OUT OF C63 (OPERATOR)
+
+Operator: "let's do the key later in the week." C63 is code and lattice
+only; every reload keeps the CURRENT key; the VPS is not touched on
+Thursday (its column in s1 reads "none" for inputs too). Why it could
+not simply ride along: pipshed accepts ONE key (`TELEMETRY_API_KEY`, four
+push endpoints), a refused push keeps archive events queued (up to
+5,000) but a reload clears that queue (`Grind_ArchiveConfigureAt`), and
+heartbeats are not queued at all -- so a one-key switch either loses the
+gap's archive rows or blinds the cards for hours. The rotation will
+follow as its own document once pipshed accepts a second key
+(`TELEMETRY_API_KEY_NEXT`) for the changeover (backlog C9). Gemini:
+reply only if you object.
+
+Line count: 169

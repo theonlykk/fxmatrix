@@ -23,7 +23,7 @@ c63-deploy.md s6, and stay staged on the boxes):
 `ea/presets_c/<pair>_opt_c_lat.set` (9) and `<pair>_dup_c_lat.set` (2).
 Each lists all 37 inputs in the code's declaration order, one per line,
 ASCII, LF, `TelemetryAPIKey=` empty (the key is injected on the box at
-staging, never in git; document 3).
+staging, never in git: the CURRENT key, c63-deploy.md s11).
 
 ## 2. WHAT CHANGED FROM THE PRESET NOW LOADED
 
@@ -49,7 +49,7 @@ fill-time place, slot reserve, horizon, cap legs, telemetry lines.
   for that instance (22 of 22); no register row changes (c63-deploy.md
   A8).
 - All 37 inputs present, no extra key, `TelemetryAPIKey` empty, ASCII.
-- On the box at staging (document 3): each staged file equal to the repo
+- On the box at staging (current key): each staged file equal to the repo
   file except the key line (`SAME_EXCEPT_KEY`, as for B1 and Fleet C).
 
 ## 4. FOR GEMINI
@@ -63,4 +63,11 @@ fill-time place, slot reserve, horizon, cap legs, telemetry lines.
   11 instances), so the same-account twin comparison becomes lattice vs
   lattice at different adds. Any objection?
 
-Line count: 66
+## 5. GEMINI'S RULINGS (29 SEP ~23:25Z)
+
+GP-1, GP-2 ACCEPTED; GP-3 no objection. Checked: sound. One premise in
+GP-2 is off: rollback needs no git work on a box at all (the old presets
+are already staged in `MQL5/Presets`). Staging uses the CURRENT key
+(c63-deploy.md s11: the rotation is not part of C63).
+
+Line count: 73

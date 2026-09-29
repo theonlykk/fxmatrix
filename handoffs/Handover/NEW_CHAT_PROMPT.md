@@ -61,7 +61,8 @@ operator save the raw JSON with `Invoke-WebRequest` into Downloads):
 Never reattach, reload inputs or deploy with the market closed, or with
 spreads wider than the pairs' widths. **Never run `fxgrind_tests` on a
 terminal with live EAs.** The telemetry key sits in `ea/Globals.mqh`
-since June and was seen in a screenshot 27 Sep: rotate at C63 (C9);
+since June and was seen in a screenshot 27 Sep: rotate later this week,
+NOT at C63 (C9: pipshed must first accept a second key);
 repo PRIVATE before real money (07 gate).
 
 ---
@@ -85,8 +86,9 @@ repo PRIVATE before real money (07 gate).
    s3 amendment (C63 on box 1 and box 2 the same day; box 1 gets `main`
    for the first time: v2.0/v2.1 inherit, ADR-163 rebuild, ADR-164);
    (b) lattice presets `presets_b`/`presets_c` (`InpVirtualLattice=true`,
-   `InpAutoEject=false`, key line for injection); (c) the key-rotation
-   plan (C9: new key in Railway, presets rebuilt, every chart on box 1,
+   `InpAutoEject=false`, key line for injection) -- BOTH ACCEPTED 29 Sep
+   (`c63-deploy.md`, `c63-presets.md`); (c) LATER THIS WEEK, not C63: the
+   key rotation (C9: pipshed accepts a second key first; every chart on box 1,
    box 2 and the VPS reloaded).
 2. **Every night after 21:00Z:** `--carrypass --hours 2` (01_BOOT). Expect
    33 summaries; the snapshot list can be short after a weekend (C79).
@@ -102,8 +104,8 @@ repo PRIVATE before real money (07 gate).
    Gemini now that ADR-164 is merged (F by depth, V_strict), when no
    other document is with him.
 4. **C63, THURSDAY 1 Oct in session:** `main` `0335f25` + lattice
-   on box 1 and box 2 (fleet-c.md s3 amendment first); ROTATE the
-   telemetry key in the same reattach (C9). From C63 B and C roll instead
+   on box 1 and box 2 per `docs/architecture/c63-deploy.md` (box 2 first;
+   the current key). From C63 B and C roll instead
    of ejecting; A keeps ejecting; the study scores rolls the same way.
 5. **Pipshed, where it fits before C63** (small-fix route or one spec):
    C74 (quarantine noise), C7 rest (API count; the 200 limit on the
@@ -153,4 +155,4 @@ repo PRIVATE before real money (07 gate).
   step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 156
+Line count: 158
