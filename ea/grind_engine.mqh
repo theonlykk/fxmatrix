@@ -2556,6 +2556,48 @@ double Grind_DealGetDouble(const ulong deal_ticket, const ENUM_DEAL_PROPERTY_DOU
    return HistoryDealGetDouble(deal_ticket, prop);
 }
 
+bool     g_grind_hist_test_active = false;
+datetime g_grind_hist_test_now = 0;
+ulong    g_grind_hist_test_list[];
+int      g_grind_hist_test_list_count = 0;
+ulong    g_grind_hist_test_select_fail_ticket = 0;
+
+//+------------------------------------------------------------------+
+void Grind_HistTestReset()
+{
+   g_grind_hist_test_active = false;
+   g_grind_hist_test_now = 0;
+   ArrayResize(g_grind_hist_test_list, 0);
+   g_grind_hist_test_list_count = 0;
+   g_grind_hist_test_select_fail_ticket = 0;
+}
+
+//+------------------------------------------------------------------+
+datetime Grind_HistNow()
+{
+   if(g_grind_hist_test_active)
+      return g_grind_hist_test_now;
+   return TimeCurrent();
+}
+
+//+------------------------------------------------------------------+
+bool Grind_HistSelect(const datetime from, const datetime to)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+int Grind_HistDealsTotal()
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+ulong Grind_HistDealTicket(const int index)
+{
+   return 0;
+}
+
 //+------------------------------------------------------------------+
 void Grind_HandleSideDealFill(GrindSideState &side,
                               const bool is_long,
@@ -3310,6 +3352,7 @@ int Grind_OwnRestingEntryCount(const ulong magic, const string slot)
    return count;
 }
 
+#include "grind_replay.mqh"
 #include "grind_heartbeat_detail.mqh"
 
 #endif // GRIND_ENGINE_MQH
