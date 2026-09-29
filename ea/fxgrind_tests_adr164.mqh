@@ -546,6 +546,8 @@ void Test_DR10_WindowFrom()
    AssertTrue("DR10 case3",
               Grind_ReplayWindowFrom(D'2026.09.28 19:29:30', D'2026.09.28 19:30:00', 120) ==
               D'2026.09.28 19:29:30');
+   AssertTrue("DR10 init zero",
+              Grind_ReplayWindowFrom(0, D'2026.09.28 19:30:00', 120) == 0);
 }
 
 //+------------------------------------------------------------------+
@@ -727,6 +729,61 @@ void Test_DR16_SeenOnlyAfterSelect()
    g_grind_hist_test_select_fail_ticket = 0;
    AssertTrue("DR16 sweep 1", Adr164_SweepTimer() == 1);
    AssertTrue("DR16 depth 1", Grind_SideDepth(g_grind_short) == 1);
+
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_DR19_EventSeenOnlyAfterProcess()
+{
+   const double saved_add = g_grind_engine_add_pips;
+   const double saved_recon = g_grind_recon_exit_pips;
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr164_SeedEntHarness();
+   Grind_ArchiveTestConfigureCommon();
+   Adr164_ReplayInitAtI();
+   Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
+   g_grind_hist_test_select_fail_on_call = 4;
+   g_grind_hist_test_select_fail_ticket = DR164_ENT_S;
+   MqlTradeTransaction tr;
+   ZeroMemory(tr);
+   tr.type = TRADE_TRANSACTION_DEAL_ADD;
+   tr.deal = DR164_ENT_S;
+   Grind_OnTradeTransactionEngine(tr, DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0);
+
+   AssertFalse("DR19 not seen on handler select fail", Grind_ReplayIsSeen(DR164_ENT_S));
+   AssertTrue("DR19 depth 0 (guard)", Grind_SideDepth(g_grind_short) == 0);
+   g_grind_hist_test_select_fail_on_call = 0;
+   g_grind_hist_test_select_fail_ticket = 0;
+   AssertTrue("DR19 sweep 1", Adr164_SweepTimer() == 1);
+   AssertTrue("DR19 depth 1", Grind_SideDepth(g_grind_short) == 1);
+
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_DR20_EventMarkSeenAfterProcess()
+{
+   const double saved_add = g_grind_engine_add_pips;
+   const double saved_recon = g_grind_recon_exit_pips;
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr164_SeedEntHarness();
+   Grind_ArchiveTestConfigureCommon();
+   Adr164_ReplayInitAtI();
+   Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
+   g_grind_hist_test_select_fail_on_call = 1;
+   g_grind_hist_test_select_fail_ticket = DR164_ENT_S;
+   MqlTradeTransaction tr;
+   ZeroMemory(tr);
+   tr.type = TRADE_TRANSACTION_DEAL_ADD;
+   tr.deal = DR164_ENT_S;
+   Grind_OnTradeTransactionEngine(tr, DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0);
+
+   AssertTrue("DR20 seen after ProcessDeal", Grind_ReplayIsSeen(DR164_ENT_S));
+   AssertTrue("DR20 depth 1", Grind_SideDepth(g_grind_short) == 1);
+   AssertTrue("DR20 sweep 0", Adr164_SweepTimer() == 0);
 
    Adr164_ResetHarness(saved_add, saved_recon);
    Adr152_TestResetAll();
