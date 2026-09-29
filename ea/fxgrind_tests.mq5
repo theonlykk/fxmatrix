@@ -9406,6 +9406,8 @@ void OnStart()
    Test_DR16_SeenOnlyAfterSelect();
    Test_DR19_EventSeenOnlyAfterProcess();
    Test_DR20_EventMarkSeenAfterProcess();
+   Test_DR21_MarkSeenWithoutReselect();
+   Test_DR22_NoDuplicateFillLogOnReplay();
    Test_DR17_Prune();
    Test_DR18_SeedBeforeReconGuardAbsorbs();
    Test_EQH1_FoundWhenNotNewest();

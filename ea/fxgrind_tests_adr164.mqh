@@ -790,6 +790,59 @@ void Test_DR20_EventMarkSeenAfterProcess()
 }
 
 //+------------------------------------------------------------------+
+void Test_DR21_MarkSeenWithoutReselect()
+{
+   const double saved_add = g_grind_engine_add_pips;
+   const double saved_recon = g_grind_recon_exit_pips;
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr164_SeedEntHarness();
+   Grind_ArchiveTestConfigureCommon();
+   Adr164_ReplayInitAtI();
+   Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
+   g_grind_hist_test_select_fail_on_call = 5;
+   g_grind_hist_test_select_fail_ticket = DR164_ENT_S;
+   MqlTradeTransaction tr;
+   ZeroMemory(tr);
+   tr.type = TRADE_TRANSACTION_DEAL_ADD;
+   tr.deal = DR164_ENT_S;
+   Grind_OnTradeTransactionEngine(tr, DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0);
+
+   AssertTrue("DR21 seen without mark reselect", Grind_ReplayIsSeen(DR164_ENT_S));
+   AssertTrue("DR21 depth 1 (guard)", Grind_SideDepth(g_grind_short) == 1);
+
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
+void Test_DR22_NoDuplicateFillLogOnReplay()
+{
+   const double saved_add = g_grind_engine_add_pips;
+   const double saved_recon = g_grind_recon_exit_pips;
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr164_SeedEntHarness();
+   Grind_ArchiveTestConfigureCommon();
+   Adr164_ReplayInitAtI();
+   Adr164_AppendEntS(0, D'2026.09.28 19:27:19');
+   g_grind_hist_test_select_fail_on_call = 5;
+   g_grind_hist_test_select_fail_ticket = DR164_ENT_S;
+   MqlTradeTransaction tr;
+   ZeroMemory(tr);
+   tr.type = TRADE_TRANSACTION_DEAL_ADD;
+   tr.deal = DR164_ENT_S;
+   Grind_OnTradeTransactionEngine(tr, DR164_MAGIC, "OPT", 10.0, 10.0, 4.0, 8, 0.01, 7.0, 6.0);
+
+   AssertTrue("DR22 one fill_log after event (guard)",
+              Adr164_ArchiveCountSubstr("\"type\":\"fill_log\"") == 1);
+   AssertTrue("DR22 sweep 1", Adr164_SweepTimer() == 1);
+   AssertTrue("DR22 one fill_log after sweep",
+              Adr164_ArchiveCountSubstr("\"type\":\"fill_log\"") == 1);
+
+   Adr164_ResetHarness(saved_add, saved_recon);
+   Adr152_TestResetAll();
+}
+
+//+------------------------------------------------------------------+
 void Test_DR17_Prune()
 {
    const double saved_add = g_grind_engine_add_pips;
