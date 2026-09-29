@@ -19,7 +19,8 @@ and s8.13; `docs/architecture/ADR-163-rebuild-at-start.md`;
 `handoffs/Handover/06_LINUX_WINE_BOX.md` s4, s7 and s9;
 `docs/architecture/ADR-162-virtual-lattice.md` s13-s18;
 `handoffs/Handover/07_ROADMAP.md` (GATE BEFORE REAL MONEY);
-`handoffs/Handover/03_COOKBOOK.md`; then this.
+`handoffs/Handover/03_COOKBOOK.md`; `handoffs/Handover/09_EVENT_LOG.md`
+(notable events and how they were handled; add to it); then this.
 
 ---
 
@@ -150,4 +151,4 @@ repo PRIVATE before real money (07 gate).
   step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 153
+Line count: 154
