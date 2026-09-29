@@ -23,6 +23,7 @@ GrindReplaySeen g_grind_replay_seen[];
 int             g_grind_replay_seen_count = 0;
 
 bool     g_grind_replay_ready = false;
+bool     g_grind_replay_init_pending = false;
 datetime g_grind_replay_init_time = 0;
 datetime g_grind_replay_last_sweep_time = 0;
 ulong    g_grind_replay_last_tick_sweep_ms = 0;
@@ -54,6 +55,7 @@ void Grind_ReplayReset()
    ArrayResize(g_grind_replay_seen, 0);
    g_grind_replay_seen_count = 0;
    g_grind_replay_ready = false;
+   g_grind_replay_init_pending = false;
    g_grind_replay_init_time = 0;
    g_grind_replay_last_sweep_time = 0;
    g_grind_replay_last_tick_sweep_ms = 0;
@@ -129,8 +131,6 @@ datetime Grind_ReplayWindowFrom(const datetime init_time,
                                 const datetime last_sweep_time,
                                 const int margin_s)
 {
-   if(init_time <= 0)
-      return 0;
    if(last_sweep_time <= (datetime)margin_s)
       return init_time;
    const datetime margin_back = last_sweep_time - margin_s;
@@ -150,6 +150,12 @@ int Grind_ReplayInit(const ulong magic, const ulong now_ms)
 {
    Grind_ReplayReset();
    g_grind_replay_init_time = Grind_HistNow();
+   if(g_grind_replay_init_time <= 0) {
+      g_grind_replay_init_pending = true;
+      Grind_ArchiveMarker("WARN", "REPLAY_INIT_DEFERRED", "", 0, "{}");
+      Print(Grind_LogTag(), "WARN GRIND_REPLAY init deferred: no server time");
+      return 0;
+   }
    g_grind_replay_last_sweep_time = g_grind_replay_init_time;
    g_grind_replay_connected = Grind_ReplayTerminalConnected();
 
@@ -421,6 +427,8 @@ void Grind_ReplayOnTimer(const ulong magic,
                          const double add_pips_short,
                          const ulong now_ms)
 {
+   if(!g_grind_replay_ready && g_grind_replay_init_pending && Grind_HistNow() > 0)
+      Grind_ReplayInit(magic, now_ms);
    Grind_ReplayConnectionStep(Grind_ReplayTerminalConnected(), now_ms);
    Grind_ReplaySweep(magic, slot, exit_pips, add_pips, deadband_pips, max_layers, lots,
                      exit_pips_short, add_pips_short, "timer", now_ms);

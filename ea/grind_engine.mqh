@@ -2446,6 +2446,7 @@ void Grind_EnsureAddNext(GrindSideState &side,
 //+------------------------------------------------------------------+
 // Unit-test hooks for deal fill processing (no HistoryDealSelect when active).
 bool   g_grind_deal_test_active = false;
+int    g_grind_deal_select_fail_count = 0;
 
 struct GrindDealTestRecord
 {
@@ -2512,14 +2513,20 @@ bool Grind_DealSelect(const ulong deal_ticket)
       g_grind_hist_test_deal_select_call++;
       if(g_grind_hist_test_select_fail_on_call > 0 &&
          g_grind_hist_test_deal_select_call == g_grind_hist_test_select_fail_on_call &&
-         deal_ticket == g_grind_hist_test_select_fail_ticket)
+         deal_ticket == g_grind_hist_test_select_fail_ticket) {
+         g_grind_deal_select_fail_count++;
          return false;
+      }
       if(g_grind_hist_test_select_fail_on_call == 0 &&
-         deal_ticket == g_grind_hist_test_select_fail_ticket)
+         deal_ticket == g_grind_hist_test_select_fail_ticket) {
+         g_grind_deal_select_fail_count++;
          return false;
+      }
       GrindDealTestRecord rec;
-      if(!Grind_DealTestFind(deal_ticket, rec))
+      if(!Grind_DealTestFind(deal_ticket, rec)) {
+         g_grind_deal_select_fail_count++;
          return false;
+      }
       ArrayResize(g_grind_hist_test_list, 1);
       g_grind_hist_test_list[0] = deal_ticket;
       g_grind_hist_test_list_count = 1;
@@ -2527,9 +2534,17 @@ bool Grind_DealSelect(const ulong deal_ticket)
    }
    if(g_grind_deal_test_active) {
       GrindDealTestRecord rec;
-      return Grind_DealTestFind(deal_ticket, rec);
+      if(!Grind_DealTestFind(deal_ticket, rec)) {
+         g_grind_deal_select_fail_count++;
+         return false;
+      }
+      return true;
    }
-   return HistoryDealSelect(deal_ticket);
+   if(!HistoryDealSelect(deal_ticket)) {
+      g_grind_deal_select_fail_count++;
+      return false;
+   }
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -2650,6 +2665,7 @@ void Grind_HistTestReset()
    g_grind_hist_test_select_fail_ticket = 0;
    g_grind_hist_test_select_fail_on_call = 0;
    g_grind_hist_test_deal_select_call = 0;
+   g_grind_deal_select_fail_count = 0;
 }
 
 //+------------------------------------------------------------------+
@@ -3179,6 +3195,7 @@ bool Grind_ProcessDeal(const ulong deal_ticket,
                        const double exit_pips_short = 0.0,
                        const double add_pips_short = 0.0)
 {
+   const int f0 = g_grind_deal_select_fail_count;
    if(!Grind_DealSelect(deal_ticket))
       return false;
    if(Grind_DealGetString(deal_ticket, DEAL_SYMBOL) != _Symbol)
@@ -3188,7 +3205,7 @@ bool Grind_ProcessDeal(const ulong deal_ticket,
 
    Grind_ArchiveRecordFill(deal_ticket, magic);
    if(g_grind_halted)
-      return true;
+      return (g_grind_deal_select_fail_count == f0);
 
    g_grind_engine_add_pips = add_pips;
    g_grind_engine_add_pips_short = Grind_SidePips(false, add_pips, add_pips_short);
@@ -3197,7 +3214,7 @@ bool Grind_ProcessDeal(const ulong deal_ticket,
                             exit_pips, deadband_pips, max_layers, lots);
    Grind_HandleSideDealFill(g_grind_short, false, deal_ticket, magic, slot,
                             exit_s, deadband_pips, max_layers, lots);
-   return true;
+   return (g_grind_deal_select_fail_count == f0);
 }
 
 //+------------------------------------------------------------------+
