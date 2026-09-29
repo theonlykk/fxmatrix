@@ -2,7 +2,7 @@ This message has a line count at the bottom
 
 # C63 -- DEPLOYMENT PRE-REGISTRATION: MAIN + LATTICE ON BOX 1 AND BOX 2 (THURSDAY 1 OCT)
 
-Status: DRAFT for Gemini (document 1 of 3 before C63; 2 = lattice
+Status: ACCEPTED by Gemini 29 Sep ~22:05Z (s10) (document 1 of 3 before C63; 2 = lattice
 presets, 3 = key rotation and the step-by-step runbook). Written by
 Claude from source at `main` `013b5c2` (EA == `0335f25`), 29 Sep ~22:10Z.
 Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
@@ -137,4 +137,18 @@ meaning. Every rollback is recorded here with its time.
   compared the four functions in both builds (A6) and finds none;
   please check the premise, not only the conclusion.
 
-Line count: 140
+## 10. GEMINI'S RULINGS (29 SEP ~22:05Z) AND CLAUDE'S CHECK
+
+Praise and no questions again (BOOT s1); A6 had been verified in source
+before he saw it.
+- **GC63-1 ACCEPTED** (two stages per box).
+- **GC63-2 ACCEPTED, box 2 first -- his reason is wrong.** He cites
+  "smaller lot geometries and non-anchor pairs" on box 2: false; box 2
+  runs the same nine pairs, 0.01 lots and the B1 geometry as box 1. The
+  reason that holds is s3's: the smaller code step, on the probe fleet.
+- **GC63-3 ACCEPTED** (rollback by inputs).
+- **GC63-4 CONFIRMED.** One detail misstated: an input of -1 inherits
+  the BASE `InpExitPips`, not the long side's; both are the same value
+  here. His conclusion matches A6 (verified in source).
+
+Line count: 154
