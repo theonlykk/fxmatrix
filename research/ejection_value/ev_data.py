@@ -75,6 +75,33 @@ def load_export(paths):
     return out
 
 
+CURRENT_ACCOUNTS = (1514731800, 53066709, 53071896)   # A (cycle 3), B, C
+
+
+def filter_by_account(export, accounts=CURRENT_ACCOUNTS):
+    """Keep only rows whose session_id belongs to one of `accounts` (the
+    session -> account map comes from config_events). Cycle 2 (FTMO
+    1514582088, ended 23 Sep) used the SAME instance ids as fleet A, so a
+    window reaching back before 24 Sep mixes the two books without this.
+    Rows whose session is unknown are dropped. Returns (export, dropped)
+    where dropped = {table: count}."""
+    accounts = set(int(a) for a in accounts)
+    sess = {}
+    for r in export.get("config_events", []):
+        if r.get("session_id") and r.get("account_login"):
+            sess[r["session_id"]] = int(r["account_login"])
+    out = {"_meta": export.get("_meta", [])}
+    dropped = {}
+    for table, rows in export.items():
+        if table == "_meta":
+            continue
+        keep = [r for r in rows if sess.get(r.get("session_id")) in accounts]
+        out[table] = keep
+        if len(keep) != len(rows):
+            dropped[table] = len(rows) - len(keep)
+    return out, dropped
+
+
 class Bars:
     """M1 bars for one symbol on one server: UTC open times, bid OHLC, bar
     spread in points. `point` and `pip` in price units (pip = 10 points on

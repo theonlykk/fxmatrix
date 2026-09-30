@@ -22,7 +22,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ev_book import (DEFAULT_OFFSET_S, build_layers, calibrate_hidden, caps_by_instance,  # noqa: E402
                      depth_timelines, eject_anchors, mark_ejections, side_stats)
 from ev_controls import f_per_hour, pair_controls  # noqa: E402
-from ev_data import fleet_of, load_bars_dir, load_export, parse_utc, symbol_of  # noqa: E402
+from ev_data import (filter_by_account, fleet_of, load_bars_dir, load_export,  # noqa: E402
+                     parse_utc, symbol_of)
 from ev_episodes import (build_chains, carry_rates, collect_ejections,  # noqa: E402
                          counterfactual, score_chain)
 
@@ -46,7 +47,7 @@ def account_by_instance(export):
 
 
 def run(export_paths, bars_dirs, aliases, horizons, out=sys.stdout):
-    ex = load_export(export_paths)
+    ex, dropped = filter_by_account(load_export(export_paths))   # cycle 2 shares fleet A's ids
     fills = ex.get("fill_logs", [])
     if not fills:
         print("no fill_logs rows", file=out)
@@ -79,6 +80,7 @@ def run(export_paths, bars_dirs, aliases, horizons, out=sys.stdout):
     w = lambda s="": print(s, file=out)  # noqa: E731
     w("EJECTION VALUE STUDY -- report")
     w("exports: %s" % ", ".join(os.path.basename(p) for p in export_paths))
+    w("rows dropped (other accounts / unknown sessions): %s" % (dropped or "none"))
     w("window (fill_logs received_at, UTC): %s .. %s (%.1f h)"
       % (fills[0]["received_at"][:19], fills[-1]["received_at"][:19], (t1 - t0) / 3600))
     w("bars: %s" % ", ".join("%s/%s %d" % (a, s, len(b)) for (a, s), b in sorted(bars.items())))
