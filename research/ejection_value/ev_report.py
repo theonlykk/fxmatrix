@@ -152,10 +152,10 @@ def run(export_paths, bars_dirs, aliases, horizons, out=sys.stdout):
         w("  hits: Y hit, B hit within 1 pip (borderline), n no hit, b missed by < 1 pip, ? unscored")
         for f in ("A", "B", "C"):
             if cnt[(f, "ok")]:
-                w("  fleet %s: scored %d, V_doc>0 in %d; sum V_doc %s, V_strict %s (E-H %s, F %s)" % (
-                    f, cnt[(f, "ok")], cnt[(f, "pos")], _fmt(tot[(f, "V_doc")]),
-                    _fmt(tot[(f, "V_strict")]), _fmt(tot[(f, "E_minus_H")]),
-                    _fmt(tot[(f, "F_closed")])))
+                # GQ6 ruling (30 Sep): V_strict is the headline
+                w("  fleet %s: scored %d; HEADLINE sum V_strict %s (V_doc %s, V_doc>0 in %d; E-H %s, F %s)" % (
+                    f, cnt[(f, "ok")], _fmt(tot[(f, "V_strict")]), _fmt(tot[(f, "V_doc")]),
+                    cnt[(f, "pos")], _fmt(tot[(f, "E_minus_H")]), _fmt(tot[(f, "F_closed")])))
         unscored = {k[1]: v for k, v in cnt.items() if k[0] == "*"}
         if unscored:
             w("  unscored chains: %s" % ", ".join("%s %d" % kv for kv in sorted(unscored.items())))
