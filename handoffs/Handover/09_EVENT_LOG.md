@@ -19,7 +19,10 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   `AUDCHF_OPTB`); two more 02:22-02:24Z (`AUDNZD_OPTB`, `AUDCHF_OPTB`).
   Fleet C: the same pairs and counts (AUDNZD 3, AUDCAD 1, AUDCHF 2).
   Fleet A: one AUDCHF ejection, none on AUDNZD. Likely an Australian
-  data release (operator; calendar not checked).
+  data release (operator; calendar not checked). The same-second timing
+  is partly the trigger's clock: ADR-157's S1 flips on an M1 boundary, so
+  sides capped in one move come due together (ejections land at :57-:00
+  s on every fleet).
 - **Impact:** ejections cost B $23.51, C $22.83; the broker day's closed
   net stayed positive on all three (03:46Z: A +27.66, B +11.87, C
   +13.38) and every fleet's equity is above its start.
@@ -181,4 +184,4 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 184
+Line count: 187

@@ -186,4 +186,78 @@ open at the chain end (omitting them flatters ejection): headline which?
 
 **Inferred, not verified:** the night multiplier (Wed 3, Sat/Sun 0, else
 1; C61 is open).
-Line count: 189
+## 9. AMENDMENT 30 SEP -- CAP SENSITIVITY AND NAMED CASES (FOR GEMINI)
+
+Written by Claude 30 Sep ~15:00Z. Why: `docs/research/grid-thesis.md`
+s5-s6 (caps 5-10 as a frontier, GT-5 agreed; trade history is the gold
+standard, so a counterfactual counts only once it reproduces our fills).
+For Thursday's interim. No EA or pipshed change.
+
+**9.1 Method: a per-side ladder REPLAY on M1 bars** (new
+`ev_replay.py`), run first at the ACTUAL cap against the actual fills
+(9.2), then at caps 5-10 with add, exit and width unchanged. The EA's
+rules, simplified; every simplification is listed:
+- Start: the side's actual book at the window start (layers and entries
+  from the ledger); add, exit, width and cap from `config_events` at each
+  time (B's dial of 27 Sep 23:05Z included).
+- Adds rest at the deepest entry -/+ add and fill when the bar's ask low
+  (long: bid low + bar spread) or bid high (short) touches. After the
+  deepest layer scalps, the add returns to that layer's level (ADR-162
+  s3). A flat side's L0 rests at bar mid -/+ width and moves only when it
+  would move by more than the deadband (4 pips). SIMPLIFIED: the EA's
+  stranded-threshold test before a re-centre.
+- Exits: every layer at entry +/- exit, filled when the bid (long) or ask
+  (short) touches. SIMPLIFIED: the carry shift (small over days) and the
+  exit queue (it orders what rests, not what fills).
+- At cap: ADR-157 on bars -- S1 (the side's extreme at least W = 5 bars
+  old over the last 2W) and S3 (bar spread <= 1.5 x the mean of the last
+  60) -- closes the most underwater layer at that bar's close.
+  SIMPLIFIED: live ejections filled 0-2 min later at a passive price.
+  (S1 flips on an M1 boundary, which is why live ejections cluster at
+  :57-:00 s, on every fleet at once, 30 Sep.)
+- Intra-bar order: O-L-H-C when C >= O, else O-H-L-C; an add and its
+  exit in the same bar count as a scalp only if that path allows it.
+- Money: pip value and commission per lot from the ledger. SIMPLIFIED:
+  swap.
+
+**9.2 Reconciliation gate (per pair and fleet, same window, actual
+cap).** The replay must match the ledger: scalps within 10%, ejections
+within 20% or 2, closed net within 15% or $3. A pair that misses is
+reported with its mismatch and gets NO frontier. Every replay number is
+labelled "first-order, reconciled" or "not reconciled".
+
+**9.3 Frontier (reconciled pairs only; caps 5, 6, 7, 8, 9, 10), a table,
+not a score:** per pair and fleet -- closed net, scalps, ejections (count
+and $); carried MTM at each FTMO day roll (22:00Z), worst and mean; the
+fleet's worst intraday equity (minute by minute: closed since the day's
+start + MTM, all its instances) against -$500; peak positions + orders
+against the slot guard (194), which caps 9-10 must pass.
+
+**9.4 Named cases:**
+- (a) 30 Sep 01:47Z, AUD (`09_EVENT_LOG.md`): the depth of every AUD
+  side on A, B and C at 01:40Z; did A's sides escape by depth or by
+  price? `AUDNZD_ALTB` runs A's exact AUDNZD settings and ejected.
+- (b) 30 Sep 06:08-13:59Z, a GBP and AUD trend day: A 11 ejections
+  (-$57), B 28 (-$115), C ~26 (-$110); scalps A 116, B 139, C 143; closed
+  net A +$35.96, B -$3.15, C +$3.92 (cards 14:29Z, broker day). The
+  same depth read, and the cap 5-10 replay over that window.
+
+**9.5 Data:** export `--days 14` (`fill_logs` are kept, s3 corrected;
+14 days covers every fleet's start); bar dumps with `InpFrom =
+2026.09.24 00:00` (the script's default of 27 Sep misses A's and B's
+first days), desktop FTMO terminal and box 2.
+
+**9.6 FOR GEMINI** (GQ6, s8, is still open and goes with these):
+- **GQ7.** A replay gated by reconciliation at the actual cap, rather
+  than an analytic count of moves beyond the room (`grid-thesis.md` s2).
+  Accept?
+- **GQ8.** The O-L-H-C / O-H-L-C path rule on M1 bars. Anything better
+  with M1 only?
+- **GQ9.** The tolerances in 9.2, and withholding the frontier for a
+  pair that misses. Too loose, too tight?
+- **GQ10.** Seeding with the actual book at the window start. After a
+  counterfactual ejection or an extra layer the replay's book diverges
+  from the actual one by design; the reconciliation only proves the
+  actual-cap path. Is that enough to trust caps 5-10 first-order?
+
+Line count: 263
