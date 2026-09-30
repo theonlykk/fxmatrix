@@ -36,6 +36,11 @@ back: the scalps at the new range pay for the inventory carried there.
 The operator dislikes the "half retrace to break even" framing (true, but
 not the point). An ejection is a realised loss in every case; the room
 (add x layers) is the range in which nothing is realised at a loss.
+**No magic distance** (operator, 30 Sep ~03:05Z): "there is no magic
+distance number that will work all the time. In fact finding that there
+isn't one frees us up to not worry about the theater of entry." The
+ladder does not forecast where a range will form; it is present at every
+level the budget can afford, and the clusters come to it.
 
 ## 2. THE ARITHMETIC (uniform ladder, one lot per layer; "pip-lots" = pips x layers)
 
@@ -107,6 +112,13 @@ B against the worst day-roll (T5), not an average hour. If D is stable
 in volatility units (e.g. multiples of the day's range) but not in pips,
 the room should move with volatility: the "dynamic cap" (s7).
 The compass then fine-tunes around these starting values.
+**Reading D (operator's principle, s1):** D is a distribution to size a
+budget against, never a number to predict. Choosing its percentile is a
+choice of how often to pay for an overrun (ejection or roll: the priced
+tail), not a forecast. If M5 finds no stable D, even in volatility units,
+that is a RESULT: it confirms even spacing (the "we don't know where"
+prior) and rules out timing entries, placing layers at predicted levels,
+and a volatility-driven cap.
 
 ## 5. THE CAP (Gemini asked blind, 30 Sep ~02:20Z)
 
@@ -183,7 +195,8 @@ regimes change, so these give starting values, not answers.
 
 ## 8. WHAT IS NOT CLAIMED
 
-That clusters exist (M6 decides), that the recipe's numbers are right
+That any single distance works all the time (s1: the thesis says it
+does not), that clusters exist (M6 decides), that the recipe's numbers are right
 for any pair (no D, k or B is measured yet), or that any live setting
 should change before s6 reads.
 
@@ -205,4 +218,4 @@ need if one is missing.
   detect.
 - **GT-5.** s5: a penalised score or a reported frontier for cap?
 
-Line count: 208
+Line count: 221
