@@ -2,7 +2,7 @@ This message has a line count at the bottom
 
 # C63 -- LATTICE PRESETS FOR BOX 1 AND BOX 2 (DOCUMENT 2 OF 3)
 
-Status: DRAFT for Gemini. Written by Claude, 29 Sep ~22:30Z, with the 22
+Status: ACCEPTED by Gemini 29 Sep ~23:25Z (s5). Written by Claude, 29 Sep ~22:30Z, with the 22
 preset files it describes in the same commit. Deployment plan:
 `docs/architecture/c63-deploy.md` (document 1, Gemini GC63-1..4
 accepted). Nothing is staged on a box by this document.

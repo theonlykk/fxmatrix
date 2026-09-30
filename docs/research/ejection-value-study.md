@@ -361,4 +361,151 @@ scalps forgone at cap are at most $0.29 per side. In this window the
 "at cap we cannot trade" cost is small, and ejecting mostly lost value
 against holding.
 
-Line count: 364
+## 12. INTERIM RESULTS (30 SEP EVENING RUN, REPLAY v1) -- FOR THURSDAY
+
+Written by Claude 30 Sep ~23:00Z. **This section replaces s11's
+"Reading"** where the two differ (12.4). No code changed: replay v1 at
+`ab5d4c8` (`git diff ab5d4c8 HEAD -- research/` empty).
+
+**12.1 Rulings GQ11-GQ13 (Gemini, 30 Sep; his words, pasted by the
+operator) and Claude's check.**
+- GQ11 (C4 true ask in place of GQ4) -- Gemini: "Accept C4. Relying on
+  the M1 bar's minimum spread creates phantom liquidity, which
+  mathematically guarantees false-positive fills for buy limits and
+  short exits during routine spread spikes ... Utilizing true ask OHLC
+  from ticks completely eliminates this systemic simulation error."
+  Check: ACCEPTED; "guarantees" overstates it (a bias, not a certainty;
+  s10 C4's AUDNZD case is the instance).
+- GQ12 (is the A-diagnosis / B+C-holdout split enough?) -- Gemini: "It
+  is completely insufficient ... a true holdout must be temporally
+  distinct ... not merely a different account number trading the same
+  market events." Check: ACCEPTED; replay v1 frozen at `ab5d4c8`, 1-7 Oct
+  scored with no code change (C84). Adjacent weeks, not another month:
+  what matters is that no calibration saw those paths.
+- GQ13 (which s11 reading does the data not support?) -- Gemini: the
+  fleet-to-fleet comparisons, "You cannot sum totals across mismatched
+  baskets of assets" (A 4, B 8, C 6 reconciled instances); and the
+  per-pair best caps "conflate a temporary macroeconomic path ... with a
+  permanent behavioral property of the currency pair." Check: RIGHT on
+  both, with one misreading: the sentence he quotes ("on A, cap 8 keeps
+  a lead (67.56 vs 49.32 at 6)") compares caps WITHIN fleet A's own four
+  instances, which is valid for that basket; what is unsupported is
+  contrasting that with B and C. 12.4 shows the basket effect is real
+  and larger than s11 assumed.
+
+**12.2 Data.** Export `study_export_0930pm.jsonl` (`--export-study --days
+14`, 22:03Z): 10,431 fills, 2,517 scalps, 1,547 events, 719 configs;
+window 24 Sep 01:13Z to 30 Sep 22:01Z (164.8 h, 7 h more than s11).
+Bid/ask and bar dumps from 24 Sep 00:00 server: desktop FTMO terminal to
+22:10Z (7,136-7,209 minutes per symbol), wine-c (IC) to 22:20Z (7,264).
+Commands as in the README with `--bars bars_ftmo_0930pm --bars ic_pm`;
+`ev_caps.py --caps 5,6,7,8,9,10 --depth-at 2026-09-30T01:40`, `ev_report.py`
+(horizons 24, 48). Check first: the noon run rebuilt from the noon files
+reproduced `noon_ev_caps_v1.txt` and `noon_ev_report_v1.txt` byte for
+byte. Unit tests 38/38 at `d8516d5`.
+
+**12.3 Reconciliation (s9.2): 18/33, A 4, B 7, C 7** (noon: A 4, B 8,
+C 6). EURGBP_OPTB dropped out (net -11.03 vs -7.93, beyond the looser of
+15% and $3); AUDCAD_OPTC came in. The misses are the same families as
+s10: A's AUDNZD pair (the 30 Sep 01:30 add, still unexplained), AUDNZD
+B/C net, GBPUSD C (the 28 Sep halt), small-count scalps.
+
+**12.4 Caps 5-10 -- first-order, reconciled, THIS WEEK'S PATHS ONLY.**
+Per fleet, closed P&L and closed + open at the window end (sum over the
+reconciled basket), worst day (closed since the 22:00Z roll + open MTM,
+fleet basket) and worst MTM carried into a roll:
+
+| fleet (n) | cap | closed | + open | worst day | worst carried |
+|---|---|---|---|---|---|
+| A (4) | 5 | 52.08 | 36.82 | -50.92 | -20.88 |
+| A (4) | 6 | 75.84 | 50.41 | -59.45 | -32.02 |
+| A (4) | 8 | 120.94 | 82.36 | -80.91 | -48.04 |
+| A (4) | 10 | 136.39 | 78.99 | -98.48 | -68.55 |
+| B (7) | 5 | 97.22 | 84.26 | -47.99 | -47.40 |
+| B (7) | 6 | 112.98 | 90.04 | -53.07 | -52.28 |
+| B (7) | 8 | 149.00 | 103.60 | -76.01 | -76.01 |
+| B (7) | 10 | 179.42 | 108.00 | -114.15 | -110.15 |
+| C (7) | 5 | 26.82 | 11.44 | -36.97 | -30.13 |
+| C (7) | 6 | 49.39 | 24.02 | -47.07 | -43.98 |
+| C (7) | 8 | 77.30 | 24.37 | -87.62 | -77.89 |
+| C (7) | 10 | 107.24 | 22.13 | -125.33 | -114.93 |
+
+Peak slots (reconciled subsets) <= 112 at cap 10: no guard issue.
+
+**The basket effect (GQ13), measured.** On the 17 instances reconciled
+in BOTH runs, noon's B closed + open rises to cap 9 (78.23 at 5, 84.83 at
+6, 96.19 at 9, 93.49 at 10); s11's "B peaks at 6-7" came from
+EURGBP_OPTB (a trend that favoured cap 5) being in B's noon basket.
+Seven more hours on the same basket moved B's cap 9 from 96.19 to 108.55
+and A's cap 8 from 67.56 to 82.36. Fleet sums here are driven by one or
+two instances (A's cap-10 figure is mostly GBPUSD_OPT, 52.99 of 78.99).
+
+**Reading (replaces s11's):**
+- Closed P&L rises with cap on every fleet (unchanged): a compass scored
+  on closed P&L would push cap up.
+- Closed + open rises far less than closed and flattens around cap 8-9
+  (A 82.36 at 8, B 108.55 at 9, C 25.78 at 9 vs 24.37 at 8): most of the
+  extra closed P&L of a higher cap is loss deferred into open inventory.
+  **Withdrawn from s11:** "flat from cap 6-7" and "cap 6 gives the same
+  total as 8 on B and C" (a basket artefact).
+- Risk grows steadily with cap on every fleet (unchanged, and the
+  firmest result): from cap 5 to 10 the worst day grows 1.9x (A), 2.4x
+  (B), 3.4x (C) and the worst MTM carried into a roll 3.3x, 2.3x, 3.8x.
+- Per instance the best cap differs (closed + open): EURGBP 5 (it
+  trended), GBPUSD A and EURUSD C at 10 and EURUSD A at 8 (they
+retraced), NZDCAD 7-8 (never
+  reached a higher cap), AUDCHF 5 on B and C. These describe THIS WEEK'S
+  price paths, not properties of the pairs (GQ13).
+
+**12.5 Ejection value (s2, V_strict headline).** At 24 h, 22 chains
+scored (s11: 17): A -15.32 (8), B -13.77 (8), C -18.55 (6); V_doc > 0 in
+7 of 22 (the three EURGBP chains of 28 Sep and four small ones). At
+48 h, 10 scored: A -12.61 (3), B -16.56 (4), C -8.75 (3); 2 positive
+(NZDCHF B and C). 19 chains (24 h) and 26 (48 h) are unscored: their
+horizon runs past the data. **Q1:** no side spent more than 2.6 h of
+164.8 h at cap (EURGBP B and C); the scalps forgone at cap are at most
+$0.30 per side. In this week the "at cap we cannot trade" cost is small
+and ejecting mostly lost value against holding -- the same answer as
+s11 on a larger sample. The operator's thesis is not supported by this
+week; it is not refuted for trend weeks with longer stays at cap.
+
+**12.6 Known artefacts (not fixed: replay v1 is frozen).** The GQ5-F
+control rate is divided by the control's hours at cap; for sides at cap
+for seconds it prints absurd rates (39130.43/h, AUDNZD B/C). Read the
+count `n`, not the rate, when `h` is 0.0. For v2 after C84.
+
+**12.7 The swap multiplier, settled from the ledger (C61; a finding for
+the EA).** From the export's closed positions (451 held one server night, 194
+longer; swap from the close-by deals), per broker, pair and side
+against that key's Mon/Thu one-night median (keys with |swap| >= $0.03
+a night):
+- night ending Tuesday: ratio 1.00 (n 135); ending Wednesday: 2.77-3.40
+  (n 3); Friday-to-Monday (Fr Sa Su): 1.00 (n 52); Mon+Tue: 2.00 (n 16);
+  Fr Sa Su Mo: 2.00 (n 23).
+- So on BOTH brokers the triple charge is on the night that ENDS
+  Wednesday, Friday night is charged ONCE and Saturday and Sunday nights
+  not at all. **The study's `night_multiplier` (Wed 3, Sat/Sun 0, else 1)
+  is right; C61 is answered (Friday night = 1).**
+- **The EA's pending multiplier is off by one day** (`grind_carry.mqh`
+  1114: `Grind_CarrySwapMultiplier(day_of_week + 1)`): at the Tuesday pass
+  it adds 3 nights (truth 1), at the Wednesday pass 1 (truth 3), at the
+  Friday pass 0 (truth 1). ADR-135b says the convention was "settled
+  empirically" on 16 Sep; these data contradict it. The pass recomputes
+  from the ledger every night, so the error never accumulates: an exit is
+  mis-shifted by up to 2 nights' swap for one day (Tue and Wed) or the
+  weekend (Fri). Economic only; I6 recomputes the same formula. The
+  Wednesday count is small (n 3): tonight's rollover adds many; recheck
+  with Friday's export before any EA change. Backlog C86.
+
+**12.8 Interim answer for Thursday.** First-order and one week:
+- Raising the cap raises closed P&L but mostly by deferring losses into
+  open inventory; closed + open flattens around 8-9 while risk (worst
+  day, carried MTM) roughly doubles to triples from 5 to 10. On this
+  evidence cap 8 is not too LOW; nothing here argues for raising it.
+- Ejecting at cap lost value against holding in 15 of 22 scored chains
+  at 24 h; the cost of sitting at cap was small this week.
+- Neither result is a property of a pair or a rule yet: the true
+  holdout (1-7 Oct, C84) and the rolls from C63 decide the final report
+  (~9 Oct).
+
+Line count: 511

@@ -1282,3 +1282,32 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   every fake the methods the code path calls (`lrange` -> `[]`).
 - **Say the hostname:** wine-test, wine-c, wine-d (operator 30 Sep), not
   box 1/2/3; the desktop SSH short names stay `box1`/`box2`.
+
+## TRAPS FROM 2026-09-30 EVENING (C81, WINE-D OPTIONS, STUDY s12, SWAP DAY)
+
+- **A sum over a filtered subset is a sum over a DIFFERENT basket each
+  run.** The reconciliation gate picks which instances enter a fleet
+  total; noon's "B peaks at cap 6-7" came from one trending instance
+  (EURGBP_OPTB) that was in B's noon basket and out of the evening one.
+  Compare runs on the intersection of their baskets, and never compare
+  fleets whose baskets differ (Gemini GQ13, study s12.4).
+- **"Settled empirically" in an ADR is a claim, not a measurement.**
+  ADR-135b says the triple-swap day was settled from 16 Sep snapshots;
+  the ledger (one-night positions, study s12.7) shows the EA's pending
+  multiplier one day off (Tue 3 / Wed 1 / Fri 0 vs truth 1 / 3 / 1).
+  Check the premise against broker deals before building on it (C86).
+- **MT5 under Wine keeps options in `<install>/Config/` (capital C), and
+  `WebRequestUrl` is encoded per install.** A grep proves WebRequest is
+  on, not which URL; read the list in the GUI (06 s10).
+- **The fetch tool caches a 404 by path:** `linuxd.pipshed.com/` stayed
+  404 in the tool after the domain went live, while a new path on the
+  same host answered. Use a new path, or have the operator open it.
+- **Screenshot and fetch disagree -> trust the page.** At 21:29-21:32Z
+  the fetch tool quoted 146 scalps / $48.18 for cycle 3 where the
+  rendered card read 144 / $47.14 (and C 184 vs 182).
+- **A study's control rate divides by hours at cap:** sides at cap for
+  seconds print rates like 39130/h (study s12.6). Read the count.
+- **scp from the desktop to `box2` asked root's password** (30 Sep
+  22:21Z; the key is used by `ssh box2` but not by scp): the operator
+  typed it. Unresolved; add `IdentityFile` use for scp or copy through
+  `ssh box2 cat` when it matters.

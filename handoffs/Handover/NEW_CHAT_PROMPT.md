@@ -78,7 +78,7 @@ presets carry `TelemetryAPIKey=` blank and the key is injected on the box.
 
 | | |
 |---|---|
-| fxmatrix `main` | the 30 Sep evening handoff patch on `7ca65e2`; EA code = `0335f25`: `git diff --stat 0335f25 origin/main -- ea/ tools/` must be empty |
+| fxmatrix `main` | the 30 Sep evening handoff patch on `7ca65e2`; EA code = `0335f25`: `git diff --stat 0335f25 origin/main -- 'ea/*.mq5' 'ea/*.mqh' tools/` must be empty (the 22 C63 `*_lat.set` presets of `8d5e890` are in `ea/` and are not code) |
 | pipshed `main` | `bb19652` (C33, C66, C83) on `608e546` (C80, C74, C81). If still `bb19652`: `pipshed_fleet_d.patch` in Downloads is NOT applied yet (tree `4e4f1987f062923f4bb43a02e5c1ff3b2ccc7788`); operator applies and pushes |
 | VPS (cycle 3) | `5685e4f`; MetaTrader LiveUpdate pending (Later) |
 | wine-test (Fleet B) | `ssh box1`, VNC `ssh box1-vnc` + `localhost:5910`; `5685e4f`; lattice presets staged (P2) |

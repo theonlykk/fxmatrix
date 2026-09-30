@@ -360,11 +360,27 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
 - Key injected by `scp` wine-c -> wine-d as root, `chown khalid:khalid`,
   `chmod 600`: 44 bytes, `sha256sum | cut -c1-12` = `fc6b3d9c56a8` on
   both boxes (never print the key itself).
-- **Open:** confirm Tools -> Options -> Expert Advisors -> WebRequest
-  lists `https://pipshed.com` (asked 30 Sep; unconfirmed). Algo Trading
-  stays OFF until the attach.
+- **WebRequest CONFIRMED 30 Sep ~19:36Z** (Tools -> Options -> Expert
+  Advisors, read by the operator over RDP): "Allow WebRequest for listed
+  URL" ticked, `https://pipshed.com` listed; "Allow algorithmic trading"
+  unticked. Title bar: `53077984 - ICMarketsSC-Demo: Demo Account -
+  Hedge - Raw Trading Ltd`. Algo Trading stays OFF until the attach.
+- **Reading terminal options without the GUI:** the folder is `Config`
+  (capital C; Linux is case-sensitive) under the install:
+  `iconv -f UTF-16LE -t UTF-8 "<install>/Config/common.ini" | grep -i
+  webrequest` shows `WebRequest=1` but the URL list is ENCODED
+  (`WebRequestUrl=<hex>`), and the encoding differs per install (wine-c
+  and wine-d differ for the same one-URL list). Only the GUI tells you
+  the URL.
+- **Pipshed Fleet D page LIVE 30 Sep ~20:20Z (C85 b):** Railway service
+  "pipshed Fleet D" (duplicate of Fleet C's; `GRIND_FLEET=D`, label
+  "Fleet D - IC Markets 53077984", no `DATABASE_URL`), generated domain
+  `pipshed-fleet-d-production.up.railway.app`; Cloudflare CNAME `linuxd`
+  -> `qedollf2.up.railway.app` (proxied) and TXT
+  `_railway-verify.linuxd` added by hand. `linuxd.pipshed.com` serves
+  the eleven `_OPTD`/`_ALTD` ids; the strip shows D NOT ATTACHED.
 - **Not attached** (operator 27 Sep: not before the roll-watch after
   C63). The rest of the path (pipshed page, Railway, Cloudflare,
   `fleet-d.md`, presets, attach) is backlog C85.
 
-Line count: 370
+Line count: 386
