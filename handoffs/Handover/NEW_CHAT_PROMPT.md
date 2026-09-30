@@ -105,6 +105,8 @@ repo PRIVATE before real money (07 gate).
    c. Claude runs `research/ejection_value/ev_report.py` on the files.
    Interim report Thu 1 Oct, adding caps 5-10 as a frontier
    (`docs/research/grid-thesis.md` s6); final ~9 Oct (>= 30 episodes).
+   Named case in the interim: the AUD cluster of 30 Sep 01:47Z
+   (09_EVENT_LOG; depth of every AUD side on A/B/C before 01:46Z).
    The thesis measurements M1-M7 by the weekend (C82). GQ6 to
    Gemini now that ADR-164 is merged (F by depth, V_strict), when no
    other document is with him.
@@ -160,4 +162,4 @@ repo PRIVATE before real money (07 gate).
   step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 163
+Line count: 165

@@ -13,6 +13,26 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
 
 ---
 
+### 30 Sep 01:47Z -- AUD cluster: four ejections in 7 seconds (B, C; not A)
+- **What:** 01:46:58-01:47:05Z four AUD sides on box 1 reached cap and
+  auto-ejected (`AUDNZD_ALTB`, `AUDNZD_OPTB`, `AUDCAD_OPTB`,
+  `AUDCHF_OPTB`); two more 02:22-02:24Z (`AUDNZD_OPTB`, `AUDCHF_OPTB`).
+  Fleet C: the same pairs and counts (AUDNZD 3, AUDCAD 1, AUDCHF 2).
+  Fleet A: one AUDCHF ejection, none on AUDNZD. Likely an Australian
+  data release (operator; calendar not checked).
+- **Impact:** ejections cost B $23.51, C $22.83; the broker day's closed
+  net stayed positive on all three (03:46Z: A +27.66, B +11.87, C
+  +13.38) and every fleet's equity is above its start.
+- **Handled:** no action.
+- **Changed:** a named case for Thursday's study interim: the depth of
+  every AUD side on A, B and C just before 01:46Z. `AUDNZD_ALTB` runs A's
+  exact AUDNZD geometry (7/10/10, cap 8) and still ejected, so the B1
+  dial alone does not explain the contrast: book depth going in, or
+  FTMO's prices never reaching the levels. Live example of `k` and the
+  worst cluster (`grid-thesis.md` s4, M2).
+- **Evidence:** pipshed `/ejection` (box 1 host, 8 h) and fleet cards,
+  30 Sep 03:46Z.
+
 ### 28 Sep 16:27Z -- broker resync swallowed two fills (C, GBPUSD)
 - **What:** box 2 lost the IC trade server for ~5 s. A short L05 entry
   and a long L00 exit filled in the gap and reached the terminal only by
@@ -161,4 +181,4 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 164
+Line count: 184
