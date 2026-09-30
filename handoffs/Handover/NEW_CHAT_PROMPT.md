@@ -87,9 +87,8 @@ repo PRIVATE before real money (07 gate).
    for the first time: v2.0/v2.1 inherit, ADR-163 rebuild, ADR-164);
    (b) lattice presets `presets_b`/`presets_c` (`InpVirtualLattice=true`,
    `InpAutoEject=false`, key line for injection) -- BOTH ACCEPTED 29 Sep
-   (`c63-deploy.md`, `c63-presets.md`); (c) LATER THIS WEEK, not C63: the
-   key rotation (C9: pipshed accepts a second key first; every chart on box 1,
-   box 2 and the VPS reloaded). (d) C63 preconditions P1 (box 2 tick
+   (`c63-deploy.md`, `c63-presets.md`); (c) NOT C63, and not this week
+   (operator 30 Sep: closer to going live): the key rotation (C9). (d) C63 preconditions P1 (box 2 tick
    probe) and P2 (lattice presets staged on both boxes, current key)
    MET 30 Sep ~03:35Z (`c63-deploy.md` s2).
 2. **Every night after 21:00Z:** `--carrypass --hours 2` (01_BOOT). Expect
@@ -162,4 +161,4 @@ repo PRIVATE before real money (07 gate).
   step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 165
+Line count: 164

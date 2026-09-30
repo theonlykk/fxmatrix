@@ -1242,3 +1242,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   reset"** and the rest of a `;` chain still runs. Check the output, and
   re-run a failed push; a push onto a moved remote is refused, never
   overwrites.
+
+## TRAPS FROM 2026-09-30 (STUDY DATA, BOX 2, POWERSHELL)
+
+- **PowerShell eats `{}`: quote `"HEAD^{tree}"`.** Unquoted, git gets
+  `HEAD^` and prints the PARENT COMMIT hash, which looks like a tree.
+- **A trailing backslash escapes the closing quote in PowerShell:**
+  `scp ... "$HOME\Downloads\"` fails; write `"$HOME\Downloads"`.
+- **Under Wine the Experts log folder is lowercase:** `MQL5/logs/`
+  (not `MQL5/Logs`).
+- **Compile ONE file in MetaEditor.** `Scripts/fxmatrix` holds copies of
+  the whole EA; compiling the folder builds them there (harmless: live
+  EAs run `Experts/fxmatrix/fxgrind.ex5`). Check that file's date and
+  the log for `deinit` if unsure; never RUN `fxgrind_tests` on a live box.
+- **An M1 bar's spread is the minute's MINIMUM.** At news and rollover
+  the bid spikes while the real ask stays far away: bid + bar spread
+  invents fills. Use `scripts/grind_bidask_dump.mq5` (true ask).
+- **Cycle 2 used fleet A's instance ids.** Any archive window reaching
+  before 24 Sep mixes two books; filter by session -> account.
