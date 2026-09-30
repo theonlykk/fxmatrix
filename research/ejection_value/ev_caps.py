@@ -17,7 +17,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ev_book import build_layers, depth_timelines, mark_ejections  # noqa: E402
-from ev_data import (filter_by_account, fleet_of, load_bars_dir, load_export,  # noqa: E402
+from ev_data import (filter_by_account, fleet_of, load_bars_dir, load_bidask_dir, load_export,  # noqa: E402
                      parse_utc, symbol_of)
 from ev_replay import (SideReplay, actual_totals, fleet_day_metrics,  # noqa: E402
                        geometry_timeline, ledger_money, peak_slots, reconciled, run_pair)
@@ -55,15 +55,19 @@ def replay_instance(inst, bars, tl, v, comm, t0, t1, cap=None):
     return {"L": lo, "S": sh}
 
 
-def run(export_paths, bars_dirs, caps, depth_at, out=sys.stdout):
+def run(export_paths, bars_dirs, caps, depth_at, out=sys.stdout, use_bidask=True):
     w = lambda s="": print(s, file=out)  # noqa: E731
     raw = load_export(export_paths)
     ex, dropped = filter_by_account(raw)
     layers = build_layers(ex)
     mark_ejections(layers, ex)
-    bars = {}
+    bars, kinds = {}, {}
     for d in bars_dirs:
-        bars.update(load_bars_dir(d))
+        for key, b in load_bars_dir(d).items():
+            bars[key], kinds[key] = b, "m1"
+        if use_bidask:                                   # the true ask wins (study s10)
+            for key, b in load_bidask_dir(d).items():
+                bars[key], kinds[key] = b, "bidask"
     starts = instance_accounts(ex)
     fills = ex.get("fill_logs", [])
     t_export = max(parse_utc(r["received_at"]) for r in fills)
@@ -71,7 +75,8 @@ def run(export_paths, bars_dirs, caps, depth_at, out=sys.stdout):
     w("CAP SENSITIVITY (study s9) -- first-order replay on M1 bars")
     w("exports: %s; rows dropped (other accounts / unknown sessions): %s"
       % (", ".join(os.path.basename(p) for p in export_paths), dropped or "none"))
-    w("bars: %s" % ", ".join("%s/%s %d" % (a, s, len(b)) for (a, s), b in sorted(bars.items())))
+    w("bars: %s" % ", ".join("%s/%s %s %d" % (a, s, kinds[(a, s)], len(b))
+                             for (a, s), b in sorted(bars.items())))
     w()
 
     rec = {}
@@ -180,8 +185,10 @@ def main(argv=None):
     ap.add_argument("--bars", action="append", default=[])
     ap.add_argument("--caps", default="5,6,7,8,9,10")
     ap.add_argument("--depth-at", action="append", default=[])
+    ap.add_argument("--m1-only", action="store_true", help="ignore bidask files (comparison)")
     a = ap.parse_args(argv)
-    return run(a.export, a.bars, [int(x) for x in a.caps.split(",")], a.depth_at)
+    return run(a.export, a.bars, [int(x) for x in a.caps.split(",")], a.depth_at,
+               use_bidask=not a.m1_only)
 
 
 if __name__ == "__main__":
