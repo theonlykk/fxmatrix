@@ -78,7 +78,7 @@ class SideReplay:
     """One side of one instance. Call `run(i0, i1)` over bar indices."""
 
     def __init__(self, is_long, bars, timeline, v, comm, cap_override=None,
-                 W=5, k=1.5, auto_eject=True, seed=()):
+                 W=5, k=1.5, auto_eject=True, seed=(), same_bar_exit=False):
         self.long = is_long
         self.b = bars
         self.tl = timeline
@@ -86,6 +86,11 @@ class SideReplay:
         self.comm = comm
         self.cap_override = cap_override
         self.W, self.k, self.auto_eject = W, k, auto_eject
+        # The EA places a layer's exit only after its fill is processed; inside
+        # one M1 bar we cannot know the exit rested before the high (long).
+        # Default: a layer never exits in the bar it filled (ledger: 2 of 575
+        # fleet-A scalps closed within a minute of their fill).
+        self.same_bar_exit = same_bar_exit
         self.layers = [Layer(x, x, None) for x in seed]   # fill order: deepest last
         self.next_add = None
         self.l0 = None
@@ -118,16 +123,26 @@ class SideReplay:
         return diff * self.v + self.comm
 
     # --- the bar loop ----------------------------------------------------
-    def run(self, i0, i1):
-        b = self.b
+    def run(self, i0, i1, other=None):
+        """Replay bars [i0, i1). `other`: the opposite side's SideReplay,
+        stepped in lockstep (use `run_pair`); None = a lone side, whose flat
+        L0 may re-centre at any time."""
         for i in range(i0, i1):
+            self.step(i, i0, None if other is None else len(other.layers))
+        return self
+
+    def step(self, i, i0, other_depth=None):
+        b = self.b
+        if True:
             g = geom_at(self.tl, b.t[i])
             cap = self.cap_override or g.cap
             s = b.spread[i] * b.point
             if not self.layers:
                 prev = i - 1 if i > i0 else i
                 mid = b.c[prev] + s / 2.0 if i > i0 else b.o[i] + s / 2.0
-                self._place_l0(mid, g)
+                # ADR-123/124: L0 is placed once; a resting L0 re-centres only
+                # while the OTHER side holds layers (Grind_TryRecenterOppositeL0)
+                self._place_l0(mid, g, recentre=(other_depth is None or other_depth > 0))
             o, h, l, c = b.o[i], b.h[i], b.l[i], b.c[i]
             path = (o, l, h, c) if c >= o else (o, h, l, c)
             t = b.t[i]
@@ -142,11 +157,13 @@ class SideReplay:
             self._record(c, s, cap, t_close)
         return self
 
-    def _place_l0(self, mid, g):
+    def _place_l0(self, mid, g, recentre=True):
         d = self._pips(g.width)
         target = mid - d if self.long else mid + d
         if self.l0 is None:
             self.l0 = target
+            return
+        if not recentre:
             return
         dist = abs(self.l0 - mid) / self.b.pip
         if dist > g.stranded + EPS and abs(target - self.l0) / self.b.pip > g.deadband + EPS:
@@ -194,7 +211,10 @@ class SideReplay:
         while self.layers:
             # the exit nearest the market fills first
             key = (lambda L: self._exit_of(L, g)) if self.long else (lambda L: -self._exit_of(L, g))
-            lay = min(self.layers, key=key)
+            live = [L for L in self.layers if self.same_bar_exit or L.t != t]
+            if not live:
+                break
+            lay = min(live, key=key)
             ex = self._exit_of(lay, g)
             if not reached(ex):
                 break
@@ -264,6 +284,16 @@ class SideReplay:
                 "eject_net": sum(ej), "closed_net": sum(sc) + sum(ej),
                 "open_layers": len(self.layers), "max_depth": self.max_depth,
                 "mtm_end": self.mtm[-1][1] if self.mtm else 0.0}
+
+
+def run_pair(long_side, short_side, i0, i1):
+    """Step both sides of one instance bar by bar; each sees the other's
+    depth at the start of the bar (for the L0 re-centre rule)."""
+    for i in range(i0, i1):
+        dl, ds = len(long_side.layers), len(short_side.layers)
+        long_side.step(i, i0, ds)
+        short_side.step(i, i0, dl)
+    return long_side, short_side
 
 
 def ledger_money(layers_of_instance):

@@ -20,7 +20,7 @@ from ev_book import build_layers, depth_timelines, mark_ejections  # noqa: E402
 from ev_data import (filter_by_account, fleet_of, load_bars_dir, load_export,  # noqa: E402
                      parse_utc, symbol_of)
 from ev_replay import (SideReplay, actual_totals, fleet_day_metrics,  # noqa: E402
-                       geometry_timeline, ledger_money, peak_slots, reconciled)
+                       geometry_timeline, ledger_money, peak_slots, reconciled, run_pair)
 
 DEFAULT_ALIAS = {53066709: 53071896}     # box 1 has no bar dump of its own; same server
 SLOT_GUARD = 194
@@ -49,10 +49,10 @@ def instance_accounts(ex):
 def replay_instance(inst, bars, tl, v, comm, t0, t1, cap=None):
     i0 = bars.index_at_or_after(t0)
     i1 = bars.index_at_or_after(t1)
-    sides = {}
-    for side, is_long in (("L", True), ("S", False)):
-        sides[side] = SideReplay(is_long, bars, tl, v, comm, cap_override=cap).run(i0, i1)
-    return sides
+    lo = SideReplay(True, bars, tl, v, comm, cap_override=cap)
+    sh = SideReplay(False, bars, tl, v, comm, cap_override=cap)
+    run_pair(lo, sh, i0, i1)
+    return {"L": lo, "S": sh}
 
 
 def run(export_paths, bars_dirs, caps, depth_at, out=sys.stdout):

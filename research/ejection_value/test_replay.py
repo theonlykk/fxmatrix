@@ -70,11 +70,17 @@ class TestLong(unittest.TestCase):
         self.assertEqual([round(L.fill, 5) for L in r.layers], [1.0996])
 
     def test_path_rule(self):
-        # C>=O (O-L-H-C): fill at the low, exit at the high in the same bar.
-        r = run(True, [(1.1, 1.1, 1.1, 1.1), (1.1, 1.1010, 1.0990, 1.1005)], tl())
+        # With same-bar exits allowed: C>=O (O-L-H-C) fills at the low and
+        # exits at the high in the same bar.
+        r = run(True, [(1.1, 1.1, 1.1, 1.1), (1.1, 1.1010, 1.0990, 1.1005)], tl(),
+                same_bar_exit=True)
         self.assertEqual(sum(1 for e in r.events if e[1] == "scalp"), 1)
+        # Default (no exit in the bar a layer filled): the same bar books nothing.
+        r = run(True, [(1.1, 1.1, 1.1, 1.1), (1.1, 1.1010, 1.0990, 1.1005)], tl())
+        self.assertEqual(len(r.events), 0)
         # C<O (O-H-L-C): the high comes first, the fill after it: no scalp.
-        r = run(True, [(1.1, 1.1, 1.1, 1.1), (1.1, 1.1010, 1.0990, 1.0992)], tl())
+        r = run(True, [(1.1, 1.1, 1.1, 1.1), (1.1, 1.1010, 1.0990, 1.0992)], tl(),
+                same_bar_exit=True)
         self.assertEqual(len(r.events), 0)
         self.assertEqual(len(r.layers), 1)
 
