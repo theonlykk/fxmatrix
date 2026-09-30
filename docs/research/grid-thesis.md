@@ -243,4 +243,75 @@ need if one is missing.
   and compare activity at the actual levels with the same ladder shifted
   by random offsets. M6 uses both.
 
-Line count: 246
+## 11. FIRST MEASUREMENTS (30 SEP EVENING; C82 M1-M5, M7; M6 NOT YET)
+
+Written by Claude 30 Sep ~23:45Z from the evening export (24 Sep 01:13Z
+to 30 Sep 22:01Z; current accounts only, by session) and the bid/ask
+dumps of the ejection study (s12 there). Trade history first (s6):
+episodes, depths and money come from the broker ledger (`ev_book`
+layers: ENT position + close-by); prices only for open-loss paths and M5.
+One week, trend-heavy (the 29-30 Sep GBP and AUD days): starting values,
+not answers. Scripts in the session sandbox; the counts cross-check with
+the fleet cards (A 603 scalps / 33 ejections, B 679 / 61, C 479 / 51)
+and the ledger total equals `scalp_history` (A closed $330.66 both ways).
+
+An EPISODE is one side of one instance from leaving flat to flat again
+(or open at the window end). 358 episodes (A 121, B 141, C 96).
+
+**M1 deepest layer per episode.** Most episodes stay shallow: depth 1-2
+in 52% (A), 55% (B), 52% (C). Depth 5 or more in 23% / 23% / 30%; cap
+(8) in 9% / 11% / 14%. Per pair (all fleets): at cap most often AUDCHF
+(32% of 19 episodes), NZDCHF (17%), GBPUSD (14%); least NZDCAD (2% of
+47). The B1 dial (smaller adds) shows as more capped episodes on B and C.
+
+**M2 scalps per ejection and the worst cluster.** A 18.3 scalps per
+ejection, B 11.1, C 9.4 (the smaller adds eject more). The worst 4-hour
+run of ejection losses: A -$33.39 (7% of $500), B -$63.65 (13%), C
+-$62.17 (12%), all on the 30 Sep 10:00-14:00Z GBP/AUD trend.
+
+**M3 closed P&L per unit of inventory** ($ per layer-day = closed net /
+layer-days held): fleet A 0.71, B 0.67, C 0.91. By pair it ranks as the
+swings do (M5): GBPUSD 1.2-1.8, NZDCAD 1.0-1.4, AUDNZD, AUDCAD, EURUSD
+0.75-1.0; AUDCHF and CADCHF 0.3-0.4 on A and B (1.0 on C, a shorter
+window), NZDCHF 0.24-0.30 everywhere; EURGBP negative on all three
+(-0.03 to -0.24).
+
+**M4 payback of deep episodes (max depth >= 6): 73, of which 34 closed.**
+The 34 closed ones netted +$318.20 in total after passing through a
+combined peak open loss of -$570.36; 23 of them ended with no ejection
+at all (the deep layers scalped back out). The 39 still open include
+the week's losers: EURGBP long on all three fleets (closed -$24.77 to
+-$32.81 with 11-15 ejections each), GBPUSD short from 29 Sep 15:32Z
+(peak open -$34 to -$39), the AUD longs of 29 Sep.
+
+**M5 swings (FTMO mid, 24 Sep -> 1 Oct, ~5 trading days).** Zigzag legs
+per day at 5 / 10 / 20 pips: GBPUSD 82 / 23 / 4.0, AUDNZD 63 / 20 / 5.8,
+AUDCAD 53 / 14 / 5.4, NZDCAD 47 / 15 / 4.6, EURUSD 44 / 12 / 2.6, AUDCHF
+24 / 7 / 1.6, NZDCHF 19 / 3.6 / 0.6, CADCHF 18 / 4.4 / 0.8, EURGBP 14 /
+3.0 / 0.4. A 10-pip exit has at most ~3-7 swings a day to harvest on the
+CHF crosses and EURGBP against 12-23 on the majors and the AUD/NZD pairs:
+the M3 ranking follows. The longest leg without a 10-pip retrace: AUDNZD
+96 pips, AUDCAD 58, EURGBP 48, EURUSD 46, the rest 39-41 -- against a
+room to cap (add x 7) of 21 pips (EURGBP, NZDCHF on B/C) to 70 (AUDNZD
+A).
+
+**M7 open loss by depth** (peak open loss of an episode by its deepest
+layer; median / worst, USD at 0.01): depth 4 about -$4 to -$6.5 / -$8.6;
+depth 6 about -$12 to -$13 / -$15; depth 8 (cap) -$22.5 to -$23.4 / -$38.8.
+The adverse move from the first entry exceeded the room to cap in 47 of
+358 episodes (13%); the median episode used a third of it (0.34).
+
+**Reading (first-order, one week):**
+- The ladder mostly works shallow: half the episodes never pass depth 2,
+  and deep episodes usually pay back (23 of 34 closed deep episodes
+  ended without an ejection, +$318 net).
+- What costs money is a few long directional runs (EURGBP long, GBPUSD
+  short, AUD longs), each several times a 10-pip retrace: the room was
+  exceeded in 13% of episodes and those carry the losses.
+- Pairs that swing little per day (CHF crosses, EURGBP) earn least per
+  unit of inventory; this is the first number to use when choosing
+  pairs and adds, before any cap change.
+- **M6 (the cluster test) is not done** (it needs the GT-4 null: the
+  real path with the ladder shifted by random offsets). Weekend.
+
+Line count: 317

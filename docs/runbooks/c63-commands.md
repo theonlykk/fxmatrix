@@ -14,7 +14,7 @@ STEP PER MESSAGE; this file is the reference, not a script to paste whole.
 | S1 | Init prints, in this order: `GRIND_REPLAY ready seeded=` (before recon), `fxgrind CONFIG ... key=<status>` (no key value), `GRIND_SESSION`, `GRIND_LATTICE enable=`, `GRIND_GEOMETRY` (4 dp), `GRIND_REBUILD`; deinit prints `fxgrind deinit reason=` | `fxgrind.mq5` 252, 287, 346-357, 374; `grind_replay.mqh` 183; `grind_config.mqh` | VERIFIED in source |
 | S2 | `LATTICE_CONFIG` is an ARCHIVE marker, not a log line: check it with `--codes` | `fxgrind.mq5` 358 | VERIFIED |
 | S3 | No `ea/` or preset change between `b6ad868` (wine-c repo, P2) and `main`; 76 EA files at `main` | git | VERIFIED |
-| S4 | The log check (s1) was tested on synthetic UTF-16 logs under mawk, not yet on a real Wine log: step W0 runs it on wine-c's 28 Sep log first | sandbox | TO RUN (W0) |
+| S4 | The log check (s1) was tested on synthetic UTF-16 logs under mawk, then dry-run on wine-c's real 28 Sep log (30 Sep ~22:50Z): 11 inits, geometry as the register, the 16:27Z halt and the 16:57Z shortfall caught as BAD lines | sandbox; wine-c | PASS (installed on wine-c; wine-test still to install) |
 | S5 | Compile deinit reason 2 (recompile); Properties reload reason 5 | BOOT s3; 02_TRAPS 25 Sep | VERIFIED (docs) |
 
 ## 0. WHEN AND WHAT NOT TO DO
