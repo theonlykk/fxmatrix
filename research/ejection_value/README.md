@@ -26,7 +26,11 @@ Read-only analysis of files; standard library only (Python 3.9+).
 ## Run
 
 Bars for the replay must start before the fleets did: run the bar dump
-with `InpFrom = 2026.09.24 00:00`.
+with `InpFrom = 2026.09.24 00:00`. Better: `scripts/grind_bidask_dump.mq5`
+(read-only, from ticks) writes `bidask_<login>_<SYM>.csv` with the TRUE
+per-minute ask (M1 bars keep only the minimum spread; study s10 C4). Put
+them in a `--bars` folder: both runners prefer them over `bars_*` files
+(`ev_caps.py --m1-only` to compare).
 
     python research/ejection_value/ev_report.py --export <file>... --bars <dir> [--bars <dir>] [--horizons 24,48]
     python research/ejection_value/ev_caps.py --export <file>... --bars <dir> [--bars <dir>] [--caps 5,6,7,8,9,10] [--depth-at 2026-09-30T01:40]
@@ -44,7 +48,7 @@ with `InpFrom = 2026.09.24 00:00`.
 | `ev_report.py` | the report |
 | `ev_replay.py` | study s9: per-side ladder replay on M1 bars (the EA's rules, simplified as listed in its docstring), ledger money, reconciliation rule, fleet day metrics, slots |
 | `ev_caps.py` | study s9 runner: reconcile at the actual cap, then caps 5-10 (frontier per instance and fleet), depth at named times |
-| `test_replay.py` | 16 synthetic tests (hand-derived); 13 deliberate code breaks each fail a named test |
+| `test_replay.py` | 19 synthetic tests (hand-derived); 13 deliberate code breaks each fail a named test |
 | `test_ejection_value.py` | 19 synthetic tests, expected values by hand; each of 8 deliberate code breaks fails its named test, and each resync-fallback branch removed fails its test |
 
 ## Decisions in the code (see the module docstrings)
@@ -59,4 +63,4 @@ with `InpFrom = 2026.09.24 00:00`.
 - Night multiplier: Wed 3, Sat/Sun 0, else 1 (INFERRED; C61 is open).
 - Episodes whose horizon runs past the bars are `no_data`, never scored.
 
-Line count: 62
+Line count: 66

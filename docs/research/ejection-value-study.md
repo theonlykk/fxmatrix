@@ -260,4 +260,105 @@ first days), desktop FTMO terminal and box 2.
   from the actual one by design; the reconciliation only proves the
   actual-cap path. Is that enough to trust caps 5-10 first-order?
 
-Line count: 263
+## 10. GEMINI'S RULINGS ON s9 (30 SEP ~14:45Z) AND WHAT THE DATA CHANGED
+
+**Rulings, with Claude's check:** GQ6 depth rule ACCEPTED, `V_strict`
+is the headline (the report now prints it first). GQ7, GQ9, GQ10
+ACCEPTED (GQ10: first-order guidance only). GQ8 ACCEPTED, his reason is
+wrong: a biased path rule does not "cancel out" over many bars, it
+accumulates; what protects the result is the reconciliation gate.
+GQ9 misread: the net tolerance is the looser of 15% and $3.
+
+**Calibration log (every change mirrors the EA or the broker, never a
+tuned constant; fleet A was used to diagnose, B and C are the holdout):**
+- C1. Cycle 2 (FTMO 1514582088) used fleet A's instance ids: a 14-day
+  export mixed 2,865 of its fills into A. Rows are now kept by session
+  -> account (`filter_by_account`, both runners).
+- C2. No exit fills in the bar its layer filled (the EA places the exit
+  after the fill is processed; ledger: 2 of 575 A scalps closed within
+  a minute of their fill).
+- C3. A flat side's L0 is placed once and re-centres only while the
+  OTHER side holds layers (`Grind_TryPlaceL0`, ADR-123;
+  `Grind_TryRecenterOppositeL0`, ADR-124).
+- C4. **GQ4 superseded: the true ask.** M1 bars store the minute's
+  MINIMUM spread; at news and rollover the bid spikes while the real
+  ask stays far away (AUDNZD 24 Sep 12:30Z: bid low 25 pips down with a
+  1-pip bar spread; the replay filled two buy limits, the EA none).
+  New read-only script `scripts/grind_bidask_dump.mq5` (tick history,
+  one linear pass: bid OHLC, ask OHLC, min/max spread per minute); run
+  30 Sep on the desktop FTMO terminal and on box 2 (9 symbols each, no
+  failed chunk; box 2 in ~4 s). The replay uses the true ask when the
+  file exists (buy limits fill on the ask low, sell limits on the bid
+  high; S3 compares the close spread with the mean bar spread).
+
+**Reconciliation at the actual cap (export 30 Sep 14:48Z, 24 Sep ->
+30 Sep ~15:00Z):**
+
+| | M1 bars | true bid/ask |
+|---|---|---|
+| A (diagnosed) | 2 / 11 | 4 / 11 |
+| B (holdout) | 6 / 11 | 8 / 11 |
+| C (holdout) | 3 / 11 | 6 / 11 |
+| total | 11 / 33 | 18 / 33 |
+
+Passing everywhere or nearly: EURGBP (3/3), NZDCAD ALT (3/3), CADCHF,
+AUDCHF, AUDNZD ALT (B, C). **Open:** A's AUDNZD (the replay's add rests
+where A's real add filled 27 pips below its level at 30 Sep 01:30:33,
+as if placed after the fall; not the entry horizon, which is 0 in every
+preset, nor the floating-loss gate); GBPUSD C (halted and reattached
+28 Sep); small-count misses (NZDCHF C 14 vs 12 scalps).
+
+## 11. INTERIM RESULTS (30 SEP NOON RUN; rerun tonight for Thursday)
+
+First-order, reconciled instances only (A 4, B 8, C 6), 24-30 Sep: one
+week, trend-heavy (the 30 Sep GBP and AUD days included).
+
+**Caps 5-10, per fleet** (closed P&L; closed + open book at the end;
+worst day = lowest of closed since the 22:00Z roll + open MTM; worst
+open MTM carried into a roll):
+
+| fleet | cap | closed | + open | worst day | worst carried |
+|---|---|---|---|---|---|
+| A | 5 | 51.33 | 41.18 | -50.92 | -19.38 |
+| A | 6 | 66.66 | 49.32 | -59.45 | -22.47 |
+| A | 8 | 108.27 | 67.56 | -80.91 | -44.10 |
+| A | 10 | 124.78 | 66.40 | -98.48 | -53.99 |
+| B | 5 | 81.33 | 71.73 | -51.71 | -51.11 |
+| B | 6 | 95.92 | 75.34 | -59.91 | -56.00 |
+| B | 8 | 125.52 | 74.30 | -81.97 | -74.67 |
+| B | 10 | 152.48 | 64.53 | -120.52 | -101.41 |
+| C | 5 | 15.91 | 8.58 | -21.42 | -21.42 |
+| C | 6 | 30.87 | 13.25 | -30.84 | -30.84 |
+| C | 8 | 51.81 | 11.91 | -58.43 | -47.61 |
+| C | 10 | 80.73 | 15.98 | -81.87 | -64.43 |
+
+Peak slots (reconciled subsets only) <= 126 at cap 10: no guard issue.
+
+**Reading:**
+- CLOSED P&L rises with cap on every fleet (Gemini's "toxic winner":
+  the compass on closed P&L would push cap up).
+- CLOSED + OPEN is flat from cap 6-7 upward (B peaks at 6-7 and falls
+  at 10): the extra closed P&L of a higher cap is mostly loss deferred
+  into open inventory.
+- Risk grows steadily with cap: worst day and carried MTM at least
+  double from cap 5 to cap 10 on every fleet.
+- Per pair the best cap differs (closed + open): EURGBP best at 5 on all
+  three fleets (it trended); GBPUSD and EURUSD best at 10 (they
+  retraced); CADCHF best at 5; AUDCAD and AUDNZD around 6; AUDCHF at
+  9-10; NZDCAD barely reaches 7-8. No single cap is right for every
+  pair (`grid-thesis.md` s1).
+- On B and C, cap 6 gives the same total as 8 (B 75.34 vs 74.30, C
+  13.25 vs 11.91) with 25-45% less worst-day loss; on A, cap 8 keeps a
+  lead (67.56 vs 49.32 at 6). One week; the rolls from C63 change what
+  "at cap" costs on B and C.
+
+**Ejection value (s2, V_strict):** at 24 h, 17 chains scored: A
+-11.90 (7), B -8.10 (6), C -8.92 (4); 6 of 17 positive -- the three
+EURGBP chains (the trend never came back) and three small ones. At 48 h, 7
+scored, all negative (-40.16). 29 chains unscored (their horizon runs
+past the data). **Q1:** sides spent at most 2.6 h of 157 h at cap; the
+scalps forgone at cap are at most $0.29 per side. In this window the
+"at cap we cannot trade" cost is small, and ejecting mostly lost value
+against holding.
+
+Line count: 364

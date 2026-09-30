@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ev_book import (DEFAULT_OFFSET_S, build_layers, calibrate_hidden, caps_by_instance,  # noqa: E402
                      depth_timelines, eject_anchors, mark_ejections, side_stats)
 from ev_controls import f_per_hour, pair_controls  # noqa: E402
-from ev_data import (filter_by_account, fleet_of, load_bars_dir, load_export,  # noqa: E402
+from ev_data import (filter_by_account, fleet_of, load_bars_dir, load_bidask_dir, load_export,  # noqa: E402
                      parse_utc, symbol_of)
 from ev_episodes import (build_chains, carry_rates, collect_ejections,  # noqa: E402
                          counterfactual, score_chain)
@@ -67,6 +67,7 @@ def run(export_paths, bars_dirs, aliases, horizons, out=sys.stdout):
     bars = {}
     for d in bars_dirs:
         bars.update(load_bars_dir(d))
+        bars.update(load_bidask_dir(d))          # the true ask wins (study s10)
     accounts = account_by_instance(ex)
 
     def bars_for(inst):
