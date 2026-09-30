@@ -218,4 +218,29 @@ need if one is missing.
   detect.
 - **GT-5.** s5: a penalised score or a reported frontier for cap?
 
-Line count: 221
+## 10. GEMINI'S ANSWERS (30 SEP ~03:12Z) AND CLAUDE'S CHECK
+
+- **GT-5 AGREED:** report a frontier, not a penalised score.
+- **GT-2 ACCEPTED in part:** the harvest condition is `S >= exit +
+  spread` (entry fills on the ask, exit on the bid). His "deadband" is
+  wrong: the EA's deadband moves resting adds; a limit fills on touch.
+  He adds spread widening off-hours: measure it in M5.
+- **GT-3 ACCEPTED:** realised losses earlier in the day shrink B; the
+  expected cost of overruns (journeys longer than R) belongs in the
+  recipe. Both go into M5/M7.
+- **GT-1 PARTLY:** right that the leverage equivalence holds only inside
+  the room (saturation). His "equal leverage" example is not equal: add
+  6 at 0.02 cap 8 has a 48-pip room, add 3 at 0.01 cap 8 has 24; matching
+  room and tail slope needs cap 16 on the add-3 side, which the slots
+  forbid (T6). His case against per-lot-hour is weak (a lot loses the
+  same per pip at any depth). Both normalisers stay; neither is clean.
+- **GT-4 PARTLY:** right that the null must keep the pair's trending or
+  mean-reverting character; his reasoning is back to front (a
+  mean-reverting pair revisits levels anyway, so a random-walk null
+  would make clusters look real). "Hurst by pair type" is asserted, not
+  shown; ARFIMA fitted to 14 days of M1 is noisy. Claude adds a
+  model-free test for "these levels are special": keep the real path
+  and compare activity at the actual levels with the same ladder shifted
+  by random offsets. M6 uses both.
+
+Line count: 246

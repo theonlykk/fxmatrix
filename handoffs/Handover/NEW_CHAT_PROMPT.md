@@ -89,18 +89,23 @@ repo PRIVATE before real money (07 gate).
    `InpAutoEject=false`, key line for injection) -- BOTH ACCEPTED 29 Sep
    (`c63-deploy.md`, `c63-presets.md`); (c) LATER THIS WEEK, not C63: the
    key rotation (C9: pipshed accepts a second key first; every chart on box 1,
-   box 2 and the VPS reloaded).
+   box 2 and the VPS reloaded). (d) C63 preconditions P1 (box 2 tick
+   probe) and P2 (lattice presets staged on both boxes, current key)
+   MET 30 Sep ~03:35Z (`c63-deploy.md` s2).
 2. **Every night after 21:00Z:** `--carrypass --hours 2` (01_BOOT). Expect
    33 summaries; the snapshot list can be short after a weekend (C79).
 3. **Wednesday, ejection study data** (study s3, README):
-   a. Export, desktop `D:\pipshed`, `--days 14` (fill_logs keep 14
-      days; the depth timeline needs every ENT since the fleet started):
+   a. Export, desktop `D:\pipshed`, `--days 14` (`fill_logs` are kept, the
+      14-day limit was wrong, `grid-thesis.md` T8; the depth timeline needs
+      every ENT since the fleet started):
       `railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --export-study --days 14 | Set-Content -Encoding utf8 "$HOME\Downloads\study_export_<date>.jsonl"`
    b. Bar dump on the desktop FTMO terminal (flat `MQL5\Scripts\`) and on
       BOX 2 over VNC (IC; `Scripts/fxmatrix/`, file recipe 06 s9), each on
       a spare chart, never an EA's chart; files `MQL5\Files\bars_<login>_<SYM>.csv`.
    c. Claude runs `research/ejection_value/ev_report.py` on the files.
-   Interim report Thu 1 Oct; final ~9 Oct (>= 30 episodes). GQ6 to
+   Interim report Thu 1 Oct, adding caps 5-10 as a frontier
+   (`docs/research/grid-thesis.md` s6); final ~9 Oct (>= 30 episodes).
+   The thesis measurements M1-M7 by the weekend (C82). GQ6 to
    Gemini now that ADR-164 is merged (F by depth, V_strict), when no
    other document is with him.
 4. **C63, THURSDAY 1 Oct in session:** `main` `0335f25` + lattice
@@ -155,4 +160,4 @@ repo PRIVATE before real money (07 gate).
   step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 158
+Line count: 163

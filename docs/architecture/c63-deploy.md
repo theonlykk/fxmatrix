@@ -16,7 +16,7 @@ Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
 | A2 | Box 1 (Fleet B) runs `5685e4f`; box 2 (Fleet C) runs `e2ac9fe` (v2.1 without ADR-164) | BOOT s6; fleet-c.md s1 | VERIFIED in the docs; box repos to be re-read on the day |
 | A3 | `OnInit` refuses `InpVirtualLattice=true` with `InpAutoEject=true` (FATAL) | `fxgrind.mq5` 210-211 | VERIFIED in source |
 | A4 | The effective entry reads a stored VL whatever `InpVirtualLattice` says, so a rolled layer stays consistent under I6 with the lattice switched off again | `grind_carry.mqh` 662-664 | VERIFIED in source |
-| A5 | `CopyTicksRange(COPY_TICKS_INFO)` (the lattice's catch-up read) was probed on box 1 only (26 Sep, ADR-162 s16); never on box 2 | ADR-162 s16; `scripts/grind_tick_probe.mq5` (read-only, safe beside live EAs) | VERIFIED |
+| A5 | `CopyTicksRange(COPY_TICKS_INFO)` (the lattice's catch-up read) was probed on box 1 only (26 Sep, ADR-162 s16); never on box 2 | ADR-162 s16; `scripts/grind_tick_probe.mq5` (read-only, safe beside live EAs) | VERIFIED; box 2 probed 30 Sep, P1 MET |
 | A6 | Box 1 has never run v2.x: no `GRIND_GEO_EXIT_<magic>_L/_S` labels exist there, so its first v2.1 init is STRICT (no rebuild) and writes the labels (ADR-163 s9). Its exits were priced by `5685e4f` with the same formula at the same exit | ADR-163 s4 D1, s9; geometry register (exits unchanged since 24 Sep) | VERIFIED in source 29 Sep: `Grind_ExitQFormulaTarget`, `Grind_ExitPrice`, `Grind_ReconExitMatchesEntry` and `Grind_CarryShiftGetForRecon` are identical at `5685e4f` and `0335f25`; the carry GV names are the same (`main` adds only `GRIND_GEO_EXIT_`); the short side checks the resolved `exit_s` (= the base at -1); the rebuild tolerance needs a label that exists and differs (none on box 1). The strict pass is INFERRED from that, not run (GC63-4) |
 | A7 | A compile reinitialises every attached instance with its CURRENT inputs; an input change is a reason-5 reinit of that chart only | BOOT s3; 02_TRAPS 28 Sep | VERIFIED |
 | A8 | No geometry changes at C63: width, add, exit and cap stay as in the register | `10_GEOMETRY_REGISTER.md` | VERIFIED |
@@ -33,9 +33,19 @@ Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
 ## 2. PRECONDITIONS (all met before the first compile on Thursday)
 
 - **P1** Box 2 tick probe: `grind_tick_probe.mq5` on a spare chart (VNC),
-  nine symbols, `err=0` and ticks on each (A5). Wednesday.
+  nine symbols, `err=0` and ticks on each (A5). **MET 30 Sep 03:31Z**
+  (in session): all nine `err=0`, 59,282 (EURGBP) to 127,633 (AUDNZD)
+  ticks over 24 h, `bad_px=0`, largest gap 60-61 s (server midnight),
+  last tick ~3 s old; first call 5-269 ms (history loading), second
+  3-17 ms. Probe copied alone into `Scripts/fxmatrix` (md5 = repo),
+  compiled 0/0 in MetaEditor; box 2's repo pulled to `b6ad868`.
 - **P2** Lattice presets committed and byte-checked for both boxes
-  (document 2), staged on each box with the CURRENT key.
+  (document 2), staged on each box with the CURRENT key. **MET 30 Sep:**
+  box 2 03:35Z from its repo at `b6ad868`, box 1 03:37Z from
+  `origin/main` `b6ad868` by `git show` (box 1's checkout stays on
+  `5685e4f`, 06 s10); each box 11/11 `SAME_EXCEPT_KEY key=1 lines=37`,
+  key 43 chars from `~/.fxgrind_telemetry.key` (the file the live
+  presets were staged from); new `*_lat.set` beside the old files.
 - **P3** WITHDRAWN 29 Sep (s11): the key rotation is not part of C63.
   (Was: key rotation ordered so no instance loses telemetry longer than
   its own reload; document 3: whether pipshed can accept two keys at
@@ -166,4 +176,4 @@ follow as its own document once pipshed accepts a second key
 (`TELEMETRY_API_KEY_NEXT`) for the changeover (backlog C9). Gemini:
 reply only if you object.
 
-Line count: 169
+Line count: 179
