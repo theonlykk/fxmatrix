@@ -90,6 +90,7 @@ class SideReplay:
         self.next_add = None
         self.l0 = None
         self.events = []          # (t, kind, pnl) kind in 'scalp', 'eject'
+        self.holds = []           # (kind, t_fill, t_close): layer life, for diagnostics
         self.mtm = []             # (t_close, mtm $) per bar
         self.slots = []           # (t_close, positions + orders)
         self.max_depth = len(self.layers)
@@ -200,6 +201,7 @@ class SideReplay:
             deepest = self.layers[-1] is lay
             self.layers.remove(lay)
             self.events.append((t, "scalp", self._pnl(lay, price_of(ex))))
+            self.holds.append(("scalp", lay.t, t))
             if not self.layers:
                 self.next_add = None
                 self.l0 = None
@@ -239,6 +241,7 @@ class SideReplay:
         self.layers.remove(lay)
         out = c if self.long else c + s
         self.events.append((t, "eject", self._pnl(lay, out)))
+        self.holds.append(("eject", lay.t, t))
         if not self.layers:
             self.next_add = None
             self.l0 = None
