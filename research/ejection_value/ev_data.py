@@ -118,20 +118,30 @@ class Bars:
         self.to_utc = to_utc          # dump end (UTC); bars at or after it are dropped
         self.t = []                   # bar open, UTC epoch s
         self.o, self.h, self.l, self.c = [], [], [], []
-        self.spread = []              # points
+        self.spread = []              # points (M1 bars: the minute's minimum spread)
+        # True per-minute ask OHLC (grind_bidask_dump.mq5); None for M1 bar dumps,
+        # where the ask is approximated as bid + bar spread (GQ4).
+        self.ao = self.ah = self.al = self.ac = None
 
     def __len__(self):
         return len(self.t)
 
+    @property
+    def has_ask(self):
+        return self.al is not None
+
+    def ask_open(self, i):
+        return self.ao[i] if self.ao is not None else self.o[i] + self.spread[i] * self.point
+
     def ask_low(self, i):
-        """Lowest ask in bar i, approximated (GQ4): bid low + bar spread."""
-        return self.l[i] + self.spread[i] * self.point
+        """Lowest ask in bar i: true (bid/ask dump) or bid low + bar spread (GQ4)."""
+        return self.al[i] if self.al is not None else self.l[i] + self.spread[i] * self.point
 
     def ask_high(self, i):
-        return self.h[i] + self.spread[i] * self.point
+        return self.ah[i] if self.ah is not None else self.h[i] + self.spread[i] * self.point
 
     def ask_close(self, i):
-        return self.c[i] + self.spread[i] * self.point
+        return self.ac[i] if self.ac is not None else self.c[i] + self.spread[i] * self.point
 
     def index_at_or_after(self, t_utc):
         """First bar whose OPEN is >= t_utc (binary search)."""
@@ -211,6 +221,43 @@ def merge_bars(parts):
         o, h, l, c, s = by_t[t]
         out.t.append(t); out.o.append(o); out.h.append(h); out.l.append(l)
         out.c.append(c); out.spread.append(s)
+    return out
+
+
+def load_bidask_file(path):
+    """Read one bidask_<login>_<SYM>.csv (grind_bidask_dump.mq5): per-minute
+    bid and ask OHLC built from ticks. `spread` = the minute's minimum spread
+    (as an M1 bar's); the minute at the dump's `to` (and later) is dropped."""
+    with open(path, encoding="utf-8-sig") as fh:
+        hdr = _parse_header(fh.readline())
+        offset = int(hdr["server_minus_gmt_s"])
+        to_server = _server_text_to_unix(hdr["to"])
+        bars = Bars(hdr["symbol"], int(hdr["account"]), hdr["server"], int(hdr["digits"]),
+                    float(hdr["point"]), offset, to_server - offset)
+        bars.ao, bars.ah, bars.al, bars.ac = [], [], [], []
+        for row in csv.DictReader(fh):
+            t_server = int(row["time_unix_server"])
+            if t_server >= to_server:
+                continue
+            bars.t.append(float(t_server - offset))
+            bars.o.append(float(row["bid_open"])); bars.h.append(float(row["bid_high"]))
+            bars.l.append(float(row["bid_low"])); bars.c.append(float(row["bid_close"]))
+            bars.ao.append(float(row["ask_open"])); bars.ah.append(float(row["ask_high"]))
+            bars.al.append(float(row["ask_low"])); bars.ac.append(float(row["ask_close"]))
+            bars.spread.append(int(row["spread_min_points"]))
+    for a, b in zip(bars.t, bars.t[1:]):
+        if b <= a:
+            raise ValueError("%s: minute times not increasing" % path)
+    return bars
+
+
+def load_bidask_dir(directory):
+    """All bidask_<login>_<SYM>.csv under `directory`: {(account, symbol): Bars}.
+    One file per symbol and account (a later run replaces an earlier one)."""
+    out = {}
+    for path in sorted(glob.glob(os.path.join(directory, "**", "bidask_*_*.csv"), recursive=True)):
+        b = load_bidask_file(path)
+        out[(b.account, b.symbol)] = b
     return out
 
 

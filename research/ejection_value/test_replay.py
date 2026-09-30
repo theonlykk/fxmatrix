@@ -10,7 +10,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ev_data import Bars, filter_by_account  # noqa: E402
+from ev_data import Bars, filter_by_account, load_bidask_file  # noqa: E402
 from ev_replay import (Geometry, SideReplay, fleet_day_metrics, peak_slots,  # noqa: E402
                        reconciled)
 
@@ -164,6 +164,63 @@ class TestShort(unittest.TestCase):
         r = run(False, rows, tl())
         self.assertEqual(len(r.events), 0)
         self.assertEqual(len(r.layers), 1)
+
+
+def bidask(rows):
+    """rows: [(bid_o, bid_h, bid_l, bid_c, ask_o, ask_h, ask_l, ask_c, spread_min)]."""
+    b = Bars("EURUSD", 1, "S", 5, 0.00001, 0, T + 60 * len(rows))
+    b.ao, b.ah, b.al, b.ac = [], [], [], []
+    for i, r in enumerate(rows):
+        b.t.append(T + 60 * i)
+        b.o.append(r[0]); b.h.append(r[1]); b.l.append(r[2]); b.c.append(r[3])
+        b.ao.append(r[4]); b.ah.append(r[5]); b.al.append(r[6]); b.ac.append(r[7])
+        b.spread.append(r[8])
+    return b
+
+
+class TestTrueAsk(unittest.TestCase):
+    def test_spike_bid_low_does_not_fill_a_buy_limit(self):
+        # The 24 Sep 12:30Z case. Bar 0 at 1.1000/1.1001: mid 1.10005, L0
+        # 1.09955. Bar 1 (news): the bid spikes to 1.0990 while the spread
+        # widens; the TRUE ask low is 1.0998 > 1.09955: no fill. With only
+        # the minimum spread (1 pip) the old approximation, 1.0991, would fill.
+        rows = [(1.1, 1.1, 1.1, 1.1, 1.1001, 1.1001, 1.1001, 1.1001, 10),
+                (1.1, 1.1, 1.0990, 1.0995, 1.1001, 1.1001, 1.0998, 1.0996, 10)]
+        r = SideReplay(True, bidask(rows), tl(), V, COMM).run(0, 2)
+        self.assertEqual(len(r.layers), 0)
+        # the same bars with the ask approximated from the minimum spread do fill
+        rows_m1 = [(1.1, 1.1, 1.1, 1.1, 10), (1.1, 1.1, 1.0990, 1.0995, 10)]
+        r = run(True, rows_m1, tl())
+        self.assertEqual(len(r.layers), 1)
+
+    def test_short_exit_uses_true_ask_low(self):
+        # short L0 at mid 1.10005 + 5 pips = 1.10055, filled on bar 1 (bid
+        # 1.1010). Its exit buy limit 1.09955 needs the ask there: bar 2's
+        # true ask low 1.0995 -> fills at 1.09955: (1.10055 - 1.09955) x 1000
+        # - 0.07 = 0.93.
+        rows = [(1.1, 1.1, 1.1, 1.1, 1.1001, 1.1001, 1.1001, 1.1001, 10),
+                (1.1, 1.1010, 1.1, 1.1008, 1.1001, 1.1011, 1.1001, 1.1009, 10),
+                (1.1008, 1.1008, 1.0990, 1.0992, 1.1009, 1.1009, 1.0995, 1.0996, 10)]
+        r = SideReplay(False, bidask(rows), tl(), V, COMM).run(0, 3)
+        self.assertEqual([(k, round(p, 2)) for _t, k, p in r.events], [("scalp", 0.93)])
+
+    def test_loader(self):
+        import tempfile
+        body = ("# symbol=AUDNZD account=1514731800 server=FTMO-Demo digits=5 point=0.00001000 "
+                "server_minus_gmt_s=10800 from=2026.09.24 00:00 to=2026.09.24 00:02 kind=bidask\n"
+                "time_server,time_unix_server,bid_open,bid_high,bid_low,bid_close,ask_open,ask_high,"
+                "ask_low,ask_close,spread_min_points,spread_max_points,ticks\n"
+                "2026.09.24 00:00,1790208000,1.2,1.21,1.19,1.205,1.2001,1.2102,1.1905,1.2052,1,50,9\n"
+                "2026.09.24 00:02,1790208120,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,0,0,1\n")
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "bidask_1514731800_AUDNZD.csv")
+            with open(p, "w") as fh:
+                fh.write(body)
+            b = load_bidask_file(p)
+        self.assertEqual(len(b), 1)                       # the minute at `to` is dropped
+        self.assertEqual(b.t[0], 1790208000.0 - 10800)
+        self.assertEqual((b.ask_low(0), b.ask_high(0), b.spread[0]), (1.1905, 1.2102, 1))
+        self.assertTrue(b.has_ask)
 
 
 class TestAggregates(unittest.TestCase):

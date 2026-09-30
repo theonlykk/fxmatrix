@@ -136,25 +136,30 @@ class SideReplay:
         if True:
             g = geom_at(self.tl, b.t[i])
             cap = self.cap_override or g.cap
-            s = b.spread[i] * b.point
             if not self.layers:
-                prev = i - 1 if i > i0 else i
-                mid = b.c[prev] + s / 2.0 if i > i0 else b.o[i] + s / 2.0
+                if i > i0:
+                    mid = (b.c[i - 1] + b.ask_close(i - 1)) / 2.0
+                else:
+                    mid = (b.o[i] + b.ask_open(i)) / 2.0
                 # ADR-123/124: L0 is placed once; a resting L0 re-centres only
                 # while the OTHER side holds layers (Grind_TryRecenterOppositeL0)
                 self._place_l0(mid, g, recentre=(other_depth is None or other_depth > 0))
-            o, h, l, c = b.o[i], b.h[i], b.l[i], b.c[i]
-            path = (o, l, h, c) if c >= o else (o, h, l, c)
+            # path points (bid, ask); order by the bid: O-L-H-C when C >= O
+            O = (b.o[i], b.ask_open(i))
+            Lo = (b.l[i], b.ask_low(i))
+            H = (b.h[i], b.ask_high(i))
+            C = (b.c[i], b.ask_close(i))
+            path = (O, Lo, H, C) if C[0] >= O[0] else (O, H, Lo, C)
             t = b.t[i]
             for a, z in zip(path, path[1:]):
-                if z < a:
-                    self._down(a, z, s, g, cap, t)
-                elif z > a:
-                    self._up(a, z, s, g, cap, t)
+                if z[0] < a[0]:
+                    self._down(a, z, g, cap, t)
+                elif z[0] > a[0]:
+                    self._up(a, z, g, cap, t)
             t_close = t + 60
             if self.auto_eject and len(self.layers) >= cap and self._s1(i) and self._s3(i):
-                self._eject(c, s, t_close)
-            self._record(c, s, cap, t_close)
+                self._eject(C, t_close)
+            self._record(C, cap, t_close)
         return self
 
     def _place_l0(self, mid, g, recentre=True):
@@ -181,31 +186,30 @@ class SideReplay:
     def _pending_entry(self):
         return self.l0 if not self.layers else self.next_add
 
-    def _down(self, a, z, s, g, cap, t):
-        """Bid moves down from a to z (z < a)."""
+    def _down(self, a, z, g, cap, t):
+        """Price moves down from point a to z; points are (bid, ask)."""
         if self.long:
-            # buy limits fill when the ask (bid + s) <= level
+            # buy limits fill when the ask <= level
             while self._can_add(cap):
                 lvl = self._pending_entry()
-                if lvl is None or z + s > lvl + EPS:
+                if lvl is None or z[1] > lvl + EPS:
                     break
-                fill = min(lvl, a + s)
-                self._fill(lvl, fill, t, g, cap)
+                self._fill(lvl, min(lvl, a[1]), t, g, cap)
         else:
-            # short exits: buy limits fill when ask <= exit
-            self._exits(lambda ex: z + s <= ex + EPS, lambda ex: min(ex, a + s), g, t)
+            # short exits: buy limits fill when the ask <= exit
+            self._exits(lambda ex: z[1] <= ex + EPS, lambda ex: min(ex, a[1]), g, t)
 
-    def _up(self, a, z, s, g, cap, t):
-        """Bid moves up from a to z (z > a)."""
+    def _up(self, a, z, g, cap, t):
+        """Price moves up from point a to z; points are (bid, ask)."""
         if self.long:
-            self._exits(lambda ex: z >= ex - EPS, lambda ex: max(ex, a), g, t)
+            # long exits: sell limits fill when the bid >= exit
+            self._exits(lambda ex: z[0] >= ex - EPS, lambda ex: max(ex, a[0]), g, t)
         else:
             while self._can_add(cap):
                 lvl = self._pending_entry()
-                if lvl is None or z < lvl - EPS:
+                if lvl is None or z[0] < lvl - EPS:
                     break
-                fill = max(lvl, a)
-                self._fill(lvl, fill, t, g, cap)
+                self._fill(lvl, max(lvl, a[0]), t, g, cap)
 
     def _exits(self, reached, price_of, g, t):
         while self.layers:
@@ -242,24 +246,27 @@ class SideReplay:
         else:
             best, j = None, None
             for x in range(lo, i + 1):
-                ah = b.h[x] + b.spread[x] * b.point
+                ah = b.ask_high(x)
                 if best is None or ah >= best - EPS:
                     best, j = ah, x
         return i - j >= W
 
     def _s3(self, i):
+        """Current spread (the bar's close when the ask is known, else the bar
+        spread) <= k x the mean M1 bar spread of the last 60 bars."""
         if i < 59:
             return False
-        sp = self.b.spread
-        mean = sum(sp[i - 59:i + 1]) / 60.0
-        return sp[i] <= self.k * mean + EPS
+        b = self.b
+        mean = sum(b.spread[i - 59:i + 1]) / 60.0
+        cur = (b.ac[i] - b.c[i]) / b.point if b.has_ask else b.spread[i]
+        return cur <= self.k * mean + EPS
 
-    def _eject(self, c, s, t):
+    def _eject(self, C, t):
         # the most underwater layer: highest fill for a long, lowest for a short
         lay = max(self.layers, key=lambda L: L.fill) if self.long else min(self.layers, key=lambda L: L.fill)
         was_deepest = self.layers[-1] is lay
         self.layers.remove(lay)
-        out = c if self.long else c + s
+        out = C[0] if self.long else C[1]
         self.events.append((t, "eject", self._pnl(lay, out)))
         self.holds.append(("eject", lay.t, t))
         if not self.layers:
@@ -268,8 +275,8 @@ class SideReplay:
         elif was_deepest:
             self.next_add = lay.level
 
-    def _record(self, c, s, cap, t):
-        px = c if self.long else c + s
+    def _record(self, C, cap, t):
+        px = C[0] if self.long else C[1]
         self.mtm.append((t, sum(((px - L.fill) if self.long else (L.fill - px)) * self.v
                                 for L in self.layers)))
         n = len(self.layers)
