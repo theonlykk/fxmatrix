@@ -94,8 +94,8 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
 - **Impact:** no side reached cap (none did in cycle 3's first 48 h), no
   halt, no quarantine recorded. Those instances' closed P&L for the FTMO
   day was positive, with no ejections (read through the fetch tool, 29
-  Sep; unverified: confirm from the archive before `fill_logs` expire,
-  ~8 Oct).
+  Sep; unverified: confirm from the archive; `fill_logs` are kept, the
+  "~8 Oct" expiry noted here was wrong, `grid-thesis.md` T8).
 - **Handled:** no action.
 - **Changed:** C49 (add delays: measure, do not build) -- shallow layers
   WANT spike fills; nothing argued for a delay.

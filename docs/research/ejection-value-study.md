@@ -63,7 +63,8 @@ ejection until the held world's first layer returns to its exit.
   entry_type, deal_price, order_price_open, deal_time_broker_msc,
   position_id, profit, swap, commission), `ea_events` (EJECT_*, ROLL_*),
   `config_events` (max_layers, add, exit per instance and time).
-  **Retention: `fill_logs` 14 days** -> export at least weekly.
+  **Retention (CORRECTED 30 Sep):** no job deletes `fill_logs`; `ea_events`
+  (EJECT_*, ROLL_*) are deleted at 90 days (`grid-thesis.md` T8).
   Export: a new `archive_counts.py --export-study --days N` flag printing
   JSON lines to stdout (read-only SELECTs; no web change).
 - Prices: M1 bars (time, OHLC bid, spread) per symbol from a read-only
@@ -165,7 +166,8 @@ filled; 1-8 `EJECT_ACCEPTED` rows per ticket (trailing). No episode scored
 yet: 24/48 h of bars after each ejection are needed.
 
 **Data changes:** export `--days 14` (the depth rebuild needs every ENT
-since each fleet started; `fill_logs` keeps 14 days); IC bars from box 2
+since each fleet started; 14 days was chosen on a wrong retention premise,
+see s3); IC bars from box 2
 (VNC works; box 1's repo stays on the live build); FTMO bars from the
 desktop terminal's flat `MQL5\Scripts\`. A close-by whose EXT IN deal is
 missing (a fill in a broker resync, C76) pairs on the layer's ENT leg;
@@ -184,4 +186,4 @@ open at the chain end (omitting them flatters ejection): headline which?
 
 **Inferred, not verified:** the night multiplier (Wed 3, Sat/Sun 0, else
 1; C61 is open).
-Line count: 187
+Line count: 189
