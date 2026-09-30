@@ -1260,3 +1260,25 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   invents fills. Use `scripts/grind_bidask_dump.mq5` (true ask).
 - **Cycle 2 used fleet A's instance ids.** Any archive window reaching
   before 24 Sep mixes two books; filter by session -> account.
+
+## TRAPS FROM 2026-09-30 AFTERNOON (PIPSHED FLEET D, SANDBOX PG, WINE-D)
+
+- **The sandbox scratch PostgreSQL role is `verify`, not `postgres`.**
+  After a container restart a stale `.s.PGSQL.55432.lock` and
+  `postmaster.pid` stop it starting. As root:
+  `rm -f /var/tmp/pgverify/.s.PGSQL.55432* /var/tmp/pgverify/data/postmaster.pid`
+  then
+  `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pgverify/data -l /var/tmp/pgverify/log -o '-p 55432 -k /var/tmp/pgverify -c listen_addresses=127.0.0.1' start"`
+  (`log` is a FILE). Per suite: drop and create database `verify` as
+  role `verify`, `VERIFY_DATABASE_URL=postgresql://verify@127.0.0.1:55432/verify`.
+- **A test asserting a null is a design statement.** FS3 ("D url must be
+  null") broke when D got its address; grep the verify scripts for the
+  old value and change them IN the tests-first commit, not after.
+- **The JSON was right and the page was wrong:** the dashboard's
+  placeholder card hard-coded "Fleet D -- not built yet" / NOT BUILT
+  whatever the API said. Read the template branch too (FD12 guards it).
+- **A fake Redis without `lrange` passes with tracebacks:** the fleet
+  strip logs ERROR per fleet and carries on, hiding a real failure. Give
+  every fake the methods the code path calls (`lrange` -> `[]`).
+- **Say the hostname:** wine-test, wine-c, wine-d (operator 30 Sep), not
+  box 1/2/3; the desktop SSH short names stay `box1`/`box2`.

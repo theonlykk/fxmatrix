@@ -331,4 +331,40 @@ repo `~/fxmatrix-repo` is owned by khalid (`sudo -u khalid git -C ...`).
 **Box 1's repo stays on `5685e4f`** (the live build): do not pull `main`
 there; copy single scripts instead.
 
-Line count: 334
+
+## 10. WINE-D = BOX 3 = FLEET D (C85, BUILT 30 SEP, NOT ATTACHED)
+
+**Names (operator 30 Sep): call the boxes by hostname.** wine-test = box 1
+(Fleet B, 207.148.14.197), wine-c = box 2 (Fleet C, 64.177.116.219),
+wine-d = box 3 (Fleet D, 216.128.158.33). The desktop's `~/.ssh/config`
+short names `box1`, `box1-vnc`, `box2`, `box2-rdp` are unchanged.
+
+Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
+- Vultr, Ubuntu 24.04; `apt -y upgrade` and REBOOT
+  while empty (new kernel confirmed with `uname`); i386 + `apt update`
+  before `wine64 wine32 winbind`; `wine --version` = `wine-9.0`.
+- xrdp + XFCE, user `khalid` in the right groups; **RDP works on wine-d**
+  (XFCE desktop seen), through an SSH tunnel to local port 3392. Check
+  `which x11vnc` before the attach and install it if missing (s9 fallback).
+- `winecfg` once (the RpcSs `err:ole` lines are noise), MT5 installed and
+  started detached (s9 `setsid nohup` line), logged in to IC Markets demo
+  **53077984**; the shell that started it was closed and MT5 kept running.
+  Before the attach, confirm `demo account - hedging mode` in the Journal.
+- Repo cloned at `7ca65e2` (`~/fxmatrix-repo`, owned by khalid); EA files
+  copied into `MQL5/Experts/fxmatrix` and `Scripts/fxmatrix`: 76 files
+  identical to the repo (`cmp`). `fxgrind.mq5` and `fxgrind_tests.mq5`
+  each compiled clean, ONE file at a time.
+- **Suite 2368/2368** (SUMMARY line) on the empty terminal, run ONCE
+  before anything trades; Global Variables empty afterwards. Never run
+  it there again once an EA is attached.
+- Key injected by `scp` wine-c -> wine-d as root, `chown khalid:khalid`,
+  `chmod 600`: 44 bytes, `sha256sum | cut -c1-12` = `fc6b3d9c56a8` on
+  both boxes (never print the key itself).
+- **Open:** confirm Tools -> Options -> Expert Advisors -> WebRequest
+  lists `https://pipshed.com` (asked 30 Sep; unconfirmed). Algo Trading
+  stays OFF until the attach.
+- **Not attached** (operator 27 Sep: not before the roll-watch after
+  C63). The rest of the path (pipshed page, Railway, Cloudflare,
+  `fleet-d.md`, presets, attach) is backlog C85.
+
+Line count: 370

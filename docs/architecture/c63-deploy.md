@@ -43,7 +43,7 @@ Nothing is deployed by this document. Amends `fleet-b.md` (B2) and
   (document 2), staged on each box with the CURRENT key. **MET 30 Sep:**
   box 2 03:35Z from its repo at `b6ad868`, box 1 03:37Z from
   `origin/main` `b6ad868` by `git show` (box 1's checkout stays on
-  `5685e4f`, 06 s10); each box 11/11 `SAME_EXCEPT_KEY key=1 lines=37`,
+  `5685e4f`, 06 s9); each box 11/11 `SAME_EXCEPT_KEY key=1 lines=37`,
   key 43 chars from `~/.fxgrind_telemetry.key` (the file the live
   presets were staged from); new `*_lat.set` beside the old files.
 - **P3** WITHDRAWN 29 Sep (s11): the key rotation is not part of C63.
