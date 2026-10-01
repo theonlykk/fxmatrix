@@ -423,6 +423,16 @@ bool Grind_ValidateLatticeInputs(const bool lattice, const bool auto_eject)
    return true;
 }
 
+bool Grind_ValidateRerollInputs(const bool lattice, const bool reroll)
+{
+   return true;
+}
+
+bool Grind_LatticeRerollPaused(const datetime server_now)
+{
+   return false;
+}
+
 bool Grind_LatticeLevelCrossed(const bool is_long, const double price, const double level)
 {
    if(is_long)

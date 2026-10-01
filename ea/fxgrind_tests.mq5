@@ -26,6 +26,7 @@
 #include "fxgrind_tests_gv.mqh"
 #include "fxgrind_tests_rb.mqh"
 #include "fxgrind_tests_adr164.mqh"
+#include "fxgrind_tests_adr165.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9411,6 +9412,19 @@ void OnStart()
    Test_DR18_SeedBeforeReconGuardAbsorbs();
    Test_EQH1_FoundWhenNotNewest();
    Test_EQH2_MissZeroesThenLateExtAttaches();
+   Test_RR1_ValidateRerollInputs();
+   Test_RR2_RerollIndex();
+   Test_RR3_RerollPaused();
+   Test_RR4_SingleRerollLong();
+   Test_RR5_InputOff();
+   Test_RR6_ThrottleOnePerCall();
+   Test_RR7_Pause();
+   Test_RR8_Short();
+   Test_RR9_AccrualKeptShiftNotCompounded();
+   Test_RR10_ModifyFails();
+   Test_RR11_ClosingCandidateStops();
+   Test_RR12_OnTickWiring();
+   Test_RR13_FirstRollsThenOneReroll();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

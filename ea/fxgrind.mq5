@@ -32,6 +32,7 @@ input bool   InpAutoEject              = false;  // ADR-157 automatic passive ej
 input int    InpAutoEjectStableMinutes = 5;      // ADR-157 W: no new extreme for W of the last 2W minutes
 input double InpAutoEjectSpreadMult    = 1.5;    // ADR-157 k: spread <= k x mean of last 60 M1 bars
 input bool   InpVirtualLattice = false; // ADR-162 virtual lattice past cap
+input bool   InpLatticeReroll = false; // ADR-165 continuous re-roll (requires lattice)
 input bool   InpBreakerEnable = true;   // ADR-158 account daily-loss breaker
 input bool   InpSessionEnable = false;   // ADR-161 entry window 07:00-16:55 Toronto (Fleet B)
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
@@ -211,6 +212,10 @@ int OnInit()
       Print("FATAL: InpVirtualLattice requires InpAutoEject=false (ADR-162 s7)");
       return INIT_FAILED;
    }
+   if(!Grind_ValidateRerollInputs(InpVirtualLattice, InpLatticeReroll)) {
+      Print("FATAL: InpLatticeReroll requires InpVirtualLattice=true (ADR-165 s4.1)");
+      return INIT_FAILED;
+   }
 
    if(!Grind_MagicLockClaim(InpMagic)) {
       Print("FATAL: duplicate magic ", InpMagic,
@@ -347,6 +352,7 @@ int OnInit()
          " toronto_utc_offset=", Grind_TorontoUtcOffset(TimeGMT()),
          " open_now=", Grind_SessionOpenAt(TimeGMT()));
    Print("GRIND_LATTICE enable=", InpVirtualLattice);
+   Print("GRIND_REROLL enable=", InpLatticeReroll);
    Print("GRIND_GEOMETRY long width=", DoubleToString(g_geo_width_long, 4),
          " add=", DoubleToString(g_geo_add_long, 4),
          " exit=", DoubleToString(g_geo_exit_long, 4),
@@ -356,8 +362,9 @@ int OnInit()
    Print("GRIND_REBUILD long=", g_grind_rebuild_long ? "true" : "false",
          " short=", g_grind_rebuild_short ? "true" : "false");
    Grind_ArchiveMarker("INFO", "LATTICE_CONFIG", "", 0,
-                       StringFormat("{\"enable\":%s}",
-                                    InpVirtualLattice ? "true" : "false"));
+                       StringFormat("{\"enable\":%s,\"reroll\":%s}",
+                                    InpVirtualLattice ? "true" : "false",
+                                    InpLatticeReroll ? "true" : "false"));
    EventSetTimer(1);
    return INIT_SUCCEEDED;
 }
@@ -435,7 +442,7 @@ void OnTick()
    Grind_LatticeOnTick(InpMagic, InpSlot, InpLots, InpVirtualLattice,
                        g_geo_exit_long, g_geo_add_long,
                        InpMaxLayers, g_grind_halted || g_grind_quarantined, TimeCurrent(),
-                       g_geo_exit_short, g_geo_add_short);
+                       g_geo_exit_short, g_geo_add_short, InpLatticeReroll);
    Grind_SessionStep(InpMagic, InpSlot, InpSessionEnable, TimeGMT(), true);
    Grind_BreakerOnTick(InpMagic, InpSlot, InpBreakerEnable);
 
