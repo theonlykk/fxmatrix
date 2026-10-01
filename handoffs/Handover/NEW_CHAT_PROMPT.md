@@ -6,7 +6,7 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 has the RESTATE-AND-STOP rule;
-s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s22 to **s25** (s25
+s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s22 to **s26** (s26
 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-09-28 to 2026-10-01;
 `handoffs/Handover/08_BACKLOG.md` (above all C63, C76/C77, C84-C87);
@@ -94,8 +94,8 @@ screenshotted (the Inputs tab's last rows); presets carry
 
 | | |
 |---|---|
-| fxmatrix `main` | the 1 Oct ~01:05Z handoff patch on `75d325f` (`research/grid_thesis`); EA code = `0335f25` (check line above) |
-| pipshed `main` | `052c72a` (brighter grey) on `d1733dc` (C7 card line) on `3dfe808` (layer table market line) on `fb612c6` (Fleet D page); 28 verify suites, all green on a fresh scratch PG |
+| fxmatrix `main` | docs to HANDOFF s26 (1 Oct ~02:00Z: runbook s6, v2.2 and C9 drafts, backlog clean-up); EA code = `0335f25` (check line above) |
+| pipshed `main` | `052c72a` (C9 second-key patch waiting in Downloads, push after C63) (brighter grey) on `d1733dc` (C7 card line) on `3dfe808` (layer table market line) on `fb612c6` (Fleet D page); 28 verify suites, all green on a fresh scratch PG |
 | VPS (cycle 3) | `5685e4f`; MetaTrader LiveUpdate pending (Later) |
 | wine-test (Fleet B) | `ssh box1`, VNC `ssh box1-vnc` + `localhost:5910`; `5685e4f`; lattice presets staged (P2) |
 | wine-c (Fleet C) | `ssh box2`; x11vnc line in 06 s9, port 5911; `e2ac9fe` compiled; repo `b6ad868` or later; lattice presets staged (P2); log checker at `/root/c63_logcheck.awk` |
@@ -105,7 +105,8 @@ screenshotted (the Inputs tab's last rows); presets carry
 
 ## 2. NEXT, IN ORDER (= HANDOFF s25 NEXT SESSION)
 
-1. Verify HEADs. Install the log checker on wine-test (runbook s1).
+1. Verify HEADs. The log checker is on both boxes (wine-test 1 Oct
+   ~01:20Z, dry run PASS). Strip JSON ~14:00Z.
 2. **C63 from 14:30Z** per `c63-deploy.md` and the runbook: wine-c
    (pre-flight C1, copy C2, compile C3, check C4, pilot C5, ten C6, C7),
    then wine-test (B0-B7; its repo move to `main` decided on the B1
@@ -165,4 +166,4 @@ screenshotted (the Inputs tab's last rows); presets carry
   without leading him.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 168
+Line count: 169
