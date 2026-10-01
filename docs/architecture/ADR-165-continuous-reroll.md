@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# ADR-165 -- THE LATTICE NEVER STRANDS: CONTINUOUS RE-ROLL (DRAFT, FOR GEMINI)
+# ADR-165 -- THE LATTICE NEVER STRANDS: CONTINUOUS RE-ROLL (GEMINI-REVIEWED, s9)
 
 Status: DRAFT, written by Claude 1 Oct ~16:40Z on the operator's decision
 (option B, 1 Oct ~16:14Z: "B seems simple - lets do with that"). Extends
@@ -86,6 +86,13 @@ true entry (smallest loss per fill). Ruling wanted.
    warns afresh.
 6. **No new state**: the VL GV is overwritten in place; reconstruction,
    I6 and the carry pass already price from it (R4).
+7. **Throttle (GR-3):** at most ONE re-roll per side per call of
+   `Grind_LatticeTrySide` (one tick or timer pass); a gap's backlog clears
+   on the following ticks. First rolls (ADR-162) are unchanged.
+8. **Rollover pause (GR-4):** no re-roll while the broker clock is in
+   23:50-00:15 server time (the carry pass window and the IC break, C87;
+   20:50-21:15Z while EDT). Written in server time so it survives the
+   November clock change. A side may raise `ROLL_STRANDED` there: expected.
 
 ## 5. COST AND BOUND
 
@@ -121,6 +128,13 @@ of up to 2+ add steps away. The account breaker is the backstop.
 - modify failure on a re-roll -> `ROLL_REFUSED`, backoff, VL NOT
   overwritten;
 - the existing ADR-162 suite unchanged with the input OFF.
+- throttle: all rolled, a gap through three levels -> ONE re-roll on this
+  call, the next on the following call (s4.7);
+- pause: server time 23:55 -> no re-roll (stranded WARN as today); 00:16
+  -> re-roll; boundaries 23:50:00 (paused) and 00:15:00 (resumes) (s4.8);
+- a re-roll of a layer with a recorded clamp shift and an accrual: the
+  shift is deleted or re-recorded (never compounded), the accrual KEPT in
+  the formula (s9 on Gemini's carry point).
 
 ## 7. NEGATIVE SPACE
 
@@ -148,4 +162,38 @@ Attack the premises; name a missing fact.
 - **GR-5** Is `ROLL_STRANDED` still needed with the input ON (only for a
   side whose every layer is closing or whose re-roll keeps failing)?
 
-Line count: 151
+## 9. GEMINI'S RULINGS (1 OCT ~16:40Z) AND CLAUDE'S CHECK
+
+His answers pasted by the operator; checked in source by Claude.
+- **GR-1 ACCEPTED:** re-roll the highest effective entry (long; lowest for
+  a short), as proposed. His "uniform cost structure" is not what a re-roll
+  keeps (s5: the realised loss grows by `cap x add` per rotation); the
+  point that stands is continuity with ADR-162's oldest-first order.
+- **GR-2 ACCEPTED:** re-roll the moment the next level is crossed.
+- **GR-3 ACCEPTED with the premise corrected:** a throttle is right (a big
+  gap would send a burst: each re-roll is about three requests -- one
+  modify, and the exit queue's remove and place as the resting pair
+  shifts -- against the 2,000-a-day budget), but C87 was IC holding
+  requests across its rollover, not an "API ban". Rule s4.7.
+- **GR-4 ACCEPTED with the reason corrected:** his mechanism is backwards.
+  A long rolls on the ASK reaching the level and a spread spike lifts the
+  ask; a short rolls on the BID and a spike lowers it
+  (`Grind_LatticeLevelCrossed`, `grind_pure.mqh` 426-431; `TrySide` passes
+  the ask for longs, `grind_engine.mqh` 1193); exits are passive limits a
+  spike moves away from. The reasons to pause are the nightly carry pass
+  (it re-prices rolled exits in the same window) and IC's rollover
+  rejecting or holding requests (C87). Rule s4.8. His line that a
+  commanded eject then targets "the most recently re-rolled (furthest)"
+  layer is wrong: after a re-roll that layer is the NEAREST; ADR-155 still
+  takes the most underwater by effective entry, so it is safe.
+- **GR-5 ACCEPTED:** keep `ROLL_STRANDED` as the failure signal (every
+  layer closing, or re-rolls failing / paused).
+- **His s4 "design flaw" (carry shift compounding) REJECTED: already
+  handled.** `Grind_LatticeRollLayer` deletes or re-records the layer's
+  clamp shift on every roll (`grind_engine.mqh` 1033-1036, 1040) and prices
+  from the new level + the ACCRUED swap (1013-1014). The accrual is the
+  position's real financing paid and must NOT be zeroed "as a fresh entry
+  would" (that would mis-price the exit by the swap already booked). A
+  test pins both (s6).
+
+Line count: 199
