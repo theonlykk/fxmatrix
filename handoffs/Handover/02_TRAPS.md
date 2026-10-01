@@ -1361,3 +1361,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   screenshot again. The key has been public for months: C9 is a
   data-integrity item now (anyone can push telemetry), not a trading one.
 - **A screenshot of the Inputs dialog must stop above `TelemetryAPIKey`.**
+
+## TRAPS FROM 2026-10-01 EARLY MORNING (WINE-D: A WEDGED X, VNC)
+
+- **Stale RDP tunnels wedge the X display.** After connection drops, two
+  old `sshd` sessions on wine-d still held forwarded RDP connections;
+  xrdp had ~9.8 MB queued to a dead client and blocked, and with it X
+  (`xdpyinfo` hung, x11vnc froze after printing its version). Fix: list
+  them (`ss -tnp | grep ':3389'`), kill only the stale `sshd` pids (never
+  the session you are typing in: `ps -o ppid= -p $$`), and X answers
+  again within seconds. MT5 kept running throughout.
+- **x11vnc for a shaky line:** `-noipv6 -forever` (the tunnel's
+  "localhost" tried `[::1]` first and five attempts sat unaccepted in its
+  queue; `-once` exits after one dropped client). One SSH window can be
+  both shell and tunnel: `ssh -o ServerAliveInterval=15 -o
+  ServerAliveCountMax=8 -L 5912:localhost:5912 root@216.128.158.33`, run
+  from the DESKTOP prompt (it was once typed inside wine-d).
+- **A fresh box has no `MQL5/Presets`:** create it as khalid before
+  staging (`sudo -u khalid mkdir -p`).

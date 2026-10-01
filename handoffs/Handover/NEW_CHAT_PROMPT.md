@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-01 ~04:30Z (THURSDAY; C63 DONE; ROLL-WATCH RUNNING)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-01 ~05:25Z (THURSDAY; C63 DONE; FLEET D LIVE; ROLL-WATCH RUNNING)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
@@ -27,7 +27,7 @@ s1, s6, s10, s11; `research/swap_day/README.md`;
 
 ## 0. THE MOST IMPORTANT FACTS
 
-**Three fleets live, 11/11 each. Call the boxes by HOSTNAME** (operator):
+**Four fleets live, 11/11 each. Call the boxes by HOSTNAME** (operator):
 - **Cycle 3** (VPS, FTMO 1514731800, `5685e4f`): FROZEN except defect
   fixes; still EJECTS at cap (the comparison). `https://pipshed.com`.
 - **Fleet B** (wine-test, 207.148.14.197, IC 53066709): `main` `0335f25`,
@@ -36,9 +36,12 @@ s1, s6, s10, s11; `research/swap_day/README.md`;
   **lattice ON since 04:16Z**. **Its charts load `Scripts\fxmatrix\
   fxgrind.ex5`: a build there means compiling `Scripts/fxmatrix/
   fxgrind.mq5`** until C88 re-attaches them from Experts. GUI x11vnc 5911.
-- **Fleet D** (wine-d, 216.128.158.33, IC 53077984): BUILT, NOT
-  ATTACHED (after the roll-watch, then `fleet-d.md`; C85). Its history
-  starts with the C78 probe's deals (magic 99078001).
+- **Fleet D** (wine-d, 216.128.158.33, IC 53077984): **LIVE since
+  05:19Z**, D0 = anchor settings + lattice from a flat start
+  (`fleet-d.md`); D1 = the first compass probe (Gemini, after the
+  roll-watch). Strip says NOT ATTACHED until the pipshed flip (C85 (f)).
+  History starts with the C78 probe's deals (magic 99078001). GUI: x11vnc
+  `-noipv6 -forever` on 5912 (02_TRAPS 1 Oct early morning).
 
 **C63 is DONE** (1 Oct 03:20-04:20Z, c63-deploy.md s12): no rollback, no
 bad line, ADR-164 live on B and C (the VPS keeps the C76 gap until cycle
@@ -94,7 +97,7 @@ dialog above `TelemetryAPIKey`); presets carry `TelemetryAPIKey=` blank.
 | VPS (cycle 3) | `5685e4f`; MetaTrader LiveUpdate pending (Later) |
 | wine-test (Fleet B) | `ssh box1`, VNC `ssh box1-vnc` + `localhost:5910`; repo `main`; log checker `/root/c63_logcheck.awk` |
 | wine-c (Fleet C) | `ssh box2`; x11vnc 5911 (06 s9); repo `b6ad868` (ea = main); charts on the Scripts copy (C88); log checker installed |
-| wine-d (Fleet D) | root@216.128.158.33; repo `dcec1f0`; Algo OFF; empty |
+| wine-d (Fleet D) | root@216.128.158.33; repo `dc40203`; D0 live, Algo ON; log checker installed |
 
 ---
 
@@ -151,4 +154,4 @@ dialog above `TelemetryAPIKey`); presets carry `TelemetryAPIKey=` blank.
   One paste per step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 154
+Line count: 157

@@ -70,6 +70,22 @@ in session, or no POST ok.
 
 ## 5. RECORD
 
-(filled at the attach)
+- **D0 attached 1 Oct 05:10-05:19Z** (Asia session; spreads single-digit
+  points), over VNC after the X display was unwedged (02_TRAPS 1 Oct
+  wine-d). Presets staged 04:33Z (`MQL5/Presets` created first: a fresh
+  box has none), 11 `SAME_EXCEPT_KEY key_len=43`; log checker installed;
+  `Experts/fxmatrix/fxgrind.ex5` 317,844 bytes, 30 Sep 18:58, source =
+  repo.
+- GBPUSD pilot 05:10:32Z: `replay=ready(0) lattice=true geo=L5/9/10
+  S5/9/10 rebuild=false/false`, POST ok. The other ten 05:12:58-05:19:23Z,
+  each `lattice=true rebuild=false/false`, geometry = the table, twins
+  add 8 / 10, BAD 0. AUDCHF first attached on H1 (05:15:04), removed and
+  re-attached on M5 (05:15:34): one instance, its resting orders adopted.
+- `LATTICE_CONFIG` for all 11 D ids; no `DEAL_EVENT_MISSED`, no
+  `REPLAY_SEED_FAILED`. Geometry register: D rows opened at these times.
+- Left: pipshed strip flip (`placeholder` off, `cycle_start` 2026-10-01;
+  C85 (f)); every chart was dragged from Expert Advisors -> fxmatrix
+  (the operator's attach; the chart profiles are written on exit, so the
+  `path=` check waits for the next MT5 restart).
 
-Line count: 75
+Line count: 91

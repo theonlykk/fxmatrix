@@ -387,8 +387,9 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
   BUY_LIMIT = 200, then 10040 "Position limit reached" (local, 0.2 ms);
   cleanup EMPTY; Algo Trading OFF again. The account's history now starts
   with these deals (magic 99078001). Backlog C78.
-- **Not attached** (operator 27 Sep: not before the roll-watch after
-  C63). The rest of the path (pipshed page, Railway, Cloudflare,
+- **D0 ATTACHED 1 Oct 05:10-05:19Z** (fleet-d.md s5). GUI: x11vnc
+  `-noipv6 -forever -rfbport 5912` on `:10`, tunnel from the desktop
+  prompt; stale RDP tunnels can wedge X (02_TRAPS 1 Oct early morning). The rest of the path (pipshed page, Railway, Cloudflare,
   `fleet-d.md`, presets, attach) is backlog C85.
 
-Line count: 394
+Line count: 395
