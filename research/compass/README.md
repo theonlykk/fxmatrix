@@ -25,7 +25,33 @@ and `grind_bidask_dump.mq5` on wine-c (IC; B shares the server).
   lattice.
 
 No unit tests: a one-off evidence run whose numbers are quoted in
-`fleet-d.md` s6.0 (E5-E7). The round's SCORING code (next, tests first)
-will live here too.
+`fleet-d.md` s6.0 (E5-E7).
 
-Line count: 31
+
+## compass_score.py -- scoring a round (backlog C91)
+
+    python research/compass/compass_score.py --export <study_export.jsonl> [--export ...] --round research/compass/round1.json
+    python -m unittest research/compass/test_compass.py -v
+
+Rules: `fleet-d.md` s6.5 as amended by s6.8 (module docstring has them in
+full). The round file (`round1.json`) holds the accounts, the windows
+(FTMO days, 22:00Z to 22:00Z; days counted explicitly so weekends never
+count), the threshold (pooled $1.19; AUDNZD long twin $1.40), the probe
+table and each probe's reload time (= its register row; a GUARD test
+checks it). A repeated probe is scored over ALL its rounds: give the next
+round's file every window so far.
+
+Run it after the round's last window closes (round 1: Mon 5 Oct after
+22:00Z) on a fresh `--export-study --days 14`; it prints a warning and
+no verdict is final while the export ends before the round does.
+
+17 tests, hand-derived; at the tests-first commit 16 errored as predicted
+and the guard passed. Each rule broken once and caught by a named test
+(strict margin, add-only gates, entry gate, per-hour gate, a comparator
+that held nothing, twin vs primary, twin threshold, entry cutoff, hours
+clipped, weekend closes, promotion by the larger margin, accounts
+filter, side filter, per-day divisor). Cross-check: on 28-30 Sep it
+reproduces `d1_evidence.py`'s ledger totals exactly (AUDCHF S B/C,
+EURGBP L B, GBPUSD L A).
+
+Line count: 57

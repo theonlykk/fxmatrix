@@ -219,9 +219,10 @@ thresholds, kept as the noise record):
 | NZDCAD OPT / twin | 1.10 / 1.00 | 1.00 / 1.00 |
 | AUDNZD OPT / twin | 1.00 / 1.40 | 1.00 / 1.00 |
 
-- **Scoring code:** `research/compass/` (tests first, hand-derived
-  expected values), built during this review; it does not exist today
-  (pipshed cards have no side split or FTMO-day history).
+- **Scoring code:** `research/compass/compass_score.py` with
+  `round1.json` (backlog C91, built 1 Oct after the reloads; tests first,
+  hand-derived; README there). Run after Mon 5 Oct 22:00Z on a fresh
+  export.
 
 ### 6.6 DEPLOY (after Gemini; one paste per step)
 
@@ -353,4 +354,4 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
   - **Round 1 = FTMO days Fri 2 Oct + Mon 5 Oct** (ends Mon 5 Oct 22:00Z;
     the last reload was 06:49:39Z Thursday). Register rows opened.
 
-Line count: 356
+Line count: 357

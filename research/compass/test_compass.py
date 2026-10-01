@@ -289,8 +289,9 @@ class TestRoundFile(unittest.TestCase):
         (preset de73e46); windows are Fri 2 + Mon 5 Oct, 2 days."""
         cfg = cs.load_round(os.path.join(HERE, "round1.json"))
         reg = os.path.join(HERE, "..", "..", "docs", "research", "geometry_register.csv")
-        opened = {r["instance"]: r["from_utc"] for r in csv.DictReader(open(reg))
-                  if r["preset_commit"] == "de73e46"}
+        with open(reg, newline="") as fh:
+            opened = {r["instance"]: r["from_utc"] for r in csv.DictReader(fh)
+                      if r["preset_commit"] == "de73e46"}
         probes = {p[f]["probe"] for p in cfg["pairs"].values() for f in ("C", "D")}
         self.assertEqual(len(probes), 18)
         self.assertEqual(set(cfg["reloads"]), probes)
