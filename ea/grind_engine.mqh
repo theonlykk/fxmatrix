@@ -957,7 +957,29 @@ int Grind_LatticeCountRolled(const GrindSideState &side)
 //+------------------------------------------------------------------+
 int Grind_LatticeRerollIndex(const GrindSideState &side, const bool is_long)
 {
-   return -1;
+   const int n = Grind_SideDepth(side);
+   int best = -1;
+   for(int i = 0; i < n; i++) {
+      const ulong ticket = side.layers[i].position_ticket;
+      if(ticket == 0)
+         continue;
+      if(!Grind_VLHas(ticket))
+         continue;
+      const double vl = Grind_VLGet(ticket);
+      if(best < 0) {
+         best = i;
+         continue;
+      }
+      const double bv = Grind_VLGet(side.layers[best].position_ticket);
+      if(is_long) {
+         if(vl > bv || (vl == bv && side.layers[i].layer_index < side.layers[best].layer_index))
+            best = i;
+      } else {
+         if(vl < bv || (vl == bv && side.layers[i].layer_index < side.layers[best].layer_index))
+            best = i;
+      }
+   }
+   return best;
 }
 
 //+------------------------------------------------------------------+
