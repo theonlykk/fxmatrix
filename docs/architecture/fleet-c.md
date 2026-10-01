@@ -204,4 +204,14 @@ the slot from 14:30Z to the Asia session (03:20Z, quiet calendar until
   `Scripts/fxmatrix/fxgrind.mq5` on wine-c until they are re-attached
   from Experts (backlog C88).
 
-Line count: 207
+
+**A3 (2026-10-01, PRE-REGISTERED, NOT YET APPLIED) -- C PROBES ADD IN
+THE FIRST COMPASS ROUND (D1).** Operator 1 Oct ~05:55Z: B holds the
+anchor, D probes exit, C probes ADD (one pip tighter, +1 at the add-3
+floor: EURGBP, NZDCHF), and the two twins carry the probe while
+NZDCAD_OPTC and AUDNZD_OPTC stay on the anchor. C stops being B's
+replica at the D1 reload. Table, round, score and deploy:
+`fleet-d.md` s6 (for Gemini). Reload is by parameter (no compile), so
+C88 (charts on the Scripts copy) does not block it.
+
+Line count: 217
