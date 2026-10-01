@@ -40,6 +40,8 @@ Add to this list rather than removing from it.
 Two limits are per ACCOUNT, not per strategy:
 
 - **200 positions + orders.** The commitment guard stops entries at 194.
+  The same on IC Markets (measured 1 Oct on a hedging demo, C78): about
+  11-12 instances per account at cap 8 and today's adds.
   On 2026-09-18 the book sat at 195 with 16 instances at 0.01 lots.
 - **The broker API budget.** 2,000 requests/day on this demo. It is the
   reason partial fills cannot be handled richly, and the reason the fleet
@@ -184,4 +186,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 187
+Line count: 189

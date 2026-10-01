@@ -379,8 +379,14 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
   -> `qedollf2.up.railway.app` (proxied) and TXT
   `_railway-verify.linuxd` added by hand. `linuxd.pipshed.com` serves
   the eleven `_OPTD`/`_ALTD` ids; the strip shows D NOT ATTACHED.
+- **C78 limit probe, 1 Oct 02:49-02:53Z** (`scripts/grind_limit_probe.mq5`,
+  repo pulled to `dcec1f0`, sha `eafc291aa2500a4e`, compiled 0/0 ONE file,
+  DRY then RUN with Algo Trading ON only for the run): 30 positions + 170
+  BUY_LIMIT = 200, then 10040 "Position limit reached" (local, 0.2 ms);
+  cleanup EMPTY; Algo Trading OFF again. The account's history now starts
+  with these deals (magic 99078001). Backlog C78.
 - **Not attached** (operator 27 Sep: not before the roll-watch after
   C63). The rest of the path (pipshed page, Railway, Cloudflare,
   `fleet-d.md`, presets, attach) is backlog C85.
 
-Line count: 386
+Line count: 392
