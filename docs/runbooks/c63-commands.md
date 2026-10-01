@@ -14,8 +14,12 @@ STEP PER MESSAGE; this file is the reference, not a script to paste whole.
 | S1 | Init prints, in this order: `GRIND_REPLAY ready seeded=` (before recon), `fxgrind CONFIG ... key=<status>` (no key value), `GRIND_SESSION`, `GRIND_LATTICE enable=`, `GRIND_GEOMETRY` (4 dp), `GRIND_REBUILD`; deinit prints `fxgrind deinit reason=` | `fxgrind.mq5` 252, 287, 346-357, 374; `grind_replay.mqh` 183; `grind_config.mqh` | VERIFIED in source |
 | S2 | `LATTICE_CONFIG` is an ARCHIVE marker, not a log line: check it with `--codes` | `fxgrind.mq5` 358 | VERIFIED |
 | S3 | No `ea/` or preset change between `b6ad868` (wine-c repo, P2) and `main`; 76 EA files at `main` | git | VERIFIED |
-| S4 | The log check (s1) was tested on synthetic UTF-16 logs under mawk, then dry-run on wine-c's real 28 Sep log (30 Sep ~22:50Z): 11 inits, geometry as the register, the 16:27Z halt and the 16:57Z shortfall caught as BAD lines | sandbox; wine-c | PASS (installed on wine-c; wine-test still to install) |
-| S5 | Compile deinit reason 2 (recompile); Properties reload reason 5 | BOOT s3; 02_TRAPS 25 Sep | VERIFIED (docs) |
+| S4 | The log check (s1) was tested on synthetic UTF-16 logs under mawk, then dry-run on wine-c's real 28 Sep log (30 Sep ~22:50Z): 11 inits, geometry as the register, the 16:27Z halt and the 16:57Z shortfall caught as BAD lines | sandbox; wine-c | PASS. wine-test: installed 1 Oct ~01:20Z (2493 bytes), dry run on its 27 Sep log from 23:00: 9 rows at exactly the B1 reload times (fleet-b.md), `deinit=5 session=false`, the v2 columns MISSING as `5685e4f` prints none of them, BAD 0: PASS |
+| S5 | Compile deinit reason 2 (recompile); Properties reload reason 5 | BOOT s3; 02_TRAPS 25 Sep; `config_events` DEINIT rows | VERIFIED: `deinit_reason=2` on all 22 instances at the 25 Sep compiles (wine-test 04:42:56Z, VPS 04:50:38Z) |
+| S6 | A recompile that INSERTS inputs keeps each chart's values by NAME: the 25 Sep compile (`6c57830` -> `5685e4f`) inserted `InpSessionEnable` mid-list and every archived INIT field after it was identical on 22 of 22 instances (previous chat, 1 Oct ~01:20Z). `0335f25` adds 7 inputs on wine-test (six per-side at -1.0, `InpVirtualLattice` false: their declared defaults) and 1 on wine-c | `fxgrind.mq5` 19-24, 34 | VERIFIED (archive + source) |
+| S7 | Inputs not in the archive record: `InpFillTimePlace`, `InpSlotNearReserve`, `InpEntryHorizonPips` are in the Experts-log CONFIG line (every preset: true / 8 / 0); `InpAutoEject*` and `InpBreakerEnable` are not printed (`InpAutoEject` is covered at stage 2 by the FATAL guard) | `grind_config.mqh` 59-90; `presets_b`, `presets_c` | VERIFIED |
+| S8 | Drift check, exact: Experts vs `0335f25` differs in 5 files on wine-c (from `e2ac9fe`: `fxgrind.mq5`, `fxgrind_tests.mq5`, `fxgrind_tests_adr164.mqh` new, `grind_engine.mqh`, `grind_replay.mqh` new) and 19 on wine-test (from `5685e4f`, 7 of them new); no file was removed, so nothing stale stays behind | git | VERIFIED |
+| S9 | The DEINIT `config_event` is built at the next init from the CURRENT inputs (C68): today's reload DEINIT rows show the new run's values. Compare INIT rows only | `fxgrind.mq5` 309-329 | VERIFIED |
 
 ## 0. WHEN AND WHAT NOT TO DO
 
@@ -29,6 +33,14 @@ STEP PER MESSAGE; this file is the reference, not a script to paste whole.
 - STOP (c63-deploy s5) on any BAD line, `lattice=MISSING`, `rebuild=` with
   `true`, `replay=DEFERRED` or `MISSING`, a `geo=` different from s4, or no
   POST ok: stop before the next chart and bring it to the chat.
+- NOT a stop: an auto-ejection between stage 1 and the chart's reload (the
+  current inputs still have auto-eject on); a side already AT CAP rolling
+  at once after its reload (the lattice reads tick history back to that
+  side's newest open, ADR-162 s15, by design). At 00:23Z 1 Oct the deepest
+  sides were depth 7 (A EURGBP long, B and C EURUSD long). Re-read the
+  strip before 14:30Z.
+- Before VNC on either box: `pgrep -u khalid -af Xorg` and use the display
+  it shows in the x11vnc line (`:10` is from 26-28 Sep).
 
 ## 1. THE LOG CHECK (install once per box; read-only)
 
@@ -107,9 +119,9 @@ Access: VNC (06 s9): in `ssh box2` start x11vnc (the 06 s9 line, port
 R=/home/khalid/fxmatrix-repo; X="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"/Experts/fxmatrix; sudo -u khalid git -C $R log -1 --format='%h %s' | cut -c1-80; n=0; for f in $R/ea/*.mq5 $R/ea/*.mqh; do cmp -s "$f" "$X/$(basename "$f")" || { n=$((n+1)); echo "DIFF $(basename "$f")"; }; done; echo "files differing Experts vs repo: $n"
 ```
 
-Expected: repo `b6ad868` or later; a handful of DIFF lines (the ADR-164 and
-C77 files: `e2ac9fe` -> `0335f25`), e.g. `grind_replay.mqh` missing or
-different.
+Expected: repo `b6ad868` or later (its `ea/` equals `main`: no pull
+needed); exactly 5 DIFF lines (S8): `fxgrind.mq5`, `fxgrind_tests.mq5`,
+`fxgrind_tests_adr164.mqh`, `grind_engine.mqh`, `grind_replay.mqh`.
 
 ```
 P="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"/Presets; R=/home/khalid/fxmatrix-repo; for f in $R/ea/presets_c/*_lat.set; do b=$(basename $f); if [ -f "$P/$b" ] && diff -q <(grep -v '^TelemetryAPIKey=' "$P/$b") <(grep -v '^TelemetryAPIKey=' "$f") >/dev/null; then k=$(grep '^TelemetryAPIKey=' "$P/$b" | cut -d= -f2- | tr -d '\r\n' | wc -c); echo "SAME_EXCEPT_KEY key_len=$k $b"; else echo "MISMATCH $b"; fi; done | sort | uniq -c | sort -rn | head -12
@@ -177,19 +189,31 @@ Access: `ssh box1-vnc`, then on the box as root the x11vnc line of 06 s4
 sudo -u khalid git -C /home/khalid/fxmatrix-repo status -sb | head -5; sudo -u khalid git -C /home/khalid/fxmatrix-repo log -1 --format='%h %s' | cut -c1-80
 ```
 
-Expected `5685e4f`. What comes next (fetch + checkout/pull to `main`)
-depends on this output (branch or detached): decided in the chat.
+Expected `5685e4f`. What comes next depends on this output: if it reads
+`## main...origin/main [behind N]` with no modified or untracked lines,
+fast-forward as khalid (`sudo -u khalid git -C /home/khalid/fxmatrix-repo
+fetch origin`, then `... merge --ff-only origin/main`) and read `log -1`
+(the `main` head, EA == `0335f25`); detached, ahead or dirty: STOP and
+decide in the chat.
 
-**B2** the move to `main`, then the same drift check as C1 (more DIFF lines
-here: `5685e4f` -> `0335f25` is v2.0 + v2.1 + ADR-164), and the presets
-check with `presets_b` (`*_b_lat.set`, 11 `SAME_EXCEPT_KEY key_len=43`).
+**B2** the move to `main`, then the same drift check as C1 (exactly 19
+DIFF lines here, S8: `5685e4f` -> `0335f25` is v2.0 + v2.1 + ADR-164), and
+the presets check with `presets_b` (`*_b_lat.set`, 11 `SAME_EXCEPT_KEY
+key_len=43`).
 
 **B3-B7** as C2-C7 with `presets_b` and the B ids, plus (c63-deploy s4) after
 the compile: Tools -> Global Variables (F3), two spot checks,
 `GRIND_GEO_EXIT_<magic>_L` and `_S` equal to the exit (e.g. 22260101 ->
 10, 22260301 -> 5). This is wine-test's FIRST v2.1 init on an inherited
 book: `rebuild=false/false` is the pass (GC63-4); any `true` or
-`STARTUP_EXIT_SHORTFALL` is a STOP.
+`STARTUP_EXIT_SHORTFALL` is a STOP. Also at B4 (S6, S7): the Experts-log
+`fxgrind CONFIG` line of GBPUSD and one twin reads `InpFillTimePlace=true
+InpSlotNearReserve=8 InpEntryHorizonPips=0.0000` with the chart's own
+magic, instance and geometry; then, from `D:\pipshed`, `archive_counts.py
+--table config_events --instance GRIND_GBPUSD_OPTB --limit 4`: the new
+INIT row equal to the previous INIT row in every field the previous one
+has, except the build and the time (v2.x adds per-side geometry fields;
+ignore DEINIT rows, S9).
 
 ## 4. EXPECTED GEOMETRY (both boxes; register; long = short)
 
@@ -217,4 +241,4 @@ rows tell OPT from ALT by the add, 8 vs 10.)
   A2 records with times, c63-deploy.md s6 rollbacks (if any), backlog C63
   done / C76 C77 live on B and C, BOOT s6. No geometry register rows.
 
-Line count: 220
+Line count: 244
