@@ -69,13 +69,16 @@ true entry (smallest loss per fill). Ruling wanted.
    `LATTICE_CONFIG` record.
 2. **Candidate** (new, pure, testable): `Grind_LatticeRerollIndex(side,
    is_long)` = the rolled layer with the highest (long) / lowest (short)
-   effective entry, ties to the lowest `layer_index`, skipping any layer
-   whose exit is filled or unselectable (closing).
+   effective entry, ties to the lowest `layer_index`. A closing layer is
+   NOT skipped here: if the candidate's exit is filled or unselectable, the
+   existing closing check STOPS the loop, exactly as for a first roll (R5;
+   the side is about to drop below cap and needs no re-roll). Amended with
+   the Cursor prompt (GC-1); the draft said "skipping".
 3. **Trigger** in `Grind_LatticeTrySide`: where today `idx < 0` calls
    `Grind_LatticeMaybeStranded` and breaks (1201-1204), with the input ON
    take the re-roll candidate and roll it to `level` with `source
    "reroll"`; the loop continues to the next level as for a first roll.
-   With no re-roll candidate (every layer closing) or the input OFF:
+   With no rolled layer to take, the input OFF, or the pause (s4.8):
    today's stranded WARN, unchanged.
 4. **Roll**: `Grind_LatticeRollLayer` gains a parameter `allow_reroll`
    (default false) that skips the `ALREADY_ROLLED` refusal; everything
@@ -113,13 +116,14 @@ of up to 2+ add steps away. The account breaker is the backstop.
 - input refusal: reroll ON with lattice OFF -> FATAL; both OFF and lattice
   ON alone unchanged;
 - candidate: highest effective entry among rolled layers (long), lowest
-  (short); ties by index; closing layers skipped; none -> -1;
+  (short); ties by index; none -> -1; a closing candidate stops the loop
+  (no roll, no stranded WARN) as a first roll does (s4.2);
 - trigger: all rolled at cap, market through the next level -> one re-roll
   to that level, VL overwritten, exit = level + exit (+ accrued), detail
   `reroll:true` with `from_level`; input OFF -> `ROLL_STRANDED` as today and
   no modify;
-- a gap through three levels -> three re-rolls in rotation order, bounded
-  by `max_layers`;
+- a gap through three levels -> three re-rolls in rotation order over
+  three calls (one per call, s4.7);
 - rank: after a re-roll the re-rolled layer is rank 0 (nearest) and the
   barbell (rank 0 + highest rank) rests;
 - I6 / reconstruction after a re-roll: exit matches the formula from the
@@ -196,4 +200,4 @@ His answers pasted by the operator; checked in source by Claude.
   would" (that would mis-price the exit by the swap already booked). A
   test pins both (s6).
 
-Line count: 199
+Line count: 203
