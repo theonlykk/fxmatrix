@@ -13,6 +13,26 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
 
 ---
 
+### 30 Sep 21:00-21:13Z -- IC's rollover held order requests (B, C; not A)
+- **What:** at the 30 Sep server midnight (quarter-end and month-end,
+  the triple-swap night) IC Markets answered modifies `[Market closed]`
+  up to ~2m48s late or not at all: 15 requests on box 1 and 17 on box 2
+  timed out at exactly 180 s (retcode 10012), at the same seconds on both
+  boxes, on every pair the EAs touched (AUDNZD, NZDCAD, CADCHF, NZDCHF,
+  AUDCHF). Before it, 23:50-23:53 server, IC had no AUDNZD quotes (10021:
+  the carry pass's "failed" on C's AUDNZD). FTMO over the same window:
+  every request ok, slowest 1.5 s.
+- **Impact:** none seen: no halt, no CRITICAL, carry pass 33/33. Each
+  timeout blocked that EA's thread for 3 minutes.
+- **Handled:** measured, not acted on. The wine-c journal shows no
+  disconnect (broker-side; Wine not excluded without an IC account on
+  Windows). Over 7 nights it happened once; every other IC night rejects
+  fast at the documented 23:59-00:01 break.
+- **Changed:** backlog C87 (measure, then an IC rollover quiet window,
+  default OFF, Gemini); 02_TRAPS 1 Oct early.
+- **Evidence:** pipshed `send_logs` (AUDNZD on A, B, C; the all-instance
+  count by retcode), wine-c `logs/20260930.log`; HANDOFF s25.
+
 ### 30 Sep 01:47Z -- AUD cluster: four ejections in 7 seconds (B, C; not A)
 - **What:** 01:46:58-01:47:05Z four AUD sides on box 1 reached cap and
   auto-ejected (`AUDNZD_ALTB`, `AUDNZD_OPTB`, `AUDCAD_OPTB`,
@@ -184,4 +204,4 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 187
+Line count: 207
