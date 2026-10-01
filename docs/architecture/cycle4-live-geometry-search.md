@@ -301,4 +301,10 @@ any quiet time. First probe values: a `fleet-d.md` pre-registration
 (Gemini) after the roll-watch. The pipshed fleet strip (C7) now shows
 every fleet on one page.
 
-Line count: 304
+
+**8.14 PROGRESS (1 Oct ~04:20Z).** Step 3 DONE: C63 deployed `main` with
+the lattice on box 1 (wine-test, 04:02Z) and box 2 (wine-c, 04:16Z),
+the two kept matched (c63-deploy.md s12). Step 4 (the roll-watch)
+RUNNING; operator: no wind-down brake (ADR-162 s19).
+
+Line count: 310

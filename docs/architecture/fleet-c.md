@@ -175,4 +175,33 @@ open (about two hours) and after Fleet B's reload was confirmed clean,
 so one change at a time. The session for the verdict (s2) is therefore
 Asia to NY on Monday 28 Sep, to 17:00 ET, plus that night's carry pass.
 
-Line count: 178
+
+**A2 (2026-10-01) -- C63: `main` `0335f25` + LATTICE (phase 2, s3).**
+Per `c63-deploy.md` and `docs/runbooks/c63-commands.md`; operator moved
+the slot from 14:30Z to the Asia session (03:20Z, quiet calendar until
+07:15Z), and wine-c finished SECOND (s12 there).
+- Pre-flight 03:20-03:25Z: card LIVE 11/11 green, guard 170/194, deepest
+  side EURUSD L 7 (none at cap); repo `b6ad868` (its `ea/` = `main`),
+  Experts drift exactly 5 files, presets 11 `SAME_EXCEPT_KEY key_len=43`,
+  spreads 1-4 points. Copy `cmp ok=152 bad=0`.
+- **Compile did not reload (03:30:49Z, again 03:36Z):** wine-c's eleven
+  charts run `Scripts\fxmatrix\fxgrind.ex5` (every `chart*.chr` in the
+  Default profile), not the Experts copy we compiled. A parameter reload
+  (GBPUSD " x" 03:33:58Z) and a terminal exit/restart (04:08:05Z, deinit 9)
+  both kept the OLD build (`replay=MISSING`). Found by reading the chart
+  profiles (02_TRAPS 1 Oct C63).
+- **Stage 1:** `Scripts/fxmatrix/fxgrind.mq5` compiled in MetaEditor
+  (its source = `0335f25`, copied at C2): all eleven reinit 04:10:52Z,
+  `deinit=2 replay=ready(0) session=false lattice=false
+  rebuild=false/false`, geometry = register, BAD 0.
+- **Stage 2:** GBPUSD pilot 04:12:40Z (`lattice=true`, read back before
+  OK); the other ten 04:14:28-04:16:39Z, every row `deinit=5
+  lattice=true rebuild=false/false`, twins correct (add 8 / 10), BAD 0.
+  `LATTICE_CONFIG` for all 11 C ids; no `DEAL_EVENT_MISSED`, no
+  `REPLAY_SEED_FAILED`. Card 04:19:35Z LIVE 11/11 green, guard 171.
+- No rollback. From 04:16:39Z Fleet C rolls at cap (ADR-162); auto-eject
+  off; commanded eject on. Charts still load the Scripts copy: compile
+  `Scripts/fxmatrix/fxgrind.mq5` on wine-c until they are re-attached
+  from Experts (backlog C88).
+
+Line count: 207

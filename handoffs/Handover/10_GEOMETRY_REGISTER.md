@@ -52,8 +52,9 @@ cycle-3 value.
 
 ## NEXT EXPECTED ROWS
 
-C63 (Thursday) changes no geometry: code and lattice only, so no rows.
+C63 deployed 1 Oct (B 04:02Z, C 04:16Z) with no geometry change: no
+rows, as planned (geometry checked on every chart at both stages).
 The first new rows come with the compass rounds (cycle-4 note s8.4-8.5)
 and box 3 (Fleet D).
 
-Line count: 59
+Line count: 60

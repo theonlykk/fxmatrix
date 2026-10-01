@@ -176,4 +176,28 @@ follow as its own document once pipshed accepts a second key
 (`TELEMETRY_API_KEY_NEXT`) for the changeover (backlog C9). Gemini:
 reply only if you object.
 
-Line count: 179
+
+## 12. RECORD (1 OCT, 03:20-04:20Z)
+
+Operator moved the slot to the Asia session (01 Oct ~03:20Z: in session,
+quiet calendar until 07:15Z, spreads checked on each box). Order
+changed by events: wine-c's compile did not reload its charts, so
+wine-test went first (operator).
+
+| box | stage | time (Z) | result |
+|---|---|---|---|
+| wine-c | pre-flight, copy | 03:22-03:25 | drift 5, presets 11, cmp 152, spreads 1-4 pt |
+| wine-c | compile (Experts copy) | 03:30:49, 03:36 | NO reload: the charts run the Scripts copy |
+| wine-test | repo | 03:40 | `5685e4f` -> `dcc108f` (ff) |
+| wine-test | compile | 03:46:05 | 11 rows `deinit=2 replay=ready`, rebuild false/false, BAD 0 |
+| wine-test | reloads | 03:51:38-04:02:21 | 11 `lattice=true`, BAD 0 |
+| wine-c | MT5 exit/restart | 04:08:05 | 11 rows `deinit=9`, old build (`replay=MISSING`) |
+| wine-c | compile (Scripts copy) | 04:10:52 | 11 rows `deinit=2 replay=ready`, rebuild false/false, BAD 0 |
+| wine-c | reloads | 04:12:40-04:16:39 | 11 `lattice=true`, BAD 0 |
+
+Rollbacks (s6): none. A6/GC63-4: the strict pass RAN on wine-test's
+inherited book (03:46:05Z) with no rebuild and no shortfall. No
+`DEAL_EVENT_MISSED` or `REPLAY_SEED_FAILED` in the hour after. Cards
+04:19:35Z: A, B, C LIVE 11/11 green.
+
+Line count: 203

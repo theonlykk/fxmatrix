@@ -328,8 +328,10 @@ the viewer on `localhost::5911`. It exits when the viewer disconnects.
 `install -o khalid -g khalid -m 664 /root/<file> "<MQL5 root>/Scripts/fxmatrix/<file>"`
 (khalid cannot read `/root`); check `sha256sum | cut -c1-16`. The box's
 repo `~/fxmatrix-repo` is owned by khalid (`sudo -u khalid git -C ...`).
-**Box 1's repo stays on `5685e4f`** (the live build): do not pull `main`
-there; copy single scripts instead.
+**wine-test's repo moved to `main` at C63 (1 Oct 03:40Z, ff to `dcc108f`):
+pull `main` there like wine-c.** **wine-c's charts load the SCRIPTS copy
+of the EA** (`Scripts\fxmatrix\fxgrind.ex5`; backlog C88): compile that
+file there, or re-attach from Experts first.
 
 
 ## 10. WINE-D = BOX 3 = FLEET D (C85, BUILT 30 SEP, NOT ATTACHED)
@@ -389,4 +391,4 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
   C63). The rest of the path (pipshed page, Railway, Cloudflare,
   `fleet-d.md`, presets, attach) is backlog C85.
 
-Line count: 392
+Line count: 394

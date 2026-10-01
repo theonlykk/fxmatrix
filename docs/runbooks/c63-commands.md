@@ -241,6 +241,19 @@ rows tell OPT from ALT by the add, 8 vs 10.)
   A2 records with times, c63-deploy.md s6 rollbacks (if any), backlog C63
   done / C76 C77 live on B and C, BOOT s6. No geometry register rows.
 
+## 5a. AS RUN (1 OCT 03:20-04:20Z; c63-deploy s12)
+
+- **wine-c's charts load `Scripts\fxmatrix\fxgrind.ex5`** (chart
+  profiles), so C3 on wine-c means compiling `Scripts/fxmatrix/
+  fxgrind.mq5` until the charts are re-attached from Experts (C88).
+  Check which file a box's charts load BEFORE any compile:
+  `iconv -f UTF-16LE -t UTF-8 <MQL5>/Profiles/Charts/*/chart*.chr | grep -a '^path=.*fxgrind'`.
+- A parameter reload and a terminal restart both load the binary at the
+  chart's path; neither picks up a compile of a different copy.
+- The checker files lines by SYMBOL: twins starting in the same second
+  interleave (one row with only `replay`, one with `deinit=-` and the
+  rest). Read the pair together.
+
 ## 6. THE ROLL-WATCH (from each box's reloads; c63-deploy s7)
 
 Added 1 Oct ~02:20Z from source at `0335f25`. The lattice has never run
@@ -263,10 +276,11 @@ live: read every code below the first time it appears.
 
 **6.2 Commands** (desktop, `D:\pipshed`; one at a time).
 
-Counts per instance and code, first/last:
+Counts per instance and code, first/last (the comma list in SINGLE
+quotes: unquoted, PowerShell splits it and the query returns "none."):
 
 ```
-railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes ROLL_ACCEPTED,ROLL_FILLED,ROLL_REFUSED,ROLL_STRANDED,ROLL_CLOSING_STUCK,DEAL_REPLAYED,DEAL_EVENT_AFTER_REPLAY,DEAL_EVENT_MISSED,CONNECTION_RESTORED,REPLAY_SEED_FAILED,EJECT_ACCEPTED --hours 6
+railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes 'ROLL_ACCEPTED,ROLL_FILLED,ROLL_REFUSED,ROLL_STRANDED,ROLL_CLOSING_STUCK,DEAL_REPLAYED,DEAL_EVENT_AFTER_REPLAY,DEAL_EVENT_MISSED,CONNECTION_RESTORED,REPLAY_SEED_FAILED,EJECT_ACCEPTED' --hours 6
 ```
 
 The rows of one instance with their detail (prices, levels):
@@ -312,7 +326,11 @@ Invoke-WebRequest -UseBasicParsing -UserAgent "Mozilla/5.0" "https://linuxc.pips
 
 **6.5 What the watch records** (c63-deploy s7; a few days): per fleet
 and day, rolls accepted / filled, minutes to fill, realised $ of rolls
-(B, C) beside ejections (A), stranded episodes, `DEAL_*` counts; the
-roll-watch verdict decides `fleet-d.md` (C85).
+(B, C) beside ejections (A), stranded episodes, `DEAL_*` counts; per
+side and episode, rolls and distance travelled (the size of the tail
+the operator chose to hold: no wind-down brake, ADR-162 s19); on a trend
+day, A vs B/C: scalps per realised loss, mean $ per roll vs per
+ejection, the day's net. The roll-watch verdict decides `fleet-d.md`
+(C85).
 
-Line count: 318
+Line count: 336

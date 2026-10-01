@@ -1253,7 +1253,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   (not `MQL5/Logs`).
 - **Compile ONE file in MetaEditor.** `Scripts/fxmatrix` holds copies of
   the whole EA; compiling the folder builds them there (harmless: live
-  EAs run `Experts/fxmatrix/fxgrind.ex5`). Check that file's date and
+  EAs run `Experts/fxmatrix/fxgrind.ex5`). **CORRECTED 1 Oct: WRONG for
+  wine-c, whose charts load `Scripts\fxmatrix\fxgrind.ex5`: that 30 Sep
+  15:22 compile rebuilt the live EAs' binary (same source, so no harm).** Check that file's date and
   the log for `deinit` if unsure; never RUN `fxgrind_tests` on a live box.
 - **An M1 bar's spread is the minute's MINIMUM.** At news and rollover
   the bid spikes while the real ask stays far away: bid + bar spread
@@ -1338,3 +1340,24 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   correct test then "fails" or a mutant "survives". Run mutation checks
   with `PYTHONDONTWRITEBYTECODE=1` and delete `__pycache__` first (1 Oct,
   `research/grid_thesis`).
+
+## TRAPS FROM 2026-10-01 C63 (WRONG BINARY, RELOADS, QUOTING, KEY)
+
+- **A chart loads the `.ex5` at the path it was attached from.** wine-c's
+  eleven charts were attached from `Scripts/fxmatrix` on 27 Sep; every
+  compile of `Experts/fxmatrix/fxgrind.mq5` tonight changed nothing live.
+  Read the chart profiles before compiling (`Profiles/Charts/*/chart*.chr`,
+  UTF-16: `path=`). wine-test's charts load the Experts copy.
+- **A parameter reload (reason 5) keeps the loaded binary**, and a
+  terminal restart reloads from the chart's path: neither picks up a
+  compile of another copy. Proof of the new build at init is
+  `GRIND_REPLAY ready` (`replay=ready` in the checker).
+- **PowerShell splits an unquoted comma list** before `railway ssh` sees
+  it: `--codes A,B` arrived as "A B" and returned "none.". Quote it:
+  `--codes 'A,B'`.
+- **The live telemetry key = the key committed in `ea/Globals.mqh` since
+  19 Jun** (the first 34 of 43 characters compared in the sandbox,
+  neither printed), after the Inputs tab's key row appeared in a
+  screenshot again. The key has been public for months: C9 is a
+  data-integrity item now (anyone can push telemetry), not a trading one.
+- **A screenshot of the Inputs dialog must stop above `TelemetryAPIKey`.**

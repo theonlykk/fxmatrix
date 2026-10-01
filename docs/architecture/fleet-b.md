@@ -170,4 +170,29 @@ the day's log `reloads: 9`, no bad line. The two `_ALTB` twins untouched
 first FTMO day under B1 is 28 Sep (from 22:00Z 27 Sep); 28 Sep also
 opens with gap fills (02_TRAPS 27 Sep).
 
-Line count: 173
+
+**B2 (2026-10-01) -- C63: `main` `0335f25` + LATTICE (first `main` on
+wine-test).** Same documents as Fleet C's A2; done FIRST tonight because
+wine-c's compile did not reload (fleet-c.md A2).
+- Repo `5685e4f` (`main`, clean, behind 93) fast-forwarded as khalid to
+  `dcc108f` 03:40Z; Experts drift exactly 19 files (`5685e4f` ->
+  `0335f25`); presets 11 `SAME_EXCEPT_KEY key_len=43`; copy 152/152;
+  spreads 0-2 points.
+- **Stage 1:** compile of `Experts/fxmatrix/fxgrind.mq5`; all eleven
+  reinit 03:46:05Z, `deinit=2 replay=ready(0) session=false
+  lattice=false`, **`rebuild=false/false` on every chart: wine-test's
+  first v2.x start on its inherited book, GC63-4's strict pass RUN and
+  passed**; geometry = register; BAD 0. CONFIG lines GBPUSD and the
+  NZDCAD twins: own magic, instance and add, `InpFillTimePlace=true
+  InpSlotNearReserve=8 InpEntryHorizonPips=0.0000` (inputs carried by
+  name). Global Variables: all 22 `GRIND_GEO_EXIT_<magic>_L/_S` written
+  03:46 (10; EURGBP 5). Archive INIT 03:46:06Z, `ea_build fxgrind
+  2026.10.01 03:45:48`.
+- **Stage 2:** GBPUSD pilot 03:51:38Z; the other ten 03:58:52-04:02:21Z,
+  every row `deinit=5 lattice=true rebuild=false/false`, twins correct,
+  BAD 0; `LATTICE_CONFIG` for all 11 B ids. Card 04:19:35Z LIVE 11/11
+  green, guard 177.
+- No rollback. From 04:02:21Z Fleet B rolls at cap; the B1 dial is
+  unchanged (no geometry register rows).
+
+Line count: 198

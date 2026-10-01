@@ -13,6 +13,22 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
 
 ---
 
+### 1 Oct 03:20-04:20Z -- C63: `main` + lattice on wine-test and wine-c (B, C; not A)
+- **What:** `main` `0335f25` (v2.1 + ADR-164 + C77) compiled and every
+  chart reloaded with its `_lat` preset: wine-test 03:46:05Z / 03:51-
+  04:02Z, wine-c 04:10:52Z / 04:12-04:16Z. The first live lattice; the
+  first `main` on wine-test (strict start on its inherited book: clean).
+- **Impact:** a restart per chart; wine-c's EAs down ~1-2 min at its MT5
+  restart (04:07-04:08Z). No halt, no bad line, no rollback.
+- **Handled:** wine-c's compiles of the Experts copy did not reload: its
+  charts load the Scripts copy (found in the chart profiles); compiling
+  `Scripts/fxmatrix/fxgrind.mq5` did. wine-test went first meanwhile.
+- **Changed:** B and C roll at cap; ADR-164 live on both IC fleets (C76,
+  C77); 02_TRAPS 1 Oct C63; backlog C88 (move wine-c's charts to the
+  Experts copy).
+- **Evidence:** both boxes' `MQL5/logs/20261001.log` (checker rows),
+  `config_events`, `--codes LATTICE_CONFIG`; c63-deploy.md s12.
+
 ### 30 Sep 21:00-21:13Z -- IC's rollover held order requests (B, C; not A)
 - **What:** at the 30 Sep server midnight (quarter-end and month-end,
   the triple-swap night) IC Markets answered modifies `[Market closed]`
@@ -204,4 +220,4 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 207
+Line count: 223

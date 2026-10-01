@@ -25,8 +25,8 @@ a funded or real account until each of these is closed:
   out of the public repo (it is in every handoff); operator, 28 Sep: the
   REPO MADE PRIVATE before real money;
 - C76: a fill that arrives in a broker resync is adopted, not halted on or
-  silently stalled (ADR-164; MERGED `0335f25` 29 Sep, live on the IC
-  boxes from C63; the FTMO VPS still lacks it on `5685e4f`);
+  silently stalled (ADR-164; MERGED `0335f25` 29 Sep, LIVE on wine-test and wine-c since
+  1 Oct ~04:16Z (C63); the FTMO VPS still lacks it on `5685e4f`);
 - C31: an externally flattened book is detected and halts, not retries;
 - C18: quarantine does not escalate while a retry is blocked;
 - C14/C23: partial fills handled, if any lot above 0.01 is planned;

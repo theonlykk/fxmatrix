@@ -385,4 +385,21 @@ layers / deepest effective price per side, `ROLL_STRANDED` and
 `ROLL_CLOSING_STUCK`, and reconciliation. Rolls are out of every scalp
 count. C63's last precondition is met.
 
-Line count: 388
+
+## 19. LIVE (1 OCT 2026) AND THE OPERATOR'S NO-BRAKE RULING
+
+Live on Fleet B from 04:02:21Z and Fleet C from 04:16:39Z (C63,
+`main` `0335f25`; c63-deploy.md s12). Cycle 3 (FTMO) keeps ADR-157.
+
+**Operator, 1 Oct ~03:10Z: no wind-down brake.** A side keeps rolling
+and scalping for as long as a trend runs ("we do not know where the next
+cluster of scalps will be ... we should be open to 300 pips loss on 8
+lots"); the account breaker (ADR-158) is the backstop. Context for the
+record: at cap a side carries cap lots whatever the policy (hold, eject
+and roll all lose cap pips per pip of trend; they differ in when the loss
+is realised and whether the new range is scalped); the correlated case
+(one currency trending against several capped sides) is the breaker's.
+The roll-watch records rolls and distance per side and episode (runbook
+s6.5) to size the tail held.
+
+Line count: 405
