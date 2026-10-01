@@ -1436,4 +1436,32 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   exits that fill during the halt are not closed by (the EA is idle): the
   restart's reconstruction must accept them (or see the trap above).
 - **The day total, not closed P&L, compares ejection with rolling:** 1 Oct
-  A closed -$119 / open -$144 vs B +$46 / -$282; totals -$263 vs -$235.
+
+## TRAPS FROM 2026-10-01 EVENING (LINK STALL, ORPHANS, SUITE COPY)
+
+- **A stalled link drops deals BEFORE MT5 says "connection lost".** The
+  VPS fill at 17:55:20.9Z came ~20 s before the Journal's `lost` line
+  (17:55:41.3). After ANY `connection ... lost` line on A, check every
+  book, not only the instance that halted: a missed ENT halts on I3, a
+  missed EXT stalls a side with no alert at all.
+- **The orphan check reads each instance's NEWEST book only.** Reading
+  the last N `HEARTBEAT_BOOK` lines includes books from before a repair
+  and reports orphans that are already gone. The working command (VPS):
+  `$log = "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\MQL5\Logs\<yyyymmdd>.log"; $last = @{}; Get-Content $log -Encoding Unicode | Select-String 'HEARTBEAT_BOOK' | Select-Object -Last 60 | ForEach-Object { $last[($_.Line -split '\|')[1]] = $_.Line }; foreach ($k in $last.Keys) { $j = ($last[$k] -split '\|HEARTBEAT_BOOK\|', 2)[1] | ConvertFrom-Json; $j.book.positions | Where-Object { $_.comment -like '*|EXT' } | ForEach-Object { "ORPHAN? $k $($_.ticket) $($_.comment) $($_.open_time)" } }; "instances seen: $($last.Count)"`
+  An EXT seconds old is a close-by in flight; minutes old is an orphan.
+  Repair = reattach that chart (`InpConfigWarning` + " x"); twins: read
+  `InpTelemetryInstance` and `InpSlot` first.
+- **Grep logs, do not paste them** (operator). The Experts log is UTF-16:
+  `Get-Content <log> -Encoding Unicode | Select-String ...`; the VPS clock
+  and log times are UTC; the Journal is `<data>\logs\`, the Experts log
+  `<data>\MQL5\Logs\`. Output saved under `D:\fxmatrix\temp\` or
+  Downloads can be read by Claude directly (both folders connected).
+- **Suite run without `desktop_sync.ps1` ran the OLD suite** (total 2366,
+  no RR rows) and on a USDJPY chart (3-digit point: ~200 price failures).
+  Sync after every checkout, confirm a branch-only symbol in the Scripts
+  copy, run on GBPUSD and EURUSD only.
+- **Gemini restated a Cursor prompt as if he were Cursor** (RESTATE AND
+  STOP applies to him too when he reads it). Harmless; his GE answers
+  followed.
+
+Line count: 1467

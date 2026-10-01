@@ -14,6 +14,32 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 1 Oct 17:55Z -- VPS link stalled ~20 s: three deals arrived by sync only (A)
+- **What:** the VPS terminal's link to FTMO-Demo went dead ~17:55:20Z;
+  MT5 declared it lost only at 17:55:41.3, re-authorised 17:55:41.7,
+  synchronized 17:55:42.6. Three deals filled in the dead window and
+  never raised `OnTradeTransaction` (C76; A runs `5685e4f`, without the
+  ADR-164 replay): AUDCAD_OPT long L14 ENT 555146463 (17:55:20.9Z) ->
+  no exit -> `I3_LONG_NAKED`, halted 17:55Z; NZDCAD_OPT and NZDCAD_ALT
+  short L00 EXT 555076933 / 555075403 (17:55:22Z) -> close-bys never
+  queued, both short sides stalled SILENTLY (no invariant sees it).
+  AUDCAD's short L01 exit then filled during the halt (17:57:52Z,
+  ignored by design). An earlier drop at 17:31:38Z (0.6 s) lost nothing.
+- **Handled (operator, RDP, reattach by `InpConfigWarning` + " x"):**
+  AUDCAD 18:27:48 (derived close-by S L01, `STARTUP_EXIT_SHORTFALL
+  long=1`, L14 exit at 0.98625, close-by success 18:27:53); NZDCAD OPT
+  18:34:22 and ALT 18:36:00 (derived close-by S L00, success). Found by
+  reading every instance's newest `HEARTBEAT_BOOK` for `|EXT` positions
+  (traps); all 11 books clean afterwards.
+- **Also:** FTMO's daily request count 1805/2000 at 18:28Z
+  (`WARN_API_SOFT_LIMIT`, the ejection-heavy day); entries stop at 1900
+  by design, exits and close-bys continue; the count resets at server
+  midnight (21:00Z).
+- **Changed:** C97 proposed (pipshed alert for an unpaired EXT position);
+  the orphan check added to the traps.
+- **Evidence:** VPS Journal and Experts logs 1 Oct (grep in this chat);
+  Trade tab screenshot.
+
 ### 1 Oct ~14:00-16:00Z -- CHF trend: seven lattice sides stranded, five unstranded by hand; FTMO AUDNZD halted twice (A, B, C, D)
 - **What:** CHF rallied ~14:00-16:00Z. B, C and D rolled all eight long
   layers on AUDCHF (B, C, D), CADCHF (C) and NZDCHF (B, C, D) within ~35
@@ -274,4 +300,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 277
+Line count: 303

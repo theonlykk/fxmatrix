@@ -73,7 +73,9 @@ true entry (smallest loss per fill). Ruling wanted.
    NOT skipped here: if the candidate's exit is filled or unselectable, the
    existing closing check STOPS the loop, exactly as for a first roll (R5;
    the side is about to drop below cap and needs no re-roll). Amended with
-   the Cursor prompt (GC-1); the draft said "skipping".
+   the Cursor prompt (GC-1); the draft said "skipping". A hand-ejected
+   layer (ADR-155 offset present) IS skipped: the operator's eject stands
+   (s10, D-T5).
 3. **Trigger** in `Grind_LatticeTrySide`: where today `idx < 0` calls
    `Grind_LatticeMaybeStranded` and breaks (1201-1204), with the input ON
    take the re-roll candidate and roll it to `level` with `source
@@ -144,7 +146,9 @@ of up to 2+ add steps away. The account breaker is the backstop.
 
 No market orders; no position opened or closed by this path; no change
 to ADR-157/155 ejection, the breaker, the gate, cap, add, exit or width;
-no change with the input OFF (byte-identical behaviour, suite green); not
+no change to trading with the input OFF (suite green; `ROLL_ACCEPTED`
+gains `"reroll"` and `"from_level"`, `LATTICE_CONFIG` gains `"reroll"`,
+both additive, s10 D-G1); not
 on the FTMO VPS; no deploy before the D1 round 1 verdict.
 
 ## 8. FOR GEMINI
@@ -191,7 +195,10 @@ His answers pasted by the operator; checked in source by Claude.
   layer is wrong: after a re-roll that layer is the NEAREST; ADR-155 still
   takes the most underwater by effective entry, so it is safe.
 - **GR-5 ACCEPTED:** keep `ROLL_STRANDED` as the failure signal (every
-  layer closing, or re-rolls failing / paused).
+  layer closing, or re-rolls failing / paused). Corrected after DeepSeek
+  (s10, D-T3): the signals are those of a first roll -- `ROLL_REFUSED`
+  (modify failure, with backoff), `ROLL_CLOSING_STUCK` (a closing layer
+  for 60 s), `ROLL_STRANDED` (no candidate, or the pause).
 - **His s4 "design flaw" (carry shift compounding) REJECTED: already
   handled.** `Grind_LatticeRollLayer` deletes or re-records the layer's
   clamp shift on every roll (`grind_engine.mqh` 1033-1036, 1040) and prices
@@ -200,4 +207,65 @@ His answers pasted by the operator; checked in source by Claude.
   would" (that would mis-price the exit by the swap already booked). A
   test pins both (s6).
 
-Line count: 203
+
+## 10. DEEPSEEK R1 AUDIT (1 OCT ~17:40Z) AND CLAUDE'S CHECK
+
+Response `prompts/deepseek_adr165_audit_response.md` (branch, `d9dbad7`),
+audited at `ac4433e`. Every verdict checked against the line it quotes.
+- **D-T5 ACCEPTED with the reasoning narrowed (fix: skip hand-ejected
+  layers in `Grind_LatticeRerollIndex`).** A roll deletes a hand-eject
+  offset by design (ADR-162 GB3), and first rolls keep that. But for a
+  re-roll the candidate (highest effective entry, long) and ADR-155's
+  eject target (most underwater by effective entry) are the SAME layer
+  by construction, so every hand eject on a fully rolled side would be
+  undone at the next crossed level; after the pause or a gap, the new
+  exit `level + exit` can sit further from the market than the eject
+  price. The command wins: an ejected layer is not re-rolled; the next
+  highest VL is. All rolled layers ejected -> -1 -> `ROLL_STRANDED`.
+- **D-T3 test gap ACCEPTED, code correct.** The latch clear on a
+  successful re-roll is right and was untested; a test is added. His
+  "failed re-roll gives no `ROLL_STRANDED`" is first-roll behaviour: a
+  modify failure reports `ROLL_REFUSED` and backs off, a closing layer
+  `ROLL_CLOSING_STUCK`. The s9 GR-5 line overstated `ROLL_STRANDED`'s
+  role and is corrected.
+- **D-T4 REJECTED (ruled, GC-3).** `TimeCurrent()` in `OnTick` is the
+  stamp of the tick being handled; a quote stamped 23:49:59 handled at
+  23:50:00.x re-rolls under a second into the window. The carry pass's
+  own window is 23:50-00:00 on `TimeTradeServer()`; the margin is the
+  rest of the 25 minutes.
+- **D-T7 REJECTED (false premise).** Every request, modify included,
+  goes through `Grind_OrderSendCounted` and increments the daily count
+  (`grind_api_counter.mqh` 144-149); only NEW ENTRIES stop at 1900, by
+  design, so exits keep working. A re-roll needs the market to cross a
+  fresh level (one add step), so a side's re-rolls in a day are bounded
+  by its range over `add` (a 200-pip day at add 10 is about 20 re-rolls,
+  about 60 requests); the 00:15 burst is one re-roll per side per tick.
+- **D-G1 REJECTED as a merge blocker.** The trading path is unchanged
+  with the input OFF; the two new JSON fields are additive and pipshed
+  reads detail fields by key (`ejection_view.py` `detail.get`). s7
+  reworded.
+- T-1, T-2, T-6 HOLD (agreed). His T-8 items 3-5 (stale quote, an
+  unselectable exit on a re-roll, a request-rate bound) follow the
+  rejections above or are first-roll paths already tested.
+
+**Gemini on the audit fix (GE, 1 Oct ~18:45Z), checked by Claude:**
+- **GE-1 ACCEPTED in principle, DEFERRED (C98).** The prompt's premise
+  ("for a first roll they rarely are" the same layer) was wrong: ADR-155
+  validates the eject target as rank depth-1 by effective entry, which is
+  always the next roll candidate (the highest unrolled entry, long; with
+  none unrolled, the highest VL). First rolls should skip ejected layers
+  too, but that changes live ADR-162 behaviour with no input and flips
+  the GB3 tests: its own amendment and review, after this deploy.
+- **GE-2 REJECTED.** With every rolled layer ejected and the market two
+  add steps further on, the ejected exits sit behind the market: one
+  amber per episode is wanted.
+- **GE-3 REJECTED (he did not have s10).** A re-roll consumes a level and
+  the next is one add step further, so tick rate alone cannot drive
+  re-rolls; a burst needs a backlog (a gap or the pause), bounded by gap
+  over `add`. First rolls (live) already send up to `max_layers` per call
+  unthrottled; a refused modify backs off from 60 s.
+- Fix `87c9207` (re-rolls skip hand-ejected layers) and tests RR14-RR16:
+  `de846ec` 2441/2447 (the 6 predicted), `87c9207` 2447/2447 on GBPUSD
+  and EURUSD.
+
+Line count: 271

@@ -955,17 +955,49 @@ int Grind_LatticeCountRolled(const GrindSideState &side)
 }
 
 //+------------------------------------------------------------------+
+int Grind_LatticeRerollIndex(const GrindSideState &side, const bool is_long)
+{
+   const int n = Grind_SideDepth(side);
+   int best = -1;
+   for(int i = 0; i < n; i++) {
+      const ulong ticket = side.layers[i].position_ticket;
+      if(ticket == 0)
+         continue;
+      if(!Grind_VLHas(ticket))
+         continue;
+      if(Grind_EjectIsEjected(ticket))
+         continue;
+      const double vl = Grind_VLGet(ticket);
+      if(best < 0) {
+         best = i;
+         continue;
+      }
+      const double bv = Grind_VLGet(side.layers[best].position_ticket);
+      if(is_long) {
+         if(vl > bv || (vl == bv && side.layers[i].layer_index < side.layers[best].layer_index))
+            best = i;
+      } else {
+         if(vl < bv || (vl == bv && side.layers[i].layer_index < side.layers[best].layer_index))
+            best = i;
+      }
+   }
+   return best;
+}
+
+//+------------------------------------------------------------------+
 string Grind_LatticeRollDetail(const ulong ticket, const bool is_long, const int layer_index,
                                const double entry, const double level, const double target,
                                const double accrued, const bool clamped, const double cost,
-                               const int rolled, const bool was_ejected, const string source)
+                               const int rolled, const bool was_ejected, const string source,
+                               const bool reroll = false, const double from_level = 0.0)
 {
    const double cost_pips = cost / (10.0 * _Point);
    return StringFormat(
       "{\"ticket\":%s,\"side\":\"%s\",\"layer_index\":%d,"
       "\"entry\":%s,\"level\":%s,\"target\":%s,"
       "\"accrued\":%s,\"clamped\":%s,\"cost\":%s,\"cost_pips\":%s,"
-      "\"rolled\":%d,\"was_ejected\":%s,\"source\":\"%s\"}",
+      "\"rolled\":%d,\"was_ejected\":%s,\"source\":\"%s\","
+      "\"reroll\":%s,\"from_level\":%s}",
       IntegerToString((long)ticket),
       is_long ? "L" : "S",
       layer_index,
@@ -978,14 +1010,16 @@ string Grind_LatticeRollDetail(const ulong ticket, const bool is_long, const int
       Grind_ArchiveJsonDouble(cost_pips, 1),
       rolled,
       Grind_ArchiveJsonBool(was_ejected),
-      source);
+      source,
+      Grind_ArchiveJsonBool(reroll),
+      Grind_ArchiveJsonDouble(from_level, 5));
 }
 
 //+------------------------------------------------------------------+
 int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int idx,
                            const ulong magic, const string slot, const double lots,
                            const double exit_pips, const double level,
-                           const string source)
+                           const string source, const bool allow_reroll = false)
 {
    if(idx < 0 || idx >= Grind_SideDepth(side))
       return GRIND_ROLL_MODIFY_FAILED;
@@ -995,8 +1029,12 @@ int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int i
    if(pos == 0)
       return GRIND_ROLL_MODIFY_FAILED;
 
-   if(Grind_VLHas(pos))
-      return GRIND_ROLL_ALREADY_ROLLED;
+   double from_level = 0.0;
+   if(Grind_VLHas(pos)) {
+      if(!allow_reroll)
+         return GRIND_ROLL_ALREADY_ROLLED;
+      from_level = Grind_VLGet(pos);
+   }
    if(layer.exit_position_ticket != 0)
       return GRIND_ROLL_CLOSING;
 
@@ -1044,7 +1082,8 @@ int Grind_LatticeRollLayer(GrindSideState &side, const bool is_long, const int i
    const int rolled = Grind_LatticeCountRolled(side);
    const string detail = Grind_LatticeRollDetail(pos, is_long, layer.layer_index, entry, level,
                                                  side.layers[idx].exit_target, accrued, clamped,
-                                                 cost, rolled, was_ejected, source);
+                                                 cost, rolled, was_ejected, source, allow_reroll,
+                                                 from_level);
    Grind_EjectReport("ROLL_ACCEPTED", pos, detail);
    Grind_ExitQManageSide(side, is_long, magic, slot, lots, exit_pips);
    return GRIND_ROLL_OK;
@@ -1164,7 +1203,7 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
                          const string slot, const double lots, const double exit_pips,
                          const double add_pips, const int max_layers, const bool enabled,
                          const bool blocked, const datetime now,
-                         const double extreme = 0.0)
+                         const double extreme = 0.0, const bool reroll = false)
 {
    if(!enabled || blocked)
       return 0;
@@ -1182,6 +1221,7 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
 
    bool closing_stop = false;
    int rolled_count = 0;
+   int rerolls = 0;
    for(int iter = 0; iter < max_layers; iter++) {
       if(Grind_SideDepth(side) < max_layers)
          break;
@@ -1197,10 +1237,21 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
       if(!Grind_LatticeLevelCrossed(is_long, probe, level))
          break;
 
-      const int idx = Grind_LatticeCandidateIndex(side, is_long);
+      int idx = Grind_LatticeCandidateIndex(side, is_long);
+      bool is_reroll = false;
       if(idx < 0) {
-         Grind_LatticeMaybeStranded(side, is_long, level, mkt, add_pips, max_layers, now);
-         break;
+         if(reroll && rerolls >= 1)
+            break;
+         if(!reroll || Grind_LatticeRerollPaused(now)) {
+            Grind_LatticeMaybeStranded(side, is_long, level, mkt, add_pips, max_layers, now);
+            break;
+         }
+         idx = Grind_LatticeRerollIndex(side, is_long);
+         if(idx < 0) {
+            Grind_LatticeMaybeStranded(side, is_long, level, mkt, add_pips, max_layers, now);
+            break;
+         }
+         is_reroll = true;
       }
 
       if(side.layers[idx].exit_position_ticket != 0) {
@@ -1209,8 +1260,9 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
          break;
       }
 
+      const string roll_source = is_reroll ? "reroll" : "auto";
       const int rc = Grind_LatticeRollLayer(side, is_long, idx, magic, slot, lots, exit_pips,
-                                           level, "auto");
+                                           level, roll_source, is_reroll);
       if(rc == GRIND_ROLL_MODIFY_FAILED) {
          if(is_long) {
             g_grind_vl_fail_count_long++;
@@ -1243,6 +1295,13 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
          g_grind_vl_fail_count_long = 0;
       else
          g_grind_vl_fail_count_short = 0;
+      if(is_reroll) {
+         rerolls++;
+         if(is_long)
+            g_grind_vl_stranded_warned_long = false;
+         else
+            g_grind_vl_stranded_warned_short = false;
+      }
       rolled_count++;
    }
 
@@ -1256,7 +1315,7 @@ void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots
                          const bool enabled, const double exit_pips, const double add_pips,
                          const int max_layers, const bool blocked, const datetime now,
                          const double exit_pips_short = 0.0,
-                         const double add_pips_short = 0.0)
+                         const double add_pips_short = 0.0, const bool reroll = false)
 {
    if(!enabled)
       return;
@@ -1266,12 +1325,12 @@ void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots
 
    if(Grind_SideDepth(g_grind_long) >= max_layers)
       Grind_LatticeTrySide(g_grind_long, true, magic, slot, lots, exit_pips, add_pips, max_layers,
-                           enabled, blocked, now, g_grind_vl_extreme_long);
+                           enabled, blocked, now, g_grind_vl_extreme_long, reroll);
    if(Grind_SideDepth(g_grind_short) >= max_layers) {
       const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
       const double add_s = Grind_SidePips(false, add_pips, add_pips_short);
       Grind_LatticeTrySide(g_grind_short, false, magic, slot, lots, exit_s, add_s,
-                           max_layers, enabled, blocked, now, g_grind_vl_extreme_short);
+                           max_layers, enabled, blocked, now, g_grind_vl_extreme_short, reroll);
    }
 }
 

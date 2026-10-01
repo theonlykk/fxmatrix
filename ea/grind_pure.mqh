@@ -423,6 +423,19 @@ bool Grind_ValidateLatticeInputs(const bool lattice, const bool auto_eject)
    return true;
 }
 
+bool Grind_ValidateRerollInputs(const bool lattice, const bool reroll)
+{
+   return !reroll || lattice;
+}
+
+bool Grind_LatticeRerollPaused(const datetime server_now)
+{
+   MqlDateTime t;
+   TimeToStruct(server_now, t);
+   const int m = t.hour * 60 + t.min;
+   return (m >= 23 * 60 + 50) || (m < 15);
+}
+
 bool Grind_LatticeLevelCrossed(const bool is_long, const double price, const double level)
 {
    if(is_long)
