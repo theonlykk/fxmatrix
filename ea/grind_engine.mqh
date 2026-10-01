@@ -965,6 +965,8 @@ int Grind_LatticeRerollIndex(const GrindSideState &side, const bool is_long)
          continue;
       if(!Grind_VLHas(ticket))
          continue;
+      if(Grind_EjectIsEjected(ticket))
+         continue;
       const double vl = Grind_VLGet(ticket);
       if(best < 0) {
          best = i;
