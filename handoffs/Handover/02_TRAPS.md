@@ -1407,3 +1407,33 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   (C9), so nothing new leaked; C9 records it.
 - **Two shells, two boxes: read the prompt.** A wine-c command typed in
   the wine-d window ran on wine-d (harmless: read-only plus a no-op pull).
+
+## TRAPS FROM 2026-10-01 AFTERNOON (CHF TREND, COMMANDED EJECTS, FTMO HALTS)
+
+- **A commanded eject is a Global Variable, not a script.** In the box's
+  MT5: F3 -> Add, name `GRIND_EJECT_<magic>`, value = the position ticket of
+  the side's MOST UNDERWATER layer (highest effective entry for a long; any
+  other is refused `NOT_DEEPEST`). The EA reads it within a second and
+  deletes it. `scripts/grind_eject.mq5` is not compiled on the boxes.
+- **F3 Add creates the variable with value 0 first:** the EA reads it at
+  once and logs `eject refused ticket=0 reason=NOT_FOUND`. Harmless; the
+  typed value arrives as a second write and is accepted.
+- **A passive eject trails a running market.** Its exit goes just beyond
+  the market at accept time; if the trend continues it sits unfilled
+  (AUDCHF B 15:30-16:00Z). Re-issue the same command: it re-prices to the
+  current market (no "already ejected" refusal, `grind_engine.mqh` 382).
+- **`ROLL_STRANDED` is sent once per episode; nothing marks recovery.**
+  It stayed amber 24 h after the side was unstranded (fixed: pipshed C94).
+  Test from status: a side is stranded only if it is at cap, EVERY layer is
+  rolled (long exit below entry) and the market is 2 add steps past the
+  lowest level.
+- **FTMO can fill a pending limit WORSE than its price in a fast market**
+  (AUDNZD short L02: BUY_LIMIT 1.23360 filled 1.23365). The EA's start-up
+  I6 treats that as impossible and halts (`I6_*_EXIT_FILL_ADVERSE`). Repair:
+  Close By the layer with its filled exit position in the terminal, then a
+  reason-5 restart (C92).
+- **A halt cancels the instance's ENTRY orders but leaves exits resting;**
+  exits that fill during the halt are not closed by (the EA is idle): the
+  restart's reconstruction must accept them (or see the trap above).
+- **The day total, not closed P&L, compares ejection with rolling:** 1 Oct
+  A closed -$119 / open -$144 vs B +$46 / -$282; totals -$263 vs -$235.

@@ -354,4 +354,11 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
   - **Round 1 = FTMO days Fri 2 Oct + Mon 5 Oct** (ends Mon 5 Oct 22:00Z;
     the last reload was 06:49:39Z Thursday). Register rows opened.
 
-Line count: 357
+- **1 Oct afternoon (CHF trend, before round 1 opens):** commanded ejects
+  (by hand, to unstrand) on AUDCHF long B, C, D, CADCHF long C and NZDCHF
+  long B, 15:30-16:00Z (event log 1 Oct ~14:00Z). All are BEFORE the
+  round's windows (from Thu 22:00Z), so no round-1 score includes them;
+  they change those sides' starting books (recorded as depth at the
+  reload). Scoring unchanged.
+
+Line count: 364

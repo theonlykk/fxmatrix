@@ -14,6 +14,33 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 1 Oct ~14:00-16:00Z -- CHF trend: seven lattice sides stranded, five unstranded by hand; FTMO AUDNZD halted twice (A, B, C, D)
+- **What:** CHF rallied ~14:00-16:00Z. B, C and D rolled all eight long
+  layers on AUDCHF (B, C, D), CADCHF (C) and NZDCHF (B, C, D) within ~35
+  min; `ROLL_STRANDED` on AUDCHF B 14:53, AUDCHF C 14:49, CADCHF C 14:49,
+  NZDCHF B 14:49, AUDCHF D 15:14, NZDCHF C 15:51, NZDCHF D 15:52Z. A (FTMO,
+  ADR-157) auto-ejected 44 times on the day. A's GRIND_AUDNZD_OPT halted
+  15:24Z `AMBIGUOUS_ADD_LONG` (two resting long adds; the halt cancelled
+  both), then on the first restart 15:46Z `I6_SHORT_EXIT_FILL_ADVERSE`
+  (short L02's BUY_LIMIT at 1.23360 filled at 1.23365 during the halt).
+- **Impact (16:03Z strip):** day A -$263 (52.5%, open -$144), B -$235
+  (closed +$46, open -$282), C -$241 (closed +$41, open -$283), D equity
+  $9,895 (from $10,000). Day totals within ~$28 of each other: ejections
+  realise now, rolls defer.
+- **Handled:** commanded ejects (ADR-155) of each stranded side's most
+  underwater layer via a Global Variable typed in MT5 (F3):
+  NZDCHF B 15:32:38 (filled 15:33:10), AUDCHF C 15:35:29 (15:35:34), CADCHF
+  C 15:37:41 (15:37:44), AUDCHF D 15:55:53 (15:55:57), AUDCHF B 15:30:40 and
+  re-issued 16:00:10 (filled 16:00:13; the first exit trailed the market).
+  ~$38 realised. NZDCHF C/D were all rolled but back inside their range at
+  16:04Z: left. AUDNZD_OPT: restarted (reason 5, ` x`), then short L02
+  closed BY its filled exit by hand, restarted 15:51:59Z: clean.
+- **Changed:** operator: the lattice must never strand (ADR-165 draft,
+  continuous re-roll, option B); pipshed C94 (stale `ROLL_STRANDED` greys);
+  backlog C92 (I6 vs adverse limit fills), C93 (duplicate add on A), C95,
+  C96 (rings of seven: too much CHF); 02_TRAPS 1 Oct afternoon.
+- **Evidence:** HANDOFF s28; archive `EJECT_*`/`ROLL_*` 14:00-16:05Z.
+
 ### 1 Oct 06:19-06:50Z -- D1, the first compass round, reloaded; NZDCAD_OPTD off 8 min (C, D)
 - **What:** D1 presets reloaded in session: wine-d's exit probe
   06:19-06:35Z (the first live exit rebuild, `rebuild=true/true` on all
@@ -247,4 +274,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 250
+Line count: 277
