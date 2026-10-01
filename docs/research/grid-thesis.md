@@ -311,7 +311,35 @@ The adverse move from the first entry exceeded the room to cap in 47 of
 - Pairs that swing little per day (CHF crosses, EURGBP) earn least per
   unit of inventory; this is the first number to use when choosing
   pairs and adds, before any cap change.
-- **M6 (the cluster test) is not done** (it needs the GT-4 null: the
-  real path with the ladder shifted by random offsets). Weekend.
+- M6 below: no clustering detected in this week.
 
-Line count: 317
+**M6 THE CLUSTER TEST (1 Oct ~01:15Z).** Two looks, both one week.
+- **Trade history.** In the 61 episodes with depth >= 5 and >= 10
+  scalps, the busiest entry level carried a median 20% of the episode's
+  scalps (top two 38%; median 9 levels). If every level were equally
+  likely, the busiest of 9 levels would carry 25-27% by chance alone
+  (simulated, 12-15 scalps): the real books are LESS concentrated than
+  chance. The most any level cycled was 6 times (NZDCAD short, 17
+  scalps on 9 levels), not the 10 of the thesis's example.
+- **Price path (FTMO bid/ask, 24 Sep -> 1 Oct).** Each level of a ladder
+  at A's add and exit cycles independently (buy at the level on the ask,
+  sell at level + exit on the bid in a later minute; and the short
+  mirror). Concentration (share of cycles at the busiest tenth of
+  levels) on the real path vs 40 surrogate paths made by shuffling
+  60-minute blocks of the real minutes (keeps intra-hour volatility and
+  spreads, removes level memory across hours): real not above
+  surrogate on 8 of 9 pairs (p 0.10-0.62); NZDCAD alone p = 0.03 (one in
+  nine at 5% is what chance gives). Total cycles on the real path are
+  equal to or BELOW the surrogates' (the CHF crosses and AUDNZD 10-40%
+  below: the week trended more than a shuffled path). Levels within 2
+  pips of a 00 or 50 cycled 0.47-1.63x the rest: no consistent round-
+  number effect.
+- **Reading:** this week shows no levels that the market revisited more
+  than a path with the same hourly volatility would. That does not
+  refute the thesis (one trend-heavy week, 10-21 levels per pair, low
+  power); it means no layer placement or geometry should be built on
+  clusters yet. Rerun on the holdout week (C84) and on each weekly
+  export; scripts `m6.py` / `m82.py` in the session sandbox, to be
+  committed with the next research change.
+
+Line count: 345
