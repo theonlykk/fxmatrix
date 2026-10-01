@@ -1,8 +1,9 @@
 This message has a line count at the bottom
 
-# ADR-165 -- THE LATTICE NEVER STRANDS: CONTINUOUS RE-ROLL (GEMINI-REVIEWED, s9)
+# ADR-165 -- THE LATTICE NEVER STRANDS: CONTINUOUS RE-ROLL (MERGED; GEMINI s9, DEEPSEEK s10)
 
-Status: DRAFT, written by Claude 1 Oct ~16:40Z on the operator's decision
+Status: MERGED to `main` `3df13f0` (1 Oct ~19:10Z; suite 2447/2447 on GBPUSD
+and EURUSD), default OFF, NOT deployed. Written by Claude 1 Oct ~16:40Z on the operator's decision
 (option B, 1 Oct ~16:14Z: "B seems simple - lets do with that"). Extends
 ADR-162. Default-OFF input; v2.2 batch; deployed on B, C and D only AFTER
 the D1 round 1 verdict (Mon 5 Oct 22:00Z), so round 1's roll economics do
@@ -268,4 +269,4 @@ audited at `ac4433e`. Every verdict checked against the line it quotes.
   `de846ec` 2441/2447 (the 6 predicted), `87c9207` 2447/2447 on GBPUSD
   and EURUSD.
 
-Line count: 271
+Line count: 272

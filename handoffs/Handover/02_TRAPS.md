@@ -1460,8 +1460,15 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   no RR rows) and on a USDJPY chart (3-digit point: ~200 price failures).
   Sync after every checkout, confirm a branch-only symbol in the Scripts
   copy, run on GBPUSD and EURUSD only.
+- **The desktop test terminal is logged in to FTMO 1514731800.** It is the
+  "previous successful authorization performed from 64.229.9.87" in the
+  VPS Journal (17:16Z 1 Oct: the first suite run). The operator keeps it
+  (useful for testing). The suite has never sent a request: 0 `Trades '`
+  lines in every desktop Journal 25 Aug-1 Oct. Re-count if anything looks
+  off: `Get-ChildItem "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\logs\*.log" | ForEach-Object { $n = (Get-Content $_.FullName -Encoding Unicode | Select-String "Trades '").Count; "$($_.Name) $n" }`.
+  A second session on the account is visible to the VPS (and to FTMO).
 - **Gemini restated a Cursor prompt as if he were Cursor** (RESTATE AND
   STOP applies to him too when he reads it). Harmless; his GE answers
   followed.
 
-Line count: 1467
+Line count: 1474

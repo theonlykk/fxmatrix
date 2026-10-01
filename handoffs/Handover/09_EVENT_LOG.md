@@ -35,8 +35,10 @@ wine-d (IC, from 1 Oct). Cycle 2
   (`WARN_API_SOFT_LIMIT`, the ejection-heavy day); entries stop at 1900
   by design, exits and close-bys continue; the count resets at server
   midnight (21:00Z).
-- **Changed:** C97 proposed (pipshed alert for an unpaired EXT position);
-  the orphan check added to the traps.
+- **Changed:** C97 built (pipshed `eb19e5c`: an amber `ORPHAN_EXT` on the
+  fleet strip for an unpaired EXT position); the orphan check added to
+  the traps. The 17:16Z "previous authorization from 64.229.9.87" was the
+  desktop test terminal (logged in to FTMO), not a third party.
 - **Evidence:** VPS Journal and Experts logs 1 Oct (grep in this chat);
   Trade tab screenshot.
 
@@ -300,4 +302,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 303
+Line count: 305
