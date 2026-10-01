@@ -1321,7 +1321,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   attributing a failure count to a known cause.
 - **IC Markets holds order requests across its 00:00 server rollover**
   (C87): `[Market closed]` answers arrive minutes late and requests time
-  out at exactly 180 s, with the terminal still connected. Expect slow
+  out at exactly 180 s, with the terminal still connected (once in seven
+  nights: the 30 Sep quarter-end rollover; every IC night rejects
+  'market closed' fast at 23:59-00:01). Expect slow
   or failed modifies, rolls and exit moves at 21:00-21:15Z (EDT) on the
   IC fleets; FTMO is unaffected. Do not read a ROLL_CLOSING_STUCK or a
   timeout in that window as a lattice fault without this.
