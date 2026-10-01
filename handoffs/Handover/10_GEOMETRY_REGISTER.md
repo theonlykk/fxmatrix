@@ -54,6 +54,10 @@ change anywhere is D1 on D (the first live ADR-163 rebuild).
 ## NEXT EXPECTED ROWS
 
 The D1 round's verdict (after Mon 5 Oct 22:00Z; fleet-d.md s6.5): an
-anchor move on B, flips or repeats on C and D, each a row.
+anchor move on B, flips or repeats on C and D, each a row. Then the
+rings of seven (C96: twins removed, a pair dropped per fleet: rows
+closed) and cap 10 on the IC fleets (C99: a cap change, so a row for
+every instance). The 1 Oct `InpBreakerEnable=false` change on B, C, D
+is not geometry and has no row (fleet-d.md s7).
 
-Line count: 59
+Line count: 63

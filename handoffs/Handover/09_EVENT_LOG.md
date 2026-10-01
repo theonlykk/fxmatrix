@@ -14,6 +14,23 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 1 Oct 21:16-21:28Z -- breaker and gate switched OFF on the IC fleets (B, C, D)
+- **What:** ADR-160's entry gate had blocked every entry on B and C
+  since the CHF trend (floating loss above 50% of the $500 allowance:
+  B $249-278, C $240-268; book = guard, no L0s, no adds, short sides
+  flat). D ($152) was trading. Round 1's first window opened 22:00Z.
+- **Handled:** operator ruling ("we need to trade"; the IC demo has no
+  daily limit): `InpBreakerEnable=false` by F7 on all 33 IC charts,
+  wine-d, wine-c, wine-test, 21:16-21:28Z; each box 11/11 re-inits,
+  FATAL 0. B 102/102 -> 123/144, C 103/103 -> 124/145 within minutes.
+- **Also:** the FTMO request count reached 1881 before the reset (new
+  entries stopped at 1900 by design); it reset at the first new-date
+  quote (~21:10Z). FTMO day 53.8% at 21:34Z, its gate not triggered
+  (floating ~$150). Rollover 21:00Z clean on all four fleets.
+- **Changed:** 51 IC presets `InpBreakerEnable=false`; C100 (API entry
+  stop as an input) and C101 (a side-aware gate for FTMO, v2.2) added.
+- **Evidence:** fleet-d.md s7; box greps in this chat; strip 21:34Z.
+
 ### 1 Oct 17:55Z -- VPS link stalled ~20 s: three deals arrived by sync only (A)
 - **What:** the VPS terminal's link to FTMO-Demo went dead ~17:55:20Z;
   MT5 declared it lost only at 17:55:41.3, re-authorised 17:55:41.7,
@@ -302,4 +319,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 305
+Line count: 322

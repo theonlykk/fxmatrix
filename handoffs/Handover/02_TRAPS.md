@@ -1471,4 +1471,30 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   STOP applies to him too when he reads it). Harmless; his GE answers
   followed.
 
-Line count: 1474
+## TRAPS FROM 2026-10-01 NIGHT (IC BREAKER OFF BY F7)
+
+- **The Inputs dialog shows an input's COMMENT, not its name, when it has
+  one.** `InpBreakerEnable` appears as "ADR-158 account daily-loss
+  breaker"; likewise "ADR-157 automatic passive ejection", "ADR-162
+  virtual lattice past cap", "ADR-161 entry window ...". Checklists must
+  give the label as the dialog shows it.
+- **`InpBreakerEnable` is not in the CONFIG line**, so a grep proves the
+  re-init, not the value. Proof of the value is the outcome: resting
+  entries back. Per box: `iconv -f UTF-16LE -t UTF-8 "$L" | awk -F'\t'
+  '$3>="<hh:mm>"' | grep -a "CONFIG InpMagic" | grep -ao
+  "InpTelemetryInstance=[A-Z_]*" | sort | uniq -c` (field 3 is the time;
+  11 instances, count 1 each). Entry orders per instance from the newest
+  `HEARTBEAT_BOOK` (python3 is on the boxes): see HANDOFF s30.
+- **x11vnc on wine-c and wine-test runs `-once`**: restart it inside the
+  tunnel session each time (`sudo -u khalid x11vnc -display :10 -auth
+  /home/khalid/.Xauthority -localhost -rfbport 5911|5910 -nopw -once
+  -shared -noxdamage -bg -o /tmp/x11vnc-...log`). wine-d's runs
+  `-forever` on 5912.
+- **The FTMO request counter resets on the first quote stamped with the
+  new server date**, not at 21:00Z sharp (1881 at 21:02Z, 4 at 21:14Z).
+- **The strip endpoint can time out** (C102): when it is slow, read the
+  EA logs on the box instead of refreshing.
+- **A run of the grep before the edits returns nothing**: an empty list
+  means "no re-init since that time", check the clock before debugging.
+
+Line count: 1500

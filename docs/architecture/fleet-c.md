@@ -221,4 +221,9 @@ lattice=true rebuild=false/false`, geo = fleet-d.md s6.4, BAD 0.
 NZDCAD_OPTC and AUDNZD_OPTC untouched (anchor). Round 1 = Fri 2 Oct +
 Mon 5 Oct.
 
-Line count: 224
+- **1 Oct ~21:22-21:25Z: `InpBreakerEnable=false` on all 11 C charts**
+  (ADR-160 gate, ADR-158 breaker and pre-midnight halt off). Record and
+  rationale: fleet-d.md s7 (round-1 amendment). C had been gated since
+  the CHF trend (book = guard 103); after: 124/145.
+
+Line count: 229

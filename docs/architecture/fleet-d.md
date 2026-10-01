@@ -361,4 +361,27 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
   they change those sides' starting books (recorded as depth at the
   reload). Scoring unchanged.
 
-Line count: 364
+- **1 Oct night (round-1 amendment, before window 1): breaker and gate
+  OFF on B, C and D.** Operator ~20:25Z: "i dont like these gates - we
+  need to trade". ADR-160's entry gate (on at floating loss >= 50% of
+  the $500 allowance, off below 40%; `grind_pure.mqh` 658-666) had
+  blocked every entry on both sides of B (floating $249-278) and C
+  ($240-268) since the CHF trend, while D ($152) traded: the round
+  would have opened with the anchor and the add probe unable to enter.
+  The IC demo accounts have no daily limit. `InpBreakerEnable=false`
+  (gate + ADR-158 80% breaker + pre-midnight halt; one input) set by F7
+  on every chart: wine-d 21:16-21:21Z, wine-c to ~21:25Z, wine-test to
+  ~21:28Z (each box: 11/11 `CONFIG` re-inits since 21:10Z, FATAL 0).
+  Outcome: B book/guard 102/102 -> 123/144, C 103/103 -> 124/145 (21
+  resting entries each), D unchanged 152/174; B's newest books show 2
+  entry orders on every instance (1 on NZDCAD_OPTB, long at cap). Same
+  change on all three fleets, so round 1 stays like-for-like; FTMO
+  keeps the gate (real limit, frozen cycle). Presets: 51 IC files set
+  to `InpBreakerEnable=false` (repo). No geometry row (not geometry).
+- **Compass method from round 2 (operator 1 Oct ~20:10Z): no twins.**
+  Each IC fleet becomes one ring of seven pairs (each currency exactly
+  twice, C96), one instance per pair; probes are fleet against fleet
+  (B anchor, C and D one lever each per round). Round 1 runs to the end
+  as designed, twins included ("twins decide" used one last time).
+
+Line count: 387

@@ -195,4 +195,10 @@ wine-c's compile did not reload (fleet-c.md A2).
 - No rollback. From 04:02:21Z Fleet B rolls at cap; the B1 dial is
   unchanged (no geometry register rows).
 
-Line count: 198
+- **1 Oct 21:26-21:28Z: `InpBreakerEnable=false` on all 11 B charts**
+  (ADR-160 gate, ADR-158 breaker and pre-midnight halt off; the IC demo
+  has no daily limit). Record and rationale: fleet-d.md s7 (round-1
+  amendment). B had been gated since the CHF trend (book = guard 102);
+  after: 123/144.
+
+Line count: 204
