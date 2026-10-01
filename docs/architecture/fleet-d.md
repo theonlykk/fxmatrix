@@ -180,16 +180,32 @@ untouched); cap 8, width, lattice, carry and every other input unchanged.
   B; on C and D also the twin vs its primary (same account). Reported
   beside it, not deciding: the ENTRY-time split (only layers opened after
   the reload), open MTM at the end, each side's depth at the reload.
-- **Decision per pair and side:** threshold = max($1/day, that side's
-  same-settings gap over 28-30 Sep: |B - C| for the primaries; A's own
-  OPT vs ALT, identical settings, for the twins). A probe that beats the
-  anchor by more than the threshold becomes the anchor (if both C's and
-  D's probes do, the larger margin; the other lever probes again next
-  round around the new anchor); one that loses by more FLIPS across the
-  anchor (s8.4); within the threshold, **the same probe runs again next
-  round** instead of flipping on noise.
+- **Decision per pair and side (amended after Gemini, s6.8):**
+  threshold **$1.19/day for every side** = max($1, the POOLED median of
+  the 18 primary sides' same-settings gaps |B - C| over 28-30 Sep: 1.185;
+  quartiles 0.50 / 1.19 / 2.19). Twin pairs: the twin vs its own primary
+  DECIDES (same account), the cross-fleet comparison is reported; their
+  threshold is max($1.19, A's identical-settings OPT vs ALT gap): AUDNZD
+  long $1.40, the other three twin sides $1.19.
+  - A probe that beats the anchor by more than the threshold becomes the
+    anchor (if both C's and D's probes do, the larger margin; the other
+    lever probes again next round around the new anchor); one that loses
+    by more FLIPS across the anchor (s8.4); within the threshold **the
+    same probe runs again**, and the next decision scores it over ALL its
+    rounds' days pooled (noise shrinks as days accumulate).
+  - **ADD probes (C) have two extra gates before promotion:** (1) the
+    ENTRY-time split (layers opened after the reload) must not lose to
+    the anchor's by more than the threshold (GD1-4); (2) closed net per
+    layer-hour (each 0.01 layer's hours open inside the round, inherited
+    layers counted from the round start, open layers to its end) must be
+    no worse than the anchor's (GD1-5). A probe that wins raw but fails a
+    gate repeats; it is not promoted.
+  - Superseded (kept for the record): the per-side thresholds below
+    (max($1, that side's own 3-day gap)), replaced by the pooled value on
+    Gemini's GD1-2 (a single 3-day gap of $5.25 would freeze a side).
 
-Thresholds ($/day) from `d1_evidence.py` part 1:
+Per-side max($1, same-settings gap) ($/day, `d1_evidence.py` part 1; SUPERSEDED as
+thresholds, kept as the noise record):
 
 | pair | long | short |
 |---|---|---|
@@ -210,7 +226,8 @@ Thresholds ($/day) from `d1_evidence.py` part 1:
 ### 6.6 DEPLOY (after Gemini; one paste per step)
 
 1. Presets `ea/presets_c/*_c_p1.set` and `ea/presets_d/*_d_p1.set` (the
-   nine changed instances each): the `_lat` file with only `InpAddPips`
+   nine changed instances each; COMMITTED with s6.8, each checked against
+   6.4: 37 inputs, key blank, per-side -1, guard ratio in range): the `_lat` file with only `InpAddPips`
    or `InpExitPips` (and for the D twins both) and `InpConfigWarning`
    changed; key blank; staged with the key, 9 `SAME_EXCEPT_KEY` per box.
 2. In session, spreads under every width, not 20:50-21:00Z, not within 30
@@ -220,6 +237,11 @@ Thresholds ($/day) from `d1_evidence.py` part 1:
 3. Pass per chart (log checker): wine-d `deinit=5 lattice=true
    rebuild=true/true`, geo = 6.4, `REBUILD_SUMMARY` per side, POST ok;
    wine-c `deinit=5 lattice=true rebuild=false/false`, geo = 6.4.
+   Expected on wine-d: an exit whose new target is already past the
+   market is clamped PASSIVE (ask/bid + minimum distance; the EA sends no
+   market orders) and may fill within seconds as a scalp at or above its
+   new target: read `REBUILD_SUMMARY` `clamped` and record it (s6.8
+   GD1-6), not a STOP.
 4. Register rows (close the old row, open the new one at the reload
    time from the log); fleet-c.md A3 and this file's record.
 
@@ -259,9 +281,46 @@ Attack the premises; say which fact is missing.
 - **GD1-7.** The first round includes US payrolls (Fri 2 Oct). Proceed,
   or start the count on Monday 5 Oct?
 
+### 6.8 GEMINI'S RULINGS (1 OCT ~06:15Z) AND CLAUDE'S CHECK
+
+His answers pasted by the operator; checked in source and data by Claude;
+the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
+- **GD1-1 ACCEPTED** (uniform, all tighter). His reason (mixing would
+  confound correlated pairs) is weaker than the ruling: each side is
+  compared with the same side on B, so a macro move hits both alike.
+- **GD1-2 ACCEPTED: one POOLED threshold** ($1.19, s6.5). His missing
+  fact, answered from the ledger: the largest gaps are mostly tail events
+  (ejections: AUDCHF S 4 on B vs 1 on C, CADCHF S 3 vs 0, EURUSD L 5 vs
+  3); some smaller ones are scalp counts (GBPUSD L 30 vs 37; CADCHF L 11
+  vs 6; NZDCHF L 12 vs 7). Under the lattice, ejections become rolls, so
+  today's gaps say little about the rolled regime. Claude's addition: a
+  repeated probe is scored over all its rounds pooled.
+- **GD1-3 ACCEPTED: the twin decides for the two twin pairs.** His
+  "strips out the E5 noise entirely" overstates it: A's identical twins
+  differed by $1.40/day (AUDNZD long), hence that side's threshold; on C
+  the twin and the primary also hold different inherited books.
+- **GD1-4 ACCEPTED as a gate** (close time decides; the entry-time split
+  must not lose by more than the threshold, else repeat).
+- **GD1-5 ACCEPTED as a gate** (closed net per layer-hour no worse than
+  the anchor's). Note: on 30 Sep (grid-thesis s10, GT-1) he argued
+  against a per-lot-hour normaliser; this ruling reverses that, and the
+  reversal is right for an add probe (leverage). His "relentlessly tighten
+  to cap" is also bounded by the add-3 floor and by rolls being realised
+  (closed) losses under the lattice.
+- **GD1-6 REJECTED (premise wrong).** "An avalanche of EXT market orders":
+  the EA sends no market orders (no `TRADE_ACTION_DEAL` in the trading
+  code; every exit is a limit), and the rebuild clamps a target already
+  past the market to the passive side (`Grind_ExitQClampPassive` ->
+  `Grind_CarryClampLongExit`/`ShortExit`, `grind_carry.mqh` 443-475: a
+  long's exit to ask + minimum distance). Only RESTING exits are repriced
+  (at most two per side, ADR-151). Worst case: one or two clamped exits
+  per side fill within seconds as scalps at or above the new target.
+  Recorded as expected in 6.6 step 3, not a STOP.
+- **GD1-7 ACCEPTED** (the round includes payrolls).
+
 ## 7. AMENDMENTS (records)
 
 - D1 (above) supersedes s2's "D1 ... after the roll-watch": the operator
   moved it ahead (1 Oct ~05:25Z).
 
-Line count: 267
+Line count: 326
