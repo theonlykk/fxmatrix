@@ -1311,3 +1311,23 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   22:21Z; the key is used by `ssh box2` but not by scp): the operator
   typed it. Unresolved; add `IdentityFile` use for scp or copy through
   `ssh box2 cat` when it matters.
+
+## TRAPS FROM 2026-10-01 EARLY (IC ROLLOVER, C60 MISREAD, DASHBOARD)
+
+- **A "failed" count is not a retcode.** C60 explained carry-pass
+  failures as 10025 "no changes" (Friday's zero pending); C's AUDNZD
+  failures on 30 Sep were 10021 PRICE_OFF (IC had no quotes at 23:50
+  server). Read `send_logs` (`--table send_logs --instance X`) before
+  attributing a failure count to a known cause.
+- **IC Markets holds order requests across its 00:00 server rollover**
+  (C87): `[Market closed]` answers arrive minutes late and requests time
+  out at exactly 180 s, with the terminal still connected. Expect slow
+  or failed modifies, rolls and exit moves at 21:00-21:15Z (EDT) on the
+  IC fleets; FTMO is unaffected. Do not read a ROLL_CLOSING_STUCK or a
+  timeout in that window as a lattice fault without this.
+- **The MT5 Journal's lines are almost all trade lines:** a filter that
+  drops lines containing "order" leaves nothing. Grep for "connection",
+  "authorized", "synchroniz" positively instead.
+- **Dashboard secondary text was #666 (3.2:1 on the cards):** the
+  operator could not read it. `verify_dashboard_contrast` now guards
+  --muted at >= 6.0:1 (pipshed `052c72a`).
