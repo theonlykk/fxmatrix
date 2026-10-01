@@ -241,4 +241,78 @@ rows tell OPT from ALT by the add, 8 vs 10.)
   A2 records with times, c63-deploy.md s6 rollbacks (if any), backlog C63
   done / C76 C77 live on B and C, BOOT s6. No geometry register rows.
 
-Line count: 244
+## 6. THE ROLL-WATCH (from each box's reloads; c63-deploy s7)
+
+Added 1 Oct ~02:20Z from source at `0335f25`. The lattice has never run
+live: read every code below the first time it appears.
+
+**6.1 What each code means** (archive marker; telemetry the same):
+
+| code | level | emitted when (source) | read it as |
+|---|---|---|---|
+| `ROLL_ACCEPTED` | INFO | a capped side traded through its next virtual level: the oldest unrolled layer's exit moved to that level's formula + accrued (clamped passive), VL stored (`grind_engine.mqh` 1048); detail: `level`, `exit_target`, `clamped`, `cost`, `rolled`, `source` | normal; `clamped:true` near 21:00Z is the rollover spread |
+| `ROLL_FILLED` | INFO | a rolled exit filled (2795) | normal; realised $ in `/ejection` |
+| `ROLL_REFUSED` | INFO | the modify failed (`MODIFY_FAILED`, 1027); retry after 60 s, doubling per failure to 1800 s, count reset on a success; the level still rolls later even if the market came back (ADR-162 s15) | expected at the IC break 21:00-21:01Z and in a C87 stall; elsewhere read `send_logs` for that instance |
+| `ROLL_STRANDED` | WARN | every layer of a side rolled and the live market 2 add steps beyond the lowest effective level; once per episode (1153) | BRING TO THE CHAT: the operator decides (commanded eject or leave); nothing automatic |
+| `ROLL_CLOSING_STUCK` | WARN | the roll candidate has been "closing" (exit filled but not processed, or close-by in flight) 60 s on the same position; latched (1103) | BRING TO THE CHAT; with ADR-164 a filled exit is adopted within ~1 s, so look for `DEAL_EVENT_MISSED` on the same instance, and at 21:00-21:15Z for 180 s timeouts first (C87: a blocked thread holds everything for 3 min) |
+| `DEAL_REPLAYED` + `DEAL_EVENT_AFTER_REPLAY` | INFO | the 1 s timer handled a deal before its event (`grind_replay.mqh` 283; engine 3235) | normal, some per day |
+| `DEAL_EVENT_MISSED` | WARN | no event 60 s after a replay (`grind_replay.mqh` 370) | the C76 signal: BRING TO THE CHAT |
+| `CONNECTION_RESTORED` | INFO | the terminal reconnected (348) | read the terminal journal (`<install>/logs`) for that minute |
+| `REPLAY_SEED_FAILED` | WARN | the SEEN set could not be seeded (165) | BRING TO THE CHAT |
+| `EJECT_*` | INFO | B and C eject only by command now | any `EJECT_ACCEPTED` without a command: BRING TO THE CHAT |
+
+**6.2 Commands** (desktop, `D:\pipshed`; one at a time).
+
+Counts per instance and code, first/last:
+
+```
+railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes ROLL_ACCEPTED,ROLL_FILLED,ROLL_REFUSED,ROLL_STRANDED,ROLL_CLOSING_STUCK,DEAL_REPLAYED,DEAL_EVENT_AFTER_REPLAY,DEAL_EVENT_MISSED,CONNECTION_RESTORED,REPLAY_SEED_FAILED,EJECT_ACCEPTED --hours 6
+```
+
+The rows of one instance with their detail (prices, levels):
+
+```
+railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --table ea_events --instance GRIND_EURUSD_OPTC --limit 20
+```
+
+Order requests of one instance (retcodes, `duration_ms`):
+
+```
+railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --table send_logs --instance GRIND_EURUSD_OPTC --limit 30
+```
+
+Rolls with money (fleet by host; save the raw JSON, never trust a
+fetch summary for a decision; change the last segment each time):
+
+```
+Invoke-WebRequest -UseBasicParsing -UserAgent "Mozilla/5.0" "https://linuxc.pipshed.com/api/g/k7m9p2x4q/ejection/r1?hours=24" -OutFile "$HOME\Downloads\ejection_c.json"
+```
+
+(`linux.pipshed.com` for B, `pipshed.com` for A.)
+
+**6.3 Tonight (Thursday 1 Oct)**
+- After each box: the counts (6.2) once; the card LIVE 11/11.
+- 20:50-21:00Z: the carry pass; no reloads, no compiles.
+- 21:00-21:15Z (17:00-17:15 ET): IC's break. Expected on B and C: fast
+  10018 rejections and, for any side at cap through a level, `ROLL_REFUSED`
+  with backoff; a 3-minute stall is possible (seen once in 7 nights, on
+  quarter-end, C87). FTMO (A) is unaffected.
+- After 21:15Z: `--carrypass --hours 2` (33 summaries, none incomplete,
+  no I6). It is the first carry pass over ROLLED layers (the pass prices
+  them from their effective entry: c63-deploy A4, `grind_carry.mqh`
+  658, 994-1021): any I6, `INVARIANT_FAIL`
+  or a `failed` count on a rolled ticket -> BRING TO THE CHAT. Then the
+  counts (6.2) from the first reload (`--hours` to cover it).
+
+**6.4 Bring to the chat, no blind reattach:** `ROLL_STRANDED`,
+`ROLL_CLOSING_STUCK`, `DEAL_EVENT_MISSED`, `REPLAY_SEED_FAILED`, any halt,
+`INVARIANT_FAIL` or I6, an `EJECT_ACCEPTED` nobody commanded,
+`ROLL_REFUSED` three or more times for one instance in an hour outside
+21:00-21:15Z, a card not LIVE 11/11.
+
+**6.5 What the watch records** (c63-deploy s7; a few days): per fleet
+and day, rolls accepted / filled, minutes to fill, realised $ of rolls
+(B, C) beside ejections (A), stranded episodes, `DEAL_*` counts; the
+roll-watch verdict decides `fleet-d.md` (C85).
+
+Line count: 318
