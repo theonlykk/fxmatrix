@@ -248,4 +248,24 @@ audited at `ac4433e`. Every verdict checked against the line it quotes.
   unselectable exit on a re-roll, a request-rate bound) follow the
   rejections above or are first-roll paths already tested.
 
-Line count: 251
+**Gemini on the audit fix (GE, 1 Oct ~18:45Z), checked by Claude:**
+- **GE-1 ACCEPTED in principle, DEFERRED (C98).** The prompt's premise
+  ("for a first roll they rarely are" the same layer) was wrong: ADR-155
+  validates the eject target as rank depth-1 by effective entry, which is
+  always the next roll candidate (the highest unrolled entry, long; with
+  none unrolled, the highest VL). First rolls should skip ejected layers
+  too, but that changes live ADR-162 behaviour with no input and flips
+  the GB3 tests: its own amendment and review, after this deploy.
+- **GE-2 REJECTED.** With every rolled layer ejected and the market two
+  add steps further on, the ejected exits sit behind the market: one
+  amber per episode is wanted.
+- **GE-3 REJECTED (he did not have s10).** A re-roll consumes a level and
+  the next is one add step further, so tick rate alone cannot drive
+  re-rolls; a burst needs a backlog (a gap or the pause), bounded by gap
+  over `add`. First rolls (live) already send up to `max_layers` per call
+  unthrottled; a refused modify backs off from 60 s.
+- Fix `87c9207` (re-rolls skip hand-ejected layers) and tests RR14-RR16:
+  `de846ec` 2441/2447 (the 6 predicted), `87c9207` 2447/2447 on GBPUSD
+  and EURUSD.
+
+Line count: 271
