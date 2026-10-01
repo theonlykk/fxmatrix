@@ -251,7 +251,7 @@ dumps of the ejection study (s12 there). Trade history first (s6):
 episodes, depths and money come from the broker ledger (`ev_book`
 layers: ENT position + close-by); prices only for open-loss paths and M5.
 One week, trend-heavy (the 29-30 Sep GBP and AUD days): starting values,
-not answers. Scripts in the session sandbox; the counts cross-check with
+not answers. Code: `research/grid_thesis/gt_report.py`; the counts cross-check with
 the fleet cards (A 603 scalps / 33 ejections, B 679 / 61, C 479 / 51)
 and the ledger total equals `scalp_history` (A closed $330.66 both ways).
 
@@ -339,7 +339,7 @@ The adverse move from the first entry exceeded the room to cap in 47 of
   refute the thesis (one trend-heavy week, 10-21 levels per pair, low
   power); it means no layer placement or geometry should be built on
   clusters yet. Rerun on the holdout week (C84) and on each weekly
-  export; scripts `m6.py` / `m82.py` in the session sandbox, to be
-  committed with the next research change.
+  export: `research/grid_thesis/gt_report.py` reproduces every number in
+  this section from the 30 Sep evening files (seeded; README there).
 
 Line count: 345

@@ -1333,3 +1333,8 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Dashboard secondary text was #666 (3.2:1 on the cards):** the
   operator could not read it. `verify_dashboard_contrast` now guards
   --muted at >= 6.0:1 (pipshed `052c72a`).
+- **A mutation that keeps the file the same size within one second can
+  run against STALE bytecode** (`__pycache__` checks mtime and size): a
+  correct test then "fails" or a mutant "survives". Run mutation checks
+  with `PYTHONDONTWRITEBYTECODE=1` and delete `__pycache__` first (1 Oct,
+  `research/grid_thesis`).
