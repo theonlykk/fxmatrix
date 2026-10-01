@@ -9425,6 +9425,9 @@ void OnStart()
    Test_RR11_ClosingCandidateStops();
    Test_RR12_OnTickWiring();
    Test_RR13_FirstRollsThenOneReroll();
+   Test_RR14_RerollIndexSkipsEjected();
+   Test_RR15_EjectedCandidateKept();
+   Test_RR16_LatchClearedThenRearmed();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

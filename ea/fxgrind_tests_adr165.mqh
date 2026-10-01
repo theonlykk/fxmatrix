@@ -224,4 +224,46 @@ void Test_RR13_FirstRollsThenOneReroll()
    Adr162b_Reset();
 }
 
+//+------------------------------------------------------------------+
+void Test_RR14_RerollIndexSkipsEjected()
+{
+   Adr165_Fixture();
+   Grind_EjectOffsetSet(7001UL, -0.00300);
+   AssertEqInt("RR14a (F)", Grind_LatticeRerollIndex(g_grind_long, true), 1);
+   for(int i = 1; i < 8; i++)
+      Grind_EjectOffsetSet(7001UL + (ulong)i, -0.00300);
+   AssertEqInt("RR14b (F)", Grind_LatticeRerollIndex(g_grind_long, true), -1);
+   Adr162b_Reset();
+   Adr165_Fixture();
+   Grind_EjectOffsetSet(7008UL, -0.00300);
+   AssertEqInt("RR14c (G)", Grind_LatticeRerollIndex(g_grind_long, true), 0);
+   Adr162b_Reset();
+}
+
+//+------------------------------------------------------------------+
+void Test_RR15_EjectedCandidateKept()
+{
+   Adr165_Fixture();
+   Grind_EjectOffsetSet(7001UL, -0.00300);
+   AssertEqInt("RR15a (G)", Adr165_TryLong(ADR165_T0, true), 1);
+   AssertNear("RR15b (F)", Grind_VLGet(7001UL), 1.20600, 1e-9);
+   AssertNear("RR15c (F)", Grind_VLGet(7002UL), 1.19800, 1e-9);
+   AssertTrue("RR15d (F)", Grind_EjectIsEjected(7001UL));
+   AssertContains("RR15e (F)", Adr162b_ArchiveFind("ROLL_ACCEPTED", 0), "\"ticket\":7002");
+   AssertTrue("RR15f (G)", Adr162b_ArchiveFind("ROLL_STRANDED", 0) == "");
+   Adr162b_Reset();
+}
+
+//+------------------------------------------------------------------+
+void Test_RR16_LatchClearedThenRearmed()
+{
+   Adr165_Fixture();
+   g_grind_vl_stranded_warned_long = true;
+   AssertEqInt("RR16a (G)", Adr165_TryLong(ADR165_T0, true), 1);
+   AssertFalse("RR16b (G)", g_grind_vl_stranded_warned_long);
+   AssertEqInt("RR16c (G)", Adr165_TryLong(D'2026.09.28 23:55', true), 0);
+   AssertTrue("RR16d (G)", Adr162b_ArchiveFind("ROLL_STRANDED", 0) != "");
+   Adr162b_Reset();
+}
+
 #endif // FXGRIND_TESTS_ADR165_MQH
