@@ -5,8 +5,8 @@ This message has a line count at the bottom
 Status: DRAFT, written by Claude 1 Oct ~02:30Z. **Not for Gemini yet**
 (one document at a time; after C63 and the v2.2 scope note). Timing is
 the operator's: "closer to going live" (30 Sep). Prerequisite: pipshed
-`pipshed_c9_second_key.patch` pushed and deployed (built 1 Oct, tree
-`f25199c8`; backlog C9). Nothing is rotated by this document.
+`pipshed_c9_and_fleet_d_card.patch` pushed and deployed (built 1 Oct;
+its first two commits are C9; tree `fbed4e6c`; backlog C9). Nothing is rotated by this document.
 
 **Rule for every step: the key is never pasted in chat, never printed
 on a screen that is shared, never committed, never screenshotted.** It

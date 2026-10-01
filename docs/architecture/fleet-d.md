@@ -36,7 +36,10 @@ pip from the anchor per pair and side, on the side the evidence points
 to. The first directions (s8.11 OPEN) go to Gemini as this file's D1
 amendment, with the roll-watch and study evidence; deployed by preset
 reload in session (v2.1 rebuilds exits on a live book). Operator, 1 Oct:
-compass rounds are to become routine.
+compass rounds are to become routine; ~05:25Z: "i really want to put the
+correct compass probe points on fleet d" -- D1 is next, ahead of the
+roll-watch (HANDOFF s26 NEXT SESSION item 2 lists the anchors and the
+decisions in order).
 
 ## 3. ATTACH (D0)
 
@@ -84,8 +87,9 @@ in session, or no POST ok.
 - `LATTICE_CONFIG` for all 11 D ids; no `DEAL_EVENT_MISSED`, no
   `REPLAY_SEED_FAILED`. Geometry register: D rows opened at these times.
 - Left: pipshed strip flip (`placeholder` off, `cycle_start` 2026-10-01;
-  C85 (f)); every chart was dragged from Expert Advisors -> fxmatrix
+  C85 (f); BUILT 05:40Z in `pipshed_c9_and_fleet_d_card.patch`, tree
+  `fbed4e6c`, not pushed); every chart was dragged from Expert Advisors -> fxmatrix
   (the operator's attach; the chart profiles are written on exit, so the
   `path=` check waits for the next MT5 restart).
 
-Line count: 91
+Line count: 95

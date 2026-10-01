@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-01 ~05:25Z (THURSDAY; C63 DONE; FLEET D LIVE; ROLL-WATCH RUNNING)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-01 ~05:45Z (THURSDAY; C63 DONE; FLEET D LIVE; D1 NEXT)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
@@ -38,8 +38,10 @@ s1, s6, s10, s11; `research/swap_day/README.md`;
   fxgrind.mq5`** until C88 re-attaches them from Experts. GUI x11vnc 5911.
 - **Fleet D** (wine-d, 216.128.158.33, IC 53077984): **LIVE since
   05:19Z**, D0 = anchor settings + lattice from a flat start
-  (`fleet-d.md`); D1 = the first compass probe (Gemini, after the
-  roll-watch). Strip says NOT ATTACHED until the pipshed flip (C85 (f)).
+  (`fleet-d.md`). **D1 = the first compass probe: the operator wants
+  it NOW** (HANDOFF s26 NEXT SESSION item 2 has the anchors and the
+  order of decisions). Strip says NOT ATTACHED until the pipshed patch
+  is pushed (C85 (f), built).
   History starts with the C78 probe's deals (magic 99078001). GUI: x11vnc
   `-noipv6 -forever` on 5912 (02_TRAPS 1 Oct early morning).
 
@@ -58,8 +60,10 @@ orders against 200, like FTMO (about 11-12 instances an account at cap
 
 **The live telemetry key IS the key committed in `ea/Globals.mqh` since
 June** (C9): anyone reading the repo can push telemetry. The pipshed
-second-key patch (`pipshed_c9_second_key.patch`, tree `f25199c8`) waits
-in Downloads; rotation timing is the operator's.
+second-key commits wait in Downloads inside
+`pipshed_c9_and_fleet_d_card.patch` (four commits on `052c72a`, tree
+`fbed4e6c`: C9, then the Fleet D live card); rotation timing is the
+operator's.
 
 **Watch every night on B and C (C87):** IC's rollover (21:00Z) rejects
 "market closed" for 1-2 min, and on 30 Sep held requests 3 minutes.
@@ -92,8 +96,8 @@ dialog above `TelemetryAPIKey`); presets carry `TelemetryAPIKey=` blank.
 
 | | |
 |---|---|
-| fxmatrix `main` | docs to the C63 records (1 Oct ~04:30Z); EA code = `0335f25` (live on B and C) |
-| pipshed `main` | `052c72a`; C9 second-key patch in Downloads (push after C63: now) |
+| fxmatrix `main` | docs to the Fleet D records and this handoff (1 Oct ~05:45Z); EA code = `0335f25` (live on B, C, D) |
+| pipshed `main` | `052c72a`; `pipshed_c9_and_fleet_d_card.patch` in Downloads (tree `fbed4e6c`; push now, not 20:50-21:00Z) |
 | VPS (cycle 3) | `5685e4f`; MetaTrader LiveUpdate pending (Later) |
 | wine-test (Fleet B) | `ssh box1`, VNC `ssh box1-vnc` + `localhost:5910`; repo `main`; log checker `/root/c63_logcheck.awk` |
 | wine-c (Fleet C) | `ssh box2`; x11vnc 5911 (06 s9); repo `b6ad868` (ea = main); charts on the Scripts copy (C88); log checker installed |
@@ -103,13 +107,17 @@ dialog above `TelemetryAPIKey`); presets carry `TelemetryAPIKey=` blank.
 
 ## 2. NEXT, IN ORDER (= HANDOFF s26 NEXT SESSION)
 
-1. Apply and push `pipshed_c9_second_key.patch`; C9 rotation timing.
-2. The roll-watch (runbook s6); tonight 21:00-21:15Z with C87 in mind,
-   then `--carrypass --hours 2` (33; the first pass over rolled layers).
-3. C88 in a quiet in-session slot.
-4. Friday: weekly exports (C83), `gt_report.py`.
-5. Later: `fleet-d.md` (C85); a ring-design note (three balanced
-   sevens); the v2.2 note to Gemini; C84 after 7 Oct; 07 gate.
+1. Apply and push `pipshed_c9_and_fleet_d_card.patch` (tree
+   `fbed4e6c`); check D's card; C9 rotation timing.
+2. **D1: the first compass probe on Fleet D** (the operator's priority;
+   HANDOFF s26 item 2: lever split, direction per pair and side with
+   its evidence, twins, round; then `fleet-d.md` D1 -> Gemini).
+3. The roll-watch (runbook s6); tonight 21:00-21:15Z with C87 in mind,
+   then `--carrypass --hours 2` (44; the first pass over rolled layers).
+4. C88 in a quiet in-session slot.
+5. Friday: weekly exports (C83), `gt_report.py`.
+6. Later: a ring-design note (three balanced sevens); the v2.2 note to
+   Gemini; C84 after 7 Oct; 07 gate.
 
 ---
 
@@ -154,4 +162,4 @@ dialog above `TelemetryAPIKey`); presets carry `TelemetryAPIKey=` blank.
   One paste per step, for the operator and for agents.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 157
+Line count: 165

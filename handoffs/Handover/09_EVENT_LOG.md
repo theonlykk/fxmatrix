@@ -8,10 +8,22 @@ the full record. Newest first. Times UTC. Add an entry for any event
 that halts an instance, moves a book by more than a few layers in
 minutes, touches an account limit, or needed a manual action.
 
-Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
+Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC), D =
+wine-d (IC, from 1 Oct). Cycle 2
 = the previous FTMO account (1514582088, ended 23 Sep).
 
 ---
+
+### 1 Oct ~04:40-05:05Z -- wine-d's X display wedged; Fleet D attached over VNC (D)
+- **What:** with the operator's internet dropping, RDP to wine-d failed,
+  then VNC: two stale sshd RDP tunnels held xrdp on a dead client and
+  wedged the X display; a `-once` x11vnc exited after one try.
+- **Impact:** the D0 attach waited ~30 min; no fleet affected (D had no
+  EAs; B and C untouched).
+- **Handled:** the stale sshd pids killed (X unwedged); x11vnc
+  `-noipv6 -forever` on 5912; D0 attached 05:10-05:19Z, clean.
+- **Changed:** 02_TRAPS 1 Oct early morning (wine-d); 06 s10.
+- **Evidence:** HANDOFF s26 "FLEET D"; fleet-d.md s5.
 
 ### 1 Oct 03:20-04:20Z -- C63: `main` + lattice on wine-test and wine-c (B, C; not A)
 - **What:** `main` `0335f25` (v2.1 + ADR-164 + C77) compiled and every
@@ -220,4 +232,4 @@ Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 223
+Line count: 235
