@@ -323,4 +323,34 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
 - D1 (above) supersedes s2's "D1 ... after the roll-watch": the operator
   moved it ahead (1 Oct ~05:25Z).
 
-Line count: 326
+- **D1 APPLIED 1 Oct (Asia session, spreads under widths; wine-d over
+  VNC, then wine-c).** Presets staged 06:16Z on wine-d and ~06:40Z on
+  wine-c (repos ff to `de73e46`; 9 `SAME_EXCEPT_KEY key_len=43` each).
+  - **wine-d (exit probe):** GBPUSD pilot 06:19:13Z, then EURUSD
+    06:21:27, EURGBP 06:21:39, AUDCAD 06:21:51, AUDCHF 06:22:06, CADCHF
+    06:22:17, NZDCHF 06:22:31, AUDNZD_ALTD 06:25:42, NZDCAD_ALTD
+    06:35:12. Every row `deinit=5 lattice=true rebuild=true/true`, geo =
+    s6.4: **the first live ADR-163 exit rebuild, clean**. Archive:
+    `REBUILD_SUMMARY` x2 for all nine, `EXIT_REBUILT` x5 (GBPUSD, EURUSD,
+    AUDCAD, AUDCHF, AUDNZD_ALTD: the only sides with a resting exit),
+    `LATTICE_CONFIG`; no `DEAL_EVENT_MISSED`, `REPLAY_SEED_FAILED` or
+    `STARTUP_EXIT_SHORTFALL`.
+  - **Incident (06:24:17-06:32:18Z):** `nzdcad_dup_d_p1.set` was first
+    loaded on the NZDCAD PRIMARY chart (22260801): the dialog shows the
+    preset's magic after Load and both charts carry the same title, so
+    the readback could not tell. That chart deinitialised (reason 5),
+    then failed init `FATAL: duplicate magic 22260802` (reason 8) and
+    was unloaded; NZDCAD_OPTD's book was unmanaged for 8 minutes.
+    Re-attached 06:32:18Z from Experts with `nzdcad_opt_d_lat.set`
+    (`rebuild=false/false`, geo 5/8/10, no shortfall); the twin then
+    reloaded correctly (magic read BEFORE Load). No geometry row for the
+    re-attach (unchanged). Findings: 02_TRAPS 1 Oct D1; backlog C89 (a
+    failed init frees the live holder's magic lock).
+  - **wine-c (add probe):** GBPUSD pilot 06:45:12Z, then EURUSD 06:46:09,
+    EURGBP 06:46:22, AUDCAD 06:46:35, AUDCHF 06:46:55, CADCHF 06:47:05,
+    NZDCHF 06:47:24, NZDCAD_ALTC 06:49:16, AUDNZD_ALTC 06:49:39. Every
+    row `deinit=5 lattice=true rebuild=false/false`, geo = s6.4, BAD 0.
+  - **Round 1 = FTMO days Fri 2 Oct + Mon 5 Oct** (ends Mon 5 Oct 22:00Z;
+    the last reload was 06:49:39Z Thursday). Register rows opened.
+
+Line count: 356

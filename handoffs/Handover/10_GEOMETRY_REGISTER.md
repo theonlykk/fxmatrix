@@ -29,32 +29,31 @@ This file holds the rules and a readable view of what is live now.
   the git history of `ea/presets` (e.g. `e1efa23` 19 Sep), live times
   unverified; backfill only if needed.
 
-## LIVE NOW (29 Sep; width / add / exit pips, cap 8 everywhere)
+## LIVE NOW (1 Oct ~06:50Z; width / add / exit pips, cap 8 everywhere)
 
-| pair | A: cycle 3 (FTMO) since 24 Sep | B: box 1 (IC) | C: box 2 (IC) since 28 Sep |
-|---|---|---|---|
-| GBPUSD | 5 / 10 / 10 | 5 / 9 / 10 (B1, from 27 Sep 23:05Z) | 5 / 9 / 10 |
-| EURUSD | 7 / 8 / 10 | 7 / 7 / 10 (B1) | 7 / 7 / 10 |
-| EURGBP | 3 / 4 / 5 | 3 / 3 / 5 (B1) | 3 / 3 / 5 |
-| AUDCAD | 5 / 7 / 10 | 5 / 6 / 10 (B1) | 5 / 6 / 10 |
-| AUDCHF | 5 / 6 / 10 | 5 / 4 / 10 (B1) | 5 / 4 / 10 |
-| CADCHF | 5 / 6 / 10 | 5 / 4 / 10 (B1) | 5 / 4 / 10 |
-| NZDCHF | 3 / 6 / 10 | 3 / 3 / 10 (B1) | 3 / 3 / 10 |
-| NZDCAD (OPT) | 5 / 10 / 10 | 5 / 8 / 10 (B1) | 5 / 8 / 10 |
-| NZDCAD (ALT dup) | 5 / 10 / 10 | 5 / 10 / 10 (control) | 5 / 10 / 10 |
-| AUDNZD (OPT) | 7 / 10 / 10 | 7 / 8 / 10 (B1) | 7 / 8 / 10 |
-| AUDNZD (ALT dup) | 7 / 10 / 10 | 7 / 10 / 10 (control) | 7 / 10 / 10 |
+| pair | A: cycle 3 (FTMO) | B: wine-test (anchor) | C: wine-c (ADD probe, D1) | D: wine-d (EXIT probe, D1) |
+|---|---|---|---|---|
+| GBPUSD | 5 / 10 / 10 | 5 / 9 / 10 | 5 / 8 / 10 | 5 / 9 / 9 |
+| EURUSD | 7 / 8 / 10 | 7 / 7 / 10 | 7 / 6 / 10 | 7 / 7 / 9 |
+| EURGBP | 3 / 4 / 5 | 3 / 3 / 5 | 3 / 4 / 5 (floor: +1) | 3 / 3 / 4 |
+| AUDCAD | 5 / 7 / 10 | 5 / 6 / 10 | 5 / 5 / 10 | 5 / 6 / 9 |
+| AUDCHF | 5 / 6 / 10 | 5 / 4 / 10 | 5 / 3 / 10 | 5 / 4 / 9 |
+| CADCHF | 5 / 6 / 10 | 5 / 4 / 10 | 5 / 3 / 10 | 5 / 4 / 9 |
+| NZDCHF | 3 / 6 / 10 | 3 / 3 / 10 | 3 / 4 / 10 (floor: +1) | 3 / 3 / 9 |
+| NZDCAD (OPT) | 5 / 10 / 10 | 5 / 8 / 10 | 5 / 8 / 10 (anchor) | 5 / 8 / 10 (anchor) |
+| NZDCAD (ALT dup) | 5 / 10 / 10 | 5 / 10 / 10 (control) | 5 / 7 / 10 (probe) | 5 / 8 / 9 (probe) |
+| AUDNZD (OPT) | 7 / 10 / 10 | 7 / 8 / 10 | 7 / 8 / 10 (anchor) | 7 / 8 / 10 (anchor) |
+| AUDNZD (ALT dup) | 7 / 10 / 10 | 7 / 10 / 10 (control) | 7 / 7 / 10 (probe) | 7 / 8 / 9 (probe) |
 
-Fleet B ran A's geometry from 24 Sep ~02:50Z until the B1 reloads
-(27 Sep 23:05-23:51Z); the two ALT duplicates never changed (same-account
-controls). So far only ADD has been varied; every exit is still the
-cycle-3 value.
+History: Fleet B ran A's geometry from 24 Sep ~02:50Z until the B1
+reloads (27 Sep 23:05-23:51Z). C matched B from 28 Sep until the D1
+reloads (1 Oct 06:45:12-06:49:39Z); D ran the anchor from its attach (1 Oct
+05:10-05:19Z) until the D1 reloads (06:19:13-06:35:12Z). The first EXIT
+change anywhere is D1 on D (the first live ADR-163 rebuild).
 
 ## NEXT EXPECTED ROWS
 
-C63 deployed 1 Oct (B 04:02Z, C 04:16Z) with no geometry change: no
-rows, as planned (geometry checked on every chart at both stages).
-The first new rows come with the compass rounds (cycle-4 note s8.4-8.5)
-and box 3 (Fleet D).
+The D1 round's verdict (after Mon 5 Oct 22:00Z; fleet-d.md s6.5): an
+anchor move on B, flips or repeats on C and D, each a row.
 
-Line count: 60
+Line count: 59

@@ -1379,3 +1379,31 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   from the DESKTOP prompt (it was once typed inside wine-d).
 - **A fresh box has no `MQL5/Presets`:** create it as khalid before
   staging (`sudo -u khalid mkdir -p`).
+
+## TRAPS FROM 2026-10-01 D1 (TWIN CHARTS, MAGIC LOCK, SCREENSHOTS)
+
+- **After Load, the Properties dialog shows the PRESET's magic, not the
+  chart's.** Both twin charts are titled "fxgrind 2.00 (NZDCAD,M5)", so a
+  readback after Load cannot tell which chart you are on. Read `InpMagic`
+  BEFORE clicking Load; if it is the other instance, Cancel (nothing is
+  applied until OK). 1 Oct 06:24Z: the twin's preset went onto the
+  primary chart, which failed init on a duplicate magic and was unloaded
+  (fleet-d.md s7).
+- **A failed init is not a halt: the EA is UNLOADED from the chart.**
+  The chart keeps no EA (no name top-right); its book sits at the broker
+  unmanaged until a re-attach. Re-attach from Navigator -> Expert
+  Advisors -> fxmatrix -> fxgrind with the chart's OWN preset.
+- **`OnDeinit` frees the magic lock of whatever `InpMagic` it holds,
+  even after a FAILED init** (`fxgrind.mq5` 372; `deinit reason=8` in the
+  log): the failed duplicate deleted the live twin's lock, so a third
+  duplicate would have passed the guard. Re-established by the twin's
+  next reload. Backlog C89.
+- **pipshed keeps a CRITICAL red for 24 h unless it is a halt code**
+  (`_FLEET_STRIP_HALT_CODES`, `app.py` 902): `DUPLICATE_MAGIC` stays red
+  after the fix; the card (LIVE 11/11) is the truth. Backlog C90.
+- **Crop screenshots so `TelemetryURL` is the LAST row.** A dialog
+  captured to its bottom edge showed the top half of the
+  `TelemetryAPIKey` row (wine-c, 06:48Z). The key is the public one
+  (C9), so nothing new leaked; C9 records it.
+- **Two shells, two boxes: read the prompt.** A wine-c command typed in
+  the wine-d window ran on wine-d (harmless: read-only plus a no-op pull).

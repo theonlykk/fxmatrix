@@ -14,6 +14,21 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 1 Oct 06:19-06:50Z -- D1, the first compass round, reloaded; NZDCAD_OPTD off 8 min (C, D)
+- **What:** D1 presets reloaded in session: wine-d's exit probe
+  06:19-06:35Z (the first live exit rebuild, `rebuild=true/true` on all
+  nine, clean), wine-c's add probe 06:45-06:50Z. At 06:24:17Z the NZDCAD
+  twin's preset went onto the PRIMARY chart, which failed init
+  (`DUPLICATE_MAGIC 22260802`) and was unloaded.
+- **Impact:** NZDCAD_OPTD's book unmanaged 06:24:17-06:32:18Z (no fill
+  missed: no shortfall at the re-attach); a red DUPLICATE_MAGIC on the
+  banner for 24 h. Nothing else.
+- **Handled:** re-attached with its own D0 preset (06:32:18Z, clean);
+  the twin reloaded after reading its magic before Load (06:35:12Z).
+- **Changed:** 02_TRAPS 1 Oct D1 (read the magic BEFORE Load); backlog
+  C89 (a failed init frees the live holder's lock), C90 (pipshed).
+- **Evidence:** fleet-d.md s6 and s7 record; fleet-c.md A3; register.
+
 ### 1 Oct ~04:40-05:05Z -- wine-d's X display wedged; Fleet D attached over VNC (D)
 - **What:** with the operator's internet dropping, RDP to wine-d failed,
   then VNC: two stale sshd RDP tunnels held xrdp on a dead client and
@@ -232,4 +247,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 235
+Line count: 250
