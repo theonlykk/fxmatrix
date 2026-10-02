@@ -14,6 +14,35 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 2 Oct ~16:18-17:36Z -- pipshed.com saturated by its own page reads; C110
+- **What:** from ~16:18Z (the C109 deploy) pipshed.com's CPU sat at ~4-4.5
+  vCPU (all four gunicorn workers busy) and memory rose 0.6 -> 1.6 GB; from
+  ~16:30Z about half the requests were 4xx and the total halved. Railway's
+  Network Logs: EA pushes 499 (client gone) after ~1 s, page calls
+  (`fleets`, `ejection`, `today_scalps`, `scalps`, `aggregate`) 19 s to
+  2 min. No `WORKER TIMEOUT`. Closing the operator's tabs changed nothing:
+  the paths' `Date.now()` suffix showed a page still polling (17:10Z,
+  17:12Z, 17:14Z); the device was never found (the Claude app's browser
+  pane was closed). Live states stayed fresh on all four fleets throughout
+  (B 16:45Z, FTMO AUDCHF 16:47Z, C 16:49Z, D 16:48Z).
+- **Cause:** every read of a scalp list parsed ALL of it (`lrange 0 -1`,
+  `json.loads` per row; up to 3,000 rows per instance). Per page and 30 s
+  the fleet strip parsed every instance of all four fleets twice (today and
+  cycle), `today_scalps` and `scalps` parsed A's ids again, and the 5-s
+  daily summary once more. In process with full lists: one strip call read
+  81 MB from Redis (~1.2 s CPU), the daily summary 18 MB. The lists grew
+  with the lattice's scalp volume until one open page saturated four cores.
+- **Handled:** pipshed C110 (`8dcb60b` tests, `830f04b` fix, tree
+  `b52cbbf2`, pushed ~17:35Z): one reader re-reads only new rows (warm
+  strip call 0.4 MB, ~0.2 s CPU); all 13 page pollers skip a tick while
+  their previous call runs. 35/35 suites. 17:39Z: strip answers at once,
+  A 7/7, B/C/D 11/11 LIVE.
+- **Changed:** C102 (the strip's cost) largely answered; C111 (cycle totals
+  short once a list holds 3,000 rows); C112 (the EA drops an archive batch
+  answered 400: check whether any rows were lost on 2 Oct).
+- **Evidence:** Railway Metrics and Network Logs (screenshots in chat);
+  pipshed `verify_c110_scalp_reads`; HANDOFF s36.
+
 ### 2 Oct ~15:50-16:18Z -- pipshed after the retirements: red banner, CONNECTION LOST badge
 - **What:** after the cut to seven, Fleet A's card read PARTIAL 7/11;
   the critical banner stayed red over AUDCAD_OPT's 1 Oct INVARIANT_FAIL
@@ -419,4 +448,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 422
+Line count: 451

@@ -1616,4 +1616,32 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   already applied locally (`2fce0d4`). Undo with `git am --abort`
   (the working tree stays clean).
 
-Line count: 1619
+
+## TRAPS FROM 2026-10-02 EVENING (PIPSHED SATURATED BY PAGE READS)
+
+- **CPU pinned with FEW requests means each request is expensive,** not
+  that there are many. 2 Oct: ~4.5 vCPU at ~80 requests a minute. Look for
+  reads whose cost grows with stored history (`lrange(key, 0, -1)` then
+  parse every row) before suspecting volume or workers.
+- **Railway: read the ACTIVE deployment.** The Deployments list can open
+  an old one (badge "Removed"); its logs say nothing about today. Network
+  Logs show path, status and duration only (no user agent or IP). Status
+  499 = the client gave up. A `/api/g/<token>/.../<n>` path's last segment
+  is the browser's `Date.now()` in ms: it dates when a page SENT the call.
+- **"Close the tabs" may not find the poller.** A page kept polling after
+  the operator closed his tabs (device never found). Fix the server's cost;
+  do not depend on hunting tabs.
+- **The EA DROPS an archive batch the server answers 400**
+  (`grind_archive_flush.mqh` 70-78: counted, `TELEMETRY_BATCH_REJECTED`);
+  only a timeout or other status keeps it queued. "No rows lost" needs that
+  marker (or the Experts log's `archive batch rejected`) checked, not
+  `TELEMETRY_QUEUE_DROPPED` alone (C112).
+- **Scalp lists in Redis hold 3,000 rows per instance**
+  (`SCALP_HISTORY_LIST_MAX`): anything summed from them since a date
+  (the strip's cycle totals) is short once a list is full (C111). The
+  archive (PG) is the complete record.
+- **A granted folder does not always bring the file tools.** 2 Oct:
+  Downloads granted, but no device write tool loaded; the patch went out
+  as a file card and the operator saved it.
+
+Line count: 1647
