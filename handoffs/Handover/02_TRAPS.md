@@ -1530,4 +1530,37 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   disconnects: keep the viewer open while working, restart x11vnc after
   closing it.
 
-Line count: 1533
+
+## TRAPS FROM 2026-10-02 DAY (PIPSHED OUTAGE, HOTFIX DEPLOYS)
+
+- **`deploy.ps1` starts with `git pull origin main`.** On any branch
+  other than main it MERGES main into it and you compile main's code.
+  For a branch build on the VPS do its copy and hash-check by hand
+  (HANDOFF s32 has the command).
+- **pipshed.com ran on `flask run` (the dev server) until 2 Oct.** One
+  thread per request, one core: slow responses -> EA posts abandoned at
+  200 ms -> cut-off bodies answered 400 -> the same growing batch re-sent
+  every 2 s -> threads pile up -> `can't start new thread`. A restart
+  only buys ~10 minutes. The start command now runs gunicorn (Railway
+  setting only; C102).
+- **A dead pipshed does not stop trading** (200 ms WebRequest timeout)
+  and loses no archive rows while each EA's queue (5000) holds; a
+  restart, compile or reattach of an EA DOES lose its queued rows: no EA
+  restarts while pipshed is down.
+- **Which `.ex5` the charts load, when profiles are not saved:** MT5
+  writes chart profiles only on exit, so `Profiles/Charts` can hold the
+  stock samples. Match the INIT record's `ea_build` (the compile time,
+  `GRIND_EA_BUILD`) to the `.ex5` files' modified times: wine-test and
+  wine-d load Experts, wine-c Scripts, the VPS Experts (2 Oct).
+- **`Select-String` ignores case:** `RECON_FAIL` matched `recon_failure`
+  inside every HEARTBEAT line (12 false hits after the VPS compile). Use
+  `-CaseSensitive`, or read the newest HEARTBEAT's flags.
+- **Git on the VPS asks "Unlink of file ... failed. Should I try again?"**
+  after a fetch (auto-gc, a locked pack file): answer n; harmless.
+- **Claude cannot read `AppData` folders** (the device bridge refuses
+  them); it reads only Downloads and `D:\fxmatrix\temp` unless the
+  operator connects a folder with the desktop app's folder picker.
+- **x11vnc on wine-test and wine-c now runs `-forever -noipv6`** (2 Oct):
+  after a desktop reboot only the SSH tunnels need reopening.
+
+Line count: 1566

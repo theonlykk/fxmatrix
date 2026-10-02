@@ -14,6 +14,32 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 2 Oct 14:16-14:55Z -- API entry stop raised on all four fleets (hotfix)
+- **What:** Fleet D's shared request count was 1670 at 14:02Z (C 1403, B
+  1261, FTMO 1231); at 1900 the EA's own constant stops every new entry
+  on that fleet until the 21:00Z reset (FTMO reached 1881 on 1 Oct).
+- **Handled:** operator: "i do not want an api limit to stop trading".
+  `GRIND_DAILY_API_ENTRY_STOP` 1900 -> 1000000, `GRIND_DAILY_API_SOFT_WARN`
+  1800 -> 999000. IC `893e065` on `0335f25` (suite 2368/2368): wine-d
+  14:16:00Z, wine-c 14:19:14Z, wine-test 14:20:54Z. FTMO `aa6970a` on
+  `5685e4f` (suite 1887/1887): VPS 14:55:06Z, tag `vps-aa6970a`. Every
+  box 11/11 re-init, inputs kept, FATAL 0.
+- **Changed:** C100 hotfixed (input still v2.2); C105 (merge into main).
+- **Evidence:** fleet-d.md s7; HANDOFF s32.
+
+### 2 Oct ~10:00-14:27Z -- pipshed.com overloaded, then down; moved to gunicorn
+- **What:** the web service ran Flask's dev server. EA posts started
+  timing out (200 ms) ~10:00Z; down from 12:14Z (`can't start new
+  thread`, 6.5 GB, 1 vCPU pinned, mostly 4xx). Cards and strip blind;
+  trading unaffected; archive rows held in the EAs' queues (no drops).
+- **Handled:** restart 14:00Z (relapsed ~10 min); start command changed
+  to gunicorn (4 workers x 8 threads) ~14:27Z: backlog drained, all 2xx,
+  memory flat.
+- **Changed:** C102 (commit the start command; page services).
+- **Evidence:** Railway metrics and deploy logs (screenshots in chat);
+  wine-test log: POST ok per hour 650-740 overnight, 373 at 10h, 159 at
+  11h, 1 at 12h.
+
 ### 2 Oct 03:41-03:52Z -- AUDCHF long stuck at cap on C; hand eject
 - **What:** AUDCHF C (add probe, add 3): all eight layers rolled, ask
   0.57509 past its next level 0.57527 (status 03:41:41Z).
@@ -357,4 +383,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 360
+Line count: 386

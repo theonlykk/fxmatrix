@@ -1,13 +1,13 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~03:55Z (FRIDAY, ASIA; ROUND 1 WINDOW 1 RUNNING)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~15:10Z (FRIDAY; ROUND 1 WINDOW 1 RUNNING)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s31**
-(s31 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s32**
+(s32 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01 and **2026-10-02 early**;
 `handoffs/Handover/08_BACKLOG.md` (above all C96, C99-C104);
 `docs/architecture/fleet-d.md` s6 (D1, the compass round) and s7 (all
@@ -31,7 +31,10 @@ s8 (the compass); `research/compass/README.md` (C91 scorer);
   fixes; ejects at cap (ADR-157); keeps the ADR-160 gate and ADR-158
   breaker ($500 limit is real). After any `connection ... lost`, check
   for orphans (strip: ORPHAN_EXT). `https://pipshed.com`.
-- **Fleet B** (wine-test, IC 53066709): the ANCHOR. `0335f25`, lattice ON.
+- **Builds since 2 Oct 14:16-14:55Z (API entry stop OFF, C100 hotfix):**
+  IC `893e065` (`hotfix-api-stop`), FTMO `aa6970a` (`hotfix-api-stop-ftmo`,
+  tag `vps-aa6970a`). Never run `deploy.ps1` on a branch (it pulls main).
+- **Fleet B** (wine-test, IC 53066709): the ANCHOR. Lattice ON.
 - **Fleet C** (wine-c, IC 53071896): D1 ADD probe. Charts load
   `Scripts\fxmatrix\fxgrind.ex5` (C88).
 - **Fleet D** (wine-d, IC 53077984): D1 EXIT probe.
@@ -79,8 +82,8 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | docs to 2 Oct ~03:55Z; IC presets S = W + 1 (`c53ecaf`); EA code = `3df13f0` (ADR-165 merged, default OFF); suite 2447/2447 |
-| pipshed `main` | `eb19e5c` (C97 ORPHAN_EXT; legend live) |
+| fxmatrix `main` | docs to 2 Oct ~15:10Z; EA code = `3df13f0` (ADR-165 merged, default OFF; WITHOUT the API hotfix: C105); suite 2447/2447 |
+| pipshed `main` | `eb19e5c`; pipshed.com runs gunicorn (Railway start command, not in the repo yet: C102) |
 | VPS (cycle 3) | `5685e4f`; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` + x11vnc `-once` (keep the viewer open while working) |
 | wine-c (C) | `ssh box2`; VNC 5911 the same way |
@@ -90,14 +93,16 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ## 2. NEXT, IN ORDER (= HANDOFF s31 NEXT SESSION)
 
-1. Status files: stuck sides; the L0 change overnight.
+1. Watch: FTMO AUDCHF heartbeat; stuck sides; IC rejection codes;
+   pipshed memory. pipshed start command into the repo (C102).
 2. The L0 change measured: `--l0churn`, empty-side fills, `api_count`.
 3. Docs: split the backlog (critical path / before real money /
    notebook); prune done rows.
 4. Friday: exports (C83), `gt_report.py`, 1 Oct P&L by currency and pair
    per fleet, C103 measurement -> ring note + compass routine (C96, C104)
    to Gemini (one document).
-5. Mon 5 Oct after 22:00Z: score round 1 (C91). Then the Monday build.
+5. Mon 5 Oct after 22:00Z: score round 1 (C91). Then C105 (merge the
+   hotfix into main) and the Monday build.
 6. Later: C98, C100, C101, C102, C93, C92, C88, C75, C9, C84 after 7 Oct.
 
 ---
@@ -132,4 +137,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   document at a time; one paste per step, for agents too.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 135
+Line count: 140

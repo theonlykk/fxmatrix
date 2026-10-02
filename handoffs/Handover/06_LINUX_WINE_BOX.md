@@ -322,7 +322,7 @@ In `ssh box2` as root:
     sudo -u khalid x11vnc -display :10 -auth /home/khalid/.Xauthority -localhost -rfbport 5911 -nopw -once -shared -noxdamage -bg -o /tmp/x11vnc-box2.log
 
 then on the desktop `ssh -L 5911:localhost:5911 box2` (leave it open) and
-the viewer on `localhost::5911`. It exits when the viewer disconnects. **2 Oct: a viewer kept open stays usable for a whole session of work (commanded ejects, 11 reloads per box); restart x11vnc only after closing it.**
+the viewer on `localhost::5911`. It exits when the viewer disconnects. **2 Oct: a viewer kept open stays usable for a whole session of work (commanded ejects, 11 reloads per box); restart x11vnc only after closing it. Since 2 Oct ~13:40Z wine-test and wine-c run x11vnc `-forever -noipv6` too (`pgrep -a x11vnc || sudo -u khalid x11vnc ... -forever -noipv6 ...`), so after a desktop reboot only the tunnels need reopening.**
 
 **Files to box 2 (28 Sep):** scp from the desktop to `/root`, then as root
 `install -o khalid -g khalid -m 664 /root/<file> "<MQL5 root>/Scripts/fxmatrix/<file>"`

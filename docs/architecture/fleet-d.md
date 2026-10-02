@@ -406,6 +406,13 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
     add probe there (add 3 vs B's 4): a tighter add spends its rolls
     sooner, so the stuck side and its eject are part of what the probe
     measures.
+  - **2 Oct ~10:00-14:27Z: pipshed down** (no strip or cards; trading and
+    the archive unaffected, rows queued and delivered after 14:27Z).
+  - **API entry stop raised on all four fleets** (operator; EA code,
+    two constants): IC 14:16-14:21Z (D, C, B), FTMO 14:55Z. Before it D
+    was on course to stop entering at 1900 requests (~15:30Z) while B and
+    C kept trading. Same build on B, C and D: like for like from 14:21Z.
+    Every compile kept the charts' inputs (CONFIG read back).
   - **`InpStrandedThreshPips` = width + 1 on all 33 IC charts** (F7, one
     row): wine-test 02:55:15-02:58:16Z, wine-c 03:00:14-03:01:49Z,
     wine-d 03:03:03-03:04:54Z (archive INIT rows, 11 each, `deinit=5`;
@@ -421,4 +428,4 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
     never re-quotes AWAY from a market approaching it. Same change on B,
     C and D: round 1 stays like for like. Not geometry: no register row.
 
-Line count: 424
+Line count: 431
