@@ -14,6 +14,23 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 2 Oct ~15:50-16:18Z -- pipshed after the retirements: red banner, CONNECTION LOST badge
+- **What:** after the cut to seven, Fleet A's card read PARTIAL 7/11;
+  the critical banner stayed red over AUDCAD_OPT's 1 Oct INVARIANT_FAIL
+  (a retired instance never "runs again", so the row never resolved);
+  the pipshed.com badge read CONNECTION LOST with every card LIVE: the
+  page opened on the first id of the rings JSON, which tojson sorts, so
+  `aud_cad_chf` came first and the page polled retired AUDCAD_OPT.
+- **Handled:** three pipshed changes, tests first, each pushed by the
+  operator: C107 (A strip = seven, `94c7630`), C108 (every row of a
+  retired instance shows "resolved: instance retired", `00a89ad`),
+  C109 (the page opens on the fleet's default, GBPUSD, `0fd1a86`).
+  Checked on pipshed.com 16:18Z: card LIVE 7/7, banner grey, badge Live.
+- **Changed:** retiring an instance now needs its id added to
+  pipshed's `GRIND_RETIRED_INSTANCES` and removed from the A strip.
+- **Evidence:** pipshed `verify_c108_retired_critical`,
+  `verify_c109_default_instance`; HANDOFF s34.
+
 ### 2 Oct ~15:00-15:45Z -- FTMO hyperactivity warning; cycle 3 cut from 11 to 7 instances
 - **What:** FTMO email: "a high degree of hyperactivity" on 1514731800;
   threshold "2000 trades or server requests including SL/TP
@@ -402,4 +419,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 405
+Line count: 422

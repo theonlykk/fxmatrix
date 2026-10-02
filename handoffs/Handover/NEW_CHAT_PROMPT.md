@@ -1,13 +1,13 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~15:55Z (FRIDAY; ROUND 1 WINDOW 1 RUNNING)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~16:20Z (FRIDAY; ROUND 1 WINDOW 1 RUNNING)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s33**
-(s33 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s34**
+(s34 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01 and **2026-10-02 early**;
 `handoffs/Handover/08_BACKLOG.md` (above all C96, C99-C104);
 `docs/architecture/fleet-d.md` s6 (D1, the compass round) and s7 (all
