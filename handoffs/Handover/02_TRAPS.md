@@ -1585,4 +1585,35 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **FTMO counts requests, not lines:** ~2 Journal lines per request (sent +
   accepted). Count sent lines only (exclude accepted/done/placed/failed).
 
-Line count: 1588
+
+## TRAPS FROM 2026-10-02 LATE AFTERNOON (PIPSHED AFTER THE RETIREMENTS; HANDOVER)
+
+- **Retiring an instance is not finished until pipshed knows.** Add its
+  id to `GRIND_RETIRED_INSTANCES` (C108: its critical rows show resolved)
+  and drop it from the fleet's strip list (`GRIND_A_STRIP_INSTANCES`,
+  C107); otherwise the card says PARTIAL and the banner stays red for a
+  problem that can never "run again".
+- **Jinja's `tojson` SORTS dict keys.** The page's rings JSON arrives in
+  alphabetical order (`aud_cad_chf` first), not `GRIND_RINGS` order:
+  never take "the first instance" from it. The page opens on
+  `GRIND_DEFAULT_INSTANCE` since C109 (on 2 Oct it opened on retired
+  AUDCAD_OPT and the badge said CONNECTION LOST over a healthy fleet).
+- **The top-right badge follows ONE instance** (the selected tile), not
+  the fleet: CONNECTION LOST there with LIVE cards means the selected
+  instance has no state key (retired, or a cycle-2 `_ALT` tile). Read the
+  footer "Instance:".
+- **Claude can read pipshed after all:** WebFetch of
+  `/api/telemetry/live?instance=<id>` works (a summary), and the browser
+  pane on the operator's desktop (allowed for pipshed.com, scope site)
+  runs page JS: `currentInstance`, the badge text, fetches per instance.
+  The sandbox shell still gets 403.
+- **PowerShell eats `{tree}`:** `git rev-parse HEAD^{tree}` prints the
+  parent COMMIT and an `-encodedCommand` error. Quote it:
+  `git rev-parse "HEAD^{tree}"`.
+- **A patch can be applied and not pushed.** Before building on GitHub's
+  main, ask for `git log origin/main..HEAD` on the desktop; on 2 Oct a
+  combined patch failed on every file because its first commit was
+  already applied locally (`2fce0d4`). Undo with `git am --abort`
+  (the working tree stays clean).
+
+Line count: 1619
