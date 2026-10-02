@@ -14,6 +14,34 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 2 Oct 02:55-03:05Z -- empty-side L0 re-quote tightened on the IC fleets (B, C, D)
+- **What:** on a one-sided book the empty side's L0 lagged the market by
+  S - W (5 pips; 7 on EURUSD, AUDNZD): e.g. EURGBP short L0 on B and C
+  6.6 pips above mid at 02:19Z with the longs at cap.
+- **Handled:** operator ruling ("i want to see the impact"):
+  `InpStrandedThreshPips` = width + 1 by F7 on all 33 IC charts
+  (wine-test 02:55:15-02:58:16Z, wine-c 03:00:14-03:01:49Z, wine-d
+  03:03:03-03:04:54Z); deadband kept at 4 (request budget). Each box
+  11/11 CONFIG read back, FATAL 0.
+- **Changed:** 51 IC presets; the L0 now re-quotes after 4 pips of drift
+  everywhere; C103 (a near-zero counter-side width needs code).
+- **Evidence:** fleet-d.md s7; HANDOFF s31.
+
+### 2 Oct 02:19-02:30Z -- NZDCHF long stuck at cap on B and C; hand ejects
+- **What:** CHF strength continued after window 1 opened. NZDCHF long on
+  B (rolled L10 at 22:13:44Z) and C: depth 8, all eight layers rolled,
+  ask past the next level, so no roll candidate (live build `0335f25`;
+  ADR-165 not deployed). D one roll left; AUDCHF C all rolled, 3.6 pips
+  from its next level.
+- **Handled:** operator: "lets unstick the fx pairs that are stuck".
+  Commanded eject (Global Variable `GRIND_EJECT_22260701`, over VNC):
+  B L01 1970247358 accepted 02:26:15Z, filled 02:26:43Z (~-$7.90); C L00
+  1971349402 accepted 02:29:27Z, filled 02:30:19Z (~-$8.20). Books clean
+  (no EXT position; new adds rest at the lattice).
+- **Changed:** nothing in code; realised inside round 1 window 1
+  (fleet-d.md s7). The case for ADR-165 (re-roll) again.
+- **Evidence:** wine-test and wine-c Experts logs 2 Oct; HANDOFF s31.
+
 ### 1 Oct 21:16-21:28Z -- breaker and gate switched OFF on the IC fleets (B, C, D)
 - **What:** ADR-160's entry gate had blocked every entry on B and C
   since the CHF trend (floating loss above 50% of the $500 allowance:
@@ -319,4 +347,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 322
+Line count: 350

@@ -1436,6 +1436,8 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   exits that fill during the halt are not closed by (the EA is idle): the
   restart's reconstruction must accept them (or see the trap above).
 - **The day total, not closed P&L, compares ejection with rolling:** 1 Oct
+  A closed -$119 / open -$144 vs B +$46 / -$282; totals -$263 vs -$235.
+  (Line restored 2 Oct; a later commit had dropped it.)
 
 ## TRAPS FROM 2026-10-01 EVENING (LINK STALL, ORPHANS, SUITE COPY)
 
@@ -1497,4 +1499,35 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A run of the grep before the edits returns nothing**: an empty list
   means "no re-init since that time", check the clock before debugging.
 
-Line count: 1500
+## TRAPS FROM 2026-10-02 EARLY (STUCK SIDES, L0 RE-QUOTE, READING STATUS)
+
+- **"Stuck" comes before `ROLL_STRANDED`.** A capped side with every layer
+  rolled cannot roll again once the ask (long) passes the next level
+  (lowest effective - add); the WARN fires only one add step later
+  (`GRIND_VL_STRANDED_STEPS` 2, engine 1127-1160 at `0335f25`). Watch the
+  distance to the next level, not the alert. Commanded eject over VNC
+  worked in under a minute per side (2 Oct: B 28 s, C 52 s to fill).
+- **`/status*` layer rows have no `virtual_level`.** Infer the effective
+  entry from `exit_target -/+ exit_pips` (long/short; accrual is a
+  fraction of a pip); a layer is rolled when that sits more than half an
+  add below its entry (long). Only `/ejection` carries the VL. Bid/ask
+  are not in the heartbeat either: fit them from the book's positions
+  (profit = k (bid - open) for a BUY; k = 1000 on USD-quoted pairs).
+- **Claude's sandbox cannot reach pipshed** (proxy 403) and fetch
+  summaries garble numbers: save the JSON to Downloads with
+  `Invoke-WebRequest ... -OutFile` and let Claude read the file.
+- **The L0 re-centre has NO direction check.** It moves the empty side's
+  L0 to mid +/- W whenever it sits more than S from mid AND the move is at
+  least D (`grind_pure.mqh` 170: inside the band is `< D`). If S < W - D
+  it also moves the L0 AWAY from a market approaching it. Keep S >= W - D
+  (S = W + 1 now). The drift that re-quotes is max(D, S - W) (ADR-153).
+- **`InpStrandedThreshPips` and `InpDeadbandPips` have no input comment:**
+  the Inputs dialog shows their names, and both are in the CONFIG line
+  (a grep proves the values, unlike `InpBreakerEnable`).
+- **A connected VNC viewer stays usable for the whole session** (2 Oct,
+  wine-test and wine-c: the operator kept both viewers open across the
+  ejects and 22 reloads). `-once` ends the server only when that client
+  disconnects: keep the viewer open while working, restart x11vnc after
+  closing it.
+
+Line count: 1533

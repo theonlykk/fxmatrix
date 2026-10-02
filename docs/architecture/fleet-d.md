@@ -384,4 +384,34 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
   (B anchor, C and D one lever each per round). Round 1 runs to the end
   as designed, twins included ("twins decide" used one last time).
 
-Line count: 387
+- **2 Oct, window 1 (round-1 amendments, all by the operator):**
+  - **Hand ejects, NZDCHF long B and C** (operator ~02:22Z: "lets unstick
+    the fx pairs that are stuck"). Both sides were at cap with all eight
+    layers rolled and the ask past the next level (B 0.46530 vs 0.46534,
+    C vs 0.46535; status files 02:19Z): no roll candidate on `0335f25`.
+    Commanded eject (ADR-155) of the highest effective entry: B L01
+    1970247358 (`EJECT_ACCEPTED` 02:26:15Z, target 0.46542, `EJECT_FILLED`
+    02:26:43Z), C L00 1971349402 (02:29:27Z, 0.46550, filled 02:30:19Z);
+    about -$7.90 and -$8.20 realised INSIDE window 1 (scored as they
+    fall). Books clean after (no EXT position; new adds at 0.46534 B,
+    0.46537 C). NZDCHF D (one roll left) and AUDCHF C (all rolled, 3.6
+    pips from the next level) were not ejected. Claude had recommended
+    leaving stuck sides alone during the round (the anchor's realised
+    loss is not matched on D); the operator decided otherwise; B and C
+    were treated alike.
+  - **`InpStrandedThreshPips` = width + 1 on all 33 IC charts** (F7, one
+    row): wine-test 02:55:15-02:58:16Z, wine-c 03:00:14-03:01:49Z,
+    wine-d 03:03:03-03:04:54Z (archive INIT rows, 11 each, `deinit=5`;
+    CONFIG lines read back per box, FATAL 0). Width 3 -> S 4 (was 8),
+    width 5 -> 6 (was 10), width 7 -> 8 (was 14); `InpDeadbandPips` stays
+    4. Effect (ADR-153: the empty side's L0 re-quotes after a drift of
+    max(D, S - W) away from it): 4 pips on every pair, from 5 (7 on EURUSD
+    and AUDNZD); the empty-side L0 now sits W to W + 4 from mid. It runs
+    whenever one side holds >= 1 layer and the other none (not only deep
+    books). Operator: "i want to see the impact"; a deadband of 1 was
+    discussed and rejected to spare requests ("we have to be somewhat
+    deferential"). S = W + 1 is above W - D on every pair, so the L0
+    never re-quotes AWAY from a market approaching it. Same change on B,
+    C and D: round 1 stays like for like. Not geometry: no register row.
+
+Line count: 417
