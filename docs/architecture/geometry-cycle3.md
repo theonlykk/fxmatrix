@@ -308,4 +308,33 @@ only, in `5685e4f` (the build Fleet B runs); `Grind_EnsureAddNext`,
    dial; no halt path and no extra requests. The deploy check lines are
    enough; no special watch.
 
-Line count: 311
+
+**A7 (2026-10-02 ~15:10-15:45Z) -- ELEVEN TO SEVEN: THE RING, AFTER FTMO'S
+HYPERACTIVITY WARNING.** FTMO wrote on 2 Oct (~15:00Z) that account
+1514731800 showed "a high degree of hyperactivity": their threshold is
+"2000 trades or server requests including SL/TP modifications, order
+cancellations etc., per day", and if the alerts do not decrease "within
+the following days" they will disable the account. Measured on the VPS
+Journal: ~2 lines per request; today's requests to 15:08Z ~1,300-1,500
+(place limits 646, close-bys ~175, cancels 292, modifies ~200+), close to
+our counter (1,382 at 14:56Z); 1 Oct 1,881 by our counter, over 2,000 on
+some day boundary. The 1900 entry stop never controlled this (exits,
+cancels, close-bys and modifies are over half). Operator: cut the
+instance count, not the trading ("1400 is a sledgehammer"). Retired by
+hand (no stop-entries input exists): EA removed, resting orders deleted
+(entries first), positions closed by Close By then market:
+**GRIND_AUDNZD_ALT** (22260902) and **GRIND_NZDCAD_ALT** (22260802), EAs
+removed 15:14:21Z and 15:14:38Z, ~-$21.60 realised; then the ring
+(operator: "something that will look like a set up that we might
+deploy"; option 3 of the three closed loops over AUD/CAD/CHF/NZD) retiring
+**GRIND_AUDCAD_OPT** (22260401) and **GRIND_NZDCHF_OPT** (22260701), EAs
+removed ~15:40Z, ~-$15.80 realised (equity already carried both).
+**Cycle 3 now runs SEVEN instances, each currency exactly twice:**
+EURUSD, GBPUSD, EURGBP, AUDCHF, CADCHF, NZDCAD, AUDNZD (all `_OPT`),
+geometry and every other input unchanged; build `aa6970a` (API entry stop
+off, C100 hotfix 14:55Z). Expected requests ~36% lower (~1,200 on a
+1 Oct-like day). Operator replied to FTMO (reduced the instruments and
+EAs; within the limit; monitoring). s4's metric is read from 2 Oct
+15:45Z on seven instances.
+
+Line count: 340

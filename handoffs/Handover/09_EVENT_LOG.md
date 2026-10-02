@@ -14,6 +14,25 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 2 Oct ~15:00-15:45Z -- FTMO hyperactivity warning; cycle 3 cut from 11 to 7 instances
+- **What:** FTMO email: "a high degree of hyperactivity" on 1514731800;
+  threshold "2000 trades or server requests including SL/TP
+  modifications, order cancellations etc., per day"; if alerts do not
+  decrease "within the following days" the account is disabled. VPS
+  Journal: ~2 lines per request (sent + accepted); ~1,300-1,500 requests
+  00:00-15:08Z today (limits 646, cancels 292, close-bys ~175, modifies
+  ~200+), close to our counter; the 1900 entry stop never bounded exits,
+  cancels, close-bys or modifies.
+- **Handled:** operator: fewer instances, not a lower stop. Retired by
+  hand (EA removed, orders deleted entries first, Close By, market):
+  AUDNZD_ALT and NZDCAD_ALT (15:14Z, ~-$21.60), then AUDCAD_OPT and
+  NZDCHF_OPT for the seven-pair ring (~15:40Z, ~-$15.80). Seven live:
+  EURUSD, GBPUSD, EURGBP, AUDCHF, CADCHF, NZDCAD, AUDNZD. Reply sent to
+  FTMO (instruments and EAs reduced; within the limit; monitoring).
+- **Changed:** geometry-cycle3 A7; register rows closed; C96 (FTMO ring),
+  C106 (FTMO request budget), C107 (pipshed A list, retired GVs).
+- **Evidence:** VPS Journal 20261002; HANDOFF s33.
+
 ### 2 Oct 14:16-14:55Z -- API entry stop raised on all four fleets (hotfix)
 - **What:** Fleet D's shared request count was 1670 at 14:02Z (C 1403, B
   1261, FTMO 1231); at 1900 the EA's own constant stops every new entry
@@ -383,4 +402,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 386
+Line count: 405

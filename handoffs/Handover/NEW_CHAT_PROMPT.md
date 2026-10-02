@@ -1,13 +1,13 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~15:10Z (FRIDAY; ROUND 1 WINDOW 1 RUNNING)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~15:55Z (FRIDAY; ROUND 1 WINDOW 1 RUNNING)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s32**
-(s32 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s33**
+(s33 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01 and **2026-10-02 early**;
 `handoffs/Handover/08_BACKLOG.md` (above all C96, C99-C104);
 `docs/architecture/fleet-d.md` s6 (D1, the compass round) and s7 (all
@@ -27,9 +27,11 @@ s8 (the compass); `research/compass/README.md` (C91 scorer);
 ## 0. THE MOST IMPORTANT FACTS
 
 **Four fleets live, 11/11 each. Call the boxes by HOSTNAME:**
-- **Cycle 3** (VPS, FTMO 1514731800, `5685e4f`): FROZEN except defect
-  fixes; ejects at cap (ADR-157); keeps the ADR-160 gate and ADR-158
-  breaker ($500 limit is real). After any `connection ... lost`, check
+- **Cycle 3** (VPS, FTMO 1514731800, `aa6970a`): SEVEN instances since
+  2 Oct ~15:40Z (the ring; geometry-cycle3 A7) after FTMO's warning:
+  **2,000 requests a day including modifications and cancellations,
+  repeats -> account disabled (C106)**. Ejects at cap (ADR-157); keeps
+  the ADR-160 gate and ADR-158 breaker ($500 limit is real). After any `connection ... lost`, check
   for orphans (strip: ORPHAN_EXT). `https://pipshed.com`.
 - **Builds since 2 Oct 14:16-14:55Z (API entry stop OFF, C100 hotfix):**
   IC `893e065` (`hotfix-api-stop`), FTMO `aa6970a` (`hotfix-api-stop-ftmo`,
@@ -137,4 +139,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   document at a time; one paste per step, for agents too.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 140
+Line count: 142

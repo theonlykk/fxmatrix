@@ -43,7 +43,11 @@ Two limits are per ACCOUNT, not per strategy:
   The same on IC Markets (measured 1 Oct on a hedging demo, C78): about
   11-12 instances per account at cap 8 and today's adds.
   On 2026-09-18 the book sat at 195 with 16 instances at 0.01 lots.
-- **The broker API budget.** 2,000 requests/day on this demo. It is the
+- **The broker API budget.** 2,000 requests/day on this demo. **FTMO
+  confirmed it by email on 2 Oct (hyperactivity warning): "2000 trades
+  or server requests including SL/TP modifications, order cancellations
+  etc., per day"; repeated alerts -> the account is disabled.** Eleven
+  instances on one account ran at ~1,900; seven run at ~1,200 (C106). It is the
   reason partial fills cannot be handled richly, and the reason the fleet
   cannot simply quote more.
 
@@ -186,4 +190,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 189
+Line count: 193

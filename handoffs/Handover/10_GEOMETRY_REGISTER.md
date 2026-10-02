@@ -58,6 +58,6 @@ anchor move on B, flips or repeats on C and D, each a row. Then the
 rings of seven (C96: twins removed, a pair dropped per fleet: rows
 closed) and cap 10 on the IC fleets (C99: a cap change, so a row for
 every instance). The 1 Oct `InpBreakerEnable=false` change on B, C, D
-is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged.
+is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged. **2 Oct: FTMO (A) retired GRIND_AUDNZD_ALT, GRIND_NZDCAD_ALT (15:14Z), GRIND_AUDCAD_OPT and GRIND_NZDCHF_OPT (~15:40Z); rows closed in the CSV; A runs seven (geometry-cycle3 A7). The table above still lists them for A until the next rewrite.**
 
 Line count: 63

@@ -1563,4 +1563,26 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **x11vnc on wine-test and wine-c now runs `-forever -noipv6`** (2 Oct):
   after a desktop reboot only the SSH tunnels need reopening.
 
-Line count: 1566
+
+## TRAPS FROM 2026-10-02 AFTERNOON (RETIRING INSTANCES BY HAND)
+
+- **There is no "stop new entries" input.** Retiring an instance: remove
+  the EA (right-click the chart -> Expert Advisors -> Remove: Experts log
+  `deinit reason=1`), delete its resting orders ENTRIES FIRST (an entry
+  that fills after removal is unmanaged), then Close By long against
+  short, then close the rest at market. `OnDeinit` touches no orders.
+- **F7 then OK is a restart, not a removal** (`deinit reason=5`, the EA
+  re-initialises). Read the instance in the dialog, then Cancel.
+- **Twin positions carry near-identical tickets** (opened in the same
+  second: 555273730 ALT vs 555273732 OPT; 552677357 vs 552677358). Pick
+  by magic and comment, never by ticket shape.
+- **Journal formats:** a deleted order logs `accepted cancel order #N`; a
+  close-by `close position #A ... by position #B ... done`; a market close
+  `market buy 0.01 X, close #N ... placed for execution`. A cached
+  `$c = Get-Content` is a snapshot: re-read after acting.
+- **A deinit line names the chart, not the instance:** confirm which twin
+  stopped from the newest HEARTBEAT per instance.
+- **FTMO counts requests, not lines:** ~2 Journal lines per request (sent +
+  accepted). Count sent lines only (exclude accepted/done/placed/failed).
+
+Line count: 1588
