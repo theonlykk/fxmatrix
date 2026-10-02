@@ -399,6 +399,13 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
     leaving stuck sides alone during the round (the anchor's realised
     loss is not matched on D); the operator decided otherwise; B and C
     were treated alike.
+  - **Hand eject, AUDCHF long C** (status 03:41:41Z: all eight rolled,
+    ask 0.57509 past the next level 0.57527; operator "eject i think"):
+    L10 1978509127, magic 22260501, `EJECT_ACCEPTED` 03:51:45Z target
+    0.57502, `EJECT_FILLED` 03:52:31Z (~-$6.80, C's AUDCHF only). C is the
+    add probe there (add 3 vs B's 4): a tighter add spends its rolls
+    sooner, so the stuck side and its eject are part of what the probe
+    measures.
   - **`InpStrandedThreshPips` = width + 1 on all 33 IC charts** (F7, one
     row): wine-test 02:55:15-02:58:16Z, wine-c 03:00:14-03:01:49Z,
     wine-d 03:03:03-03:04:54Z (archive INIT rows, 11 each, `deinit=5`;
@@ -414,4 +421,4 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
     never re-quotes AWAY from a market approaching it. Same change on B,
     C and D: round 1 stays like for like. Not geometry: no register row.
 
-Line count: 417
+Line count: 424

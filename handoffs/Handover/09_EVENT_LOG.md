@@ -14,6 +14,16 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 2 Oct 03:41-03:52Z -- AUDCHF long stuck at cap on C; hand eject
+- **What:** AUDCHF C (add probe, add 3): all eight layers rolled, ask
+  0.57509 past its next level 0.57527 (status 03:41:41Z).
+- **Handled:** operator: eject. `GRIND_EJECT_22260501` = 1978509127 (L10)
+  over VNC (typed: VNC paste does not reach MT5); accepted 03:51:45Z,
+  filled 03:52:31Z (~-$6.80).
+- **Changed:** nothing; fleet-d.md s7. Close behind at 03:41Z: NZDCHF D
+  (~6 pips), NZDCHF C (~8.5), AUDCHF B (~10).
+- **Evidence:** wine-c Experts log 2 Oct.
+
 ### 2 Oct 02:55-03:05Z -- empty-side L0 re-quote tightened on the IC fleets (B, C, D)
 - **What:** on a one-sided book the empty side's L0 lagged the market by
   S - W (5 pips; 7 on EURUSD, AUDNZD): e.g. EURGBP short L0 on B and C
@@ -347,4 +357,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 350
+Line count: 360
