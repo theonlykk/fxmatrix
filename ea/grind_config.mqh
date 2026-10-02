@@ -8,7 +8,7 @@
 #define GRIND_EXITQ_H                 0
 #define GRIND_SLOT_MARGIN             4
 #define GRIND_SLOT_NEAR_RESERVE       8     // Q, guard units reserved
-#define GRIND_DAILY_API_ENTRY_STOP    1900  // hard stop, entries only
+#define GRIND_DAILY_API_ENTRY_STOP    1000000  // hard stop, entries only (2 Oct hotfix: was 1900; effectively off, C100)
 #define GRIND_ENTRY_TRANSITIONS_MAX   20    // D4, per side per broker day
 #define GRIND_ENTRY_HORIZON_CANCEL_X  2.0   // H_cancel = X * H_place
 #define GRIND_SLOT_LOCK_GV            "GRIND_SLOT_LOCK"
