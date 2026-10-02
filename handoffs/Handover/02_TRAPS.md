@@ -1644,4 +1644,35 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   Downloads granted, but no device write tool loaded; the patch went out
   as a file card and the operator saved it.
 
-Line count: 1647
+
+## TRAPS FROM 2026-10-02 NIGHT (PIPSHED TABLES, PATCH HASHES)
+
+- **After the operator's `git am` and push, reset the sandbox to GitHub.**
+  `git am` gives the commits new hashes (same tree); a sandbox still on its
+  own copies builds the next patch from `origin/main..HEAD` WITH the old
+  commits, and that patch fails `git am` on a clean clone (2 Oct, C115's
+  first build). Check the trees match, then `git reset --hard origin/main`.
+- **A test that checks an exact call breaks when an argument is added.**
+  C114's QG5 checked `renderFleetBooks(data && data.books, data && data.gaps)`
+  literally; C115's third argument broke it (caught by C115's guard). Check
+  the intent (the argument passed), not the whole call; when an old test
+  must change, change it in the tests-first commit if foreseen, else say so
+  in the fix commit.
+- **The sandbox's scratch PostgreSQL stops between turns.** Suites then
+  fail with "Connection refused" (four archive suites). Restart it (the
+  2026-09-30 command) in the same step as the suite run.
+- **The first strip call after a pipshed deploy is slow** (14 s on 2 Oct):
+  each gunicorn worker builds its C110 scalp cache on its first read.
+- **The quote tables show resting orders only.** A one-sided cell means
+  that side cannot trade with us until something fills (EURGBP D 8/0: every
+  resting order a sell). The italic level is the lattice's next level on a
+  capped side (no order; reaching it rolls an exit); "no roll" = capped and
+  fully rolled. Held adds are not shown (C116).
+- **The heartbeat carries no lattice flag and only the base `add_pips`**
+  (per-side adds are -1 everywhere since D1). pipshed's FLEET_STRIP says
+  which fleets run the lattice (C115): change it if a fleet's mode changes.
+- **IC's carry pass on a Friday finishes before the close** (2 Oct: 40/40
+  summaries 20:52-20:57Z, none incomplete, the 14-layer books last at
+  20:56Z); `failed` 2-4 per instance is Friday's zero pending (C86).
+
+Line count: 1678

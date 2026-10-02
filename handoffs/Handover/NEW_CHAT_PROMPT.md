@@ -6,8 +6,8 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s36**
-(s36 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s37**
+(s37 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01 and **2026-10-02** (early,
 day, afternoon, late afternoon); `handoffs/Handover/08_BACKLOG.md` (above
 all C96, C99-C107); `docs/architecture/fleet-d.md` s6 (D1, the compass
@@ -110,7 +110,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 | | |
 |---|---|
 | fxmatrix `main` | docs to 2 Oct ~16:30Z; EA code = `3df13f0` (ADR-165 merged, default OFF; WITHOUT the API hotfix: C105); suite 2447/2447 |
-| pipshed `main` | `830f04b` (C110, 2 Oct ~17:35Z: scalp reads re-read only new rows; pollers never overlap; HANDOFF s36); `0fd1a86`: C109 page opens on GBPUSD; C108 `GRIND_RETIRED_INSTANCES` (retired rows resolved, banner grey); C107 A strip = seven; `RAILWAY.md` (gunicorn start commands, C102); 34/34 suites |
+| pipshed `main` | `bb6bb7a` (C113-C115 tables, 2 Oct ~20:23Z); `830f04b` (C110, 2 Oct ~17:35Z: scalp reads re-read only new rows; pollers never overlap; HANDOFF s36); `0fd1a86`: C109 page opens on GBPUSD; C108 `GRIND_RETIRED_INSTANCES` (retired rows resolved, banner grey); C107 A strip = seven; `RAILWAY.md` (gunicorn start commands, C102); 34/34 suites |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
 | wine-c (C) | `893e065` (Scripts copy); `ssh box2`; VNC 5911 the same way |

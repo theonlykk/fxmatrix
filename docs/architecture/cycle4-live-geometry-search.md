@@ -307,4 +307,14 @@ the lattice on box 1 (wine-test, 04:02Z) and box 2 (wine-c, 04:16Z),
 the two kept matched (c63-deploy.md s12). Step 4 (the roll-watch)
 RUNNING; operator: no wind-down brake (ADR-162 s19).
 
-Line count: 310
+**8.15 RULINGS (2 Oct, operator; HANDOFF s37).** (1) The objective
+stays 8.1's: realised all-in P&L decides, rolls and ejections included as
+the poor scalps they are; unfilled rolled layers, their open MTM at the
+round's end and stuck episodes are reported, never deciding; pooling over
+rounds absorbs deferred roll cost; open-position risk is judged at
+promotion (8.8). (2) Width is no longer an open lever (8.11): it goes as
+low as the add / width guard allows, with headroom for the round's add
+probes, on all IC fleets alike, in the cap-10 reload (C99, C103); a
+near-zero counter-side width and a re-derived guard are v2.2.
+
+Line count: 320
