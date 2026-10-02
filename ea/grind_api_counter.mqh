@@ -11,7 +11,7 @@
 #define GRIND_DAILY_API_COUNT_GV "GRIND_DAILY_API_COUNT"
 #define GRIND_DAILY_API_DATE_GV  "GRIND_DAILY_API_DATE"
 #define GRIND_DAILY_API_LIMIT    2000
-#define GRIND_DAILY_API_SOFT_WARN 1800
+#define GRIND_DAILY_API_SOFT_WARN 999000  // 2 Oct hotfix: was 1800 (also gates the L0 re-centre); effectively off, C100
 
 bool g_grind_api_counter_broken = false;
 bool g_grind_api_counter_test_active = false;
