@@ -27,6 +27,10 @@ round file (pair, side, fleet, at) cuts every comparison involving that fleet
 on that pair-side: it is scored on the windows before the first such
 intervention if at least min_days_after_cut (default 1.0) days remain, else
 VOID. Fleet-wide changes made alike on all fleets are not listed.
+Threshold (GC-1, compass-round s4.3; s49): with a "control" block the report
+also gives max(threshold, the pooled median of the control pair's six
+same-settings gaps) and, when that is higher, the verdict table under it.
+Round 1: both are reported and the operator chooses.
 """
 import argparse
 import collections
@@ -133,7 +137,9 @@ def side_metrics(layers, inst, side, windows, entry_cutoff):
 
 
 def threshold_for(cfg, pair, side, twin, base=None):
-    base = float(cfg["threshold"])  # STUB: base ignored (tests first)
+    """The round file's threshold, or `base` when given (GC-1's value); a twin
+    side takes the larger of that and its own twin threshold."""
+    base = float(cfg["threshold"]) if base is None else float(base)
     if not twin:
         return base
     return max(base, float(cfg.get("twin_thresholds", {}).get("%s|%s" % (pair, side), 0.0)))
@@ -156,9 +162,40 @@ def decide(probe, comp, threshold, lever):
     return "REPEAT", margin, ""
 
 
+CONTROL_FLEET_PAIRS = (("B", "C"), ("B", "D"), ("C", "D"))
+
+
 def control_threshold(cfg, layers):
-    """STUB (tests first): the control pair's gaps and GC-1's threshold."""
-    raise NotImplementedError
+    """GC-1 (compass-round s4.3): the control pair's same-settings gaps
+    |per_day x - per_day y| for B-C, B-D and C-D on each side, over the round's
+    windows cut as a comparison would be (earliest intervention on that
+    pair-side on either fleet; under min_days_after_cut left -> VOID, out of
+    the pool); gc1 = max(the round file's threshold, their median). None when
+    the round file has no "control" block."""
+    ctrl = cfg.get("control")
+    if not ctrl:
+        return None
+    windows = windows_of(cfg)
+    min_days = float(cfg.get("min_days_after_cut", 1.0))
+    base = float(cfg["threshold"])
+    pair, inst = ctrl["pair"], ctrl["instances"]
+    gaps, void = [], []
+    for side in SIDES:
+        for x, y in CONTROL_FLEET_PAIRS:
+            key = "%s-%s" % (x, y)
+            cut = cut_for(cfg, pair, side, {x, y})
+            win = cut_windows(windows, cut)
+            days = sum(d for _a, _b, d in win)
+            if cut is not None and days < min_days - EPS:
+                void.append((side, key))
+                continue
+            mx = side_metrics(layers, inst[x], side, win, windows[0][0])
+            my = side_metrics(layers, inst[y], side, win, windows[0][0])
+            gaps.append({"side": side, "fleets": key, "gap": abs(mx["per_day"] - my["per_day"]),
+                         "x": mx["per_day"], "y": my["per_day"], "days": days, "cut": cut})
+    median = statistics.median([g["gap"] for g in gaps]) if gaps else None
+    return {"pair": pair, "gaps": gaps, "void": void, "median": median, "base": base,
+            "gc1": max(base, median) if median is not None else base}
 
 
 def score_round(cfg, layers, base=None):
@@ -187,7 +224,7 @@ def score_round(cfg, layers, base=None):
                 am = side_metrics(layers, spec["anchor"], side, win_a, cutoff)
                 comp_inst = p["primary"] if twin else spec["anchor"]
                 cm = side_metrics(layers, comp_inst, side, win_c, cutoff)
-                thr = threshold_for(cfg, pair, side, twin)
+                thr = threshold_for(cfg, pair, side, twin, base)
                 verdict, margin, note = decide(pm, cm, thr, p["lever"])
                 if cut is not None:
                     if days_used < min_days - EPS:
@@ -289,18 +326,7 @@ def _fmt_m(m):
         m["layer_hours"], ph, m["open_end"], m["depth_at_cutoff"])
 
 
-def report(cfg, exp, rows, out=sys.stdout, mtm=None, control=None, rows_gc1=None):
-    windows = windows_of(cfg)
-    last_fill = max((ev_data.broker_msc_to_utc(r["deal_time_broker_msc"], ev_book.DEFAULT_OFFSET_S)
-                     for r in exp.get("fill_logs", [])), default=0)
-    end = max(b for _a, b, _d in windows)
-    p = lambda s="": print(s, file=out)  # noqa: E731
-    p("== %s: windows %s; days %d ==" % (cfg.get("round", "round"),
-      ", ".join("%s->%s" % (a, b) for a, b, _d in cfg["windows"]), sum(d for *_x, d in windows)))
-    if last_fill < end:
-        p("!! DATA ENDS %s, BEFORE THE ROUND ENDS (%s): provisional, not a verdict" % (
-            dt.datetime.fromtimestamp(last_fill, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ"),
-            dt.datetime.fromtimestamp(end, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ")))
+def _print_table(rows, p):
     p("%-7s %s | %-8s | %-6s %-11s %7s %7s %5s | %-6s %-11s %7s %7s %5s | promote" % (
         "pair", "s", "anchor/d", "C add", "verdict", "margin", "cross", "thr",
         "D exit", "verdict", "margin", "cross", "thr"))
@@ -316,6 +342,34 @@ def report(cfg, exp, rows, out=sys.stdout, mtm=None, control=None, rows_gc1=None
         anchor = r["anchor_full"]["per_day"]
         p("%-7s %s | %8.2f | %s | %s | %s" % (r["pair"], r["side"], anchor, cells[0], cells[1],
                                             r["promote"] or "anchor stays"))
+
+
+def report(cfg, exp, rows, out=sys.stdout, mtm=None, control=None, rows_gc1=None):
+    windows = windows_of(cfg)
+    last_fill = max((ev_data.broker_msc_to_utc(r["deal_time_broker_msc"], ev_book.DEFAULT_OFFSET_S)
+                     for r in exp.get("fill_logs", [])), default=0)
+    end = max(b for _a, b, _d in windows)
+    p = lambda s="": print(s, file=out)  # noqa: E731
+    p("== %s: windows %s; days %d ==" % (cfg.get("round", "round"),
+      ", ".join("%s->%s" % (a, b) for a, b, _d in cfg["windows"]), sum(d for *_x, d in windows)))
+    if last_fill < end:
+        p("!! DATA ENDS %s, BEFORE THE ROUND ENDS (%s): provisional, not a verdict" % (
+            dt.datetime.fromtimestamp(last_fill, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ"),
+            dt.datetime.fromtimestamp(end, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ")))
+    _print_table(rows, p)
+    if control is not None:
+        p()
+        p("== threshold: fixed %.2f (round file) | GC-1 %.2f = max(%.2f, median %s of %d %s gaps%s) ==" % (
+            control["base"], control["gc1"], control["base"],
+            "-" if control["median"] is None else "%.2f" % control["median"],
+            len(control["gaps"]), control["pair"],
+            "; VOID " + ", ".join("%s %s" % v for v in control["void"]) if control["void"] else ""))
+        p("   " + "  ".join("%s %s %.2f" % (g["side"], g["fleets"], g["gap"]) for g in control["gaps"]))
+        if rows_gc1 is not None:
+            p("== verdicts under GC-1 %.2f (the operator chooses which decides round 1) ==" % control["gc1"])
+            _print_table(rows_gc1, p)
+        else:
+            p("   GC-1 equals the fixed threshold: one table")
     p()
     p("== detail (per instance side; margins vs the comparator named) ==")
     for r in rows:
@@ -347,7 +401,11 @@ def main(argv=None):
     cfg = load_round(args.round)
     exp, layers = load(args.export, list(cfg["accounts"].values()))
     mtm = mtm_rows(cfg, layers, ev_data.load_bidask_dir(args.bidask)) if args.bidask else None
-    report(cfg, exp, score_round(cfg, layers), mtm=mtm)
+    rows = score_round(cfg, layers)
+    control = control_threshold(cfg, layers)
+    rows_gc1 = (score_round(cfg, layers, base=control["gc1"])
+                if control is not None and control["gc1"] > control["base"] + EPS else None)
+    report(cfg, exp, rows, mtm=mtm, control=control, rows_gc1=rows_gc1)
 
 
 if __name__ == "__main__":

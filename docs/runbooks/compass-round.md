@@ -134,7 +134,8 @@ too, so its record is continuous.
    began. At round 1's scoring BOTH are computed and reported (the fixed
    $1.19 and max($1.19, NZDCAD's six gaps, NZDCAD_OPT B, C and D, all
    three on the anchor in round 1)), and the operator chooses which one
-   decides round 1. From round 2 GC-1 decides.
+   decides round 1. From round 2 GC-1 decides. `compass_score.py` prints
+   both (the round file's `control` block; a second table under GC-1).
 4. **Verdict per pair and side** (fleet-d s6.5 as amended by Gemini s6.8):
    - margin = probe per day - comparator per day;
    - margin > threshold: WIN; < -threshold: LOSE; else REPEAT (the same
@@ -237,4 +238,4 @@ lever.
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 240
+Line count: 241

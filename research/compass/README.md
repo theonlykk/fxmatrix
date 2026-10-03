@@ -59,11 +59,22 @@ symbol's closed layers (gt_report.py's method). `disconnects.py <journal
 logs>` lists each "connection to ... lost" until "authorized on" / "terminal
 synchronized" (`<data>/logs/YYYYMMDD.log`, UTF-16), per terminal.
 
+**Threshold, both reported (s49; compass-round s4.3, GC-1):** with a
+`control` block in the round file (round 1: NZDCAD = B's anchor and C's and
+D's primaries), the report adds `control_threshold`: the control pair's six
+same-settings gaps (|per day x - per day y|, B-C, B-D, C-D, both sides; a gap
+cut below `min_days_after_cut` is VOID and left out), GC-1 = max(threshold,
+their median), and, when GC-1 is higher, the whole verdict table again under
+it. For round 1 the operator chooses which table decides; from round 2 GC-1
+does. Provisional run on the 2 Oct export (data to Fri 20:20Z, per-day
+values halved): GC-1 2.41 (NZDCAD long gaps 4.58 / 8.77 / 4.19, short 0.00 /
+0.63 / 0.63).
+
 Run it after the round's last window closes (round 1: Mon 5 Oct after
 22:00Z) on a fresh `--export-study --days 14`; it prints a warning and
 no verdict is final while the export ends before the round does.
 
-35 + 4 tests, hand-derived (6 for open MTM in test_compass.py and 4 in test_disconnects.py, 3 Oct; 12 for the cuts, 3 Oct: 9 of the first 10 failed as predicted at the tests-first commit, then two more for mutation survivors); at the tests-first commit 16 errored as predicted
+44 + 4 tests, hand-derived (9 for the control threshold, 3 Oct night: 8 failed as predicted at the tests-first commit, the guard passed; eleven mutations caught); (6 for open MTM in test_compass.py and 4 in test_disconnects.py, 3 Oct; 12 for the cuts, 3 Oct: 9 of the first 10 failed as predicted at the tests-first commit, then two more for mutation survivors); at the tests-first commit 16 errored as predicted
 and the guard passed. Each rule broken once and caught by a named test
 (strict margin, add-only gates, entry gate, per-hour gate, a comparator
 that held nothing, twin vs primary, twin threshold, entry cutoff, hours
@@ -72,4 +83,4 @@ filter, side filter, per-day divisor). Cross-check: on 28-30 Sep it
 reproduces `d1_evidence.py`'s ledger totals exactly (AUDCHF S B/C,
 EURGBP L B, GBPUSD L A).
 
-Line count: 75
+Line count: 86
