@@ -207,7 +207,7 @@ width and a re-derived guard are v2.2 (C103).
 2. Monday build (structural): C105 merge, ADR-165 ON on B, C, D; twins
    retire.
 3. Next session (structural): cap 10 + the fixed widths in ONE reload per
-   chart (preset-only); an hour's watch on the slot guard and requests;
+   chart (preset-only; `docs/runbooks/cap10-reload.md`, drafted s50); an hour's watch on the slot guard and requests;
    the AUDUSD scout added in the same reload (s3; baseline round).
 4. Round 2's probe reloads (NZDCAD stays on the anchor everywhere), then
    its two days.

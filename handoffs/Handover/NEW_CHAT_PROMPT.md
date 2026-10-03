@@ -1,20 +1,19 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~22:15Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~23:10Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
 
-**PRIORITY (operator, 3 Oct): FXMatrix is the main focus.** There is also
-a side project, MyFundedPerps (`https://github.com/theonlykk/mfperp`,
-private, root `643fa12`): a grid bot on a free $2.5K prop account, for the dead time
-between FXMatrix steps and as a lab for netting accounts and the Python
-engine (C117, C118). It never delays an FXMatrix step. Read its
-`handoff/HANDOFF.md` AFTER the FXMatrix reading (if the repo is not in
-your sandbox, ask the operator to add it or attach the file).
+**PRIORITY (operator, 3 Oct ~23:00Z): FXMatrix ONLY.** The side project
+MyFundedPerps (`https://github.com/theonlykk/mfperp`, private, root
+`643fa12`) is PARKED: "it is reckless to be spending time on mfperp -
+lets focus on fxmatrix - even when we dont have urgent fixes". Dead time
+goes to FXMatrix (HANDOFF s50). Do not read or ask about mfperp unless
+the operator brings it back.
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s48**
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s50**
 (s43 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
 day, afternoon, late afternoon, night) and **2026-10-03** (early, morning, afternoon x2, late afternoon, evening); `handoffs/Handover/08_BACKLOG.md` (above
@@ -23,7 +22,8 @@ round) and s7 (all round-1 amendments);
 `docs/architecture/geometry-cycle3.md` A7 (FTMO cut to seven);
 `docs/architecture/ADR-165-continuous-reroll.md` (s4, s9, s10);
 `docs/runbooks/monday-build-2026-10-05.md` and `docs/runbooks/compass-round.md`
-(both in full: Monday's two jobs); `prompts/cursor_v22a_c93_c100.md`
+(both in full: Monday's two jobs); `docs/runbooks/cap10-reload.md` (the
+next structural step, drafted for Gemini, s50); `prompts/cursor_v22a_c93_c100.md`
 (the open prompt); `docs/architecture/MEMO_2026-10-03_post_once_execution.md`;
 `docs/architecture/ADR-162-virtual-lattice.md` s13-s19;
 `docs/architecture/ADR-153-geometry-independence.md` (the L0 re-quote:
@@ -43,9 +43,9 @@ MONEY); `handoffs/Handover/09_EVENT_LOG.md` (add to it);
    leave unclear or that only the previous chat would know (live state
    after the docs were written, half-finished steps, exact commands it
    used, rulings it heard but may not have written down). Short,
-   specific, answerable in a line each; at most ~12. FXMatrix questions first; at most three on mfperp,
-   at the end. The operator pastes the answers back; then follow s48's
-   NEXT SESSION list.
+   specific, answerable in a line each; at most ~12. FXMatrix only
+   (mfperp is parked). The operator pastes the answers back; then
+   follow s50's NEXT SESSION list.
 Do not start any fleet action before the answers are in.
 
 ---
@@ -101,7 +101,7 @@ cut by fewer instances, not a lower stop ("a sledgehammer"); no wind-
 down brake; no broker contact (FTMO too: no email, 3 Oct); FTMO stays on the desktop test terminal;
 post-once execution (C117) with ONE 2,000-request pool, first come first
 served; the 200 positions+orders limit holds on IC too ("software
-limitation. we tested this"); MyFundedPerps: a side project only, in dead time (3 Oct, s48; replaces "probably skipped").
+limitation. we tested this"); MyFundedPerps PARKED (3 Oct ~23:00Z, s50: "lets focus on fxmatrix - even when we dont have urgent fixes").
 
 **Reading live state:** WebFetch of `https://pipshed.com/api/telemetry/live?instance=<id>`
 works (summarised); the browser pane on the operator's desktop is
@@ -126,7 +126,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | `9be4bd3` (docs s48) + the s49 docs patch; `49fc41e` (docs s47; AUDUSD presets `4694471`; v2.2a prompt `1bb077a`). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
+| fxmatrix `main` | the s50 docs patch on `36a7ff3` (C91 GC-1 threshold, 48/48; tests `e488274`); `38079c9` (docs s49); `9be4bd3` (docs s48); `49fc41e` (docs s47; AUDUSD presets `4694471`; v2.2a prompt `1bb077a`). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites; `D:\pipshed` clean. NOT pushed, ONLY as patches in Downloads (go by the TREES: commit hashes differ per sandbox and change at `git am`): `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch` (C119: retire the six twins, B/C/D strips = nine; tree `e3b23a94`, 39/39): apply only AFTER the twins are removed. Then `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch` (C121, AUDUSD scout; tree `ac81ba6d`): only after the AUDUSD charts are attached |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -135,23 +135,24 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s48 NEXT SESSION; backlog C1 is the critical path)
+## 2. NEXT, IN ORDER (= HANDOFF s50 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
-2. DONE 3 Oct 17:20Z: both patches pushed (`c92d9c2`, `27e1e77`); s44
-   (runbook and register fixes) next.
-3. DONE 3 Oct ~19:30Z (s45): v2.2a through Gemini (twice), Cursor,
-   DeepSeek and the audit fix; `8a3ec0c` 2525/2525. **No merge into
-   `main` before the Monday build** (runbook s3.3); merge after it.
-4. Sunday open checks.
-5. Mon 5 Oct after 22:00Z: score round 1; the Monday build; pipshed C119;
-   the IC twins' Global Variables (runbook s7, the gv scripts).
-6. DONE 3 Oct: Surface copies; scouting = AUDUSD added at the cap-10
-   reload (C96); no FTMO email (C117 check 1 measured on a spare IC demo).
-7. After Monday: C99 (cap 10 + fixed widths, one reload per chart; fixes
-   C88), round 2, v2.2a deploy; later C98, C103 (own ADR), C117 ADR,
-   C118, C84 after 7 Oct.
-8. mfperp, in dead time only (its handoff s5); never ahead of 4-7.
+2. The cap-10 reload runbook (`docs/runbooks/cap10-reload.md`, GW-1..GW-6)
+   to Gemini if not yet sent; check his answers in source; amend.
+3. Sunday open checks (~21:05Z Sun 4 Oct): cards, stuck sides from fresh
+   status files (each with the cut-vs-wait cost), slot guards.
+4. Mon 5 Oct after 22:00Z: score round 1 (BOTH thresholds printed:
+   fixed $1.19 and GC-1; the operator chooses); the Monday build;
+   pipshed C119; the IC twins' Global Variables (runbook s7, the gv
+   scripts). Then the cap-10 table and presets from the verdict, and
+   `round2.json`.
+5. The cap-10 reload (first in-session slot after); pipshed C121; the
+   hour's watch; round 2.
+6. After the reload: v2.2a merge and deploy (`8a3ec0c`, 2525/2525; a
+   separate step); C98, C103 (own ADR), C117 checks and ADR, C118, C120,
+   C122, C84 after 7 Oct.
+7. mfperp: PARKED (s50).
 
 ---
 
@@ -191,4 +192,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   a fresh scratch PG. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 194
+Line count: 195
