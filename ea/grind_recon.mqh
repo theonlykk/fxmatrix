@@ -1274,7 +1274,7 @@ string Grind_ReconScanDetail(const int dupes, const int walks, const bool stable
 bool Grind_ReconScanWarnDue(const ulong now_tick, const ulong last_tick,
                             const bool warned, const ulong min_ms)
 {
-   return true;
+   return (!warned || now_tick < last_tick || now_tick - last_tick >= min_ms);
 }
 
 //+------------------------------------------------------------------+
@@ -1290,9 +1290,20 @@ bool Grind_ReconScanNote(const int dupes, const int walks, const bool stable)
 {
    if(!Grind_ReconScanRaced(dupes, walks))
       return false;
-   const string detail = Grind_ReconScanDetail(dupes, walks, stable);
+   const ulong now = Grind_ArchiveTick();
+   if(!Grind_ReconScanWarnDue(now, g_grind_recon_scan_last_warn_tick,
+                              g_grind_recon_scan_warned, GRIND_RECON_SCAN_WARN_MIN_MS)) {
+      g_grind_recon_scan_suppressed++;
+      return false;
+   }
+   const string base = Grind_ReconScanDetail(dupes, walks, stable);
+   const string detail = StringSubstr(base, 0, StringLen(base) - 1) +
+                         StringFormat(",\"suppressed\":%d}", g_grind_recon_scan_suppressed);
    Grind_ArchiveMarker("WARN", "RECON_SCAN_RACE", "", 0, detail);
    Print(Grind_LogTag(), "WARN GRIND_RECON_SCAN ", detail);
+   g_grind_recon_scan_last_warn_tick = now;
+   g_grind_recon_scan_warned = true;
+   g_grind_recon_scan_suppressed = 0;
    return true;
 }
 
