@@ -477,6 +477,145 @@ def mtm_book():
     return lay
 
 
+# ---------------------------------------------------------------- control-pair threshold (GC-1; s49)
+# compass-round s4.3: threshold = max($1.19, the pooled median of the round's
+# same-settings gaps: the control pair's six gaps, |per_day x - per_day y| for
+# B-C, B-D, C-D on each side). Round 1 (s49): both the fixed threshold and this
+# value are reported; the operator chooses. A gap whose comparison is cut below
+# min_days_after_cut is VOID and left out of the pool.
+
+CTRL = {"pair": "NZDCAD", "instances": {"B": "GRIND_NZDCAD_OPTB", "C": "GRIND_NZDCAD_OPTC",
+                                         "D": "GRIND_NZDCAD_OPTD"}}
+
+
+def control_round(big=True, interventions=None):
+    """tiny_round plus the control pair NZDCAD on B, C, D (all on the anchor)
+    and a GBPUSD short pair (B profit 1.00 -> net 0.93; C 2.35 -> 2.28: margin
+    +1.35, between 1.19 and 1.50). Every layer Fri 01:00 -> 02:00, W1 only.
+    NZDCAD nets (profit - 0.07):
+      big:   L  B 0.93  C 2.93  D 1.93 -> gaps B-C 2.00, B-D 1.00, C-D 1.00
+             S  B 0.93  C 2.93  D 3.93 -> gaps B-C 2.00, B-D 3.00, C-D 1.00
+             pool 1,1,1,2,2,3 -> median (1 + 2) / 2 = 1.50 -> GC-1 1.50
+      small: L  B 0.93  C 2.93  D 1.93 -> 2.00, 1.00, 1.00
+             S  B 0.93  C 0.93  D 1.43 -> 0.00, 0.50, 0.50
+             pool 0,0.5,0.5,1,1,2 -> median 0.75 -> GC-1 max(1.19, 0.75) = 1.19"""
+    cfg, _lay = tiny_round()
+    cfg["control"] = json.loads(json.dumps(CTRL))
+    if interventions:
+        cfg["interventions"] = interventions
+    fx = Fx()
+    t0, t1 = T("2026-10-02T01:00Z"), T("2026-10-02T02:00Z")
+    base = [("GRIND_GBPUSD_OPTB", 53066709, "L", 1.00), ("GRIND_GBPUSD_OPTC", 53071896, "L", 3.00),
+            ("GRIND_GBPUSD_OPTD", 53077984, "L", 4.00), ("GRIND_AUDNZD_OPTB", 53066709, "L", 1.00),
+            ("GRIND_AUDNZD_ALTC", 53071896, "L", 2.40), ("GRIND_AUDNZD_OPTC", 53071896, "L", 1.10),
+            ("GRIND_GBPUSD_OPTB", 53066709, "S", 1.00), ("GRIND_GBPUSD_OPTC", 53071896, "S", 2.35)]
+    short = (1.00, 3.00, 4.00) if big else (1.00, 1.00, 1.50)
+    for (f, acct), lp, sp in zip((("B", 53066709), ("C", 53071896), ("D", 53077984)),
+                                 (1.00, 3.00, 2.00), short):
+        inst = CTRL["instances"][f]
+        base += [(inst, acct, "L", lp), (inst, acct, "S", sp)]
+    sids = {}
+    for inst, acct, side, profit in base:
+        sid = sids.setdefault(inst, fx.session(inst, acct))
+        fx.layer(inst, sid, side, t0, t1, profit=profit)
+    return cfg, fx.layers()
+
+
+def gaps_by_key(ct):
+    return {(g["side"], g["fleets"]): g["gap"] for g in ct["gaps"]}
+
+
+class TestControlThreshold(unittest.TestCase):
+    def test_six_gaps_and_pooled_median(self):
+        cfg, lay = control_round(big=True)
+        ct = cs.control_threshold(cfg, lay)
+        g = gaps_by_key(ct)
+        exp = {("L", "B-C"): 2.00, ("L", "B-D"): 1.00, ("L", "C-D"): 1.00,
+               ("S", "B-C"): 2.00, ("S", "B-D"): 3.00, ("S", "C-D"): 1.00}
+        self.assertEqual(set(g), set(exp))
+        for k, v in exp.items():
+            self.assertAlmostEqual(g[k], v, places=6, msg=str(k))
+        self.assertEqual(ct["pair"], "NZDCAD")
+        self.assertAlmostEqual(ct["median"], 1.50, places=6)
+        self.assertAlmostEqual(ct["base"], 1.19, places=6)
+        self.assertAlmostEqual(ct["gc1"], 1.50, places=6)
+        self.assertEqual(ct["void"], [])
+
+    def test_median_below_base_keeps_base(self):
+        cfg, lay = control_round(big=False)
+        ct = cs.control_threshold(cfg, lay)
+        self.assertAlmostEqual(gaps_by_key(ct)[("S", "B-C")], 0.00, places=6)
+        self.assertAlmostEqual(ct["median"], 0.75, places=6)
+        self.assertAlmostEqual(ct["gc1"], 1.19, places=6)
+
+    def test_cut_gap_is_void_and_left_out(self):
+        # NZDCAD long C cut Fri 01:30: B-C and C-D long keep 3.5 h < 1 day -> VOID;
+        # pool = L B-D 1.00 + S 2.00, 3.00, 1.00 = 1,1,2,3 -> median 1.50
+        cfg, lay = control_round(big=True, interventions=[
+            {"pair": "NZDCAD", "side": "L", "fleet": "C", "at": "2026-10-02T01:30:00Z"}])
+        ct = cs.control_threshold(cfg, lay)
+        self.assertEqual(sorted(ct["void"]), [("L", "B-C"), ("L", "C-D")])
+        self.assertEqual(len(ct["gaps"]), 4)
+        self.assertNotIn(("L", "B-C"), gaps_by_key(ct))
+        self.assertAlmostEqual(ct["median"], 1.50, places=6)
+
+    def test_no_control_block_returns_none(self):
+        cfg, lay = tiny_round()
+        self.assertIsNone(cs.control_threshold(cfg, lay))
+
+    def test_twin_threshold_with_base(self):
+        # twin AUDNZD long $1.40: base 1.50 -> 1.50; base 1.30 -> 1.40; non-twin -> base
+        cfg = cs.load_round(os.path.join(HERE, "round1.json"))
+        self.assertAlmostEqual(cs.threshold_for(cfg, "AUDNZD", "L", True, base=1.50), 1.50)
+        self.assertAlmostEqual(cs.threshold_for(cfg, "AUDNZD", "L", True, base=1.30), 1.40)
+        self.assertAlmostEqual(cs.threshold_for(cfg, "GBPUSD", "S", False, base=1.50), 1.50)
+
+    def test_verdict_under_gc1(self):
+        # GBPUSD short C: 2.28 vs B 0.93 = +1.35 -> WIN at the fixed 1.19, REPEAT at 1.50;
+        # GBPUSD long C +2.00 stays WIN at 1.50
+        cfg, lay = control_round(big=True)
+        fixed = {(r["pair"], r["side"]): r for r in cs.score_round(cfg, lay)}
+        gc1 = {(r["pair"], r["side"]): r for r in cs.score_round(cfg, lay, base=1.50)}
+        self.assertEqual(fixed[("GBPUSD", "S")]["probes"]["C"]["verdict"], "WIN")
+        self.assertAlmostEqual(fixed[("GBPUSD", "S")]["probes"]["C"]["margin"], 1.35, places=6)
+        self.assertEqual(gc1[("GBPUSD", "S")]["probes"]["C"]["verdict"], "REPEAT")
+        self.assertAlmostEqual(gc1[("GBPUSD", "S")]["probes"]["C"]["threshold"], 1.50)
+        self.assertEqual(gc1[("GBPUSD", "L")]["probes"]["C"]["verdict"], "WIN")
+
+    def test_default_base_is_the_round_files(self):
+        """GUARD: score_round without base uses cfg["threshold"] (1.19)."""
+        cfg, lay = control_round(big=True)
+        rows = {(r["pair"], r["side"]): r for r in cs.score_round(cfg, lay)}
+        self.assertAlmostEqual(rows[("GBPUSD", "S")]["probes"]["C"]["threshold"], 1.19)
+
+    def test_report_prints_both_thresholds_and_the_gc1_table(self):
+        import io
+        cfg, lay = control_round(big=True)
+        ct = cs.control_threshold(cfg, lay)
+        out = io.StringIO()
+        cs.report(cfg, {"fill_logs": []}, cs.score_round(cfg, lay), out=out,
+                  control=ct, rows_gc1=cs.score_round(cfg, lay, base=ct["gc1"]))
+        text = out.getvalue()
+        self.assertIn("fixed 1.19", text)
+        self.assertIn("GC-1 1.50", text)
+        gc1_part = text.split("under GC-1 1.50", 1)[1]
+        line = [l for l in gc1_part.splitlines() if l.startswith("GBPUSD  S")][0]
+        self.assertIn("REPEAT", line.split("|")[2])
+
+    def test_round1_names_its_control(self):
+        """round1.json: control NZDCAD = the anchor and the two primaries (all on
+        the anchor in round 1, fleet-d.md s6.4)."""
+        cfg = cs.load_round(os.path.join(HERE, "round1.json"))
+        c = cfg["control"]
+        self.assertEqual(c["pair"], "NZDCAD")
+        self.assertEqual(c["instances"], {"B": "GRIND_NZDCAD_OPTB", "C": "GRIND_NZDCAD_OPTC",
+                                          "D": "GRIND_NZDCAD_OPTD"})
+        spec = cfg["pairs"]["NZDCAD"]
+        self.assertEqual(spec["anchor"], c["instances"]["B"])
+        self.assertEqual(spec["C"]["primary"], c["instances"]["C"])
+        self.assertEqual(spec["D"]["primary"], c["instances"]["D"])
+
+
 class TestOpenMtm(unittest.TestCase):
     def setUp(self):
         self.lay = mtm_book()

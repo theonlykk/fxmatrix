@@ -132,8 +132,8 @@ def side_metrics(layers, inst, side, windows, entry_cutoff):
     return m
 
 
-def threshold_for(cfg, pair, side, twin):
-    base = float(cfg["threshold"])
+def threshold_for(cfg, pair, side, twin, base=None):
+    base = float(cfg["threshold"])  # STUB: base ignored (tests first)
     if not twin:
         return base
     return max(base, float(cfg.get("twin_thresholds", {}).get("%s|%s" % (pair, side), 0.0)))
@@ -156,7 +156,12 @@ def decide(probe, comp, threshold, lever):
     return "REPEAT", margin, ""
 
 
-def score_round(cfg, layers):
+def control_threshold(cfg, layers):
+    """STUB (tests first): the control pair's gaps and GC-1's threshold."""
+    raise NotImplementedError
+
+
+def score_round(cfg, layers, base=None):
     windows = windows_of(cfg)
     min_days = float(cfg.get("min_days_after_cut", 1.0))
     rows = []
@@ -284,7 +289,7 @@ def _fmt_m(m):
         m["layer_hours"], ph, m["open_end"], m["depth_at_cutoff"])
 
 
-def report(cfg, exp, rows, out=sys.stdout, mtm=None):
+def report(cfg, exp, rows, out=sys.stdout, mtm=None, control=None, rows_gc1=None):
     windows = windows_of(cfg)
     last_fill = max((ev_data.broker_msc_to_utc(r["deal_time_broker_msc"], ev_book.DEFAULT_OFFSET_S)
                      for r in exp.get("fill_logs", [])), default=0)
