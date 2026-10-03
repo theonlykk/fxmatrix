@@ -9442,6 +9442,8 @@ void OnStart()
    Test_AL5_DefaultsAreToday();
    Test_AL6_InvalidInputsKeepDefines();
    Test_AL7_PublishAndCheck();
+   Test_RN1_WarnDue();
+   Test_RN2_NoteThrottles();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

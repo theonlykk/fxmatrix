@@ -273,4 +273,72 @@ void Test_AL7_PublishAndCheck()
    Grind_ApiCounterTestReset();
 }
 
+//+------------------------------------------------------------------+
+int V22A_CountSubstr(const string needle)
+{
+   int found = 0;
+   const int n = Grind_ArchiveQueueCount();
+   for(int i = 0; i < n; i++) {
+      if(StringFind(Grind_ArchiveQueuePeek(i), needle) >= 0)
+         found++;
+   }
+   return found;
+}
+
+//+------------------------------------------------------------------+
+string V22A_MarkerNth(const string code, const int nth)
+{
+   int seen = 0;
+   const int n = Grind_ArchiveQueueCount();
+   for(int i = 0; i < n; i++) {
+      const string entry = Grind_ArchiveQueuePeek(i);
+      if(StringFind(entry, code) >= 0) {
+         if(seen == nth)
+            return entry;
+         seen++;
+      }
+   }
+   return "";
+}
+
+//+------------------------------------------------------------------+
+void Test_RN1_WarnDue()
+{
+   AssertTrue("RN1a (G)", Grind_ReconScanWarnDue(0, 0, false, 60000));
+   AssertFalse("RN1b (F)", Grind_ReconScanWarnDue(1000, 0, true, 60000));
+   AssertTrue("RN1c (G)", Grind_ReconScanWarnDue(60000, 0, true, 60000));
+   AssertFalse("RN1d (F)", Grind_ReconScanWarnDue(59999, 0, true, 60000));
+   AssertTrue("RN1e (G)", Grind_ReconScanWarnDue(500, 1000, true, 60000));
+}
+
+//+------------------------------------------------------------------+
+void Test_RN2_NoteThrottles()
+{
+   Grind_ArchiveTestReset();
+   Grind_ArchiveTestConfigureCommon();
+   Grind_ReconScanNoteReset();
+
+   AssertFalse("RN2a (G)", Grind_ReconScanNote(0, 1, true));
+   AssertEqInt("RN2b (G)", V22A_CountSubstr("RECON_SCAN_RACE"), 0);
+   AssertTrue("RN2c (G)", Grind_ReconScanNote(1, 1, true));
+   AssertEqInt("RN2d (G)", V22A_CountSubstr("RECON_SCAN_RACE"), 1);
+   AssertTrue("RN2e (F)",
+              StringFind(V22A_MarkerNth("RECON_SCAN_RACE", 0),
+                         "{\"dupes\":1,\"walks\":1,\"stable\":true,\"suppressed\":0}") >= 0);
+   g_grind_archive_test_tick = 11500;
+   AssertFalse("RN2f (F)", Grind_ReconScanNote(0, 2, true));
+   AssertEqInt("RN2g (F)", V22A_CountSubstr("RECON_SCAN_RACE"), 1);
+   AssertEqInt("RN2h (F)", g_grind_recon_scan_suppressed, 1);
+   g_grind_archive_test_tick = 61500;
+   AssertTrue("RN2i (G)", Grind_ReconScanNote(0, 3, false));
+   AssertEqInt("RN2j (F)", V22A_CountSubstr("RECON_SCAN_RACE"), 2);
+   AssertTrue("RN2k (F)",
+              StringFind(V22A_MarkerNth("RECON_SCAN_RACE", 1),
+                         "{\"dupes\":0,\"walks\":3,\"stable\":false,\"suppressed\":1}") >= 0);
+   AssertEqInt("RN2l (G)", g_grind_recon_scan_suppressed, 0);
+
+   Grind_ReconScanNoteReset();
+   Grind_ArchiveTestReset();
+}
+
 #endif // FXGRIND_TESTS_V22A_MQH

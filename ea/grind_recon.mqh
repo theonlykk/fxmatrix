@@ -34,6 +34,10 @@ int    g_grind_recon_exit_shortfall_short = 0;
 
 #define GRIND_RECON_FAILURE_MAX_EMIT 40
 #define GRIND_RECON_SCAN_MAX_WALKS 3
+#define GRIND_RECON_SCAN_WARN_MIN_MS 60000
+ulong g_grind_recon_scan_last_warn_tick = 0;
+bool  g_grind_recon_scan_warned = false;
+int   g_grind_recon_scan_suppressed = 0;
 
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 
@@ -1267,6 +1271,32 @@ string Grind_ReconScanDetail(const int dupes, const int walks, const bool stable
 }
 
 //+------------------------------------------------------------------+
+bool Grind_ReconScanWarnDue(const ulong now_tick, const ulong last_tick,
+                            const bool warned, const ulong min_ms)
+{
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void Grind_ReconScanNoteReset()
+{
+   g_grind_recon_scan_last_warn_tick = 0;
+   g_grind_recon_scan_warned = false;
+   g_grind_recon_scan_suppressed = 0;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ReconScanNote(const int dupes, const int walks, const bool stable)
+{
+   if(!Grind_ReconScanRaced(dupes, walks))
+      return false;
+   const string detail = Grind_ReconScanDetail(dupes, walks, stable);
+   Grind_ArchiveMarker("WARN", "RECON_SCAN_RACE", "", 0, detail);
+   Print(Grind_LogTag(), "WARN GRIND_RECON_SCAN ", detail);
+   return true;
+}
+
+//+------------------------------------------------------------------+
 int Grind_ReconCollectBrokerTickets(GrindReconTicket &tickets[])
 {
    int count = 0;
@@ -1314,11 +1344,7 @@ int Grind_ReconCollectBrokerTickets(GrindReconTicket &tickets[])
       stable = Grind_ReconScanStable(positions_before, orders_before,
                                      PositionsTotal(), OrdersTotal());
    }
-   if(Grind_ReconScanRaced(dupes_total, walks)) {
-      const string detail = Grind_ReconScanDetail(dupes_total, walks, stable);
-      Grind_ArchiveMarker("WARN", "RECON_SCAN_RACE", "", 0, detail);
-      Print(Grind_LogTag(), "WARN GRIND_RECON_SCAN ", detail);
-   }
+   Grind_ReconScanNote(dupes_total, walks, stable);
    return count;
 }
 
