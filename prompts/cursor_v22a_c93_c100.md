@@ -8,7 +8,11 @@ carries THIS file. Background: backlog C93 and C100
 (`handoffs/Handover/08_BACKLOG.md`), 02_TRAPS "3 Oct afternoon (C93, C107)",
 ADR-125 (the no-ticket policy, "Tickets deliberately excluded"), ADR-128
 (quarantine). Written by Claude from source at `e63e8a8` (EA code ==
-`2859be6`), 3 Oct. Line numbers are that code.
+`2859be6`), 3 Oct. Line numbers are that code. **AMENDED 3 Oct ~17:45Z
+after Gemini's review (s9): no API limit value or mismatch halts or
+unloads anything (operator); K7 changed, K9-K11 and AL6-AL7 added; 61
+assertions.** Gemini reviews this amended file once more (GV-7..GV-9)
+before Cursor starts.
 
 ## 0. RESTATE AND STOP (do this first, then wait)
 
@@ -39,6 +43,8 @@ ADR-125 (the no-ticket policy, "Tickets deliberately excluded"), ADR-128
 | A14 | `Grind_ApiCounterTestReset` (35-43) is the tests' reset; `Grind_ApiCounterTestSeed(count)` (46-51) | `grind_api_counter.mqh` | VERIFIED |
 | A15 | `OnInit`: the ADR-165 FATAL at 215-218; `GRIND_REROLL enable=` print at 355; `LATTICE_CONFIG` marker at 364-367; `EventSetTimer(1)` at 368. Inputs: `InpEntryHorizonPips` at 40 | `ea/fxgrind.mq5` | VERIFIED |
 | A16 | Suite today: 2447/2447 on GBPUSD and EURUSD at `2859be6` | HANDOFF s41 | VERIFIED (operator's runs, 3 Oct) |
+| A17 | A FATAL in `OnInit` (`return INIT_FAILED`) UNLOADS the EA from its chart: the book sits at the broker unmanaged until a re-attach (1 Oct 06:24Z, wine-d) | 02_TRAPS 1 Oct D1 | VERIFIED |
+| A18 | Operator ruling 3 Oct (on GV-5): "api limits are not a hard line. we should not be turning things off or halting anything ... a warning is sufficient". Also 2 Oct: "i do not want an api limit to stop trading" | HANDOFF s44 | RULING |
 
 ## 1. WHAT TO BUILD (summary)
 
@@ -55,8 +61,14 @@ when it differs from the last one printed. The failure JSON is unchanged.
 
 **C100.** Two inputs replace the two constants: `InpApiEntryStop` (default
 1000000) and `InpApiSoftWarn` (default 999000), held in globals that DEFAULT
-to the defines; validated at init (FATAL); printed and archived at init.
-With the defaults the EA behaves exactly as today.
+to the defines; printed and archived at init. Invalid values (either
+below 1, or soft above stop) do NOT fail init: the EA keeps the defines
+and raises an `API_LIMITS_INVALID` WARN. Each chart publishes the limits
+in force to two terminal Global Variables at init; a chart whose limits
+differ from those already published raises an `API_LIMITS_MISMATCH` WARN
+and then publishes its own (last init wins). Nothing halts, nothing is
+unloaded, no trading path changes (A17, A18). With the defaults the EA
+behaves exactly as today.
 
 No change to the invariants, the quarantine, the rebuild logic, any reason
 string, or any trading path.
@@ -80,8 +92,11 @@ string, or any trading path.
 | K4 | `ea/grind_api_counter.mqh` | `Grind_ApiCounterSoftWarnActive` compares with `g_grind_api_soft_warn`; `Grind_ApiCounterEntryStopped` compares with `g_grind_api_entry_stop`. The defines stay, unchanged, as the defaults |
 | K5 | `ea/grind_pure.mqh` | after `Grind_LatticeRerollPaused` (431-437): `bool Grind_ValidateApiLimitInputs(const int entry_stop, const int soft_warn)` returns `entry_stop >= 1 && soft_warn >= 1 && soft_warn <= entry_stop` |
 | K6 | `ea/fxgrind.mq5` | after `InpEntryHorizonPips` (40): `input int    InpApiEntryStop       = 1000000; // C100: no new entries at this daily request count (terminal-wide counter; same value on every chart of a terminal)` and `input int    InpApiSoftWarn        = 999000;  // C100: WARN_API_SOFT_LIMIT and no empty-side L0 re-centre at this count` |
-| K7 | `ea/fxgrind.mq5` | `OnInit`, right after the ADR-165 FATAL (218): `if(!Grind_ValidateApiLimitInputs(InpApiEntryStop, InpApiSoftWarn)) { Print("FATAL: InpApiEntryStop and InpApiSoftWarn must be >= 1 and InpApiSoftWarn <= InpApiEntryStop (C100)"); return INIT_FAILED; }` then `Grind_ApiLimitsSet(InpApiEntryStop, InpApiSoftWarn);` |
-| K8 | `ea/fxgrind.mq5` | after the `GRIND_REROLL` print (355): `Print("GRIND_API_LIMITS entry_stop=", g_grind_api_entry_stop, " soft_warn=", g_grind_api_soft_warn);` (the GLOBALS, i.e. what is in force). After the `LATTICE_CONFIG` marker (367), before `EventSetTimer(1)`: `Grind_ArchiveMarker("INFO", "API_LIMITS_CONFIG", "", 0, StringFormat("{\"entry_stop\":%d,\"soft_warn\":%d}", g_grind_api_entry_stop, g_grind_api_soft_warn));` |
+| K7 | `ea/fxgrind.mq5` | `OnInit`, right after the ADR-165 FATAL block (215-218), at function level (not inside any block): `const bool api_inputs_ok = Grind_ApiLimitsApplyInputs(InpApiEntryStop, InpApiSoftWarn);`. NO `return INIT_FAILED` and no FATAL print for these inputs (A17, A18) |
+| K8 | `ea/fxgrind.mq5` | after the `GRIND_REROLL` print (355): `Print("GRIND_API_LIMITS entry_stop=", g_grind_api_entry_stop, " soft_warn=", g_grind_api_soft_warn);` (the GLOBALS, i.e. what is in force). After the `LATTICE_CONFIG` marker (367), before `EventSetTimer(1)`, in this order: (1) `if(!api_inputs_ok) { const string bad = StringFormat("{\"input_entry_stop\":%d,\"input_soft_warn\":%d,\"using_entry_stop\":%d,\"using_soft_warn\":%d}", InpApiEntryStop, InpApiSoftWarn, g_grind_api_entry_stop, g_grind_api_soft_warn); Grind_ArchiveMarker("WARN", "API_LIMITS_INVALID", "", 0, bad); Print("WARN API_LIMITS_INVALID ", bad); }` (2) `Grind_ArchiveMarker("INFO", "API_LIMITS_CONFIG", "", 0, StringFormat("{\"entry_stop\":%d,\"soft_warn\":%d}", g_grind_api_entry_stop, g_grind_api_soft_warn));` (3) `Grind_ApiLimitsPublishAndCheck();` (return value unused here) |
+| K9 | `ea/grind_api_counter.mqh` | after `#define GRIND_DAILY_API_SOFT_WARN ...` (14): `#define GRIND_API_LIMIT_STOP_GV "GRIND_API_LIMIT_ENTRY_STOP"` and `#define GRIND_API_LIMIT_SOFT_GV "GRIND_API_LIMIT_SOFT_WARN"` (new terminal Global Variables; NOT the counter's) |
+| K10 | `ea/grind_api_counter.mqh` | after K2: `bool Grind_ApiLimitsApplyInputs(const int entry_stop, const int soft_warn)`: `if(!Grind_ValidateApiLimitInputs(entry_stop, soft_warn)) { Grind_ApiLimitsSet(GRIND_DAILY_API_ENTRY_STOP, GRIND_DAILY_API_SOFT_WARN); return false; } Grind_ApiLimitsSet(entry_stop, soft_warn); return true;` |
+| K11 | `ea/grind_api_counter.mqh` | after K10: `bool Grind_ApiLimitsPublishAndCheck()` as in s2.2 |
 | T1 | `ea/fxgrind_tests_v22a.mqh` | NEW: the tests in s4 |
 | T2 | `ea/fxgrind_tests.mq5` | `#include "fxgrind_tests_v22a.mqh"` after `fxgrind_tests_adr165.mqh` (29); call the s4 tests, in order, after `Test_RR16_LatchClearedThenRearmed();`, just before the `SUMMARY` print |
 
@@ -136,17 +151,47 @@ MQL5 resolves functions defined later in the program: no forward
 declarations anywhere. Every existing call site compiles unchanged (no
 existing signature changes).
 
+### 2.2 K11, publish and check (exact shape)
+
+    bool Grind_ApiLimitsPublishAndCheck()
+    {
+       bool mismatch = false;
+       if(GlobalVariableCheck(GRIND_API_LIMIT_STOP_GV) &&
+          GlobalVariableCheck(GRIND_API_LIMIT_SOFT_GV)) {
+          const int pub_stop = (int)GlobalVariableGet(GRIND_API_LIMIT_STOP_GV);
+          const int pub_soft = (int)GlobalVariableGet(GRIND_API_LIMIT_SOFT_GV);
+          if(pub_stop != g_grind_api_entry_stop || pub_soft != g_grind_api_soft_warn) {
+             mismatch = true;
+             const string detail = StringFormat(
+                "{\"entry_stop\":%d,\"soft_warn\":%d,\"published_entry_stop\":%d,\"published_soft_warn\":%d}",
+                g_grind_api_entry_stop, g_grind_api_soft_warn, pub_stop, pub_soft);
+             Grind_ArchiveMarker("WARN", "API_LIMITS_MISMATCH", "", 0, detail);
+             Print("WARN API_LIMITS_MISMATCH ", detail);
+          }
+       }
+       GlobalVariableSet(GRIND_API_LIMIT_STOP_GV, g_grind_api_entry_stop);
+       GlobalVariableSet(GRIND_API_LIMIT_SOFT_GV, g_grind_api_soft_warn);
+       return mismatch;
+    }
+
+Only one of the two variables present counts as nothing published (no
+WARN; both are then written). It never halts, never blocks an entry and
+never changes the limits in force (GV-7).
+
 ## 3. COMMITS
 
 1. **Tests first, against stubs.** V1, V6, V7's global (NOT the reset line
-   in `Grind_ReconFailureClear`), K1, K3, K4, K6, K7, K8, T1, T2 as written.
+   in `Grind_ReconFailureClear`), K1, K3, K4, K6, K7, K8, K9, T1, T2 as
+   written.
    STUBS: V2 appends ALWAYS (no duplicate loop, `dupes_io` untouched; the
    five fields set as written); V3 `return true;`; V4 `return false;`; V5
-   `return "";`; V8 `return "";`; K2 empty body; K5 `return true;`. V9 NOT
+   `return "";`; V8 `return "";`; K2 empty body; K5 `return true;`; K10
+   `return true;` (no other line); K11 `return false;` (no other line). V9 NOT
    applied. With these stubs the EA behaves exactly as today (one walk,
-   every entry appended, no marker, limits at the defines). Commit message:
-   tests first, the predicted failures (s4: 25) and guards (24).
-2. **Implementation:** the V2, V3, V4, V5, V8, K2, K5 bodies as written; V9;
+   every entry appended, no marker, limits at the defines, no Global
+   Variable written). Commit message: tests first, the predicted failures
+   (s4: 33) and guards (28).
+2. **Implementation:** the V2, V3, V4, V5, V8, K2, K5, K10, K11 bodies as written; V9;
    the V7 reset line. Nothing else.
 
 Do not compile (the operator compiles and runs the suite in MetaEditor on
@@ -239,11 +284,30 @@ c G `!Grind_ApiCounterEntryStopped()`.
 `g_grind_api_entry_stop == 1000000`; b G `g_grind_api_soft_warn == 999000`
 (literals: a later edit of a define shows here).
 
-Totals: **49 assertions; 25 F, 24 G** (RS1 7 = 5F 2G; RS2 4 = 2F 2G; RS3 5
+**AL6 invalid inputs keep the defines, no halt** (6): `Grind_ApiCounterTestReset();`
+a G `Grind_ApiLimitsApplyInputs(1900, 1800)` true (stub true); b F
+`g_grind_api_entry_stop == 1900` (stub: K2 and K10 set nothing); c F
+`g_grind_api_soft_warn == 1800`; then d F `Grind_ApiLimitsApplyInputs(1800, 1900)`
+false (soft above stop; stub true); e G `g_grind_api_entry_stop == GRIND_DAILY_API_ENTRY_STOP && g_grind_api_soft_warn == GRIND_DAILY_API_SOFT_WARN`
+(implementation restores the defines; stub never left them); f F
+`Grind_ApiLimitsApplyInputs(0, 0)` false (stub true).
+
+**AL7 publish and check** (6). Start: `Grind_ApiCounterTestReset();` then
+delete `GRIND_API_LIMIT_STOP_GV` and `GRIND_API_LIMIT_SOFT_GV` if present.
+`Grind_ApiLimitsSet(1900, 1800);` a G `Grind_ApiLimitsPublishAndCheck()`
+false (nothing published; stub false); b F `GlobalVariableCheck(GRIND_API_LIMIT_STOP_GV) && (int)GlobalVariableGet(GRIND_API_LIMIT_STOP_GV) == 1900`
+(stub writes nothing); c F the same for `GRIND_API_LIMIT_SOFT_GV` == 1800;
+`Grind_ApiLimitsSet(2000, 1800);` d F `Grind_ApiLimitsPublishAndCheck()`
+true (published 1900 differs; stub false); e F `(int)GlobalVariableGet(GRIND_API_LIMIT_STOP_GV) == 2000`
+(last init wins; stub: no variable, read 0); f G
+`Grind_ApiLimitsPublishAndCheck()` false (now equal; stub false). End:
+delete both variables, `Grind_ApiCounterTestReset();`.
+
+Totals: **61 assertions; 33 F, 28 G** (RS1 7 = 5F 2G; RS2 4 = 2F 2G; RS3 5
 = 3F 2G; RS4 4 = 3F 1G; RS5 5 = 1F 4G; RS6 5 = 4F 1G; AL1 6 = 3F 3G; AL2 4
-= 2F 2G; AL3 4 = 2F 2G; AL4 3 = 3G; AL5 2 = 2G). At commit 1 the
-operator's suite reads 2496 total, 2471 passing, exactly the 25 F failing;
-at commit 2 2496/2496. ANY other count, any G failing, or any existing test
+= 2F 2G; AL3 4 = 2F 2G; AL4 3 = 3G; AL5 2 = 2G; AL6 6 = 4F 2G; AL7 6 = 4F
+2G). At commit 1 the operator's suite reads 2508 total, 2475 passing,
+exactly the 33 F failing; at commit 2 2508/2508. ANY other count, any G failing, or any existing test
 changing: STOP and report (s6).
 
 The collector itself (V6) reads the live broker lists and is not
@@ -265,6 +329,11 @@ unit-tested; its parts are (V2-V5). Review it against s2.1 line by line.
 - Do not change `GRIND_DAILY_API_SOFT_WARN`, `GRIND_DAILY_API_ENTRY_STOP`,
   `GRIND_DAILY_API_LIMIT`, the counter's Global Variables, its daily reset
   or `Grind_OrderSendCounted`. Do not touch `fxmatrix_v2_*` (the old EA).
+  The two NEW variables of K9 are the only Global Variables this prompt
+  adds.
+- No `return INIT_FAILED`, FATAL, halt, quarantine, `ExpertRemove` or
+  entry block for any API limit value or mismatch (A17, A18): the only
+  reactions are the two WARN markers and their Print lines.
 - Do not touch presets (the defaults equal today's hotfix values), pipshed,
   docs, or any file not in s2. Do not change any existing test or its
   expected values.
@@ -286,7 +355,7 @@ unit-tested; its parts are (V2-V5). Review it against s2.1 line by line.
 
 ## 7. REPORT
 
-Per commit: hash, files, `git diff --stat`; the 49 assertion names with
+Per commit: hash, files, `git diff --stat`; the 61 assertion names with
 their tags; for commit 1 your own re-derivation of each F/G against the
 stubs (agree / disagree with reason). No suite figure.
 
@@ -321,4 +390,43 @@ stubs (agree / disagree with reason). No suite figure.
   (publish to a Global Variable, FATAL on mismatch)?
 - **GV-6** Any test you would add, or any F/G tag you derive differently?
 
-Line count: 324
+**Second pass (the amendments of s9):**
+- **GV-7 Mismatch is a WARN, last init wins.** K11 compares this chart's
+  limits with the two published variables, WARNs on a difference, then
+  overwrites them. The read-compare-write is not atomic: two charts
+  initialising in the same instant (a compile re-inits every chart) can
+  miss or duplicate a WARN; changing the limits fleet-wide WARNs on the
+  first charts reloaded until all match. Nothing trades differently
+  because of K11. Acceptable for a warning, or name a concrete failure.
+- **GV-8 Invalid inputs fall back to the defines with a WARN, not a
+  FATAL.** This departs from ADR-153's sanity-FATAL pattern; the
+  fallback (1000000 / 999000) is today's behaviour, so a typo leaves the
+  chart trading as now instead of unloaded with its book unmanaged
+  (A17). Any reason the fallback itself is unsafe?
+- **GV-9** Re-derive AL6 and AL7's F/G tags against the stubs of s3.
+
+## 9. GEMINI'S FIRST REVIEW (3 OCT ~17:40Z) AND CLAUDE'S CHECK
+
+- **GV-1 ACCEPTED** (tickets in the local log only).
+- **GV-2 ACCEPTED.** His "massive computational penalty" for a set check
+  overstates it (at most 200 tickets); the ruling stands on the
+  quarantine absorbing a one-tick skip (A4).
+- **GV-3 ACCEPTED** (use the last walk, `"stable":false`).
+- **GV-4 ACCEPTED** (AMBIGUOUS stays an immediate halt). His "double
+  leverage for 3 seconds" is not the mechanism (a halt cancels entries;
+  the reason to halt is a real second order for one layer).
+- **GV-5 REJECTED as ruled; AMENDED by the operator.** Gemini: publish
+  the limits to Global Variables at the first chart's init and FATAL any
+  later chart whose inputs differ. A FATAL at init unloads the EA and
+  leaves its book unmanaged (A17), and a fleet-wide change would need
+  the variables deleted by hand and every chart reloaded; his "fracturing
+  the fleet's geometric structure" does not apply (the limits touch no
+  geometry, and at the defaults no chart reaches them). Operator (A18):
+  "a warning is sufficient". Built as K9-K11 (publish, compare, WARN,
+  never halt); and by the same ruling K7's FATAL on invalid inputs
+  became a fallback to the defines with a WARN (K7, K8, K10).
+- **GV-6:** he re-derived RS1-RS3 only. Claude re-derived all 49 of the
+  first pass and the 12 new ones (AL6, AL7) against the stubs of s3:
+  33 F, 28 G, as tagged.
+
+Line count: 432
