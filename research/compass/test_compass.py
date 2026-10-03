@@ -435,5 +435,88 @@ class TestRound1Interventions(unittest.TestCase):
                                ("NZDCHF", "L", "C", "2026-10-02T02:29:27Z")])
 
 
+# ---------------------------------------------------------------- open MTM, reported (C104, 3 Oct)
+# Reported, never deciding (runbook s1): per instance side, the peak open MTM
+# inside the round's windows and the MTM carried across each window's end
+# (the 22:00Z day-roll), from per-minute bid/ask (grind_bidask_dump.mq5): a
+# long layer is marked at the bid close, a short at the ask close, each
+# minute evaluated at its last second; USD per pip per 0.01 lot = the median
+# of |closed profit| / pips over the symbol's closed layers (> 1 pip).
+
+import ev_data  # noqa: E402
+
+T0 = T("2026-10-02T12:00Z")
+
+
+def bars3(bids, spread=0.0001, symbol="GBPUSD"):
+    b = ev_data.Bars(symbol, 53071896, "ICMarketsSC-Demo", 5, 0.00001, OFF, T0 + 3600)
+    b.ao, b.ah, b.al, b.ac = [], [], [], []
+    for i, bid in enumerate(bids):
+        b.t.append(T0 + 60 * i)
+        for arr in (b.o, b.h, b.l, b.c):
+            arr.append(bid)
+        for arr in (b.ao, b.ah, b.al, b.ac):
+            arr.append(bid + spread)
+        b.spread.append(10)
+    return b
+
+
+def mtm_book():
+    """GBPUSD on D: long L1 open 1.00000 all along; long L2 open 1.00100,
+    closes T0+90 s; short S1 open 0.99850 at T0+30 s; one long with no price."""
+    fx = Fx()
+    sid = fx.session(INST, 53077984)
+    l1 = fx.layer(INST, sid, "L", T0 - 600)
+    l2 = fx.layer(INST, sid, "L", T0 - 600, T0 + 90, profit=1.0)
+    s1 = fx.layer(INST, sid, "S", T0 + 30)
+    l3 = fx.layer(INST, sid, "L", T0 - 600)
+    lay = fx.layers()
+    lay[INST][l2].open_price = 1.00100
+    lay[INST][s1].open_price = 0.99850
+    lay[INST][l3].open_price = None
+    return lay
+
+
+class TestOpenMtm(unittest.TestCase):
+    def setUp(self):
+        self.lay = mtm_book()
+        self.bars = bars3([0.99900, 0.99800, 0.99950])   # asks +1 pip
+        self.win = [(T0, T0 + 180, 1)]
+
+    def test_long_peak_and_roll(self):
+        # pv 0.10: m0 L1 -10 + L2 -20 = -30 pips -> -3.00; m1 (L2 closed at +90 s,
+        # minute ends +119) L1 -20 -> -2.00; m2 -5 -> -0.50. Peak -3.00 at T0;
+        # carried at the window end (minute T0+120) -0.50; one long unpriced.
+        m = cs.side_mtm(self.lay, INST, "L", self.win, self.bars, 0.10)
+        self.assertAlmostEqual(m["peak_usd"], -3.00, places=6)
+        self.assertEqual(m["peak_t"], T0)
+        self.assertEqual(len(m["roll_usd"]), 1)
+        self.assertAlmostEqual(m["roll_usd"][0], -0.50, places=6)
+        self.assertEqual(m["unpriced"], 1)
+
+    def test_short_marked_at_the_ask(self):
+        # S1 0.99850 vs ask 0.99910 / 0.99810 / 0.99960: -6, +4, -11 pips
+        # -> -0.60, +0.40, -1.10: peak -1.10 at T0+120 = the roll value
+        m = cs.side_mtm(self.lay, INST, "S", self.win, self.bars, 0.10)
+        self.assertAlmostEqual(m["peak_usd"], -1.10, places=6)
+        self.assertEqual(m["peak_t"], T0 + 120)
+        self.assertAlmostEqual(m["roll_usd"][0], -1.10, places=6)
+        self.assertEqual(m["unpriced"], 0)
+
+    def test_no_bars_gives_none(self):
+        self.assertIsNone(cs.side_mtm(self.lay, INST, "L", self.win, None, 0.10))
+
+    def test_pip_values_median_of_closed_layers(self):
+        # Fx closes at 1.00100 from 1.00000 = 10 pips: profits 1.00 and 1.20
+        # -> 0.10 and 0.12 per pip -> median 0.11; an open layer adds nothing
+        fx = Fx()
+        sid = fx.session(INST, 53077984)
+        fx.layer(INST, sid, "L", T0, T0 + 60, profit=1.00)
+        fx.layer(INST, sid, "S", T0, T0 + 60, profit=1.20)
+        fx.layer(INST, sid, "L", T0)
+        pv = cs.pip_values(fx.layers(), {"GBPUSD": 0.0001})
+        self.assertAlmostEqual(pv["GBPUSD"], 0.11, places=9)
+
+
 if __name__ == "__main__":
     unittest.main()
