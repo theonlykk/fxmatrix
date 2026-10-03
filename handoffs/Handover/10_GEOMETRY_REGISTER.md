@@ -58,9 +58,11 @@ anchor move on B, flips or repeats on C and D, each a row. The Monday
 build (5 Oct after 22:00Z) retires the six IC twins (NZDCAD and AUDNZD
 ALT on B, C and D): their rows closed at each removal time from the
 log. Then cap 10 with the width fixed per pair (C99; compass-round s6)
-in one reload per chart: a row for every instance. **The IC rings of
+in one reload per chart: a row for every instance, including the
+AUDUSD scout's first rows on B, C and D (magic 22261001, baseline
+2 / 6 / 10 at cap 10, presets `4694471`; compass-round s3). **The IC rings of
 seven (AUDCAD and NZDCHF dropped) were WITHDRAWN 3 Oct: IC keeps the
 nine pairs (C96; compass-round s3).** The 1 Oct `InpBreakerEnable=false` change on B, C, D
 is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged. **2 Oct: FTMO (A) retired GRIND_AUDNZD_ALT, GRIND_NZDCAD_ALT (15:14Z), GRIND_AUDCAD_OPT and GRIND_NZDCHF_OPT (~15:40Z); rows closed in the CSV; A runs seven (geometry-cycle3 A7). The table above marks them retired.**
 
-Line count: 66
+Line count: 68

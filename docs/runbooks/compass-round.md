@@ -100,9 +100,9 @@ too, so its record is continuous.
   the B, C, D lists (pages and strips), a "scouts" ring shown only on
   fleets that have it (FTMO's page unchanged). Built on C119: in
   Downloads as `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch`
-  (`3d23821` tests, `389f82b` fix, tree `ac81ba6d` after C119's
-  `e3b23a94`). Deploy only once the three AUDUSD charts are attached (else
-  the strip reads PARTIAL 9/10).
+  (tests commit then fix; tree `ac81ba6d` after C119's `e3b23a94`; go by
+  the trees, the hashes change at `git am`). Deploy only once the three
+  AUDUSD charts are attached (else the strip reads PARTIAL 9/10).
 - **Later structural step (not this cycle):** a single seven-currency
   ring per account (360 exist; candidates in MEMO_2026-10-03 s8).
 
@@ -128,7 +128,13 @@ too, so its record is continuous.
      `python research/compass/disconnects.py <files>` per box.
 3. **Threshold** (GC-1): max($1.19, the pooled median of this round's
    same-settings gaps: the control pair's six gaps (two sides x three fleet pairs) and any
-   scout baseline). It can only rise above $1.19.
+   scout baseline). It can only rise above $1.19. **Round 1 (s49):**
+   `round1.json` fixes $1.19 (AUDNZD long twin $1.40) and the scorer
+   does not compute the control gaps; GC-1 was accepted after round 1
+   began. At round 1's scoring BOTH are computed and reported (the fixed
+   $1.19 and max($1.19, NZDCAD's six gaps, NZDCAD_OPT B, C and D, all
+   three on the anchor in round 1)), and the operator chooses which one
+   decides round 1. From round 2 GC-1 decides.
 4. **Verdict per pair and side** (fleet-d s6.5 as amended by Gemini s6.8):
    - margin = probe per day - comparator per day;
    - margin > threshold: WIN; < -threshold: LOSE; else REPEAT (the same
@@ -231,4 +237,4 @@ lever.
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 234
+Line count: 240

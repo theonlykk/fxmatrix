@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED 3 Oct** (Claude's draft; Gemini GB-1..GB-5, s9). Runs Monday after 22:00Z on the operator's go. **Amended 3 Oct ~17:35Z (HANDOFF s44):** s1 no account-level backstop, s3.2 step 4 go asked on the night, s3.3 pathspec |
+| Status | **REVIEWED 3 Oct** (Claude's draft; Gemini GB-1..GB-5, s9). Runs Monday after 22:00Z on the operator's go. **Amended 3 Oct ~17:35Z (HANDOFF s44):** s1 no account-level backstop, s3.2 step 4 go asked on the night, s3.3 pathspec. **~22:50Z (s49):** s2.1 marked done, C119 by tree, s3.3 re-checked at `9be4bd3` |
 | Backlog | C95 (ADR-165 ON), C96 (twins retire), C88 (wine-c loads the Scripts copy), C105 (DONE 3 Oct: `main` `2859be6`) |
 | Sources | ADR-165 s4, s7, s9-s10; 02_TRAPS 2 Oct day (which `.ex5` loads) and afternoon (retiring by hand); HANDOFF s32 (the hotfix deploy, the pattern followed here); `docs/runbooks/compass-round.md` |
 | When | Mon 5 Oct, AFTER 22:00Z (round 1's last window closes; the twins carry round-1 probe data until then). Never 20:50-21:15Z (IC break, ADR-165's rollover pause) |
@@ -39,12 +39,15 @@ This message has a line count at the bottom
 
 ## 2. BEFORE (desktop, Monday before 22:00Z)
 
-1. Presets commit (Claude, patch): `InpLatticeReroll=true` added to every
-   live IC preset (`presets_b/*_b_lat`, `presets_c/*_c_lat` and `*_c_p1`,
+1. **DONE 3 Oct (`4a1e30e`):** `InpLatticeReroll=true` in every live IC
+   preset (`presets_b/*_b_lat`, `presets_c/*_c_lat` and `*_c_p1`,
    `presets_d/*_d_lat` and `*_d_p1`), so a later reattach does not turn it
-   off. The twins' `*_dup_*` files stay in the repo (history), unused.
-2. pipshed patch READY (C119, built 3 Oct: `99980da` tests, `4d294a6`
-   fix, tree `e3b23a94`, 39/39 suites; in Downloads as
+   off. The twins' `*_dup_*` files carry it too and stay in the repo
+   (history), unused. The three AUDUSD `*_c10` presets (`4694471`) also
+   carry it (cap-10 reload, not this build).
+2. pipshed patch READY (C119, built 3 Oct: tests commit then fix, tree
+   `e3b23a94` on `bb6bb7a`, 39/39 suites; go by the TREE: the commit
+   hashes differ per sandbox and change again at `git am`; in Downloads as
    `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`; deployed in s6,
    NEVER before the twins are gone): the six twins into
    `GRIND_RETIRED_INSTANCES`; the fleet strip lists B, C, D become the nine
@@ -84,7 +87,7 @@ The last line must print nothing (no EA code change after `2859be6`).
 The pathspec is the code only: the 51 IC presets under `ea/presets_*`
 changed in `4a1e30e` (`InpLatticeReroll=true`), so `-- ea/` lists them
 and trips a false STOP (02_TRAPS 3 Oct late afternoon). Checked in the
-sandbox at `27e1e77`: empty.
+sandbox at `27e1e77` and again at `9be4bd3` (3 Oct ~22:30Z): empty.
 
 **3.4 Copy the sources to BOTH copies** (Experts/fxmatrix and
 Scripts/fxmatrix), as khalid, then `cmp` every `ea/*.mq5 ea/*.mqh` against
@@ -185,4 +188,4 @@ with the reviewed list, dry run first.
   re-opens that chart's own EA; the risks are a Navigator drag or an
   Experts compile on wine-c. Warned in 3.5 and 3.7; caught by 3.6.
 
-Line count: 188
+Line count: 191

@@ -15,7 +15,9 @@ operator a free 2.5k account. Perps venues net every symbol, which started
 the question: what if fxgrind kept its logic but held one netted position
 per pair? Operator, 3 Oct ~03:15Z: "we might end up skipping myfundedperps
 - and stick with ftmo/ic - it is just myfundedperps gave us the idea to
-think about netting." MyFundedPerps facts (docs, 2 Oct): API in beta;
+think about netting." **Superseded 3 Oct ~22:10Z (HANDOFF s48):**
+MyFundedPerps is a side project for dead time and a netting lab
+(`theonlykk/mfperp`), never ahead of an FXMatrix step. MyFundedPerps facts (docs, 2 Oct): API in beta;
 REST + WebSocket + MCP; ~300 requests/min per IP; per-account policy
 (trades per minute, order cooldown, max resting orders); HFT and
 "excessive order activity" banned without numbers; markets list not
@@ -208,4 +210,4 @@ checks; an ADR for post-once with TP exits (a) to Gemini; prove it on one
 IC fleet against B (requests per round trip ~4.9 -> ~1); then FTMO on one
 ring. C118 runs alongside as the test bed.
 
-Line count: 211
+Line count: 213

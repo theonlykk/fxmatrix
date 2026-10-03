@@ -1804,4 +1804,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   2026-09-30 `pg_ctl ... start` line; `pip install -r requirements.txt
   --break-system-packages` for pipshed's suites.
 
-Line count: 1807
+
+## TRAPS FROM 2026-10-03 NIGHT (HASHES FROM ANOTHER SANDBOX, A RULE ACCEPTED MID-ROUND)
+
+- **A commit hash written by another chat's sandbox may exist nowhere.**
+  The C119 commits are `99980da` / `4d294a6` in the docs and `93f7595` /
+  `65dbd36` in the sandbox that delivered the patch; neither is on GitHub
+  (the patch is only in Downloads). The mfperp root was written as
+  `8fd6e87`; GitHub has `643fa12` (same tree `764520d9`). For anything
+  not yet pushed, cite the TREE and the patch file name; check a cited
+  hash with `git cat-file -t` before building on it.
+- **A rule accepted after a round opens does not silently bind that
+  round.** GC-1 (control-pair threshold) was accepted 3 Oct ~05:30Z;
+  round 1 opened Thu 22:00Z with `round1.json`'s fixed $1.19, and the
+  scorer computes only that. Report both and let the operator choose
+  (compass-round s4.3); never switch a round's rule quietly.
+
+Line count: 1823
