@@ -41,11 +41,20 @@ table and each probe's reload time (= its register row; a GUARD test
 checks it). A repeated probe is scored over ALL its rounds: give the next
 round's file every window so far.
 
+**Cuts (3 Oct, operator; Gemini GC-4 amended):** `interventions` lists
+side-specific hand interventions (pair, side, fleet, at). Each comparison
+(probe fleet vs its comparator's fleet) is scored only on the windows before
+the first intervention on either fleet for that pair-side, if at least
+`min_days_after_cut` (1.0) days remain, else VOID; the table's anchor column
+stays the whole round. Fleet-wide changes made alike on all fleets are not
+listed. Round 1: NZDCHF long B and C, AUDCHF long C (window 1, 2 Oct
+02:26-03:52Z), so NZDCHF long (both) and AUDCHF long (C) are VOID.
+
 Run it after the round's last window closes (round 1: Mon 5 Oct after
 22:00Z) on a fresh `--export-study --days 14`; it prints a warning and
 no verdict is final while the export ends before the round does.
 
-17 tests, hand-derived; at the tests-first commit 16 errored as predicted
+29 tests, hand-derived (12 for the cuts, 3 Oct: 9 of the first 10 failed as predicted at the tests-first commit, then two more for mutation survivors); at the tests-first commit 16 errored as predicted
 and the guard passed. Each rule broken once and caught by a named test
 (strict margin, add-only gates, entry gate, per-hour gate, a comparator
 that held nothing, twin vs primary, twin threshold, entry cutoff, hours
@@ -54,4 +63,4 @@ filter, side filter, per-day divisor). Cross-check: on 28-30 Sep it
 reproduces `d1_evidence.py`'s ledger totals exactly (AUDCHF S B/C,
 EURGBP L B, GBPUSD L A).
 
-Line count: 57
+Line count: 66

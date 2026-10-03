@@ -361,6 +361,8 @@ class TestScoreRoundCuts(unittest.TestCase):
         self.assertEqual(g["probes"]["C"]["verdict"], "VOID")
         self.assertEqual(g["probes"]["D"]["verdict"], "VOID")
         self.assertIsNone(g["promote"])
+        # the table's anchor column is the whole round, not the cut part: B 0.93 / 1 day
+        self.assertAlmostEqual(g["anchor_full"]["per_day"], 0.93, places=6)
 
     def test_cut_on_other_side_or_pair_changes_nothing(self):
         """GUARD: interventions elsewhere leave GBPUSD long as scored without cuts."""
@@ -391,6 +393,26 @@ class TestScoreRoundCuts(unittest.TestCase):
         r = cut_round([{"pair": "AUDNZD", "side": "L", "fleet": "C", "at": "2026-10-02T01:30:00Z"}])
         self.assertEqual(r[("AUDNZD", "L")]["probes"]["C"]["verdict"], "VOID")
         self.assertEqual(r[("AUDNZD", "L")]["probes"]["D"]["verdict"], "REPEAT")
+
+    def test_twin_not_cut_by_the_anchor_fleet(self):
+        # AUDNZD long: an intervention on B does not touch C's twin-vs-primary
+        # comparison (both on C): still +1.30 vs 1.40 -> REPEAT, not VOID
+        r = cut_round([{"pair": "AUDNZD", "side": "L", "fleet": "B", "at": "2026-10-02T01:30:00Z"}])
+        c = r[("AUDNZD", "L")]["probes"]["C"]
+        self.assertEqual(c["verdict"], "REPEAT")
+        self.assertAlmostEqual(c["margin"], 1.30, places=6)
+        self.assertIsNone(c["cut"])
+
+    def test_report_anchor_column_is_uncut(self):
+        # B cut Fri 01:30 voids both GBPUSD long comparisons; the printed anchor
+        # column still shows B's whole-round 0.93 per day
+        import io
+        cfg, lay = tiny_round()
+        cfg["interventions"] = [{"pair": "GBPUSD", "side": "L", "fleet": "B", "at": "2026-10-02T01:30:00Z"}]
+        out = io.StringIO()
+        cs.report(cfg, {"fill_logs": []}, cs.score_round(cfg, lay), out=out)
+        line = [l for l in out.getvalue().splitlines() if l.startswith("GBPUSD  L")][0]
+        self.assertEqual(line.split("|")[1].strip(), "0.93")
 
     def test_min_days_after_cut_is_configurable(self):
         # same C cut as the first test, but min 0.1 day: 3.5 h = 0.1458 day remains,

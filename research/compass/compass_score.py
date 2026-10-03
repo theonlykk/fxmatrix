@@ -22,6 +22,11 @@ Per pair and side, for each probe fleet (C: add, D: exit):
 - promote: the WIN with the larger margin (one lever moves per round).
 Reported, never deciding: entry split, layer-hours, open layers at the end,
 depth at the reload.
+Cuts (operator 3 Oct, Gemini GC-4 amended): a hand intervention listed in the
+round file (pair, side, fleet, at) cuts every comparison involving that fleet
+on that pair-side: it is scored on the windows before the first such
+intervention if at least min_days_after_cut (default 1.0) days remain, else
+VOID. Fleet-wide changes made alike on all fleets are not listed.
 """
 import argparse
 import datetime as dt
@@ -62,13 +67,37 @@ def load(paths, accounts):
     return exp, layers
 
 
+def cut_windows(windows, cut):
+    """Windows truncated at `cut` (epoch s; None = no cut). A window that
+    ends after the cut keeps its part before it, counted in fractional days;
+    windows starting at or after the cut are dropped."""
+    if cut is None:
+        return list(windows)
+    out = []
+    for a, b, d in windows:
+        if cut <= a:
+            continue
+        if cut >= b:
+            out.append((a, b, d))
+        else:
+            out.append((a, cut, (cut - a) / 86400.0))
+    return out
+
+
+def cut_for(cfg, pair, side, fleets):
+    """Earliest listed intervention on this pair-side on any of `fleets`."""
+    ts = [utc(i["at"]) for i in cfg.get("interventions", [])
+          if i["pair"] == pair and i["side"] == side and i["fleet"] in fleets]
+    return min(ts) if ts else None
+
+
 def _in_windows(t, windows):
     return any(a <= t < b for a, b, _d in windows)
 
 
 def side_metrics(layers, inst, side, windows, entry_cutoff):
     days = sum(d for _a, _b, d in windows)
-    end = max(b for _a, b, _d in windows)
+    end = max((b for _a, b, _d in windows), default=entry_cutoff)
     m = {"scalps": 0, "rolls": 0, "ejections": 0, "net": 0.0, "entry_net": 0.0,
          "layer_hours": 0.0, "open_end": 0, "depth_at_cutoff": 0, "days": days}
     for lay in layers.get(inst, {}).values():
@@ -127,25 +156,42 @@ def decide(probe, comp, threshold, lever):
 
 def score_round(cfg, layers):
     windows = windows_of(cfg)
+    min_days = float(cfg.get("min_days_after_cut", 1.0))
     rows = []
     for pair, spec in cfg["pairs"].items():
         for side in SIDES:
             row = {"pair": pair, "side": side, "anchor": spec["anchor"], "probes": {}}
+            # the anchor over the whole round (no cut), for the table's anchor column
+            row["anchor_full"] = side_metrics(layers, spec["anchor"], side, windows,
+                                              windows[0][0])
             for fleet in ("C", "D"):
                 if fleet not in spec:
                     continue
                 p = spec[fleet]
                 cutoff = utc(cfg["reloads"][p["probe"]])
-                pm = side_metrics(layers, p["probe"], side, windows, cutoff)
-                am = side_metrics(layers, spec["anchor"], side, windows, cutoff)
                 twin = "primary" in p
+                comp_fleet = fleet if twin else "B"
+                cut = cut_for(cfg, pair, side, {fleet, comp_fleet})
+                win_c = cut_windows(windows, cut)
+                days_used = sum(d for _a, _b, d in win_c)
+                pm = side_metrics(layers, p["probe"], side, win_c, cutoff)
+                # the cross margin vs the anchor uses the cut of (probe fleet, B)
+                win_a = cut_windows(windows, cut_for(cfg, pair, side, {fleet, "B"}))
+                am = side_metrics(layers, spec["anchor"], side, win_a, cutoff)
                 comp_inst = p["primary"] if twin else spec["anchor"]
-                cm = side_metrics(layers, comp_inst, side, windows, cutoff) if twin else am
+                cm = side_metrics(layers, comp_inst, side, win_c, cutoff)
                 thr = threshold_for(cfg, pair, side, twin)
                 verdict, margin, note = decide(pm, cm, thr, p["lever"])
+                if cut is not None:
+                    if days_used < min_days - EPS:
+                        verdict = "VOID"
+                    note = ("cut %s, %.2f d used" % (
+                        dt.datetime.fromtimestamp(cut, dt.timezone.utc).strftime("%a %H:%M:%SZ"),
+                        days_used) + ("; " + note if note else ""))
                 row["probes"][fleet] = {"probe": p["probe"], "lever": p["lever"],
                                         "comparator": comp_inst, "threshold": thr,
                                         "verdict": verdict, "margin": margin, "note": note,
+                                        "cut": cut, "days_used": days_used,
                                         "cross_margin": pm["per_day"] - am["per_day"],
                                         "probe_m": pm, "comp_m": cm, "anchor_m": am}
             wins = [(v["margin"], f) for f, v in row["probes"].items() if v["verdict"] == "WIN"]
@@ -185,7 +231,7 @@ def report(cfg, exp, rows, out=sys.stdout):
                 continue
             cells.append("%6.2f %-11s %+7.2f %+7.2f %5.2f" % (
                 v["probe_m"]["per_day"], v["verdict"], v["margin"], v["cross_margin"], v["threshold"]))
-        anchor = next(iter(r["probes"].values()))["anchor_m"]["per_day"] if r["probes"] else 0.0
+        anchor = r["anchor_full"]["per_day"]
         p("%-7s %s | %8.2f | %s | %s | %s" % (r["pair"], r["side"], anchor, cells[0], cells[1],
                                             r["promote"] or "anchor stays"))
     p()

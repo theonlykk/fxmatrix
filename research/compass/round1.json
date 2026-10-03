@@ -7,6 +7,12 @@
     ["2026-10-04T22:00Z", "2026-10-05T22:00Z", 1]
   ],
   "threshold": 1.19,
+  "interventions": [
+    {"pair": "NZDCHF", "side": "L", "fleet": "B", "at": "2026-10-02T02:26:15Z", "what": "hand eject L01 1970247358 (EJECT_ACCEPTED)"},
+    {"pair": "NZDCHF", "side": "L", "fleet": "C", "at": "2026-10-02T02:29:27Z", "what": "hand eject L00 1971349402 (EJECT_ACCEPTED)"},
+    {"pair": "AUDCHF", "side": "L", "fleet": "C", "at": "2026-10-02T03:51:45Z", "what": "hand eject L10 1978509127 (EJECT_ACCEPTED)"}
+  ],
+  "min_days_after_cut": 1.0,
   "twin_thresholds": {"AUDNZD|L": 1.40},
   "pairs": {
     "GBPUSD": {"anchor": "GRIND_GBPUSD_OPTB",
