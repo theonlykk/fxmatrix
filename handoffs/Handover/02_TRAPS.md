@@ -1752,4 +1752,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`GlobalVariableTime` is the last ACCESS time:** reading a variable
   updates it, so a listing's times are the listing's own time.
 
-Line count: 1755
+
+## TRAPS FROM 2026-10-03 LATE AFTERNOON (v2.2a prompt)
+
+- **No ticket numbers in the heartbeat or the recon-failure JSON** (ADR-125:
+  the public status endpoint carries the heartbeat; `Test_F4` and
+  `Test_D5` enforce it). A backlog line can ask for something a standing
+  policy forbids (C93 item 3 did): grep the tests for the field before
+  specifying it. Tickets go to the local Experts log.
+- **`git diff 2859be6 HEAD -- ea/` is no longer empty:** the 51 IC presets
+  under `ea/presets_*` changed (`InpLatticeReroll=true`). For "no EA code
+  change", diff `ea/*.mq5 ea/*.mqh` only.
+- **Clock times in the handoff come from the clock tool, not estimates:**
+  s41 and s42's end times (~17:45Z, ~18:10Z) ran ahead; s42 ended
+  before ~17:10Z.
+- **A one-tick false duplicate halts; a one-tick skip does not:**
+  `AMBIGUOUS_*` is not quarantinable, I2 / I3 / I4 / I6 are (3 s and 3
+  checks). That is why C93 halted at once.
+
+Line count: 1773
