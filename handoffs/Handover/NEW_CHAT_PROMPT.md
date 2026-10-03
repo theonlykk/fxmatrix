@@ -117,7 +117,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | `27e1e77` pushed (docs s43; then the s44 docs patch); v2.2a prompt `c92d9c2` (tree `80d86924`; `9d3ac45` before `git am`). EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
+| fxmatrix `main` | `1bb077a` pushed (v2.2a prompt amended; then the s45 docs patch). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites. Local, NOT pushed: `99980da` tests + `4d294a6` C119 (retire the six twins, B/C/D strips = nine), tree `e3b23a94`, 39/39; in Downloads as `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`: apply only AFTER the twins are removed |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -126,15 +126,14 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s43 NEXT SESSION; backlog C1 is the critical path)
+## 2. NEXT, IN ORDER (= HANDOFF s45 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
 2. DONE 3 Oct 17:20Z: both patches pushed (`c92d9c2`, `27e1e77`); s44
    (runbook and register fixes) next.
-3. v2.2a (C93 + C100): Gemini (GV-1..GV-6) -> Claude checks the answers
-   and amends the prompt -> Cursor (`v22a-recon-api`) -> Claude reads the
-   commits -> operator's suite (2496 / 2471, then 2496/2496) -> DeepSeek.
-   **No merge into `main` before the Monday build** (runbook s3.3).
+3. DONE 3 Oct ~19:30Z (s45): v2.2a through Gemini (twice), Cursor,
+   DeepSeek and the audit fix; `8a3ec0c` 2525/2525. **No merge into
+   `main` before the Monday build** (runbook s3.3); merge after it.
 4. Sunday open checks.
 5. Mon 5 Oct after 22:00Z: score round 1; the Monday build; pipshed C119;
    the IC twins' Global Variables (runbook s7, the gv scripts).
@@ -182,4 +181,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   a fresh scratch PG. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 185
+Line count: 184

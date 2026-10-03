@@ -1785,5 +1785,15 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   trap was recorded (3 Oct late afternoon) but the runbook was amended
   only in s44. Before a runbook's night, re-run each of its checks
   against current `main` in the sandbox.
+- **MT5 writes the Experts log in chunks.** A grep run seconds after
+  the second suite run can miss it (3 Oct: the EURUSD run at 14:57:29
+  was not in the file at 14:57:5x; a re-run caught it). Wait ~10 s, and
+  check that both SUMMARY lines are in the saved file before reading
+  the failures.
+- **Cursor commits but does not push unless the prompt says so.** The
+  v2.2a prompt asked for commits only, so the branch stayed on the
+  desktop until the operator pushed it; the audit-fix prompt put
+  `git push origin <branch>` in its negative-space block. Say it in
+  every Cursor prompt whose commits Claude must read.
 
-Line count: 1789
+Line count: 1799
