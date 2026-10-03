@@ -33,6 +33,7 @@ int    g_grind_recon_exit_shortfall_short = 0;
 #include "grind_exitq.mqh"
 
 #define GRIND_RECON_FAILURE_MAX_EMIT 40
+#define GRIND_RECON_SCAN_MAX_WALKS 3
 
 void Grind_CancelOwnEntryOrders(const ulong magic, const string slot);
 
@@ -674,6 +675,12 @@ string Grind_ReconFailureFindTicketComment(const GrindReconTicket &tickets[],
 }
 
 //+------------------------------------------------------------------+
+string Grind_ReconTicketsLogLine(const string reason, const GrindReconTicket &tickets[], const int count)
+{
+   return "";
+}
+
+//+------------------------------------------------------------------+
 void Grind_ReconFailureCapture(const GrindReconTicket &tickets[],
                                const int ticket_count,
                                const string reason,
@@ -1206,46 +1213,91 @@ bool Grind_RebuildBookFromTickets(const GrindReconTicket &tickets[],
 }
 
 //+------------------------------------------------------------------+
+int Grind_ReconAppendUnique(GrindReconTicket &tickets[], const int count, const ulong ticket,
+                            const ulong magic, const string comment, const double price,
+                            const int kind, int &dupes_io)
+{
+   ArrayResize(tickets, count + 1);
+   tickets[count].ticket = ticket;
+   tickets[count].magic = magic;
+   tickets[count].comment = comment;
+   tickets[count].price = price;
+   tickets[count].kind = kind;
+   return count + 1;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ReconScanStable(const int positions_before, const int orders_before,
+                           const int positions_after, const int orders_after)
+{
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ReconScanRaced(const int dupes, const int walks)
+{
+   return false;
+}
+
+//+------------------------------------------------------------------+
+string Grind_ReconScanDetail(const int dupes, const int walks, const bool stable)
+{
+   return "";
+}
+
+//+------------------------------------------------------------------+
 int Grind_ReconCollectBrokerTickets(GrindReconTicket &tickets[])
 {
    int count = 0;
+   int dupes_total = 0;
+   int walks = 0;
+   bool stable = false;
+   while(walks < GRIND_RECON_SCAN_MAX_WALKS && !stable) {
+      walks++;
+      count = 0;
+      ArrayResize(tickets, 0);
+      const int positions_before = PositionsTotal();
+      const int orders_before = OrdersTotal();
 
-   for(int i = PositionsTotal() - 1; i >= 0; i--) {
-      const ulong ticket = PositionGetTicket(i);
-      if(ticket == 0 || !PositionSelectByTicket(ticket))
-         continue;
-      if(PositionGetString(POSITION_SYMBOL) != _Symbol)
-         continue;
-      if(!Grind_MagicMatches(PositionGetInteger(POSITION_MAGIC), g_grind_recon_magic))
-         continue;
+      for(int i = PositionsTotal() - 1; i >= 0; i--) {
+         const ulong ticket = PositionGetTicket(i);
+         if(ticket == 0 || !PositionSelectByTicket(ticket))
+            continue;
+         if(PositionGetString(POSITION_SYMBOL) != _Symbol)
+            continue;
+         if(!Grind_MagicMatches(PositionGetInteger(POSITION_MAGIC), g_grind_recon_magic))
+            continue;
 
-      ArrayResize(tickets, count + 1);
-      tickets[count].ticket = (ulong)PositionGetInteger(POSITION_IDENTIFIER);
-      tickets[count].magic = g_grind_recon_magic;
-      tickets[count].comment = PositionGetString(POSITION_COMMENT);
-      tickets[count].price = PositionGetDouble(POSITION_PRICE_OPEN);
-      tickets[count].kind = GRIND_RECON_TICKET_POSITION;
-      count++;
+         count = Grind_ReconAppendUnique(tickets, count,
+                    (ulong)PositionGetInteger(POSITION_IDENTIFIER),
+                    g_grind_recon_magic,
+                    PositionGetString(POSITION_COMMENT),
+                    PositionGetDouble(POSITION_PRICE_OPEN),
+                    GRIND_RECON_TICKET_POSITION, dupes_total);
+      }
+      for(int i = OrdersTotal() - 1; i >= 0; i--) {
+         const ulong ticket = OrderGetTicket(i);
+         if(ticket == 0 || !OrderSelect(ticket))
+            continue;
+         if(OrderGetString(ORDER_SYMBOL) != _Symbol)
+            continue;
+         if(!Grind_MagicMatches(OrderGetInteger(ORDER_MAGIC), g_grind_recon_magic))
+            continue;
+
+         count = Grind_ReconAppendUnique(tickets, count, ticket,
+                    g_grind_recon_magic,
+                    OrderGetString(ORDER_COMMENT),
+                    OrderGetDouble(ORDER_PRICE_OPEN),
+                    GRIND_RECON_TICKET_ORDER, dupes_total);
+      }
+      stable = Grind_ReconScanStable(positions_before, orders_before,
+                                     PositionsTotal(), OrdersTotal());
    }
-
-   for(int i = OrdersTotal() - 1; i >= 0; i--) {
-      const ulong ticket = OrderGetTicket(i);
-      if(ticket == 0 || !OrderSelect(ticket))
-         continue;
-      if(OrderGetString(ORDER_SYMBOL) != _Symbol)
-         continue;
-      if(!Grind_MagicMatches(OrderGetInteger(ORDER_MAGIC), g_grind_recon_magic))
-         continue;
-
-      ArrayResize(tickets, count + 1);
-      tickets[count].ticket = ticket;
-      tickets[count].magic = g_grind_recon_magic;
-      tickets[count].comment = OrderGetString(ORDER_COMMENT);
-      tickets[count].price = OrderGetDouble(ORDER_PRICE_OPEN);
-      tickets[count].kind = GRIND_RECON_TICKET_ORDER;
-      count++;
+   if(Grind_ReconScanRaced(dupes_total, walks)) {
+      const string detail = Grind_ReconScanDetail(dupes_total, walks, stable);
+      Grind_ArchiveMarker("WARN", "RECON_SCAN_RACE", "", 0, detail);
+      Print(Grind_LogTag(), "WARN GRIND_RECON_SCAN ", detail);
    }
-
    return count;
 }
 
