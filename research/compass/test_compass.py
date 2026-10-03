@@ -300,5 +300,118 @@ class TestRoundFile(unittest.TestCase):
         self.assertEqual(sum(w[2] for w in cfg["windows"]), 2)
 
 
+# ---------------------------------------------------------------- cuts (GC-4, 3 Oct)
+# Operator 3 Oct (Gemini GC-4, amended): a hand intervention on one fleet's
+# pair-side CUTS every comparison that involves that fleet on that pair-side:
+# scored on the windows before the first such intervention, if at least
+# min_days_after_cut (default 1.0) days remain; else VOID. Fleet-wide changes
+# applied alike to all fleets are not interventions (never listed).
+
+CUT_FRI = T("2026-10-02T02:26:15Z")
+
+
+class TestCutWindows(unittest.TestCase):
+    def test_cut_inside_first_window_drops_the_rest(self):
+        # 22:00 -> 02:26:15 = 4 h 26 m 15 s = 15975 s = 0.184895833 days; W2 gone
+        w = cs.cut_windows([W1, W2], CUT_FRI)
+        self.assertEqual(len(w), 1)
+        self.assertEqual(w[0][0], W1[0])
+        self.assertEqual(w[0][1], CUT_FRI)
+        self.assertAlmostEqual(w[0][2], 15975 / 86400.0, places=9)
+
+    def test_cut_before_after_or_none(self):
+        self.assertEqual(cs.cut_windows([W1, W2], T("2026-10-01T21:00Z")), [])
+        self.assertEqual(cs.cut_windows([W1, W2], T("2026-10-06T01:00Z")), [W1, W2])
+        self.assertEqual(cs.cut_windows([W1, W2], None), [W1, W2])
+
+    def test_cut_between_windows_keeps_the_first_whole(self):
+        # Sun 12:00 is between W1 and W2: W1 whole (1 day), W2 gone
+        self.assertEqual(cs.cut_windows([W1, W2], T("2026-10-04T12:00Z")), [W1])
+
+
+def cut_round(interventions, windows=None, extra=None):
+    cfg, lay = tiny_round()
+    cfg["interventions"] = interventions
+    if windows:
+        cfg["windows"] = windows
+    if extra:
+        fx = Fx()
+        for inst, acct, t0, t1, profit in extra:
+            fx.layer(inst, fx.session(inst, acct), "L", t0, t1, profit=profit)
+        for k, v in fx.layers().items():
+            lay.setdefault(k, {}).update(v)
+    return {(r["pair"], r["side"]): r for r in cs.score_round(cfg, lay)}
+
+
+class TestScoreRoundCuts(unittest.TestCase):
+    def test_cut_on_probe_fleet_voids_only_that_comparison(self):
+        # C cut Fri 01:30 (before every 02:00 close): 3.5 h < 1 day -> VOID;
+        # D vs B untouched: +3.00 WIN and promoted
+        r = cut_round([{"pair": "GBPUSD", "side": "L", "fleet": "C", "at": "2026-10-02T01:30:00Z"}])
+        g = r[("GBPUSD", "L")]
+        self.assertEqual(g["probes"]["C"]["verdict"], "VOID")
+        self.assertAlmostEqual(g["probes"]["C"]["days_used"], 3.5 / 24.0, places=9)
+        self.assertEqual(g["probes"]["D"]["verdict"], "WIN")
+        self.assertAlmostEqual(g["probes"]["D"]["margin"], 3.00, places=6)
+        self.assertEqual(g["promote"], "D")
+
+    def test_cut_on_anchor_fleet_voids_both(self):
+        r = cut_round([{"pair": "GBPUSD", "side": "L", "fleet": "B", "at": "2026-10-02T01:30:00Z"}])
+        g = r[("GBPUSD", "L")]
+        self.assertEqual(g["probes"]["C"]["verdict"], "VOID")
+        self.assertEqual(g["probes"]["D"]["verdict"], "VOID")
+        self.assertIsNone(g["promote"])
+
+    def test_cut_on_other_side_or_pair_changes_nothing(self):
+        """GUARD: interventions elsewhere leave GBPUSD long as scored without cuts."""
+        r = cut_round([{"pair": "GBPUSD", "side": "S", "fleet": "C", "at": "2026-10-02T01:30:00Z"},
+                       {"pair": "AUDNZD", "side": "L", "fleet": "B", "at": "2026-10-02T01:30:00Z"}])
+        g = r[("GBPUSD", "L")]
+        self.assertEqual(g["probes"]["C"]["verdict"], "WIN")
+        self.assertEqual(g["probes"]["D"]["verdict"], "WIN")
+
+    def test_salvage_when_a_day_remains(self):
+        # Windows W1 + W2; C cut Mon 12:00 -> W1 (1 day) + Mon 22:00(Sun)->12:00 = 14 h
+        # -> days 1 + 14/24 = 1.583333. C's extra layer closes Mon 13:00 (after the
+        # cut, profit -10.00) and is excluded. Fri layers: C 2.93, B 0.93.
+        # margin = (2.93 - 0.93) / 1.583333 = 1.263158 > 1.19 -> WIN.
+        # Without the cut: C (2.93 - 10.07) / 2 = -3.57 vs B 0.465 -> LOSE.
+        r = cut_round([{"pair": "GBPUSD", "side": "L", "fleet": "C", "at": "2026-10-05T12:00:00Z"}],
+                      windows=[["2026-10-01T22:00Z", "2026-10-02T22:00Z", 1],
+                               ["2026-10-04T22:00Z", "2026-10-05T22:00Z", 1]],
+                      extra=[("GRIND_GBPUSD_OPTC", 53071896, T("2026-10-05T10:00Z"),
+                              T("2026-10-05T13:00Z"), -10.00)])
+        c = r[("GBPUSD", "L")]["probes"]["C"]
+        self.assertAlmostEqual(c["days_used"], 1 + 14 / 24.0, places=9)
+        self.assertAlmostEqual(c["margin"], 2.00 / (1 + 14 / 24.0), places=6)
+        self.assertEqual(c["verdict"], "WIN")
+
+    def test_twin_cut_on_its_own_fleet(self):
+        # AUDNZD long, C: twin and primary both on C; cut on C Fri 01:30 -> VOID
+        r = cut_round([{"pair": "AUDNZD", "side": "L", "fleet": "C", "at": "2026-10-02T01:30:00Z"}])
+        self.assertEqual(r[("AUDNZD", "L")]["probes"]["C"]["verdict"], "VOID")
+        self.assertEqual(r[("AUDNZD", "L")]["probes"]["D"]["verdict"], "REPEAT")
+
+    def test_min_days_after_cut_is_configurable(self):
+        # same C cut as the first test, but min 0.1 day: 3.5 h = 0.1458 day remains,
+        # no close inside it -> both nets 0 -> margin 0 -> REPEAT (not VOID)
+        cfg, lay = tiny_round()
+        cfg["interventions"] = [{"pair": "GBPUSD", "side": "L", "fleet": "C", "at": "2026-10-02T01:30:00Z"}]
+        cfg["min_days_after_cut"] = 0.1
+        r = {(x["pair"], x["side"]): x for x in cs.score_round(cfg, lay)}
+        self.assertEqual(r[("GBPUSD", "L")]["probes"]["C"]["verdict"], "REPEAT")
+
+
+class TestRound1Interventions(unittest.TestCase):
+    def test_round1_lists_the_three_hand_ejects(self):
+        """fleet-d.md s7, 2 Oct window 1: NZDCHF long B (EJECT_ACCEPTED 02:26:15Z),
+        NZDCHF long C (02:29:27Z), AUDCHF long C (03:51:45Z)."""
+        cfg = cs.load_round(os.path.join(HERE, "round1.json"))
+        got = sorted((i["pair"], i["side"], i["fleet"], i["at"]) for i in cfg["interventions"])
+        self.assertEqual(got, [("AUDCHF", "L", "C", "2026-10-02T03:51:45Z"),
+                               ("NZDCHF", "L", "B", "2026-10-02T02:26:15Z"),
+                               ("NZDCHF", "L", "C", "2026-10-02T02:29:27Z")])
+
+
 if __name__ == "__main__":
     unittest.main()
