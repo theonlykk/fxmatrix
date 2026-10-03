@@ -1795,5 +1795,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   desktop until the operator pushed it; the audit-fix prompt put
   `git push origin <branch>` in its negative-space block. Say it in
   every Cursor prompt whose commits Claude must read.
+- **pipshed's C110 SR3 fails every evening 21:00-24:00Z** (C122): the
+  fixture dates rows in UTC, the endpoint by broker date. A 39/40 run in
+  that window with SR3 the only failure is this, not your change; check
+  it on untouched `main` before believing either way.
+- **A fresh sandbox has no scratch PostgreSQL:** `initdb -U verify
+  --auth=trust` into `/var/tmp/pgverify/data` as postgres, then the
+  2026-09-30 `pg_ctl ... start` line; `pip install -r requirements.txt
+  --break-system-packages` for pipshed's suites.
 
-Line count: 1799
+Line count: 1807

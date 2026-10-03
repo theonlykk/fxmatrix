@@ -96,6 +96,13 @@ too, so its record is continuous.
   4 = 2.0. Guard: add / width 3.0 (2.5-3.5 for the later one-pip add
   probes). Roll cost at cap 10: 10 x 6 - 10 = 50 pips per roll; ten
   layers span 60 pips against a 39-pip median day.
+- **pipshed C121 ready (3 Oct, not pushed):** `GRIND_AUDUSD_OPT{B,C,D}` in
+  the B, C, D lists (pages and strips), a "scouts" ring shown only on
+  fleets that have it (FTMO's page unchanged). Built on C119: in
+  Downloads as `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch`
+  (`3d23821` tests, `389f82b` fix, tree `ac81ba6d` after C119's
+  `e3b23a94`). Deploy only once the three AUDUSD charts are attached (else
+  the strip reads PARTIAL 9/10).
 - **Later structural step (not this cycle):** a single seven-currency
   ring per account (360 exist; candidates in MEMO_2026-10-03 s8).
 
@@ -224,4 +231,4 @@ lever.
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 227
+Line count: 234

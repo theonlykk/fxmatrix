@@ -118,7 +118,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 | | |
 |---|---|
 | fxmatrix `main` | `1bb077a` pushed (v2.2a prompt amended; then the s45 docs patch). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
-| pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites. Local, NOT pushed: `99980da` tests + `4d294a6` C119 (retire the six twins, B/C/D strips = nine), tree `e3b23a94`, 39/39; in Downloads as `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`: apply only AFTER the twins are removed |
+| pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites. Local, NOT pushed: `99980da` tests + `4d294a6` C119 (retire the six twins, B/C/D strips = nine), tree `e3b23a94`, 39/39; in Downloads as `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`: apply only AFTER the twins are removed. Then C121 (AUDUSD scout; `3d23821` + `389f82b`, tree `ac81ba6d`) as `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch`: only after the AUDUSD charts are attached |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
 | wine-c (C) | `893e065` (Scripts copy); `ssh box2`; VNC 5911 the same way |
