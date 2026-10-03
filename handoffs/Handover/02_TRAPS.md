@@ -1693,4 +1693,25 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **The 200 positions + orders limit applies on IC too** (operator, tested):
   more pairs means more accounts, not a bigger book.
 
-Line count: 1696
+
+## TRAPS FROM 2026-10-03 MORNING (DUMPS, REPORTS)
+
+- **PowerShell: never end a native command's quoted path with a
+  backslash.** `scp ... "$HOME\Downloads\"` passes `Downloads"` (the `\"`
+  escapes the quote): give the full target file name. Remote Wine paths:
+  `Program*Files/MetaTrader*5` globs avoid the spaces.
+- **wine-d's `Scripts/fxmatrix` lacks the research scripts** (its repo is
+  on `hotfix-api-stop`). Install one without changing the branch:
+  `sudo -u khalid git -C /home/khalid/fxmatrix-repo fetch -q origin`, then
+  `git show origin/main:scripts/<file>` into the Scripts folder with
+  `install -o khalid -g khalid -m 664`; check the sha; compile ONE file.
+- **FTMO's deal history can be dumped from the desktop terminal** (the
+  same account): read-only, no request counted.
+- **`gt_report.py` knows fleets A, B, C only** (`ev_data.fleet_of`): drop
+  the `_OPTD`/`_ALTD` rows from the export first; and it crashes on a
+  bid/ask folder holding pairs outside `GEO_A`: give it the traded pairs
+  only. No code change made (C83 note).
+- **A provisional compass run divides by the round's full days** (2), so
+  mid-round per-day values are halved; only Monday's run is a verdict.
+
+Line count: 1717

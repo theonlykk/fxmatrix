@@ -1,15 +1,15 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~03:20Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~05:40Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s38**
-(s38 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s39**
+(s39 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
-day, afternoon, late afternoon, night) and **2026-10-03 early**; `handoffs/Handover/08_BACKLOG.md` (above
+day, afternoon, late afternoon, night) and **2026-10-03** (early, morning); `handoffs/Handover/08_BACKLOG.md` (above
 all C96, C99-C107); `docs/architecture/fleet-d.md` s6 (D1, the compass
 round) and s7 (all round-1 amendments);
 `docs/architecture/geometry-cycle3.md` A7 (FTMO cut to seven);
@@ -109,7 +109,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | docs to 3 Oct ~03:20Z (s38; MEMO_2026-10-03); EA code = `3df13f0` (ADR-165 merged, default OFF; WITHOUT the API hotfix: C105); suite 2447/2447 |
+| fxmatrix `main` | docs to 3 Oct ~05:40Z (s39; MEMO_2026-10-03; `docs/runbooks/compass-round.md`; compass cuts `edef771`); EA code = `3df13f0` (ADR-165 merged, default OFF; WITHOUT the API hotfix: C105); suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables, 2 Oct ~20:23Z); `830f04b` (C110, 2 Oct ~17:35Z: scalp reads re-read only new rows; pollers never overlap; HANDOFF s36); `0fd1a86`: C109 page opens on GBPUSD; C108 `GRIND_RETIRED_INSTANCES` (retired rows resolved, banner grey); C107 A strip = seven; `RAILWAY.md` (gunicorn start commands, C102); 34/34 suites |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -118,14 +118,14 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s38 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s39 NEXT SESSION)
 
 1. The questions for the previous chat (above).
-2. Saturday: exports to the Surface (operator); history dumps on all four
-   accounts; bid/ask and bar dumps for all 21 pairs -> spreads and ranges;
-   `gt_report.py`.
-3. The ring note + compass routine (C96, C104) to Gemini, one document;
-   backlog split (critical path / before real money / notebook).
+2. Files to the Surface (operator). Dumps, spreads, `gt_report.py` and
+   the compass runbook are DONE (s39).
+3. Before round 2: MTM and disconnect reports (C104); the scouting
+   decision (C96); backlog split (critical path / before real money /
+   notebook).
 4. FTMO email on TP / SL and the 200 (C117); retired Global Variables
    (C107).
 5. Mon 5 Oct after 22:00Z: score round 1 (C91); C105; the Monday build

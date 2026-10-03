@@ -428,4 +428,15 @@ the operator accepted every verdict below ("proceed", 1 Oct ~06:12Z).
     never re-quotes AWAY from a market approaching it. Same change on B,
     C and D: round 1 stays like for like. Not geometry: no register row.
 
-Line count: 431
+- **3 Oct ~05:30Z (between windows): the compass routine written down**
+  (`docs/runbooks/compass-round.md`; Gemini GC-1..GC-7; operator
+  decisions). For round 1: the three window-1 hand ejects are listed as
+  interventions in `round1.json` and CUT their comparisons (NZDCHF long C
+  and D vs B, AUDCHF long C vs B), each left with under a day, so VOID;
+  D vs B on AUDCHF long stands. From round 2: no twins, one instance per
+  pair on the nine pairs (IC keeps nine), NZDCAD the control pair on the
+  anchor everywhere, width fixed per pair, threshold max($1.19, the
+  control's pooled gap), pools restart at structural changes. The 1 Oct
+  "each IC fleet one ring of seven pairs" above is withdrawn.
+
+Line count: 442
