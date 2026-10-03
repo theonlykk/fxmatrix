@@ -89,7 +89,7 @@ C, D (C96); cap 10 after the rings (C99); ADR-165 after round 1 (= an EA
 BUILD on B, C, D); C103: no depth gate ("boring is best"); no API limit
 may stop trading ("i do not want an api limit to stop trading"); FTMO
 cut by fewer instances, not a lower stop ("a sledgehammer"); no wind-
-down brake; no broker contact; FTMO stays on the desktop test terminal;
+down brake; no broker contact (FTMO too: no email, 3 Oct); FTMO stays on the desktop test terminal;
 post-once execution (C117) with ONE 2,000-request pool, first come first
 served; the 200 positions+orders limit holds on IC too ("software
 limitation. we tested this"); MyFundedPerps probably skipped.
@@ -137,8 +137,8 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 4. Sunday open checks.
 5. Mon 5 Oct after 22:00Z: score round 1; the Monday build; pipshed C119;
    the IC twins' Global Variables (runbook s7, the gv scripts).
-6. Operator any time: files to the Surface; FTMO email on TP / SL vs the
-   200 (C117); the scouting decision (C96).
+6. DONE 3 Oct: Surface copies; scouting = AUDUSD added at the cap-10
+   reload (C96); no FTMO email (C117 check 1 measured on a spare IC demo).
 7. After Monday: C99 (cap 10 + fixed widths, one reload per chart; fixes
    C88), round 2, v2.2a deploy; later C98, C103 (own ADR), C117 ADR,
    C118, C84 after 7 Oct.

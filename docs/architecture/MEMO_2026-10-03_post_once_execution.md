@@ -191,7 +191,12 @@ Shared pairs: 0-3 2, 0-4 3, 1-3 3, 1-4 3, 2-3 2, 2-4 1; 0-1, 0-2, 1-2,
 
 ## 10. CHECKS BEFORE AN ADR
 
-1. FTMO (email): do TP / SL count toward the 200?
+1. Do TP / SL count toward the 200? NOT by email (operator 3 Oct: "no
+   emailing ftmo, we gotta keep low profile"): measure it on a spare IC
+   demo with `grind_limit_probe.mq5`'s method (positions with TP and SL
+   plus pending orders up to the refusal); the 200 is the same MT5
+   account setting on both brokers (C78), so the answer is expected to
+   carry over to FTMO (inferred).
 2. IC demo, a separate account (never the fleets; the desktop terminal is
    logged in to FTMO): does a TP fill at its price or better? A few 0.01
    trades on a weekday.
@@ -203,4 +208,4 @@ checks; an ADR for post-once with TP exits (a) to Gemini; prove it on one
 IC fleet against B (requests per round trip ~4.9 -> ~1); then FTMO on one
 ring. C118 runs alongside as the test bed.
 
-Line count: 206
+Line count: 211

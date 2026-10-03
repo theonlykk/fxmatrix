@@ -64,14 +64,26 @@ too, so its record is continuous.
 - **Slots at cap 10** (~18 per instance, guard 194): 9 instances ~162; 10
   ~180; 11 ~198 (over). So at cap 10: the nine pairs, or ONE scouting pair
   added, or scouts REPLACING AUDCAD / NZDCHF (the week's weakest droppable
-  pairing; NZDCHF also the dearest by spread vs range). **Operator
-  decision pending.**
-- **Scouting candidates** (none chosen): the single ring's two new
+  pairing; NZDCHF also the dearest by spread vs range). **Decided 3 Oct
+  ~19:40Z (operator, on Claude's suggestion; "the more data we gather the
+  better"): ONE scout, AUDUSD, ADDED at the cap-10 reload: ten
+  instances per IC fleet (~180 of 194).**
+- **Scouting candidates** (AUDUSD chosen 3 Oct): the single ring's two new
   crosses (EURCAD, GBPCHF; MEMO_2026-10-03 s8) or a cheap major (AUDUSD,
   USDCAD: spread vs hourly range 0.04-0.06 against 0.10-0.19 for our
   crosses, FTMO 20 Sep - 2 Oct). **A scout's first round is a baseline**
   (GC-3): the same derived geometry on B, C and D, no probe; its gaps join
   the noise sample.
+- **AUDUSD, why:** the cheapest candidate by spread vs hourly range
+  (0.038), so it tests the cheap-major question most directly; every
+  candidate puts a fourth leg on one of AUD / CAD / CHF / NZD (the
+  EUR / USD / GBP triangle is complete), AUDUSD on AUD (GBPCHF ruled
+  out: CHF capped three pairs on 1 Oct; USDCAD the alternative). Added
+  in the cap-10 reload so the pools restart once. Needs: presets B, C, D
+  with a new magic, a baseline geometry from the spread / range data
+  (Gemini, with the reload plan), a pipshed change (tests first) adding
+  it to the three fleets' lists, register rows. No EA change: the only
+  fleet-magic table in the EA is the disabled currency cap's (C32).
 - **Later structural step (not this cycle):** a single seven-currency
   ring per account (360 exist; candidates in MEMO_2026-10-03 s8).
 
@@ -170,7 +182,7 @@ width and a re-derived guard are v2.2 (C103).
    retire.
 3. Next session (structural): cap 10 + the fixed widths in ONE reload per
    chart (preset-only); an hour's watch on the slot guard and requests;
-   scouting pair(s) if decided (s3).
+   the AUDUSD scout added in the same reload (s3; baseline round).
 4. Round 2's probe reloads (NZDCAD stays on the anchor everywhere), then
    its two days.
 
@@ -186,7 +198,7 @@ being compared with its lab anchor (broker drift).
 
 N for promotion; the half-pip floor and adds below 3; the smallest exit
 worth its commission; whether `InpStrandedThreshPips` ever becomes a
-lever; the scouting decision (s3).
+lever.
 
 ## 10. GEMINI'S RULINGS (3 OCT) AND THE OUTCOME
 
@@ -200,4 +212,4 @@ lever; the scouting decision (s3).
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 203
+Line count: 215
