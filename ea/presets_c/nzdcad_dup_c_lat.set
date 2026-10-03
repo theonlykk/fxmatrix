@@ -19,6 +19,7 @@ InpAutoEject=false
 InpAutoEjectStableMinutes=5
 InpAutoEjectSpreadMult=1.5
 InpVirtualLattice=true
+InpLatticeReroll=true
 InpBreakerEnable=false
 InpSessionEnable=false
 InpFillTimePlace=true
