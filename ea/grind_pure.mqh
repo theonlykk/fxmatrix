@@ -438,7 +438,7 @@ bool Grind_LatticeRerollPaused(const datetime server_now)
 
 bool Grind_ValidateApiLimitInputs(const int entry_stop, const int soft_warn)
 {
-   return true;
+   return (entry_stop >= 1 && soft_warn >= 1 && soft_warn <= entry_stop);
 }
 
 bool Grind_LatticeLevelCrossed(const bool is_long, const double price, const double level)

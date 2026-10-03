@@ -677,7 +677,16 @@ string Grind_ReconFailureFindTicketComment(const GrindReconTicket &tickets[],
 //+------------------------------------------------------------------+
 string Grind_ReconTicketsLogLine(const string reason, const GrindReconTicket &tickets[], const int count)
 {
-   return "";
+   string s = StringFormat("RECON_TICKETS reason=%s n=%d", reason, count);
+   const int emit = MathMin(count, GRIND_RECON_FAILURE_MAX_EMIT);
+   for(int i = 0; i < emit; i++) {
+      s += StringFormat(" %s:%I64u",
+                        tickets[i].kind == GRIND_RECON_TICKET_POSITION ? "P" : "O",
+                        tickets[i].ticket);
+   }
+   if(count > GRIND_RECON_FAILURE_MAX_EMIT)
+      s += StringFormat(" +%d more", count - GRIND_RECON_FAILURE_MAX_EMIT);
+   return s;
 }
 
 //+------------------------------------------------------------------+
@@ -714,6 +723,11 @@ void Grind_ReconFailureCapture(const GrindReconTicket &tickets[],
    json += "]}";
 
    g_grind_recon_failure_json = json;
+   const string line = Grind_ReconTicketsLogLine(reason, tickets, ticket_count);
+   if(line != g_grind_recon_tickets_last_line) {
+      Print(Grind_LogTag(), line);
+      g_grind_recon_tickets_last_line = line;
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -1217,6 +1231,12 @@ int Grind_ReconAppendUnique(GrindReconTicket &tickets[], const int count, const 
                             const ulong magic, const string comment, const double price,
                             const int kind, int &dupes_io)
 {
+   for(int i = 0; i < count; i++) {
+      if(tickets[i].ticket == ticket && tickets[i].kind == kind) {
+         dupes_io++;
+         return count;
+      }
+   }
    ArrayResize(tickets, count + 1);
    tickets[count].ticket = ticket;
    tickets[count].magic = magic;
@@ -1230,19 +1250,20 @@ int Grind_ReconAppendUnique(GrindReconTicket &tickets[], const int count, const 
 bool Grind_ReconScanStable(const int positions_before, const int orders_before,
                            const int positions_after, const int orders_after)
 {
-   return true;
+   return (positions_before == positions_after && orders_before == orders_after);
 }
 
 //+------------------------------------------------------------------+
 bool Grind_ReconScanRaced(const int dupes, const int walks)
 {
-   return false;
+   return (dupes > 0 || walks > 1);
 }
 
 //+------------------------------------------------------------------+
 string Grind_ReconScanDetail(const int dupes, const int walks, const bool stable)
 {
-   return "";
+   return StringFormat("{\"dupes\":%d,\"walks\":%d,\"stable\":%s}",
+                       dupes, walks, stable ? "true" : "false");
 }
 
 //+------------------------------------------------------------------+
