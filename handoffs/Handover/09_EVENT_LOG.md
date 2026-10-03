@@ -14,6 +14,19 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 3 Oct (afternoon, before ~17:00Z) -- FTMO VPS: 43 retired Global Variables deleted by exact name (A)
+- **What:** the VPS terminal held 159 GRIND Global Variables; 43 belonged
+  to the four instances retired on 2 Oct (32 retired-magic records, 11
+  carry records of closed retired positions). A manual change on the
+  live terminal.
+- **Handled:** `scripts/grind_gv_list.mq5` (read-only) listed them;
+  Claude classified each against the live magics and the deal history;
+  `scripts/grind_gv_delete_exact.mq5` on the reviewed list: dry run 43/43
+  found, then 43 deleted, 0 failed; re-list 116. No trading change.
+- **Changed:** C107 done; the same method for the IC twins after the
+  Monday build (runbook monday-build s7).
+- **Evidence:** HANDOFF s42; 02_TRAPS 3 Oct afternoon (C93, C107).
+
 ### 2 Oct ~16:18-17:36Z -- pipshed.com saturated by its own page reads; C110
 - **What:** from ~16:18Z (the C109 deploy) pipshed.com's CPU sat at ~4-4.5
   vCPU (all four gunicorn workers busy) and memory rose 0.6 -> 1.6 GB; from
@@ -448,4 +461,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 451
+Line count: 464

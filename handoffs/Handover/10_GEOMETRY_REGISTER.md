@@ -29,21 +29,21 @@ This file holds the rules and a readable view of what is live now.
   the git history of `ea/presets` (e.g. `e1efa23` 19 Sep), live times
   unverified; backfill only if needed.
 
-## LIVE NOW (1 Oct ~06:50Z; width / add / exit pips, cap 8 everywhere)
+## LIVE NOW (1 Oct ~06:50Z; A's retirements 2 Oct; width / add / exit pips, cap 8 everywhere)
 
 | pair | A: cycle 3 (FTMO) | B: wine-test (anchor) | C: wine-c (ADD probe, D1) | D: wine-d (EXIT probe, D1) |
 |---|---|---|---|---|
 | GBPUSD | 5 / 10 / 10 | 5 / 9 / 10 | 5 / 8 / 10 | 5 / 9 / 9 |
 | EURUSD | 7 / 8 / 10 | 7 / 7 / 10 | 7 / 6 / 10 | 7 / 7 / 9 |
 | EURGBP | 3 / 4 / 5 | 3 / 3 / 5 | 3 / 4 / 5 (floor: +1) | 3 / 3 / 4 |
-| AUDCAD | 5 / 7 / 10 | 5 / 6 / 10 | 5 / 5 / 10 | 5 / 6 / 9 |
+| AUDCAD | retired 2 Oct | 5 / 6 / 10 | 5 / 5 / 10 | 5 / 6 / 9 |
 | AUDCHF | 5 / 6 / 10 | 5 / 4 / 10 | 5 / 3 / 10 | 5 / 4 / 9 |
 | CADCHF | 5 / 6 / 10 | 5 / 4 / 10 | 5 / 3 / 10 | 5 / 4 / 9 |
-| NZDCHF | 3 / 6 / 10 | 3 / 3 / 10 | 3 / 4 / 10 (floor: +1) | 3 / 3 / 9 |
+| NZDCHF | retired 2 Oct | 3 / 3 / 10 | 3 / 4 / 10 (floor: +1) | 3 / 3 / 9 |
 | NZDCAD (OPT) | 5 / 10 / 10 | 5 / 8 / 10 | 5 / 8 / 10 (anchor) | 5 / 8 / 10 (anchor) |
-| NZDCAD (ALT dup) | 5 / 10 / 10 | 5 / 10 / 10 (control) | 5 / 7 / 10 (probe) | 5 / 8 / 9 (probe) |
+| NZDCAD (ALT dup) | retired 2 Oct | 5 / 10 / 10 (control) | 5 / 7 / 10 (probe) | 5 / 8 / 9 (probe) |
 | AUDNZD (OPT) | 7 / 10 / 10 | 7 / 8 / 10 | 7 / 8 / 10 (anchor) | 7 / 8 / 10 (anchor) |
-| AUDNZD (ALT dup) | 7 / 10 / 10 | 7 / 10 / 10 (control) | 7 / 7 / 10 (probe) | 7 / 8 / 9 (probe) |
+| AUDNZD (ALT dup) | retired 2 Oct | 7 / 10 / 10 (control) | 7 / 7 / 10 (probe) | 7 / 8 / 9 (probe) |
 
 History: Fleet B ran A's geometry from 24 Sep ~02:50Z until the B1
 reloads (27 Sep 23:05-23:51Z). C matched B from 28 Sep until the D1
@@ -54,12 +54,13 @@ change anywhere is D1 on D (the first live ADR-163 rebuild).
 ## NEXT EXPECTED ROWS
 
 The D1 round's verdict (after Mon 5 Oct 22:00Z; fleet-d.md s6.5): an
-anchor move on B, flips or repeats on C and D, each a row. Then the
-rings of seven (C96: twins removed, the SAME two pairs dropped on
-B, C and D as on FTMO, AUDCAD and NZDCHF: rows
-closed) and cap 10 on the IC fleets with the new widths in the same
-reload (C99, operator 2 Oct: width to the guard floor with probe
-headroom on all IC fleets): a row for every instance. The 1 Oct `InpBreakerEnable=false` change on B, C, D
-is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged. **2 Oct: FTMO (A) retired GRIND_AUDNZD_ALT, GRIND_NZDCAD_ALT (15:14Z), GRIND_AUDCAD_OPT and GRIND_NZDCHF_OPT (~15:40Z); rows closed in the CSV; A runs seven (geometry-cycle3 A7). The table above still lists them for A until the next rewrite.**
+anchor move on B, flips or repeats on C and D, each a row. The Monday
+build (5 Oct after 22:00Z) retires the six IC twins (NZDCAD and AUDNZD
+ALT on B, C and D): their rows closed at each removal time from the
+log. Then cap 10 with the width fixed per pair (C99; compass-round s6)
+in one reload per chart: a row for every instance. **The IC rings of
+seven (AUDCAD and NZDCHF dropped) were WITHDRAWN 3 Oct: IC keeps the
+nine pairs (C96; compass-round s3).** The 1 Oct `InpBreakerEnable=false` change on B, C, D
+is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged. **2 Oct: FTMO (A) retired GRIND_AUDNZD_ALT, GRIND_NZDCAD_ALT (15:14Z), GRIND_AUDCAD_OPT and GRIND_NZDCHF_OPT (~15:40Z); rows closed in the CSV; A runs seven (geometry-cycle3 A7). The table above marks them retired.**
 
-Line count: 65
+Line count: 66

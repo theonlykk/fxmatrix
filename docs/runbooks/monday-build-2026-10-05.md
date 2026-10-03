@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED 3 Oct** (Claude's draft; Gemini GB-1..GB-5, s9). Runs Monday after 22:00Z on the operator's go |
+| Status | **REVIEWED 3 Oct** (Claude's draft; Gemini GB-1..GB-5, s9). Runs Monday after 22:00Z on the operator's go. **Amended 3 Oct ~17:35Z (HANDOFF s44):** s1 no account-level backstop, s3.2 step 4 go asked on the night, s3.3 pathspec |
 | Backlog | C95 (ADR-165 ON), C96 (twins retire), C88 (wine-c loads the Scripts copy), C105 (DONE 3 Oct: `main` `2859be6`) |
 | Sources | ADR-165 s4, s7, s9-s10; 02_TRAPS 2 Oct day (which `.ex5` loads) and afternoon (retiring by hand); HANDOFF s32 (the hotfix deploy, the pattern followed here); `docs/runbooks/compass-round.md` |
 | When | Mon 5 Oct, AFTER 22:00Z (round 1's last window closes; the twins carry round-1 probe data until then). Never 20:50-21:15Z (IC break, ADR-165's rollover pause) |
@@ -27,6 +27,15 @@ This message has a line count at the bottom
   widths are the NEXT session (C99), a separate structural step.
 - **Structural** (runbook compass-round s4.1): round 2 starts after this
   build AND the cap-10 reload.
+- **No account-level backstop once re-roll is ON (HANDOFF s36, s44).**
+  `InpBreakerEnable=false` on every B, C and D chart since 1 Oct
+  21:16-21:28Z (one input: the ADR-158 breaker, the ADR-160 entry gate
+  and the pre-midnight halt; operator: "we need to trade"), and there is
+  no wind-down brake (ADR-162 s19). ADR-162 s19 and ADR-165 s0 / s5 name
+  the breaker as the backstop; on the IC demos it is off by ruling, so a
+  side in a trend keeps re-rolling at cap lots with nothing at account
+  level to stop it. The watch is by hand (the strip, the books table,
+  the day % on the cards). FTMO keeps its breaker and gate.
 
 ## 2. BEFORE (desktop, Monday before 22:00Z)
 
@@ -60,7 +69,8 @@ then Cancel: F7 then OK is a restart, not a removal):
 3. Close By the twin's longs against its shorts (twin and primary tickets
    are near-identical: match the comment `|ALT|`, never the ticket).
 4. Close the rest at market. On a demo the realised loss equals the open
-   MTM equity already carried; the operator's go covers it (GB-1).
+   MTM equity already carried (GB-1). Ask the operator for his go on the
+   night, before the first close: it was not given in advance (s44).
 5. Trade tab: no position or order with `|ALT|` left.
 
 **3.3 Repo to `main` (shell, as root).**
@@ -68,9 +78,13 @@ then Cancel: F7 then OK is a restart, not a removal):
     sudo -u khalid git -C /home/khalid/fxmatrix-repo fetch -q origin
     sudo -u khalid git -C /home/khalid/fxmatrix-repo checkout -q main
     sudo -u khalid git -C /home/khalid/fxmatrix-repo pull -q --ff-only
-    sudo -u khalid git -C /home/khalid/fxmatrix-repo diff --stat 2859be6 HEAD -- ea/
+    sudo -u khalid git -C /home/khalid/fxmatrix-repo diff --stat 2859be6 HEAD -- 'ea/*.mq5' 'ea/*.mqh'
 
-The last line must print nothing (no EA change after `2859be6`).
+The last line must print nothing (no EA code change after `2859be6`).
+The pathspec is the code only: the 51 IC presets under `ea/presets_*`
+changed in `4a1e30e` (`InpLatticeReroll=true`), so `-- ea/` lists them
+and trips a false STOP (02_TRAPS 3 Oct late afternoon). Checked in the
+sandbox at `27e1e77`: empty.
 
 **3.4 Copy the sources to BOTH copies** (Experts/fxmatrix and
 Scripts/fxmatrix), as khalid, then `cmp` every `ea/*.mq5 ea/*.mqh` against
@@ -171,4 +185,4 @@ with the reviewed list, dry run first.
   re-opens that chart's own EA; the risks are a Navigator drag or an
   Experts compile on wine-c. Warned in 3.5 and 3.7; caught by 3.6.
 
-Line count: 174
+Line count: 188

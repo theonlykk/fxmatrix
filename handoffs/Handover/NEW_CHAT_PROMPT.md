@@ -103,7 +103,8 @@ targets (traps 2 Oct early). Downloads and `D:\fxmatrix\temp` must be
 GRANTED each session (device folder access).
 
 **Watch every night on B, C, D (C87):** no chart edits 20:50-21:15Z;
-carry pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 3`).
+carry pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after
+~21:00Z: 40 summaries, 34 after Monday; BOOT s6).
 
 **The ejection study's replay is FROZEN** (`ab5d4c8`); 1-7 Oct holdout
 (C84). **Never run `fxgrind_tests` on a terminal with live EAs. Compile
@@ -116,7 +117,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | `e63e8a8` pushed (docs s42); local patches in Downloads: `9d3ac45` v2.2a prompt (tree `80d86924`), then the s43 handover docs. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
+| fxmatrix `main` | `27e1e77` pushed (docs s43; then the s44 docs patch); v2.2a prompt `c92d9c2` (tree `80d86924`; `9d3ac45` before `git am`). EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites. Local, NOT pushed: `99980da` tests + `4d294a6` C119 (retire the six twins, B/C/D strips = nine), tree `e3b23a94`, 39/39; in Downloads as `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`: apply only AFTER the twins are removed |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -128,8 +129,8 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 ## 2. NEXT, IN ORDER (= HANDOFF s43 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
-2. Operator: `git am` the two fxmatrix patches (v2.2a prompt, then the
-   s43 docs), check the trees, push; Claude verifies on GitHub.
+2. DONE 3 Oct 17:20Z: both patches pushed (`c92d9c2`, `27e1e77`); s44
+   (runbook and register fixes) next.
 3. v2.2a (C93 + C100): Gemini (GV-1..GV-6) -> Claude checks the answers
    and amends the prompt -> Cursor (`v22a-recon-api`) -> Claude reads the
    commits -> operator's suite (2496 / 2471, then 2496/2496) -> DeepSeek.
@@ -181,4 +182,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   a fresh scratch PG. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 184
+Line count: 185

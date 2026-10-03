@@ -1770,4 +1770,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   `AMBIGUOUS_*` is not quarantinable, I2 / I3 / I4 / I6 are (3 s and 3
   checks). That is why C93 halted at once.
 
-Line count: 1773
+
+## TRAPS FROM 2026-10-03 EVENING (HASHES AFTER GIT AM, STALE RUNBOOK CHECKS)
+
+- **A hash written into docs before the operator's `git am` does not
+  exist on GitHub.** `git am` re-stamps the committer, so each commit
+  gets a new hash with the same tree: the v2.2a prompt `9d3ac45` is
+  `c92d9c2` on `main`, the s43 docs `a9115b1` are `27e1e77`. Cite the
+  tree beside a pre-am hash, and point Cursor and Gemini at the hash on
+  GitHub.
+- **A runbook check written before a later commit can trip a false
+  STOP.** Monday's s3.3 diffed all of `ea/` against `2859be6`; the preset
+  commit `4a1e30e` came after and the check would print 51 files. The
+  trap was recorded (3 Oct late afternoon) but the runbook was amended
+  only in s44. Before a runbook's night, re-run each of its checks
+  against current `main` in the sandbox.
+
+Line count: 1789
