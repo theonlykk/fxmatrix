@@ -6,8 +6,8 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s39**
-(s39 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s40**
+(s40 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
 day, afternoon, late afternoon, night) and **2026-10-03** (early, morning); `handoffs/Handover/08_BACKLOG.md` (above
 all C96, C99-C107); `docs/architecture/fleet-d.md` s6 (D1, the compass
@@ -118,7 +118,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s39 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s40 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
 2. Files to the Surface (operator). Dumps, spreads, `gt_report.py` and

@@ -84,8 +84,17 @@ too, so its record is continuous.
    change and its watch.
 2. **Score** after the second day's 22:00Z: fresh study export
    (`archive_counts.py --export-study --days 14`), then
-   `compass_score.py --export <file> --round roundN.json`. It flags data
-   that ends before the round ends (provisional, not a verdict).
+   `compass_score.py --export <file> --round roundN.json --bidask <IC
+   folder>`. It flags data that ends before the round ends (provisional,
+   not a verdict). Inputs, after the round's last 22:00Z:
+   - the study export (`D:\pipshed`, `railway ssh ... --export-study
+     --days 14` into Downloads);
+   - IC bid/ask for the round's pairs: `grind_bidask_dump.mq5` on wine-c,
+     `InpFrom` = the round's first window start in SERVER time (UTC + 3:
+     22:00Z -> 01:00), copied to Downloads by scp;
+   - the journals of wine-test, wine-c and wine-d for the round's dates
+     (`<install>/logs/YYYYMMDD.log`, scp), then
+     `python research/compass/disconnects.py <files>` per box.
 3. **Threshold** (GC-1): max($1.19, the pooled median of this round's
    same-settings gaps: the control pair's six gaps (two sides x three fleet pairs) and any
    scout baseline). It can only rise above $1.19.
@@ -191,4 +200,4 @@ lever; the scouting decision (s3).
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 194
+Line count: 203
