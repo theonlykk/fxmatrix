@@ -84,6 +84,18 @@ too, so its record is continuous.
   (Gemini, with the reload plan), a pipshed change (tests first) adding
   it to the three fleets' lists, register rows. No EA change: the only
   fleet-magic table in the EA is the disabled currency cap's (C32).
+- **AUDUSD baseline geometry (Claude, 3 Oct; for Gemini with the reload
+  plan):** width 2 / add 6 / exit 10, cap 10, `InpStrandedThreshPips` 3
+  (W + 1), deadband 4, magic 22261001, ids `GRIND_AUDUSD_OPT{B,C,D}`,
+  the same on B, C and D (presets `ea/presets_{b,c,d}/audusd_opt_*_c10.set`,
+  key blank). Add: the nine anchors' add / median hourly range is 0.57-0.80
+  (median 0.70); AUDUSD's hourly range is 8.0 pips (FTMO 20 Sep - 2 Oct,
+  excl. 20-21Z), so 5.6, rounded to 6 (half pips are OPEN, s9; AUDCAD,
+  range 9.4, runs add 6). Exit 10 as on every pair but EURGBP (exit /
+  hourly range 1.25, inside the anchors' 0.81-1.89). Width by s6: (6 + 2) /
+  4 = 2.0. Guard: add / width 3.0 (2.5-3.5 for the later one-pip add
+  probes). Roll cost at cap 10: 10 x 6 - 10 = 50 pips per roll; ten
+  layers span 60 pips against a 39-pip median day.
 - **Later structural step (not this cycle):** a single seven-currency
   ring per account (360 exist; candidates in MEMO_2026-10-03 s8).
 
@@ -212,4 +224,4 @@ lever.
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 215
+Line count: 227
