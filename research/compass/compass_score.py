@@ -29,9 +29,11 @@ intervention if at least min_days_after_cut (default 1.0) days remain, else
 VOID. Fleet-wide changes made alike on all fleets are not listed.
 """
 import argparse
+import collections
 import datetime as dt
 import json
 import os
+import statistics
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -200,6 +202,81 @@ def score_round(cfg, layers):
     return rows
 
 
+# ---------------------------------------------------------------- open MTM (reported)
+
+def pip_values(layers, pip_by_symbol):
+    """USD per pip per 0.01 layer by symbol: median |closed profit| / pips over
+    closed layers moving more than one pip (gt_report.py's method)."""
+    pv = collections.defaultdict(list)
+    for inst, by in layers.items():
+        sym = ev_data.symbol_of(inst)
+        pip = pip_by_symbol.get(sym)
+        if not pip:
+            continue
+        for lay in by.values():
+            if lay.closed and lay.closeby_profit and lay.open_price and lay.close_price:
+                pips = abs(lay.close_price - lay.open_price) / pip
+                if pips > 1:
+                    pv[sym].append(abs(lay.closeby_profit) / pips)
+    return {k: statistics.median(v) for k, v in pv.items()}
+
+
+def side_mtm(layers, inst, side, windows, bars, pv):
+    """Open MTM of one instance side inside the windows, from per-minute
+    bid/ask: longs at the bid close, shorts at the ask close, each minute at
+    its last second. Returns peak_usd (most negative, 0.0 if never below),
+    peak_t (that minute's open), roll_usd (one per window: the minute that
+    ends at the window's end) and unpriced (layers open in the windows with
+    no open price). None without bars."""
+    if bars is None:
+        return None
+    lays = [l for l in layers.get(inst, {}).values() if l.side == side]
+    peak, peak_t, rolls, unpriced = 0.0, None, [], set()
+    for a, b, _d in windows:
+        i0, i1 = bars.index_at_or_after(a), bars.index_at_or_after(b)
+        last = None
+        for i in range(i0, i1):
+            tm = bars.t[i] + 59
+            pips = 0.0
+            for l in lays:
+                start = l.open_t if l.open_t is not None else float("-inf")
+                if start <= tm and (not l.closed or l.close_t > tm):
+                    if l.open_price is None:
+                        unpriced.add(l.position_id)
+                        continue
+                    if side == "L":
+                        pips += (bars.c[i] - l.open_price) / bars.pip
+                    else:
+                        pips += (l.open_price - bars.ask_close(i)) / bars.pip
+            usd = pips * pv
+            if usd < peak - EPS:
+                peak, peak_t = usd, bars.t[i]
+            last = usd
+        rolls.append(last)
+    return {"peak_usd": peak, "peak_t": peak_t, "roll_usd": rolls, "unpriced": len(unpriced)}
+
+
+def mtm_rows(cfg, layers, bidask):
+    """side_mtm for every instance in the round (anchor, probes, primaries)."""
+    windows = windows_of(cfg)
+    by_sym = {}
+    accounts = set(cfg["accounts"].values())
+    for (acct, sym), b in sorted(bidask.items(), key=lambda kv: kv[0][0] not in accounts):
+        by_sym.setdefault(sym, b)
+    pv = pip_values(layers, {s: b.pip for s, b in by_sym.items()})
+    rows = []
+    for pair, spec in cfg["pairs"].items():
+        insts = [spec["anchor"]]
+        for f in ("C", "D"):
+            if f in spec:
+                insts += [spec[f]["probe"]] + ([spec[f]["primary"]] if "primary" in spec[f] else [])
+        for inst in insts:
+            for side in SIDES:
+                m = side_mtm(layers, inst, side, windows, by_sym.get(pair), pv.get(pair, 0.0))
+                rows.append({"inst": inst, "side": side, "mtm": m, "pv": pv.get(pair)})
+    return rows
+
+
 def _fmt_m(m):
     ph = "%.3f" % m["per_hour"] if m["per_hour"] is not None else "-"
     return "%6.2f/d (sc %d ro %d ej %d; entry %6.2f/d; %5.1f lh, %s $/lh; open %d; depth@reload %d)" % (
@@ -207,7 +284,7 @@ def _fmt_m(m):
         m["layer_hours"], ph, m["open_end"], m["depth_at_cutoff"])
 
 
-def report(cfg, exp, rows, out=sys.stdout):
+def report(cfg, exp, rows, out=sys.stdout, mtm=None):
     windows = windows_of(cfg)
     last_fill = max((ev_data.broker_msc_to_utc(r["deal_time_broker_msc"], ev_book.DEFAULT_OFFSET_S)
                      for r in exp.get("fill_logs", [])), default=0)
@@ -241,16 +318,31 @@ def report(cfg, exp, rows, out=sys.stdout):
             p("%s %s %s %-18s %s" % (r["pair"], r["side"], f, v["probe"], _fmt_m(v["probe_m"])))
             p("%s %s %s %-18s %s%s" % (r["pair"], r["side"], f, "vs " + v["comparator"], _fmt_m(v["comp_m"]),
                                       ("  [" + v["note"] + "]") if v["note"] else ""))
+    if mtm:
+        p()
+        p("== reported, never deciding: open MTM per side (USD, 0.01 layers): peak (minute) | carried at each window end")
+        for m in mtm:
+            x = m["mtm"]
+            if x is None:
+                p("%-18s %s  no bid/ask" % (m["inst"], m["side"]))
+                continue
+            when = dt.datetime.fromtimestamp(x["peak_t"], dt.timezone.utc).strftime("%a %H:%MZ") if x["peak_t"] else "-"
+            p("%-18s %s  peak %8.2f (%s) | roll %s%s" % (
+                m["inst"], m["side"], x["peak_usd"], when,
+                " ".join("-" if r is None else "%.2f" % r for r in x["roll_usd"]),
+                ("  [%d unpriced]" % x["unpriced"]) if x["unpriced"] else ""))
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Compass round scoring (C91)")
     ap.add_argument("--export", required=True, action="append")
     ap.add_argument("--round", default=os.path.join(HERE, "round1.json"))
+    ap.add_argument("--bidask", help="grind_bidask_dump.mq5 folder (IC): adds the open-MTM report")
     args = ap.parse_args(argv)
     cfg = load_round(args.round)
     exp, layers = load(args.export, list(cfg["accounts"].values()))
-    report(cfg, exp, score_round(cfg, layers))
+    mtm = mtm_rows(cfg, layers, ev_data.load_bidask_dir(args.bidask)) if args.bidask else None
+    report(cfg, exp, score_round(cfg, layers), mtm=mtm)
 
 
 if __name__ == "__main__":

@@ -517,6 +517,24 @@ class TestOpenMtm(unittest.TestCase):
         pv = cs.pip_values(fx.layers(), {"GBPUSD": 0.0001})
         self.assertAlmostEqual(pv["GBPUSD"], 0.11, places=9)
 
+    def test_pip_values_median_not_mean_and_one_pip_floor(self):
+        # 0.10, 0.12, 0.20 per pip -> median 0.12 (mean would be 0.14); a fourth
+        # layer moved 0.5 pip (profit 5.00) is ignored (<= 1 pip)
+        fx = Fx()
+        sid = fx.session(INST, 53077984)
+        for profit in (1.00, 1.20, 2.00):
+            fx.layer(INST, sid, "L", T0, T0 + 60, profit=profit)
+        tiny = fx.layer(INST, sid, "L", T0, T0 + 60, profit=5.00)
+        lay = fx.layers()
+        lay[INST][tiny].close_price = 1.00005
+        pv = cs.pip_values(lay, {"GBPUSD": 0.0001})
+        self.assertAlmostEqual(pv["GBPUSD"], 0.12, places=9)
+
+    def test_usd_scales_with_pip_value(self):
+        # the long peak of -30 pips at 0.25 USD per pip = -7.50
+        m = cs.side_mtm(self.lay, INST, "L", self.win, self.bars, 0.25)
+        self.assertAlmostEqual(m["peak_usd"], -7.50, places=6)
+
 
 if __name__ == "__main__":
     unittest.main()

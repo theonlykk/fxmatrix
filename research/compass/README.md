@@ -50,11 +50,20 @@ stays the whole round. Fleet-wide changes made alike on all fleets are not
 listed. Round 1: NZDCHF long B and C, AUDCHF long C (window 1, 2 Oct
 02:26-03:52Z), so NZDCHF long (both) and AUDCHF long (C) are VOID.
 
+**Reported, never deciding (3 Oct, runbook s1):** `--bidask <folder>`
+(`grind_bidask_dump.mq5`; IC's from wine-c for the IC fleets) adds open MTM
+per instance side: the peak (most negative, with its minute) and the value
+carried at each window's end (the 22:00Z day-roll); longs at the bid close,
+shorts at the ask close; USD per pip = median |closed profit| / pips of the
+symbol's closed layers (gt_report.py's method). `disconnects.py <journal
+logs>` lists each "connection to ... lost" until "authorized on" / "terminal
+synchronized" (`<data>/logs/YYYYMMDD.log`, UTF-16), per terminal.
+
 Run it after the round's last window closes (round 1: Mon 5 Oct after
 22:00Z) on a fresh `--export-study --days 14`; it prints a warning and
 no verdict is final while the export ends before the round does.
 
-29 tests, hand-derived (12 for the cuts, 3 Oct: 9 of the first 10 failed as predicted at the tests-first commit, then two more for mutation survivors); at the tests-first commit 16 errored as predicted
+35 + 4 tests, hand-derived (6 for open MTM in test_compass.py and 4 in test_disconnects.py, 3 Oct; 12 for the cuts, 3 Oct: 9 of the first 10 failed as predicted at the tests-first commit, then two more for mutation survivors); at the tests-first commit 16 errored as predicted
 and the guard passed. Each rule broken once and caught by a named test
 (strict margin, add-only gates, entry gate, per-hour gate, a comparator
 that held nothing, twin vs primary, twin threshold, entry cutoff, hours
@@ -63,4 +72,4 @@ filter, side filter, per-day divisor). Cross-check: on 28-30 Sep it
 reproduces `d1_evidence.py`'s ledger totals exactly (AUDCHF S B/C,
 EURGBP L B, GBPUSD L A).
 
-Line count: 66
+Line count: 75

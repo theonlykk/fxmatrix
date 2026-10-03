@@ -44,6 +44,17 @@ class TestParse(unittest.TestCase):
         self.assertEqual(ev[0]["start"][:10], "2026-09-28")
         self.assertEqual(len(ev), 2)
 
+    def test_only_a_reconnect_line_ends_it_and_repeats_merge(self):
+        # a repeated "lost" and an unrelated line inside the outage change
+        # nothing: one event, 16:27:29.512 -> 16:27:33.764 = 4.252 s
+        lines = DAY.splitlines()
+        lines[2:2] = ["QK\t0\t16:27:30.000\tNetwork\t'53071896': connection to ICMarketsSC-Demo lost",
+                      "AB\t0\t16:27:31.000\tTerminal\tsome other message"]
+        ev = dc.parse_lines(lines, "2026-09-28")
+        self.assertEqual(len(ev), 2)
+        self.assertEqual(ev[0]["end"], "2026-09-28 16:27:33.764")
+        self.assertAlmostEqual(ev[0]["seconds"], 4.252, places=3)
+
     def test_no_loss_no_events(self):
         """A quiet journal gives no events."""
         self.assertEqual(dc.parse_lines(DAY.splitlines()[:1], "2026-09-28"), [])
