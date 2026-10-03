@@ -34,9 +34,12 @@ This message has a line count at the bottom
    live IC preset (`presets_b/*_b_lat`, `presets_c/*_c_lat` and `*_c_p1`,
    `presets_d/*_d_lat` and `*_d_p1`), so a later reattach does not turn it
    off. The twins' `*_dup_*` files stay in the repo (history), unused.
-2. pipshed patch ready (Claude, tests first; deployed in s6, not before):
-   the six twins into `GRIND_RETIRED_INSTANCES`; the fleet strip lists
-   B, C, D become the nine `_OPT` ids (as A's did, C107).
+2. pipshed patch READY (C119, built 3 Oct: `99980da` tests, `4d294a6`
+   fix, tree `e3b23a94`, 39/39 suites; in Downloads as
+   `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`; deployed in s6,
+   NEVER before the twins are gone): the six twins into
+   `GRIND_RETIRED_INSTANCES`; the fleet strip lists B, C, D become the nine
+   `_OPT` ids (as A's did, C107); each fleet's page keeps eleven tiles.
 3. Round 1 is scored from the archive after 22:00Z; nothing in this build
    touches the archive, so scoring can run before or after the build.
 4. Tunnels open: VNC 5912 (wine-d), 5911 (wine-c), 5910 (wine-test).
@@ -166,4 +169,4 @@ attaches from `Experts/fxmatrix/fxgrind` (fixes C88 for good, with the
   re-opens that chart's own EA; the risks are a Navigator drag or an
   Experts compile on wine-c. Warned in 3.5 and 3.7; caught by 3.6.
 
-Line count: 169
+Line count: 172

@@ -1714,4 +1714,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A provisional compass run divides by the round's full days** (2), so
   mid-round per-day values are halved; only Monday's run is a verdict.
 
-Line count: 1717
+
+## TRAPS FROM 2026-10-03 AFTERNOON (C105 MERGE, MONDAY BUILD PREP)
+
+- **The desktop terminal has a stale `MQL5\Experts\fxmatrix\` folder**
+  (its `grind_api_counter.mqh` still says 1800 on 3 Oct). `desktop_sync.ps1`
+  writes the FLAT `MQL5\Experts\` and `MQL5\Scripts\`; check those after a
+  sync, never the subfolder.
+- **A suite that seeds at a define passes on either value** (the API
+  stop tests read `GRIND_DAILY_API_*`): after a constant change, prove the
+  terminal copy carries the new value (Select-String the define) as well.
+- **ADR-165 throttles one re-roll per side per CALL** (tick or timer
+  pass), not per second: a gap backlog clears over successive ticks,
+  several a second by design. A throttle failure is two re-rolls of one
+  side with the same `ea_time_ms` (Monday build STOP list, GB-4).
+- **pipshed's strip counts, slots and API are summed over the STRIP
+  list**: deploy a retire patch (C119) only after the instances are gone,
+  or the card undercounts a live account.
+
+Line count: 1735
