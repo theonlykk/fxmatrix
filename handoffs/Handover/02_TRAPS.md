@@ -1675,4 +1675,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   summaries 20:52-20:57Z, none incomplete, the 14-layer books last at
   20:56Z); `failed` 2-4 per instance is Friday's zero pending (C86).
 
-Line count: 1678
+
+## TRAPS FROM 2026-10-03 EARLY (REQUEST COUNT, EXPORTS)
+
+- **FTMO's day = 22:00Z to 22:00Z across two Journal files.** The working
+  count (VPS, 2 Oct; dates are the two files; it leaves `$rows` for an
+  hourly split): `$d = "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\logs"; $rows = foreach ($f in '20261001','20261002') { Get-Content "$d\$f.log" -Encoding Unicode | Select-String "Trades\s+'" | ForEach-Object { if ($_.Line -match '\s(\d\d:\d\d:\d\d)\.\d{3}\s') { $t = $Matches[1]; if (($f -eq '20261001' -and $t -ge '22:00:00') -or ($f -eq '20261002' -and $t -lt '22:00:00')) { $_.Line } } } }; $sent = $rows | Where-Object { $_ -notmatch 'accepted|done|placed|failed|rejected' }; "lines $($rows.Count)  sent $($sent.Count)  deals $(($rows | Select-String 'deal #').Count)  failed $(($rows | Select-String 'failed|rejected').Count)"`.
+  The by-type split groups `"':\s+(\w+ \w+)"` over `$sent`. The six types
+  summed to the sent total on 2 Oct; check that again.
+- **A day that straddles a fleet change is not that fleet's day:** 2 Oct
+  ran more FTMO instances until ~15:40Z; split by hour before comparing.
+- **Exports from PowerShell carry a BOM** (`Set-Content -Encoding utf8`);
+  `ev_data.load_export` handles it, other readers need `utf-8-sig`.
+- **Hedging accounts never merge positions:** an opposite limit fill opens
+  a new position and same-direction fills stay separate (no "add by");
+  only netting accounts hold one position per pair (C117).
+- **The 200 positions + orders limit applies on IC too** (operator, tested):
+  more pairs means more accounts, not a bigger book.
+
+Line count: 1696

@@ -1,15 +1,15 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-02 ~16:30Z (FRIDAY; ROUND 1 WINDOW 1 RUNNING)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~03:20Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s37**
-(s37 ends with the NEXT SESSION list: follow it); every section of
-`handoffs/Handover/02_TRAPS.md` dated 2026-10-01 and **2026-10-02** (early,
-day, afternoon, late afternoon); `handoffs/Handover/08_BACKLOG.md` (above
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s38**
+(s38 ends with the NEXT SESSION list: follow it); every section of
+`handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
+day, afternoon, late afternoon, night) and **2026-10-03 early**; `handoffs/Handover/08_BACKLOG.md` (above
 all C96, C99-C107); `docs/architecture/fleet-d.md` s6 (D1, the compass
 round) and s7 (all round-1 amendments);
 `docs/architecture/geometry-cycle3.md` A7 (FTMO cut to seven);
@@ -109,7 +109,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | docs to 2 Oct ~16:30Z; EA code = `3df13f0` (ADR-165 merged, default OFF; WITHOUT the API hotfix: C105); suite 2447/2447 |
+| fxmatrix `main` | docs to 3 Oct ~03:20Z (s38; MEMO_2026-10-03); EA code = `3df13f0` (ADR-165 merged, default OFF; WITHOUT the API hotfix: C105); suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables, 2 Oct ~20:23Z); `830f04b` (C110, 2 Oct ~17:35Z: scalp reads re-read only new rows; pollers never overlap; HANDOFF s36); `0fd1a86`: C109 page opens on GBPUSD; C108 `GRIND_RETIRED_INSTANCES` (retired rows resolved, banner grey); C107 A strip = seven; `RAILWAY.md` (gunicorn start commands, C102); 34/34 suites |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -118,19 +118,20 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s35 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s38 NEXT SESSION)
 
-1. The questions for the previous chat (above), then the IC fleets:
-   NZDCHF eject targets, C's slot guard, rejection codes (C78 (2)).
-2. FTMO: count tonight's day of requests from the VPS Journal (C106);
-   retired Global Variables, by hand (C107).
-3. Friday after the close: exports (C83), `gt_report.py`, P&L by pair ->
-   the ring note + compass routine (C96, C104) to Gemini (one document);
-   C103 measurement (`--l0churn`); backlog split (critical path / before
-   real money / notebook).
-4. Mon 5 Oct after 22:00Z: score round 1 (C91); C105; the Monday build
-   (ADR-165 ON on B, C, D; IC rings; then cap 10, C99).
-5. Later: C98, C100, C101, C93, C92, C88, C75, C9, C84 after 7 Oct.
+1. The questions for the previous chat (above).
+2. Saturday: exports to the Surface (operator); history dumps on all four
+   accounts; bid/ask and bar dumps for all 21 pairs -> spreads and ranges;
+   `gt_report.py`.
+3. The ring note + compass routine (C96, C104) to Gemini, one document;
+   backlog split (critical path / before real money / notebook).
+4. FTMO email on TP / SL and the 200 (C117); retired Global Variables
+   (C107).
+5. Mon 5 Oct after 22:00Z: score round 1 (C91); C105; the Monday build
+   (ADR-165 ON on B, C, D; IC rings; then cap 10 + widths, C99).
+6. Later: C117 ADR (post-once, TP exits), C118 (Python port), C98, C100,
+   C101, C93, C92, C88, C75, C9, C84 after 7 Oct.
 
 ---
 
@@ -170,4 +171,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   a fresh scratch PG. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 173
+Line count: 174
