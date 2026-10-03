@@ -131,8 +131,10 @@ Cap 10 and the fixed widths in one reload per chart (C99), from new
 presets that also carry `InpLatticeReroll=true`; on wine-c the reload
 attaches from `Experts/fxmatrix/fxgrind` (fixes C88 for good, with the
 `chart*.chr` `path=` check). The twins' Global Variables (magics 22260902,
-22260802) on the three IC terminals: list read-only, delete by hand later
-(as C107 for FTMO).
+22260802) on the three IC terminals: as C107 did on FTMO (3 Oct): run
+`scripts/grind_gv_list.mq5` (read-only), Claude classifies against the live
+magics and the closed positions, then `scripts/grind_gv_delete_exact.mq5`
+with the reviewed list, dry run first.
 
 ## 8. QUESTIONS PUT TO GEMINI (3 OCT)
 
@@ -169,4 +171,4 @@ attaches from `Experts/fxmatrix/fxgrind` (fixes C88 for good, with the
   re-opens that chart's own EA; the risks are a Navigator drag or an
   Experts compile on wine-c. Warned in 3.5 and 3.7; caught by 3.6.
 
-Line count: 172
+Line count: 174

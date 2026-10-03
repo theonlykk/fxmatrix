@@ -1732,4 +1732,24 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   list**: deploy a retire patch (C119) only after the instances are gone,
   or the card undercounts a live account.
 
-Line count: 1735
+
+## TRAPS FROM 2026-10-03 AFTERNOON (C93, C107)
+
+- **`OrdersTotal()` / `PositionsTotal()` walks race with other EAs.** The
+  account's lists are shared by every EA thread; an item removed below the
+  walk's index makes the next index re-read one already seen (a removal
+  above skips one). C93's halt was a duplicate read of ONE order (v2.2
+  fix). When a halt lists the same item twice, check the Journal before
+  believing the book.
+- **The EA does not print order placements in the Experts log;** every
+  request is in the terminal Journal (`<data>\logs\YYYYMMDD.log`,
+  "buy limit ... at <price>", "accepted", "order #N ... done").
+- **Global Variables: list, classify, delete by EXACT name, dry run
+  first** (`scripts/grind_gv_list.mq5`, `scripts/grind_gv_delete_exact.mq5`,
+  C107). Ticket-named carry records (`GRIND_CARRY_ACCRUED_<ticket>`,
+  `_SHIFT_`) are classified against the account's deal history (open vs
+  closed, and whose magic). Never delete by prefix on a live terminal.
+- **`GlobalVariableTime` is the last ACCESS time:** reading a variable
+  updates it, so a listing's times are the listing's own time.
+
+Line count: 1755
