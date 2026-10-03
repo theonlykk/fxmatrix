@@ -1,15 +1,23 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~17:20Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~22:15Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
+
+**PRIORITY (operator, 3 Oct): FXMatrix is the main focus.** There is also
+a side project, MyFundedPerps (`https://github.com/theonlykk/mfperp`,
+private): a grid bot on a free $2.5K prop account, for the dead time
+between FXMatrix steps and as a lab for netting accounts and the Python
+engine (C117, C118). It never delays an FXMatrix step. Read its
+`handoff/HANDOFF.md` AFTER the FXMatrix reading (if the repo is not in
+your sandbox, ask the operator to add it or attach the file).
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s43**
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s48**
 (s43 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
-day, afternoon, late afternoon, night) and **2026-10-03** (early, morning, afternoon x2, late afternoon); `handoffs/Handover/08_BACKLOG.md` (above
+day, afternoon, late afternoon, night) and **2026-10-03** (early, morning, afternoon x2, late afternoon, evening); `handoffs/Handover/08_BACKLOG.md` (above
 all section C1, the critical path; C93, C96, C99, C100, C117); `docs/architecture/fleet-d.md` s6 (D1, the compass
 round) and s7 (all round-1 amendments);
 `docs/architecture/geometry-cycle3.md` A7 (FTMO cut to seven);
@@ -35,8 +43,9 @@ MONEY); `handoffs/Handover/09_EVENT_LOG.md` (add to it);
    leave unclear or that only the previous chat would know (live state
    after the docs were written, half-finished steps, exact commands it
    used, rulings it heard but may not have written down). Short,
-   specific, answerable in a line each; at most ~12. The operator pastes
-   the answers back; then follow s43's NEXT SESSION list.
+   specific, answerable in a line each; at most ~12. FXMatrix questions first; at most three on mfperp,
+   at the end. The operator pastes the answers back; then follow s48's
+   NEXT SESSION list.
 Do not start any fleet action before the answers are in.
 
 ---
@@ -92,7 +101,7 @@ cut by fewer instances, not a lower stop ("a sledgehammer"); no wind-
 down brake; no broker contact (FTMO too: no email, 3 Oct); FTMO stays on the desktop test terminal;
 post-once execution (C117) with ONE 2,000-request pool, first come first
 served; the 200 positions+orders limit holds on IC too ("software
-limitation. we tested this"); MyFundedPerps probably skipped.
+limitation. we tested this"); MyFundedPerps: a side project only, in dead time (3 Oct, s48; replaces "probably skipped").
 
 **Reading live state:** WebFetch of `https://pipshed.com/api/telemetry/live?instance=<id>`
 works (summarised); the browser pane on the operator's desktop is
@@ -117,7 +126,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | `1bb077a` pushed (v2.2a prompt amended; then the s45 docs patch). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
+| fxmatrix `main` | `49fc41e` (docs s47; AUDUSD presets `4694471`; v2.2a prompt `1bb077a`). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites. Local, NOT pushed: `99980da` tests + `4d294a6` C119 (retire the six twins, B/C/D strips = nine), tree `e3b23a94`, 39/39; in Downloads as `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch`: apply only AFTER the twins are removed. Then C121 (AUDUSD scout; `3d23821` + `389f82b`, tree `ac81ba6d`) as `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch`: only after the AUDUSD charts are attached |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -126,7 +135,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s45 NEXT SESSION; backlog C1 is the critical path)
+## 2. NEXT, IN ORDER (= HANDOFF s48 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
 2. DONE 3 Oct 17:20Z: both patches pushed (`c92d9c2`, `27e1e77`); s44
@@ -142,6 +151,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 7. After Monday: C99 (cap 10 + fixed widths, one reload per chart; fixes
    C88), round 2, v2.2a deploy; later C98, C103 (own ADR), C117 ADR,
    C118, C84 after 7 Oct.
+8. mfperp, in dead time only (its handoff s5); never ahead of 4-7.
 
 ---
 
@@ -181,4 +191,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   a fresh scratch PG. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 184
+Line count: 194
