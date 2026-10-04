@@ -1,0 +1,258 @@
+{
+ "status": "PROVISIONAL (s52, 4 Oct): anchors = Fleet B's values today; probes repeat round 1's direction (C add one pip tighter, +1 at the add-3 floor; D exit one pip tighter); AUDNZD's first non-twin probes; NZDCAD control; AUDUSD scout. Monday's round-1 verdict edits this table per pair and SIDE (compass-round s4 steps 4-6), then both stages are regenerated.",
+ "cap": 10,
+ "control": "NZDCAD",
+ "scouts": [
+  "AUDUSD"
+ ],
+ "pairs": {
+  "GBPUSD": {
+   "anchor": {
+    "L": {
+     "add": 9,
+     "exit": 10
+    },
+    "S": {
+     "add": 9,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 8
+    },
+    "S": {
+     "add": 8
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "EURUSD": {
+   "anchor": {
+    "L": {
+     "add": 7,
+     "exit": 10
+    },
+    "S": {
+     "add": 7,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 6
+    },
+    "S": {
+     "add": 6
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "EURGBP": {
+   "anchor": {
+    "L": {
+     "add": 3,
+     "exit": 5
+    },
+    "S": {
+     "add": 3,
+     "exit": 5
+    }
+   },
+   "C": {
+    "L": {
+     "add": 4
+    },
+    "S": {
+     "add": 4
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 4
+    },
+    "S": {
+     "exit": 4
+    }
+   }
+  },
+  "AUDCAD": {
+   "anchor": {
+    "L": {
+     "add": 6,
+     "exit": 10
+    },
+    "S": {
+     "add": 6,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 5
+    },
+    "S": {
+     "add": 5
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "AUDCHF": {
+   "anchor": {
+    "L": {
+     "add": 4,
+     "exit": 10
+    },
+    "S": {
+     "add": 4,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 3
+    },
+    "S": {
+     "add": 3
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "CADCHF": {
+   "anchor": {
+    "L": {
+     "add": 4,
+     "exit": 10
+    },
+    "S": {
+     "add": 4,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 3
+    },
+    "S": {
+     "add": 3
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "NZDCHF": {
+   "anchor": {
+    "L": {
+     "add": 3,
+     "exit": 10
+    },
+    "S": {
+     "add": 3,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 4
+    },
+    "S": {
+     "add": 4
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "NZDCAD": {
+   "anchor": {
+    "L": {
+     "add": 8,
+     "exit": 10
+    },
+    "S": {
+     "add": 8,
+     "exit": 10
+    }
+   }
+  },
+  "AUDNZD": {
+   "anchor": {
+    "L": {
+     "add": 8,
+     "exit": 10
+    },
+    "S": {
+     "add": 8,
+     "exit": 10
+    }
+   },
+   "C": {
+    "L": {
+     "add": 7
+    },
+    "S": {
+     "add": 7
+    }
+   },
+   "D": {
+    "L": {
+     "exit": 9
+    },
+    "S": {
+     "exit": 9
+    }
+   }
+  },
+  "AUDUSD": {
+   "anchor": {
+    "L": {
+     "add": 6,
+     "exit": 10
+    },
+    "S": {
+     "add": 6,
+     "exit": 10
+    }
+   }
+  }
+ }
+}
