@@ -84,9 +84,19 @@ on base and each side, magic and instance = the chart's.
 
 ## 3. BEFORE (desktop and sandbox, before the slot)
 
-1. Claude: the table (s2) from Monday's verdict; the presets; one docs
-   patch (presets + this runbook's table + register rows prepared).
-   Gemini reviews the table with the round's verdict table.
+1. Claude: edit `scripts/ic_geometry.json` from Monday's verdict (anchors
+   and probes PER SIDE), then `python scripts/ic_presets.py --table
+   scripts/ic_geometry.json --stage c10` and `--stage p2` (dry run: every
+   check; then `--write`); one docs patch (presets, this runbook's table,
+   register rows prepared). A PROVISIONAL set is committed (s52: today's
+   anchors, round 1's probe directions); Monday's run shows the diff.
+   Gemini reviews the table with the round's verdict table (attached).
+   Per side: where a side's anchor or probe differs from the other side,
+   the preset carries both per-side inputs (the base = the long value);
+   the CONFIG line prints the base only, so the pass check reads
+   `GRIND_GEOMETRY` (both sides); pipshed's italic next level uses the
+   base add (backlog C123) and is wrong on a short side whose add
+   differs until that is fixed.
 2. `round2.json` (Claude): windows, the control block (NZDCAD). AUDUSD's
    baseline gaps are REPORTED, not pooled (GW-6), until it has a round
    of history; compass-round s4.3's "and any scout baseline" waits for
@@ -262,4 +272,4 @@ Claude; the operator accepted (GW-4 by data, 4 Oct ~03:05Z).
   the 2 Oct hotfix (K16): replaced by a watch on each fleet's
   `api_count`.
 
-Line count: 265
+Line count: 275
