@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-03 ~23:10Z (SATURDAY; ROUND 1 BETWEEN WINDOWS)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-04 ~03:15Z (SUNDAY; ROUND 1 BETWEEN WINDOWS)
 
 **PRIORITY (operator, 3 Oct ~23:00Z): FXMatrix ONLY.** The side project
 MyFundedPerps (`https://github.com/theonlykk/mfperp`, private, root
@@ -13,7 +13,7 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s50**
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s51**
 (s43 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
 day, afternoon, late afternoon, night) and **2026-10-03** (early, morning, afternoon x2, late afternoon, evening); `handoffs/Handover/08_BACKLOG.md` (above
@@ -23,7 +23,7 @@ round) and s7 (all round-1 amendments);
 `docs/architecture/ADR-165-continuous-reroll.md` (s4, s9, s10);
 `docs/runbooks/monday-build-2026-10-05.md` and `docs/runbooks/compass-round.md`
 (both in full: Monday's two jobs); `docs/runbooks/cap10-reload.md` (the
-next structural step, drafted for Gemini, s50); `prompts/cursor_v22a_c93_c100.md`
+next structural step, REVIEWED s51); `prompts/cursor_v22a_c93_c100.md`
 (the open prompt); `docs/architecture/MEMO_2026-10-03_post_once_execution.md`;
 `docs/architecture/ADR-162-virtual-lattice.md` s13-s19;
 `docs/architecture/ADR-153-geometry-independence.md` (the L0 re-quote:
@@ -45,7 +45,7 @@ MONEY); `handoffs/Handover/09_EVENT_LOG.md` (add to it);
    used, rulings it heard but may not have written down). Short,
    specific, answerable in a line each; at most ~12. FXMatrix only
    (mfperp is parked). The operator pastes the answers back; then
-   follow s50's NEXT SESSION list.
+   follow s51's NEXT SESSION list.
 Do not start any fleet action before the answers are in.
 
 ---
@@ -135,11 +135,12 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s50 NEXT SESSION; backlog C1 is the critical path)
+## 2. NEXT, IN ORDER (= HANDOFF s51 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
-2. The cap-10 reload runbook (`docs/runbooks/cap10-reload.md`, GW-1..GW-6)
-   to Gemini if not yet sent; check his answers in source; amend.
+2. DONE 4 Oct ~03:05Z (s51): the cap-10 reload runbook reviewed by
+   Gemini (two reloads; wine-c Remove then Attach; 1.5 widths stand on
+   data). Gemini reads ATTACHED files only (traps 4 Oct early).
 3. Sunday open checks (~21:05Z Sun 4 Oct): cards, stuck sides from fresh
    status files (each with the cut-vs-wait cost), slot guards.
 4. Mon 5 Oct after 22:00Z: score round 1 (BOTH thresholds printed:
@@ -147,8 +148,8 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
    pipshed C119; the IC twins' Global Variables (runbook s7, the gv
    scripts). Then the cap-10 table and presets from the verdict, and
    `round2.json`.
-5. The cap-10 reload (first in-session slot after); pipshed C121; the
-   hour's watch; round 2.
+5. The cap-10 reload (first in-session slot after; cap10-reload s4);
+   pipshed C121; the hour's watch; round 2's probe reload; round 2.
 6. After the reload: v2.2a merge and deploy (`8a3ec0c`, 2525/2525; a
    separate step); C98, C103 (own ADR), C117 checks and ADR, C118, C120,
    C122, C84 after 7 Oct.
@@ -192,4 +193,4 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
   a fresh scratch PG. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 195
+Line count: 196

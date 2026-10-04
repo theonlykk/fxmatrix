@@ -1820,4 +1820,17 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   scorer computes only that. Report both and let the operator choose
   (compass-round s4.3); never switch a round's rule quietly.
 
-Line count: 1823
+## TRAPS FROM 2026-10-04 EARLY (GEMINI READS ATTACHMENTS ONLY)
+
+- **Gemini cannot open GitHub or the operator's files.** The operator
+  attaches the document to Gemini's chat. Never ask Gemini to "check the
+  source at <hash>": give him the verified facts with file and lines
+  (an audit trail) and ask which he wants re-checked; Claude re-checks.
+  A Cursor prompt still goes to Cursor by its GitHub path (Cursor runs
+  in `D:\fxmatrix`).
+- **A ruling's "missing fact" may already be measurable:** Gemini's
+  GW-4 asked for IC's spread distribution; wine-c's bid/ask dump in
+  Downloads answered it in minutes (cap10-reload K17). Look for the
+  data before taking a ruling built on a guess about it.
+
+Line count: 1836
