@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-04 ~03:55Z (SUNDAY; ROUND 1 BETWEEN WINDOWS)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-04 ~05:10Z (SUNDAY; ROUND 1 BETWEEN WINDOWS)
 
 **PRIORITY (operator, 3 Oct ~23:00Z): FXMatrix ONLY.** The side project
 MyFundedPerps (`https://github.com/theonlykk/mfperp`, private, root
@@ -13,7 +13,7 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s52**
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s53**
 (s43 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
 day, afternoon, late afternoon, night) and **2026-10-03** (early, morning, afternoon x2, late afternoon, evening); `handoffs/Handover/08_BACKLOG.md` (above
@@ -46,7 +46,7 @@ MONEY); `handoffs/Handover/09_EVENT_LOG.md` (add to it);
    used, rulings it heard but may not have written down). Short,
    specific, answerable in a line each; at most ~12. FXMatrix only
    (mfperp is parked). The operator pastes the answers back; then
-   follow s52's NEXT SESSION list.
+   follow s53's NEXT SESSION list.
 Do not start any fleet action before the answers are in.
 
 ---
@@ -127,7 +127,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | s52 (`89f1868` IC presets generator, provisional per-side `_c10` / `_p2`); `c0f833d` s51; `ff4ad7e` s50 on `36a7ff3` (C91 GC-1 threshold, 48/48; tests `e488274`); `38079c9` (docs s49); `9be4bd3` (docs s48); `49fc41e` (docs s47; AUDUSD presets `4694471`; v2.2a prompt `1bb077a`). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
+| fxmatrix `main` | `63b8107` (docs s52) + the s53 docs patch; `d3bdf7b` IC presets generator, provisional per-side `_c10` / `_p2`); `c0f833d` s51; `ff4ad7e` s50 on `36a7ff3` (C91 GC-1 threshold, 48/48; tests `e488274`); `38079c9` (docs s49); `9be4bd3` (docs s48); `49fc41e` (docs s47; AUDUSD presets `4694471`; v2.2a prompt `1bb077a`). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
 | pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites; `D:\pipshed` clean. NOT pushed, ONLY as patches in Downloads (go by the TREES: commit hashes differ per sandbox and change at `git am`): `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch` (C119: retire the six twins, B/C/D strips = nine; tree `e3b23a94`, 39/39): apply only AFTER the twins are removed. Then `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch` (C121, AUDUSD scout; tree `ac81ba6d`): only after the AUDUSD charts are attached |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
 | wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
@@ -136,7 +136,7 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 ---
 
-## 2. NEXT, IN ORDER (= HANDOFF s52 NEXT SESSION; backlog C1 is the critical path)
+## 2. NEXT, IN ORDER (= HANDOFF s53 NEXT SESSION; backlog C1 is the critical path)
 
 1. The questions for the previous chat (above).
 2. DONE 4 Oct ~03:05Z (s51): the cap-10 reload runbook reviewed by
