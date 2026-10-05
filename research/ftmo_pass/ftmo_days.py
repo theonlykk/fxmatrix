@@ -98,8 +98,78 @@ def usd_per_quote(bars, sym, t):
 
 
 def position_mtm(pos, bars, t):
-    raise NotImplementedError("C124 stub: tests first")
+    """Open profit in USD of one position at t (long at bid, short at ask)."""
+    q = quote_at(bars, pos["symbol"], t)
+    k = usd_per_quote(bars, pos["symbol"], t)
+    if q is None or k is None:
+        return 0.0
+    px = q[0] if pos["side"] == "L" else q[1]
+    sgn = 1 if pos["side"] == "L" else -1
+    return sgn * (px - pos["price"]) * 100000 * pos["volume"] * k
 
 
 def build_days(deals, bars, magics=None, step=60, until=None):
-    raise NotImplementedError("C124 stub: tests first")
+    """Per-FTMO-day records (see the module doc). `magics`: keep only
+    positions OPENED by these magics (their closes count whatever the
+    closing deal's magic). Days run from the first kept deal's day to
+    `until`'s day (default: the last kept deal's); a day is recorded when
+    it traded or held positions AND the market quoted in it (a bar of a
+    traded symbol inside the day: weekends drop out)."""
+    owner = {}
+    for d in deals:
+        if d["entry"] == 0 and d["type"] in (0, 1):
+            owner.setdefault(d["position"], d["magic"])
+
+    def keep(d):
+        if d["type"] not in (0, 1):
+            return False
+        if magics is None:
+            return True
+        return owner.get(d["position"], d["magic"]) in magics
+
+    ds = [d for d in deals if keep(d)]
+    if not ds:
+        return []
+    first = day_of(ds[0]["t"])
+    last = day_of(until) if until is not None else day_of(ds[-1]["t"])
+    syms = sorted({d["symbol"] for d in ds if d["symbol"] in bars})
+
+    def quoted(a, b):
+        for sy in syms:
+            ts = bars[sy][0]
+            j = bisect.bisect_left(ts, a)
+            if j < len(ts) and ts[j] < b:
+                return True
+        return False
+    open_pos = {}
+    out = []
+    i = 0
+    for day in range(first, last + 1):
+        t0 = day * DAY + DAY_START
+        t1 = t0 + DAY
+        m0 = sum(position_mtm(p, bars, t0) for p in open_pos.values())
+        r = 0.0
+        low = m0
+        nmax = len(open_pos)
+        t = t0
+        traded = False
+        while t <= t1:
+            while i < len(ds) and ds[i]["t"] <= t:
+                d = ds[i]
+                r += d["profit"] + d["swap"] + d["commission"]
+                traded = True
+                if d["entry"] == 0:
+                    open_pos[d["position"]] = dict(
+                        symbol=d["symbol"], price=d["price"], volume=d["volume"],
+                        side="L" if d["type"] == 0 else "S")
+                elif d["position"] in open_pos:
+                    del open_pos[d["position"]]
+                i += 1
+            nmax = max(nmax, len(open_pos))
+            eq = r + sum(position_mtm(p, bars, t) for p in open_pos.values())
+            low = min(low, eq)
+            t += step
+        m1 = sum(position_mtm(p, bars, t1) for p in open_pos.values())
+        if (traded or open_pos) and quoted(t0, t1):
+            out.append(dict(day=day, r=r, m0=m0, m1=m1, low=low, n_open_max=nmax))
+    return out

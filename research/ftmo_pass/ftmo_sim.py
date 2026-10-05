@@ -43,15 +43,40 @@ def day_numbers(d, shift=0.0):
 
 
 def run_phase(days, target, min_days=MIN_DAYS):
-    raise NotImplementedError("C124 stub: tests first")
+    """Walk an iterable of day records from a fresh 10,000.
+    Returns ("pass" | "daily" | "maxloss" | "open", days used, equity)."""
+    eq = CAPITAL
+    n = 0
+    for d in days:
+        n += 1
+        dE, low, dip = d
+        if low < -DAILY:
+            return "daily", n, eq + dip
+        if eq + dip < CAPITAL - MAXLOSS:
+            return "maxloss", n, eq + dip
+        eq += dE
+        if eq - CAPITAL >= target and n >= min_days:
+            return "pass", n, eq
+    return "open", n, eq
 
 
 def draw_block(sources, block, rng):
-    raise NotImplementedError("C124 stub: tests first")
+    """One block: a source chosen in proportion to its length, a random
+    start, up to `block` consecutive days of that source (fewer at its end)."""
+    s = rng.choices(sources, weights=[len(x) for x in sources])[0]
+    a = rng.randrange(len(s))
+    return s[a:a + block]
 
 
 def block_stream(sources, block, rng, shift=0.0, tail=None):
-    raise NotImplementedError("C124 stub: tests first")
+    """Endless day numbers drawn block by block. `tail` = (p, record): each
+    day is replaced by `record` with probability p (a tail day the sample
+    does not contain, e.g. cycle 2's 23 Sep)."""
+    while True:
+        for d in draw_block(sources, block, rng):
+            if tail is not None and rng.random() < tail[0]:
+                d = tail[1]
+            yield day_numbers(d, shift)
 
 
 def take(stream, n):
@@ -61,11 +86,64 @@ def take(stream, n):
 
 def attempt(sources, rng, block=2, shift=0.0, max_days=250, funded_days=250,
             payout_every=21, split=0.9, tail=None):
-    raise NotImplementedError("C124 stub: tests first")
+    """One attempt: Challenge, Verification, then a funded account paid
+    every `payout_every` trading days (90% of profit above 10,000, then
+    reset to 10,000) until a breach or `funded_days`."""
+    res = {"phase1": None, "phase2": None, "days": 0, "payouts": 0.0, "n_payouts": 0,
+           "funded_days": 0}
+    st = block_stream(sources, block, rng, shift, tail)
+    out, n, _ = run_phase(take(st, max_days), 1000.0)
+    res["phase1"], res["days"] = out, n
+    if out != "pass":
+        return res
+    st = block_stream(sources, block, rng, shift, tail)
+    out, n, _ = run_phase(take(st, max_days), 500.0)
+    res["phase2"] = out
+    res["days"] += n
+    if out != "pass":
+        return res
+    st = block_stream(sources, block, rng, shift, tail)
+    eq = CAPITAL
+    k = 0
+    for _ in range(funded_days):
+        dE, low, dip = next(st)
+        k += 1
+        if low < -DAILY or eq + dip < CAPITAL - MAXLOSS:
+            break
+        eq += dE
+        if k % payout_every == 0 and eq > CAPITAL:
+            res["payouts"] += split * (eq - CAPITAL)
+            res["n_payouts"] += 1
+            eq = CAPITAL
+    res["funded_days"] = k
+    return res
 
 
 def summarise(results, fee=100.0, vps_month=20.0, refund=False, days_per_month=21):
-    raise NotImplementedError("C124 stub: tests first")
+    n = len(results)
+    p1 = sum(r["phase1"] == "pass" for r in results) / n
+    p2 = sum(r["phase2"] == "pass" for r in results) / n
+    fails = {}
+    for r in results:
+        why = r["phase1"] if r["phase1"] != "pass" else r["phase2"]
+        if why != "pass":
+            fails[why] = fails.get(why, 0) + 1
+    passed = [r for r in results if r["phase2"] == "pass"]
+    ev = []
+    for r in results:
+        months = (r["days"] + r["funded_days"]) / days_per_month
+        v = r["payouts"] - fee - vps_month * months
+        if refund and r["n_payouts"] > 0:
+            v += fee
+        ev.append(v)
+    return dict(
+        n=n, p_challenge=p1, p_both=p2,
+        p_verif_given_challenge=(p2 / p1) if p1 else 0.0,
+        fails={k: v / n for k, v in sorted(fails.items())},
+        days_to_pass_median=statistics.median(r["days"] for r in passed) if passed else None,
+        payout_mean_if_passed=statistics.fmean(r["payouts"] for r in passed) if passed else 0.0,
+        ev_per_attempt=statistics.fmean(ev),
+    )
 
 
 def main(argv=None):
