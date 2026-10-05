@@ -1833,4 +1833,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   Downloads answered it in minutes (cap10-reload K17). Look for the
   data before taking a ruling built on a guess about it.
 
-Line count: 1836
+## TRAPS FROM 2026-10-05 EARLY (OPEN MTM, ONE-SIDED BOOKS, JOURNAL NAMES)
+
+- **The first hour after the open marks every book down at once:** IC's
+  21Z spreads (crosses' median 9.6-20.5 pips) price longs at the bid and
+  shorts at the ask, so both sides of a hedged book lose together (4 Oct:
+  B -$244 -> -$333 at 21:10Z, -$227 by 22:10Z). Read MTM after ~22:00Z.
+- **A one-sided book defeats the bid / ask fit** (no SELL to pin the
+  ask): price it from the longs with the quote currency's USD rate
+  (EURGBP: profit = 1000 x GBPUSD x (bid - open) per 0.01 lot).
+- **`disconnects.py` dates each journal by its file NAME** (first eight
+  characters): copy `YYYYMMDD.log` per box into its own folder; never
+  rename or mix boxes.
+- **`ea_build` is only in the archive** (`config_events`), not the
+  Experts log: prove a build with `archive_counts.py --table
+  config_events --instance <id> --limit 2`.
+
+Line count: 1852
