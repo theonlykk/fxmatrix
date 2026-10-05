@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for Gemini** (Claude, 5 Oct ~04:20Z). Written BEFORE any holdout markout or P&L is computed. Once accepted, nothing below changes except by a dated amendment (s8) written before the scoring run |
+| Status | **DRAFT for Gemini** (Claude, 5 Oct ~04:20Z). Written BEFORE any holdout markout or P&L is computed. T4 and K8 added 5 Oct ~14:05Z (operator's counter-side reading; first-pass split), before Gemini's review. Once accepted, nothing below changes except by a dated amendment (s8) written before the scoring run |
 | Origin | Operator, 5 Oct ~04:13Z: "is this whole effort going to end in disappointment?"; Claude proposed fixing in advance what result counts as "it works" and what counts as "it doesn't", so the verdict comes from the data and not from a bad night; operator: "proceed" |
 | Builds on | `docs/research/markout-variance-study.md` (first pass, s4-s6); `docs/runbooks/compass-round.md` s1 (realised all-in P&L); backlog C124 (FTMO pass probability), C103, C84 |
 | Decides | Whether the first pass's two findings hold on unseen days, and whether the grid made money where they say it should. Not a geometry ruling; not a compass verdict |
@@ -20,6 +20,7 @@ This message has a line count at the bottom
 | K5 | `compass_score.load(paths, accounts)` and `side_metrics(layers, inst, side, windows, cutoff)` give realised all-in net (profit + swap + commission, scalps + rolls + ejections) per instance and side by close time over given windows; `load` takes any account list (FTMO 1514731800 included) | `research/compass/compass_score.py` 67-74, 104-137 | VERIFIED |
 | K6 | Inside the window: tonight's Monday build on B, C, D (after 22:00Z Mon 5 Oct: re-roll ON, twins retired) and probably the cap-10 reload (cap 10, new widths, AUDUSD); FTMO (A) changes nothing (frozen cycle) | monday-build s1; cap10-reload s1 | VERIFIED (runbooks) |
 | K7 | Before this was written, two status reads fell inside the window (00:35Z and 02:52Z Mon 5 Oct: open MTM; the EUR longs down). No markout and no realised P&L of the window was computed | HANDOFF s54, s56; this chat | VERIFIED |
+| K8 | The first pass's "depth 1 = L0" row counts fills onto a side holding no other layer (`markout.py`: "Depth = the side's open layers at the fill, itself included"), not the EA's L0 label; a roll moves an exit and is never a fill. Split 5 Oct ~14:00Z on the SAME first-pass sample (a scratch copy of `markout.py` with one added count; the repo file unchanged; the 463 / -2.3 / -5.0 reproduced): 429 of the 463 had layers open on the OTHER side (the counter-side entry, re-centred to mid +/- W after 4 pips of drift, K6 of cap10-reload), 34 a flat book. Counter-side 4-hour markout -5.6 (se 0.7; other side 1-3 layers -3.4, 4-7 -5.3, 8+ -6.9); flat book +3.1 (se 3.1, n 34); IC counter-side before the 2 Oct 03:05Z S = W + 1 change -5.9 (n 349), after -6.8 (n 62) | this document s2 T4 | MEASURED (in-sample) |
 
 ## 1. THE WINDOW
 
@@ -45,9 +46,25 @@ pairs' 1-hour markouts, and the rank correlation of first-pass VR(60)
 with holdout 1-hour markout over the nine.
 
 **T2 -- depth (markout, 4 hours; diagnostic, not part of the verdict).**
-D2 = mean 4-hour markout at depth 6+ minus at L0 (depth 1). First pass:
+D2 = mean 4-hour markout at depth 6+ minus at depth 1 (an empty-side
+fill, K8; not the EA's L0 label). First pass:
 about +7. **PASS: D2 >= +2.0. FAIL: D2 <= 0.** It feeds C103 (the
 counter-side L0) whatever the verdict.
+
+**T4 -- the counter-side entry (markout, 1 and 4 hours; diagnostic).**
+The operator's reading (5 Oct ~04:35Z): once one side is a few layers
+deep, bringing the other side's entry close to the market acts like a
+momentum strategy on our own trades, when it matters most. Measured on
+depth-1 fills whose OTHER side holds >= 1 layer (K8). First pass: 1 h
+-2.4, 4 h -5.6 (n 429): the bounce that fills it kept going, the same
+reversion that pays the deep side (depth 8+ +2.5 at 4 h). **The first
+pass predicts FAIL. PASS (the hedge works): 4-hour markout > 0. FAIL:
+<= -2.0.** Between: inconclusive. Reported beside it: the same by the
+other side's depth (1-3, 4-7, 8+), by fleet, and the realised net of
+the counter side's layers opened inside the window (a markout is one
+fill; the counter side then grids on, and its own deeper layers may
+pay). Feeds C103 (how close the counter-side entry should sit), not the
+verdict.
 
 **T3 -- the money where T1 says it should be (realised; decides).**
 Realised all-in net (K5) of the reverting group's instances, both
@@ -144,5 +161,9 @@ run all three).
   rule (s2). Right for this question?
 - **GH-5. "Inconclusive twice = not supported".** Fair as a guard
   against drift, or does it bias the answer toward stopping?
+- **GH-6. T4's reading.** A counter-side fill that loses 5-6 pips at 4
+  hours while the deep side gains is a hedge paying for the reversion
+  the deep side harvests. Is the fill's markout the right test of the
+  hedge, or should only the counter side's realised net count?
 
-Line count: 148
+Line count: 169
