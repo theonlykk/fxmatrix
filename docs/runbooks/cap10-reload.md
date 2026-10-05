@@ -174,7 +174,10 @@ fire, K16: watch the count on the card instead).
 ## 6. AFTER ALL THREE BOXES
 
 1. pipshed C121 (`git am`, tree `ac81ba6d`, push, Railway): B, C, D
-   strips 10/10 with a "scouts" ring.
+   strips 10/10 with a "scouts" ring. Then pipshed C123 (`git am`
+   `pipshed_c123_side_add_APPLY_AFTER_C121.patch`, tree `542d00de`): the
+   italic next level per side, needed before the `_p2` reload whenever a
+   pair's sides differ.
 2. The hour's watch: guard totals, requests per fleet, any `ROLL_*`
    out of the ordinary, AUDUSD's first fills.
 3. Records: register rows (close every IC row at its reload time from
@@ -272,4 +275,4 @@ Claude; the operator accepted (GW-4 by data, 4 Oct ~03:05Z).
   the 2 Oct hotfix (K16): replaced by a watch on each fleet's
   `api_count`.
 
-Line count: 275
+Line count: 278
