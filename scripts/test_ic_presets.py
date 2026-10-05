@@ -221,5 +221,89 @@ class TestRepo(unittest.TestCase):
         self.assertEqual(len(p2), 30)
 
 
+# ---------------------------------------------------------------- this week's rounds at cap 8 (memo 2026-10-05)
+
+GEO8 = {
+    "cap": 8, "deadband": 2.0, "width": "tight", "round": 2, "control": "NZDCAD", "scouts": [],
+    "pairs": {
+        "GBPUSD": {"anchor": {"L": {"add": 9, "exit": 10}, "S": {"add": 9, "exit": 10}},
+                   "C": {"L": {"add": 8}, "S": {"add": 10}},
+                   "D": {"L": {"exit": 9}, "S": {"exit": 11}}},
+        "NZDCAD": {"anchor": {"L": {"add": 8, "exit": 10}, "S": {"add": 8, "exit": 10}}},
+    }}
+
+
+class TestTightWidth(unittest.TestCase):
+    def test_tight_width_formula(self):
+        # ceil to the half pip of (the largest add any fleet runs on the pair this round) / 4
+        cases = [((9, 9, 8, 8), 2.5),   # 9/4 = 2.25 -> 2.5
+                 ((3, 3, 4, 4), 1.0),   # 4/4 = 1.00 exactly -> 1.0
+                 ((6, 6, 5, 5), 1.5),   # 6/4 = 1.50 exactly -> 1.5
+                 ((7, 7, 6, 6), 2.0),   # 7/4 = 1.75 -> 2.0
+                 ((8,), 2.0),           # 8/4 = 2.00 exactly
+                 ((9, 10), 2.5)]        # 10/4 = 2.50 exactly
+        for adds, w in cases:
+            self.assertAlmostEqual(ip.tight_width(adds), w, msg=str(adds))
+
+    def test_pair_round_width_uses_every_fleets_adds(self):
+        # GBPUSD: anchor 9/9, C probes 8 (L) and 10 (S): largest 10 -> 2.5; NZDCAD control 8/8 -> 2.0
+        self.assertAlmostEqual(ip.round_width(GEO8, "GBPUSD"), 2.5)
+        self.assertAlmostEqual(ip.round_width(GEO8, "NZDCAD"), 2.0)
+
+
+class TestRoundPreset(unittest.TestCase):
+    def test_changes_and_values(self):
+        # BASE (GBPUSD B: width 5, add 9, S 6, deadband 4, cap 8) at width 2.5, deadband 2, anchor 9/9, 10/10:
+        # width 2.5, S = W + 1 = 3.5, deadband 2.0, cap stays 8; adds and exits on the base input, sides -1
+        out = ip.round_preset(BASE, 2.5, (9, 9), (10, 10), "B", "GBPUSD", "anchor", 8, 2.0, 2)
+        a, b = ip.parse(BASE), ip.parse(out)
+        self.assertEqual([k for k, _ in a], [k for k, _ in b])
+        changed = {k for (k, v1), (_k, v2) in zip(a, b) if v1 != v2}
+        self.assertEqual(changed, {"InpWidthPips", "InpStrandedThreshPips", "InpDeadbandPips", "InpConfigWarning"})
+        p = kv(out)
+        self.assertEqual((p["InpWidthPips"], p["InpStrandedThreshPips"], p["InpDeadbandPips"], p["InpMaxLayers"]),
+                         ("2.5", "3.5", "2.0", "8"))
+        for part in ("FLEET B", "round 2", "GBPUSD", "anchor", "cap 8", "width 2.5", "deadband 2.0"):
+            self.assertIn(part, p["InpConfigWarning"])
+
+    def test_probe_sides_written(self):
+        # C: adds 8 (L) / 10 (S) differ -> base = long 8, both sides explicit; exits equal -> base 10, sides -1
+        p = kv(ip.round_preset(BASE, 2.5, (8, 10), (10, 10), "C", "GBPUSD", "ADD probe", 8, 2.0, 2))
+        self.assertEqual((p["InpAddPips"], p["InpAddPipsLong"], p["InpAddPipsShort"]), ("8.0", "8.0", "10.0"))
+        self.assertEqual((p["InpExitPips"], p["InpExitPipsLong"], p["InpExitPipsShort"]), ("10.0", "-1.0", "-1.0"))
+
+    def test_validate_with_cap_and_deadband(self):
+        out = ip.round_preset(BASE, 2.5, (9, 9), (10, 10), "B", "GBPUSD", "anchor", 8, 2.0, 2)
+        self.assertEqual(ip.validate(BASE, out, 2.5, cap=8, deadband="2.0"), [])
+        bad = out.replace("InpDeadbandPips=2.0", "InpDeadbandPips=4.0")
+        self.assertTrue(any("deadband" in e.lower() for e in ip.validate(BASE, bad, 2.5, cap=8, deadband="2.0")))
+        bad = out.replace("InpMaxLayers=8", "InpMaxLayers=10")
+        self.assertTrue(any("maxlayers" in e.lower() for e in ip.validate(BASE, bad, 2.5, cap=8, deadband="2.0")))
+
+
+class TestRoundBuild(unittest.TestCase):
+    def test_repo_round2_table_builds_clean(self):
+        """The committed round-2 table (scripts/ic_geometry_r2.json) builds 27 _r2 files with no
+        errors (nine pairs x B, C, D), every width the tight width of its pair, the same on B, C, D,
+        cap 8, deadband 2.0, S = W + 1."""
+        geo = ip.load_table(os.path.join(HERE, "ic_geometry_r2.json"))
+        files, errs = ip.build_round(geo, ROOT)
+        self.assertEqual(errs, [])
+        self.assertEqual(len(files), 27)
+        for path, text in files.items():
+            p = kv(text)
+            self.assertTrue(path.endswith("_r2.set"), path)
+            self.assertEqual((p["InpMaxLayers"], p["InpDeadbandPips"]), ("8", "2.0"))
+            self.assertAlmostEqual(float(p["InpStrandedThreshPips"]), float(p["InpWidthPips"]) + 1.0)
+        widths = {}
+        for path, text in files.items():
+            pair = os.path.basename(path).split("_")[0].upper()
+            widths.setdefault(pair, set()).add(kv(text)["InpWidthPips"])
+        self.assertTrue(all(len(v) == 1 for v in widths.values()), widths)
+        # provisional table: GBPUSD 2.5, EURGBP 1.0 (C probes 4), AUDCAD 1.5, NZDCAD 2.0
+        self.assertEqual({k: v.pop() for k, v in widths.items() if k in ("GBPUSD", "EURGBP", "AUDCAD", "NZDCAD")},
+                         {"GBPUSD": "2.5", "EURGBP": "1.0", "AUDCAD": "1.5", "NZDCAD": "2.0"})
+
+
 if __name__ == "__main__":
     unittest.main()

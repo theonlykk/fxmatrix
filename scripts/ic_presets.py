@@ -192,7 +192,7 @@ def check_plan(geo):
     return errs
 
 
-def validate(base_text, out_text, width):
+def validate(base_text, out_text, width, cap=None, deadband=None):
     errs = []
     a, b = parse(base_text), parse(out_text)
     if [k for k, _ in a] != [k for k, _ in b]:
@@ -286,6 +286,24 @@ def build(geo, root, stage, c10_texts=None):
                     errs.append("%s: written add/exit differ from the plan" % os.path.basename(ppath))
                 out[ppath] = text
     return out, errs
+
+
+# ---------------------------------------------------------------- this week's rounds at cap 8 (memo 2026-10-05)
+
+def tight_width(adds):
+    raise NotImplementedError("tests first")
+
+
+def round_width(geo, pair):
+    raise NotImplementedError("tests first")
+
+
+def round_preset(base_text, width, adds, exits, fleet, pair, role, cap, deadband, rnd):
+    raise NotImplementedError("tests first")
+
+
+def build_round(geo, root):
+    raise NotImplementedError("tests first")
 
 
 def summary(files):
