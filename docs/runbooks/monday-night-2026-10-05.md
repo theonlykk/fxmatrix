@@ -156,9 +156,10 @@ everything else as 2.6.
 `RECON_FAIL`, any `REBUILD_*`, a missing POST ok, a changed `geo=`, a twin
 order or position left, a burst of `ROLL_ACCEPTED` with `"reroll":true`
 beyond the fully rolled sides, or two re-rolls of one side with the same
-`ea_time_ms`. Expected, not a STOP: the fully rolled sides (NZDCHF long on
-B, C, D at the 4 Oct reads) re-roll on the first ticks if the market is
-past their next level.
+`ea_time_ms`. Expected, not a STOP: the fully rolled sides re-roll on the
+first ticks if the market is past their next level: at the 5 Oct 02:52Z
+read EURGBP long B, C, D (C and D within a roll of stuck), EURUSD long B,
+C, NZDCHF long B, C, D (HANDOFF s56, s57).
 
 ## 3. AFTER ALL THREE BOXES
 
@@ -185,4 +186,4 @@ past their next level.
 - Not rehearsable here: the scp globs, the box paths (from 06 s9-s10 and
   the traps), the Railway commands (used 2-3 Oct).
 
-Line count: 188
+Line count: 189

@@ -1,55 +1,43 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-05 ~03:25Z (MONDAY; ROUND 1 BETWEEN WINDOWS)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-05 ~19:45Z (MONDAY; BEFORE THE MONDAY-NIGHT RUNBOOK)
 
-**PRIORITY (operator, 3 Oct ~23:00Z): FXMatrix ONLY.** The side project
-MyFundedPerps (`https://github.com/theonlykk/mfperp`, private, root
-`643fa12`) is PARKED: "it is reckless to be spending time on mfperp -
-lets focus on fxmatrix - even when we dont have urgent fixes". Dead time
-goes to FXMatrix (HANDOFF s50). Do not read or ask about mfperp unless
-the operator brings it back.
+**PRIORITY: FXMatrix ONLY.** MyFundedPerps (`theonlykk/mfperp`) is PARKED
+(operator 3 Oct: "lets focus on fxmatrix - even when we dont have urgent
+fixes"). Do not read or ask about it unless the operator brings it back.
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s29 to **s56**
-(s43 ends with the NEXT SESSION list: follow it); every section of
-`handoffs/Handover/02_TRAPS.md` dated 2026-10-01, **2026-10-02** (early,
-day, afternoon, late afternoon, night) and **2026-10-03** (early, morning, afternoon x2, late afternoon, evening); `handoffs/Handover/08_BACKLOG.md` (above
-all section C1, the critical path; C93, C96, C99, C100, C117); `docs/architecture/fleet-d.md` s6 (D1, the compass
-round) and s7 (all round-1 amendments);
-`docs/architecture/geometry-cycle3.md` A7 (FTMO cut to seven);
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s57**
+(s57 ends with the NEXT SESSION list: follow it); every section of
+`handoffs/Handover/02_TRAPS.md` dated 2026-10-03, 2026-10-04 and
+**2026-10-05** (early, day); `handoffs/Handover/08_BACKLOG.md` (section C1;
+C93, C99, C123-C130); `docs/runbooks/monday-night-2026-10-05.md` and
+`docs/runbooks/monday-build-2026-10-05.md` (tonight, in full);
+`docs/runbooks/compass-round.md` (the loop; this week at cap 8);
+`docs/architecture/MEMO_2026-10-05_width_depth_counter_side.md` (today's
+rulings: cap 8, tight widths, deadband 2, the counter side);
+`docs/research/holdout-verdict-criteria.md` (ACCEPTED: the window opens
+5 Oct 22:00Z; nothing of it is computed before Friday's close);
+`docs/research/ftmo-pass-probability.md` (C124);
+`docs/research/markout-variance-study.md`; `scripts/ic_presets.py` (stage
+`round`) with `scripts/ic_geometry_r2.json` (PROVISIONAL round-2 table);
+`research/compass/README.md` and `round1.json`; `research/holdout/README.md`;
 `docs/architecture/ADR-165-continuous-reroll.md` (s4, s9, s10);
-`docs/runbooks/monday-build-2026-10-05.md` and `docs/runbooks/compass-round.md`
-(both in full: Monday's two jobs) and `docs/runbooks/monday-night-2026-10-05.md`
-(the night as one checklist, s54); `docs/runbooks/cap10-reload.md` (the
-next structural step, REVIEWED s51) and `scripts/ic_presets.py` with
-`scripts/ic_geometry.json` (its presets, provisional, s52); `prompts/cursor_v22a_c93_c100.md`
-(the open prompt); `docs/architecture/MEMO_2026-10-03_post_once_execution.md`;
-`docs/architecture/ADR-162-virtual-lattice.md` s13-s19;
-`docs/architecture/ADR-153-geometry-independence.md` (the L0 re-quote:
-drift max(D, S - W)); `docs/architecture/cycle4-live-geometry-search.md`
-s8 (the compass); `research/compass/README.md` (C91 scorer);
-`docs/runbooks/c63-commands.md` s6 (roll-watch);
-`handoffs/Handover/06_LINUX_WINE_BOX.md` s7, s9, s10;
-`handoffs/Handover/07_ROADMAP.md` (s1 FTMO's rule; GATE BEFORE REAL
-MONEY); `handoffs/Handover/09_EVENT_LOG.md` (add to it);
-`docs/research/markout-variance-study.md` (the operator's question
-whether the grid is plausible; first pass, s56);
+`docs/architecture/fleet-d.md` s6-s7; `handoffs/Handover/06_LINUX_WINE_BOX.md`
+s7, s9, s10; `handoffs/Handover/07_ROADMAP.md` (GATE BEFORE REAL MONEY);
+`handoffs/Handover/09_EVENT_LOG.md` (add to it);
 `handoffs/Handover/10_GEOMETRY_REGISTER.md`; then this.
 
 **YOUR FIRST REPLY, after the reading (operator's request, 2 Oct):**
 1. A short restate of the state as you found it in git (HEADs, fleets,
    anything in the docs that disagrees with itself).
 2. **A numbered list of questions for the PREVIOUS chat**, ready for the
-   operator to copy and paste across in ONE block: whatever the docs
-   leave unclear or that only the previous chat would know (live state
-   after the docs were written, half-finished steps, exact commands it
-   used, rulings it heard but may not have written down). Short,
-   specific, answerable in a line each; at most ~12. FXMatrix only
-   (mfperp is parked). The operator pastes the answers back; then
-   follow s56's NEXT SESSION list.
+   operator to copy and paste across in ONE block: live state after the
+   docs were written, half-finished steps, exact commands, rulings heard
+   but not written down. Short, answerable in a line each; at most ~12.
 Do not start any fleet action before the answers are in.
 
 ---
@@ -57,72 +45,51 @@ Do not start any fleet action before the answers are in.
 ## 0. THE MOST IMPORTANT FACTS
 
 **Four fleets live. Call the boxes by HOSTNAME:**
-- **Cycle 3** (VPS, FTMO 1514731800, `aa6970a`): **SEVEN instances**
-  since 2 Oct ~15:40Z (the ring: EURUSD, GBPUSD, EURGBP, AUDCHF, CADCHF,
-  NZDCAD, AUDNZD, all `_OPT`; geometry-cycle3 A7) after FTMO's warning:
-  **2,000 requests a day including modifications and cancellations,
-  repeats -> account disabled (C106)**. Reply sent by email (nothing on
-  method; "we definitely dont want to imply we are market making").
-  Keeps the ADR-160 gate and ADR-158 breaker ($500 limit is real).
-  After any `connection ... lost`, check for orphans (strip:
-  ORPHAN_EXT). `https://pipshed.com`.
-- **Builds since 2 Oct 14:16-14:55Z (API entry stop OFF, C100 hotfix):**
-  IC `893e065` (`hotfix-api-stop`), FTMO `aa6970a` (`hotfix-api-stop-ftmo`,
-  tag `vps-aa6970a`). Never run `deploy.ps1` on a branch (it pulls main).
-  C105 DONE 3 Oct: `main` `2859be6` = ADR-165 + the hotfix (2447/2447).
-- **Fleet B** (wine-test, IC 53066709): the ANCHOR, 11/11. Lattice ON.
-- **Fleet C** (wine-c, IC 53071896): D1 ADD probe, 11/11. Charts load
-  `Scripts\fxmatrix\fxgrind.ex5` (C88).
-- **Fleet D** (wine-d, IC 53077984): D1 EXIT probe, 11/11.
-- **B, C, D:** `InpBreakerEnable=false` (since 1 Oct 21:16-21:28Z) and
-  `InpStrandedThreshPips` = width + 1 (since 2 Oct 02:55-03:05Z; deadband
-  4): the empty side's L0 re-quotes after 4 pips of drift.
-- **IC stays at 11 instances until the Monday build** (Mon 5 Oct after
-  22:00Z): the six twins (magics 22260902, 22260802) retire by hand, the
-  repo goes to `main`, ONE file is compiled (wine-c: the Scripts copy),
-  `InpLatticeReroll=true` by F7 per chart; then pipshed C119. IC keeps
-  all nine pairs (compass data points; operator 3 Oct).
+- **Cycle 3** (VPS, FTMO 1514731800, `aa6970a`): SEVEN instances (EURUSD,
+  GBPUSD, EURGBP, AUDCHF, CADCHF, NZDCAD, AUDNZD `_OPT`); 2,000 requests a
+  day including modifications and cancellations (C106); ADR-160 gate and
+  ADR-158 breaker ($500 daily limit is real; the breaker closes nothing).
+  **FTMO decides the holdout verdict: no input change on A until the
+  verdict (Fri 9 Oct close, or 16 Oct if extended).** C93 can halt it
+  (`AMBIGUOUS_ADD_*`, 5 Oct GBPUSD): repair per traps 5 Oct day.
+- **IC B (wine-test, 53066709, anchor), C (wine-c, 53071896, add probe),
+  D (wine-d, 53077984, exit probe):** 11/11 each on `893e065` UNTIL
+  TONIGHT'S BUILD (Mon 5 Oct after 22:00Z): twins (magics 22260902,
+  22260802) retire by hand, repo to `main` (EA code `2859be6`), ONE file
+  compiled (wine-c: `Scripts/fxmatrix/fxgrind.mq5`, C88), re-roll ON by F7
+  per chart; then pipshed C119. Breaker off on B, C, D (no account-level
+  backstop once re-roll is ON).
+- **This week (operator 5 Oct): compass rounds at cap 8.** Round 1 is
+  scored tonight (both thresholds; the operator picks). Round 2's reload
+  Tue 6 Oct in session = tight widths (the tightest the ADR-153 guard
+  allows), S = W + 1, **deadband 2**, B anchor / C add probe / D exit
+  probe, from `ic_presets.py --stage round` (`_r2` presets). Round 2 = Wed
+  7 + Thu 8; round 3 reload Fri. Cap 10, the fixed-width table and the
+  AUDUSD scout are DEFERRED.
+- **Stuck sides re-roll on the first ticks after tonight's re-roll ON**
+  (EURGBP long B, C, D; EURUSD long B, C; NZDCHF long B, C, D at the 5 Oct
+  02:52Z read): expected, not a STOP.
 
-**Stuck sides:** a capped side with every layer rolled cannot roll once
-the market passes its next level until ADR-165 goes ON in the Monday
-build. Until then: commanded eject (Global Variable `GRIND_EJECT_<magic>`
-= ticket of the highest effective entry, long), the operator's call each
-time; read the Trade tab first; VNC paste does not reach MT5 (type
-tickets). Round 1's hand ejects are in `research/compass/round1.json`.
+**Operator rulings (do not re-open):** realised P&L decides a compass
+round (scalp P&L reported); equity decides the holdout; the one-hour
+markout is a proxy (no entry optimisation; C103 as ruled: "boring is
+best"); the flat side enters as fast as possible, passively (tight width);
+the deadband stays for requests; cap 8 this week; NZDCAD control; IC keeps
+nine pairs; no twins; no API limit may stop trading; no broker contact;
+post-once execution with one 2,000-request pool (C117); the 200
+positions+orders limit holds on IC too; mfperp parked.
 
-**D1 round 1:** FTMO days Fri 2 Oct + Mon 5 Oct; scored Mon 5 Oct after
-22:00Z (`research/compass/compass_score.py` + `round1.json`, runbook
-compass-round s4.2: study export, wine-c bid/ask, journals ->
-`disconnects.py`). Realised P&L decides; MTM reported only; hand ejects
-cut with salvage (>= 1 day) else VOID; NZDCAD is the control pair.
+**Reading live state:** WebFetch of
+`https://pipshed.com/api/telemetry/live?instance=<id>` works (summarised);
+for exact numbers the operator saves `/api/g/<token>/status{,_b,_c,_d}/<n>`
+to Downloads. Downloads and `D:\fxmatrix\temp` must be GRANTED each
+session (device folder access). **The bridge can keep the first version of
+a Downloads file name: re-deliver a corrected file under a NEW name and
+read it back** (traps 5 Oct day).
 
-**Operator rulings (do not re-open):** rings of seven pairs, each currency
-twice, NO twins, compass fleet against fleet, the SAME seven pairs on B,
-C, D (C96); cap 10 after the rings (C99); ADR-165 after round 1 (= an EA
-BUILD on B, C, D); C103: no depth gate ("boring is best"); no API limit
-may stop trading ("i do not want an api limit to stop trading"); FTMO
-cut by fewer instances, not a lower stop ("a sledgehammer"); no wind-
-down brake; no broker contact (FTMO too: no email, 3 Oct); FTMO stays on the desktop test terminal;
-post-once execution (C117) with ONE 2,000-request pool, first come first
-served; the 200 positions+orders limit holds on IC too ("software
-limitation. we tested this"); MyFundedPerps PARKED (3 Oct ~23:00Z, s50: "lets focus on fxmatrix - even when we dont have urgent fixes").
-
-**Reading live state:** WebFetch of `https://pipshed.com/api/telemetry/live?instance=<id>`
-works (summarised); the browser pane on the operator's desktop is
-allowed on pipshed.com (site) and can run page JS. For exact numbers the
-operator saves `/api/g/k7m9p2x4q/status{,_b,_c,_d}/<new segment>` to
-Downloads; Claude fits bid/ask from the books and infers VLs from exit
-targets (traps 2 Oct early). Downloads and `D:\fxmatrix\temp` must be
-GRANTED each session (device folder access).
-
-**Watch every night on B, C, D (C87):** no chart edits 20:50-21:15Z;
-carry pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after
-~21:00Z: 40 summaries, 34 after Monday; BOOT s6).
-
-**The ejection study's replay is FROZEN** (`ab5d4c8`); 1-7 Oct holdout
-(C84). **Never run `fxgrind_tests` on a terminal with live EAs. Compile
-ONE file, the one the charts load.** The telemetry key is never pasted,
-committed or screenshotted (crop so `TelemetryURL` is the last row).
+**Watch every night on B, C, D (C87):** no chart edits 20:50-21:15Z; carry
+pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
+40 summaries, 34 after tonight's build).
 
 ---
 
@@ -130,71 +97,55 @@ committed or screenshotted (crop so `TelemetryURL` is the last row).
 
 | | |
 |---|---|
-| fxmatrix `main` | `3164070` (docs s55) + the s56 docs patch; `f48f66c` (docs s54); `0c266b6` (docs s53); `63b8107` (docs s52); `d3bdf7b` IC presets generator, provisional per-side `_c10` / `_p2`); `c0f833d` s51; `ff4ad7e` s50 on `36a7ff3` (C91 GC-1 threshold, 48/48; tests `e488274`); `38079c9` (docs s49); `9be4bd3` (docs s48); `49fc41e` (docs s47; AUDUSD presets `4694471`; v2.2a prompt `1bb077a`). Branch `v22a-recon-api` `8a3ec0c`: v2.2a complete (C93 + C100 + the RECON_SCAN_RACE throttle), suite 2525/2525, DeepSeek done, NOT merged. EA code = `2859be6` (ADR-165 merged, default OFF; the API hotfix merged 3 Oct, C105); presets `4a1e30e` (`InpLatticeReroll=true`); IC boxes run `893e065` until the Monday build; suite 2447/2447 |
-| pipshed `main` | `bb6bb7a` (C113-C115 tables); 38/38 suites; `D:\pipshed` clean. NOT pushed, ONLY as patches in Downloads (go by the TREES: commit hashes differ per sandbox and change at `git am`): `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch` (C119: retire the six twins, B/C/D strips = nine; tree `e3b23a94`, 39/39): apply only AFTER the twins are removed. Then `pipshed_c121_audusd_APPLY_AFTER_C119_AT_CAP10_RELOAD.patch` (C121, AUDUSD scout; tree `ac81ba6d`): only after the AUDUSD charts are attached; then `pipshed_c123_side_add_APPLY_AFTER_C121.patch` (C123, per-side next level; tree `542d00de`): before the round-2 probe reload |
-| VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances; MetaTrader LiveUpdate pending (Later) |
-| wine-test (B) | `893e065`; `ssh box1`; VNC: `ssh -L 5910:localhost:5910 box1` (x11vnc `-forever`) |
-| wine-c (C) | `893e065` (Scripts copy); `ssh box2`; VNC 5911 the same way |
-| wine-d (D) | `893e065`; `root@216.128.158.33`; VNC 5912, x11vnc `-forever` |
+| fxmatrix `main` | `7ebcfe8` (presets stage `round`, tree `9c0ea540`); `6b15b07` memo; `67e5f02` C125 accepted; `7a52e27` T3 driver; `9672415` C124; `f5f0c93`; `239a45d`; `bb8b81d`; `54f0738` s56 + this s57 docs patch. EA code `2859be6`; branch `v22a-recon-api` `8a3ec0c` (v2.2a: C93 + C100 + the RECON_SCAN_RACE throttle, 2525/2525, NOT merged) |
+| pipshed `main` | `bb6bb7a`, 38/38. Patches in Downloads (go by the TREES): `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch` (tree `e3b23a94`): tonight, only after the twins are removed. C121 (AUDUSD) WAITS for AUDUSD; C123 must be REBUILT on C119 alone (it sits on C121); C129 geometry table to build |
+| VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances |
+| wine-test (B), wine-c (C), wine-d (D) | `893e065` until tonight; `/root/mon_logcheck.awk` installed (2688 bytes); `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 / 5912 |
 
----
-
-## 2. NEXT, IN ORDER (= HANDOFF s56 NEXT SESSION; backlog C1 is the critical path)
+## 2. NEXT, IN ORDER (= HANDOFF s57 NEXT SESSION)
 
 1. The questions for the previous chat (above).
-2. DONE 4 Oct ~03:05Z (s51): the cap-10 reload runbook reviewed by
-   Gemini (two reloads; wine-c Remove then Attach; 1.5 widths stand on
-   data). Gemini reads ATTACHED files only (traps 4 Oct early).
-3. DONE 4 Oct (s54): Sunday open checks, four reads, all clean.
-4. Mon 5 Oct after 22:00Z: score round 1 (BOTH thresholds printed:
-   fixed $1.19 and GC-1; the operator chooses); the Monday build;
-   pipshed C119; the IC twins' Global Variables (runbook s7, the gv
-   scripts). Then the verdict into `scripts/ic_geometry.json`, both
-   preset stages regenerated (`scripts/ic_presets.py`), and
-   `round2.json`.
-5. The cap-10 reload (first in-session slot after; cap10-reload s4);
-   pipshed C121; the hour's watch; round 2's probe reload; round 2.
-6. After the reload: v2.2a merge and deploy (`8a3ec0c`, 2525/2525; a
-   separate step); C98, C103 (own ADR), C117 checks and ADR, C118, C120,
-   C122, C84 after 7 Oct.
-7. mfperp: PARKED (s50).
-
----
+2. Mon 5 Oct after 22:00Z: `docs/runbooks/monday-night-2026-10-05.md` end
+   to end (score round 1; the build; pipshed C119).
+3. The verdict into `scripts/ic_geometry_r2.json`; `--stage round` dry run
+   then `--write`; the verdict and round-2 tables to Gemini (attached);
+   `round2.json`; one docs patch.
+4. Tue 6 Oct in session: the round-2 reload (wine-d first, GBPUSD pilot).
+5. Quiet slots: C123 rebuilt on C119; C129; then the width-guard change and
+   C127 to Gemini (one document).
+6. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
+   history dumps, the archive export, `research/holdout/holdout_verdict.py`.
+7. Later: v2.2a merge and deploy; C128 (cap 5 vs 8 round); C130.
 
 ## 3. TRAPS (full list in 02_TRAPS)
 
-- Inputs dialog: comments replace names (`InpBreakerEnable` = "ADR-158
-  account daily-loss breaker"); `InpStrandedThreshPips` and
-  `InpDeadbandPips` show their names and are in the CONFIG line. Read
-  `InpTelemetryInstance` first (twins), never Load, change one row, OK.
-- The L0 re-centre has no direction check: keep S >= W - D.
-- "Stuck" comes one add step before `ROLL_STRANDED`.
-- Retiring an instance: remove the EA (deinit 1, not F7 -> OK = 5),
-  entries first, Close By, then market; then pipshed's retired list.
+- Inputs dialog: comments replace names; read `InpTelemetryInstance` first,
+  never Load on the wrong chart, change one row, OK.
+- Retiring an instance: remove the EA (deinit 1), entries first, Close By,
+  then market; then pipshed's retired list.
+- Lowering the cap halts a deeper side (I7). FTMO's re-quote drift is S - W
+  (5-7 pips), not the deadband.
 - PowerShell: quote `"HEAD^{tree}"`. Before `git am`, check
-  `git log origin/main..HEAD` (a patch applied but not pushed).
+  `git log origin/main..HEAD`.
 - Grep logs, never paste them (UTF-16: `iconv`); `Select-String
-  -CaseSensitive`; Wine logs `MQL5/logs`, field 3 is the time; one shell
-  step per message.
-- Verify every agent claim in committed source; count every line.
-- Sandbox PG for pipshed suites: role `verify`, fresh database per suite.
-- Avoid pushing pipshed `main` at 20:50-21:00Z.
-
----
+  -CaseSensitive`; one shell step per message.
+- Verify every agent claim in committed source; count every line; clock
+  times from the clock tool.
 
 ## 4. WORKING PRACTICE
 
-- **One shell step per message**; say WHERE each command runs.
-  Plain-text pipshed URLs.
+- **One shell step per message**; say WHERE each command runs. Plain-text
+  pipshed URLs.
 - Docs and small fixes: Claude commits in its sandbox, `git format-patch`,
   checks `git am` on a clean clone at the base, delivers to Downloads with
-  the expected tree (and reads it back); the operator `git am`s, checks
-  the tree, pushes; Claude verifies on GitHub. **Claude never pushes.**
+  the expected tree (and reads it back); the operator `git am`s, checks the
+  tree, pushes; Claude verifies on GitHub and resets its sandbox. **Claude
+  never pushes.**
 - Features: spec (Gemini questions inside, RESTATE AND STOP first) ->
   Gemini -> Cursor on a branch -> Claude reads the commits -> suite ->
-  DeepSeek for anything that moves orders -> merge `--no-ff`. pipshed
-  fixes: tests first (predicted failures), then the fix, every suite on
-  a fresh scratch PG. One document at a time; one paste per step.
+  DeepSeek for anything that moves orders -> merge `--no-ff`. Research
+  code and pipshed: tests first (predicted failures), hand-derived values,
+  a mutation round. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 200
+Line count: 151

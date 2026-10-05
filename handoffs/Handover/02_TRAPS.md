@@ -1849,4 +1849,35 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   Experts log: prove a build with `archive_counts.py --table
   config_events --instance <id> --limit 2`.
 
-Line count: 1852
+## TRAPS FROM 2026-10-05 DAY (C93 ON FTMO, THE BRIDGE, FTMO'S S, PRE-REGISTRATION)
+
+- **C93 recurs on FTMO until v2.2a is there.** A halt `AMBIGUOUS_ADD_*`
+  is usually a duplicate read: grep the VPS Journal for the halt
+  millisecond (another instance's cancel completing then) and the halt's
+  own cancels (one add of that side = a duplicate read). Then GBPUSD's
+  trade lines since the halt (a `deal #` = an exit filled while halted;
+  read it before restarting, the 1 Oct I6 case). Repair: F7, read
+  `InpTelemetryInstance`, add ` x` to `InpConfigWarning`, OK; check
+  `deinit reason=5` and CONFIG, then both entries re-placed.
+- **The device bridge can keep the FIRST version of a file name in
+  Downloads.** A corrected patch saved under the same name read back as
+  the old one twice (C124, memo): re-deliver under a NEW name (`_r2`),
+  read it back, and say which file to apply.
+- **FTMO's empty-side re-quote is governed by S, not the deadband:**
+  cycle-3 presets have S = 2W (or W + 5 / W + 7), so the drift that
+  re-quotes is max(D, S - W) = 5-7 pips. Lowering D on FTMO changes
+  nothing unless S comes to W + 1 (IC has had S = W + 1 since 2 Oct).
+- **A pre-registered window is closed to analysis until it ends:** no
+  markout, VR, realised P&L or equity of 6-9 Oct computed before Friday's
+  close (criteria s6); status reads for safety continue. And FTMO (A),
+  which decides the verdict, gets no input change until then.
+- **Lowering the cap halts a deeper side** (I7, not quarantinable):
+  with re-roll on, capped sides stay at 8; a reload to a lower cap needs
+  every side at or below it first.
+- **Check Gemini's factual premises in the data:** GH-3 called FTMO the
+  first pass's "only control group"; 65% of its fills were IC's. GH-1's
+  mechanism (clustering biases the mean) was wrong, his remedy right.
+- **Clock times from the clock tool, every time:** a doc and a patch
+  said ~18:30Z for a run at ~17:40Z (corrected before delivery).
+
+Line count: 1883

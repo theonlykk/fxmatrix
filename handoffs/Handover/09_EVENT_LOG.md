@@ -14,6 +14,19 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 5 Oct 13:41-13:52Z -- FTMO GRIND_GBPUSD_OPT halted AMBIGUOUS_ADD_SHORT (A)
+- **What:** the collector read one resting short add twice while
+  CADCHF's instance cancelled an order in the same millisecond
+  (13:41:07.517Z); the halt cancelled GBPUSD's entries (one short add
+  #556944887 at 1.32088, one long entry #556941823 at 1.31903). The
+  second C93 halt on FTMO (AUDNZD 1 Oct).
+- **Handled:** VPS Journal grep (one short add; no GBPUSD deal during
+  the halt), then F7 restart with ` x` at 13:52:12Z: `deinit reason=5`,
+  CONFIG unchanged, entries re-placed at the same prices by 13:52:15Z.
+- **Changed:** nothing in code; v2.2a (C93) is built, not merged, not
+  on the VPS; a C93-only FTMO hotfix is the operator's call (C93).
+- **Evidence:** HANDOFF s57; 02_TRAPS 5 Oct day.
+
 ### 3 Oct (afternoon, before ~17:00Z) -- FTMO VPS: 43 retired Global Variables deleted by exact name (A)
 - **What:** the VPS terminal held 159 GRIND Global Variables; 43 belonged
   to the four instances retired on 2 Oct (32 retired-magic records, 11
@@ -461,4 +474,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 464
+Line count: 477
