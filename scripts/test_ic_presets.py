@@ -249,6 +249,12 @@ class TestTightWidth(unittest.TestCase):
         # GBPUSD: anchor 9/9, C probes 8 (L) and 10 (S): largest 10 -> 2.5; NZDCAD control 8/8 -> 2.0
         self.assertAlmostEqual(ip.round_width(GEO8, "GBPUSD"), 2.5)
         self.assertAlmostEqual(ip.round_width(GEO8, "NZDCAD"), 2.0)
+        # added after the mutation round (ignoring C's adds survived: GBPUSD's anchor 9 alone also gives 2.5):
+        # anchor 8, C probes 9 -> 9/4 = 2.25 -> 2.5 (the anchor alone would give 2.0)
+        geo = json.loads(json.dumps(GEO8))
+        geo["pairs"]["AUDNZD"] = {"anchor": {"L": {"add": 8, "exit": 10}, "S": {"add": 8, "exit": 10}},
+                                  "C": {"L": {"add": 9}, "S": {"add": 9}}}
+        self.assertAlmostEqual(ip.round_width(geo, "AUDNZD"), 2.5)
 
 
 class TestRoundPreset(unittest.TestCase):

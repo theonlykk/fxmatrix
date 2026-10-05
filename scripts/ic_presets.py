@@ -3,6 +3,7 @@
 
     python scripts/ic_presets.py --table scripts/ic_geometry.json --stage c10 [--write]
     python scripts/ic_presets.py --table scripts/ic_geometry.json --stage p2 [--write]
+    python scripts/ic_presets.py --table scripts/ic_geometry_r2.json --stage round [--write]
     python -m unittest scripts/test_ic_presets.py -v
 
 Two stages, two reloads (cap10-reload GW-1):
@@ -20,6 +21,10 @@ the ADR-153 guard (0.5 <= add / width <= 4.0). Per side: equal sides write the
 base input with the per-side inputs -1; different sides write the base = the
 long value and BOTH per-side inputs explicitly (the base must pass the guard
 too: fxgrind.mq5 174-200).
+Stage "round" (memo 2026-10-05: this week at cap 8): one reload per chart from its
+LIVE preset with the round's width (the tightest the guard allows for every add any
+fleet runs on the pair: ceil_0.5(max add / 4)), S = W + 1, the table's deadband and
+cap, and B / C / D's add and exit per side, into <pair>_opt_<f>_r<N>.set.
 Without --write nothing is written: a summary and every check is printed.
 """
 import argparse
@@ -203,15 +208,17 @@ def validate(base_text, out_text, width, cap=None, deadband=None):
             errs.append("%s changed from the base (%s -> %s)" % (k, base[k], p[k]))
     if p.get("TelemetryAPIKey", "") != "":
         errs.append("TelemetryAPIKey not blank")
-    if p["InpMaxLayers"] != str(CAP):
-        errs.append("InpMaxLayers %s, not %d" % (p["InpMaxLayers"], CAP))
+    want_cap = CAP if cap is None else int(cap)
+    if p["InpMaxLayers"] != str(want_cap):
+        errs.append("InpMaxLayers %s, not %d" % (p["InpMaxLayers"], want_cap))
     w = float(width)
     if abs(float(p["InpWidthPips"]) - w) > EPS or p["InpWidthPipsLong"] != "-1.0" or p["InpWidthPipsShort"] != "-1.0":
         errs.append("width not %s on both sides" % _num(w))
     if abs(float(p["InpStrandedThreshPips"]) - (w + 1.0)) > EPS:
         errs.append("InpStrandedThreshPips %s, not W + 1 = %s" % (p["InpStrandedThreshPips"], _num(w + 1)))
-    if p["InpDeadbandPips"] != DEADBAND:
-        errs.append("InpDeadbandPips %s, not %s" % (p["InpDeadbandPips"], DEADBAND))
+    want_db = DEADBAND if deadband is None else str(deadband)
+    if p["InpDeadbandPips"] != want_db:
+        errs.append("InpDeadbandPips %s, not %s" % (p["InpDeadbandPips"], want_db))
     for k, want in (("InpVirtualLattice", "true"), ("InpLatticeReroll", "true"),
                     ("InpAutoEject", "false"), ("InpBreakerEnable", "false")):
         if p.get(k) != want:
@@ -291,19 +298,66 @@ def build(geo, root, stage, c10_texts=None):
 # ---------------------------------------------------------------- this week's rounds at cap 8 (memo 2026-10-05)
 
 def tight_width(adds):
-    raise NotImplementedError("tests first")
+    """The tightest width the ADR-153 typo guard allows for these adds: ceil to the
+    half pip of max(adds) / 4 (the guard's upper bound, add / width <= 4.0)."""
+    return math.ceil(max(float(a) for a in adds) / 4.0 * 2.0 - EPS) / 2.0
 
 
 def round_width(geo, pair):
-    raise NotImplementedError("tests first")
+    """One width per pair on B, C and D: the tight width of every add any fleet runs
+    on the pair this round (the anchor's two sides and C's probes)."""
+    spec = geo["pairs"][pair]
+    adds = [spec["anchor"][s]["add"] for s in ("L", "S")]
+    if "C" in spec:
+        adds += [spec["C"][s]["add"] for s in ("L", "S")]
+    return tight_width(adds)
 
 
 def round_preset(base_text, width, adds, exits, fleet, pair, role, cap, deadband, rnd):
-    raise NotImplementedError("tests first")
+    """A chart's live preset with this round's width, S = W + 1, deadband, cap, add and
+    exit per side and the warning; every other key and the key order kept."""
+    w = float(width)
+    upd = {
+        "InpMaxLayers": str(int(cap)),
+        "InpWidthPips": _num(w),
+        "InpStrandedThreshPips": _num(w + 1.0),
+        "InpDeadbandPips": _num(float(deadband)),
+        "InpConfigWarning": _warning(fleet, "round %d %s %s: cap %d, width %s, deadband %s; lattice + reroll on"
+                                     % (int(rnd), pair, role, int(cap), _num(w), _num(float(deadband)))),
+    }
+    upd.update(side_fields("Add", adds[0], adds[1]))
+    upd.update(side_fields("Exit", exits[0], exits[1]))
+    return render(_set(parse(base_text), upd))
+
+
+def round_path(root, fleet, pair, rnd):
+    f = fleet.lower()
+    return os.path.join(root, "ea", "presets_" + f, "%s_opt_%s_r%d.set" % (pair.lower(), f, int(rnd)))
 
 
 def build_round(geo, root):
-    raise NotImplementedError("tests first")
+    """Returns ({path: text}, [errors]) for this round's presets on B, C, D from each
+    chart's live preset (the plan as p2_values: B anchor, C add probe, D exit probe,
+    the control on the anchor), checked by check_plan's probe rules and validate."""
+    out = {}
+    errs = [e for e in check_plan(geo) if "outside the guard" not in e]   # headroom is c10's rule
+    cap, db, rnd = int(geo["cap"]), float(geo["deadband"]), int(geo["round"])
+    plan = p2_values(geo)
+    for pair in geo["pairs"]:
+        w = round_width(geo, pair)
+        for f in FLEETS:
+            adds, exits, role = plan[(pair, f)]
+            base = _read(live_preset(root, f, pair))
+            text = round_preset(base, w, adds, exits, f, pair, role, cap, db, rnd)
+            path = round_path(root, f, pair, rnd)
+            errs += ["%s: %s" % (os.path.basename(path), e)
+                     for e in validate(base, text, w, cap=cap, deadband=_num(db))]
+            p = dict(parse(text))
+            if resolved(p, "Add") != tuple(float(x) for x in adds) or \
+                    resolved(p, "Exit") != tuple(float(x) for x in exits):
+                errs.append("%s: written add/exit differ from the plan" % os.path.basename(path))
+            out[path] = text
+    return out, errs
 
 
 def summary(files):
@@ -321,12 +375,24 @@ def summary(files):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="IC presets for the cap-10 reload and round 2")
     ap.add_argument("--table", required=True)
-    ap.add_argument("--stage", choices=("c10", "p2"), required=True)
+    ap.add_argument("--stage", choices=("c10", "p2", "round"), required=True)
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args(argv)
     geo = load_table(args.table)
     c10_texts = None
+    if args.stage == "round":
+        files, errs = build_round(geo, args.root)
+        print("\n".join(summary(files)))
+        if errs:
+            print("\n".join("ERROR " + e for e in errs))
+            return 1
+        print("%d files, 0 errors%s" % (len(files), "" if args.write else " (dry run: nothing written)"))
+        if args.write:
+            for path, text in files.items():
+                with open(path, "w", encoding="ascii", newline="\n") as fh:
+                    fh.write(text)
+        return 0
     if args.stage == "p2":
         c10_texts, e0 = build(geo, args.root, "c10")
         if e0:
