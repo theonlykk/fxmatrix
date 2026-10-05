@@ -5,7 +5,7 @@ This message has a line count at the bottom
 | | |
 |---|---|
 | Status | **FIRST PASS, exploratory** (Claude, 5 Oct ~03:20Z, HANDOFF s56). Not a ruling; no geometry change follows from it alone. Re-run on the 1-7 Oct holdout (C84) and on IC's own dumps before any conclusion |
-| Origin | Operator, 4 Oct ~03:00Z (the EUR grind): "i am wondering if the whole vision of how to trade fx is plausible ... in rates and credit you eventually lean against an arbitrage ... with spot fx you have no such thing to lean against"; and "my belief is that convexity is overpriced ... delta hedging an option feels like it is doing what we are doing - is that fair?" |
+| Origin | Operator, 5 Oct ~03:00Z (the EUR grind; Sun 4 Oct ~23:00 Toronto): "i am wondering if the whole vision of how to trade fx is plausible ... in rates and credit you eventually lean against an arbitrage ... with spot fx you have no such thing to lean against"; and "my belief is that convexity is overpriced ... delta hedging an option feels like it is doing what we are doing - is that fair?" |
 | Code | `research/markout/` (`vr.py`, `cal.py`, `markout.py`; README). Standard library only; reuses `research/ejection_value` loaders (imported, never changed) |
 | Data | FTMO `grind_bidask_dump` minute bars, 21 pairs, 20 Sep 21:05 - 3 Oct 07:30 server (`bidask_ftmo_2026-10-02/`, Downloads and the Surface); the archive export `archive_2026-10-02.jsonl` (fill_logs from 11 Sep) |
 
@@ -124,7 +124,9 @@ Random-walk Z(10) vs 4 h is about 0.85; VR(60) +/- 0.08, VR(240) +/- 0.15.
 
 ## 6. NEXT (proposals, nothing ruled)
 
-1. **Holdout:** re-run on 1-7 Oct (C84's window; the FTMO and IC dumps
+1. **Holdout:** NOT 1-7 Oct (1-2 Oct are in this sample): FTMO days
+   5-9 Oct, pre-registered in `docs/research/holdout-verdict-criteria.md`
+   (5 Oct ~04:20Z). Originally written: re-run on 1-7 Oct (C84's window; the FTMO and IC dumps
    for that week) with the code unchanged; the per-pair ranking and the
    L0-versus-depth pattern are the two things to confirm.
 2. **IC's own mid** for B, C, D fills (wine-c dumps), and markouts per
@@ -139,4 +141,4 @@ Random-walk Z(10) vs 4 h is about 0.85; VR(60) +/- 0.08, VR(240) +/- 0.15.
 5. **Pair selection by VR(60) / Z(10):** a cheap pre-screen for scouts
    and rings, beside spread / range (MEMO_2026-10-03 s8).
 
-Line count: 142
+Line count: 144

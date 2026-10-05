@@ -13,5 +13,5 @@ wine-c) and `archive_counts.py --export-archive`. First run 5 Oct ~03:20Z on
 
 No unit tests: an exploratory evidence run whose numbers are quoted in the
 study (the convention of `research/compass/d1_evidence.py`); `cal.py` is the
-calibration the measures are read against. Re-run unchanged on the 1-7 Oct
-holdout before any conclusion (study s6).
+calibration the measures are read against. Re-run unchanged on the 5-9 Oct
+holdout (`docs/research/holdout-verdict-criteria.md`; 1-2 Oct are in the first sample) before any conclusion (study s6).
