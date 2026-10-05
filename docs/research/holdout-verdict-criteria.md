@@ -90,7 +90,7 @@ run all three).
   group minus trending group, on B, C and D (A runs only AUDCHF of the
   trending group).
 - **T3c: total = realised + change in open MTM**, the reverting group
-  summed over A, B, C, D, open MTM marked at the MID at 22:30Z Sun 4 Oct
+  summed over A, B, C, D, open MTM marked at the MID at 22:30Z Mon 5 Oct
   and 20:45Z Fri 9 Oct (outside the rollover spreads), realised over the
   same span (`research/holdout/holdout_t3.py`).
 
@@ -165,6 +165,11 @@ SUPPORTED means "not shown in nine days", not "disproved".
 - **5 Oct ~18:30Z (after Gemini, before the window):** the verdict moved
   from T1 + T3 to V (FTMO's daily equity, day-bootstrap); the window to
   Tue 6 - Fri 9 Oct; T1, T2, T3, T4 reported only (s10).
+- **5 Oct ~21:05Z (a slip from GH-2, before the window opened):** T3
+  follows the window: T3c's first mark is 22:30Z Mon 5 Oct (was Sun 4
+  Oct) and `holdout_t3.py` `WINDOW` / `MARKS` start 5 Oct 22:00Z / 22:30Z,
+  four days (were 4 Oct, five). The 18:30Z amendment moved V's window but
+  not T3's. Tests pass windows explicitly (H1-H5 unchanged, 5/5).
 
 ## 9. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -217,4 +222,4 @@ check (5 Oct ~18:05Z-18:15Z).
   entry tests lean toward entry optimisation (C103: "boring is best"):
   T1, T2, T4 reported only; "equity matters the most": V decides.
 
-Line count: 220
+Line count: 225
