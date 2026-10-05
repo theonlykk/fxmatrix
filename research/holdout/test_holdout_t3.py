@@ -105,17 +105,23 @@ class TestT3(unittest.TestCase):
         self.assertAlmostEqual(r["t3b"]["D"], 0.5 / 15, places=9)
 
     def test_H5_t3c_realised_plus_change_in_mtm(self):
-        # one reverting layer: GBPUSD_OPTB long at 1.30000 opened before the first mark, open at both marks;
-        # bars: mid 1.29900 at mark 1 (-1.00), 1.30200 at mark 2 (+2.00); realised between the marks 1.50
-        # (another GBPUSD_OPTB layer closed at T0 + 7200, inside both spans): T3c = 1.50 + (2.00 - (-1.00)) = 4.50
+        # two GBPUSD_OPTB longs at 1.30000, both opened before the first mark (T0 - 600 < T0 + 800):
+        # layer 1 open at both marks; layer 2 closed at T0 + 7200 (between the marks) with net 1.50.
+        # mid 1.29900 at mark 1: both open, -1.00 each = -2.00; mid 1.30200 at mark 2: layer 1 only, +2.00.
+        # T3c = 1.50 + (2.00 - (-2.00)) = 5.50 (the tests commit wrote 4.50: it left layer 2 out of mark 1)
         m1, m2 = h.cs.utc(self.M[0]), h.cs.utc(self.M[1])
         bars = {"GBPUSD": ([m1 - 30, m2 - 30], [1.29895, 1.30195], [1.29905, 1.30205])}
         L = book(lay("GRIND_GBPUSD_OPTB", 1, "L", T0 - 600, 1.30000),
                  lay("GRIND_GBPUSD_OPTB", 2, "L", T0 - 600, 1.30000, T0 + 7200, 1.50))
         r = h.t3(L, {"B": bars}, window=self.W, marks=self.M)
-        self.assertAlmostEqual(r["t3c"], 4.50, places=6)
+        self.assertAlmostEqual(r["t3c"], 5.50, places=6)
         self.assertTrue(r["t3c_pass"])
         self.assertEqual(r["unpriced"], 0)
+        # mid 1.29600 at mark 2 (layer 1 -4.00): T3c = 1.50 + (-4.00 - (-2.00)) = -0.50: no pass
+        bars = {"GBPUSD": ([m1 - 30, m2 - 30], [1.29895, 1.29595], [1.29905, 1.29605])}
+        r = h.t3(L, {"B": bars}, window=self.W, marks=self.M)
+        self.assertAlmostEqual(r["t3c"], -0.50, places=6)
+        self.assertFalse(r["t3c_pass"])
 
 
 if __name__ == "__main__":

@@ -142,7 +142,11 @@ run all three).
 
 ## 8. AMENDMENTS
 
-(none)
+- **5 Oct ~17:55Z (method, before any window data):** T3 reads the
+  ARCHIVE export (`--export-archive`), not the 14-day study export (s5.3):
+  a layer opened more than 14 days before the window has no open price
+  in a 14-day export and could not be marked for T3c. The driver is
+  `research/holdout/holdout_t3.py` (tests first, H1-H5).
 
 ## 9. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -166,4 +170,4 @@ run all three).
   the deep side harvests. Is the fill's markout the right test of the
   hedge, or should only the counter side's realised net count?
 
-Line count: 169
+Line count: 173
