@@ -108,6 +108,18 @@ class TestStats(unittest.TestCase):
         out = fs.outliers(fs.entry_fills(rows), W, below=-5.0)
         self.assertEqual([x["deal"] for x in out], [12, 13])
 
+    def test_SL9_exactly_half_a_pip_is_not_worse_than_half(self):
+        # mutation survivor (v <= -0.5): -0.5 is worse, not worse than half a pip
+        s = fs.stats([-0.5, 0.2])
+        self.assertAlmostEqual(s["worse"], 0.5)
+        self.assertAlmostEqual(s["worse_half"], 0.0)
+
+    def test_SL10_an_ENT_row_that_is_not_IN_is_ignored(self):
+        # mutation survivor (entry_type filter dropped): role ENT with entry_type OUT
+        t = T("2026-10-07T03:00Z")
+        rows = [fill("GRIND_GBPUSD_OPTB", "L", t, 0.1),
+                fill("GRIND_GBPUSD_OPTB", "L", t, -3.0, entry="OUT")]
+        self.assertEqual([x["slip"] for x in fs.entry_fills(rows)], [0.1])
 
 if __name__ == "__main__":
     unittest.main()

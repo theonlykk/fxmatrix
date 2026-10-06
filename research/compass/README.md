@@ -83,4 +83,27 @@ filter, side filter, per-day divisor). Cross-check: on 28-30 Sep it
 reproduces `d1_evidence.py`'s ledger totals exactly (AUDCHF S B/C,
 EURGBP L B, GBPUSD L A).
 
-Line count: 86
+## fill_slippage.py -- fill slippage of entry limits (backlog C132)
+
+    python research/compass/fill_slippage.py --export <study_export.jsonl> --round research/compass/round2.json [--baseline research/compass/round1.json] [--fleets BCD] [--below -5]
+    python -m unittest research/compass/test_fill_slippage.py -v
+
+Gemini GR2-4's missing fact (compass-round2-review s6), REPORTED at a round's
+scoring, never deciding. Per pair, side and fleet, entry fills (fill_logs ENT /
+IN) inside the round's windows: n, mean and median `slippage_pips`, share worse
+than the limit, share worse than half a pip, the worst; a fleet total; every
+fill worse than `--below` listed with its deal and order tickets. The number
+is the EA's own (`grind_archive.mqh` 425-434, test AR12): POSITIVE = better
+than the limit. Fill time = `deal_time_broker_msc` - 3 h (server GMT+3 until
+1 Nov). A (FTMO) is left out unless `--fleets` names it (holdout, criteria s6).
+10 tests, hand-derived (SL1-SL8 failed at the tests-first commit as
+predicted; SL9-SL10 added for the two survivors of a fifteen-mutation round;
+then all fifteen caught).
+
+Round 1's windows on `study_2026-10-05_14d.jsonl`: median 0.0 on B, C, D;
+mean +0.12 / +0.15 / -0.01; 17-23% of fills worse than the limit, 1-2% by
+more than half a pip. Three fills worse than 5 pips, all at a liquidity
+moment: AUDNZD L D -14.1 and EURUSD S B -6.7 at 12:30:09Z Fri 2 Oct (US
+payrolls), AUDNZD L D -36.6 at 21:01:00Z Mon 5 Oct (IC's rollover hour).
+
+Line count: 109
