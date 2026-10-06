@@ -352,5 +352,121 @@ class TestHalfPip(unittest.TestCase):
         self.assertTrue(any("add probes only" in e for e in ip.check_plan(g)))
 
 
+BASE_V22 = BASE.replace("InpBreakerEnable=false\n",
+                        "InpBreakerEnable=false\nInpSessionEnable=false\nInpFillTimePlace=true\n"
+                        "InpSlotNearReserve=8\nInpEntryHorizonPips=0\nInpCapLegA=GBP\n")
+
+
+def hand_v22(text, gate):
+    """The three inputs of main (v2.2a + ADR-166) inserted BY HAND at the EA's positions
+    (fxgrind.mq5: InpRollGateOpposite after InpLatticeReroll; InpApiEntryStop and
+    InpApiSoftWarn after InpEntryHorizonPips)."""
+    return (text.replace("InpLatticeReroll=true\n", "InpLatticeReroll=true\nInpRollGateOpposite=%s\n" % gate)
+                .replace("InpEntryHorizonPips=0\n",
+                         "InpEntryHorizonPips=0\nInpApiEntryStop=1000000\nInpApiSoftWarn=999000\n"))
+
+
+class TestRollGate(unittest.TestCase):
+    """C133 / ADR-166 (operator 6 Oct ~20:37Z: the gate at 0 on every IC chart, built Wed 7 Oct).
+    A round table's "roll_gate" ({"B": n, "C": n, "D": n}, each an int >= -1) writes
+    InpRollGateOpposite per fleet, and with it InpApiEntryStop 1000000 / InpApiSoftWarn 999000
+    (v2.2a, C100: the values the EA defaults to), so the read-back shows all three. Without the
+    key a preset is written as before (old rounds rebuild byte-identically)."""
+
+    def out(self, gate=0):
+        return ip.round_preset(BASE_V22, 2.5, (9, 9), (10, 10), "B", "GBPUSD", "anchor", 8, 2.0, 2, roll_gate=gate)
+
+    def test_g1_keys_inserted_at_the_ea_positions(self):
+        """G1: exact key order, written out by hand from fxgrind.mq5's input order."""
+        want = ["InpMagic", "InpSlot", "InpWidthPips", "InpAddPips", "InpExitPips",
+                "InpWidthPipsLong", "InpWidthPipsShort", "InpAddPipsLong", "InpAddPipsShort",
+                "InpExitPipsLong", "InpExitPipsShort", "InpMaxLayers", "InpLots",
+                "InpStrandedThreshPips", "InpDeadbandPips", "InpEnableCarryPass",
+                "InpEnableCommandedEject", "InpAutoEject", "InpVirtualLattice", "InpLatticeReroll",
+                "InpRollGateOpposite", "InpBreakerEnable", "InpSessionEnable", "InpFillTimePlace",
+                "InpSlotNearReserve", "InpEntryHorizonPips", "InpApiEntryStop", "InpApiSoftWarn",
+                "InpCapLegA", "InpTelemetryInstance", "InpConfigWarning", "EnableTelemetry",
+                "TelemetryURL", "TelemetryAPIKey", "TelemetryIntervalSec"]
+        self.assertEqual([k for k, _ in ip.parse(self.out())], want)
+
+    def test_g2_values_and_nothing_else_changes(self):
+        """G2: gate 0, API 1000000 / 999000; of the base's keys only the round's four change
+        (as test_changes_and_values); the warning names the gate."""
+        p = kv(self.out())
+        self.assertEqual((p["InpRollGateOpposite"], p["InpApiEntryStop"], p["InpApiSoftWarn"]),
+                         ("0", "1000000", "999000"))
+        base = kv(BASE_V22)
+        changed = {k for k in base if base[k] != p[k]}
+        self.assertEqual(changed, {"InpWidthPips", "InpStrandedThreshPips", "InpDeadbandPips", "InpConfigWarning"})
+        self.assertIn("roll gate 0", p["InpConfigWarning"])
+        self.assertEqual(kv(self.out(-1))["InpRollGateOpposite"], "-1")
+
+    def test_g3_no_gate_no_new_keys(self):
+        """G3 (GUARD): roll_gate not given -> the base's keys exactly, as before this change."""
+        out = ip.round_preset(BASE_V22, 2.5, (9, 9), (10, 10), "B", "GBPUSD", "anchor", 8, 2.0, 2)
+        self.assertEqual([k for k, _ in ip.parse(out)], [k for k, _ in ip.parse(BASE_V22)])
+
+    def test_g4_validate_accepts_the_generated_preset(self):
+        """G4: the generated preset carries the gate and passes validate with gate=0."""
+        out = self.out()
+        self.assertIn("InpRollGateOpposite=0\n", out)
+        self.assertEqual(ip.validate(BASE_V22, out, 2.5, cap=8, deadband="2.0", gate=0), [])
+
+    def test_g5_validate_catches_each_rule(self):
+        """G5: on the base geometry (width 5, S 6, deadband 4, cap 8) with the three keys inserted by
+        hand: clean with gate 0 (and with "-1" when -1 is wanted); each mutation names its input."""
+        good = hand_v22(BASE_V22, "0")
+        v = lambda t, g=0: ip.validate(BASE_V22, t, 5.0, cap=8, deadband="4.0", gate=g)
+        self.assertEqual(v(good), [])
+        self.assertEqual(v(hand_v22(BASE_V22, "-1"), -1), [])
+        cases = [(good.replace("InpRollGateOpposite=0", "InpRollGateOpposite=1"), "InpRollGateOpposite"),
+                 (good.replace("InpRollGateOpposite=0\n", ""), "InpRollGateOpposite"),
+                 (good.replace("InpApiEntryStop=1000000", "InpApiEntryStop=1900"), "InpApiEntryStop"),
+                 (good.replace("InpApiSoftWarn=999000", "InpApiSoftWarn=1800"), "InpApiSoftWarn"),
+                 (good.replace("InpRollGateOpposite=0\nInpBreakerEnable=false",
+                               "InpBreakerEnable=false\nInpRollGateOpposite=0"), "order")]
+        for text, word in cases:
+            errs = v(text)
+            self.assertTrue(any(word in e for e in errs), (word, errs))
+
+    def test_g6_check_plan_reads_roll_gate(self):
+        """G6: a table's roll_gate: ints >= -1 for B, C and D; absent = no error (off)."""
+        def errs(rg):
+            g = json.loads(json.dumps(GEO8))
+            if rg is not None:
+                g["roll_gate"] = rg
+            return [e for e in ip.check_plan(g) if "roll_gate" in e]
+        self.assertEqual(errs(None), [])
+        self.assertEqual(errs({"B": 0, "C": 0, "D": 0}), [])
+        self.assertEqual(errs({"B": -1, "C": 2, "D": 0}), [])
+        for bad in ({"B": -2, "C": 0, "D": 0}, {"B": True, "C": 0, "D": 0},
+                    {"B": 0.5, "C": 0, "D": 0}, {"B": 0, "C": 0}, {"B": "0", "C": 0, "D": 0}):
+            self.assertTrue(errs(bad), bad)
+
+    def test_g7_repo_round2_table_writes_gate_0(self):
+        """G7: the committed round-2 table carries roll_gate 0 on B, C, D (operator 6 Oct ~20:37Z)
+        and build_round writes it with the API values on all 27, 0 errors."""
+        geo = ip.load_table(os.path.join(HERE, "ic_geometry_r2.json"))
+        self.assertEqual(geo.get("roll_gate"), {"B": 0, "C": 0, "D": 0})
+        files, errs = ip.build_round(geo, ROOT)
+        self.assertEqual(errs, [])
+        for path, text in files.items():
+            p = kv(text)
+            self.assertEqual((p.get("InpRollGateOpposite"), p.get("InpApiEntryStop"), p.get("InpApiSoftWarn")),
+                             ("0", "1000000", "999000"), path)
+
+    def test_g8_committed_r2_presets_carry_every_ea_input_in_order(self):
+        """G8: every committed *_r2.set holds exactly the EA's inputs (ea/fxgrind.mq5 `input` lines),
+        in the EA's order: a new EA input missing from a preset fails here."""
+        import glob
+        import re
+        with open(os.path.join(ROOT, "ea", "fxgrind.mq5"), encoding="utf-8", errors="replace") as fh:
+            ea = re.findall(r"^input\s+\S+\s+(\w+)", fh.read(), re.M)
+        files = sorted(glob.glob(os.path.join(ROOT, "ea", "presets_*", "*_r2.set")))
+        self.assertEqual(len(files), 27)
+        for f in files:
+            self.assertEqual([k for k, _ in ip.parse(ip._read(f))], ea, os.path.basename(f))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -43,6 +43,8 @@ HALF_FLOOR = 2.5       # a C add probe marked "half" (operator 6 Oct, round 2 EU
 CAP = 10
 DEADBAND = "4.0"
 EPS = 1e-9
+API_ENTRY_STOP = 1000000   # v2.2a C100 inputs: the EA defaults (fxgrind.mq5 42-43), written so the read-back shows them
+API_SOFT_WARN = 999000
 C10_CHANGES = {"InpMaxLayers", "InpWidthPips", "InpStrandedThreshPips", "InpConfigWarning"}
 
 
@@ -209,7 +211,7 @@ def check_plan(geo):
     return errs
 
 
-def validate(base_text, out_text, width, cap=None, deadband=None):
+def validate(base_text, out_text, width, cap=None, deadband=None, gate=None):   # gate: STUB (tests first)
     errs = []
     a, b = parse(base_text), parse(out_text)
     if [k for k, _ in a] != [k for k, _ in b]:
@@ -325,7 +327,7 @@ def round_width(geo, pair):
     return tight_width(adds)
 
 
-def round_preset(base_text, width, adds, exits, fleet, pair, role, cap, deadband, rnd):
+def round_preset(base_text, width, adds, exits, fleet, pair, role, cap, deadband, rnd, roll_gate=None):   # roll_gate: STUB
     """A chart's live preset with this round's width, S = W + 1, deadband, cap, add and
     exit per side and the warning; every other key and the key order kept."""
     w = float(width)
