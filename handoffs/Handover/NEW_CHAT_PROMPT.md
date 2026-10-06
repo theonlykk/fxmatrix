@@ -10,8 +10,8 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s59**
-(s59 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s60**
+(s60 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-03, 2026-10-04 and
 **2026-10-05** (early, day, night); `handoffs/Handover/08_BACKLOG.md` (section C1;
 C93, C99, C123-C130); `docs/runbooks/monday-night-2026-10-05.md` and
@@ -99,21 +99,22 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 
 | | |
 |---|---|
-| fxmatrix `main` | the s58 patch on `83a8f0d`: `6895c59` C125 T3 window, `51c27b8` / `e121fe2` half-pip probe rule, `646a387` round-2 table + 27 `_r2` presets + register, then the s58 docs (pre-am hashes: verify by TREE). EA code `2859be6`; branch `v22a-recon-api` `8a3ec0c` (v2.2a: C93 + C100 + the RECON_SCAN_RACE throttle, 2525/2525, NOT merged) |
-| pipshed `main` | `96e0fba` (C119, tree `e3b23a94`), 39/39. C121 (AUDUSD) WAITS for AUDUSD; C123 must be REBUILT on `96e0fba`; C129, C131 to build |
+| fxmatrix `main` | the s60 docs on `15b5f30` s59 docs (tree `7f454155`) and `b438420` round-2 presets without promotion, on `dd71202` s58 (`5e7a412` presets, `e14fd5d` / `6656097` half-pip rule, `613af08` T3 window). EA code `2859be6`; branch `v22a-recon-api` `8a3ec0c` (v2.2a: C93 + C100 + the RECON_SCAN_RACE throttle, 2525/2525, NOT merged) |
+| pipshed `main` | `b023565` (C129 geometry table, tree `b40a0834`; on `96e0fba` C119), 40/40. C121 (AUDUSD) WAITS for AUDUSD; C123 must be REBUILT on `b023565`; C131 to build |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances, frozen for the holdout (window 5 Oct 22:00Z - 9 Oct 21:00Z) |
 | wine-test (B), wine-c (C), wine-d (D) | `main` since 5 Oct 22:38 / 22:59 / 23:16Z (D / C / B), re-roll ON; `/root/mon_logcheck.awk` installed; `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 (both `-once`) / 5912 |
 
-## 2. NEXT, IN ORDER (= HANDOFF s59 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s60 NEXT SESSION)
 
 1. The questions for the previous chat (above).
 2. (Done 6 Oct ~01:40Z: Gemini on the round tables; s59.)
 3. Tue 6 Oct in session: the round-2 reload on B, C, D (`_r2`, F7 + Load,
-   read back; wine-d first, GBPUSD pilot; done before 22:00Z); register
+   read back; wine-d first, GBPUSD pilot; done before 22:00Z; check each
+   box on pipshed's geometry table, C129); register
    rows; `round2.json` (windows 6 Oct 22:00Z - 8 Oct 22:00Z, control,
    reload times).
 4. Quiet slots: the twins' Global Variables (monday-build s7); C123
-   rebuilt on `96e0fba`; C131; C129; the width-guard change and C127 to
+   rebuilt on `b023565`; C131; C88; the width-guard change and C127 to
    Gemini (one document).
 5. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
    history dumps, the archive export, `research/holdout/holdout_verdict.py`.
@@ -150,4 +151,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   a mutation round. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 153
+Line count: 154

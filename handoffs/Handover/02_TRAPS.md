@@ -1914,4 +1914,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   off the screen (22:35:05) was before the copy; the rows (22:38:01)
   and the archive `ea_build` settle it.
 
-Line count: 1917
+## TRAPS FROM 2026-10-06 EARLY (PIPSHED TABLES, GEMINI ON ROUND 2)
+
+- **pipshed's `renderFleetBooks(...)` call string is pinned by two tests**
+  (C114 QG5 and C115 QT6 match the exact arguments): a new strip table
+  gets its own renderer and its own line in `fetchFleetStrip` (C129's
+  `renderFleetGeometry`), not a fourth argument.
+- **The geometry table shows what each EA runs, not what a preset says:**
+  per-side values come from v2.0 heartbeats; FTMO's `aa6970a` sends only
+  the base (long) values, shown for both sides. S and the deadband are
+  not in any heartbeat.
+- **Gemini on a round's tables reasoned from structure he did not have**
+  (GR2-2: "re-roll defers losses", it realises them sooner; GR2-4: the
+  width is set by the pair's largest add, not the probe; GR2-6: GC-1 is
+  re-estimated every round). Give him the mechanism with lines (re-roll
+  s5, the width rule, compass s4.3) in the document, not only the tables.
+
+Line count: 1933
