@@ -9459,6 +9459,9 @@ void OnStart()
    Test_RG12_OnTickPassesOppositeDepth();
    Test_RG13_DipNotReplayedAtRelease();
    Test_RG14_GatedPathLeavesClosingAndBackoff();
+   Test_RG15_GatedInBackoffRestarts();
+   Test_RG16_InitRestart();
+   Test_RG17_ShortRestartWhileGated();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }

@@ -1220,6 +1220,11 @@ void Grind_LatticeRollGateRestartExtreme(const bool is_long)
 }
 
 //+------------------------------------------------------------------+
+void Grind_LatticeRollGateInitRestart(const int gate)
+{
+}
+
+//+------------------------------------------------------------------+
 void Grind_LatticeRollDeferredNote(const GrindSideState &side, const bool is_long,
                                    const double add_pips, const int max_layers,
                                    const int gate, const int opposite_depth)

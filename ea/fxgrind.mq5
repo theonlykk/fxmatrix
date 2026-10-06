@@ -362,6 +362,7 @@ int OnInit()
    Print("GRIND_LATTICE enable=", InpVirtualLattice);
    Print("GRIND_REROLL enable=", InpLatticeReroll);
    Print("GRIND_ROLL_GATE opposite_max=", InpRollGateOpposite);
+   Grind_LatticeRollGateInitRestart(InpRollGateOpposite);
    Print("GRIND_API_LIMITS entry_stop=", g_grind_api_entry_stop, " soft_warn=", g_grind_api_soft_warn);
    Print("GRIND_GEOMETRY long width=", DoubleToString(g_geo_width_long, 4),
          " add=", DoubleToString(g_geo_add_long, 4),

@@ -126,7 +126,7 @@ void Test_RG7_ShortMirror()
    Grind_MarketTestSeed(1.19400, 1.19410, 0, 0);
    AssertEqInt("RG7a (F)", Adr166_TryShort(ADR166_T0, false, 0, 1), 0);
    AssertFalse("RG7b (F)", Grind_VLHas(7101UL));
-   AssertEqInt("RG7c (G)", Adr166_TryShort(ADR166_T0 + 1, false, 0, 0), 1);
+   AssertEqInt("RG7c (F)", Adr166_TryShort(ADR166_T0 + 1, false, 0, 0), 1);
    AssertNear("RG7d (G)", Grind_VLGet(7101UL), 1.19400, 1e-9);
    Adr162b_Reset();
 }
@@ -245,6 +245,75 @@ void Test_RG14_GatedPathLeavesClosingAndBackoff()
    AssertTrue("RG14b (F)", g_grind_vl_closing_since_long == ADR166_T0 - 30);
    AssertEqInt("RG14c (F)", g_grind_vl_fail_count_long, 2);
    AssertTrue("RG14d (G)", Adr162b_ArchiveFind("ROLL_CLOSING_STUCK", 0) == "");
+   Adr162b_Reset();
+}
+
+//+------------------------------------------------------------------+
+void Test_RG15_GatedInBackoffRestarts()
+{
+   Adr162b_SeedLong8();
+   Grind_MarketTestSeed(1.20590, 1.20600, 0, 0);
+   Grind_MarketTestSeedTimeMsc(1790000000000);
+   g_grind_vl_backoff_long = ADR166_T0 + 30;
+   g_grind_vl_fail_count_long = 1;
+   g_grind_vl_extreme_long = 1.20190;
+   g_grind_vl_tracking_long = false;
+   const int rc = Grind_LatticeTrySide(g_grind_long, true, 22260101UL, "OPT", 0.01, 5.0, 10.0, 8,
+                                       true, false, ADR166_T0, 1.20190, false, 0, 1);
+   AssertNear("RG15a (F)", g_grind_vl_extreme_long, 0.0, 1e-9);
+   AssertTrue("RG15b (F)", g_grind_vl_tracking_long);
+   AssertTrue("RG15c (G)", g_grind_vl_backoff_long == ADR166_T0 + 30);
+   AssertEqInt("RG15d (G)", g_grind_vl_fail_count_long, 1);
+   AssertEqInt("RG15e (G)", rc, 0);
+   AssertTrue("RG15f (F)", Adr162b_ArchiveFind("ROLL_DEFERRED", 0) != "");
+   Grind_MarketTestReset();
+   Adr162b_Reset();
+}
+
+//+------------------------------------------------------------------+
+void Test_RG16_InitRestart()
+{
+   Adr162b_Reset();
+   Grind_MarketTestSeedTimeMsc(1790000000000);
+   g_grind_vl_extreme_long = 1.20190;
+   g_grind_vl_tracking_long = false;
+   g_grind_vl_from_msc_long = 1000;
+   g_grind_vl_extreme_short = 1.21000;
+   g_grind_vl_tracking_short = false;
+   g_grind_vl_from_msc_short = 2000;
+   Grind_LatticeRollGateInitRestart(-1);
+   AssertNear("RG16a (G)", g_grind_vl_extreme_long, 1.20190, 1e-9);
+   AssertTrue("RG16b (G)", g_grind_vl_from_msc_short == 2000);
+   Grind_LatticeRollGateInitRestart(0);
+   AssertNear("RG16c (F)", g_grind_vl_extreme_long, 0.0, 1e-9);
+   AssertTrue("RG16d (F)", g_grind_vl_from_msc_long == 1790000000001);
+   AssertTrue("RG16e (F)", g_grind_vl_tracking_short);
+   AssertNear("RG16f (F)", g_grind_vl_extreme_short, 0.0, 1e-9);
+   Grind_MarketTestSeedTimeMsc(0);
+   g_grind_vl_extreme_long = 1.20190;
+   g_grind_vl_from_msc_long = 1000;
+   g_grind_vl_tracking_long = false;
+   Grind_LatticeRollGateInitRestart(0);
+   AssertNear("RG16g (G)", g_grind_vl_extreme_long, 1.20190, 1e-9);
+   AssertTrue("RG16h (G)", g_grind_vl_from_msc_long == 1000);
+   Grind_MarketTestReset();
+   Adr162b_Reset();
+}
+
+//+------------------------------------------------------------------+
+void Test_RG17_ShortRestartWhileGated()
+{
+   Adr162b_SeedShort8();
+   Grind_MarketTestSeed(1.19400, 1.19410, 0, 0);
+   Grind_MarketTestSeedTimeMsc(1790000000000);
+   g_grind_vl_extreme_short = 1.19800;
+   g_grind_vl_tracking_short = false;
+   g_grind_vl_from_msc_short = 1000;
+   Adr166_TryShort(ADR166_T0, false, 0, 1);
+   AssertNear("RG17a (G)", g_grind_vl_extreme_short, 0.0, 1e-9);
+   AssertTrue("RG17b (G)", g_grind_vl_tracking_short);
+   AssertTrue("RG17c (G)", g_grind_vl_from_msc_short == 1790000000001);
+   Grind_MarketTestReset();
    Adr162b_Reset();
 }
 
