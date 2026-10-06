@@ -10,8 +10,8 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s60**
-(s60 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s61**
+(s61 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-03, 2026-10-04 and
 **2026-10-05** (early, day, night); `handoffs/Handover/08_BACKLOG.md` (section C1;
 C93, C99, C123-C130); `docs/runbooks/monday-night-2026-10-05.md` and
@@ -63,7 +63,8 @@ Do not start any fleet action before the answers are in.
 - **This week (operator 5 Oct): compass rounds at cap 8.** Round 1 scored
   (GC-1 $2.55; promoted EURUSD L add 6, AUDCAD L exit 9, AUDNZD S add 7).
   **No promotion this round** (GR2-1, operator 6 Oct): the winners repeat
-  as probes. Round 2's reload Tue 6 Oct in session from the 27 `_r2`
+  as probes. **Round 2's reload DONE 6 Oct 03:18-03:35Z** (BAD 0;
+  `research/compass/round2.json`) from the 27 `_r2`
   presets (tight widths, S = W + 1, deadband 2; EURGBP L C add 2.5, the one
   half-pip probe; `docs/research/compass-round2-review.md` s6).
   Round 2 = Wed 7 + Thu 8; round 3 reload Fri 9, its days Mon 12 + Tue 13.
@@ -104,15 +105,14 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances, frozen for the holdout (window 5 Oct 22:00Z - 9 Oct 21:00Z) |
 | wine-test (B), wine-c (C), wine-d (D) | `main` since 5 Oct 22:38 / 22:59 / 23:16Z (D / C / B), re-roll ON; `/root/mon_logcheck.awk` installed; `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 (both `-once`) / 5912 |
 
-## 2. NEXT, IN ORDER (= HANDOFF s60 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s61 NEXT SESSION)
 
 1. The questions for the previous chat (above).
-2. (Done 6 Oct ~01:40Z: Gemini on the round tables; s59.)
-3. Tue 6 Oct in session: the round-2 reload on B, C, D (`_r2`, F7 + Load,
-   read back; wine-d first, GBPUSD pilot; done before 22:00Z; check each
-   box on pipshed's geometry table, C129); register
-   rows; `round2.json` (windows 6 Oct 22:00Z - 8 Oct 22:00Z, control,
-   reload times).
+2. (Done 6 Oct: Gemini on the round tables, s59; the round-2 reload
+   03:18-03:35Z, s61.) Tue 6 Oct: a status read (halts, guards, the
+   counter-side fills at the new widths, requests); the carry pass.
+3. Thu 8 Oct after 22:00Z: score round 2 (`round2.json`; the IC bid / ask
+   dump compulsory; GC-1 from the round's own control; realised decides).
 4. Quiet slots: the twins' Global Variables (monday-build s7); C123
    rebuilt on `b023565`; C131; C88; the width-guard change and C127 to
    Gemini (one document).

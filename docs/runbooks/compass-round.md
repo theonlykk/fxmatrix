@@ -270,6 +270,8 @@ s6): **no promotion this round** (a WIN repeats once under the new structure
 before promotion; the winners repeat as probes); probes as planned (no
 baseline round); EURGBP L C add 2.5 stands; the flips stand; **open MTM
 reported at every scoring from round 2 (the IC bid / ask dump compulsory),
-realised decides**.
+realised decides**. **Reloaded 6 Oct 03:18-03:35Z** (D 03:18-03:22, C
+03:25-03:28, B 03:32-03:35; BAD 0; HANDOFF s61); round file
+`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z.
 
-Line count: 275
+Line count: 277

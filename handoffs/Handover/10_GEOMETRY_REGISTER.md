@@ -29,21 +29,23 @@ This file holds the rules and a readable view of what is live now.
   the git history of `ea/presets` (e.g. `e1efa23` 19 Sep), live times
   unverified; backfill only if needed.
 
-## LIVE NOW (1 Oct ~06:50Z; A's retirements 2 Oct; the IC twins retired 5 Oct night; width / add / exit pips, cap 8 everywhere)
+## LIVE NOW (round 2 from 6 Oct 03:18-03:35Z; width / add / exit pips, "L / S" where the sides differ; cap 8 everywhere; deadband 2 and S = W + 1 on B, C, D)
 
-| pair | A: cycle 3 (FTMO) | B: wine-test (anchor) | C: wine-c (ADD probe, D1) | D: wine-d (EXIT probe, D1) |
+| pair | A: cycle 3 (FTMO, frozen) | B: wine-test (anchor) | C: wine-c (ADD probe) | D: wine-d (EXIT probe) |
 |---|---|---|---|---|
-| GBPUSD | 5 / 10 / 10 | 5 / 9 / 10 | 5 / 8 / 10 | 5 / 9 / 9 |
-| EURUSD | 7 / 8 / 10 | 7 / 7 / 10 | 7 / 6 / 10 | 7 / 7 / 9 |
-| EURGBP | 3 / 4 / 5 | 3 / 3 / 5 | 3 / 4 / 5 (floor: +1) | 3 / 3 / 4 |
-| AUDCAD | retired 2 Oct | 5 / 6 / 10 | 5 / 5 / 10 | 5 / 6 / 9 |
-| AUDCHF | 5 / 6 / 10 | 5 / 4 / 10 | 5 / 3 / 10 | 5 / 4 / 9 |
-| CADCHF | 5 / 6 / 10 | 5 / 4 / 10 | 5 / 3 / 10 | 5 / 4 / 9 |
-| NZDCHF | retired 2 Oct | 3 / 3 / 10 | 3 / 4 / 10 (floor: +1) | 3 / 3 / 9 |
-| NZDCAD (OPT) | 5 / 10 / 10 | 5 / 8 / 10 | 5 / 8 / 10 (anchor) | 5 / 8 / 10 (anchor) |
-| NZDCAD (ALT dup) | retired 2 Oct | retired 5 Oct 23:08:50Z | retired 5 Oct 22:48:43Z | retired 5 Oct 22:20:23Z |
-| AUDNZD (OPT) | 7 / 10 / 10 | 7 / 8 / 10 | 7 / 8 / 10 (anchor) | 7 / 8 / 10 (anchor) |
-| AUDNZD (ALT dup) | retired 2 Oct | retired 5 Oct 23:08:43Z | retired 5 Oct 22:48:51Z | retired 5 Oct 22:20:31Z |
+| GBPUSD | 5 / 10 / 10 | 2.5 / 9 / 10 | 2.5 / 8 / 10 | 2.5 / 9 / 9 |
+| EURUSD | 7 / 8 / 10 | 2 / 7 / 10 | 2 / 6 / 10 | 2 / 7 / 11 |
+| EURGBP | 3 / 4 / 5 | 1 / 3 / 5 | 1 / 2.5 L, 4 S / 5 | 1 / 3 / 6 L, 4 S |
+| AUDCAD | retired 2 Oct | 1.5 / 6 / 10 | 1.5 / 5 / 10 | 1.5 / 6 / 9 |
+| AUDCHF | 5 / 6 / 10 | 1 / 4 / 10 | 1 / 3 / 10 | 1 / 4 / 9 |
+| CADCHF | 5 / 6 / 10 | 1 / 4 / 10 | 1 / 3 / 10 | 1 / 4 / 11 L, 9 S |
+| NZDCHF | retired 2 Oct | 1 / 3 / 10 | 1 / 4 / 10 | 1 / 3 / 9 |
+| NZDCAD (control) | 5 / 10 / 10 | 2 / 8 / 10 | 2 / 8 / 10 | 2 / 8 / 10 |
+| AUDNZD | 7 / 10 / 10 | 2 / 8 / 10 | 2 / 7 / 10 | 2 / 8 / 9 |
+
+The six IC twins retired 5 Oct (B 23:08Z, C 22:48Z, D 22:20Z). Round 1's
+table (1 Oct ~06:50Z) is in the CSV's closed rows. pipshed's geometry
+table (C129) shows the same from the heartbeats.
 
 History: Fleet B ran A's geometry from 24 Sep ~02:50Z until the B1
 reloads (27 Sep 23:05-23:51Z). C matched B from 28 Sep until the D1
@@ -53,7 +55,8 @@ change anywhere is D1 on D (the first live ADR-163 rebuild).
 
 ## NEXT EXPECTED ROWS
 
-**5 Oct night (HANDOFF s58):** the six twins' rows are closed. Next:
+**6 Oct 03:18-03:35Z (HANDOFF s61): round 2's rows are open** (30: 27
+instances, three split per side). Before: the six twins' rows closed 5 Oct. Planned then:
 Tuesday 6 Oct's round-2 reload on B, C, D: a row for every instance
 (27; per side where add or exit differ) from `ea/presets_{b,c,d}/*_r2.set`
 (`646a387`), with the tight widths (GBPUSD 2.5, EURUSD / NZDCAD / AUDNZD
@@ -73,4 +76,4 @@ seven (AUDCAD and NZDCHF dropped) were WITHDRAWN 3 Oct: IC keeps the
 nine pairs (C96; compass-round s3).** The 1 Oct `InpBreakerEnable=false` change on B, C, D
 is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged. **2 Oct: FTMO (A) retired GRIND_AUDNZD_ALT, GRIND_NZDCAD_ALT (15:14Z), GRIND_AUDCAD_OPT and GRIND_NZDCHF_OPT (~15:40Z); rows closed in the CSV; A runs seven (geometry-cycle3 A7). The table above marks them retired.**
 
-Line count: 76
+Line count: 79
