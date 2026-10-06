@@ -311,5 +311,46 @@ class TestRoundBuild(unittest.TestCase):
                          {"GBPUSD": "2.5", "EURGBP": "1.0", "AUDCAD": "1.5", "NZDCAD": "2.0"})
 
 
+class TestHalfPip(unittest.TestCase):
+    """A C add probe marked "half": true sits exactly 0.5 pip from the anchor and at or above
+    2.5 (operator 5 Oct ~00:00Z, round 2 EURGBP long: C lost at add 4, the flip to 2 is below
+    the add-3 floor, so C probes 2.5). Probes without the mark keep the one-pip and add-3 rules."""
+
+    def geo(self, c_long):
+        # EURGBP anchor 3 / 5 both sides; C short 4 (one pip), D exits 4 (one pip)
+        return {"control": "NZDCAD", "scouts": [], "pairs": {"EURGBP": {
+            "anchor": {"L": {"add": 3, "exit": 5}, "S": {"add": 3, "exit": 5}},
+            "C": {"L": c_long, "S": {"add": 4}},
+            "D": {"L": {"exit": 4}, "S": {"exit": 4}}}}}
+
+    def eurgbp_errs(self, c_long):
+        return [e for e in ip.check_plan(self.geo(c_long)) if "outside the guard" not in e]
+
+    def test_h1_half_pip_inward_accepted(self):
+        """H1: add 2.5 marked half, 0.5 below the anchor's 3 -> no error."""
+        self.assertEqual(self.eurgbp_errs({"add": 2.5, "half": True}), [])
+
+    def test_h2_unmarked_half_pip_rejected(self):
+        """H2 (GUARD): add 2.5 without the mark -> 'not one pip from the anchor' (unchanged rule)."""
+        self.assertTrue(any("not one pip" in e for e in self.eurgbp_errs({"add": 2.5})))
+
+    def test_h3_marked_probe_must_be_half_a_pip_away(self):
+        """H3: add 2 marked half is 1.0 from the anchor -> 'not half a pip from the anchor'."""
+        self.assertTrue(any("not half a pip" in e for e in self.eurgbp_errs({"add": 2, "half": True})))
+
+    def test_h4_half_pip_floor(self):
+        """H4: anchor 2.5 is itself below the add-3 floor; a half probe at 2.0 (0.5 below it) is below
+        the 2.5 half-pip floor -> 'below the half-pip floor 2.5'."""
+        g = self.geo({"add": 2.0, "half": True})
+        g["pairs"]["EURGBP"]["anchor"]["L"]["add"] = 2.5
+        self.assertTrue(any("half-pip floor" in e for e in ip.check_plan(g)))
+
+    def test_h5_half_on_exit_probe_rejected(self):
+        """H5: the mark is for C's add probe only; on D's exit -> 'half pips on add probes only'."""
+        g = self.geo({"add": 4})
+        g["pairs"]["EURGBP"]["D"]["L"] = {"exit": 4.5, "half": True}
+        self.assertTrue(any("add probes only" in e for e in ip.check_plan(g)))
+
+
 if __name__ == "__main__":
     unittest.main()
