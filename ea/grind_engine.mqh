@@ -704,6 +704,8 @@ datetime g_grind_vl_closing_since_long    = 0;
 datetime g_grind_vl_closing_since_short   = 0;
 bool     g_grind_vl_closing_warned_long   = false;
 bool     g_grind_vl_closing_warned_short  = false;
+bool     g_grind_vl_deferred_noted_long   = false;
+bool     g_grind_vl_deferred_noted_short  = false;
 // test seam: used whenever g_grind_order_test_active is true
 long     g_grind_vl_test_tick_msc[];
 double   g_grind_vl_test_tick_bid[];
@@ -805,6 +807,7 @@ void Grind_LatticeTrackOneSide(const GrindSideState &side, const bool is_long,
          g_grind_vl_closing_ticket_long = 0;
          g_grind_vl_closing_since_long = 0;
          g_grind_vl_closing_warned_long = false;
+         g_grind_vl_deferred_noted_long = false;
       } else {
          g_grind_vl_tracking_short = false;
          g_grind_vl_extreme_short = 0.0;
@@ -813,6 +816,7 @@ void Grind_LatticeTrackOneSide(const GrindSideState &side, const bool is_long,
          g_grind_vl_closing_ticket_short = 0;
          g_grind_vl_closing_since_short = 0;
          g_grind_vl_closing_warned_short = false;
+         g_grind_vl_deferred_noted_short = false;
       }
       return;
    }
@@ -913,6 +917,8 @@ void Grind_LatticeResetBackoff()
    g_grind_vl_closing_since_short = 0;
    g_grind_vl_closing_warned_long = false;
    g_grind_vl_closing_warned_short = false;
+   g_grind_vl_deferred_noted_long = false;
+   g_grind_vl_deferred_noted_short = false;
    Grind_LatticeTestTicksReset();
 }
 
@@ -1199,14 +1205,85 @@ void Grind_LatticeMaybeStranded(const GrindSideState &side, const bool is_long,
 }
 
 //+------------------------------------------------------------------+
+void Grind_LatticeRollGateRestartExtreme(const bool is_long)
+{
+   const long t = Grind_MarketTimeMsc();
+   if(is_long) {
+      g_grind_vl_tracking_long = true;
+      g_grind_vl_extreme_long = 0.0;
+      g_grind_vl_from_msc_long = t + 1;
+   } else {
+      g_grind_vl_tracking_short = true;
+      g_grind_vl_extreme_short = 0.0;
+      g_grind_vl_from_msc_short = t + 1;
+   }
+}
+
+//+------------------------------------------------------------------+
+void Grind_LatticeRollGateInitRestart(const int gate)
+{
+   if(gate < 0)
+      return;
+   if(Grind_MarketTimeMsc() <= 0)
+      return;
+   Grind_LatticeRollGateRestartExtreme(true);
+   Grind_LatticeRollGateRestartExtreme(false);
+}
+
+//+------------------------------------------------------------------+
+void Grind_LatticeRollDeferredNote(const GrindSideState &side, const bool is_long,
+                                   const double add_pips, const int max_layers,
+                                   const int gate, const int opposite_depth)
+{
+   if(is_long) {
+      if(g_grind_vl_deferred_noted_long)
+         return;
+   } else if(g_grind_vl_deferred_noted_short) {
+      return;
+   }
+   if(Grind_SideDepth(side) < max_layers)
+      return;
+   const double level = Grind_Normalize(Grind_ComputeAddTarget(side, is_long, add_pips));
+   if(level <= 0.0)
+      return;
+   const double mkt = is_long ? Grind_MarketAsk() : Grind_MarketBid();
+   if(!Grind_LatticeLevelCrossed(is_long, mkt, level))
+      return;
+   const int depth = Grind_SideDepth(side);
+   const string detail =
+      "{\"side\":\"" + (is_long ? "L" : "S") + "\",\"depth\":" + IntegerToString(depth) +
+      ",\"opposite_depth\":" + IntegerToString(opposite_depth) +
+      ",\"gate\":" + IntegerToString(gate) +
+      ",\"level\":" + Grind_ArchiveJsonDouble(level, 5) +
+      ",\"market\":" + Grind_ArchiveJsonDouble(mkt, 5) + "}";
+   Grind_ArchiveMarker("INFO", "ROLL_DEFERRED", is_long ? "L" : "S", 0, detail);
+   Print("INFO ROLL_DEFERRED ", detail);
+   if(is_long)
+      g_grind_vl_deferred_noted_long = true;
+   else
+      g_grind_vl_deferred_noted_short = true;
+}
+
+//+------------------------------------------------------------------+
 int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong magic,
                          const string slot, const double lots, const double exit_pips,
                          const double add_pips, const int max_layers, const bool enabled,
                          const bool blocked, const datetime now,
-                         const double extreme = 0.0, const bool reroll = false)
+                         const double extreme = 0.0, const bool reroll = false,
+                         const int roll_gate = -1, const int opposite_depth = 0)
 {
    if(!enabled || blocked)
       return 0;
+
+   if(Grind_RollGateHolds(roll_gate, opposite_depth)) {
+      Grind_LatticeRollGateRestartExtreme(is_long);
+      Grind_LatticeRollDeferredNote(side, is_long, add_pips, max_layers, roll_gate, opposite_depth);
+      return 0;
+   }
+   if(is_long)
+      g_grind_vl_deferred_noted_long = false;
+   else
+      g_grind_vl_deferred_noted_short = false;
 
    datetime backoff = is_long ? g_grind_vl_backoff_long : g_grind_vl_backoff_short;
    if(now < backoff)
@@ -1315,7 +1392,8 @@ void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots
                          const bool enabled, const double exit_pips, const double add_pips,
                          const int max_layers, const bool blocked, const datetime now,
                          const double exit_pips_short = 0.0,
-                         const double add_pips_short = 0.0, const bool reroll = false)
+                         const double add_pips_short = 0.0, const bool reroll = false,
+                         const int roll_gate = -1)
 {
    if(!enabled)
       return;
@@ -1325,12 +1403,14 @@ void Grind_LatticeOnTick(const ulong magic, const string slot, const double lots
 
    if(Grind_SideDepth(g_grind_long) >= max_layers)
       Grind_LatticeTrySide(g_grind_long, true, magic, slot, lots, exit_pips, add_pips, max_layers,
-                           enabled, blocked, now, g_grind_vl_extreme_long, reroll);
+                           enabled, blocked, now, g_grind_vl_extreme_long, reroll, roll_gate,
+                           Grind_SideDepth(g_grind_short));
    if(Grind_SideDepth(g_grind_short) >= max_layers) {
       const double exit_s = Grind_SidePips(false, exit_pips, exit_pips_short);
       const double add_s = Grind_SidePips(false, add_pips, add_pips_short);
       Grind_LatticeTrySide(g_grind_short, false, magic, slot, lots, exit_s, add_s,
-                           max_layers, enabled, blocked, now, g_grind_vl_extreme_short, reroll);
+                           max_layers, enabled, blocked, now, g_grind_vl_extreme_short, reroll,
+                           roll_gate, Grind_SideDepth(g_grind_long));
    }
 }
 

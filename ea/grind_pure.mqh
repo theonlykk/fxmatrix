@@ -436,6 +436,16 @@ bool Grind_LatticeRerollPaused(const datetime server_now)
    return (m >= 23 * 60 + 50) || (m < 15);
 }
 
+bool Grind_ValidateRollGateInputs(const bool lattice, const int gate)
+{
+   return gate == -1 || (gate >= 0 && lattice);
+}
+
+bool Grind_RollGateHolds(const int gate, const int opposite_depth)
+{
+   return gate >= 0 && opposite_depth > gate;
+}
+
 bool Grind_ValidateApiLimitInputs(const int entry_stop, const int soft_warn)
 {
    return (entry_stop >= 1 && soft_warn >= 1 && soft_warn <= entry_stop);
