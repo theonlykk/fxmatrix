@@ -162,7 +162,7 @@ too, so its record is continuous.
 7. **Gemini** reviews the round's verdict table and probe table before
    any reload (the method once: this document; per round: the tables and
    any deviation from it).
-8. **Reload in session:** spreads under every width; never 20:50-21:00Z
+8. **Reload in session:** spreads under every width; never 20:50-21:15Z
    or within 30 minutes of a tier-1 release; wine-d first, GBPUSD pilot;
    per chart pass = `deinit=5`, `geo=` and `rebuild=` as expected, POST
    ok; STOP on FATAL, CRITICAL, `INVARIANT_FAIL`, `RECON_FAIL`,
@@ -261,7 +261,7 @@ $1.19 also reported). Promoted: EURUSD L add 6 (C +4.20), AUDCAD L exit 9
 S D -3.61, EURGBP L C -6.32 and D -4.38, CADCHF L D -4.71. VOID: NZDCHF L
 (C, D), AUDCHF L C. The rest REPEAT. Disconnects inside the windows: none.
 Interventions: the three of `round1.json`. Then the Monday build
-(structural). Round 2's table: `scripts/ic_geometry_r2.json` (`646a387`);
+(structural). Round 2's table: `scripts/ic_geometry_r2.json` (`5e7a412`; `646a387` before `git am`; then `b438420` without promotion);
 HANDOFF s58.
 
 **Round 2** (FTMO days Wed 7 + Thu 8; reload Tue 6 Oct). Gemini GR2-1..GR2-6
@@ -272,6 +272,6 @@ baseline round); EURGBP L C add 2.5 stands; the flips stand; **open MTM
 reported at every scoring from round 2 (the IC bid / ask dump compulsory),
 realised decides**. **Reloaded 6 Oct 03:18-03:35Z** (D 03:18-03:22, C
 03:25-03:28, B 03:32-03:35; BAD 0; HANDOFF s61); round file
-`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z.
+`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z. Geometry checked on pipshed (C129) at 04:01Z: every B, C, D cell as the table (HANDOFF s62).
 
 Line count: 277

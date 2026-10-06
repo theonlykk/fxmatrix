@@ -14,6 +14,22 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 6 Oct 03:18-03:35Z -- compass round 2 reload: 27 IC charts by hand (B, C, D)
+- **What:** round 2's presets loaded on every IC chart (F7 + Load, read
+  back before OK): tight widths (GBPUSD 2.5, EURUSD / NZDCAD / AUDNZD 2.0,
+  AUDCAD 1.5, the rest 1.0), S = W + 1, deadband 2 (from 4), the probes
+  without promotion. wine-d 03:18-03:22Z, wine-c 03:25-03:28Z, wine-test
+  03:32-03:35Z (GBPUSD pilot first on each).
+- **Handled:** per box the preset fingerprint, `SAME_EXCEPT_KEY` x 9, the
+  log checker after the pilot and the eight (BAD 0; `rebuild=true` only
+  where D's exits changed); the archive clean for the hour; pipshed's
+  geometry table at 04:01Z: every cell as the table.
+- **Changed:** round 2 = FTMO days Wed 7 + Thu 8; the counter-side entry
+  1-2.5 pips from the market and re-quoted after 2 pips of drift. A
+  (FTMO) unchanged (holdout).
+- **Evidence:** HANDOFF s61, s62; `docs/runbooks/round-reload.md`;
+  `research/compass/round2.json`; register rows.
+
 ### 5 Oct 22:20-23:21Z -- the Monday build: six IC twins closed by hand, B, C, D to `main`, re-roll ON (B, C, D)
 - **What:** a structural change on all three IC fleets (C95, C96): the
   twins (NZDCAD and AUDNZD ALT) removed (deinit 1) and their books closed
@@ -499,4 +515,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 502
+Line count: 518

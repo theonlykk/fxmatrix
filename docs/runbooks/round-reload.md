@@ -12,7 +12,7 @@ This message has a line count at the bottom
 
 - The presets are on GitHub `main` (the generator's dry run 0 errors, then
   `--write`, committed, pushed by the operator).
-- The fingerprint per fleet (`<f>` = b, c, d; `N` = the round):
+- The fingerprint per fleet (`<f>` = b, c, d; `N` = the round), run from the repo root:
 
       for f in ea/presets_<f>/*_rN.set; do sha256sum $f | cut -c1-64; done | sha256sum | cut -c1-12
 

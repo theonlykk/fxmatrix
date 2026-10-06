@@ -59,7 +59,7 @@ change anywhere is D1 on D (the first live ADR-163 rebuild).
 instances, three split per side). Before: the six twins' rows closed 5 Oct. Planned then:
 Tuesday 6 Oct's round-2 reload on B, C, D: a row for every instance
 (27; per side where add or exit differ) from `ea/presets_{b,c,d}/*_r2.set`
-(`646a387`), with the tight widths (GBPUSD 2.5, EURUSD / NZDCAD / AUDNZD
+(`5e7a412`; `646a387` before `git am`; loaded: `b438420`), with the tight widths (GBPUSD 2.5, EURUSD / NZDCAD / AUDNZD
 2.0, AUDCAD 1.5, the rest 1.0); deadband 2 is a note, not a row. Cap 10,
 the fixed widths and AUDUSD are deferred (memo 2026-10-05); the text
 below is as written before that.

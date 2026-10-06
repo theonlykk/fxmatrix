@@ -1939,4 +1939,19 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   round's presets with the deadband and the probes; a widths-only reload
   is a second structural change.
 
-Line count: 1942
+## TRAPS FROM 2026-10-06 DAY (READING PIPSHED, WORK BETWEEN MESSAGES)
+
+- **pipshed from a new chat:** WebFetch of `/fleets/<n>` timed out twice
+  and the sandbox shell cannot reach pipshed.com (the proxy refuses the
+  CONNECT, 403). The desktop app's built-in browser pane opens the URL
+  and its JavaScript tool parses the JSON on the page: one call for the
+  geometry, one for the fleet cards (live, halted, guard, api, MTM,
+  today). Nothing is saved to Downloads; quote `generated_at`.
+- **Claude does not work between the operator's messages:** a turn ends
+  with the reply. "I'll do X meanwhile" means X is done in that same
+  turn or not at all (4-14Z on 6 Oct: nothing was done).
+- **x11vnc mode differs by box:** wine-d `-forever`; wine-test and wine-c
+  were started `-once` for the round-2 reload (BOOT said `-forever` on
+  all three). Check `pgrep -a x11vnc` before relying on a viewer.
+
+Line count: 1957
