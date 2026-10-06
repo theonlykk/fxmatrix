@@ -1,5 +1,5 @@
 {
- "status": "PROVISIONAL round 2 at cap 8 (5 Oct ~19:10Z; operator: cap 8 this week, tight widths, deadband 2 on B, C, D; memo 2026-10-05). Anchors = Fleet B's values; probes repeat round 1's direction. Tonight's round-1 verdict edits it per pair and SIDE; then `--stage round` regenerates the _r2 presets.",
+ "status": "ROUND 2 at cap 8 from round 1's verdict under GC-1 $2.55 (operator 5 Oct ~22:15Z). Promoted: EURUSD L add 6 (C), AUDCAD L exit 9 (D), AUDNZD S add 7 (C); winners probe one pip further. Losers flip across the anchor: EURUSD L/S exit 11 (D), EURGBP L exit 6 (D), CADCHF L exit 11 (D). EURGBP L add (C) LOST at 4 and its flip (2) is below the add-3 floor: C probes 2.5, half a pip inward (operator 6 Oct ~00:00Z, choice 2; to Gemini with the tables). REPEAT and VOID repeat round 1's probe; AUDNZD's probes move from the twins to the _OPT C and D. NZDCAD control. Deadband 2, tight widths.",
  "cap": 8,
  "deadband": 2.0,
  "width": "tight",
@@ -38,7 +38,7 @@
   "EURUSD": {
    "anchor": {
     "L": {
-     "add": 7,
+     "add": 6,
      "exit": 10
     },
     "S": {
@@ -48,7 +48,7 @@
    },
    "C": {
     "L": {
-     "add": 6
+     "add": 5
     },
     "S": {
      "add": 6
@@ -56,10 +56,10 @@
    },
    "D": {
     "L": {
-     "exit": 9
+     "exit": 11
     },
     "S": {
-     "exit": 9
+     "exit": 11
     }
    }
   },
@@ -76,7 +76,8 @@
    },
    "C": {
     "L": {
-     "add": 4
+     "add": 2.5,
+     "half": true
     },
     "S": {
      "add": 4
@@ -84,7 +85,7 @@
    },
    "D": {
     "L": {
-     "exit": 4
+     "exit": 6
     },
     "S": {
      "exit": 4
@@ -95,7 +96,7 @@
    "anchor": {
     "L": {
      "add": 6,
-     "exit": 10
+     "exit": 9
     },
     "S": {
      "add": 6,
@@ -112,7 +113,7 @@
    },
    "D": {
     "L": {
-     "exit": 9
+     "exit": 8
     },
     "S": {
      "exit": 9
@@ -168,7 +169,7 @@
    },
    "D": {
     "L": {
-     "exit": 9
+     "exit": 11
     },
     "S": {
      "exit": 9
@@ -222,7 +223,7 @@
      "exit": 10
     },
     "S": {
-     "add": 8,
+     "add": 7,
      "exit": 10
     }
    },
@@ -231,7 +232,7 @@
      "add": 7
     },
     "S": {
-     "add": 7
+     "add": 6
     }
    },
    "D": {
