@@ -10,8 +10,9 @@ is used). Read ADR-162 s1-s5, ADR-165 (`docs/architecture/ADR-165-continuous-rer
 s1-s5 and s9, and this prompt in full. Written by Claude from source at
 `8a3ec0c` (EA code), 6 Oct ~17:30Z. Line numbers are that code.
 
-This prompt is also the design record (ADR-166) until the merge; Gemini
-reviews THIS file (s9) before Cursor starts.
+This prompt is also the design record (ADR-166) until the merge. Gemini
+reviewed it 6 Oct ~17:05Z (s9 questions; s10 his rulings, Claude's check
+and the one change: RG14 added).
 
 ## 0. RESTATE AND STOP (do this first, then wait)
 
@@ -98,8 +99,8 @@ parameters are trailing with defaults).
    true;`; C3 STUB `return false;`; C5 as written; C6 and C7 STUBS (empty
    bodies); C8 and C9 add the parameters, the C8 block and the pass-through
    ONLY (with C3 stubbed the gate never holds, so behaviour is unchanged);
-   C11, C12. Commit message: tests first, the predicted failures (28) and
-   guards (23).
+   C11, C12. Commit message: tests first, the predicted failures (31) and
+   guards (24).
 2. **Implementation:** C2, C3, C6, C7 as written. Nothing else.
 
 Do not compile (the operator compiles and runs the suite in MetaEditor on the
@@ -206,9 +207,20 @@ via the folded dip exactly as VC3 (so a, b fail); after the fix the gated
 tick (the dip is older) and the live ask 1.20700 does not cross 1.20600;
 the 10:02 ask 1.20600 does.
 
-Totals: **51 assertions; 28 F, 23 G.** At commit 1 the operator's suite
-reads 2576 total, 2548 passing, exactly the 28 F failing; at commit 2
-2576/2576. ANY other count, any G failing, or any existing test changing:
+**RG14 the gated path leaves closing state and backoff alone** (4; Gemini
+GR6-7): LB6 setup, then `g_grind_vl_closing_ticket_long = 7001UL;
+g_grind_vl_closing_since_long = ADR166_T0 - 30; g_grind_vl_closing_warned_long = false;
+g_grind_vl_fail_count_long = 2;` then `Adr166_TryLong(ADR166_T0, false, 0, 1)`:
+a F `g_grind_vl_closing_ticket_long == 7001UL`; b F
+`g_grind_vl_closing_since_long == ADR166_T0 - 30`; c F
+`g_grind_vl_fail_count_long == 2`; d G `ROLL_CLOSING_STUCK` #0 == "".
+(At commit 1 the gate never holds: the call rolls 7001, zeroes the fail
+count after the successful roll and resets the closing state at the end of
+`TrySide`, A5; no `Grind_LatticeNoteClosing` call either way.)
+
+Totals: **55 assertions; 31 F, 24 G.** At commit 1 the operator's suite
+reads 2580 total, 2549 passing, exactly the 31 F failing; at commit 2
+2580/2580. ANY other count, any G failing, or any existing test changing:
 STOP and report (s7).
 
 ## 6. NEGATIVE SPACE
@@ -245,7 +257,7 @@ STOP and report (s7).
 
 ## 8. REPORT
 
-Per commit: hash, files, `git diff --stat`; the 51 assertion names with
+Per commit: hash, files, `git diff --stat`; the 55 assertion names with
 their tags; for commit 1 your own re-derivation of each F/G against the
 stubs (agree / disagree with reason). No suite figure.
 
@@ -283,4 +295,31 @@ stubs (agree / disagree with reason). No suite figure.
   booking fewer roll losses whatever happens to equity (P1). Missing fact?
 - **GR6-7** Any test you would add, or any F/G tag you derive differently?
 
-Line count: 286
+## 10. GEMINI'S RULINGS (6 OCT ~17:05Z) AND CLAUDE'S CHECK
+
+Gemini read this file as an attachment; his answers pasted by the operator;
+each premise checked against `8a3ec0c` by Claude.
+- **GR6-1 ACCEPTED (no throttle on first rolls at release).** His figure
+  "a 3-request burst" understates it: first rolls go up to `max_layers` per
+  call (LB7: five), about three requests each, so a long deferral can send
+  up to ~24 at once on one side. The ruling stands; the burst is bounded by
+  the gap over `add` and is visible in `ROLL_ACCEPTED`.
+- **GR6-2 ACCEPTED (filled layers only).** His mechanism matches source: an
+  empty side re-places its L0 at mid +/- width on the next call, so
+  counting resting entries would re-gate at once.
+- **GR6-3 ACCEPTED (restart `from_msc` to market time + 1 ms).**
+- **GR6-4 ACCEPTED (`ROLL_DEFERRED` INFO; no `ROLL_STRANDED` while gated).**
+- **GR6-5 ACCEPTED (8/8 holds both sides), reason corrected.** "Margin
+  consumption is catastrophic" is not the binding constraint at 0.01 lots
+  (slots are, guard 194), and a roll realises nothing when it is placed,
+  only when its exit fills. The reason that stands: at 8/8 the inner layers
+  keep scalping; only rolls stop.
+- **GR6-6 ACCEPTED (equity scoring).** He names fleet C; the plan is
+  wine-d (fleet D) at N = 0 on the anchor geometry (backlog C133).
+- **GR6-7: RG14 ADDED.** His request mentions `Grind_LatticeResetBackoff`,
+  which `TrySide` never calls (A8: a test reset only); the point that
+  stands is that the gated path must leave the closing state and the
+  backoff / fail count untouched (C8), now pinned by RG14. His F/G
+  re-derivations for RG3, RG4, RG8, RG9, RG11, RG13 agree with s5.
+
+Line count: 325
