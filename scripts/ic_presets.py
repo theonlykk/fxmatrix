@@ -39,6 +39,7 @@ ACCOUNT = {"B": ("IC Markets demo 53066709", "wine-test"),
            "D": ("IC Markets demo 53077984", "wine-d")}
 GUARD_MIN, GUARD_MAX = 0.5, 4.0
 ADD_FLOOR = 3          # half pips and adds below 3 are OPEN (compass-round s9)
+HALF_FLOOR = 2.5       # a C add probe marked "half" (operator 6 Oct, round 2 EURGBP long)
 CAP = 10
 DEADBAND = "4.0"
 EPS = 1e-9
@@ -188,6 +189,17 @@ def check_plan(geo):
                     v = spec[fleet][side][kind]
                 except KeyError:
                     errs.append("%s %s %s: no %s probe" % (pair, fleet, side, kind))
+                    continue
+                if spec[fleet][side].get("half"):
+                    if kind != "add":
+                        errs.append("%s %s %s: half pips on add probes only" % (pair, fleet, side))
+                        continue
+                    if abs(abs(v - anchor) - 0.5) > EPS:
+                        errs.append("%s %s %s: half probe %s is not half a pip from the anchor %s"
+                                    % (pair, fleet, side, v, anchor))
+                    if v < HALF_FLOOR - EPS:
+                        errs.append("%s %s %s: add probe %s below the half-pip floor %s"
+                                    % (pair, fleet, side, v, HALF_FLOOR))
                     continue
                 if abs(abs(v - anchor) - 1) > EPS:
                     errs.append("%s %s %s: %s probe %s is not one pip from the anchor %s"
