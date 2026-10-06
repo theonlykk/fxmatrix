@@ -28,6 +28,7 @@
 #include "fxgrind_tests_adr164.mqh"
 #include "fxgrind_tests_adr165.mqh"
 #include "fxgrind_tests_v22a.mqh"
+#include "fxgrind_tests_adr166.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9444,6 +9445,20 @@ void OnStart()
    Test_AL7_PublishAndCheck();
    Test_RN1_WarnDue();
    Test_RN2_NoteThrottles();
+   Test_RG1_ValidateRollGateInputs();
+   Test_RG2_RollGateHolds();
+   Test_RG3_FirstRollHeld();
+   Test_RG4_GateOpenOrOff();
+   Test_RG5_RerollHeld();
+   Test_RG6_ThresholdN2();
+   Test_RG7_ShortMirror();
+   Test_RG8_ExtremeRestartsWhileGated();
+   Test_RG9_MarkerOncePerEpisode();
+   Test_RG10_NoMarkerWhenNoRollDue();
+   Test_RG11_GatedSideNotStranded();
+   Test_RG12_OnTickPassesOppositeDepth();
+   Test_RG13_DipNotReplayedAtRelease();
+   Test_RG14_GatedPathLeavesClosingAndBackoff();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
