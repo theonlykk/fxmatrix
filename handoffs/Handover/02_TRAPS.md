@@ -1954,4 +1954,27 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   were started `-once` for the round-2 reload (BOOT said `-forever` on
   all three). Check `pgrep -a x11vnc` before relying on a viewer.
 
-Line count: 1957
+## TRAPS FROM 2026-10-06 AFTERNOON (ADR-166 THROUGH THE PIPELINE)
+
+- **"First call X()" in a prompt is ambiguous:** it reads as "make X
+  the first statement" or "call X before the first call of Y". Cursor
+  placed `Grind_MarketTestReset()` where neither was meant. Name the
+  line it goes after (quoted), and say whether it is setup or cleanup.
+- **`AssertEqInt` on a `long` or `datetime` truncates** (MetaEditor
+  warns, and a test can pass on the low 32 bits). Use
+  `AssertTrue(name, x == y)` for every long comparison; say so in the
+  prompt.
+- **Cursor's branches track `origin/main`:** `git status` on the branch
+  says "diverged". Ignore it; never `git pull` a feature branch. Prompts
+  check `git rev-parse --short HEAD` against
+  `git rev-parse --short origin/<branch>` after `git fetch`.
+- **Reconcile the suite count with the F / G totals to the test:** at
+  `47facb4` the suite read 2548/2580, one fewer passing than the 31 F
+  predicted (2549): RG7c, tagged G, fails at the stubs (the first call
+  already rolls). Derive each tag by walking the stub path, and treat ANY
+  difference in the count as a finding before reading the FAIL list.
+- **pipshed's C80 MQ6 test double keeps only the LAST query's SQL:** a
+  new query in `build_critical_list` runs before `CRITICAL_EVENTS_SQL`
+  (C131) or MQ6 breaks.
+
+Line count: 1980

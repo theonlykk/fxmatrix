@@ -124,4 +124,9 @@ existing test changing (other than RG7c's label): STOP and report.
   it is (D3). Object?
 - **GE6-3** Any test you would add, or any F/G tag you derive differently?
 
-Line count: 127
+**Gemini, 6 Oct ~19:45Z (recorded after the merge, `d57fe9b`):** GE6-1
+accepted (caveat: a spike during downtime while the gate is open is
+lost; the next live crossing rolls); GE6-2 accepted (`blocked` stays
+before the gate); GE6-3 every tag confirmed, no tests added.
+
+Line count: 132
