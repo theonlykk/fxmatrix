@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | Claude, 5 Oct ~00:50Z (HANDOFF s54). Commands rehearsed against `main` `0c266b6` in the sandbox where they can be (s3.3 diff, the log checker on a synthetic UTF-16 log under awk and mawk, the scorer on the 2 Oct export) |
+| Status | **RUN 5 Oct 22:05Z-23:31Z (HANDOFF s58): round 1 scored (GC-1 $2.55, the operator's choice), the build on D, C, B, pipshed C119, journals; IC bid / ask skipped (late).** Claude, 5 Oct ~00:50Z (HANDOFF s54). Commands rehearsed against `main` `0c266b6` in the sandbox where they can be (s3.3 diff, the log checker on a synthetic UTF-16 log under awk and mawk, the scorer on the 2 Oct export) |
 | Uses | `docs/runbooks/compass-round.md` s4.2 (scoring), `docs/runbooks/monday-build-2026-10-05.md` (the build: its STOP list and Gemini rulings stand), `docs/runbooks/c63-commands.md` s1 (the checker this extends) |
 | When | After 22:00Z Mon 5 Oct (6pm ET): round 1's second window closes. Never 20:50-21:15Z. One shell step per message; the operator runs, Claude reads |
 
@@ -105,7 +105,8 @@ verdict table under the fixed $1.19 AND under GC-1 (the control's six
 gaps), the open-MTM and disconnect reports, the three VOID / cut rows
 (NZDCHF long, AUDCHF long C). **The operator chooses which threshold
 decides round 1.** The verdict then feeds `scripts/ic_geometry.json`
-(next session's presets), not tonight's build.
+(next session's presets), not tonight's build. (5 Oct: this week's
+table is `scripts/ic_geometry_r2.json`, `--stage round`; memo 2026-10-05.)
 
 ## 2. THE BUILD (runbook monday-build s3, per box: wine-d, wine-c, wine-test)
 
@@ -159,7 +160,9 @@ beyond the fully rolled sides, or two re-rolls of one side with the same
 `ea_time_ms`. Expected, not a STOP: the fully rolled sides re-roll on the
 first ticks if the market is past their next level: at the 5 Oct 02:52Z
 read EURGBP long B, C, D (C and D within a roll of stuck), EURUSD long B,
-C, NZDCHF long B, C, D (HANDOFF s56, s57).
+C, NZDCHF long B, C, D (HANDOFF s56, s57). (20:27Z read, s58: EURGBP
+long B, AUDCAD short C past their level; EURUSD long B, EURGBP long C, D
+no longer fully rolled. Fired: s58.)
 
 ## 3. AFTER ALL THREE BOXES
 
@@ -170,7 +173,8 @@ C, NZDCHF long B, C, D (HANDOFF s56, s57).
    register rows for the twins' close, traps).
 4. Next session: the presets from the verdict (`scripts/ic_presets.py`),
    the cap-10 reload (`docs/runbooks/cap10-reload.md`), the IC twins'
-   Global Variables (monday-build s7).
+   Global Variables (monday-build s7). (Superseded 5 Oct: cap 8 this
+   week, `--stage round`, one Tuesday reload; cap 10 deferred.)
 
 ## 4. REHEARSED IN THE SANDBOX (5 Oct ~00:50Z)
 
@@ -186,4 +190,4 @@ C, NZDCHF long B, C, D (HANDOFF s56, s57).
 - Not rehearsable here: the scp globs, the box paths (from 06 s9-s10 and
   the traps), the Railway commands (used 2-3 Oct).
 
-Line count: 189
+Line count: 193

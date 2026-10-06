@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED 3 Oct** (Claude's draft; Gemini GB-1..GB-5, s9). Runs Monday after 22:00Z on the operator's go. **Amended 3 Oct ~17:35Z (HANDOFF s44):** s1 no account-level backstop, s3.2 step 4 go asked on the night, s3.3 pathspec. **~22:50Z (s49):** s2.1 marked done, C119 by tree, s3.3 re-checked at `9be4bd3` |
+| Status | **RUN 5 Oct 22:20-23:21Z on D, C, B (HANDOFF s58; times there): BAD 0 on every box; C119 pushed `96e0fba`.** **REVIEWED 3 Oct** (Claude's draft; Gemini GB-1..GB-5, s9). Runs Monday after 22:00Z on the operator's go. **Amended 3 Oct ~17:35Z (HANDOFF s44):** s1 no account-level backstop, s3.2 step 4 go asked on the night, s3.3 pathspec. **~22:50Z (s49):** s2.1 marked done, C119 by tree, s3.3 re-checked at `9be4bd3` |
 | Backlog | C95 (ADR-165 ON), C96 (twins retire), C88 (wine-c loads the Scripts copy), C105 (DONE 3 Oct: `main` `2859be6`) |
 | Sources | ADR-165 s4, s7, s9-s10; 02_TRAPS 2 Oct day (which `.ex5` loads) and afternoon (retiring by hand); HANDOFF s32 (the hotfix deploy, the pattern followed here); `docs/runbooks/compass-round.md` |
 | When | Mon 5 Oct, AFTER 22:00Z (round 1's last window closes; the twins carry round-1 probe data until then). Never 20:50-21:15Z (IC break, ADR-165's rollover pause) |
@@ -26,7 +26,8 @@ This message has a line count at the bottom
   deadband, `InpStrandedThreshPips`, breaker off. Cap 10 and the fixed
   widths are the NEXT session (C99), a separate structural step.
 - **Structural** (runbook compass-round s4.1): round 2 starts after this
-  build AND the cap-10 reload.
+  build AND the cap-10 reload. (5 Oct: after this build and Tuesday's
+  round-2 reload at cap 8; cap 10 deferred, memo 2026-10-05.)
 - **No account-level backstop once re-roll is ON (HANDOFF s36, s44).**
   `InpBreakerEnable=false` on every B, C and D chart since 1 Oct
   21:16-21:28Z (one input: the ADR-158 breaker, the ADR-160 entry gate
@@ -188,4 +189,4 @@ with the reviewed list, dry run first.
   re-opens that chart's own EA; the risks are a Navigator drag or an
   Experts compile on wine-c. Warned in 3.5 and 3.7; caught by 3.6.
 
-Line count: 191
+Line count: 192

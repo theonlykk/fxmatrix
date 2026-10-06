@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-05 ~19:45Z (MONDAY; BEFORE THE MONDAY-NIGHT RUNBOOK)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-06 ~00:05Z (TUESDAY; AFTER THE MONDAY BUILD, BEFORE THE ROUND-2 RELOAD)
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps (`theonlykk/mfperp`) is PARKED
 (operator 3 Oct: "lets focus on fxmatrix - even when we dont have urgent
@@ -10,20 +10,21 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s57**
-(s57 ends with the NEXT SESSION list: follow it); every section of
+prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s49 to **s58**
+(s58 ends with the NEXT SESSION list: follow it); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-03, 2026-10-04 and
-**2026-10-05** (early, day); `handoffs/Handover/08_BACKLOG.md` (section C1;
+**2026-10-05** (early, day, night); `handoffs/Handover/08_BACKLOG.md` (section C1;
 C93, C99, C123-C130); `docs/runbooks/monday-night-2026-10-05.md` and
-`docs/runbooks/monday-build-2026-10-05.md` (tonight, in full);
-`docs/runbooks/compass-round.md` (the loop; this week at cap 8);
+`docs/runbooks/monday-build-2026-10-05.md` (RUN 5 Oct: their status rows);
+`docs/runbooks/compass-round.md` (the loop; this week at cap 8; s11 round 1);
 `docs/architecture/MEMO_2026-10-05_width_depth_counter_side.md` (today's
 rulings: cap 8, tight widths, deadband 2, the counter side);
 `docs/research/holdout-verdict-criteria.md` (ACCEPTED: the window opens
 5 Oct 22:00Z; nothing of it is computed before Friday's close);
 `docs/research/ftmo-pass-probability.md` (C124);
 `docs/research/markout-variance-study.md`; `scripts/ic_presets.py` (stage
-`round`) with `scripts/ic_geometry_r2.json` (PROVISIONAL round-2 table);
+`round`, the half-pip rule) with `scripts/ic_geometry_r2.json` (round 2 from
+round 1's verdict; 27 `_r2` presets);
 `research/compass/README.md` and `round1.json`; `research/holdout/README.md`;
 `docs/architecture/ADR-165-continuous-reroll.md` (s4, s9, s10);
 `docs/architecture/fleet-d.md` s6-s7; `handoffs/Handover/06_LINUX_WINE_BOX.md`
@@ -53,22 +54,21 @@ Do not start any fleet action before the answers are in.
   verdict (Fri 9 Oct close, or 16 Oct if extended).** C93 can halt it
   (`AMBIGUOUS_ADD_*`, 5 Oct GBPUSD): repair per traps 5 Oct day.
 - **IC B (wine-test, 53066709, anchor), C (wine-c, 53071896, add probe),
-  D (wine-d, 53077984, exit probe):** 11/11 each on `893e065` UNTIL
-  TONIGHT'S BUILD (Mon 5 Oct after 22:00Z): twins (magics 22260902,
-  22260802) retire by hand, repo to `main` (EA code `2859be6`), ONE file
-  compiled (wine-c: `Scripts/fxmatrix/fxgrind.mq5`, C88), re-roll ON by F7
-  per chart; then pipshed C119. Breaker off on B, C, D (no account-level
-  backstop once re-roll is ON).
-- **This week (operator 5 Oct): compass rounds at cap 8.** Round 1 is
-  scored tonight (both thresholds; the operator picks). Round 2's reload
-  Tue 6 Oct in session = tight widths (the tightest the ADR-153 guard
-  allows), S = W + 1, **deadband 2**, B anchor / C add probe / D exit
-  probe, from `ic_presets.py --stage round` (`_r2` presets). Round 2 = Wed
-  7 + Thu 8; round 3 reload Fri. Cap 10, the fixed-width table and the
-  AUDUSD scout are DEFERRED.
-- **Stuck sides re-roll on the first ticks after tonight's re-roll ON**
-  (EURGBP long B, C, D; EURUSD long B, C; NZDCHF long B, C, D at the 5 Oct
-  02:52Z read): expected, not a STOP.
+  D (wine-d, 53077984, exit probe):** nine instances each (the twins
+  retired 5 Oct night), on `main` (EA code `2859be6`) since the Monday
+  build, re-roll ON on all 27 charts (wine-c's charts still load the
+  Scripts `.ex5`, C88). Breaker off: no account-level backstop. Re-roll
+  walks far rolled levels to the market and their old layers realise on
+  the next bounce (traps 5 Oct night).
+- **This week (operator 5 Oct): compass rounds at cap 8.** Round 1 scored
+  (GC-1 $2.55; promoted EURUSD L add 6, AUDCAD L exit 9, AUDNZD S add 7).
+  Round 2's reload Tue 6 Oct in session from the 27 `_r2` presets
+  (`646a387`: tight widths, S = W + 1, deadband 2; EURGBP L C add 2.5, the
+  one half-pip probe); Gemini sees the verdict and round-2 tables first.
+  Round 2 = Wed 7 + Thu 8; round 3 reload Fri 9, its days Mon 12 + Tue 13.
+  Cap 10, the fixed-width table and AUDUSD are DEFERRED.
+- **Open with the operator:** Q4 wine-c Tuesday by F7 + Load (C88 open)?
+  Q6 an FTMO C93 F7 restart inside the holdout window?
 
 **Operator rulings (do not re-open):** realised P&L decides a compass
 round (scalp P&L reported); equity decides the holdout; the one-hour
@@ -89,7 +89,7 @@ read it back** (traps 5 Oct day).
 
 **Watch every night on B, C, D (C87):** no chart edits 20:50-21:15Z; carry
 pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
-40 summaries, 34 after tonight's build).
+34 summaries since the Monday build: 7 FTMO + 27 IC).
 
 ---
 
@@ -97,25 +97,26 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 
 | | |
 |---|---|
-| fxmatrix `main` | `7ebcfe8` (presets stage `round`, tree `9c0ea540`); `6b15b07` memo; `67e5f02` C125 accepted; `7a52e27` T3 driver; `9672415` C124; `f5f0c93`; `239a45d`; `bb8b81d`; `54f0738` s56 + this s57 docs patch. EA code `2859be6`; branch `v22a-recon-api` `8a3ec0c` (v2.2a: C93 + C100 + the RECON_SCAN_RACE throttle, 2525/2525, NOT merged) |
-| pipshed `main` | `bb6bb7a`, 38/38. Patches in Downloads (go by the TREES): `pipshed_c119_APPLY_MONDAY_AFTER_TWINS_RETIRED.patch` (tree `e3b23a94`): tonight, only after the twins are removed. C121 (AUDUSD) WAITS for AUDUSD; C123 must be REBUILT on C119 alone (it sits on C121); C129 geometry table to build |
-| VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances |
-| wine-test (B), wine-c (C), wine-d (D) | `893e065` until tonight; `/root/mon_logcheck.awk` installed (2688 bytes); `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 / 5912 |
+| fxmatrix `main` | the s58 patch on `83a8f0d`: `6895c59` C125 T3 window, `51c27b8` / `e121fe2` half-pip probe rule, `646a387` round-2 table + 27 `_r2` presets + register, then the s58 docs (pre-am hashes: verify by TREE). EA code `2859be6`; branch `v22a-recon-api` `8a3ec0c` (v2.2a: C93 + C100 + the RECON_SCAN_RACE throttle, 2525/2525, NOT merged) |
+| pipshed `main` | `96e0fba` (C119, tree `e3b23a94`), 39/39. C121 (AUDUSD) WAITS for AUDUSD; C123 must be REBUILT on `96e0fba`; C129, C131 to build |
+| VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances, frozen for the holdout (window 5 Oct 22:00Z - 9 Oct 21:00Z) |
+| wine-test (B), wine-c (C), wine-d (D) | `main` since 5 Oct 22:38 / 22:59 / 23:16Z (D / C / B), re-roll ON; `/root/mon_logcheck.awk` installed; `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 (both `-once`) / 5912 |
 
-## 2. NEXT, IN ORDER (= HANDOFF s57 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s58 NEXT SESSION)
 
 1. The questions for the previous chat (above).
-2. Mon 5 Oct after 22:00Z: `docs/runbooks/monday-night-2026-10-05.md` end
-   to end (score round 1; the build; pipshed C119).
-3. The verdict into `scripts/ic_geometry_r2.json`; `--stage round` dry run
-   then `--write`; the verdict and round-2 tables to Gemini (attached);
-   `round2.json`; one docs patch.
-4. Tue 6 Oct in session: the round-2 reload (wine-d first, GBPUSD pilot).
-5. Quiet slots: C123 rebuilt on C119; C129; then the width-guard change and
-   C127 to Gemini (one document).
-6. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
+2. Gemini (one document): the round-1 verdict and round-2 tables (with
+   the 2.5 half-pip probe), before the reload.
+3. Tue 6 Oct in session: the round-2 reload on B, C, D (`_r2`, F7 + Load,
+   read back; wine-d first, GBPUSD pilot; done before 22:00Z); register
+   rows; `round2.json` (windows 6 Oct 22:00Z - 8 Oct 22:00Z, control,
+   reload times).
+4. Quiet slots: the twins' Global Variables (monday-build s7); C123
+   rebuilt on `96e0fba`; C131; C129; the width-guard change and C127 to
+   Gemini (one document).
+5. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
    history dumps, the archive export, `research/holdout/holdout_verdict.py`.
-7. Later: v2.2a merge and deploy; C128 (cap 5 vs 8 round); C130.
+6. Later: v2.2a merge and deploy; C128 (cap 5 vs 8 round); C130.
 
 ## 3. TRAPS (full list in 02_TRAPS)
 
@@ -148,4 +149,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   a mutation round. One document at a time; one paste per step.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 151
+Line count: 152

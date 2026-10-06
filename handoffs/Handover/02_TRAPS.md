@@ -1880,4 +1880,38 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Clock times from the clock tool, every time:** a doc and a patch
   said ~18:30Z for a run at ~17:40Z (corrected before delivery).
 
-Line count: 1883
+## TRAPS FROM 2026-10-05 NIGHT (THE BUILD, RE-ROLL ON, THIN QUOTES)
+
+- **Re-roll ON walks far rolled levels down to the market:** a side
+  holding contiguous rolled levels plus far ones from an older move
+  re-rolls once per EMPTY level between them (EURUSD L C: a 60-pip gap
+  at add 6 = 9 re-rolls in 28 s; EURGBP L B 10). Count the gap's levels
+  before calling it a burst; the STOP is two re-rolls of a side in ONE
+  call (same `ea_time_ms`; arrivals seconds apart are separate calls).
+- **A re-rolled exit near the market fills on the next bounce and
+  realises the old layer's whole loss** (EURUSD L C ~-110 pips a layer):
+  equity does not move (open MTM becomes balance), the card's realised
+  does. Expect it on the first night after re-roll ON.
+- **`ROLL_STRANDED` fires at a recompile's re-init on a fully rolled
+  side while re-roll is still OFF** (EURGBP L B 23:16:40Z); it clears at
+  the first re-roll. pipshed's amber stays because the side is still
+  fully rolled at cap (C94's rule predates ADR-165; C131).
+- **`[No prices]` / a greyed Close in the hour after 22:00Z on a cross
+  (AUDNZD):** thin quotes, not a market close. Wait for Market Watch to
+  tick, retry once; never click repeatedly. Not a STOP while the position
+  has no orders.
+- **IC cards' "Day % of $500" counts carried open MTM and hand closes**
+  from the 21Z day-start balance: on IC (no limit, breaker off) it is a
+  display, not a loss for the day.
+- **Twin and primary tickets on wine-test differ by ONE digit**
+  (NZDCAD 1981281322 / 1981281323, AUDNZD 1988248188 / 1988248189):
+  match the `|ALT|` comment on every delete and Close By.
+- **The checker's `from=` is a time, not a placeholder:** `HH:MM:00`
+  compares above every real time and prints nothing; and a Linux command
+  pasted into the desktop PowerShell fails with `L=... is not
+  recognized`: say which window every command runs in.
+- **Read the compile time from the log's `deinit=2` rows:** a time read
+  off the screen (22:35:05) was before the copy; the rows (22:38:01)
+  and the archive `ea_build` settle it.
+
+Line count: 1917

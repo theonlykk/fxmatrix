@@ -134,7 +134,8 @@ too, so its record is continuous.
    began. At round 1's scoring BOTH are computed and reported (the fixed
    $1.19 and max($1.19, NZDCAD's six gaps, NZDCAD_OPT B, C and D, all
    three on the anchor in round 1)), and the operator chooses which one
-   decides round 1. From round 2 GC-1 decides. `compass_score.py` prints
+   decides round 1. From round 2 GC-1 decides. **Round 1 decided by
+   GC-1 = $2.55 (operator 5 Oct ~22:15Z; s11).** `compass_score.py` prints
    both (the round file's `control` block; a second table under GC-1).
 4. **Verdict per pair and side** (fleet-d s6.5 as amended by Gemini s6.8):
    - margin = probe per day - comparator per day;
@@ -200,6 +201,12 @@ guard (add / width <= 4). It changes only when an add would break the
 guard, and that change is structural (s4.1). A near-zero counter-side
 width and a re-derived guard are v2.2 (C103).
 
+**This week (memo 2026-10-05, cap 8):** the tightest width the guard
+allows instead, ceil to the half pip of the round's largest add (any
+fleet) / 4, one width per pair on B, C and D, re-derived each round
+(`ic_presets.py --stage round`). The cap-10 rule above returns with cap
+10.
+
 ## 7. CALENDAR (as planned)
 
 1. Round 1 (twins included, cap 8): Fri 2 + Mon 5 Oct; score Mon after
@@ -209,6 +216,10 @@ width and a re-derived guard are v2.2 (C103).
 3. Next session (structural): cap 10 + the fixed widths in ONE reload per
    chart (preset-only; `docs/runbooks/cap10-reload.md`, drafted s50); an hour's watch on the slot guard and requests;
    the AUDUSD scout added in the same reload (s3; baseline round).
+   **(5 Oct, memo: replaced this week by cap 8, tight widths, deadband 2
+   and round 2's probes in ONE reload Tue 6 Oct; round 2 = Wed 7 + Thu 8;
+   round 3 reload Fri 9, its days Mon 12 + Tue 13. Cap 10 and AUDUSD
+   deferred.)**
 4. Round 2's probe reloads (NZDCAD stays on the anchor everywhere), then
    its two days.
 
@@ -222,7 +233,9 @@ being compared with its lab anchor (broker drift).
 
 ## 9. OPEN
 
-N for promotion; the half-pip floor and adds below 3; the smallest exit
+N for promotion; the half-pip floor and adds below 3 (5 Oct: one
+half-pip add probe allowed, EURGBP long C 2.5, `"half": true`, floor
+2.5; to Gemini with round 2's tables); the smallest exit
 worth its commission; whether `InpStrandedThreshPips` ever becomes a
 lever.
 
@@ -238,4 +251,17 @@ lever.
 | GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
-Line count: 241
+## 11. ROUND RECORDS
+
+**Round 1** (FTMO days Fri 2 + Mon 5 Oct; scored 5 Oct ~22:12Z on
+`study_2026-10-05_14d.jsonl`, data to 22:05Z, final). Threshold: GC-1
+$2.55 (NZDCAD gaps L 5.18 / 9.32 / 4.14, S 0.63 / 0.96 / 0.33; the fixed
+$1.19 also reported). Promoted: EURUSD L add 6 (C +4.20), AUDCAD L exit 9
+(D +3.96), AUDNZD S add 7 (C twin +5.47). LOSE: EURUSD L D -10.77, EURUSD
+S D -3.61, EURGBP L C -6.32 and D -4.38, CADCHF L D -4.71. VOID: NZDCHF L
+(C, D), AUDCHF L C. The rest REPEAT. Disconnects inside the windows: none.
+Interventions: the three of `round1.json`. Then the Monday build
+(structural). Round 2's table: `scripts/ic_geometry_r2.json` (`646a387`);
+HANDOFF s58.
+
+Line count: 267

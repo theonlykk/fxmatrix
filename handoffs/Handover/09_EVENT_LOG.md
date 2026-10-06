@@ -14,6 +14,31 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 5 Oct 22:20-23:21Z -- the Monday build: six IC twins closed by hand, B, C, D to `main`, re-roll ON (B, C, D)
+- **What:** a structural change on all three IC fleets (C95, C96): the
+  twins (NZDCAD and AUDNZD ALT) removed (deinit 1) and their books closed
+  by hand (orders deleted entries first, Close By, the rest at market:
+  about -$34 D, -$45 C, -$44 B, outside the EA's realised P&L); repo to
+  `main` (EA code `2859be6`), one compile per box (wine-c its Scripts
+  copy, C88), `InpLatticeReroll=true` by F7 on all 27 charts.
+- **Handled:** per box the log checker (9 x `deinit=2`, then 9 x
+  `deinit=5 reroll=true`, BAD 0) and the archive build stamp. Re-rolls on
+  the fully rolled sides at once (EURUSD L C 9, EURGBP L B 10, others 2-4),
+  their old layers realising within the hour (C: Rolls 9, -$65).
+- **Changed:** nine instances per IC fleet; capped sides re-roll instead
+  of stranding; no account-level backstop on B, C, D. pipshed C119.
+- **Evidence:** HANDOFF s58; register rows closed.
+
+### 5 Oct (email 10:23 ET, read ~21:00Z) -- FTMO's reply on the request count (A)
+- **What:** FTMO answered the operator's Friday email about last week: a
+  day's requests had slightly exceeded 2,000; keep under the limit (the
+  email asks not to be shared: summarised here).
+- **Handled:** no reply (no broker contact); A at seven instances ran 960
+  requests to 20:27Z.
+- **Changed:** A's `api_count` read in every status read (bring >~1,600);
+  C106.
+- **Evidence:** HANDOFF s58.
+
 ### 5 Oct 13:41-13:52Z -- FTMO GRIND_GBPUSD_OPT halted AMBIGUOUS_ADD_SHORT (A)
 - **What:** the collector read one resting short add twice while
   CADCHF's instance cancelled an order in the same millisecond
@@ -474,4 +499,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 477
+Line count: 502
