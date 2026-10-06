@@ -55,6 +55,7 @@ change anywhere is D1 on D (the first live ADR-163 rebuild).
 
 ## NEXT EXPECTED ROWS
 
+**Wed 7 Oct build (HANDOFF s64): NO rows.** The roll gate (`InpRollGateOpposite=0`) and the v2.2a API inputs are not geometry; the regenerated `_r2` presets carry them with the same width / add / exit / cap, so the round-2 rows stay open (their `preset_commit` stays `b438420`, the geometry loaded 6 Oct).
 **6 Oct 03:18-03:35Z (HANDOFF s61): round 2's rows are open** (30: 27
 instances, three split per side). Before: the six twins' rows closed 5 Oct. Planned then:
 Tuesday 6 Oct's round-2 reload on B, C, D: a row for every instance
@@ -76,4 +77,4 @@ seven (AUDCAD and NZDCHF dropped) were WITHDRAWN 3 Oct: IC keeps the
 nine pairs (C96; compass-round s3).** The 1 Oct `InpBreakerEnable=false` change on B, C, D
 is not geometry and has no row (fleet-d.md s7). Nor does the 2 Oct 02:55-03:05Z `InpStrandedThreshPips` = width + 1 change on all 33 IC charts (empty-side L0 re-quote; deadband 4 kept; fleet-d.md s7): the L0 width itself is unchanged. **2 Oct: FTMO (A) retired GRIND_AUDNZD_ALT, GRIND_NZDCAD_ALT (15:14Z), GRIND_AUDCAD_OPT and GRIND_NZDCHF_OPT (~15:40Z); rows closed in the CSV; A runs seven (geometry-cycle3 A7). The table above marks them retired.**
 
-Line count: 79
+Line count: 80

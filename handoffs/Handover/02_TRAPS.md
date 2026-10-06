@@ -1977,4 +1977,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   new query in `build_critical_list` runs before `CRITICAL_EVENTS_SQL`
   (C131) or MQ6 breaks.
 
-Line count: 1980
+## TRAPS FROM 2026-10-06 EVENING (A NEW INPUT AT A COMPILE; REGENERATED PRESETS)
+
+- **A recompile gives a NEW input its default on every attached chart**
+  (inputs are kept by name): after the Wednesday compile every IC chart
+  runs `main` with `InpRollGateOpposite=-1` (off) until its own F7 + Load.
+  The checker's `gate=-1` after the compile is expected, `gate=0` after
+  the Load. An F7 that changes nothing else leaves the gate where it was.
+- **A preset regenerated under the same name changes its fingerprint:**
+  the `_r2` files gained three inputs (the geometry unchanged), so the
+  fingerprints in round-reload / the register (6 Oct) are history; the
+  Wednesday runbook's (b `fce104ecbacf`, c `6f8a3d3b1a5f`, d
+  `f02163b4e417`) are the ones to match, and the presets are staged again.
+- **The gate is invisible on pipshed:** not in the heartbeat; read it in
+  the box log (`GRIND_ROLL_GATE opposite_max=`) or the archive
+  (`LATTICE_CONFIG`, `ROLL_DEFERRED` with `archive_counts.py --codes`).
+
+Line count: 1996

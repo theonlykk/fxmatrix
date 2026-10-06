@@ -1,6 +1,6 @@
 {
-  "round": "compass round 2 (cap 8, tight widths, deadband 2, re-roll on)",
-  "doc": "docs/research/compass-round2-review.md; docs/runbooks/compass-round.md s11",
+  "round": "compass round 2 (cap 8, tight widths, deadband 2, re-roll on, roll gate 0 from the Wed 7 Oct build)",
+  "doc": "docs/research/compass-round2-review.md; docs/runbooks/compass-round.md s11; docs/runbooks/wednesday-build-2026-10-07.md (the build moved the windows to Thu 8 + Fri 9)",
   "accounts": {
     "B": 53066709,
     "C": 53071896,
@@ -8,13 +8,13 @@
   },
   "windows": [
     [
-      "2026-10-06T22:00Z",
       "2026-10-07T22:00Z",
+      "2026-10-08T22:00Z",
       1
     ],
     [
-      "2026-10-07T22:00Z",
       "2026-10-08T22:00Z",
+      "2026-10-09T22:00Z",
       1
     ]
   ],

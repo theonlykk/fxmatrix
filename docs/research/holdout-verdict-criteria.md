@@ -176,6 +176,11 @@ SUPPORTED means "not shown in nine days", not "disproved".
   changes) after the operator's go: "restart the same way. we are always
   watching". Each such restart (instance, halt and restart times) is
   listed in s7 with the results; A is otherwise unchanged.
+- **6 Oct ~20:45Z (a fact recorded, the criteria unchanged):** the IC
+  fleets B, C, D get v2.2a + ADR-166 with the roll gate at 0 on Wed 7 Oct,
+  inside the window (operator ~20:37Z). V is FTMO's and A is not touched;
+  T3 (IC money) is reported only and K6 already counts IC changes in the
+  window.
 
 ## 9. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -228,4 +233,4 @@ check (5 Oct ~18:05Z-18:15Z).
   entry tests lean toward entry optimisation (C103: "boring is best"):
   T1, T2, T4 reported only; "equity matters the most": V decides.
 
-Line count: 231
+Line count: 236

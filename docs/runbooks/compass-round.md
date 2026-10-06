@@ -219,7 +219,9 @@ fleet) / 4, one width per pair on B, C and D, re-derived each round
    **(5 Oct, memo: replaced this week by cap 8, tight widths, deadband 2
    and round 2's probes in ONE reload Tue 6 Oct; round 2 = Wed 7 + Thu 8;
    round 3 reload Fri 9, its days Mon 12 + Tue 13. Cap 10 and AUDUSD
-   deferred.)**
+   deferred.)** **(6 Oct ~20:37Z: the roll-gate build on B, C, D Wed 7 Oct
+   moves round 2 to Thu 8 + Fri 9; round 3 reload Mon 12, days Tue 13 +
+   Wed 14.)**
 4. Round 2's probe reloads (NZDCAD stays on the anchor everywhere), then
    its two days.
 
@@ -272,6 +274,6 @@ baseline round); EURGBP L C add 2.5 stands; the flips stand; **open MTM
 reported at every scoring from round 2 (the IC bid / ask dump compulsory),
 realised decides**. **Reloaded 6 Oct 03:18-03:35Z** (D 03:18-03:22, C
 03:25-03:28, B 03:32-03:35; BAD 0; HANDOFF s61); round file
-`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z. Geometry checked on pipshed (C129) at 04:01Z: every B, C, D cell as the table (HANDOFF s62).
+`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z. Geometry checked on pipshed (C129) at 04:01Z: every B, C, D cell as the table (HANDOFF s62). **Moved (6 Oct ~20:40Z) to FTMO days Thu 8 + Fri 9** by the Wednesday build (v2.2a + ADR-166, the roll gate at 0 on B, C, D; operator ~20:37Z; `docs/runbooks/wednesday-build-2026-10-07.md`): `round2.json` windows 7 Oct 22:00Z - 9 Oct 22:00Z, one day each as round 1's Friday; scored after Friday's close (a Friday export prints "provisional": the data end at the close). The geometry and the probes are unchanged (no register rows).
 
-Line count: 277
+Line count: 279
