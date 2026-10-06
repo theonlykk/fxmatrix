@@ -12,6 +12,8 @@
 #define GRIND_DAILY_API_DATE_GV  "GRIND_DAILY_API_DATE"
 #define GRIND_DAILY_API_LIMIT    2000
 #define GRIND_DAILY_API_SOFT_WARN 999000  // 2 Oct hotfix: was 1800 (also gates the L0 re-centre); effectively off, C100
+#define GRIND_API_LIMIT_STOP_GV "GRIND_API_LIMIT_ENTRY_STOP"
+#define GRIND_API_LIMIT_SOFT_GV "GRIND_API_LIMIT_SOFT_WARN"
 
 bool g_grind_api_counter_broken = false;
 bool g_grind_api_counter_test_active = false;
@@ -21,6 +23,8 @@ int  g_grind_near_reserve_blocks = 0;
 int  g_grind_last_guard_total = 0;
 datetime g_grind_last_guard_time = 0;
 long g_grind_entry_place_latency_ms = 0;
+int g_grind_api_entry_stop = GRIND_DAILY_API_ENTRY_STOP;
+int g_grind_api_soft_warn = GRIND_DAILY_API_SOFT_WARN;
 
 //+------------------------------------------------------------------+
 double Grind_ApiCounterTodayYmd()
@@ -34,6 +38,8 @@ double Grind_ApiCounterTodayYmd()
 //+------------------------------------------------------------------+
 void Grind_ApiCounterTestReset()
 {
+   g_grind_api_entry_stop = GRIND_DAILY_API_ENTRY_STOP;
+   g_grind_api_soft_warn = GRIND_DAILY_API_SOFT_WARN;
    g_grind_api_counter_test_active = false;
    g_grind_api_counter_test_count = 0;
    g_grind_api_entry_stop_warn_emitted = false;
@@ -49,6 +55,46 @@ void Grind_ApiCounterTestSeed(const int count)
    g_grind_api_counter_test_active = true;
    g_grind_api_counter_test_count = count;
    g_grind_api_entry_stop_warn_emitted = false;
+}
+
+//+------------------------------------------------------------------+
+void Grind_ApiLimitsSet(const int entry_stop, const int soft_warn)
+{
+   g_grind_api_entry_stop = entry_stop;
+   g_grind_api_soft_warn = soft_warn;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ApiLimitsApplyInputs(const int entry_stop, const int soft_warn)
+{
+   if(!Grind_ValidateApiLimitInputs(entry_stop, soft_warn)) {
+      Grind_ApiLimitsSet(GRIND_DAILY_API_ENTRY_STOP, GRIND_DAILY_API_SOFT_WARN);
+      return false;
+   }
+   Grind_ApiLimitsSet(entry_stop, soft_warn);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Grind_ApiLimitsPublishAndCheck()
+{
+   bool mismatch = false;
+   if(GlobalVariableCheck(GRIND_API_LIMIT_STOP_GV) &&
+      GlobalVariableCheck(GRIND_API_LIMIT_SOFT_GV)) {
+      const int pub_stop = (int)GlobalVariableGet(GRIND_API_LIMIT_STOP_GV);
+      const int pub_soft = (int)GlobalVariableGet(GRIND_API_LIMIT_SOFT_GV);
+      if(pub_stop != g_grind_api_entry_stop || pub_soft != g_grind_api_soft_warn) {
+         mismatch = true;
+         const string detail = StringFormat(
+            "{\"entry_stop\":%d,\"soft_warn\":%d,\"published_entry_stop\":%d,\"published_soft_warn\":%d}",
+            g_grind_api_entry_stop, g_grind_api_soft_warn, pub_stop, pub_soft);
+         Grind_ArchiveMarker("WARN", "API_LIMITS_MISMATCH", "", 0, detail);
+         Print("WARN API_LIMITS_MISMATCH ", detail);
+      }
+   }
+   GlobalVariableSet(GRIND_API_LIMIT_STOP_GV, g_grind_api_entry_stop);
+   GlobalVariableSet(GRIND_API_LIMIT_SOFT_GV, g_grind_api_soft_warn);
+   return mismatch;
 }
 
 //+------------------------------------------------------------------+
@@ -120,7 +166,7 @@ int Grind_ApiCounterRead()
 //+------------------------------------------------------------------+
 bool Grind_ApiCounterSoftWarnActive()
 {
-   return (Grind_ApiCounterRead() >= GRIND_DAILY_API_SOFT_WARN);
+   return (Grind_ApiCounterRead() >= g_grind_api_soft_warn);
 }
 
 //+------------------------------------------------------------------+
@@ -128,7 +174,7 @@ bool Grind_ApiCounterEntryStopped()
 {
    Grind_ApiCounterMaybeReset();
    const int count = Grind_ApiCounterRead();
-   if(count < GRIND_DAILY_API_ENTRY_STOP)
+   if(count < g_grind_api_entry_stop)
       return false;
    if(!g_grind_api_entry_stop_warn_emitted) {
       g_grind_api_entry_stop_warn_emitted = true;

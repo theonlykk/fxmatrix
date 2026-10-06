@@ -5,11 +5,13 @@
 #define GRIND_RECON_FAILURE_MQH
 
 string g_grind_recon_failure_json = "";
+string g_grind_recon_tickets_last_line = "";
 
 //+------------------------------------------------------------------+
 void Grind_ReconFailureClear()
 {
    g_grind_recon_failure_json = "";
+   g_grind_recon_tickets_last_line = "";
 }
 
 //+------------------------------------------------------------------+

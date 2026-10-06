@@ -1,0 +1,20 @@
+{
+  "files_to_audit": {
+    "grind_recon.mqh":             "d:/fxmatrix/ea/grind_recon.mqh",
+    "grind_recon_failure.mqh":     "d:/fxmatrix/ea/grind_recon_failure.mqh",
+    "grind_api_counter.mqh":       "d:/fxmatrix/ea/grind_api_counter.mqh",
+    "grind_pure.mqh":              "d:/fxmatrix/ea/grind_pure.mqh",
+    "fxgrind.mq5":                 "d:/fxmatrix/ea/fxgrind.mq5",
+    "grind_quarantine.mqh":        "d:/fxmatrix/ea/grind_quarantine.mqh",
+    "grind_replay.mqh":            "d:/fxmatrix/ea/grind_replay.mqh",
+    "grind_config.mqh":            "d:/fxmatrix/ea/grind_config.mqh",
+    "fxgrind_tests_v22a.mqh":      "d:/fxmatrix/ea/fxgrind_tests_v22a.mqh"
+  },
+  "docs_to_include": {
+    "cursor_v22a_c93_c100.md": "d:/fxmatrix/prompts/cursor_v22a_c93_c100.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_v22a_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_v22a_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_v22a_preview.md"
+}

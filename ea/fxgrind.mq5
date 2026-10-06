@@ -38,6 +38,8 @@ input bool   InpSessionEnable = false;   // ADR-161 entry window 07:00-16:55 Tor
 input bool   InpFillTimePlace      = false;   // D1 kill switch, preset opts in
 input int    InpSlotNearReserve    = 0;       // preset opts in; Q = GRIND_SLOT_NEAR_RESERVE
 input double InpEntryHorizonPips   = 0.0;   // D3 kill switch, 0 = off; preset opts in
+input int    InpApiEntryStop       = 1000000; // C100: no new entries at this daily request count (terminal-wide counter; same value on every chart of a terminal)
+input int    InpApiSoftWarn        = 999000;  // C100: WARN_API_SOFT_LIMIT and no empty-side L0 re-centre at this count
 input string InpCapLegA            = "";
 input string InpCapLegB            = "";
 input double InpCapLegAThresh      = 0.0;
@@ -216,6 +218,7 @@ int OnInit()
       Print("FATAL: InpLatticeReroll requires InpVirtualLattice=true (ADR-165 s4.1)");
       return INIT_FAILED;
    }
+   const bool api_inputs_ok = Grind_ApiLimitsApplyInputs(InpApiEntryStop, InpApiSoftWarn);
 
    if(!Grind_MagicLockClaim(InpMagic)) {
       Print("FATAL: duplicate magic ", InpMagic,
@@ -353,6 +356,7 @@ int OnInit()
          " open_now=", Grind_SessionOpenAt(TimeGMT()));
    Print("GRIND_LATTICE enable=", InpVirtualLattice);
    Print("GRIND_REROLL enable=", InpLatticeReroll);
+   Print("GRIND_API_LIMITS entry_stop=", g_grind_api_entry_stop, " soft_warn=", g_grind_api_soft_warn);
    Print("GRIND_GEOMETRY long width=", DoubleToString(g_geo_width_long, 4),
          " add=", DoubleToString(g_geo_add_long, 4),
          " exit=", DoubleToString(g_geo_exit_long, 4),
@@ -365,6 +369,17 @@ int OnInit()
                        StringFormat("{\"enable\":%s,\"reroll\":%s}",
                                     InpVirtualLattice ? "true" : "false",
                                     InpLatticeReroll ? "true" : "false"));
+   if(!api_inputs_ok) {
+      const string bad = StringFormat("{\"input_entry_stop\":%d,\"input_soft_warn\":%d,\"using_entry_stop\":%d,\"using_soft_warn\":%d}",
+                                      InpApiEntryStop, InpApiSoftWarn,
+                                      g_grind_api_entry_stop, g_grind_api_soft_warn);
+      Grind_ArchiveMarker("WARN", "API_LIMITS_INVALID", "", 0, bad);
+      Print("WARN API_LIMITS_INVALID ", bad);
+   }
+   Grind_ArchiveMarker("INFO", "API_LIMITS_CONFIG", "", 0,
+                       StringFormat("{\"entry_stop\":%d,\"soft_warn\":%d}",
+                                    g_grind_api_entry_stop, g_grind_api_soft_warn));
+   Grind_ApiLimitsPublishAndCheck();
    EventSetTimer(1);
    return INIT_SUCCEEDED;
 }

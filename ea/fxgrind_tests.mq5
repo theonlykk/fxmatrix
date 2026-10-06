@@ -27,6 +27,7 @@
 #include "fxgrind_tests_rb.mqh"
 #include "fxgrind_tests_adr164.mqh"
 #include "fxgrind_tests_adr165.mqh"
+#include "fxgrind_tests_v22a.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9428,6 +9429,21 @@ void OnStart()
    Test_RR14_RerollIndexSkipsEjected();
    Test_RR15_EjectedCandidateKept();
    Test_RR16_LatchClearedThenRearmed();
+   Test_RS1_AppendUnique();
+   Test_RS2_C93Replay();
+   Test_RS3_ScanStable();
+   Test_RS4_TicketsLogLine();
+   Test_RS5_CaptureLogsLocally();
+   Test_RS6_RaceNoteHelpers();
+   Test_AL1_ValidateApiLimitInputs();
+   Test_AL2_EntryStopAtLimit();
+   Test_AL3_SoftWarnAtLimit();
+   Test_AL4_TestResetRestoresDefaults();
+   Test_AL5_DefaultsAreToday();
+   Test_AL6_InvalidInputsKeepDefines();
+   Test_AL7_PublishAndCheck();
+   Test_RN1_WarnDue();
+   Test_RN2_NoteThrottles();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
