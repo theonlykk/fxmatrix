@@ -1222,6 +1222,12 @@ void Grind_LatticeRollGateRestartExtreme(const bool is_long)
 //+------------------------------------------------------------------+
 void Grind_LatticeRollGateInitRestart(const int gate)
 {
+   if(gate < 0)
+      return;
+   if(Grind_MarketTimeMsc() <= 0)
+      return;
+   Grind_LatticeRollGateRestartExtreme(true);
+   Grind_LatticeRollGateRestartExtreme(false);
 }
 
 //+------------------------------------------------------------------+
@@ -1269,10 +1275,6 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
    if(!enabled || blocked)
       return 0;
 
-   datetime backoff = is_long ? g_grind_vl_backoff_long : g_grind_vl_backoff_short;
-   if(now < backoff)
-      return 0;
-
    if(Grind_RollGateHolds(roll_gate, opposite_depth)) {
       Grind_LatticeRollGateRestartExtreme(is_long);
       Grind_LatticeRollDeferredNote(side, is_long, add_pips, max_layers, roll_gate, opposite_depth);
@@ -1282,6 +1284,10 @@ int Grind_LatticeTrySide(GrindSideState &side, const bool is_long, const ulong m
       g_grind_vl_deferred_noted_long = false;
    else
       g_grind_vl_deferred_noted_short = false;
+
+   datetime backoff = is_long ? g_grind_vl_backoff_long : g_grind_vl_backoff_short;
+   if(now < backoff)
+      return 0;
 
    if(Grind_LatticeCandidateIndex(side, is_long) >= 0) {
       if(is_long)
