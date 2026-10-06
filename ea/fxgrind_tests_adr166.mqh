@@ -136,7 +136,6 @@ void Test_RG8_ExtremeRestartsWhileGated()
 {
    Adr162b_SeedLong8();
    Grind_MarketTestSeed(1.20590, 1.20600, 0, 0);
-   Grind_MarketTestReset();
    Grind_MarketTestSeedTimeMsc(1790000000000);
    g_grind_vl_extreme_long = 1.20190;
    g_grind_vl_tracking_long = false;
@@ -145,7 +144,8 @@ void Test_RG8_ExtremeRestartsWhileGated()
                         true, false, ADR166_T0, 1.20190, false, 0, 1);
    AssertNear("RG8a (F)", g_grind_vl_extreme_long, 0.0, 1e-9);
    AssertTrue("RG8b (F)", g_grind_vl_tracking_long);
-   AssertEqInt("RG8c (F)", (int)g_grind_vl_from_msc_long, 1790000000001);
+   AssertTrue("RG8c (F)", g_grind_vl_from_msc_long == 1790000000001);
+   Grind_MarketTestReset();
    Adr162b_Reset();
 }
 
@@ -227,6 +227,7 @@ void Test_RG13_DipNotReplayedAtRelease()
    Grind_MarketTestSeedTimeMsc((long)D'2026.09.28 10:02' * 1000);
    Adr166_OnTick(D'2026.09.28 10:02', false, 0);
    AssertNear("RG13c (G)", Grind_VLGet(7001UL), 1.20600, 1e-9);
+   Grind_MarketTestReset();
    C55_Reset();
 }
 
