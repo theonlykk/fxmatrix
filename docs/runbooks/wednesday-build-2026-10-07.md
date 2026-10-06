@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for Gemini** (Claude, 6 Oct ~21:00Z; s8 questions). Runs Wed 7 Oct in session on the operator's go |
+| Status | **REVIEWED 6 Oct ~21:40Z** (Claude's draft; Gemini GW7-1..GW7-5 and Claude's check, s9: `WARN_API_ENTRY_STOP` / `WARN_API_SOFT_LIMIT` added to the STOP list; a request watch). Runs Wed 7 Oct in session on the operator's go |
 | Ruling | Operator 6 Oct ~20:37Z: the gate on ALL THREE IC fleets as soon as possible ("why roll if you have a position in place for the market trading against you"; the quote gap table shows how tight the range is before something triggers); the build Wed 7 Oct; round 2 = Thu 8 + Fri 9. Replaces the s63 plan (the gate on wine-d only, Fri 9, scored on equity against wine-test) |
 | Backlog | C133 (ADR-166, merged `d57fe9b`), C93 + C100 (v2.2a, merged `509705f`), C88 (wine-c loads the Scripts copy: still deferred) |
 | Model | `docs/runbooks/monday-build-2026-10-05.md` (run 5 Oct 22:20-23:21Z, BAD 0) and `docs/runbooks/round-reload.md` (run 6 Oct 03:18-03:35Z, BAD 0) |
@@ -20,9 +20,10 @@ This message has a line count at the bottom
 | K5 | `OnInit` prints `GRIND_ROLL_GATE opposite_max=<n>` and `GRIND_API_LIMITS entry_stop=<n> soft_warn=<n>` between `GRIND_REROLL` and `GRIND_GEOMETRY`; `LATTICE_CONFIG` carries `"roll_gate"`; with a gate >= 0 `OnInit` restarts both sides' tick extremes (`Grind_LatticeRollGateInitRestart`) | `ea/fxgrind.mq5` 363-379 | VERIFIED |
 | K6 | The gate: a capped side does not roll or re-roll while the opposite side holds more than N FILLED layers; while held it restarts its tick extreme and writes INFO `ROLL_DEFERRED` (archive and Experts log, once per episode, only when a roll is due); never `ROLL_STRANDED` while held | `prompts/cursor_adr166_roll_gate.md` s2-s3; `grind_engine.mqh` 1278-1286 | VERIFIED |
 | K7 | The 27 `_r2` presets now carry `InpRollGateOpposite=0`, `InpApiEntryStop=1000000`, `InpApiSoftWarn=999000` at the EA's positions; each differs from the set loaded 6 Oct (`b438420`) by exactly those three lines and the warning text (", roll gate 0"); the geometry is unchanged. Fingerprints b `fce104ecbacf`, c `6f8a3d3b1a5f`, d `f02163b4e417` | `scripts/ic_presets.py` (G1-G8, 35/35, thirteen mutations caught); sandbox diff of all 27 | VERIFIED |
-| K8 | `scripts/build_logcheck.awk` = the Monday checker plus `gate=`, `api=`, BAD on `API_LIMITS_INVALID` / `API_LIMITS_MISMATCH`, and `ROLL_DEFERRED` lines counted per symbol; run from the box's repo (no paste) | the file; checked on a synthetic UTF-16 log under mawk | VERIFIED |
+| K8 | `scripts/build_logcheck.awk` = the Monday checker plus `gate=`, `api=`, BAD on `API_LIMITS_INVALID` / `API_LIMITS_MISMATCH` / `WARN_API_ENTRY_STOP`, and `ROLL_DEFERRED` lines counted per symbol; run from the box's repo (no paste) | the file; checked on a synthetic UTF-16 log under mawk | VERIFIED |
 | K9 | pipshed shows no gate: it is not in the heartbeat (the geometry table's cells do not change); `LATTICE_CONFIG` and `ROLL_DEFERRED` are archive rows (`archive_counts.py --codes`) | `fxgrind.mq5` 103-105 (heartbeat keys); `archive_counts.py` `--codes` | VERIFIED |
 | K10 | FOMC minutes Wed 7 Oct 2:00 pm ET = 18:00Z | federalreserve.gov October 2026 calendar | CHECK the calendar on the morning |
+| K11 | `WARN_API_ENTRY_STOP` is written to the Experts log and the archive once the terminal's count reaches `InpApiEntryStop`; `WARN_API_SOFT_LIMIT` is a TELEMETRY event only (pipshed), sent each telemetry interval while the count is at or above `InpApiSoftWarn`. At 1000000 / 999000 neither can fire on a real day (IC fleets 700-840 requests by 15:44Z, 6 Oct) | `grind_api_counter.mqh` 176-186; `fxgrind.mq5` 431-432 | VERIFIED |
 
 ## 1. WHAT CHANGES
 
@@ -112,19 +113,22 @@ other eight; the checker from the minute after the pilot: 8 rows, the same.
 
 **3.8 After the box** (desktop, `D:\pipshed`):
 
-    railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes 'ROLL_STRANDED,ROLL_CLOSING_STUCK,ROLL_REFUSED,DEAL_EVENT_MISSED,REPLAY_SEED_FAILED,EJECT_ACCEPTED,INVARIANT_FAIL,QUARANTINE_HALT,RECON_SCAN_RACE,API_LIMITS_MISMATCH,API_LIMITS_INVALID,ROLL_DEFERRED,LATTICE_CONFIG' --hours 1
+    railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes 'ROLL_STRANDED,ROLL_CLOSING_STUCK,ROLL_REFUSED,DEAL_EVENT_MISSED,REPLAY_SEED_FAILED,EJECT_ACCEPTED,INVARIANT_FAIL,QUARANTINE_HALT,RECON_SCAN_RACE,API_LIMITS_MISMATCH,API_LIMITS_INVALID,WARN_API_ENTRY_STOP,WARN_API_SOFT_LIMIT,ROLL_DEFERRED,LATTICE_CONFIG' --hours 1
 
 Expected: `LATTICE_CONFIG` 18 on this box's nine (compile + Load) plus any
 earlier box; `ROLL_DEFERRED` on some capped sides (INFO: the gate holding);
 `RECON_SCAN_RACE` reported, not a STOP (v2.2a re-walks, one a minute at
-most); none of the others. pipshed card 9/9 LIVE. A few minutes' look, then
-the next box.
+most); none of the others. pipshed card 9/9 LIVE, no `WARN_API_SOFT_LIMIT` on
+the strip, and the fleet's `api_count` noted (GW7-3). A few minutes' look,
+then the next box.
 
 ## 4. STOP (before the next chart or box)
 
 FATAL, CRITICAL, `INVARIANT_FAIL`, `RECON_FAIL`, any `REBUILD_*` failure, a
 missing POST ok, a `geo=` or `rebuild=` not as s6, **a `gate=` or `api=`
-not as expected**, `API_LIMITS_INVALID` / `API_LIMITS_MISMATCH`, a MISMATCH
+not as expected**, `API_LIMITS_INVALID` / `API_LIMITS_MISMATCH`, **`WARN_API_ENTRY_STOP`
+(log or archive) or `WARN_API_SOFT_LIMIT` (pipshed)**: at these inputs
+neither can fire, so either means the inputs did not take (GW7-5), a MISMATCH
 or a fingerprint that differs, a magic or instance on the wrong chart, two
 re-rolls of one side with the same `ea_time_ms` (GB-4).
 
@@ -135,7 +139,9 @@ re-rolls of one side with the same `ea_time_ms` (GB-4).
 2. Claude (Thursday, on the study export): no `ROLL_ACCEPTED` after a
    chart's Load while that side's opposite held a filled layer (the gate
    in the field); `ROLL_DEFERRED` per fleet; requests per fleet before /
-   after (`api_count`).
+   after (`api_count`); the largest single-call roll burst after a gate
+   release (`ROLL_ACCEPTED` rows sharing one `ea_time_ms`) per fleet
+   (GW7-3: IC's own daily budget is unmeasured, C78 (2)).
 3. The carry pass that night: 34 summaries as usual (BOOT s6).
 
 ## 6. EXPECTED VALUES PER CHART (`geo=` = L width/add/exit S width/add/exit; round 2's table)
@@ -182,4 +188,36 @@ Ruled, not for review: the gate on all three fleets (operator, above); no
 fleet runs without it, so gate against no gate is not measured live (the
 5 Oct study: rolls about a wash in equity, C133).
 
-Line count: 185
+## 9. GEMINI'S RULINGS (6 OCT ~21:40Z) AND CLAUDE'S CHECK
+
+Gemini read this file as an attachment; his answers pasted by the
+operator; each premise checked against `main` (`5bb5fdb` EA code).
+- **GW7-1 ACCEPTED** (compile first, gate by Load). His "effectively
+  `2859be6`" is not exact: v2.2a's recon change (C93) and the API inputs
+  are live from the compile; only the gate waits for the Load.
+- **GW7-2 ACCEPTED** (Load the whole preset).
+- **GW7-3 REJECTED as stated; a watch added.** His mechanism: a release
+  burst trips `InpApiSoftWarn` / `InpApiEntryStop` and endangers FTMO.
+  The limits are 999000 / 1000000 (K11; IC fleets ran 700-840 requests
+  by 15:44Z on 6 Oct): a 70-modify burst (~200 requests) cannot reach
+  them. The build touches only the IC demos; FTMO's counter is its own
+  terminal's on the VPS and A is not changed (holdout). The burst is
+  smaller than he assumes: while gated the extreme restarts every call
+  (`grind_engine.mqh` 1208-1220), so at release only levels the CURRENT
+  market has crossed roll, never everything crossed during the hold
+  (GR6-3). What stands: IC's own daily request budget is unmeasured (C78
+  (2)), so s3.8 notes `api_count` per box and s5 reports the largest
+  release burst per fleet.
+- **GW7-4 REJECTED as a skew.** The compass compares C and D with B on the
+  SAME ticks, so a thin Friday afternoon reaches every fleet alike, and
+  GC-1 is re-estimated from the round's own control gaps (compass-round
+  s4.3): less flow widens the threshold, it does not bias a probe. Round 1
+  also had a Friday. Rounds are not scored against each other except by
+  pooling repeats under one structure (GC-2).
+- **GW7-5 ACCEPTED, reason corrected.** Both warnings join the STOP list
+  (s4), the checker (`WARN_API_ENTRY_STOP` is BAD) and s3.8. The reason
+  is not a burst (GW7-3): at these inputs neither can fire, so either one
+  means the inputs did not take. `WARN_API_SOFT_LIMIT` is telemetry only,
+  seen on pipshed, not in the log (K11).
+
+Line count: 223

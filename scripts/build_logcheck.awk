@@ -1,5 +1,5 @@
 # Build log check (read-only): mon_logcheck.awk (monday-night 0.1) + the roll gate (ADR-166) and
-# the API inputs (v2.2a, C100). One row per EA init after FROM (UTC); BAD lines in full; ROLL_DEFERRED
+# the API inputs (v2.2a, C100; WARN_API_ENTRY_STOP is BAD: Gemini GW7-5). One row per EA init after FROM (UTC); BAD lines in full; ROLL_DEFERRED
 # lines counted per symbol (the gate holding a due roll).
 # Usage (box shell): iconv -f UTF-16LE -t UTF-8 <MQL5 log> | tr -d '\r' | awk -v from=HH:MM:SS -f build_logcheck.awk
 function newrec(s) { n++; rec[n] = s; rt[n] = t; rdeinit[n] = (dq[s] > 0) ? dr[s] : "-"; if (dq[s] > 0) dq[s]--; open_[s] = n; return n }
@@ -9,7 +9,7 @@ function newrec(s) { n++; rec[n] = s; rt[n] = t; rdeinit[n] = (dq[s] > 0) ? dr[s
   if (t < from) next
   src = "?"
   if (match($0, /fxgrind \([A-Z]+,/)) src = substr($0, RSTART + 9, RLENGTH - 10)
-  if ($0 ~ /FATAL|CRITICAL|INVARIANT_FAIL|RECON_FAIL|REBUILD_EXIT_FAILED|REBUILD_EXIT_UNREADABLE|STARTUP_EXIT_SHORTFALL|REPLAY_INIT_DEFERRED|AMBIGUOUS_|duplicate magic|API_LIMITS_INVALID|API_LIMITS_MISMATCH/) { m = $0; sub(/^.*\t/, "", m); bad[++nb] = t " " src " " m }
+  if ($0 ~ /FATAL|CRITICAL|INVARIANT_FAIL|RECON_FAIL|REBUILD_EXIT_FAILED|REBUILD_EXIT_UNREADABLE|STARTUP_EXIT_SHORTFALL|REPLAY_INIT_DEFERRED|AMBIGUOUS_|duplicate magic|API_LIMITS_INVALID|API_LIMITS_MISMATCH|WARN_API_ENTRY_STOP/) { m = $0; sub(/^.*\t/, "", m); bad[++nb] = t " " src " " m }
   if ($0 ~ /grind telemetry POST ok/) { post[src]++; next }
   if ($0 ~ /ROLL_DEFERRED/) { deferred[src]++; next }
   if ($0 ~ /fxgrind deinit reason=/) { match($0, /reason=[0-9]+/); dr[src] = substr($0, RSTART + 7, RLENGTH - 7); dq[src]++; next }
