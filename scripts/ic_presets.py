@@ -25,6 +25,9 @@ Stage "round" (memo 2026-10-05: this week at cap 8): one reload per chart from i
 LIVE preset with the round's width (the tightest the guard allows for every add any
 fleet runs on the pair: ceil_0.5(max add / 4)), S = W + 1, the table's deadband and
 cap, and B / C / D's add and exit per side, into <pair>_opt_<f>_r<N>.set.
+A table's "roll_gate" ({"B": n, "C": n, "D": n}; C133, ADR-166) also writes
+InpRollGateOpposite per fleet and InpApiEntryStop / InpApiSoftWarn (v2.2a) at the EA's
+input positions; without it the presets are written as before.
 Without --write nothing is written: a summary and every check is printed.
 """
 import argparse
@@ -208,14 +211,70 @@ def check_plan(geo):
                                 % (pair, fleet, side, kind, v, anchor))
                 if kind == "add" and v < ADD_FLOOR:
                     errs.append("%s %s %s: add probe %s below the add-%d floor" % (pair, fleet, side, v, ADD_FLOOR))
+    return errs + check_roll_gate(geo)
+
+
+def check_roll_gate(geo):
+    """A table's optional "roll_gate" (ADR-166): {"B": n, "C": n, "D": n}, each an int >= -1
+    (-1 = off, the EA's default). Absent: presets are written without the v2.2a / ADR-166 keys."""
+    rg = geo.get("roll_gate")
+    if rg is None:
+        return []
+    if not isinstance(rg, dict):
+        return ["roll_gate must be {\"B\": n, \"C\": n, \"D\": n}"]
+    errs = []
+    for f in FLEETS:
+        if f not in rg:
+            errs.append("roll_gate: fleet %s missing" % f)
+            continue
+        v = rg[f]
+        if isinstance(v, bool) or not isinstance(v, int) or v < -1:
+            errs.append("roll_gate %s: %r is not an int >= -1" % (f, v))
     return errs
 
 
-def validate(base_text, out_text, width, cap=None, deadband=None, gate=None):   # gate: STUB (tests first)
+def with_v22_keys(pairs, gate):
+    """pairs with InpRollGateOpposite = gate inserted after InpLatticeReroll and InpApiEntryStop /
+    InpApiSoftWarn after InpEntryHorizonPips (fxgrind.mq5 input order); a key already present is
+    set, not duplicated."""
+    new = {"InpRollGateOpposite": str(int(gate)), "InpApiEntryStop": str(API_ENTRY_STOP),
+           "InpApiSoftWarn": str(API_SOFT_WARN)}
+    after = {"InpLatticeReroll": ["InpRollGateOpposite"],
+             "InpEntryHorizonPips": ["InpApiEntryStop", "InpApiSoftWarn"]}
+    keys = {k for k, _ in pairs}
+    missing = set(after) - keys
+    if missing:
+        raise KeyError("preset lacks %s" % sorted(missing))
+    out = []
+    for k, v in pairs:
+        if k in new:
+            continue
+        out.append((k, v))
+        for nk in after.get(k, []):
+            out.append((nk, new[nk]))
+    return out
+
+
+def validate(base_text, out_text, width, cap=None, deadband=None, gate=None):
+    """gate None: the output keeps the base's keys and order exactly. gate n: the base's keys
+    plus InpRollGateOpposite = n and the two API inputs at the EA's positions (with_v22_keys)."""
     errs = []
     a, b = parse(base_text), parse(out_text)
-    if [k for k, _ in a] != [k for k, _ in b]:
-        return ["keys or their order differ from the base preset"]
+    if gate is None:
+        if [k for k, _ in a] != [k for k, _ in b]:
+            return ["keys or their order differ from the base preset"]
+    else:
+        have = dict(b)
+        for k, want in (("InpRollGateOpposite", str(int(gate))), ("InpApiEntryStop", str(API_ENTRY_STOP)),
+                        ("InpApiSoftWarn", str(API_SOFT_WARN))):
+            if k not in have:
+                errs.append("%s missing" % k)
+            elif have[k] != want:
+                errs.append("%s %s, not %s" % (k, have[k], want))
+        if errs:
+            return errs
+        if [k for k, _ in with_v22_keys(a, gate)] != [k for k, _ in b]:
+            return ["keys or their order differ from the base preset with the v2.2a / ADR-166 inputs"]
     base, p = dict(a), dict(b)
     for k in ("InpMagic", "InpSlot", "InpTelemetryInstance"):
         if p[k] != base[k]:
@@ -327,21 +386,27 @@ def round_width(geo, pair):
     return tight_width(adds)
 
 
-def round_preset(base_text, width, adds, exits, fleet, pair, role, cap, deadband, rnd, roll_gate=None):   # roll_gate: STUB
+def round_preset(base_text, width, adds, exits, fleet, pair, role, cap, deadband, rnd, roll_gate=None):
     """A chart's live preset with this round's width, S = W + 1, deadband, cap, add and
-    exit per side and the warning; every other key and the key order kept."""
+    exit per side and the warning; every other key and the key order kept. With roll_gate
+    (an int >= -1) the three v2.2a / ADR-166 inputs are inserted (with_v22_keys)."""
     w = float(width)
+    gate_txt = "" if roll_gate is None else ", roll gate %d" % int(roll_gate)
     upd = {
         "InpMaxLayers": str(int(cap)),
         "InpWidthPips": _num(w),
         "InpStrandedThreshPips": _num(w + 1.0),
         "InpDeadbandPips": _num(float(deadband)),
-        "InpConfigWarning": _warning(fleet, "round %d %s %s: cap %d, width %s, deadband %s; lattice + reroll on"
-                                     % (int(rnd), pair, role, int(cap), _num(w), _num(float(deadband)))),
+        "InpConfigWarning": _warning(fleet, "round %d %s %s: cap %d, width %s, deadband %s; lattice + reroll on%s"
+                                     % (int(rnd), pair, role, int(cap), _num(w), _num(float(deadband)),
+                                        gate_txt)),
     }
     upd.update(side_fields("Add", adds[0], adds[1]))
     upd.update(side_fields("Exit", exits[0], exits[1]))
-    return render(_set(parse(base_text), upd))
+    pairs = _set(parse(base_text), upd)
+    if roll_gate is not None:
+        pairs = with_v22_keys(pairs, roll_gate)
+    return render(pairs)
 
 
 def round_path(root, fleet, pair, rnd):
@@ -356,16 +421,20 @@ def build_round(geo, root):
     out = {}
     errs = [e for e in check_plan(geo) if "outside the guard" not in e]   # headroom is c10's rule
     cap, db, rnd = int(geo["cap"]), float(geo["deadband"]), int(geo["round"])
+    if any("roll_gate" in e for e in errs):
+        return {}, errs
     plan = p2_values(geo)
+    rg = geo.get("roll_gate")
     for pair in geo["pairs"]:
         w = round_width(geo, pair)
         for f in FLEETS:
+            gate = None if rg is None else rg[f]
             adds, exits, role = plan[(pair, f)]
             base = _read(live_preset(root, f, pair))
-            text = round_preset(base, w, adds, exits, f, pair, role, cap, db, rnd)
+            text = round_preset(base, w, adds, exits, f, pair, role, cap, db, rnd, roll_gate=gate)
             path = round_path(root, f, pair, rnd)
             errs += ["%s: %s" % (os.path.basename(path), e)
-                     for e in validate(base, text, w, cap=cap, deadband=_num(db))]
+                     for e in validate(base, text, w, cap=cap, deadband=_num(db), gate=gate)]
             p = dict(parse(text))
             if resolved(p, "Add") != tuple(float(x) for x in adds) or \
                     resolved(p, "Exit") != tuple(float(x) for x in exits):
