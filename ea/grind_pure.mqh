@@ -438,12 +438,12 @@ bool Grind_LatticeRerollPaused(const datetime server_now)
 
 bool Grind_ValidateRollGateInputs(const bool lattice, const int gate)
 {
-   return true;
+   return gate == -1 || (gate >= 0 && lattice);
 }
 
 bool Grind_RollGateHolds(const int gate, const int opposite_depth)
 {
-   return false;
+   return gate >= 0 && opposite_depth > gate;
 }
 
 bool Grind_ValidateApiLimitInputs(const int entry_stop, const int soft_warn)

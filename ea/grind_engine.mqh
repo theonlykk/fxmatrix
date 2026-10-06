@@ -1207,6 +1207,16 @@ void Grind_LatticeMaybeStranded(const GrindSideState &side, const bool is_long,
 //+------------------------------------------------------------------+
 void Grind_LatticeRollGateRestartExtreme(const bool is_long)
 {
+   const long t = Grind_MarketTimeMsc();
+   if(is_long) {
+      g_grind_vl_tracking_long = true;
+      g_grind_vl_extreme_long = 0.0;
+      g_grind_vl_from_msc_long = t + 1;
+   } else {
+      g_grind_vl_tracking_short = true;
+      g_grind_vl_extreme_short = 0.0;
+      g_grind_vl_from_msc_short = t + 1;
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -1214,6 +1224,33 @@ void Grind_LatticeRollDeferredNote(const GrindSideState &side, const bool is_lon
                                    const double add_pips, const int max_layers,
                                    const int gate, const int opposite_depth)
 {
+   if(is_long) {
+      if(g_grind_vl_deferred_noted_long)
+         return;
+   } else if(g_grind_vl_deferred_noted_short) {
+      return;
+   }
+   if(Grind_SideDepth(side) < max_layers)
+      return;
+   const double level = Grind_Normalize(Grind_ComputeAddTarget(side, is_long, add_pips));
+   if(level <= 0.0)
+      return;
+   const double mkt = is_long ? Grind_MarketAsk() : Grind_MarketBid();
+   if(!Grind_LatticeLevelCrossed(is_long, mkt, level))
+      return;
+   const int depth = Grind_SideDepth(side);
+   const string detail =
+      "{\"side\":\"" + (is_long ? "L" : "S") + "\",\"depth\":" + IntegerToString(depth) +
+      ",\"opposite_depth\":" + IntegerToString(opposite_depth) +
+      ",\"gate\":" + IntegerToString(gate) +
+      ",\"level\":" + Grind_ArchiveJsonDouble(level, 5) +
+      ",\"market\":" + Grind_ArchiveJsonDouble(mkt, 5) + "}";
+   Grind_ArchiveMarker("INFO", "ROLL_DEFERRED", is_long ? "L" : "S", 0, detail);
+   Print("INFO ROLL_DEFERRED ", detail);
+   if(is_long)
+      g_grind_vl_deferred_noted_long = true;
+   else
+      g_grind_vl_deferred_noted_short = true;
 }
 
 //+------------------------------------------------------------------+
