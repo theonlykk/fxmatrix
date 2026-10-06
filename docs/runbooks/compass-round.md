@@ -264,4 +264,12 @@ Interventions: the three of `round1.json`. Then the Monday build
 (structural). Round 2's table: `scripts/ic_geometry_r2.json` (`646a387`);
 HANDOFF s58.
 
-Line count: 267
+**Round 2** (FTMO days Wed 7 + Thu 8; reload Tue 6 Oct). Gemini GR2-1..GR2-6
+and the operator (6 Oct ~01:31Z-01:38Z; `docs/research/compass-round2-review.md`
+s6): **no promotion this round** (a WIN repeats once under the new structure
+before promotion; the winners repeat as probes); probes as planned (no
+baseline round); EURGBP L C add 2.5 stands; the flips stand; **open MTM
+reported at every scoring from round 2 (the IC bid / ask dump compulsory),
+realised decides**.
+
+Line count: 275

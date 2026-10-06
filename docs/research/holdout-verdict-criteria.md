@@ -170,6 +170,12 @@ SUPPORTED means "not shown in nine days", not "disproved".
   Oct) and `holdout_t3.py` `WINDOW` / `MARKS` start 5 Oct 22:00Z / 22:30Z,
   four days (were 4 Oct, five). The 18:30Z amendment moved V's window but
   not T3's. Tests pass windows explicitly (H1-H5 unchanged, 5/5).
+- **6 Oct ~01:38Z (operator, inside the window, before any analysis of
+  it):** a C93 halt on FTMO (`AMBIGUOUS_ADD_*`) is repaired by the F7
+  restart of 5 Oct (` x` on `InpConfigWarning`, OK; no trading input
+  changes) after the operator's go: "restart the same way. we are always
+  watching". Each such restart (instance, halt and restart times) is
+  listed in s7 with the results; A is otherwise unchanged.
 
 ## 9. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -222,4 +228,4 @@ check (5 Oct ~18:05Z-18:15Z).
   entry tests lean toward entry optimisation (C103: "boring is best"):
   T1, T2, T4 reported only; "equity matters the most": V decides.
 
-Line count: 225
+Line count: 231
