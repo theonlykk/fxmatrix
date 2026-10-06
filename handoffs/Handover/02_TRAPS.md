@@ -1929,5 +1929,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   width is set by the pair's largest add, not the probe; GR2-6: GC-1 is
   re-estimated every round). Give him the mechanism with lines (re-roll
   s5, the width rule, compass s4.3) in the document, not only the tables.
+- **A round reload is presets only: stage, fingerprint, read back.**
+  Pull, compare the fleet's `_rN` fingerprint with the sandbox's, `sed`
+  the key in (never printed), `SAME_EXCEPT_KEY` x 9, F7 + Load per chart
+  with a full read-back (`docs/runbooks/round-reload.md`, as run 6 Oct
+  03:18-03:35Z, BAD 0 on 27 charts). Stopping between boxes is safe: the
+  round starts at the first 22:00Z after the last reload.
+- **Widths alone are not a reload to do separately:** they ship in the
+  round's presets with the deadband and the probes; a widths-only reload
+  is a second structural change.
 
-Line count: 1933
+Line count: 1942
