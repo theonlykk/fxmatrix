@@ -28,6 +28,10 @@ cap, and B / C / D's add and exit per side, into <pair>_opt_<f>_r<N>.set.
 A table's "roll_gate" ({"B": n, "C": n, "D": n}; C133, ADR-166) also writes
 InpRollGateOpposite per fleet and InpApiEntryStop / InpApiSoftWarn (v2.2a) at the EA's
 input positions; without it the presets are written as before.
+Stage "ftmo" (operator 7 Oct ~16:45Z): the seven FTMO pairs' presets
+(ea/presets/<pair>_opt_a_r<N>.set) from B's round-N presets: B's anchor values held
+STATIC on the FTMO free trial, with exactly three changes (instance GRIND_<PAIR>_OPT,
+InpBreakerEnable=true, the warning); B moving with the compass against A measures it.
 Without --write nothing is written: a summary and every check is printed.
 """
 import argparse
@@ -446,16 +450,64 @@ def build_round(geo, root):
 FTMO_PAIRS = ("GBPUSD", "EURUSD", "EURGBP", "AUDCHF", "CADCHF", "NZDCAD", "AUDNZD")
 
 
-def ftmo_preset(b_text, pair, rnd):   # STUB (tests first)
-    return b_text
+FTMO_CHANGES = {"InpTelemetryInstance", "InpBreakerEnable", "InpConfigWarning"}
 
 
-def validate_ftmo(b_text, a_text, pair):   # STUB
-    return []
+def ftmo_preset(b_text, pair, rnd):
+    """FTMO (fleet A) preset from B's round preset: B's anchor values held STATIC,
+    with exactly three changes (FTMO_CHANGES). Refuses anything but B's preset."""
+    p = dict(parse(b_text))
+    want = "GRIND_%s_OPTB" % pair
+    if p.get("InpTelemetryInstance") != want:
+        raise ValueError("not B's %s preset (instance %s)" % (pair, p.get("InpTelemetryInstance")))
+    gate = p.get("InpRollGateOpposite", "-1")
+    upd = {
+        "InpTelemetryInstance": "GRIND_%s_OPT" % pair,
+        "InpBreakerEnable": "true",
+        "InpConfigWarning": "FLEET A FTMO-IC static: round %d %s anchor (B's values held for the window): "
+                            "cap %s, width %s, deadband %s; lattice + reroll on, roll gate %s, breaker on "
+                            "(FTMO free trial)" % (int(rnd), pair, p["InpMaxLayers"], p["InpWidthPips"],
+                                                   p["InpDeadbandPips"], gate),
+    }
+    return render(_set(parse(b_text), upd))
 
 
-def build_ftmo(root, rnd):   # STUB
-    return {}, []
+def validate_ftmo(b_text, a_text, pair):
+    a, b = parse(b_text), parse(a_text)
+    if [k for k, _ in a] != [k for k, _ in b]:
+        return ["keys or their order differ from B's preset"]
+    errs = []
+    for (k, vb), (_k, va) in zip(a, b):
+        if vb != va and k not in FTMO_CHANGES:
+            errs.append("%s changed from B's (%s -> %s)" % (k, vb, va))
+    p = dict(b)
+    if p.get("InpTelemetryInstance") != "GRIND_%s_OPT" % pair:
+        errs.append("InpTelemetryInstance %s, not GRIND_%s_OPT" % (p.get("InpTelemetryInstance"), pair))
+    for k, want in (("InpBreakerEnable", "true"), ("InpAutoEject", "false"),
+                    ("InpVirtualLattice", "true"), ("InpLatticeReroll", "true")):
+        if p.get(k) != want:
+            errs.append("%s %s, not %s" % (k, p.get(k), want))
+    return errs
+
+
+def ftmo_path(root, pair, rnd):
+    return os.path.join(root, "ea", "presets", "%s_opt_a_r%d.set" % (pair.lower(), int(rnd)))
+
+
+def build_ftmo(root, rnd):
+    out, errs = {}, []
+    for pair in FTMO_PAIRS:
+        bpath = round_path(root, "B", pair, rnd)
+        b = _read(bpath)
+        try:
+            a = ftmo_preset(b, pair, rnd)
+        except ValueError as e:
+            errs.append("%s: %s" % (os.path.basename(bpath), e))
+            continue
+        path = ftmo_path(root, pair, rnd)
+        errs += ["%s: %s" % (os.path.basename(path), e) for e in validate_ftmo(b, a, pair)]
+        out[path] = a
+    return out, errs
 
 
 def summary(files):
@@ -473,14 +525,15 @@ def summary(files):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="IC presets for the cap-10 reload and round 2")
     ap.add_argument("--table", required=True)
-    ap.add_argument("--stage", choices=("c10", "p2", "round"), required=True)
+    ap.add_argument("--stage", choices=("c10", "p2", "round", "ftmo"), required=True)
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args(argv)
     geo = load_table(args.table)
     c10_texts = None
-    if args.stage == "round":
-        files, errs = build_round(geo, args.root)
+    if args.stage in ("round", "ftmo"):
+        files, errs = build_round(geo, args.root) if args.stage == "round" \
+            else build_ftmo(args.root, int(geo["round"]))
         print("\n".join(summary(files)))
         if errs:
             print("\n".join("ERROR " + e for e in errs))
