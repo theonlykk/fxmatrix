@@ -443,6 +443,21 @@ def build_round(geo, root):
     return out, errs
 
 
+FTMO_PAIRS = ("GBPUSD", "EURUSD", "EURGBP", "AUDCHF", "CADCHF", "NZDCAD", "AUDNZD")
+
+
+def ftmo_preset(b_text, pair, rnd):   # STUB (tests first)
+    return b_text
+
+
+def validate_ftmo(b_text, a_text, pair):   # STUB
+    return []
+
+
+def build_ftmo(root, rnd):   # STUB
+    return {}, []
+
+
 def summary(files):
     rows = []
     for path in sorted(files):

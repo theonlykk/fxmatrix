@@ -468,5 +468,84 @@ class TestRollGate(unittest.TestCase):
             self.assertEqual([k for k, _ in ip.parse(ip._read(f))], ea, os.path.basename(f))
 
 
+class TestFtmoStage(unittest.TestCase):
+    """Operator 7 Oct ~16:45Z: the FTMO free trial (new account; 1514731800 expires 7 Oct)
+    runs the IC strategy STATIC at round 2's anchor values for the window, so B (moving
+    with the compass) against A measures the compass. Stage "ftmo": each of the seven
+    FTMO pairs' preset = B's round preset with exactly three changes: the instance id
+    (GRIND_<PAIR>_OPT, A's, without the B), InpBreakerEnable=true (ADR-158 breaker, ADR-160
+    gate and the pre-midnight halt: FTMO's $500 daily limit is real) and the warning."""
+
+    def b_text(self, pair="gbpusd"):
+        return ip._read(os.path.join(ROOT, "ea", "presets_b", "%s_opt_b_r2.set" % pair))
+
+    def test_f1_exactly_three_keys_change(self):
+        """F1: same keys in the same order as B's; the changed set is exactly the three."""
+        b = self.b_text()
+        a = ip.ftmo_preset(b, "GBPUSD", 2)
+        pb, pa = ip.parse(b), ip.parse(a)
+        self.assertEqual([k for k, _ in pb], [k for k, _ in pa])
+        changed = {k for (k, v1), (_k, v2) in zip(pb, pa) if v1 != v2}
+        self.assertEqual(changed, {"InpTelemetryInstance", "InpBreakerEnable", "InpConfigWarning"})
+
+    def test_f2_values(self):
+        """F2: instance GRIND_GBPUSD_OPT, breaker true, magic unchanged (22260101), the
+        warning names fleet A, FTMO, static, round 2 and the breaker."""
+        p = kv(ip.ftmo_preset(self.b_text(), "GBPUSD", 2))
+        self.assertEqual(p["InpTelemetryInstance"], "GRIND_GBPUSD_OPT")
+        self.assertEqual(p["InpBreakerEnable"], "true")
+        self.assertEqual(p["InpMagic"], "22260101")
+        for part in ("FLEET A", "FTMO", "static", "round 2", "breaker on"):
+            self.assertIn(part, p["InpConfigWarning"])
+
+    def test_f3_refuses_a_preset_that_is_not_bs(self):
+        """F3: a C preset (instance ..._OPTC) is refused (ValueError): A copies the ANCHOR."""
+        c = ip._read(os.path.join(ROOT, "ea", "presets_c", "gbpusd_opt_c_r2.set"))
+        with self.assertRaises(ValueError):
+            ip.ftmo_preset(c, "GBPUSD", 2)
+
+    def test_f4_validate_catches(self):
+        """F4: validate_ftmo is clean on the generated preset and names each broken rule:
+        breaker false, a geometry change, a fourth key changed, auto-eject on."""
+        b = self.b_text()
+        a = ip.ftmo_preset(b, "GBPUSD", 2)
+        self.assertEqual(ip.validate_ftmo(b, a, "GBPUSD"), [])
+        cases = [(a.replace("InpBreakerEnable=true", "InpBreakerEnable=false"), "InpBreakerEnable"),
+                 (a.replace("InpAddPips=9.0", "InpAddPips=8.0"), "InpAddPips"),
+                 (a.replace("InpDeadbandPips=2.0", "InpDeadbandPips=4.0"), "InpDeadbandPips"),
+                 (a.replace("InpAutoEject=false", "InpAutoEject=true"), "InpAutoEject")]
+        for text, word in cases:
+            errs = ip.validate_ftmo(b, text, "GBPUSD")
+            self.assertTrue(any(word in e for e in errs), (word, errs))
+
+    def test_f5_build_the_seven_from_the_repo(self):
+        """F5: build_ftmo(root, 2) writes ea/presets/<pair>_opt_a_r2.set for exactly the
+        seven FTMO pairs, 0 errors; each has B's anchor width / add / exit / cap /
+        deadband / gate."""
+        files, errs = ip.build_ftmo(ROOT, 2)
+        self.assertEqual(errs, [])
+        names = sorted(os.path.basename(f) for f in files)
+        self.assertEqual(names, sorted("%s_opt_a_r2.set" % p.lower() for p in
+                                       ("GBPUSD", "EURUSD", "EURGBP", "AUDCHF", "CADCHF", "NZDCAD", "AUDNZD")))
+        for path, text in files.items():
+            pair = os.path.basename(path).split("_")[0]
+            pb, pa = kv(self.b_text(pair)), kv(text)
+            for k in ("InpWidthPips", "InpAddPips", "InpExitPips", "InpMaxLayers", "InpDeadbandPips",
+                      "InpRollGateOpposite", "InpStrandedThreshPips", "InpVirtualLattice", "InpLatticeReroll"):
+                self.assertEqual(pa[k], pb[k], (pair, k))
+
+    def test_f6_committed_a_presets_carry_every_ea_input_in_order(self):
+        """F6: every committed ea/presets/*_opt_a_r2.set (seven) holds exactly the EA's
+        inputs in the EA's order."""
+        import glob
+        import re
+        with open(os.path.join(ROOT, "ea", "fxgrind.mq5"), encoding="utf-8", errors="replace") as fh:
+            ea = re.findall(r"^input\s+\S+\s+(\w+)", fh.read(), re.M)
+        files = sorted(glob.glob(os.path.join(ROOT, "ea", "presets", "*_opt_a_r2.set")))
+        self.assertEqual(len(files), 7)
+        for f in files:
+            self.assertEqual([k for k, _ in ip.parse(ip._read(f))], ea, os.path.basename(f))
+
+
 if __name__ == "__main__":
     unittest.main()
