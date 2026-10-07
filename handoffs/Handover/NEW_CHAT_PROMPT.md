@@ -78,8 +78,9 @@ Do not start any fleet action before the answers are in.
   = Wed 7 + Thu 8** (6 Oct 22:00Z - 8 Oct 22:00Z), scored Thu after 22:00Z
   with `round2.json`; **the IC bid / ask dump is compulsory** (open MTM
   reported; the COHORT's EQUITY decides from 7 Oct, amendment s7); C132 `fill_slippage.py` reported beside it.
-  **MOVED by the Wednesday build: round 2 = Thu 8 + Fri 9 (7 Oct 22:00Z -
-  9 Oct 22:00Z, `round2.json`), scored after Friday's close.**
+  **MOVED twice: by the Wednesday build to Thu 8 + Fri 9, then (operator
+  7 Oct ~15:27Z) to 7 Oct 02:25Z - 8 Oct 22:00Z (`round2.json`), scored
+  Thursday evening; round 3 reloads Fri 9.**
 - **`main` = v2.2a + ADR-166, DEPLOYED on B, C, D 7 Oct (not FTMO).** v2.2a (C93 unique recon
   tickets, C100 API stop inputs) merged `509705f`; **ADR-166 roll gate**
   merged `d57fe9b` (2597/2597 GBPUSD + EURUSD): `InpRollGateOpposite`
@@ -134,18 +135,18 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 1. The questions for the previous chat (above).
 2. Wed 7 - Thu 8: status reads; the gate in the field (`ROLL_DEFERRED`; no
    `ROLL_ACCEPTED` while the opposite side holds a filled layer;
-   requests; release bursts). Round 2 opens 22:00Z Wed 7. Carry passes
-   nightly (34).
-3. Fri 9 Oct after the close: score round 2: the IC bid / ask dump on
-   wine-c with `InpFrom` `2026.10.07 23:00` (server) and
+   requests; release bursts). Round 2 runs 7 Oct 02:25Z (the build) - 8
+   Oct 22:00Z (operator ~15:27Z). Carry passes nightly (34).
+3. Thu 8 Oct ~22:35Z (after the end mark): score round 2: the IC bid / ask
+   dump on wine-c with `InpFrom` `2026.10.07 04:00` (server) and
    `archive_counts.py --export-archive`; **`equity_score.py --export
    <archive> --round round2.json --bidask <folder>` decides (the cohort,
-   end mark 20:45Z)**; `compass_score.py` (realised), `fill_slippage.py
+   end mark 8 Oct 22:30Z)**; `compass_score.py` (realised), `fill_slippage.py
    --round round2.json --baseline round1.json` and the counter scalps
    during gate holds reported; journals (`disconnects.py`); the operator
    decides promotion and the repeat rule. Then round 3's table, Gemini,
-   `_r3` presets (the generator writes the gate), reload Mon 12 (round 3
-   = Tue 13 + Wed 14).
+   `_r3` presets (the generator writes the gate); **round 3's reload Fri 9
+   in session (round 3 = Fri 9 + Mon 12)**.
 4. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
    history dumps, the archive export, `holdout_verdict.py`, any FTMO
    restarts listed.
@@ -185,4 +186,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   hand-derived values, a mutation round, the full suite on a scratch PG.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 188
+Line count: 189

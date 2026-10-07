@@ -55,7 +55,8 @@ no open price. Cuts and VOID as before. Realised margins are printed beside.
    research/compass/round2.json --bidask <folder>` (decides), then
    `compass_score.py` (realised, reported) and `fill_slippage.py` as planned.
    (s7: `equity_score.py` decides on the cohort; `round2.json` `equity_end`
-   = 9 Oct 20:45Z.)
+   = 9 Oct 20:45Z, then 8 Oct 22:30Z when round 2 was moved to start at the
+   build and end Thu 8 22:00Z, s8.)
 
 ## 4. NOT CHANGED
 
@@ -115,9 +116,17 @@ Gemini read this file as an attachment; his answers pasted by the operator.
 - **GQ7-4 AGREED as a watch.** If the control's cohort gaps exceed any
   one-pip edge, rounds REPEAT: GC-1 is printed every round, and the cohort
   is far less noisy than plain equity.
+- **8. ROUND 2 MOVED (operator 7 Oct ~15:27Z).** Round 2 starts at the build
+  (7 Oct 02:25Z, after the last gate Load 02:22:50Z; nothing structural since)
+  and ends Thu 8 Oct 22:00Z, scored Thursday evening; round 3 reloads Fri 9.
+  Under the cohort a round needs no 22:00Z start. `equity_end` = 8 Oct
+  22:30Z (a weekday end). Set after a partial look at 7 Oct data (the roll
+  counts; EURUSD long B vs C realised); no probe's cohort P&L was computed
+  (`round2.json` `window_note`). The IC dump must start by 7 Oct 02:25Z:
+  `InpFrom` `2026.10.07 04:00` (server).
 - Built: `equity_score.py` `cohort_side`, `round_span`; tests C1-C9, E14
   (C1-C8 and E11 failing at the tests-first commit; C9 and E14 for two
   mutation survivors); 23/23; fifteen mutations caught (re-run without
   bytecode caching after a stale-.pyc trap).
 
-Line count: 123
+Line count: 132

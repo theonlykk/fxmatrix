@@ -92,8 +92,8 @@ Operator 7 Oct ~14:53Z (`docs/research/compass-equity-amendment.md`): under
 re-roll the timing of a realised loss is set by each fleet's inherited book,
 so from round 2 a probe is decided on the equity of its COHORT (Gemini GQ7-3,
 ~15:07Z): the layers opened inside the round, their costs and closes plus the
-mid mark at the round's end (`equity_end` in the round file; round 2: Fri
-20:45Z). Plain equity (all layers, start and end marks) and realised
+mid mark at the round's end (`equity_end` in the round file; round 2: Thu 8
+Oct 22:30Z, the round moved to start at the 7 Oct build). Plain equity (all layers, start and end marks) and realised
 (`compass_score.py`) are printed beside it, with cohort equity per layer-hour.
 GC-1 from the control's cohort gaps; no add-probe gates; UNPRICED when a marked
 layer has no open price (use `--export-archive`). 23 tests, hand-derived (E1-E13

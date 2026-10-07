@@ -29,7 +29,7 @@ Per instance side and window (a, b):
 That is plain equity (reported). The COHORT (decides): layers opened in
 [start, end), value = open commissions + closes before end + mid mark at end
 (cohort_side); start = the first window's start, end = the round file's
-"equity_end" (round 2: Fri 20:45Z, the holdout's Friday mark; GQ7-1) else the
+"equity_end" (a weekday end 22:30Z, a Friday end 20:45Z; GQ7-1) else the
 last window's end. Score = value / the windows' days. Verdict: margin =
 probe - comparator per day; WIN above the threshold, LOSE below minus it, else
 REPEAT; no add-probe gates (they guarded realised artefacts). A side with an
