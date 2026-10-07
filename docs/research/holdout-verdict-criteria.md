@@ -191,6 +191,21 @@ SUPPORTED means "not shown in nine days", not "disproved".
   `docs/research/ic-vs-ftmo-holdout.md` (Mon 12 - Fri 23 Oct, IC B against
   FTMO A on the seven common pairs). Tests, window and verdict table
   unchanged.
+- **7 Oct ~17:30Z (THE WINDOW ENDS EARLY, before the scoring run; FTMO
+  1514731800 expires at the end of the 7 Oct session; operator ~16:40Z:
+  "ftmo should be the latest version of ic with the best guess for
+  parameters", ~16:45Z: "we keep track/tag this current ftmo deployment -
+  it might be something we revisit"):** cycle 3 is retired with the
+  account and the new free trial runs the IC strategy
+  (`docs/runbooks/ftmo-ic-start.md`). V's window keeps only Tue 6 and Wed
+  7 (Wed 7 to the detach; the old account's resting orders after it are
+  not the EA's). Those two days are computed by s5 (its FTMO files taken
+  at the switch, runbook s4) and reported in s7 with **NO VERDICT**: two days cannot carry the day-bootstrap, and the
+  extension (12-16 Oct) cannot run on cycle 3. Nothing in s4 is unlocked
+  by this: real money, a challenge fee or a BMO trial still need a
+  SUPPORTED verdict from a pre-registered test. T1-T4 are reported over
+  the same two days. Restore path, if cycle 3 is revisited: tag
+  `vps-aa6970a`, presets `ea/presets/*_opt.set` (runbook s11).
 
 ## 9. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -243,4 +258,4 @@ check (5 Oct ~18:05Z-18:15Z).
   entry tests lean toward entry optimisation (C103: "boring is best"):
   T1, T2, T4 reported only; "equity matters the most": V decides.
 
-Line count: 246
+Line count: 261
