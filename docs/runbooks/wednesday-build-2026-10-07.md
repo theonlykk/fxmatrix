@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED 6 Oct ~21:40Z** (Claude's draft; Gemini GW7-1..GW7-5 and Claude's check, s9: `WARN_API_ENTRY_STOP` / `WARN_API_SOFT_LIMIT` added to the STOP list; a request watch). Runs Wed 7 Oct in session on the operator's go |
+| Status | **RUN 7 Oct 01:57-02:23Z** on D, C, B (s10; BAD 0 on 27 charts). **REVIEWED 6 Oct ~21:40Z** (Claude's draft; Gemini GW7-1..GW7-5 and Claude's check, s9: `WARN_API_ENTRY_STOP` / `WARN_API_SOFT_LIMIT` added to the STOP list; a request watch). Runs Wed 7 Oct in session on the operator's go |
 | Ruling | Operator 6 Oct ~20:37Z: the gate on ALL THREE IC fleets as soon as possible ("why roll if you have a position in place for the market trading against you"; the quote gap table shows how tight the range is before something triggers); the build Wed 7 Oct; round 2 = Thu 8 + Fri 9. Replaces the s63 plan (the gate on wine-d only, Fri 9, scored on equity against wine-test) |
 | Backlog | C133 (ADR-166, merged `d57fe9b`), C93 + C100 (v2.2a, merged `509705f`), C88 (wine-c loads the Scripts copy: still deferred) |
 | Model | `docs/runbooks/monday-build-2026-10-05.md` (run 5 Oct 22:20-23:21Z, BAD 0) and `docs/runbooks/round-reload.md` (run 6 Oct 03:18-03:35Z, BAD 0) |
@@ -220,4 +220,24 @@ operator; each premise checked against `main` (`5bb5fdb` EA code).
   means the inputs did not take. `WARN_API_SOFT_LIMIT` is telemetry only,
   seen on pipshed, not in the log (K11).
 
-Line count: 223
+
+## 10. RECORD (RUN 7 OCT 01:51-02:24Z; started early, operator ~01:51Z: "the wed session has started")
+
+Calendar: no central-bank release in the window (RBNZ 28 Oct, RBA 3 Nov;
+FOMC minutes 18:00Z). Cards at ~01:52Z: A 7/7, B, C, D 9/9; guards 146-149;
+requests A 105, B 224, C 232, D 185.
+
+| box | pull / fingerprint / cmp | compile (`ea_build`) | 3.6 (`deinit=2`, `gate=-1`) | pilot Load (`gate=0`) | the eight |
+|---|---|---|---|---|---|
+| wine-d | `565ea53`, `f02163b4e417`, 158/0 | Experts 01:57:27 | 01:57:38, 9 rows, BAD 0 | GBPUSD 01:59:50 | 02:01:36-02:03:12 |
+| wine-c | `565ea53`, `6f8a3d3b1a5f`, 158/0 | **Scripts** 02:06:35 | 02:06:51-52, 9 rows, BAD 0 | GBPUSD 02:11:02 | 02:12:36-02:14:11 |
+| wine-test | `565ea53`, `fce104ecbacf`, 158/0 | Experts 02:17:49 | 02:18:03, 9 rows, BAD 0 | GBPUSD 02:19:35 | 02:21:20-02:22:50 |
+
+Every row `api=1000000/999000`, `geo=` as s6, `rebuild=false/false`; 0
+errors, 0 warnings on every compile. wine-c's CADCHF had no POST ok in the
+first minute after the compile, then 3 (timing). Archive 02:24Z (1 h): 54
+`LATTICE_CONFIG` (two per IC instance) and nothing else from IC; A's five
+`EJECT_ACCEPTED` (AUDCHF, 01:39Z, ADR-157 by design). No `ROLL_DEFERRED`
+by 02:24Z (written only on a live crossing while held).
+
+Line count: 243

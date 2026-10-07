@@ -14,6 +14,24 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 7 Oct 01:57-02:23Z -- the Wednesday build: v2.2a + ADR-166, the roll gate at 0 on 27 IC charts (B, C, D)
+- **What:** B, C, D from `2859be6` to `main` (`5bb5fdb` EA code); then
+  F7 + Load of each chart's `_r2` preset with `InpRollGateOpposite=0`
+  (operator 6 Oct ~20:37Z; started in the Asian session ~01:51Z, ahead of
+  the planned 13:00Z).
+- **Handled:** per box: pull (`565ea53`), code diff empty, fingerprint,
+  `SAME_EXCEPT_KEY` x 9, `cmp ok=158`, one compile (wine-d Experts
+  01:57:27, wine-c Scripts 02:06:35, wine-test Experts 02:17:49; 0
+  errors, 0 warnings; `ea_build` in the archive), the checker (9 rows
+  `deinit=2 gate=-1`, then 9 rows `deinit=5 gate=0`, geometry as the
+  table, `rebuild=false/false`, BAD 0), archive 54 `LATTICE_CONFIG` and
+  nothing else from IC. Loads: D 01:59:50-02:03:12, C 02:11:02-02:14:11,
+  B 02:19:35-02:22:50.
+- **Changed:** a capped IC side no longer rolls or re-rolls while the
+  opposite side holds a filled layer; round 2 = Thu 8 + Fri 9. A (FTMO)
+  unchanged (holdout).
+- **Evidence:** HANDOFF s64; `docs/runbooks/wednesday-build-2026-10-07.md`.
+
 ### 6 Oct 03:18-03:35Z -- compass round 2 reload: 27 IC charts by hand (B, C, D)
 - **What:** round 2's presets loaded on every IC chart (F7 + Load, read
   back before OK): tight widths (GBPUSD 2.5, EURUSD / NZDCAD / AUDNZD 2.0,
@@ -515,4 +533,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 518
+Line count: 536
