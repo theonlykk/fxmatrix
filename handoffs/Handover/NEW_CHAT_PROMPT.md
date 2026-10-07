@@ -1,8 +1,10 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~02:35Z (WEDNESDAY; ADR-166 ROLL GATE LIVE ON B, C, D SINCE 01:57-02:23Z; ROUND 2 = THU 8 + FRI 9)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~15:20Z (WEDNESDAY; ADR-166 ROLL GATE LIVE ON B, C, D SINCE 01:57-02:23Z; ROUND 2 = THU 8 + FRI 9; THE COHORT'S EQUITY DECIDES)
 
-**Updated 7 Oct ~02:35Z without a handover** (the chat continues): read
+**Updated 7 Oct ~15:20Z without a handover** (the chat continues): read
+also `docs/research/compass-equity-amendment.md` (s7: the rule that stands)
+and `research/compass/equity_score.py` + README; read
 `handoffs/HANDOFF_2026-09-24.md` s64 and `docs/runbooks/wednesday-build-2026-10-07.md`
 (s9 Gemini, s10 the run) as well; where this file and s64 disagree, s64
 and BOOT s6 are newer.
@@ -75,7 +77,7 @@ Do not start any fleet action before the answers are in.
   1.0; S = W + 1; deadband 2; no promotion; NZDCAD the control). **Round 2
   = Wed 7 + Thu 8** (6 Oct 22:00Z - 8 Oct 22:00Z), scored Thu after 22:00Z
   with `round2.json`; **the IC bid / ask dump is compulsory** (open MTM
-  reported, realised decides); C132 `fill_slippage.py` reported beside it.
+  reported; the COHORT's EQUITY decides from 7 Oct, amendment s7); C132 `fill_slippage.py` reported beside it.
   **MOVED by the Wednesday build: round 2 = Thu 8 + Fri 9 (7 Oct 22:00Z -
   9 Oct 22:00Z, `round2.json`), scored after Friday's close.**
 - **`main` = v2.2a + ADR-166, DEPLOYED on B, C, D 7 Oct (not FTMO).** v2.2a (C93 unique recon
@@ -122,29 +124,32 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 
 | | |
 |---|---|
-| fxmatrix `main` | after this patch: s63 docs + handover on `d57fe9b` (ADR-166 merge, tree `e44f78c2`; EA code = `5bb5fdb`) on `b63ddce`; `509705f` v2.2a; `24bcc4c` C132; `360ee75` s62 |
+| fxmatrix `main` | **`00cbdaf` (tree `698673c9`), 7 Oct ~15:16Z: the cohort equity scorer and amendment; EA code `5bb5fdb` (v2.2a + ADR-166), live on B, C, D.** Before: s63 docs + handover on `d57fe9b` (ADR-166 merge, tree `e44f78c2`) on `b63ddce`; `509705f` v2.2a; `24bcc4c` C132; `360ee75` s62 |
 | pipshed `main` | `9b1faba` (C123 + C131, tree `b43a77f1`), 42/42. C121 (AUDUSD) WAITS |
 | VPS (cycle 3) | `aa6970a` (tag `vps-aa6970a`), 7 instances, frozen for the holdout |
-| wine-test (B), wine-c (C), wine-d (D) | EA `2859be6`, repos at `7551580`; round-2 presets in `MQL5/Presets` (`*_r2.set`, key injected); `/root/mon_logcheck.awk`; `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 (both `-once`) / 5912 (`-forever`) |
+| wine-test (B), wine-c (C), wine-d (D) | **EA `main` `5bb5fdb` since 7 Oct (compiles 01:57:27 D Experts, 02:06:35 C Scripts, 02:17:49 B Experts), gate 0 on all 27; repos at `565ea53`; the `_r2` presets with the gate staged (fingerprints d `f02163b4e417`, c `6f8a3d3b1a5f`, b `fce104ecbacf`); checker `scripts/build_logcheck.awk` in each repo**; `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 / 5912 (all answered 7 Oct) |
 
-## 2. NEXT, IN ORDER (= HANDOFF s63 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s64 NEXT SESSION; 7 Oct ~15:20Z)
 
 1. The questions for the previous chat (above).
-2. Tue 6 Oct after ~21:00Z: the carry pass (34 summaries); a status read
-   after 22:00Z, when round 2's window opens.
-3. Thu 8 Oct after 22:00Z: score round 2 (study export; the IC bid / ask
-   dump; journals; `compass_score.py --round round2.json --bidask ...`;
-   `fill_slippage.py --round round2.json --baseline round1.json`; GC-1
-   from the round's own control; the operator decides promotion and the
-   repeat rule). Then round 3's table with the gate on wine-d, Gemini
-   (one document, with mechanisms and lines), presets, and a
-   build-and-reload runbook (the Monday build's shape; log checker
-   extended with `roll_gate=`; `GRIND_ROLL_GATE opposite_max=` read back).
-4. Fri 9 Oct in session: the IC build (wine-d Experts, wine-c the Scripts
-   copy (C88), wine-test Experts) with round 3's reload.
-5. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
+2. Wed 7 - Thu 8: status reads; the gate in the field (`ROLL_DEFERRED`; no
+   `ROLL_ACCEPTED` while the opposite side holds a filled layer;
+   requests; release bursts). Round 2 opens 22:00Z Wed 7. Carry passes
+   nightly (34).
+3. Fri 9 Oct after the close: score round 2: the IC bid / ask dump on
+   wine-c with `InpFrom` `2026.10.07 23:00` (server) and
+   `archive_counts.py --export-archive`; **`equity_score.py --export
+   <archive> --round round2.json --bidask <folder>` decides (the cohort,
+   end mark 20:45Z)**; `compass_score.py` (realised), `fill_slippage.py
+   --round round2.json --baseline round1.json` and the counter scalps
+   during gate holds reported; journals (`disconnects.py`); the operator
+   decides promotion and the repeat rule. Then round 3's table, Gemini,
+   `_r3` presets (the generator writes the gate), reload Mon 12 (round 3
+   = Tue 13 + Wed 14).
+4. Sat 10 Oct: holdout scoring (criteria s5): FTMO bid / ask and deal
    history dumps, the archive export, `holdout_verdict.py`, any FTMO
    restarts listed.
+5. (done 7 Oct) the IC build with the gate.
 6. Quiet slots: the twins' Global Variables (monday-build s7); C88; the
    width-guard change and C127 to Gemini. Later: C128 (cap 5 vs 8), C130.
 
@@ -180,4 +185,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   hand-derived values, a mutation round, the full suite on a scratch PG.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 183
+Line count: 188

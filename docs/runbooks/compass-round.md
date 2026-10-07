@@ -261,7 +261,7 @@ lever.
 | GC-3 | a scout's first round is a baseline | ACCEPTED |
 | GC-4 | void a pair-side after any manual intervention | AMENDED by the operator: cut, salvage at least one day, else VOID; fleet-wide uniform changes cut nothing (his premise holds for hand ejects minutes apart, not for one-input changes on every chart) |
 | GC-5 | promotion on closed + open (peak MTM) drawdown | ACCEPTED |
-| GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decides; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
+| GC-6 | peak open MTM as a REPEAT_GATE for add probes | REJECTED by the operator (realised P&L decided then; from round 2 the cohort's equity decides, s1; open risk at promotion, GC-5); MTM REPORTED. His missing fact (broker disconnects) ACCEPTED as reported |
 | GC-7 | fix width per pair | ACCEPTED, with headroom (s6) |
 
 ## 11. ROUND RECORDS
