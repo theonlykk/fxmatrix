@@ -83,6 +83,22 @@ filter, side filter, per-day divisor). Cross-check: on 28-30 Sep it
 reproduces `d1_evidence.py`'s ledger totals exactly (AUDCHF S B/C,
 EURGBP L B, GBPUSD L A).
 
+## equity_score.py -- a round decided on EQUITY (from round 2)
+
+    python research/compass/equity_score.py --export <archive export.jsonl> --round research/compass/round2.json --bidask <IC bid/ask folder>
+    python -m unittest research/compass/test_equity_score.py -v
+
+Operator 7 Oct ~14:53Z (`docs/research/compass-equity-amendment.md`): under
+re-roll the timing of a realised loss is set by each fleet's inherited book,
+so from round 2 a probe is decided on its equity change (cash in the windows +
+open MTM at the end - at the start, marks at the MID of the minute ending at
+each boundary); realised (`compass_score.py`) is printed beside it. GC-1 from
+the control's equity gaps; no add-probe gates; UNPRICED when a marked layer
+has no open price (use `--export-archive`). The IC dump must start before the
+round's first window. 13 tests, hand-derived (11 failing at the stub, E12 the
+guard that compass_score is unchanged; E13 added for two mutation
+survivors); seventeen mutations caught.
+
 ## fill_slippage.py -- fill slippage of entry limits (backlog C132)
 
     python research/compass/fill_slippage.py --export <study_export.jsonl> --round research/compass/round2.json [--baseline research/compass/round1.json] [--fleets BCD] [--below -5]
@@ -106,4 +122,4 @@ more than half a pip. Three fills worse than 5 pips, all at a liquidity
 moment: AUDNZD L D -14.1 and EURUSD S B -6.7 at 12:30:09Z Fri 2 Oct (US
 payrolls), AUDNZD L D -36.6 at 21:01:00Z Mon 5 Oct (IC's rollover hour).
 
-Line count: 109
+Line count: 125

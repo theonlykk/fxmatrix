@@ -92,8 +92,9 @@ Do not start any fleet action before the answers are in.
   and C). Days Mon 12 + Tue 13. Slip: build Mon 12, round 3 Tue 13 + Wed
   14. Cap 10, fixed widths and AUDUSD DEFERRED.
 
-**Operator rulings (do not re-open):** realised P&L decides a compass
-round (scalp P&L and open MTM reported); equity decides the holdout and
+**Operator rulings (do not re-open):** **EQUITY decides a compass round
+from round 2** (operator 7 Oct ~14:53Z, `docs/research/compass-equity-amendment.md`;
+realised reported; until round 1 realised decided); equity decides the holdout and
 the roll gate ("rolling is a cost"; 6 Oct: rolls booked -$721 over 1-5 Oct
 but were about a wash against holding); the one-hour markout is a proxy;
 the flat side enters as fast as possible, passively; the deadband stays
@@ -179,4 +180,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   hand-derived values, a mutation round, the full suite on a scratch PG.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 182
+Line count: 183

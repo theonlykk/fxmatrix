@@ -139,5 +139,6 @@
     "GRIND_NZDCHF_OPTD": "2026-10-06T03:21:36Z",
     "GRIND_AUDNZD_OPTC": "2026-10-06T03:28:51Z",
     "GRIND_AUDNZD_OPTD": "2026-10-06T03:22:01Z"
-  }
+  },
+  "decides": "EQUITY (research/compass/equity_score.py; operator 7 Oct ~14:53Z, docs/research/compass-equity-amendment.md); realised (compass_score.py) reported"
 }
