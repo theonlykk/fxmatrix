@@ -1993,4 +1993,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   the box log (`GRIND_ROLL_GATE opposite_max=`) or the archive
   (`LATTICE_CONFIG`, `ROLL_DEFERRED` with `archive_counts.py --codes`).
 
-Line count: 1996
+## TRAPS FROM 2026-10-07 (READING THE GATE)
+
+- **The cards' "Rolls" count is rolled layers CLOSING** (`ROLL_FILLED`,
+  realised P&L), old rolls included: it rises after the gate is on. New
+  rolls are `ROLL_ACCEPTED` in the archive; count those against each
+  chart's Load time.
+- **A book rebuilt from `fill_logs` shows the counter layer still "open"
+  at a roll released by its exit:** the layer closes by close-by 0.0-0.5 s
+  AFTER the roll (the exit fills, the EA drops the layer, the gate opens,
+  the roll goes, then the close-by deal). Check the close time against the
+  roll before calling it a leak; the EA's own view is `ROLL_DEFERRED`'s
+  `opposite_depth`.
+- **Under the gate a trend still rolls:** the counter L0 fills on a 1-2.5
+  pip bounce (holds), its exit fills only if the fall continues (releases):
+  rolls come at counter-scalp moments (P3), as designed.
+
+Line count: 2012
