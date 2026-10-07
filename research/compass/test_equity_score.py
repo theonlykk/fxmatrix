@@ -60,27 +60,30 @@ def layer(book, inst, side, open_t, open_price, close_t=None, close_price=None,
     return lay
 
 
-# bars: T0-60 bid 1.00000 | T0 0.99900 | T0+60 0.99800 | T0+120 0.99950 (asks +1 pip)
-# window (T0, T0+180): the start mark is the minute ENDING at T0 (bar T0-60, bid
-# 1.00000, ask 1.00010); the end mark the minute ending at T0+180 (bar T0+120,
-# bid 0.99950, ask 0.99960).
+# bars: T0-60 bid 1.00000 | T0 0.99900 | T0+60 0.99800 | T0+120 0.99950 (asks +1 pip,
+# so mids +0.5 pip). Marks at the MID (7 Oct: the boundaries fall at 22:00Z, the
+# minute 21:59 is inside IC's rollover hour; bid/ask marks would put that spread
+# into each side in proportion to its depth; the holdout's T3c marks at the mid
+# for the same reason). Window (T0, T0+180): the start mark is the minute ENDING
+# at T0 (bar T0-60, mid 1.00005); the end mark the minute ending at T0+180 (bar
+# T0+120, mid 0.99955).
 B4 = [1.00000, 0.99900, 0.99800, 0.99950]
 WIN = [(T0, T0 + 180, 1)]
 
 
 class TestMark(unittest.TestCase):
-    def test_e1_mark_long_at_bid_short_at_ask(self):
-        """E1: at T0 a long from 1.00100 = (1.00000 - 1.00100) = -10 pips -> -1.00;
-        a short from 1.00050 vs ask 1.00010 = +4 pips -> +0.40; at T0+180 the long
-        (still open) -15 -> -1.50, the short vs ask 0.99960 = +9 -> +0.90."""
+    def test_e1_mark_both_sides_at_the_mid(self):
+        """E1: at T0 (mid 1.00005) a long from 1.00100 = -9.5 pips -> -0.95; a short
+        from 1.00050 = +4.5 -> +0.45; at T0+180 (mid 0.99955) the long -14.5 -> -1.45,
+        the short +9.5 -> +0.95."""
         book = {}
         layer(book, INST, "L", T0 - 600, 1.00100)
         layer(book, INST, "S", T0 - 600, 1.00050)
         b = bars(B4)
-        self.assertAlmostEqual(es.mark_side(book, INST, "L", T0, b, PV)[0], -1.00, places=9)
-        self.assertAlmostEqual(es.mark_side(book, INST, "S", T0, b, PV)[0], +0.40, places=9)
-        self.assertAlmostEqual(es.mark_side(book, INST, "L", T0 + 180, b, PV)[0], -1.50, places=9)
-        self.assertAlmostEqual(es.mark_side(book, INST, "S", T0 + 180, b, PV)[0], +0.90, places=9)
+        self.assertAlmostEqual(es.mark_side(book, INST, "L", T0, b, PV)[0], -0.95, places=9)
+        self.assertAlmostEqual(es.mark_side(book, INST, "S", T0, b, PV)[0], +0.45, places=9)
+        self.assertAlmostEqual(es.mark_side(book, INST, "L", T0 + 180, b, PV)[0], -1.45, places=9)
+        self.assertAlmostEqual(es.mark_side(book, INST, "S", T0 + 180, b, PV)[0], +0.95, places=9)
 
     def test_e2_mark_counts_only_layers_open_at_the_minute_end(self):
         """E2: a long opened at T0+30 is not in the T0 mark (minute ends T0-1); a long
@@ -92,10 +95,10 @@ class TestMark(unittest.TestCase):
         layer(book, INST, "L", T0 - 600, None)
         b = bars(B4)
         usd, unpriced = es.mark_side(book, INST, "L", T0, b, PV)
-        self.assertAlmostEqual(usd, -1.00, places=9)        # the closed-later long only
+        self.assertAlmostEqual(usd, -0.95, places=9)        # the closed-later long only
         self.assertEqual(unpriced, 1)
         usd, unpriced = es.mark_side(book, INST, "L", T0 + 180, b, PV)
-        self.assertAlmostEqual(usd, +0.50, places=9)        # the new long: 0.99950 - 0.99900
+        self.assertAlmostEqual(usd, +0.55, places=9)        # the new long: 0.99955 - 0.99900
         self.assertEqual(unpriced, 1)
 
 
@@ -105,24 +108,24 @@ class TestEquityChange(unittest.TestCase):
         window (its open commission paid before) closes at T0+90, closeby_net -1.50,
         exit commission -0.04. Realised (compass) = -1.50 - 0.04 - 0.04 = -1.58.
         Equity change = cash in the window (-1.50 - 0.04 = -1.54) + end mark (0, closed)
-        - start mark (-1.00) = -0.54: only the move from the start mark (1.00000) to
-        the exit (0.99850 after costs) counts."""
+        - start mark (-0.95) = -0.59: only the move from the start mark (mid 1.00005)
+        to the exit counts."""
         book = {}
         layer(book, INST, "L", T0 - 600, 1.00100, T0 + 90, 0.99850, -1.50)
         e = es.equity_side(book, INST, "L", WIN, bars(B4), PV)
-        self.assertAlmostEqual(e["change"], -0.54, places=9)
-        self.assertAlmostEqual(e["per_day"], -0.54, places=9)
+        self.assertAlmostEqual(e["change"], -0.59, places=9)
+        self.assertAlmostEqual(e["per_day"], -0.59, places=9)
         self.assertAlmostEqual(e["cash"], -1.54, places=9)
         m = cs.side_metrics(book, INST, "L", WIN, T0)
         self.assertAlmostEqual(m["net"], -1.58, places=9)   # the realised view, for contrast
 
     def test_e4_opened_in_the_window_and_still_open(self):
         """E4: a long opened at T0+30 at 0.99900 (commission -0.04), open at the end:
-        cash -0.04 + end mark +0.50 (0.99950) - start mark 0 = +0.46."""
+        cash -0.04 + end mark +0.55 (mid 0.99955) - start mark 0 = +0.51."""
         book = {}
         layer(book, INST, "L", T0 + 30, 0.99900)
         e = es.equity_side(book, INST, "L", WIN, bars(B4), PV)
-        self.assertAlmostEqual(e["change"], 0.46, places=9)
+        self.assertAlmostEqual(e["change"], 0.51, places=9)
 
     def test_e5_opened_and_closed_in_the_window_equals_realised(self):
         """E5: opened T0+10, closed T0+100, closeby_net +0.93, commissions -0.04 each:
@@ -134,20 +137,20 @@ class TestEquityChange(unittest.TestCase):
         self.assertAlmostEqual(cs.side_metrics(book, INST, "S", WIN, T0)["net"], 0.85, places=9)
 
     def test_e6_held_through_and_sides_apart(self):
-        """E6: a short from 1.00050 held through: start +0.40, end +0.90 -> +0.50; the
-        long side of the same instance (E3's long) is scored apart (-0.54)."""
+        """E6: a short from 1.00050 held through: start +0.45, end +0.95 -> +0.50; the
+        long side of the same instance (E3's long) is scored apart (-0.59)."""
         book = {}
         layer(book, INST, "S", T0 - 600, 1.00050)
         layer(book, INST, "L", T0 - 600, 1.00100, T0 + 90, 0.99850, -1.50)
         b = bars(B4)
         self.assertAlmostEqual(es.equity_side(book, INST, "S", WIN, b, PV)["change"], 0.50, places=9)
-        self.assertAlmostEqual(es.equity_side(book, INST, "L", WIN, b, PV)["change"], -0.54, places=9)
+        self.assertAlmostEqual(es.equity_side(book, INST, "L", WIN, b, PV)["change"], -0.59, places=9)
 
     def test_e7_two_windows_skip_the_gap(self):
         """E7: windows (T0, T0+60) and (T0+120, T0+180), one day each; a long from
-        1.00100 held through. W1: start mark bar T0-60 (1.00000) -10, end mark bar T0
-        (0.99900) -20 -> -1.00. W2: start mark bar T0+60 (0.99800) -30, end bar T0+120
-        (0.99950) -15 -> +1.50. Total +0.50 over 2 days -> +0.25 a day; the move
+        1.00100 held through. W1: start mark bar T0-60 (mid 1.00005) -9.5, end mark bar
+        T0 (0.99905) -19.5 -> -1.00. W2: start mark bar T0+60 (0.99805) -29.5, end bar
+        T0+120 (0.99955) -14.5 -> +1.50. Total +0.50 over 2 days -> +0.25 a day; the move
         inside the gap (0.99900 -> 0.99800) is not counted."""
         book = {}
         layer(book, INST, "L", T0 - 600, 1.00100)
@@ -219,9 +222,9 @@ class TestControl(unittest.TestCase):
 class TestScoreRound(unittest.TestCase):
     def test_e11_the_motivating_case_and_promotion(self):
         """E11: GBPUSD long. B (anchor) scalps +1.00 (cash). C (add probe) scalps +1.00
-        AND realises an inherited long (E3's: realised -1.58, equity -0.54). D (exit
+        AND realises an inherited long (E3's: realised -1.58, equity -0.59). D (exit
         probe) scalps +4.00. Control gaps all 1.0 -> GC-1 max(1.19, 1.0) = 1.19.
-        Equity per day: B +1.00, C +0.46, D +4.00. C margin -0.54 -> REPEAT (realised
+        Equity per day: B +1.00, C +0.41, D +4.00. C margin -0.59 -> REPEAT (realised
         would read -1.58: LOSE). D margin +3.00 -> WIN, promoted. Short side: nothing
         anywhere -> REPEAT, margin 0. A C side with an unpriced layer -> UNPRICED."""
         book = {}
@@ -235,7 +238,7 @@ class TestScoreRound(unittest.TestCase):
         self.assertAlmostEqual(res["control"]["gc1"], 1.19, places=9)
         rows = {(r["pair"], r["side"]): r for r in res["rows"]}
         long_ = rows[("GBPUSD", "L")]
-        self.assertAlmostEqual(long_["probes"]["C"]["margin"], -0.54, places=9)
+        self.assertAlmostEqual(long_["probes"]["C"]["margin"], -0.59, places=9)
         self.assertEqual(long_["probes"]["C"]["verdict"], "REPEAT")
         self.assertAlmostEqual(long_["probes"]["C"]["realised_margin"], -1.58, places=9)
         self.assertAlmostEqual(long_["probes"]["D"]["margin"], 3.00, places=9)
@@ -248,6 +251,30 @@ class TestScoreRound(unittest.TestCase):
         res = es.score_round_equity(round_cfg(), book, bidask, pv={"GBPUSD": PV, "NZDCAD": PV})
         rows = {(r["pair"], r["side"]): r for r in res["rows"]}
         self.assertEqual(rows[("GBPUSD", "S")]["probes"]["C"]["verdict"], "UNPRICED")
+
+    def test_e13_gc1_above_base_decides_and_the_larger_win_is_promoted(self):
+        """E13 (after the mutation round: 'threshold = base' and 'promote the smaller'
+        survived E11): control L and S B 1, C 4, D 1 -> gaps 3, 0, 3 each side -> pool
+        0,0,3,3,3,3 -> median 3.0 -> GC-1 3.0 (> base 1.19). GBPUSD long B 1.00, C 4.50
+        (margin +3.50 > 3.0: WIN), D 3.00 (+2.00: REPEAT under 3.0, WIN under 1.19) ->
+        promote C. Then D 5.00 (+4.00): both WIN, the larger (D) is promoted."""
+        def run(d_net):
+            book = {}
+            control_book(book, (1.0, 4.0, 1.0), (1.0, 4.0, 1.0))
+            cash_layer(book, "GRIND_GBPUSD_OPTB", "L", 1.00)
+            cash_layer(book, "GRIND_GBPUSD_OPTC", "L", 4.50)
+            cash_layer(book, "GRIND_GBPUSD_OPTD", "L", d_net)
+            bidask = {(53066709, "GBPUSD"): bars(B4), (53066709, "NZDCAD"): bars(B4, symbol="NZDCAD")}
+            res = es.score_round_equity(round_cfg(), book, bidask, pv={"GBPUSD": PV, "NZDCAD": PV})
+            return res, {(r["pair"], r["side"]): r for r in res["rows"]}[("GBPUSD", "L")]
+        res, row = run(3.00)
+        self.assertAlmostEqual(res["control"]["gc1"], 3.0, places=9)
+        self.assertEqual(row["probes"]["C"]["verdict"], "WIN")
+        self.assertEqual(row["probes"]["D"]["verdict"], "REPEAT")
+        self.assertEqual(row["promote"], "C")
+        _res, row = run(5.00)
+        self.assertEqual(row["probes"]["D"]["verdict"], "WIN")
+        self.assertEqual(row["promote"], "D")
 
     def test_e12_realised_scorer_untouched(self):
         """E12 (GUARD): compass_score's realised rule is unchanged: decide() still WINs
