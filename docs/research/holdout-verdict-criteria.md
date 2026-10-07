@@ -181,6 +181,16 @@ SUPPORTED means "not shown in nine days", not "disproved".
   inside the window (operator ~20:37Z). V is FTMO's and A is not touched;
   T3 (IC money) is reported only and K6 already counts IC changes in the
   window.
+- **7 Oct ~16:10Z (SCOPE, before the scoring run; operator ~15:59Z-16:03Z:
+  "we run a different strategy on ftmo vs ic ... keeping ftmo is sensible -
+  it is data point"):** V's verdict covers cycle 3's FTMO configuration
+  only (auto-ejection, no lattice, no re-roll, no gate, wide widths). s4's
+  consequences ("no new challenge fee, no real money, no BMO trial of the
+  method as it stands") apply to THAT configuration; the IC strategy is
+  judged by its own pre-registered test,
+  `docs/research/ic-vs-ftmo-holdout.md` (Mon 12 - Fri 23 Oct, IC B against
+  FTMO A on the seven common pairs). Tests, window and verdict table
+  unchanged.
 
 ## 9. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -233,4 +243,4 @@ check (5 Oct ~18:05Z-18:15Z).
   entry tests lean toward entry optimisation (C103: "boring is best"):
   T1, T2, T4 reported only; "equity matters the most": V decides.
 
-Line count: 236
+Line count: 246
