@@ -1,6 +1,11 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-06 ~20:15Z (TUESDAY; ROUND 2 OPENS 22:00Z; ADR-166 MERGED, NOT DEPLOYED)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~02:35Z (WEDNESDAY; ADR-166 ROLL GATE LIVE ON B, C, D SINCE 01:57-02:23Z; ROUND 2 = THU 8 + FRI 9)
+
+**Updated 7 Oct ~02:35Z without a handover** (the chat continues): read
+`handoffs/HANDOFF_2026-09-24.md` s64 and `docs/runbooks/wednesday-build-2026-10-07.md`
+(s9 Gemini, s10 the run) as well; where this file and s64 disagree, s64
+and BOOT s6 are newer.
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps (`theonlykk/mfperp`) is PARKED
 (operator 3 Oct: "lets focus on fxmatrix - even when we dont have urgent
@@ -11,7 +16,7 @@ You are picking up mid-project as Lead Engineer. Clone
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
 prompts; s6 is the state); `handoffs/HANDOFF_2026-09-24.md` s57 to **s63**
-(s63 ends with the NEXT SESSION list: follow it); every section of
+(and **s64**, whose NEXT SESSION list is the one to follow); every section of
 `handoffs/Handover/02_TRAPS.md` dated 2026-10-05 (early, day, night) and
 **2026-10-06** (early, day, afternoon); `handoffs/Handover/08_BACKLOG.md`
 (section C1; C88, C93, C106, C124-C133);
@@ -60,22 +65,27 @@ Do not start any fleet action before the answers are in.
   after the operator's go, listed with the results (criteria s8).
 - **IC B (wine-test, 53066709, anchor), C (wine-c, 53071896, add probe),
   D (wine-d, 53077984, exit probe):** nine instances each, EA code
-  `2859be6`, re-roll ON; wine-c's charts load the Scripts `.ex5` (C88).
-  Breaker off: no account-level backstop.
+  **`main` `5bb5fdb` (v2.2a + ADR-166) since the Wednesday build, 7 Oct
+  01:57-02:23Z, `InpRollGateOpposite=0` on all 27** (operator 6 Oct
+  ~20:37Z: the gate on every IC fleet; no ungated fleet); re-roll ON;
+  wine-c's charts load the Scripts `.ex5` (C88). Breaker off: no
+  account-level backstop.
 - **Compass, cap 8 this week. Round 2 reloaded 6 Oct 03:18-03:35Z** (BAD
   0; widths GBPUSD 2.5, EURUSD / NZDCAD / AUDNZD 2.0, AUDCAD 1.5, the rest
   1.0; S = W + 1; deadband 2; no promotion; NZDCAD the control). **Round 2
   = Wed 7 + Thu 8** (6 Oct 22:00Z - 8 Oct 22:00Z), scored Thu after 22:00Z
   with `round2.json`; **the IC bid / ask dump is compulsory** (open MTM
   reported, realised decides); C132 `fill_slippage.py` reported beside it.
-- **`main` = v2.2a + ADR-166, NOT deployed.** v2.2a (C93 unique recon
+  **MOVED by the Wednesday build: round 2 = Thu 8 + Fri 9 (7 Oct 22:00Z -
+  9 Oct 22:00Z, `round2.json`), scored after Friday's close.**
+- **`main` = v2.2a + ADR-166, DEPLOYED on B, C, D 7 Oct (not FTMO).** v2.2a (C93 unique recon
   tickets, C100 API stop inputs) merged `509705f`; **ADR-166 roll gate**
   merged `d57fe9b` (2597/2597 GBPUSD + EURUSD): `InpRollGateOpposite`
   (-1 = off; N >= 0 needs the lattice): a capped side does not roll or
   re-roll while the opposite side holds more than N FILLED layers; while
   gated it restarts its tick extreme (nothing seen during the hold is
   replayed; also at `OnInit`) and writes INFO `ROLL_DEFERRED`.
-- **Round 3 (plan, C133):** the IC build from `main` Fri 9 Oct in session
+- **Round 3 (SUPERSEDED 6 Oct ~20:37Z: the gate is on every IC fleet; round 3's reload Mon 12, days Tue 13 + Wed 14; the old plan follows):** the IC build from `main` Fri 9 Oct in session
   with round 3's reload; wine-d runs the gate at N = 0 on the anchor
   geometry (its exit probes pause one round), scored on EQUITY against
   wine-test; every round-3 preset carries `InpRollGateOpposite` (-1 on B
@@ -169,4 +179,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   hand-derived values, a mutation round, the full suite on a scratch PG.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 172
+Line count: 182
