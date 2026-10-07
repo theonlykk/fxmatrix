@@ -259,6 +259,7 @@ days) goes through the compass live before it changes anything.
    our trading more sophisticated"; the literature on discrete delta
    hedging (move-based hedging, bandwidths, transaction costs) as the
    starting point.
+6. The follow-up notes: `docs/research/grid-as-variance-trade.md` (the clean lattice's exact P&L; two scales e and D; V(s); the literature).
 
 ## 10. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -273,4 +274,4 @@ days) goes through the compass live before it changes anything.
   at a, legs > D, VR at D), and is P1-P4 a fair pre-registration?
 - **GS-5.** What fact is missing?
 
-Line count: 276
+Line count: 277

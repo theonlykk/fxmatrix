@@ -1,8 +1,8 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~22:30Z (WEDNESDAY NIGHT; FTMO 1514878887 RUNS THE IC STRATEGY STATIC SINCE 22:08-22:17Z; ADR-166 GATE ON ALL FOUR FLEETS; ROUND 2 = 7 OCT 02:25Z - 8 OCT 22:00Z; THE COHORT'S EQUITY DECIDES)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~22:55Z (WEDNESDAY NIGHT, HANDOVER; FIRST TASK PIPSHED C137; FTMO 1514878887 RUNS THE IC STRATEGY STATIC SINCE 22:08-22:17Z; ADR-166 GATE ON ALL FOUR FLEETS; ROUND 2 = 7 OCT 02:25Z - 8 OCT 22:00Z; THE COHORT'S EQUITY DECIDES)
 
-**Updated 7 Oct ~22:30Z (HANDOFF s65):** read `handoffs/HANDOFF_2026-09-24.md` **s65** and its NEXT SESSION list (the one to follow), `docs/runbooks/ftmo-ic-start.md` (s12 the run, s14 Gemini), `docs/research/scalps-per-roll.md` (k*, S/R; C135) and 02_TRAPS 2026-10-07 (READING THE GATE; EVENING: THE FTMO SWITCH); backlog C134-C138. Before: **Updated 7 Oct ~15:20Z without a handover** (the chat continues): read
+**Handover 7 Oct ~22:55Z (end of HANDOFF s65):** the first task is pipshed C137 (s65's NEXT SESSION item 1); read also `docs/research/grid-as-variance-trade.md` (the grid as a corridor variance trade; two scales; the literature). Read `handoffs/HANDOFF_2026-09-24.md` **s65** and its NEXT SESSION list (the one to follow), `docs/runbooks/ftmo-ic-start.md` (s12 the run, s14 Gemini), `docs/research/scalps-per-roll.md` (k*, S/R; C135) and 02_TRAPS 2026-10-07 (READING THE GATE; EVENING: THE FTMO SWITCH); backlog C134-C138. Before: **Updated 7 Oct ~15:20Z without a handover** (the chat continues): read
 also `docs/research/compass-equity-amendment.md` (s7: the rule that stands)
 and `research/compass/equity_score.py` + README; read
 `handoffs/HANDOFF_2026-09-24.md` s64 and `docs/runbooks/wednesday-build-2026-10-07.md`
