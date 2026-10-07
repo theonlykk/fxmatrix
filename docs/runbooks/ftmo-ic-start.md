@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for Gemini** (Claude, 7 Oct ~17:30Z; questions in s13). Nothing is run before Gemini's answers and the operator's go |
+| Status | **RUN 7 Oct 20:44-22:20Z (s12); Gemini GF-1..GF-5 ruled ~21:10Z (s14).** Drafted 7 Oct ~17:30Z for Gemini (questions s13) |
 | Origin | FTMO 1514731800 expires at the end of the 7 Oct session. Operator ~16:40Z: "i figure ftmo should be the latest version of ic with the best guess for parameters"; ~16:45Z: "we keep track/tag this current ftmo deployment - it might be something we revisit ... if we keep ftmo parameters unchd over the period, we can also test the benefitof compass probe". Defaults agreed: seven pairs, B's round-2 anchor geometry, breaker and entry gate ON |
 | Models | `account-close-out.md` (s1-s4: record, detach, switch, clean) and `cycle3-start.md` (s1-s3: deploy, attach, first hour) |
 | Builds | Fleet A = the IC strategy (lattice, re-roll, roll gate 0, tight widths) on the seven ring pairs, B's round-2 anchor values HELD for the whole trial; breaker and float gate on (FTMO's limits); auto-eject off. EA code `5bb5fdb` (the code B, C, D run since 7 Oct 01:57-02:23Z) |
@@ -207,7 +207,70 @@ widths) ends with the account. C125's window loses Thu 8 and Fri 9: Tue
 
 ## 12. RUN RECORD
 
-(empty until the run)
+Operator on the VPS and desktop; Claude read each output. Times UTC (the
+VPS clock and its Experts log are UTC; the desktop clock is ET).
+
+- **s1:** patch `s64k` pushed 17:08Z (`7ebeb60`, tree `96b7d457`); the
+  docs patch `s64l` 20:15Z (`9346e42`, tree `335dadab`): `main` deployed.
+  `vps-aa6970a` on origin. The Git tools check was skipped; the checker
+  ran under Git Bash first time (s9.1).
+- **s2 (20:44-20:47Z):** pipshed status 20:44:10Z: 7/7 live, none
+  halted, recon and invariant ok; net MTM about -$67.6. Fleet card
+  20:47Z: equity 10,039.64, balance 10,107.15, day -87.47 (17.5% of
+  $500); 55 positions, book 97/200 (42 orders); open MTM -65.98,
+  financing -1.53; API 619/2000; broker day: 70 scalps +$65.68, 14
+  ejections -$80.63, commission -$5.04, net -$19.99; cycle 3 since 24
+  Sep: 870 scalps, net +$45.29, 123 ejections. B's API at 17:20Z: 844
+  for nine pairs (~656 for seven) against A's 608 (GF-4).
+- **s3 (21:22-21:23Z):** `fxgrind_aa6970a.ex5` kept in
+  `C:\fxmatrix-local\cycle3\` (taken with Algo still on: a file copy);
+  Algo OFF; seven `fxgrind deinit reason=1` 21:23:24-21:23:32Z (GBPUSD,
+  EURUSD, AUDCHF, EURGBP, CADCHF, NZDCAD, AUDNZD); charts kept.
+- **s4 (desktop, 1514731800):** `HISTDUMP|deals=5582|written=5582|bad=0`
+  (21:24:46Z); `grind_bidask_dump` from `2026.10.05 00:00` to `2026.10.08
+  00:25` server (FTMO-Demo, server - GMT 10800 s): nine pairs,
+  4,246-4,301 minutes each, bad_px 0. Files to Downloads
+  (`history_1514731800.csv`, `bidask_ftmo_2026-10-07\`), with FTMO
+  MetriX as `Account MetriX _ FTMO_1514731800.pdf`. The old account still
+  held its book (FTMO had not flushed it); opening the new trial meant
+  closing 1514731800 (operator ~21:31Z). Nothing of it is measured after
+  the detach (holdout criteria s8, 7 Oct ~17:30Z).
+- **s5:** new FTMO free trial **1514878887**, $10,000 (GF-3);
+  `'1514878887': authorized on FTMO-Demo` 21:35:09Z; balance $10,000, 0
+  positions, 0 orders; terminal closed and reopened. The trial's 14 days
+  run from the first trade (operator), so to about 21 Oct.
+- **s6:** the checkout was already on `main` `9346e42` = origin (an
+  untracked stray `C:\fxmatrix\deploy_presets.ps1` at the root: left;
+  the repo's is `scripts\`). Cleaner: the FIRST run (21:39:29Z) used an
+  OLD `grind_gv_clean.ex5` (twelve prefixes, no `GRIND_VL_` or
+  `GRIND_SNAPSHOT_`): deleted 167, six `GRIND_SNAPSHOT_*` left. `Copy-Item`
+  keeps the source's time (the `.mq5` read 04:48:58), so the copy looked
+  old and the compile had not happened; F7 21:40:15Z, run again (deleted
+  the six), a third run 21:41:37Z: fourteen prefixes, `DONE deleted=0
+  remaining_grind=0`; F3 empty (traps 7 Oct evening).
+- **s7:** `deploy.ps1` all `OK`, `Done - all files verified
+  byte-identical`; `deploy_presets.ps1` `Presets written: 27` (= the
+  repo's 27), key blank in the repo; the seven `_opt_a_r2.set` warnings
+  as expected; `fxgrind.mq5` F7 `0 errors, 0 warnings`, `fxgrind.ex5`
+  21:44:29Z (`ea_build` `fxgrind 2026.10.07 21:44:15`). Tag
+  **`vps-9346e42`** (annotated, operator) pushed 21:45Z.
+- **s8:** attach brought forward from 22:30Z to after the FTMO day
+  boundary (Claude ~21:47Z: no sliver of Wed 7 on the new account; GF-2).
+  Spreads 22:07Z (points): EURUSD 2, GBPUSD 5, EURGBP 7, AUDCHF 10, CADCHF
+  12, **NZDCAD 61, AUDNZD 88** (held); 22:14:47Z NZDCAD 18, AUDNZD 23.
+  Algo ON; pilot **GBPUSD OK 22:08:59Z** (read-back from a screenshot,
+  every row as s8); EURUSD 22:13:51, AUDCHF 22:14:13, CADCHF 22:14:33,
+  NZDCAD 22:15:27, AUDNZD 22:15:48, EURGBP 22:17:40 (missed in the first
+  pass, attached after the checker showed six rows).
+- **s9:** checker from 22:08:00: seven rows `deinit=- replay=ready(0)
+  lattice=true reroll=true gate=0 api=1000000/999000`, geometry as s8 on
+  both sides, `rebuild=false/false`, BAD 0. pipshed 22:18:58Z: 7/7 live,
+  not halted, recon and invariant ok, flat, each L0 straddle resting at
+  2 x width (GBPUSD 1.32120 / 1.32169; EURGBP 0.84745 / 0.84765; ...),
+  API 14. Archive: GBPUSD's newest `INIT` `ea_build` 21:44:15; NO cycle-3
+  `DEINIT` row (by design: the EA archives a deinit at its next init from
+  `GRIND_DEINIT_*`, which the cleaner deleted); last hour: seven
+  `LATTICE_CONFIG` on `_OPT`, nothing else.
 
 ## 13. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -228,4 +291,31 @@ widths) ends with the account. C125's window loses Thu 8 and Fri 9: Tue
   projection from B's `api_count` (s2) enough, or what is missing?
 - **GF-5.** What fact is missing for a static IC fleet on FTMO?
 
-Line count: 231
+
+## 14. GEMINI'S RULINGS (7 OCT ~21:10Z) AND CLAUDE'S CHECK
+
+Gemini read this file as an attachment; the operator pasted the answers
+and ruled GF-3 ("10k account is fine").
+- **GF-1 ACCEPTED:** Algo ON before the attach, each EA live at OK, the
+  read-back the only gate, a pilot first (K6 leaves no other order).
+- **GF-2 ACCEPTED, brought forward:** "tonight from 22:30Z"; run from
+  22:08Z instead, after the FTMO day boundary, with the two NZD crosses
+  held for their spreads (s12): the 22:30Z was a buffer for rollover
+  spreads, read off Market Watch.
+- **GF-3 RULED $10,000** (Gemini and the operator): the breaker ($400) and
+  the float gate ($250) are FTMO's constraints and part of what is
+  tested; on bad days A's gate may bind where B has none, reported per day
+  (`gated_seconds`). B's floating loss 7 Oct ~17:20Z was $182.72 on nine
+  pairs, day -$222.69 (44.5% of $500).
+- **GF-4 PARTLY ACCEPTED:** cycle 3's count cannot stand for the IC
+  geometry (tight widths and the deadband re-quote the counter L0 more);
+  but s2's projection uses B's OWN `api_count`, which includes those
+  re-quotes: B 844 on nine pairs at 17:20Z (~656 on seven) against A's
+  608. FTMO's spreads may still run A above B: **first-day watch: A's
+  `api_count` at each status read; above 1,000 by 14:00Z, tell Claude
+  the same hour** (s10's ~1,600 stays the later trigger).
+- **GF-5 NOTED, premise corrected:** a limit order does not slip against
+  us; the risk is adverse selection when FTMO's spreads widen at news.
+  Measured, not assumed: `fill_slippage.py` (C132) on A as on B, compared.
+
+Line count: 321

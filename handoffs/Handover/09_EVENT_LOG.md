@@ -14,6 +14,27 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 7 Oct 21:23-22:17Z -- FTMO cycle 3 retired; new free trial 1514878887 runs the IC strategy static
+- **What:** FTMO 1514731800 expired with the 7 Oct session. Operator
+  (~16:40-16:45Z): the new trial runs the latest IC strategy (lattice,
+  re-roll, roll gate 0, tight widths) at B's round-2 anchor, held for the
+  trial, breaker and float gate on; cycle 3 kept restorable.
+- **Handled:** `docs/runbooks/ftmo-ic-start.md` (Gemini GF-1..GF-5, s14):
+  record 20:44-20:47Z (equity 10,039.64, balance 10,107.15, 55 positions,
+  42 orders; cycle 3 since 24 Sep +$45.29 realised); Algo OFF and seven
+  EAs removed 21:23:24-32Z (`fxgrind_aa6970a.ex5` kept); desktop dumps
+  (5,582 deals; nine pairs' minute bid / ask from 5 Oct; MetriX PDF); the
+  old account closed by the operator (the new trial needed it); VPS on
+  1514878887 (FTMO-Demo) 21:35:09Z, $10,000 flat; restart, cleaner (a
+  stale `.ex5` first: traps 7 Oct evening), `deploy.ps1`, 27 presets,
+  compile 21:44:29Z, tag `vps-9346e42`; attach GBPUSD 22:08:59Z, five
+  more 22:13:51-22:15:48Z (the NZD crosses after their spreads came in
+  from 61 / 88 points), EURGBP 22:17:40Z; checker 7 rows `gate=0`, BAD
+  0; 7/7 live with L0 straddles; archive seven `LATTICE_CONFIG`.
+- **Changed:** A = the IC strategy, static (`_opt_a_r2`); auto-eject off;
+  Thu 8 Oct is the first full FTMO day; the trial's 14 days run from its
+  first trade (about 21 Oct). C125 ends with two days and no verdict.
+
 ### 7 Oct 01:57-02:23Z -- the Wednesday build: v2.2a + ADR-166, the roll gate at 0 on 27 IC charts (B, C, D)
 - **What:** B, C, D from `2859be6` to `main` (`5bb5fdb` EA code); then
   F7 + Load of each chart's `_r2` preset with `InpRollGateOpposite=0`
@@ -533,4 +554,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 536
+Line count: 557

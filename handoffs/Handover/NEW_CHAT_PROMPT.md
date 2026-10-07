@@ -1,8 +1,8 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~15:20Z (WEDNESDAY; ADR-166 ROLL GATE LIVE ON B, C, D SINCE 01:57-02:23Z; ROUND 2 = THU 8 + FRI 9; THE COHORT'S EQUITY DECIDES)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-07 ~22:30Z (WEDNESDAY NIGHT; FTMO 1514878887 RUNS THE IC STRATEGY STATIC SINCE 22:08-22:17Z; ADR-166 GATE ON ALL FOUR FLEETS; ROUND 2 = 7 OCT 02:25Z - 8 OCT 22:00Z; THE COHORT'S EQUITY DECIDES)
 
-**Updated 7 Oct ~15:20Z without a handover** (the chat continues): read
+**Updated 7 Oct ~22:30Z (HANDOFF s65):** read `handoffs/HANDOFF_2026-09-24.md` **s65** and its NEXT SESSION list (the one to follow), `docs/runbooks/ftmo-ic-start.md` (s12 the run, s14 Gemini), `docs/research/scalps-per-roll.md` (k*, S/R; C135) and 02_TRAPS 2026-10-07 (READING THE GATE; EVENING: THE FTMO SWITCH); backlog C134-C138. Before: **Updated 7 Oct ~15:20Z without a handover** (the chat continues): read
 also `docs/research/compass-equity-amendment.md` (s7: the rule that stands)
 and `research/compass/equity_score.py` + README; read
 `handoffs/HANDOFF_2026-09-24.md` s64 and `docs/runbooks/wednesday-build-2026-10-07.md`
@@ -56,7 +56,8 @@ Do not start any fleet action before the answers are in.
 ## 0. THE MOST IMPORTANT FACTS
 
 **Four fleets live. Call the boxes by HOSTNAME:**
-- **Cycle 3** (VPS, FTMO 1514731800, `aa6970a`): SEVEN instances (EURUSD,
+- **A (VPS, FTMO free trial 1514878887, $10k, since 7 Oct 22:08-22:17Z):** the IC strategy STATIC at B's round-2 anchor (`ea/presets/*_opt_a_r2.set`: lattice, re-roll, gate 0, breaker + float gate ON, auto-eject OFF), seven `_OPT` instances, same ids and magics; `main` `9346e42` (EA `5bb5fdb`), tag `vps-9346e42`. **No input change on A for the trial (14 days from its first trade, ~21 Oct)** except a defect fix (operator: static, to test the compass's benefit, B moving vs A). First-day watch: `api_count` > 1,000 by 14:00Z. FTMO to Linux at the trial's end (C138). **Cycle 3 RETIRED 7 Oct 21:23Z** (1514731800 closed; restore `vps-aa6970a` + `*_opt.set`); C125 has two days and NO verdict. The paragraph below is history.
+- **Cycle 3, until 7 Oct** (VPS, FTMO 1514731800, `aa6970a`): SEVEN instances (EURUSD,
   GBPUSD, EURGBP, AUDCHF, CADCHF, NZDCAD, AUDNZD `_OPT`); 2,000 requests a
   day including modifications and cancellations (C106; A ran 491 by
   15:44Z on 6 Oct: watch `api_count`, bring >~1,600); ADR-160 gate and
@@ -95,7 +96,7 @@ Do not start any fleet action before the answers are in.
   and C). Days Mon 12 + Tue 13. Slip: build Mon 12, round 3 Tue 13 + Wed
   14. Cap 10, fixed widths and AUDUSD DEFERRED.
 
-**Operator rulings (do not re-open):** **the COHORT's EQUITY decides a compass round
+**Operator rulings (do not re-open):** **FTMO runs the IC strategy static at B's round-2 anchor for the 1514878887 trial, $10k, breaker and gate on (7 Oct ~16:40Z-21:10Z); cycle 3 kept restorable, not run; the compass still decides on the cohort's equity, S/R and k* reported only (C135);** **the COHORT's EQUITY decides a compass round
 from round 2** (operator 7 Oct ~14:53Z / ~15:07Z, `docs/research/compass-equity-amendment.md` s7;
 realised reported; until round 1 realised decided); equity decides the holdout and
 the roll gate ("rolling is a cost"; 6 Oct: rolls booked -$721 over 1-5 Oct
@@ -186,4 +187,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   hand-derived values, a mutation round, the full suite on a scratch PG.
 - Long chats: keep docs current; propose a handoff only near the limit.
 
-Line count: 189
+Line count: 190

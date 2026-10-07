@@ -195,15 +195,18 @@ days trending): that is the hypothesis worth testing.
 
 | measure | what it is | expected link |
 |---|---|---|
-| L = sum abs(M1 mid change) | path travelled (operator ~20:05Z); the simplest | activity (S, R), not the margin |
+| L = sum (M1 high - M1 low) | path travelled, PRIMARY (operator ~20:12Z: "sum (M1 high - M1 low) is probably better"): each minute's out-and-back counts | activity (S, R), not the margin |
+| L_c = sum abs(M1 close change) | path travelled, secondary (operator ~20:05Z); misses every reversal inside a minute (about half the range-based L for a random walk) | activity |
 | ER = abs(net change) / L | efficiency ratio: 1 = straight line, near 0 = chop | low ER, higher margin |
 | ATR, realised sigma | size of moves | activity; the margin only if regime-dependent |
 | reversal rate at step a | the path cut into a-pip steps; 50% = random walk | above 50%, margin above 0 (the grid's own mechanics) |
 | share of zigzag legs > D | runs long enough to roll (M5 at the pair's D) | more, lower margin |
 | VR at horizon D | `vr.py` | below 1, margin above 0 |
 
-Notes on L: it depends on the sampling scale (M1 counts moves below a that
-the grid never trades, and mid-quote bounce); L_a = a x (number of a-steps)
+Notes on L: high and low of ONE quote side (or the mid of bid and ask),
+never a bid high against an ask low, and the rollover hour left out (one
+spread spike inflates a day). It depends on the sampling scale (M1 counts
+moves below a that the grid never trades, and mid-quote bounce); L_a = a x (number of a-steps)
 is the grid's own version, and L / L_a measures sub-a noise. ER needs a
 random-walk benchmark for the same path length: E abs(net) for n steps of
 a is a*sqrt(2n/pi), so Z = abs(net) / (a*sqrt(2n/pi)) below 1 means more
@@ -244,6 +247,18 @@ days) goes through the compass live before it changes anything.
    data (IC dump Thursday evening).
 3. This document to Gemini with the reconciliation result; s8's
    predictions fixed (Gemini, operator) before the measures run.
+4. pipshed (backlog C137, operator ~20:15Z-20:22Z): per fleet and pair
+   side, S, R, S/R, k* (theory, at the live geometry, with the pair's
+   own cost per close), k* actual (mean roll loss / mean scalp gain:
+   inherited and re-rolled layers show here) and S/R - k*, over today,
+   5 FTMO days and the cycle; fewer than 3 rolls greyed. A one-minute
+   state snapshot table for intraday equity, balance, open MTM, layers
+   and API; charts later.
+5. Operator 7 Oct ~22:23Z: "if we can condense the 3 dials we have
+   add/exit and layers into lower dimensions, i think we can really make
+   our trading more sophisticated"; the literature on discrete delta
+   hedging (move-based hedging, bandwidths, transaction costs) as the
+   starting point.
 
 ## 10. FOR GEMINI (attack the premises; say which fact is missing)
 
@@ -258,4 +273,4 @@ days) goes through the compass live before it changes anything.
   at a, legs > D, VR at D), and is P1-P4 a fair pre-registration?
 - **GS-5.** What fact is missing?
 
-Line count: 261
+Line count: 276

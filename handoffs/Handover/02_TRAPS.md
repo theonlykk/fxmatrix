@@ -2015,4 +2015,37 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   pip bounce (holds), its exit fills only if the fall continues (releases):
   rolls come at counter-scalp moments (P3), as designed.
 
-Line count: 2018
+
+## TRAPS FROM 2026-10-07 EVENING (THE FTMO SWITCH)
+
+- **`Copy-Item` keeps the SOURCE file's time:** a script copied into
+  `MQL5\Scripts` shows the repo file's old mtime, so "is it new?" cannot
+  be read from the `.mq5`. Copy, then F7, then check the `.ex5` time
+  (`Get-ChildItem "$T\Scripts" -Recurse -Filter 'grind_gv_clean.*'`).
+  On 7 Oct the first cleaner run used an OLD `.ex5` (twelve prefixes, no
+  `GRIND_VL_` / `GRIND_SNAPSHOT_`); its output gives it away: count the
+  `prefix` lines (fourteen now).
+- **The cleaner deletes `GRIND_DEINIT_*`, so the archive gets NO
+  `DEINIT` row for the old fleet** (the EA archives a deinit at its next
+  init). Record the detach from the Experts log (`fxgrind deinit
+  reason=1`) instead.
+- **PowerShell eats braces:** `git rev-parse HEAD^{tree}` passes `HEAD^`
+  and an `-encodedCommand` block; quote it: `git rev-parse "HEAD^{tree}"`.
+- **Rollover spreads on the NZD crosses outlast the rest:** at 22:07Z
+  (seven minutes after the FTMO day) EURUSD 2, GBPUSD 5, EURGBP 7 points
+  but NZDCAD 61 and AUDNZD 88; both under 25 by 22:14:47Z. Read Market
+  Watch before attaching tight widths and hold the wide pairs.
+- **An expiring FTMO trial keeps its book after the session** (FTMO had
+  not flushed 1514731800 by 21:28Z) and opening a new trial forced the
+  old account closed: dump history and bid / ask BEFORE opening the new
+  one. The trial's 14 days count from its first trade (operator).
+- **A stray untracked `C:\fxmatrix\deploy_presets.ps1`** sits at the VPS
+  repo root; the real one is `scripts\deploy_presets.ps1`.
+- **pipshed's fleets endpoint can time out for Claude's fetch** (twice,
+  20:46Z) while `status` answers; a screenshot of the cards is the
+  fallback. The cards' "scalps" in the old Arm A/B view is the EA's
+  layer-removal count since init, not today's scalps (C136).
+- **The VPS Experts log is in UTC; the desktop terminal's clock is ET:**
+  checker FROM times on the VPS are UTC.
+
+Line count: 2051
