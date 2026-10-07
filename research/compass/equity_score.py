@@ -284,7 +284,7 @@ def report(cfg, exp, res, out=sys.stdout):
                 for r in exp.get("fill_logs", []) if r.get("deal_time_broker_msc")), default=0)
     p("== %s: COHORT EQUITY (layers opened in the round: costs + closes + mid mark at the end), "
       "per day; plain equity and realised margins in brackets; windows %s ==" % (
-        ", ".join("%s->%s" % (a, b) for a, b, _d in cfg["windows"])))
+        cfg.get("round", "round"), ", ".join("%s->%s" % (a, b) for a, b, _d in cfg["windows"])))
     p("cohort span %s -> %s (end mark)" % tuple(
         dt.datetime.fromtimestamp(x, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ") for x in round_span(cfg)))
     if last < end:
@@ -297,7 +297,7 @@ def report(cfg, exp, res, out=sys.stdout):
         c.get("pair", "-"), c.get("void")))
     for g in c["gaps"]:
         p("   control %s %s: %+.2f vs %+.2f -> gap %.2f" % (g["side"], g["fleets"], g["x"], g["y"], g["gap"]))
-    p("pair   side anchor | C eq    margin  verdict  (realised margin) | D eq    margin  verdict  (realised margin) | promote")
+    p("pair   side anchor | C cohort margin verdict (plain equity, realised margins) | D likewise | promote")
     for r in res["rows"]:
         a = r["anchor_eq"]["per_day"] if r["anchor_eq"] else None
         cols = []

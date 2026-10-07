@@ -92,8 +92,8 @@ Do not start any fleet action before the answers are in.
   and C). Days Mon 12 + Tue 13. Slip: build Mon 12, round 3 Tue 13 + Wed
   14. Cap 10, fixed widths and AUDUSD DEFERRED.
 
-**Operator rulings (do not re-open):** **EQUITY decides a compass round
-from round 2** (operator 7 Oct ~14:53Z, `docs/research/compass-equity-amendment.md`;
+**Operator rulings (do not re-open):** **the COHORT's EQUITY decides a compass round
+from round 2** (operator 7 Oct ~14:53Z / ~15:07Z, `docs/research/compass-equity-amendment.md` s7;
 realised reported; until round 1 realised decided); equity decides the holdout and
 the roll gate ("rolling is a cost"; 6 Oct: rolls booked -$721 over 1-5 Oct
 but were about a wash against holding); the one-hour markout is a proxy;

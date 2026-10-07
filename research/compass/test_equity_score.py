@@ -385,6 +385,24 @@ class TestScoreRound(unittest.TestCase):
         self.assertEqual(row["probes"]["D"]["verdict"], "WIN")
         self.assertEqual(row["promote"], "D")
 
+    def test_e15_report_prints(self):
+        """E15 (after a format error in report() at 7 Oct ~15:25Z): the report runs on
+        E13's book and prints the cohort header, GC-1 and a GBPUSD row with WIN."""
+        import io
+        book = {}
+        control_book(book, (1.0, 4.0, 1.0), (1.0, 4.0, 1.0))
+        cash_layer(book, "GRIND_GBPUSD_OPTB", "L", 1.00)
+        cash_layer(book, "GRIND_GBPUSD_OPTC", "L", 4.50)
+        cash_layer(book, "GRIND_GBPUSD_OPTD", "L", 3.00)
+        bidask = {(53066709, "GBPUSD"): bars(B4), (53066709, "NZDCAD"): bars(B4, symbol="NZDCAD")}
+        res = es.score_round_equity(round_cfg(), book, bidask, pv={"GBPUSD": PV, "NZDCAD": PV})
+        out = io.StringIO()
+        es.report(round_cfg(), {"fill_logs": []}, res, out=out)
+        text = out.getvalue()
+        self.assertIn("COHORT EQUITY", text)
+        self.assertIn("GC-1 3.00", text)
+        self.assertTrue(any(l.startswith("GBPUSD L") and "WIN" in l for l in text.splitlines()), text)
+
     def test_e12_realised_scorer_untouched(self):
         """E12 (GUARD): compass_score's realised rule is unchanged: decide() still WINs
         at +2.00 over 1.50 for an exit probe."""

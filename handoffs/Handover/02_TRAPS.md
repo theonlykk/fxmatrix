@@ -2005,8 +2005,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   the roll goes, then the close-by deal). Check the close time against the
   roll before calling it a leak; the EA's own view is `ROLL_DEFERRED`'s
   `opposite_depth`.
+- **A mutation round can be fooled by a stale .pyc:** a mutated file
+  restored at the SAME size within the same second keeps the mutated
+  bytecode (CPython checks mtime in seconds and size), so later runs test
+  the mutant ("caught" or "survived" both wrong). Run every mutation round
+  with `PYTHONDONTWRITEBYTECODE=1` and `python -B`, delete `__pycache__`
+  after, and confirm the restored file is byte-identical (`cmp`).
 - **Under the gate a trend still rolls:** the counter L0 fills on a 1-2.5
   pip bounce (holds), its exit fills only if the fall continues (releases):
   rolls come at counter-scalp moments (P3), as designed.
 
-Line count: 2012
+Line count: 2018

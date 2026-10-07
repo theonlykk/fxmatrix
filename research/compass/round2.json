@@ -140,5 +140,6 @@
     "GRIND_AUDNZD_OPTC": "2026-10-06T03:28:51Z",
     "GRIND_AUDNZD_OPTD": "2026-10-06T03:22:01Z"
   },
-  "decides": "EQUITY (research/compass/equity_score.py; operator 7 Oct ~14:53Z, docs/research/compass-equity-amendment.md); realised (compass_score.py) reported"
+  "decides": "COHORT EQUITY (research/compass/equity_score.py: layers opened in the round, end mark 9 Oct 20:45Z; operator 7 Oct ~14:53Z / ~15:07Z, docs/research/compass-equity-amendment.md s7); plain equity and realised (compass_score.py) reported",
+  "equity_end": "2026-10-09T20:45Z"
 }

@@ -16,8 +16,9 @@ IC demo books, one lever per probe fleet per round, and promotes winners
 to the anchor; FTMO (real limits) runs anchors only.
 
 - **Decides FROM ROUND 2 (operator 7 Oct ~14:53Z; `docs/research/compass-equity-amendment.md`):
-  EQUITY change per pair and side per day over the round's windows,
-  realised + change in open MTM (marks at the mid; `research/compass/equity_score.py`);
+  EQUITY of the round's COHORT per pair and side per day (layers opened in
+  the round: costs + closes + the mid mark at the round's end; Gemini GQ7-3,
+  operator ~15:07Z; `research/compass/equity_score.py`; amendment s7);
   under re-roll the timing of a realised loss is set by each fleet's
   inherited book, not by the lever (7 Oct EURUSD B vs C). Realised (below)
   is reported beside it. Until then:**
@@ -284,6 +285,6 @@ baseline round); EURGBP L C add 2.5 stands; the flips stand; **open MTM
 reported at every scoring from round 2 (the IC bid / ask dump compulsory),
 realised decides**. **Reloaded 6 Oct 03:18-03:35Z** (D 03:18-03:22, C
 03:25-03:28, B 03:32-03:35; BAD 0; HANDOFF s61); round file
-`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z. Geometry checked on pipshed (C129) at 04:01Z: every B, C, D cell as the table (HANDOFF s62). **7 Oct ~14:53Z (operator, before the window): round 2 is DECIDED ON EQUITY** (amendment; `equity_score.py`), realised reported; the IC dump from `2026.10.07 23:00` server. **Moved (6 Oct ~20:40Z) to FTMO days Thu 8 + Fri 9** by the Wednesday build (v2.2a + ADR-166, the roll gate at 0 on B, C, D; operator ~20:37Z; `docs/runbooks/wednesday-build-2026-10-07.md`): `round2.json` windows 7 Oct 22:00Z - 9 Oct 22:00Z, one day each as round 1's Friday; scored after Friday's close (a Friday export prints "provisional": the data end at the close). The geometry and the probes are unchanged (no register rows).
+`research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z. Geometry checked on pipshed (C129) at 04:01Z: every B, C, D cell as the table (HANDOFF s62). **7 Oct ~14:53Z / ~15:07Z (operator, before the window): round 2 is DECIDED ON THE COHORT'S EQUITY** (amendment s7; `equity_score.py`; end mark 9 Oct 20:45Z), plain equity and realised reported; the IC dump from `2026.10.07 23:00` server. **Moved (6 Oct ~20:40Z) to FTMO days Thu 8 + Fri 9** by the Wednesday build (v2.2a + ADR-166, the roll gate at 0 on B, C, D; operator ~20:37Z; `docs/runbooks/wednesday-build-2026-10-07.md`): `round2.json` windows 7 Oct 22:00Z - 9 Oct 22:00Z, one day each as round 1's Friday; scored after Friday's close (a Friday export prints "provisional": the data end at the close). The geometry and the probes are unchanged (no register rows).
 
-Line count: 289
+Line count: 290

@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **RULED by the operator 7 Oct ~14:53Z** ("this example is a compelling reason why the original approach was flawed. proceed"); written BEFORE round 2's window opens (7 Oct 22:00Z), so it is a pre-registered amendment. For Gemini: s6 |
+| Status | **RULED by the operator 7 Oct ~14:53Z** ("this example is a compelling reason why the original approach was flawed. proceed"); **REVIEWED ~15:05Z (Gemini GQ7-1..4, Claude's check, s7): the COHORT decides (operator ~15:07Z "proceed")**. Written BEFORE round 2's window opens (7 Oct 22:00Z): a pre-registered amendment. s2 states the rule as first drafted; s7 the rule that stands |
 | Changes | compass-round s1 (what decides) and s4.2-s4.4 (scoring); `research/compass/equity_score.py` decides, `compass_score.py` (realised) is reported beside it, unchanged |
 | Sources | HANDOFF s64 (7 Oct); compass-round s1, s4; `docs/research/compass-round2-review.md` s6 (GR2-2); ADR-165 s5 |
 
@@ -30,7 +30,7 @@ threshold against it, not remove the bias. On equity, an inherited loss
 realised in the window nets out against the open MTM it carried at the start
 (K4); what is left is how each book did on the same ticks.
 
-## 2. THE RULE (from round 2)
+## 2. THE RULE AS FIRST DRAFTED (plain equity; SUPERSEDED by s7: the cohort decides)
 
 Per instance side and window (a, b) of the round:
 - change = cash + mark(b) - mark(a);
@@ -54,6 +54,8 @@ no open price. Cuts and VOID as before. Realised margins are printed beside.
 3. `python research/compass/equity_score.py --export <archive> --round
    research/compass/round2.json --bidask <folder>` (decides), then
    `compass_score.py` (realised, reported) and `fill_slippage.py` as planned.
+   (s7: `equity_score.py` decides on the cohort; `round2.json` `equity_end`
+   = 9 Oct 20:45Z.)
 
 ## 4. NOT CHANGED
 
@@ -89,4 +91,33 @@ fixed at the commit that carries this document.
   plain equity the right unit, or the cohort?
 - **GQ7-4.** What fact is missing for a two-day round decided on equity?
 
-Line count: 92
+## 7. GEMINI'S RULINGS (7 OCT ~15:05Z), CLAUDE'S CHECK AND THE OUTCOME
+
+Gemini read this file as an attachment; his answers pasted by the operator.
+- **GQ7-3 ACCEPTED: the COHORT decides** (operator ~15:07Z "proceed"). Plain
+  equity still carries every inherited layer's price change through the
+  round (a 7-layer side moving 50 pips is ~$35), larger than a one-pip edge,
+  and the fleets' inherited books differ. The cohort counts only layers
+  OPENED inside the round: open commissions + closes before the end + the
+  mid mark at the end of those still open (`cohort_side`). Inherited
+  inventory, including K3's old EURUSD layers, counts nothing. A lever's
+  longer effects show in the pooled REPEATs (GC-2). Plain equity and
+  realised margins are printed beside the cohort's.
+- **GQ7-1 ACCEPTED in effect, mechanism unverified.** A cohort has no start
+  mark (it starts at zero). The end mark moves off the boundary: round 2
+  ends at Friday's close, so `equity_end` = **9 Oct 20:45Z** (the holdout's
+  Friday mark, T3c), before the thin last minutes; a weekday end later uses
+  22:30Z. His "skewed mid in the rollover hour" was not measured; moving the
+  mark costs nothing.
+- **GQ7-2 REJECTED as a gate, reported.** His premises do not hold here (cap
+  8, not 10; slots bind, not margin; FTMO is not in the compass). Cohort
+  equity per layer-hour is printed for each probe.
+- **GQ7-4 AGREED as a watch.** If the control's cohort gaps exceed any
+  one-pip edge, rounds REPEAT: GC-1 is printed every round, and the cohort
+  is far less noisy than plain equity.
+- Built: `equity_score.py` `cohort_side`, `round_span`; tests C1-C9, E14
+  (C1-C8 and E11 failing at the tests-first commit; C9 and E14 for two
+  mutation survivors); 23/23; fifteen mutations caught (re-run without
+  bytecode caching after a stale-.pyc trap).
+
+Line count: 123
