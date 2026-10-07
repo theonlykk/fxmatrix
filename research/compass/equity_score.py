@@ -1,5 +1,7 @@
 """Compass round scoring on EQUITY (operator 7 Oct ~14:53Z; compass-round s4.4
-amendment, from round 2). Read-only analysis of files; standard library only.
+amendment, from round 2), on the COHORT (Gemini GQ7-3, operator ~15:07Z): the
+layers OPENED inside the round decide; plain equity (all layers, start and end
+marks: equity_side) and realised (compass_score) are reported beside it. Read-only analysis of files; standard library only.
 compass_score.py (the realised scorer) is imported, never changed: its loader,
 windows, cuts, pip values and verdict table stay as they are and its realised
 margin is reported beside the equity one.
@@ -24,7 +26,11 @@ Per instance side and window (a, b):
            and bid / ask marks would put that spread into each side in
            proportion to its depth; holdout T3c marks at the mid too), pips x
            USD per pip (compass_score.pip_values).
-Score = sum of the windows' changes / the windows' days. Verdict: margin =
+That is plain equity (reported). The COHORT (decides): layers opened in
+[start, end), value = open commissions + closes before end + mid mark at end
+(cohort_side); start = the first window's start, end = the round file's
+"equity_end" (round 2: Fri 20:45Z, the holdout's Friday mark; GQ7-1) else the
+last window's end. Score = value / the windows' days. Verdict: margin =
 probe - comparator per day; WIN above the threshold, LOSE below minus it, else
 REPEAT; no add-probe gates (they guarded realised artefacts). A side with an
 unpriced layer (no open price) at a mark is UNPRICED: export more history
@@ -106,12 +112,45 @@ def equity_side(layers, inst, side, windows, bars, pv):
             "unpriced": unpriced, "marks": marks, "days": days}
 
 
-def round_span(cfg):   # STUB (tests first, cohort)
-    return None
+def round_span(cfg):
+    """(start, end) of the cohort: the first window's start; the round file's
+    "equity_end" (the end mark) when given, else the last window's end."""
+    windows = cs.windows_of(cfg)
+    start = windows[0][0]
+    end = cs.utc(cfg["equity_end"]) if cfg.get("equity_end") else windows[-1][1]
+    return start, end
 
 
-def cohort_side(layers, inst, side, start, end, bars, pv, days):   # STUB
-    return {"value": None, "per_day": None, "n": None, "unpriced": None, "layer_hours": None}
+def cohort_side(layers, inst, side, start, end, bars, pv, days):
+    """The side's cohort: layers OPENED in [start, end). value = their open
+    commissions + closeby_net and exit commission of those closed before `end`
+    + the mid mark at `end` of those still open (mark_side's minute)."""
+    i = bars.index_at_or_after(end) - 1 if bars is not None else -1
+    if i < 0:
+        return {"value": None, "per_day": None, "n": 0, "unpriced": 0, "layer_hours": 0.0,
+                "nobars": True}
+    tm = bars.t[i] + 59
+    mid = (bars.c[i] + bars.ask_close(i)) / 2.0
+    value, n, unpriced, secs = 0.0, 0, 0, 0.0
+    for lay in layers.get(inst, {}).values():
+        if lay.side != side or lay.open_t is None or not (start <= lay.open_t < end):
+            continue
+        n += 1
+        value += lay.open_commission or 0.0
+        if lay.closed and lay.close_t < end:
+            value += (lay.closeby_net or 0.0) + (lay.exit_commission or 0.0)
+            secs += lay.close_t - lay.open_t
+            continue
+        secs += end - lay.open_t
+        if lay.open_price is None:
+            unpriced += 1
+            continue
+        if lay.open_t > tm:
+            continue          # opened after the marked minute: no price move yet
+        pips = (mid - lay.open_price) / bars.pip if side == "L" else (lay.open_price - mid) / bars.pip
+        value += pips * pv
+    return {"value": value, "per_day": value / days if days else 0.0, "n": n,
+            "unpriced": unpriced, "layer_hours": secs / 3600.0}
 
 
 def decide_equity(probe_per_day, comp_per_day, threshold):
@@ -141,8 +180,9 @@ def control_threshold_equity(cfg, layers, bars_by_pair, pv_by_pair):
             if cut is not None and days < min_days - EPS:
                 void.append((side, "%s-%s" % (x, y)))
                 continue
-            ex = equity_side(layers, inst[x], side, win, bars, pv) if bars else None
-            ey = equity_side(layers, inst[y], side, win, bars, pv) if bars else None
+            span = _span(cfg, win)
+            ex = cohort_side(layers, inst[x], side, span[0], span[1], bars, pv, days) if bars else None
+            ey = cohort_side(layers, inst[y], side, span[0], span[1], bars, pv, days) if bars else None
             if not ex or not ey or ex["per_day"] is None or ey["per_day"] is None \
                     or ex["unpriced"] or ey["unpriced"]:
                 void.append((side, "%s-%s" % (x, y)))
@@ -153,6 +193,16 @@ def control_threshold_equity(cfg, layers, bars_by_pair, pv_by_pair):
     median = statistics.median([g["gap"] for g in gaps]) if gaps else None
     return {"median": median, "gc1": max(base, median) if median is not None else base,
             "gaps": gaps, "void": void, "base": base, "pair": pair}
+
+
+def _span(cfg, win):
+    """The cohort span for a (possibly cut) window list: round_span's start and
+    end, the end pulled back to the cut when the windows were cut."""
+    start, end = round_span(cfg)
+    full_end = cs.windows_of(cfg)[-1][1]
+    if win and win[-1][1] < full_end:
+        end = min(end, win[-1][1])
+    return start, end
 
 
 def bars_by_pair(cfg, bidask):
@@ -175,8 +225,10 @@ def score_round_equity(cfg, layers, bidask, pv=None):
     for pair, spec in cfg["pairs"].items():
         bars, pvp = bp.get(pair), pv.get(pair, 0.0)
         for side in SIDES:
+            s0, e0 = round_span(cfg)
+            days_all = sum(d for _a, _b, d in windows)
             row = {"pair": pair, "side": side, "anchor": spec["anchor"], "probes": {},
-                   "anchor_eq": equity_side(layers, spec["anchor"], side, windows, bars, pvp)
+                   "anchor_eq": cohort_side(layers, spec["anchor"], side, s0, e0, bars, pvp, days_all)
                    if bars else None}
             for fleet in ("C", "D"):
                 if fleet not in spec:
@@ -187,14 +239,22 @@ def score_round_equity(cfg, layers, bidask, pv=None):
                 cut = cs.cut_for(cfg, pair, side, {fleet, comp_fleet})
                 win = cs.cut_windows(windows, cut)
                 days_used = sum(d for _a, _b, d in win)
-                pe = equity_side(layers, p["probe"], side, win, bars, pvp) if bars else None
-                ce = equity_side(layers, comp_inst, side, win, bars, pvp) if bars else None
+                s1, e1 = _span(cfg, win)
+                pe = cohort_side(layers, p["probe"], side, s1, e1, bars, pvp, days_used) if bars else None
+                ce = cohort_side(layers, comp_inst, side, s1, e1, bars, pvp, days_used) if bars else None
+                pq = equity_side(layers, p["probe"], side, win, bars, pvp) if bars else None
+                cq = equity_side(layers, comp_inst, side, win, bars, pvp) if bars else None
                 cutoff = cs.utc(cfg["reloads"][p["probe"]]) if p["probe"] in cfg.get("reloads", {}) \
                     else windows[0][0]
                 pm = cs.side_metrics(layers, p["probe"], side, win, cutoff)
                 cm = cs.side_metrics(layers, comp_inst, side, win, cutoff)
                 out = {"probe": p["probe"], "lever": p["lever"], "comparator": comp_inst,
                        "threshold": thr, "realised_margin": pm["per_day"] - cm["per_day"],
+                       "equity_margin": (pq["per_day"] - cq["per_day"])
+                       if pq and cq and pq["per_day"] is not None and cq["per_day"] is not None
+                       and not pq["unpriced"] and not cq["unpriced"] else None,
+                       "per_layer_hour": (pe["value"] / pe["layer_hours"])
+                       if pe and pe["value"] is not None and pe["layer_hours"] > 0 else None,
                        "probe_eq": pe, "comp_eq": ce, "days_used": days_used, "cut": cut}
                 if cut is not None and days_used < min_days - EPS:
                     out.update(verdict="VOID", margin=None)
@@ -222,14 +282,17 @@ def report(cfg, exp, res, out=sys.stdout):
     end = max(b for _a, b, _d in windows)
     last = max((ev_data.broker_msc_to_utc(r["deal_time_broker_msc"], 10800)
                 for r in exp.get("fill_logs", []) if r.get("deal_time_broker_msc")), default=0)
-    p("== %s: EQUITY (realised + change in open MTM), per day; windows %s ==" % (
-        cfg.get("round", "round"), ", ".join("%s->%s" % (a, b) for a, b, _d in cfg["windows"])))
+    p("== %s: COHORT EQUITY (layers opened in the round: costs + closes + mid mark at the end), "
+      "per day; plain equity and realised margins in brackets; windows %s ==" % (
+        ", ".join("%s->%s" % (a, b) for a, b, _d in cfg["windows"])))
+    p("cohort span %s -> %s (end mark)" % tuple(
+        dt.datetime.fromtimestamp(x, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ") for x in round_span(cfg)))
     if last < end:
         p("!! fills end %s, before the round ends (%s): on a Friday this is the close; "
           "otherwise provisional" % (dt.datetime.fromtimestamp(last, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ"),
                                      dt.datetime.fromtimestamp(end, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ")))
     c = res["control"]
-    p("threshold GC-1 %.2f = max(%.2f, median %s of %d %s equity gaps; void %s)" % (
+    p("threshold GC-1 %.2f = max(%.2f, median %s of %d %s cohort gaps; void %s)" % (
         c["gc1"], c["base"], "-" if c["median"] is None else "%.2f" % c["median"], len(c["gaps"]),
         c.get("pair", "-"), c.get("void")))
     for g in c["gaps"]:
@@ -244,7 +307,8 @@ def report(cfg, exp, res, out=sys.stdout):
                 cols.append("%-50s" % "      -")
                 continue
             pe = v["probe_eq"]["per_day"] if v["probe_eq"] else None
-            cols.append("%s %s %-8s (%+.2f)" % (_f(pe), _f(v["margin"]), v["verdict"], v["realised_margin"]))
+            cols.append("%s %s %-8s (eq %s, real %+.2f)" % (_f(pe), _f(v["margin"]), v["verdict"],
+                                                           _f(v["equity_margin"]).strip(), v["realised_margin"]))
         p("%-6s %-4s %s | %s | %s | %s" % (r["pair"], r["side"], _f(a), cols[0], cols[1], r["promote"] or "-"))
 
 

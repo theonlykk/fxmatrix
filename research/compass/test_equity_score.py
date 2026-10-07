@@ -239,6 +239,15 @@ class TestCohort(unittest.TestCase):
         c = es.cohort_side(book, INST, "L", T0, T0 + 180, bars(B4), PV, days=1)
         self.assertAlmostEqual(c["layer_hours"], 240 / 3600.0, places=9)
 
+    def test_c9_open_cohort_short_marked_at_the_mid(self):
+        """C9 (after the mutation round: a flipped short sign survived): a short opened
+        T0+30 at 0.99900, open at T0+180 (mid 0.99955): (0.99900 - 0.99955) = -5.5
+        pips -> -0.55, commission -0.04 -> -0.59."""
+        book = {}
+        layer(book, INST, "S", T0 + 30, 0.99900)
+        c = es.cohort_side(book, INST, "S", T0, T0 + 180, bars(B4), PV, days=1)
+        self.assertAlmostEqual(c["value"], -0.59, places=9)
+
     def test_c8_round_end_and_start_from_the_round_file(self):
         """C8: round_span uses the first window's start and "equity_end" when given,
         else the last window's end."""
@@ -297,6 +306,24 @@ class TestControl(unittest.TestCase):
         self.assertAlmostEqual(c["median"], 1.5, places=9)
         self.assertAlmostEqual(c["gc1"], 1.5, places=9)
         self.assertEqual(len(c["gaps"]), 6)
+
+
+    def test_e14_control_gaps_on_the_cohort(self):
+        """E14 (after the mutation round: control gaps on plain equity survived):
+        NZDCAD B, C, D each +1.00 cash per side (cohort gaps all 0 -> median 0 ->
+        GC-1 1.19); B and C ALSO carry an inherited layer per side realised in the
+        window (closeby -5.00). On the cohort they count nothing: median 0.0, GC-1
+        1.19. (On plain equity the L gaps would be 0, 4.09, 4.09 and the S gaps 0,
+        5.49, 5.49: median 4.09.)"""
+        book = {}
+        control_book(book, (1.0, 1.0, 1.0), (1.0, 1.0, 1.0))
+        for f in "BC":
+            layer(book, "GRIND_NZDCAD_OPT" + f, "L", T0 - 600, 1.00100, T0 + 90, 0.99600, -5.00)
+            layer(book, "GRIND_NZDCAD_OPT" + f, "S", T0 - 600, 1.00050, T0 + 90, 1.00550, -5.00)
+        c = es.control_threshold_equity(round_cfg(), book, {"NZDCAD": bars(B4, symbol="NZDCAD")},
+                                        {"NZDCAD": PV})
+        self.assertAlmostEqual(c["median"], 0.0, places=9)
+        self.assertAlmostEqual(c["gc1"], 1.19, places=9)
 
 
 class TestScoreRound(unittest.TestCase):
