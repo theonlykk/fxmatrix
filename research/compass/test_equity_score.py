@@ -1,7 +1,8 @@
 """Synthetic tests for the compass EQUITY scorer (operator 7 Oct ~14:53Z: a
-round is decided on equity change, realised + change in open MTM, from round 2;
-compass-round s4.4 amendment). Expected values are derived by hand in the
-comments, never read back.
+round is decided on equity, not realised, from round 2; ~15:07Z after Gemini
+GQ7-3: on the COHORT, the layers opened inside the round, so inherited
+inventory drops out; plain equity and realised are reported beside it).
+Expected values are derived by hand in the comments, never read back.
 
     python -m unittest research/compass/test_equity_score.py -v
 
@@ -168,6 +169,85 @@ class TestEquityChange(unittest.TestCase):
         self.assertEqual(e["unpriced"], 1)
 
 
+class TestCohort(unittest.TestCase):
+    """C1-C8: the cohort = layers OPENED in [start, end): value = their open
+    commissions + closeby_net and exit commission of those closed before `end` +
+    the mid mark at `end` of those still open. Nothing inherited counts."""
+
+    def test_c1_inherited_layer_realised_in_the_round_counts_nothing(self):
+        """C1 (THE CASE): E3's inherited long (opened T0-600, closed T0+90, realised
+        -1.58) is not in the cohort: value 0.00, n 0."""
+        book = {}
+        layer(book, INST, "L", T0 - 600, 1.00100, T0 + 90, 0.99850, -1.50)
+        c = es.cohort_side(book, INST, "L", T0, T0 + 180, bars(B4), PV, days=1)
+        self.assertAlmostEqual(c["value"], 0.0, places=9)
+        self.assertEqual(c["n"], 0)
+
+    def test_c2_opened_and_still_open_at_the_end(self):
+        """C2: a long opened T0+30 at 0.99900 (commission -0.04), open at T0+180: -0.04 +
+        end mark (mid 0.99955: +5.5 pips -> +0.55) = +0.51; n 1."""
+        book = {}
+        layer(book, INST, "L", T0 + 30, 0.99900)
+        c = es.cohort_side(book, INST, "L", T0, T0 + 180, bars(B4), PV, days=1)
+        self.assertAlmostEqual(c["value"], 0.51, places=9)
+        self.assertEqual(c["n"], 1)
+
+    def test_c3_opened_and_closed_equals_realised(self):
+        """C3: opened T0+10, closed T0+100, closeby_net +0.93, commissions -0.04 each
+        -> -0.04 + 0.93 - 0.04 = +0.85 (= compass net)."""
+        book = {}
+        layer(book, INST, "S", T0 + 10, 1.00000, T0 + 100, 0.99900, 0.93)
+        c = es.cohort_side(book, INST, "S", T0, T0 + 180, bars(B4), PV, days=1)
+        self.assertAlmostEqual(c["value"], 0.85, places=9)
+
+    def test_c4_the_end_mark_time_cuts_the_cohort(self):
+        """C4: end T0+120 (the mark: the minute ending T0+120 = bar T0+60, mid 0.99805).
+        A long opened T0+30 at 0.99900, closed later at T0+130: still open at the end
+        -> -0.04 + (0.99805 - 0.99900 = -9.5 pips -> -0.95) = -0.99. A long opened
+        T0+150 (after the end) is not in the cohort. Total -0.99, n 1."""
+        book = {}
+        layer(book, INST, "L", T0 + 30, 0.99900, T0 + 130, 0.99950, 0.50)
+        layer(book, INST, "L", T0 + 150, 0.99950)
+        c = es.cohort_side(book, INST, "L", T0, T0 + 120, bars(B4), PV, days=1)
+        self.assertAlmostEqual(c["value"], -0.99, places=9)
+        self.assertEqual(c["n"], 1)
+
+    def test_c5_per_day_and_sides_apart(self):
+        """C5: C2's long on L and C3's short on S of one instance; days 2 -> L +0.51 / 2
+        = +0.255, S +0.85 / 2 = +0.425."""
+        book = {}
+        layer(book, INST, "L", T0 + 30, 0.99900)
+        layer(book, INST, "S", T0 + 10, 1.00000, T0 + 100, 0.99900, 0.93)
+        b = bars(B4)
+        self.assertAlmostEqual(es.cohort_side(book, INST, "L", T0, T0 + 180, b, PV, days=2)["per_day"], 0.255, places=9)
+        self.assertAlmostEqual(es.cohort_side(book, INST, "S", T0, T0 + 180, b, PV, days=2)["per_day"], 0.425, places=9)
+
+    def test_c6_unpriced_cohort_layer(self):
+        """C6: a cohort long with no open price, open at the end: unpriced 1."""
+        book = {}
+        layer(book, INST, "L", T0 + 30, None)
+        c = es.cohort_side(book, INST, "L", T0, T0 + 180, bars(B4), PV, days=1)
+        self.assertEqual(c["unpriced"], 1)
+
+    def test_c7_layer_hours_reported(self):
+        """C7: C2's long is in the cohort from T0+30 to the end T0+180 = 150 s =
+        150 / 3600 h; a cohort layer closed at T0+100 after opening at T0+10 adds 90 s.
+        Total 240 s = 0.0666... h."""
+        book = {}
+        layer(book, INST, "L", T0 + 30, 0.99900)
+        layer(book, INST, "L", T0 + 10, 1.00000, T0 + 100, 0.99900, -1.0)
+        c = es.cohort_side(book, INST, "L", T0, T0 + 180, bars(B4), PV, days=1)
+        self.assertAlmostEqual(c["layer_hours"], 240 / 3600.0, places=9)
+
+    def test_c8_round_end_and_start_from_the_round_file(self):
+        """C8: round_span uses the first window's start and "equity_end" when given,
+        else the last window's end."""
+        cfg = round_cfg()
+        self.assertEqual(es.round_span(cfg), (T0, T0 + 180))
+        cfg["equity_end"] = "2026-10-07T22:02Z"
+        self.assertEqual(es.round_span(cfg), (T0, T0 + 120))
+
+
 class TestDecide(unittest.TestCase):
     def test_e9_strict_margins(self):
         """E9: margin > thr WIN, < -thr LOSE, equal either way REPEAT; no gates."""
@@ -221,12 +301,13 @@ class TestControl(unittest.TestCase):
 
 class TestScoreRound(unittest.TestCase):
     def test_e11_the_motivating_case_and_promotion(self):
-        """E11: GBPUSD long. B (anchor) scalps +1.00 (cash). C (add probe) scalps +1.00
-        AND realises an inherited long (E3's: realised -1.58, equity -0.59). D (exit
-        probe) scalps +4.00. Control gaps all 1.0 -> GC-1 max(1.19, 1.0) = 1.19.
-        Equity per day: B +1.00, C +0.41, D +4.00. C margin -0.59 -> REPEAT (realised
-        would read -1.58: LOSE). D margin +3.00 -> WIN, promoted. Short side: nothing
-        anywhere -> REPEAT, margin 0. A C side with an unpriced layer -> UNPRICED."""
+        """E11 (COHORT decides, ~15:07Z): GBPUSD long. B (anchor) scalps +1.00 (cash).
+        C (add probe) scalps +1.00 AND realises an inherited long (E3's: realised
+        -1.58, plain equity -0.59, cohort 0). D (exit probe) scalps +4.00. Control
+        gaps all 1.0 -> GC-1 max(1.19, 1.0) = 1.19. Cohort per day: B +1.00, C +1.00,
+        D +4.00. C margin 0.00 -> REPEAT (plain equity -0.59, realised -1.58: both
+        reported). D margin +3.00 -> WIN, promoted. Short side: nothing -> REPEAT,
+        margin 0. A C short opened in the round with no open price -> UNPRICED."""
         book = {}
         control_book(book, (1.0, 2.0, 1.0), (1.0, 2.0, 1.0))   # gaps 1,0,1 / 1,0,1 -> median 1.0
         cash_layer(book, "GRIND_GBPUSD_OPTB", "L", 1.00)
@@ -238,8 +319,9 @@ class TestScoreRound(unittest.TestCase):
         self.assertAlmostEqual(res["control"]["gc1"], 1.19, places=9)
         rows = {(r["pair"], r["side"]): r for r in res["rows"]}
         long_ = rows[("GBPUSD", "L")]
-        self.assertAlmostEqual(long_["probes"]["C"]["margin"], -0.59, places=9)
+        self.assertAlmostEqual(long_["probes"]["C"]["margin"], 0.00, places=9)
         self.assertEqual(long_["probes"]["C"]["verdict"], "REPEAT")
+        self.assertAlmostEqual(long_["probes"]["C"]["equity_margin"], -0.59, places=9)
         self.assertAlmostEqual(long_["probes"]["C"]["realised_margin"], -1.58, places=9)
         self.assertAlmostEqual(long_["probes"]["D"]["margin"], 3.00, places=9)
         self.assertEqual(long_["probes"]["D"]["verdict"], "WIN")
@@ -247,7 +329,7 @@ class TestScoreRound(unittest.TestCase):
         short = rows[("GBPUSD", "S")]
         self.assertEqual(short["probes"]["C"]["verdict"], "REPEAT")
         self.assertAlmostEqual(short["probes"]["C"]["margin"], 0.0, places=9)
-        layer(book, "GRIND_GBPUSD_OPTC", "S", T0 - 600, None)
+        layer(book, "GRIND_GBPUSD_OPTC", "S", T0 + 20, None)
         res = es.score_round_equity(round_cfg(), book, bidask, pv={"GBPUSD": PV, "NZDCAD": PV})
         rows = {(r["pair"], r["side"]): r for r in res["rows"]}
         self.assertEqual(rows[("GBPUSD", "S")]["probes"]["C"]["verdict"], "UNPRICED")

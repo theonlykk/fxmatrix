@@ -106,6 +106,14 @@ def equity_side(layers, inst, side, windows, bars, pv):
             "unpriced": unpriced, "marks": marks, "days": days}
 
 
+def round_span(cfg):   # STUB (tests first, cohort)
+    return None
+
+
+def cohort_side(layers, inst, side, start, end, bars, pv, days):   # STUB
+    return {"value": None, "per_day": None, "n": None, "unpriced": None, "layer_hours": None}
+
+
 def decide_equity(probe_per_day, comp_per_day, threshold):
     margin = probe_per_day - comp_per_day
     if margin > threshold + EPS:
