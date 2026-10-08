@@ -8,7 +8,8 @@ Read `prompts/cursor_replay_harness.md` (the base prompt, at `8c5536b`) and
 THIS file in full. This file amends the base prompt where it says so and
 lists what Claude found reading `a280736` (8 Oct ~03:35Z). Line numbers are
 `ea/fxgrind_replay_core.mqh` and `ea/fxgrind_replay_tests.mq5` at
-`a280736`. Questions for Gemini are in s7.
+`a280736`. Questions for Gemini are in s7; his rulings, Claude's check and
+the one addition (X16, RT21) are in s8 (8 Oct ~03:40Z).
 
 Two of the findings come from gaps in the base prompt, not from your work:
 s3.5 never said that real ENTRIES and real ROLL levels enter the true book,
@@ -86,6 +87,7 @@ the segment. Both are fixed below (A1, A2).
 | X12 | F12: at each tick first COLLECT the tickets of orders placed before the tick and touched by its prices, in placement order; then process them one by one, skipping any that is no longer in the seam book |
 | X13 | F13: `Rpl_CheckSeams()` before every `Grind_ProcessDeal`, `Grind_ProcessCloseByQueues`, `Grind_LatticeOnTick`, `Grind_OnTickEngine` and `Grind_CarryOnTimerStep` call; abort `SEAMS` otherwise |
 | X15 | F15: keep `g_rpl_retained_from_ms`: set to the preload start (A2) at a seed, else to the segment's first processed tick; raised to the prune cutoff at each prune. `Rpl_LatticeHistoryCheck` aborts only if `from_msc < g_rpl_retained_from_ms` |
+| X16 | GHF-2b: per segment, the summary lists every gap of more than 60 s between consecutive processed ticks on a weekday outside 23:50-00:15 server (`RPL|GAP|<from>|<seconds>`), and their count. Reported, never an abort |
 | X14 | Accessor `int Rpl_CurrentSyncIdx()`; `bool Rpl_HasPosition(const ulong ticket)` (in a side's layers) |
 
 ## 4. COMMITS
@@ -94,7 +96,7 @@ the segment. Both are fixed below (A1, A2).
    applied (so the suite can compile and the failures are behavioural).
    Commit message: each new or changed test, F / G, and the predicted count
    of failing assertions at this commit.
-2. **X5-X15.** No test changes. If a test fails and you believe its expected
+2. **X5-X16.** No test changes. If a test fails and you believe its expected
    value is wrong, STOP and report with source lines; never change one.
 
 Push the branch after each. Do not compile (the operator compiles in the
@@ -157,6 +159,10 @@ compile the two scripts on the desktop for syntax only, NOT run them).
   NO `RPL|ABORT`. (F)
 - **RT14** (unchanged): still aborts (no preload: retention starts at the
   first processed tick, after `from_msc`). (G)
+- **RT21** (new, X16): a segment on Tuesday 2026.10.06 with ticks at
+  10:00:00, 10:00:30 and 10:02:00 (a 90 s gap) and at 23:55:00, 23:57:00
+  (a 120 s gap inside 23:50-00:15): exactly ONE gap reported, from
+  10:00:30, 90 s. (F)
 - **RT19** (new, X5): the test writes a tiny input set to
   `MQL5\Files\replay\` (tag `rt19`: one segment with RT3's four ticks in a
   tick file, no seed, empty intervals, one swaps row) and calls
@@ -184,4 +190,33 @@ not in base s1, or if a test you add passes at commit 1 without a G tag.
   placement order, skipping any cancelled in between. Right rule?
 - **GHF-4.** What fact is missing?
 
-Line count: 187
+## 8. GEMINI'S RULINGS (8 OCT ~03:40Z), CLAUDE'S CHECK AND THE CHANGES
+
+- **GHF-1 REJECTED as stated.** No real row is matched by an ORDER ticket:
+  `EXT` rows change nothing (A1), `OUT_BY` and `ROLL` rows name the
+  POSITION (the true layer's own ticket, which the seed gives the replay
+  layer), and Claude's comparator matches deals on side, role, layer,
+  price and time, never on tickets. The harness has no order queue (touch
+  = fill, base s6), so there is no priority to lose. The one real effect:
+  an exit re-placed during a sync tick can fill only from the next tick,
+  one tick later than a resting live exit; inside T1's 60 s.
+- **GHF-2 REJECTED.** The lattice's tracking start is the NEWEST layer's
+  open time (`ea/grind_engine.mqh` 832-846), not the anchor's: the level
+  comes from the effective entries, i.e. the VLs, which reach a seeded or
+  synced replay from the true book (seed `vl`, A1 `ROLL` rows), not from
+  tick history. A fully rolled side therefore needs ticks only from its
+  newest open, which A2 preloads.
+- **GHF-2b ACCEPTED as a REPORTED check (X16, RT21).** Retention is not
+  data completeness. Measured on `ticks_53077984_EURUSD_w1.csv` (1 Oct
+  06:30 - 8 Oct 05:42 server): 7 gaps over 60 s, of them 5 in the nightly
+  23:50-00:15 server window, the weekend (Fri 23:56:58 server), and one of
+  exactly 60 s at Tue 6 Oct 00:20 server: no feed outage. T0 (867 / 867)
+  bounds the rest.
+- **GHF-3 ACCEPTED.**
+- **GHF-4 NOTED, no change.** The replay fills at the touching tick; the
+  real deal times are IC's, a median 260 ms after the touch (T0); sync
+  rows apply at the real times. Both sit inside T1's 60 s, and the
+  calibration plan's latency sensitivities (250 ms, 1 s; plan s6) report
+  the effect.
+
+Line count: 222

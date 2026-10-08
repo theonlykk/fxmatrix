@@ -2094,4 +2094,18 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   (figures and some equations lost); every result a reader derived or
   checked itself is marked so in s9. Verify before building on one.
 
-Line count: 2097
+## TRAPS FROM 2026-10-08 NIGHT, LATE (THE REPLAY HARNESS)
+
+- **Cursor leaves the desktop working copy on ITS branch** (`replay-harness`
+  after the harness build, 8 Oct ~03:35Z): a docs `git am` then lands on
+  Cursor's branch. Before every `git am`, `git status` must say `On branch
+  main`; if not: `git checkout main` (a commit already applied there by
+  mistake: `git reset --hard origin/<branch>` on that branch first, then
+  check out `main` and apply again).
+- **The Experts log on wine-d is `MQL5/logs/` (lower case)**, not `Logs/`.
+- **A Cursor build that "passes" its own tests is not read until Claude has
+  read the commits:** `a280736` would not have compiled (undeclared arrays)
+  and wrote fills where the engine never looks; its RT5 asserted a state
+  that a correct harness cannot have.
+
+Line count: 2111
