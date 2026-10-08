@@ -1,0 +1,31 @@
+//+------------------------------------------------------------------+
+//| fxgrind_replay.mq5 — IC tick replay run script                   |
+//+------------------------------------------------------------------+
+#property copyright "fxmatrix"
+#property version   "1.00"
+#property script_show_inputs
+#property strict
+
+#include "fxgrind_replay_core.mqh"
+
+input string InpRunTag = "calib";
+input bool   InpSync = false;
+
+void OnStart()
+{
+   Print("RPL|MIRRORS_EA|", RPL_MIRRORS_EA);
+   if(!Rpl_CheckSafetyForRun()) {
+      Print("RPL|ABORT|SAFETY");
+      return;
+   }
+   const int gv0 = Rpl_DeleteGrindGlobalVariables();
+   Print("RPL|GV_DELETE|", gv0);
+   if(!Rpl_RunReplayScript(InpRunTag, InpSync)) {
+      if(Rpl_WasAborted())
+         Print("RPL|ABORT|", Rpl_AbortReason());
+      return;
+   }
+   const int gv1 = Rpl_DeleteGrindGlobalVariables();
+   Print("RPL|GV_DELETE|", gv1);
+   Print("RPL|DONE|", InpRunTag);
+}
