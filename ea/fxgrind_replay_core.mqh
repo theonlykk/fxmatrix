@@ -195,6 +195,18 @@ bool             g_rpl_skip_true_book_add = false;
 RplTick          g_rpl_all_ticks[];
 int              g_rpl_all_tick_count = 0;
 
+struct RplTestInterval
+{
+   string kind;
+   long   from_ms;
+   long   to_ms;
+};
+
+RplTestInterval  g_rpl_test_intervals[];
+int              g_rpl_test_interval_count = 0;
+RplSyncRealRow   g_rpl_real_file_rows[];
+int              g_rpl_real_file_count = 0;
+
 //+------------------------------------------------------------------+
 string Rpl_NormalizeDataPath(string path)
 {
@@ -591,7 +603,7 @@ void Rpl_SeedLayer(const string side,
       Rpl_AppendLayerManual(g_grind_short, false, layer_index, entry, ticket);
    Grind_PositionTestAdd(ticket);
    Rpl_AddCloseByPos(ticket, is_long);
-   Grind_CarryTestSetPosition(ticket, swap, volume, open_ms / 1000);
+   Grind_CarryTestSetPosition(ticket, swap, volume, (datetime)(open_ms / 1000));
    Rpl_AddPosMeta(ticket, entry, swap, volume, open_ms, is_long, side, layer_index, "ENT", 0);
    if(vl > 0.0)
       Grind_VLSet(ticket, vl);
@@ -781,7 +793,7 @@ void Rpl_ApplySwapRollover(const long tick_ms)
       Grind_CarryTestSetPosition(g_rpl_pos_meta[i].ticket,
                                  g_rpl_pos_meta[i].swap,
                                  g_rpl_pos_meta[i].volume,
-                                 g_rpl_pos_meta[i].open_ms / 1000);
+                                 (datetime)(g_rpl_pos_meta[i].open_ms / 1000));
    }
 }
 
@@ -960,7 +972,7 @@ void Rpl_FillsOnTick(const long tick_ms, const double bid, const double ask)
                            g_rpl_cfg.magic);
       Grind_PositionTestAdd(pos_id);
       Rpl_AddCloseByPos(pos_id, is_long_ent);
-      Grind_CarryTestSetPosition(pos_id, 0.0, RPL_LOTS_DEFAULT, tick_ms / 1000);
+      Grind_CarryTestSetPosition(pos_id, 0.0, RPL_LOTS_DEFAULT, (datetime)(tick_ms / 1000));
       Rpl_AddPosMeta(pos_id, price, 0.0, RPL_LOTS_DEFAULT, tick_ms, is_long_ent, side, layer, role, otype);
       Rpl_WriteDealOutput(tick_ms, deal_id, fill_tickets[f], pos_id, DEAL_ENTRY_IN, deal_type, role, side, layer,
                           price);
@@ -1159,9 +1171,9 @@ void Rpl_ProcessOneTick(const RplTick &tick)
 
    Grind_MarketTestSeed(tick.bid, tick.ask, 0, 0);
    Grind_MarketTestSeedTimeMsc(t);
-   Grind_CarryTestSeedTick(t / 1000, tick.bid, tick.ask);
-   g_grind_carry_test_server_time = t / 1000;
-   Grind_LatticeTestAddTick(t / 1000, tick.bid, tick.ask);
+   Grind_CarryTestSeedTick((datetime)(t / 1000), tick.bid, tick.ask);
+   g_grind_carry_test_server_time = (datetime)(t / 1000);
+   Grind_LatticeTestAddTick((datetime)(t / 1000), tick.bid, tick.ask);
    MqlTick live;
    if(SymbolInfoTick(_Symbol, live))
       g_grind_last_feed_tick_msc = live.time_msc;
@@ -1184,7 +1196,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(!Rpl_EngineSeamsOrAbort())
       return;
    Grind_LatticeOnTick(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, RPL_LOTS_DEFAULT, g_rpl_cfg.lattice,
-                       g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, t / 1000,
+                       g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, (datetime)(t / 1000),
                        g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
    if(!Rpl_EngineSeamsOrAbort())
       return;
@@ -1203,7 +1215,8 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(g_rpl_last_timer_ms == 0 || t - g_rpl_last_timer_ms >= 60000) {
       if(!Rpl_EngineSeamsOrAbort())
          return;
-      Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, t / 1000, g_rpl_cfg.exit_s);
+      Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, (datetime)(t / 1000),
+                             g_rpl_cfg.exit_s);
       g_rpl_last_timer_ms = t;
    }
 
@@ -1373,7 +1386,7 @@ bool Rpl_WasAborted() { return g_rpl_aborted; }
 string Rpl_AbortReason() { return g_rpl_abort_reason; }
 
 //+------------------------------------------------------------------+
-void Rpl_SetSyncRealKindRows(const string csv_rows[], const int count)
+void Rpl_SetSyncRealKindRows(const string &csv_rows[], const int count)
 {
    ArrayResize(g_rpl_sync_real, count);
    g_rpl_sync_real_count = count;
@@ -1437,6 +1450,41 @@ bool Rpl_GapReportAt(const int index, long &from_ms, long &seconds)
    from_ms = g_rpl_gaps[index].from_ms;
    seconds = g_rpl_gaps[index].seconds;
    return true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_SetTestIntervals(const string &kind[], const long &from_ms[], const long &to_ms[], const int n)
+{
+   ArrayResize(g_rpl_test_intervals, n);
+   g_rpl_test_interval_count = n;
+   for(int i = 0; i < n; i++) {
+      g_rpl_test_intervals[i].kind = kind[i];
+      g_rpl_test_intervals[i].from_ms = from_ms[i];
+      g_rpl_test_intervals[i].to_ms = to_ms[i];
+   }
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_PositionSeamHas(const ulong ticket)
+{
+   for(int i = 0; i < g_grind_position_test_count; i++) {
+      if(g_grind_position_test_tickets[i] == ticket)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_CloseBySeamHas(const ulong ticket)
+{
+   return Grind_CloseByTestSelectPosition(ticket);
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_PosMetaHas(const ulong ticket)
+{
+   RplPosMeta m;
+   return Rpl_FindPosMeta(ticket, m);
 }
 
 //+------------------------------------------------------------------+

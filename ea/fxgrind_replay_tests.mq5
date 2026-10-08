@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT21 (fix1 s5)       |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT27 (fix2 s4)       |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -801,6 +801,220 @@ void Test_RT19_ReplayFiles()
    AssertTrue("RT19 summary", FileIsExist(dir + "out_rt19_summary.txt"));
 }
 
+void Test_RT22_CsvHeaderLine()
+{
+   const string path = "replay\\ticks_rt22.csv";
+   int w = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI);
+   FileWrite(w, "# comment, with, commas");
+   FileWrite(w, "time_msc_server,bid,ask,flags");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 0)) + ",1.10000,1.10002,6");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 1)) + ",1.10010,1.10012,2");
+   FileClose(w);
+   RplTick ticks[];
+   int n = 0;
+   AssertTrue("RT22 load ok", Rpl_LoadTicksCsv("ticks_rt22.csv", ticks, n));
+   AssertTrue("RT22 count 2", n == 2);
+   AssertTrue("RT22 t0 ms", ticks[0].time_msc == RplMs(RPL_T0, 0));
+   AssertNear("RT22 t0 bid", ticks[0].bid, 1.10000, 1e-9);
+   AssertNear("RT22 t0 ask", ticks[0].ask, 1.10002, 1e-9);
+   AssertTrue("RT22 t1 ms", ticks[1].time_msc == RplMs(RPL_T0, 1));
+   AssertNear("RT22 t1 bid", ticks[1].bid, 1.10010, 1e-9);
+   AssertNear("RT22 t1 ask", ticks[1].ask, 1.10012, 1e-9);
+}
+
+string Rpl_ReadWholeFile(const string rel_path)
+{
+   int h = FileOpen(rel_path, FILE_READ | FILE_TXT | FILE_ANSI);
+   if(h == INVALID_HANDLE)
+      return "";
+   string all = "";
+   while(!FileIsEnding(h)) {
+      all += FileReadString(h);
+      if(!FileIsEnding(h))
+         all += "\n";
+   }
+   FileClose(h);
+   return all;
+}
+
+void Test_RT23_MultiSegmentOutputs()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt23.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   RplTick ticks[];
+   Rpl_FillRT3Ticks(ticks, 4);
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(ticks[i].time_msc), DoubleToString(ticks[i].bid, 5),
+                DoubleToString(ticks[i].ask, 5), "0");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt23.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 2)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,,ticks_rt23.csv");
+   FileWrite(w, "2,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 2)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,,ticks_rt23.csv");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   AssertTrue("RT23 run", Rpl_RunReplayFiles("rt23", false));
+   const string dl = Rpl_ReadWholeFile(dir + "out_rt23_deals.csv");
+   AssertTrue("RT23 deals nonempty", StringLen(dl) > 0);
+   const int hdr_at = StringFind(dl, RPL_DEALS_HEADER);
+   AssertTrue("RT23 deals hdr", hdr_at == 0);
+   AssertTrue("RT23 one header", StringFind(dl, RPL_DEALS_HEADER, StringLen(RPL_DEALS_HEADER)) < 0);
+   const string ev = Rpl_ReadWholeFile(dir + "out_rt23_events.csv");
+   AssertTrue("RT23 seg1 present", StringFind(ev, ",1,") >= 0 || StringFind(dl, ",1,") >= 0);
+   AssertTrue("RT23 seg2 present", StringFind(ev, ",2,") >= 0 || StringFind(dl, ",2,") >= 0);
+   const string sum = Rpl_ReadWholeFile(dir + "out_rt23_summary.txt");
+   string lines[];
+   const int nl = StringSplit(sum, '\n', lines);
+   AssertTrue("RT23 summary lines", nl >= 2);
+   AssertTrue("RT23 sum seg1", StringFind(lines[0], "seg_id=1") == 0);
+   AssertTrue("RT23 sum seg2", StringFind(lines[1], "seg_id=2") == 0);
+}
+
+void Test_RT24_BreakerGated()
+{
+   string kinds[1];
+   long from_ms[1];
+   long to_ms[1];
+   kinds[0] = "BREAKER_GATED";
+   from_ms[0] = RplMs(RPL_T0, 0);
+   to_ms[0] = RplMs(RPL_T0, 1);
+   Rpl_SetTestIntervals(kinds, from_ms, to_ms, 1);
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.to_ms = RplMs(RPL_T0, 1);
+   RplTick ticks[1];
+   ticks[0].time_msc = RplMs(RPL_T0, 0);
+   ticks[0].bid = 1.10000;
+   ticks[0].ask = 1.10002;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_RunTicks(ticks, 1, cfg);
+   AssertFalse("RT24 tick0 no L00 ENT", Rpl_OrderExistsForLayer("L", 0, "ENT"));
+   Rpl_ResetAll();
+   Rpl_SetTestIntervals(kinds, from_ms, to_ms, 1);
+   cfg.to_ms = RplMs(RPL_T0, 2);
+   RplTick ticks2[2];
+   ticks2[0] = ticks[0];
+   ticks2[1].time_msc = RplMs(RPL_T0, 1);
+   ticks2[1].bid = 1.10000;
+   ticks2[1].ask = 1.10002;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_RunTicks(ticks2, 2, cfg);
+   double p = 0.0;
+   ulong tk = 0;
+   AssertTrue("RT24 tick1 L00 ENT", Rpl_FindOrderByRoleLayer("L", 0, "ENT", p, tk));
+   AssertNear("RT24 L00 px", p, 1.09981, 1e-9);
+}
+
+void Test_RT25_SyncRealFile()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt25.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(RplMs(RPL_T0, i)), "1.09900", "1.09902", "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt25.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer,entry,open_ms,ticket,vl,swap,volume");
+   FileWrite(w, "L,0,1.09981," + IntegerToString(RplMs(RPL_T0, -3 * 3600)) + ",7001,0,0,0.01");
+   FileWrite(w, "L,1,1.09911," + IntegerToString(RplMs(RPL_T0, -2 * 3600)) + ",7002,0,0,0.01");
+   FileWrite(w, "L,2,1.09841," + IntegerToString(RplMs(RPL_T0, -3600)) + ",7003,0,0,0.01");
+   FileClose(w);
+   w = FileOpen(dir + "real_rt25.csv", FILE_WRITE | FILE_TXT | FILE_ANSI);
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 2) - 1) + ",OUT_BY,L,2,1.09841,7003,");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt25.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt25.csv,ticks_rt25.csv");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   AssertTrue("RT25 run sync", Rpl_RunReplayFiles("rt25", true));
+   int h = FileOpen(dir + "out_rt25_book.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   AssertTrue("RT25 book open", h != INVALID_HANDLE);
+   FileReadString(h);
+   int long_rows = 0;
+   while(!FileIsEnding(h)) {
+      const string seg = FileReadString(h);
+      const string side = FileReadString(h);
+      if(side == "L")
+         long_rows++;
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+   }
+   FileClose(h);
+   AssertTrue("RT25 two long rows", long_rows == 2);
+   AssertTrue("RT25 layer0", StringFind(Rpl_ReadWholeFile(dir + "out_rt25_book.csv"), ",L,0,") >= 0);
+   AssertTrue("RT25 layer1", StringFind(Rpl_ReadWholeFile(dir + "out_rt25_book.csv"), ",L,1,") >= 0);
+}
+
+void Test_RT26_SyncRemoveSeams()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.sync = true;
+   cfg.to_ms = RplMs(RPL_T0, 2);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.09981, RplMs(RPL_T0, -3600), 7001UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 1, 1.09911, RplMs(RPL_T0, -1800), 7002UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   string rows[1];
+   rows[0] = IntegerToString(RplMs(RPL_T0, 1) - 1) + ",OUT_BY,L,1,1.09911,7002,";
+   Rpl_SetSyncRealKindRows(rows, 1);
+   RplTick ticks[2];
+   for(int i = 0; i < 2; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = 1.09900;
+      ticks[i].ask = 1.09902;
+   }
+   Rpl_RunTicks(ticks, 2, cfg);
+   AssertFalse("RT26 no pos 7002", Rpl_HasPosition(7002UL));
+   AssertFalse("RT26 pos seam", Rpl_PositionSeamHas(7002UL));
+   AssertFalse("RT26 closeby seam", Rpl_CloseBySeamHas(7002UL));
+   AssertFalse("RT26 pos meta", Rpl_PosMetaHas(7002UL));
+}
+
+void Test_RT27_SummaryCounts()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt19.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   RplTick ticks[];
+   Rpl_FillRT3Ticks(ticks, 4);
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(ticks[i].time_msc), DoubleToString(ticks[i].bid, 5),
+                DoubleToString(ticks[i].ask, 5), "0");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt19.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,,ticks_rt19.csv");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   AssertTrue("RT27 run", Rpl_RunReplayFiles("rt19", false));
+   const string sum = Rpl_ReadWholeFile(dir + "out_rt19_summary.txt");
+   string lines[];
+   StringSplit(sum, '\n', lines);
+   AssertTrue("RT27 line1 seg", StringFind(lines[0], "seg_id=1,ticks=") == 0);
+   AssertContains("RT27 fills", lines[0], "fills=2,");
+   AssertContains("RT27 scalps", lines[0], "scalps=1,");
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
@@ -861,5 +1075,11 @@ void OnStart()
    Test_RT19_ReplayFiles();
    Test_RT20_PreloadNoAbort();
    Test_RT21_GapReport();
+   Test_RT22_CsvHeaderLine();
+   Test_RT23_MultiSegmentOutputs();
+   Test_RT24_BreakerGated();
+   Test_RT25_SyncRealFile();
+   Test_RT26_SyncRemoveSeams();
+   Test_RT27_SummaryCounts();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
