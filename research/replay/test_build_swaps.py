@@ -82,19 +82,42 @@ class TestRateFor(unittest.TestCase):
 
 class TestRows(unittest.TestCase):
     def test_rows_and_csv(self):
+        # EFFECTIVE points (operator 8 Oct ~20:37Z): each night's broker charge at 0.01 lot
+        # and tick value 1.0, rounded to the cent, divided by (mult x 0.01), so the harness's
+        # unrounded points x mult x tick_value x volume books the broker's cent exactly.
         snaps = bs.snapshots_server(
             [snap("2026-10-06 20:50:09", -8.067, 1.364),
              snap("2026-10-07 20:50:22", -8.051, 1.355)], OFF)
         rows = bs.build_rows(snaps, dt.date(2026, 10, 7), dt.date(2026, 10, 10))
-        # Wed 7: -8.067 x1; Thu 8: -8.051 x3; Fri 9: -8.051 x1 (latest); Sat 10: x0.
-        self.assertEqual(rows, [("2026.10.07", -8.067, 1.364, 1),
-                                ("2026.10.08", -8.051, 1.355, 3),
-                                ("2026.10.09", -8.051, 1.355, 1),
-                                ("2026.10.10", -8.051, 1.355, 0)])
+        # Wed 7 x1: -0.08067 -> -0.08 -> -8.0; 0.01364 -> 0.01 -> 1.0.
+        # Thu 8 x3: -0.24153 -> -0.24 -> -8.0; 0.04065 -> 0.04 -> 0.04 / 0.03 = 1.3333...
+        # Fri 9 x1 (nearest: Wed 23:50:22): -0.08051 -> -0.08 -> -8.0; 0.01355 -> 0.01 -> 1.0.
+        # Sat 10 x0: the raw rate (multiplied by 0 in the harness).
+        self.assertEqual([r[0] for r in rows], ["2026.10.07", "2026.10.08", "2026.10.09", "2026.10.10"])
+        self.assertEqual([r[3] for r in rows], [1, 3, 1, 0])
+        want = [(-8.0, 1.0), (-8.0, 0.04 / 0.03), (-8.0, 1.0), (-8.051, 1.355)]
+        for r, (wl, ws) in zip(rows, want):
+            self.assertAlmostEqual(r[1], wl, places=9)
+            self.assertAlmostEqual(r[2], ws, places=9)
+        # What the harness books per night at 0.01 lot: the broker's cents.
+        self.assertAlmostEqual(rows[1][2] * 3 * 1.0 * 0.01, 0.04, places=12)
+        self.assertAlmostEqual(rows[1][1] * 3 * 1.0 * 0.01, -0.24, places=12)
         text = bs.to_csv(rows)
-        self.assertTrue(text.startswith("server_date,points_long,points_short,mult\n"))
-        self.assertIn("2026.10.08,-8.051,1.355,3\n", text)
-        self.assertFalse(text.startswith("﻿"))   # no BOM (fix 3 Z2)
+        lines = text.split("\n")
+        self.assertTrue(lines[0].startswith("#"))
+        self.assertNotIn(",", lines[0])
+        self.assertEqual(lines[1], "server_date,points_long,points_short,mult")
+        self.assertIn("\n2026.10.07,-8.0,1.0,1\n", text)
+        self.assertTrue(text.endswith("\n2026.10.10,-8.051,1.355,0\n"))
+        self.assertFalse(text.startswith("\ufeff"))   # no BOM (fix 3 Z2)
+        text.encode("ascii")
+
+    def test_effective_rounds_each_night(self):
+        # A short rate of 1.409 into Tue (x1): 0.01409 -> 0.01 -> 1.0, not 1.409.
+        snaps = bs.snapshots_server([snap("2026-10-05 22:38:02", -8.111, 1.409)], OFF)
+        rows = bs.build_rows(snaps, dt.date(2026, 10, 6), dt.date(2026, 10, 6))
+        self.assertAlmostEqual(rows[0][1], -8.0, places=9)    # -0.08111 -> -0.08
+        self.assertAlmostEqual(rows[0][2], 1.0, places=9)
 
     def test_missing_rate_raises(self):
         # Into Fri 2 Oct: 119 h 50 min from the only snapshot -> no rate.
