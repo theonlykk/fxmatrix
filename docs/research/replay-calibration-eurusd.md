@@ -445,5 +445,17 @@ changes a preset; no mark adjusted to fit a result.
   (1 Oct 01:24Z) is before its window. About 6 s of skipped engine calls
   in all: recorded as data, not modelled (inside T1's 60 s; M11 if a miss
   traces to one). Check (5), K18 on the scoring export, tonight.
+- **The swap model for `swaps.csv` (8 Oct ~19:50Z, Claude, the three
+  EURUSD archives).** Every closed EURUSD ENT position on B, C, D since 24
+  Sep (622 of 622) has the swap, to the cent, of: per rollover INTO server
+  date D, the latest `CARRY_SNAPSHOT` rate before D 00:00 server, x3 into
+  THURSDAY (Wednesday night), x0 into Saturday and Sunday, x1 on every
+  other night (into Monday included: x0 there breaks 32). One-night longs:
+  into Thu 1 Oct -0.25 (10 positions), into Thu 8 Oct -0.24 (7); into Wed
+  30 Sep / 7 Oct -0.08. `research/replay/build_swaps.py` (tests first, 9
+  tests, a mutation round) writes the file. Limit: the archive's swaps are
+  rounded to 0.01 per position, so rate changes under ~0.5 points a night
+  are not resolved. **The EA's carry pass applies its triple one night
+  early** (backlog C144); the harness runs that code as it is.
 
-Line count: 449
+Line count: 461
