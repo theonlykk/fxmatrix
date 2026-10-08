@@ -770,11 +770,33 @@ long Rpl_OldestLatticeMs()
 }
 
 //+------------------------------------------------------------------+
-void Rpl_LatticeHistoryCheck(const bool is_long)
+void Rpl_LatticeHistoryCheck(const bool is_long, const long tick_ms)
 {
-   const long from_msc = is_long ? g_grind_vl_from_msc_long : g_grind_vl_from_msc_short;
-   if(g_rpl_retained_from_ms > 0 && from_msc < g_rpl_retained_from_ms) {
-      Print("RPL|ABORT|LATTICE_HISTORY|from=", from_msc, "|retained=", g_rpl_retained_from_ms);
+   const double extreme = is_long ? g_grind_vl_extreme_long : g_grind_vl_extreme_short;
+   if(extreme == 0.0)
+      return;
+   long newest_open_s = 0;
+   bool any = false;
+   const int depth = is_long ? ArraySize(g_grind_long.layers) : ArraySize(g_grind_short.layers);
+   for(int i = 0; i < depth; i++) {
+      const ulong pt = is_long ? g_grind_long.layers[i].position_ticket
+                               : g_grind_short.layers[i].position_ticket;
+      RplPosMeta m;
+      if(!Rpl_FindPosMeta(pt, m))
+         continue;
+      const long os = m.open_ms / 1000;
+      if(!any || os > newest_open_s) {
+         newest_open_s = os;
+         any = true;
+      }
+   }
+   if(!any)
+      return;
+   const long now_s = tick_ms / 1000;
+   const long start_ms = MathMax((newest_open_s + 1) * 1000,
+                                 (now_s - GRIND_VL_CATCHUP_MAX_SEC) * 1000);
+   if(g_rpl_retained_from_ms > 0 && start_ms < g_rpl_retained_from_ms) {
+      Print("RPL|ABORT|LATTICE_HISTORY|start_ms=", start_ms, "|retained=", g_rpl_retained_from_ms);
       Rpl_Abort("LATTICE_HISTORY");
    }
 }
@@ -943,19 +965,19 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
       const ulong d1 = g_rpl_next_deal_id++;
       const ulong d2 = g_rpl_next_deal_id++;
       Rpl_ReplayAppendDeal(d1, "#" + IntegerToString((long)before[i].t1) + " by #" + IntegerToString((long)before[i].t2),
-                           DEAL_ENTRY_OUT_BY, order_ticket, before[i].t1, profit * 0.5, ent.swap * 0.5, 0.0,
-                           ent.entry, tsec, g_rpl_cfg.magic);
-      Rpl_ReplayAppendDeal(d2, "#" + IntegerToString((long)before[i].t2) + " by #" + IntegerToString((long)before[i].t1),
-                           DEAL_ENTRY_OUT_BY, order_ticket, before[i].t2, profit * 0.5, ext.swap * 0.5, 0.0,
+                           DEAL_ENTRY_OUT_BY, order_ticket, before[i].t1, profit, ent.swap, 0.0,
                            ext.entry, tsec, g_rpl_cfg.magic);
+      Rpl_ReplayAppendDeal(d2, "#" + IntegerToString((long)before[i].t2) + " by #" + IntegerToString((long)before[i].t1),
+                           DEAL_ENTRY_OUT_BY, order_ticket, before[i].t2, 0.0, ext.swap, 0.0,
+                           ent.entry, tsec, g_rpl_cfg.magic);
       const long dt1 = ent.is_long ? DEAL_TYPE_SELL : DEAL_TYPE_BUY;
       const long dt2 = ext.is_long ? DEAL_TYPE_SELL : DEAL_TYPE_BUY;
       Rpl_WriteDealOutput(tick_ms, d1, order_ticket, before[i].t1, DEAL_ENTRY_OUT_BY, dt1,
                           ent.role != "" ? ent.role : "ENT", ent.side != "" ? ent.side : (ent.is_long ? "L" : "S"),
-                          ent.layer >= 0 ? ent.layer : 0, ent.entry);
+                          ent.layer >= 0 ? ent.layer : 0, ext.entry);
       Rpl_WriteDealOutput(tick_ms, d2, order_ticket, before[i].t2, DEAL_ENTRY_OUT_BY, dt2,
                           ext.role != "" ? ext.role : "EXT", ext.side != "" ? ext.side : (ext.is_long ? "L" : "S"),
-                          ext.layer >= 0 ? ext.layer : 0, ext.entry);
+                          ext.layer >= 0 ? ext.layer : 0, ent.entry);
       if(!Rpl_EngineSeamsOrAbort())
          return;
       Grind_ProcessDeal(d1, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
@@ -1226,6 +1248,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(g_rpl_aborted)
       return;
    const long t = tick.time_msc;
+   const bool seg_first_tick = g_rpl_segment_first_tick;
    const datetime tsec = (datetime)(t / 1000);
    MqlDateTime dt;
    TimeToStruct(tsec, dt);
@@ -1258,6 +1281,9 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(SymbolInfoTick(_Symbol, live))
       g_grind_last_feed_tick_msc = live.time_msc;
 
+   if(seg_first_tick)
+      Grind_LatticeRollGateInitRestart(g_rpl_cfg.gate);
+
    Rpl_FillsOnTick(t, tick.bid, tick.ask);
    if(g_rpl_aborted)
       return;
@@ -1285,9 +1311,9 @@ void Rpl_ProcessOneTick(const RplTick &tick)
                       g_rpl_cfg.width_s, g_rpl_cfg.add_s);
 
    if(!trkL0 && g_grind_vl_tracking_long)
-      Rpl_LatticeHistoryCheck(true);
+      Rpl_LatticeHistoryCheck(true, t);
    if(!trkS0 && g_grind_vl_tracking_short)
-      Rpl_LatticeHistoryCheck(false);
+      Rpl_LatticeHistoryCheck(false, t);
 
    Rpl_ScanNewOrders(t);
    Rpl_ProcessCloseByDone(t, cb_before, cb_n);
