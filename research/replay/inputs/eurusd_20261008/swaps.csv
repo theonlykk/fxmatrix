@@ -1,0 +1,11 @@
+# points are EFFECTIVE: each night's broker charge at 0.01 lot and tick value 1.0 rounded to the cent / (mult x 0.01); mult 0 rows keep the raw rate (HANDOFF s73)
+server_date,points_long,points_short,mult
+2026.10.01,-8.333333333333334,1.3333333333333335,3
+2026.10.02,-8.0,1.0,1
+2026.10.03,-8.232,1.508,0
+2026.10.04,-8.232,1.508,0
+2026.10.05,-8.0,2.0,1
+2026.10.06,-8.0,1.0,1
+2026.10.07,-8.0,1.0,1
+2026.10.08,-8.0,1.3333333333333335,3
+2026.10.09,-8.0,1.0,1

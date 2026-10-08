@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for Gemini** (Claude, 8 Oct ~23:05Z). Gemini reviews the verdict table and the probe table before any reload (compass-round s4.7). The reload is Fri 9 Oct in session |
+| Status | **DECIDED 8 Oct ~23:20Z** (Gemini GR3-1..GR3-5, Claude's check and the operator: s6). Drafted by Claude 8 Oct ~23:05Z. Reload Fri 9 Oct in session (four charts); round 3 = FTMO days Mon 12 + Tue 13; presets `_r3` from `scripts/ic_geometry_r3.json` |
 | Sources | `docs/runbooks/compass-round.md` (s4 the loop, s4.1 structural changes, s4.5 next probes, s11 records); `docs/research/compass-equity-amendment.md` (s7 the cohort decides, s8 round 2 moved); `research/compass/equity_score.py` + `round2.json`; `scripts/ic_presets.py` + `scripts/ic_geometry_r2.json`; `handoffs/Handover/10_GEOMETRY_REGISTER.md` (LIVE NOW); `docs/research/compass-round2-review.md` (round 1's verdict, s1) |
 | Asks | GR3-1..GR3-5 (s5). Attack the premises; say which fact is missing |
 
@@ -86,11 +86,11 @@ read back (keys and order kept, magic and instance unchanged, key blank,
 guard on every side, cap, deadband, S, gate 0); the 23 others are their
 `_r2` files unchanged.
 
-**Round 3's window (GR3-4):** from the last of the four Loads (Fri 9 in
-session) to Mon 12 Oct 22:00Z; the cohort's end mark Mon 12 22:30Z (a
-weekday end); Friday's part counts as one day, as round 2's first 19.6 h
-did (every margin and control gap shares the divisor). Scored Monday
-evening.
+**Round 3's window (GR3-4, DECIDED, s6):** FTMO days Mon 12 + Tue 13 Oct
+(Sun 11 22:00Z - Tue 13 22:00Z), two full days after Friday's reload
+(compass-round s4.1's default); the cohort's end mark Tue 13 22:30Z;
+scored Tuesday evening. (Drafted as Fri 9 + Mon 12, with Friday's part
+counted as one day: superseded.)
 
 ## 3. WHAT IS STRUCTURAL THIS TIME
 
@@ -141,4 +141,48 @@ change to the replay).
   day plus Tue 13)?
 - **GR3-5.** What fact is missing?
 
-Line count: 144
+## 6. GEMINI'S RULINGS (8 OCT ~23:10Z), CLAUDE'S CHECK AND THE OUTCOME
+
+Gemini read this file as an attachment; his answers pasted by the
+operator; each premise checked here.
+
+- **GR3-1 ACCEPTED (a second repeat), reason corrected.** His: a two-day
+  WIN above GC-1 is indistinguishable from noise "as established in
+  GR2-1". GR2-1's reason was the structural change, not noise (round-2
+  review s6), and GC-1 already sits above the control's gaps. The fact he
+  names (does a two-day margin above GC-1 keep its sign in the next
+  round?) has one data point: round 1's three winners kept it 0 of 3 in
+  round 2 (across a structural change). The operator's ruling (K6)
+  stands; whether a WIN must ALWAYS repeat stays OPEN, now with that
+  count to collect each round.
+- **GR3-2 ACCEPTED (flip to 9), premise corrected.** Round 1 was not an
+  "Ejection regime": IC ran auto-eject OFF and the lattice ON from the
+  C63 loads (1 Oct). The differences were re-roll off, widths 3-7 and
+  deadband 4 (round-2 review K8). GC-2 holds either way: 9 is untested
+  under the current structure.
+- **GR3-3 ACCEPTED** (AUDCHF width 1.5 on B, C, D; AUDCHF's pools
+  restart). His mechanism (the counter-side L0 sits at 1.5 from mid, S =
+  2.5) is right; the re-quote step is the deadband (2), unchanged.
+- **GR3-4 ACCEPTED (operator ~23:20Z): Mon 12 + Tue 13.** His premise
+  (Friday afternoons are "mechanically toxic" to the grid) is not
+  measured here (as GRC-6), and a shared divisor does not bias a
+  margin. What stands: compass-round s4.1's default is two FULL FTMO days
+  after the last reload; Friday's part was a carry-over from round 2's
+  one-off ruling. The reload stays Fri 9 in session; the cohort counts
+  only layers opened from Sun 11 22:00Z.
+- **GR3-5 ANSWERED, measured.** His question: was EURGBP's double WIN on
+  C a trend favouring whichever fleet "deployed margin faster"? EURGBP
+  over the round (IC bid / ask, 7 Oct 05:25 - 9 Oct 01:30 server): net
+  -4.3 pips in a 39.6-pip range (Wed -5.9, Thu +5.0): no one-way move.
+  C did not build faster: cohort layers long C 12 vs anchor 12, short C 11
+  vs anchor 14. Repeating the probe (GR3-1) tests the rest.
+- **Built:** `scripts/ic_geometry_r3.json` (round 2's table with the
+  three cells changed); `scripts/ic_presets.py --stage round --write`: 27
+  `_r3` files, 0 errors; against `_r2` only the four reload charts differ
+  in any input (B AUDCHF width 1.5 / S 2.5; C AUDCHF width 1.5, add 5 / 3;
+  D AUDCHF width 1.5, exit 11 / 9; D EURUSD exit 9 / 11); the other 23
+  differ only in `InpConfigWarning` (the round number) and are NOT
+  reloaded. `round3.json` is written after the reload (its probe reload
+  times).
+
+Line count: 188

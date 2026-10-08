@@ -287,4 +287,22 @@ realised decides**. **Reloaded 6 Oct 03:18-03:35Z** (D 03:18-03:22, C
 03:25-03:28, B 03:32-03:35; BAD 0; HANDOFF s61); round file
 `research/compass/round2.json`; windows 6 Oct 22:00Z - 8 Oct 22:00Z (**then, after the Wednesday build and the cohort rule, 7 Oct 02:25Z - 8 Oct 22:00Z, end mark 8 Oct 22:30Z, operator 7 Oct ~15:27Z; scored Thu evening; round 3 reload Fri 9, days Fri 9 + Mon 12**). Geometry checked on pipshed (C129) at 04:01Z: every B, C, D cell as the table (HANDOFF s62). **7 Oct ~14:53Z / ~15:07Z (operator, before the window): round 2 is DECIDED ON THE COHORT'S EQUITY** (amendment s7; `equity_score.py`; end mark 9 Oct 20:45Z, then 8 Oct 22:30Z when round 2 moved, amendment s8), plain equity and realised reported; the IC dump from `2026.10.07 04:00` server (it must start before 7 Oct 02:25Z; `2026.10.07 23:00` was the Thu 8 + Fri 9 plan). **SUPERSEDED (the rest of this paragraph is history; the 7 Oct ~15:27Z ruling above stands: 7 Oct 02:25Z - 8 Oct 22:00Z, end mark 8 Oct 22:30Z, `round2.json`).** **Moved (6 Oct ~20:40Z) to FTMO days Thu 8 + Fri 9** by the Wednesday build (v2.2a + ADR-166, the roll gate at 0 on B, C, D; operator ~20:37Z; `docs/runbooks/wednesday-build-2026-10-07.md`): `round2.json` windows 7 Oct 22:00Z - 9 Oct 22:00Z, one day each as round 1's Friday; scored after Friday's close (a Friday export prints "provisional": the data end at the close). The geometry and the probes are unchanged (no register rows).
 
-Line count: 290
+**Round 2 SCORED** (8 Oct ~22:45Z, cohort equity, `equity_score.py` on
+`study_2026-10-08_2235.jsonl` + wine-c's bid / ask from `2026.10.07 04:00`;
+`docs/research/compass-round3-review.md` s1). GC-1 $1.19 (NZDCAD cohort gaps
+median 0.65). WIN: GBPUSD S C +1.775 and D +1.768, EURGBP L C +1.194, EURGBP S
+C +2.71 and D +1.36, AUDCAD S C +1.35, AUDCHF S C +1.40. LOSE: EURUSD L D
+-3.95, AUDCHF L C -6.30 and D -2.52. Round 1's three winners all REPEAT (0 of 3
+kept their sign). "Provisional" flag = the evening lull (no fill after
+20:08Z), read as final.
+
+**Round 3** (Gemini GR3-1..5 and the operator, 8 Oct ~22:52Z-23:20Z;
+review s6): no promotion, every WIN repeats; EURUSD L D exit 9; AUDCHF L C
+add 5 and L D exit 11 with AUDCHF's width 1.5 on B, C, D (AUDCHF's pools
+restart). Reload Fri 9 Oct in session, FOUR charts (B, C, D AUDCHF; D EURUSD;
+`_r3` presets from `scripts/ic_geometry_r3.json`); the other 23 keep running
+on their round-2 geometry. Window FTMO days Mon 12 + Tue 13 (Sun 11 22:00Z -
+Tue 13 22:00Z), end mark Tue 13 22:30Z, scored Tuesday evening; `round3.json`
+after the reload.
+
+Line count: 308

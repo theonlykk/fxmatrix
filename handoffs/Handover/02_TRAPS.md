@@ -2182,7 +2182,35 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   unittest`. A mutation loop that calls a missing runner "catches" every
   mutant; check the unmutated run passes inside the loop.
 - **Plan s2's table counts deals to the 01:10Z export (8 Oct 01:10Z =
-  1791432600000 UTC ms):** a cut-off one hour out changes only the last
+  1791421800000 UTC ms = 1791432600000 SERVER ms; corrected s73):** a cut-off one hour out changes only the last
   segment's count, which looks like a builder error.
 
-Line count: 2188
+## TRAPS FROM 2026-10-08 NIGHT (THE REPLAY'S INPUTS; ROUND 2 SCORED)
+
+- **"To the cent" must be measured with NO tolerance.** s72's swap model
+  "622 of 622 to the cent" held only within half a cent: exactly, it
+  matched 600 of 626. A missing CARRY_SNAPSHOT night (Mon 5 Oct) left
+  "the latest snapshot before" on Saturday's rate, and the broker rounds
+  EACH NIGHT's charge to the cent. Compare `==` on rounded values.
+- **A ROLL_ACCEPTED row's own `level` is the LOG level ("INFO");** the
+  roll level is `detail.level` (and `detail.ticket`).
+- **Tick `flags` change after the fact; times and prices do not.** w1
+  (dumped near-live) and w2 (the same hours dumped ~17 h later) agree on
+  time, bid and ask for all 405,245 ticks; the last ~12,800 of w1 lack
+  bit 128 that w2 carries (6 -> 134, 2 -> 130). Compare dumps on the
+  first three columns; the harness reads only those.
+- **The K19 probe answers only "at or after InpFrom":** w1 started at
+  06:30 because the probe was asked from 06:30. IC serves EURUSD from 1
+  Oct 04:00:00.097 server (probe 8 Oct 21:30Z). A seed AT CAP needs ticks
+  back to its newest open (C seg 11: 06:01:24): run `cap_warnings`.
+- **PowerShell: a destination ending `\"` escapes the quote** (`scp ...
+  "$HOME\Downloads\"` fails "No such file"): name the file in full.
+- **`python -I` hides the script's own folder:** a research driver that
+  imports its sibling modules (build_inputs.py) must run with `-B` only;
+  `-I` is for scripts reading untrusted downloads with no local imports.
+- **The scorer's "provisional" flag fires on the evening lull:** no fill
+  on any instance from 20:08Z to the 22:35Z export on 8 Oct (7 Oct: 0 at
+  19Z, 5 at 20Z, 0 at 21Z). Check the hourly fill counts and the carry
+  pass before calling data missing.
+
+Line count: 2216

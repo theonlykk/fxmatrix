@@ -466,4 +466,46 @@ changes a preset; no mark adjusted to fit a result.
   DB, re-roll and gate matches the s2 table, and the IN deals per Load
   segment to the 01:10Z export match s2's IN column on all 23.
 
-Line count: 469
+- **The swap model CORRECTED (8 Oct ~20:35Z, HANDOFF s73).** s72's "622
+  of 622 to the cent" held within half a cent; measured EXACTLY it matched
+  600 of 626. The rule that matches **626 of 626 exactly** (every closed
+  EURUSD ENT position of B, C, D since 24 Sep): per position and per night,
+  round(rate x mult x tick_value x volume, 2), the rate of the
+  CARRY_SNAPSHOT NEAREST to D 00:00 server (no snapshot on Mon 5 Oct night:
+  the night into Tue 6 Oct is priced at the 6 Oct 01:38 init snapshot,
+  1.409 short, not Saturday's 1.508). The same model equals the EA's own
+  carry ledger (`CARRY_EXIT_SHIFT` `accrued_ledger_pips`) on 69 of 69.
+  **`swaps.csv` carries EFFECTIVE points** (operator ~20:37Z): each row =
+  that night's cents at 0.01 lot / (mult x 0.01), so the harness's
+  unrounded booking (base s3.4 step 1) equals the broker's cent; a `#`
+  line says so. Built to 9 Oct from tonight's archives (sha256
+  `dc7da509b35e6846`); booked the harness's way it reproduces every
+  closed position whose nights fall in 1-8 Oct (116 of 116).
+- **The replay's inputs BUILT (8 Oct ~20:30-21:25Z; `research/replay/`,
+  tests first, mutation rounds all caught):** `build_seeds.py` (seed =
+  open ENT positions at the init from fill_logs; vl = the latest
+  ROLL_ACCEPTED `detail.level`; swap = the model above), `build_real.py`
+  (fix 1 A1's ENT / EXT / OUT_BY / ROLL rows; intervals), `build_inputs.py`
+  (per fleet: run_eurusd_b / c / d, seg_id B 1-9, C 10-19, D 20-29,
+  seed_<seg_id>.csv, flat = empty). At every one of the 29 inits: no open
+  EXT position; D's REBUILD_SUMMARY counts and every EXIT_REBUILT price
+  (1 Oct 09:21, 6 Oct 06:20 server) agree with the seeds' entries, VLs and
+  swaps. On the 8 Oct ~22:38Z archives (B sha256 `4b584882a288681f`, C
+  `c51dd5b5fec41502`, D `3866d5ff6324266f`; each a superset of the
+  afternoon copy, no row changed): 37 files, real 684 / 765 / 763 rows.
+- **Ticks `w2` (8 Oct 22:45Z, wine-d):** IC serves EURUSD from 1 Oct
+  04:00:00.097 server (probe 21:30Z), so w2 = `2026.10.01 04:00` -
+  `2026.10.09 01:30`: 476,821 ticks, 190 chunks, bad_px 0, time_back 0,
+  no empty weekday hour; 16,430,291 bytes, sha256 `db2ea94173a4d0c8`.
+  Needed because C seg 11 (1 Oct 09:46 server) seeds a long side AT CAP
+  whose newest open is 06:01:24, before w1. **Against w1:** time, bid and
+  ask identical on all 405,245 overlapping ticks; only `flags` differ in
+  w1's last ~12,800 ticks (bit 128 added later; not read by the harness).
+  Every run row names w2.
+- **T0 on the scoring export (`study_2026-10-08_2235.jsonl`, sha256
+  `577b777bfb7d2270`) with w2: PASS 1052 / 1052** real EURUSD IN deals
+  from each fleet's window start to 8 Oct 22:00Z (B 323, C 359, D 370);
+  touch before every fill (median -260 ms, range -1,959 to -42 ms).
+  Check (5) of s4.2: these are the window's IN deals.
+
+Line count: 511
