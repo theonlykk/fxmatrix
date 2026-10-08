@@ -2108,4 +2108,24 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   and wrote fills where the engine never looks; its RT5 asserted a state
   that a correct harness cannot have.
 
-Line count: 2111
+## TRAPS FROM 2026-10-08 EARLY MORNING (THE HARNESS COMPILE)
+
+- **MQL5 CSV: one `FileReadString` on a `FILE_CSV` handle reads ONE field,
+  not a line.** Skipping a header line, counting rows or reading a row means
+  reading field by field to the line end. Cursor's readers (fix 2, D3) and
+  tests (fix 3, E4, E10) have carried this.
+- **`FileIsLineEnding` is set BY a read** and stays set until the next one:
+  test it after reading, never before (a `while(!FileIsLineEnding)` loop
+  reads nothing after line 1; fix 3, E1). Read in a do-while.
+- **Compile EVERY `.mq5` Cursor touches:** the replay runner
+  (`fxgrind_replay.mq5`) went uncompiled from the base build to fix 2 and
+  could not have compiled at `8a92e22` (it called a tests-file function).
+- **`desktop_sync.ps1` puts only `*_tests.mq5` in `MQL5\Scripts\`;** every
+  other `.mq5` (the replay runner included) goes to `MQL5\Experts\`. Open it
+  there for F7. The replay terminal's copy step (`D:\mt5-replay`) is Cursor's
+  own (base s5), not this script.
+- **A test that indexes rows "from the end" breaks when a fill closes by
+  close-by on the same tick:** the OUT_BY pair is appended after the IN rows
+  (RT18, fix 3, E9). Index from the start with an exact count.
+
+Line count: 2131
