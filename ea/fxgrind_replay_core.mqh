@@ -1569,12 +1569,12 @@ bool Rpl_PosMetaHas(const ulong ticket)
 }
 
 //+------------------------------------------------------------------+
-bool Rpl_CsvSkipLine(const int h)
+bool Rpl_CsvFieldsAllEmpty(const string &fields[])
 {
-   if(FileIsEnding(h))
-      return false;
-   while(!FileIsEnding(h) && !FileIsLineEnding(h))
-      FileReadString(h);
+   for(int i = 0; i < ArraySize(fields); i++) {
+      if(StringLen(fields[i]) > 0)
+         return false;
+   }
    return true;
 }
 
@@ -1585,11 +1585,31 @@ bool Rpl_CsvReadLineFields(const int h, string &fields[])
    if(FileIsEnding(h))
       return false;
    int n = 0;
-   while(!FileIsEnding(h) && !FileIsLineEnding(h)) {
+   do {
       ArrayResize(fields, n + 1);
       fields[n++] = FileReadString(h);
+   } while(!FileIsLineEnding(h) && !FileIsEnding(h));
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_CsvHeaderOk(const string &fields[], const string expected0, const string file_tag)
+{
+   if(ArraySize(fields) == 0 || fields[0] != expected0) {
+      const string got = (ArraySize(fields) > 0) ? fields[0] : "";
+      Print("RPL|BAD_HEADER|", file_tag, "|", got);
+      return false;
    }
-   return (n > 0);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_RunReplayClearFileState()
+{
+   g_rpl_file_interval_count = 0;
+   ArrayResize(g_rpl_file_intervals, 0);
+   g_rpl_real_file_count = 0;
+   ArrayResize(g_rpl_real_file_rows, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -1639,9 +1659,15 @@ bool Rpl_LoadRealCsvFile(const string tag)
    bool header_skipped = false;
    string fields[];
    while(Rpl_CsvReadLineFields(h, fields)) {
+      if(Rpl_CsvFieldsAllEmpty(fields))
+         continue;
       if(StringFind(fields[0], "#") == 0)
          continue;
       if(!header_skipped) {
+         if(!Rpl_CsvHeaderOk(fields, "time_ms", "real_" + tag + ".csv")) {
+            FileClose(h);
+            return false;
+         }
          header_skipped = true;
          continue;
       }
@@ -1670,24 +1696,30 @@ void Rpl_LoadSegmentSyncFromFile(const long from_ms, const long to_ms)
 }
 
 //+------------------------------------------------------------------+
-void Rpl_LoadIntervalsFile(const string tag)
+bool Rpl_LoadIntervalsFile(const string tag)
 {
    g_rpl_file_interval_count = 0;
    ArrayResize(g_rpl_file_intervals, 0);
    const int h = FileOpen("replay\\intervals_" + tag + ".csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
    if(h == INVALID_HANDLE)
-      return;
+      return true;
    bool header_skipped = false;
    string fields[];
    while(Rpl_CsvReadLineFields(h, fields)) {
-      if(ArraySize(fields) > 0 && StringFind(fields[0], "#") == 0)
+      if(Rpl_CsvFieldsAllEmpty(fields))
+         continue;
+      if(StringFind(fields[0], "#") == 0)
          continue;
       if(!header_skipped) {
+         if(!Rpl_CsvHeaderOk(fields, "kind", "intervals_" + tag + ".csv")) {
+            FileClose(h);
+            return false;
+         }
          header_skipped = true;
          continue;
       }
       ArrayResize(g_rpl_file_intervals, g_rpl_file_interval_count + 1);
-      g_rpl_file_intervals[g_rpl_file_interval_count].kind = (ArraySize(fields) > 0) ? fields[0] : "";
+      g_rpl_file_intervals[g_rpl_file_interval_count].kind = fields[0];
       g_rpl_file_intervals[g_rpl_file_interval_count].from_ms =
          (ArraySize(fields) > 1) ? (long)StringToInteger(fields[1]) : 0;
       g_rpl_file_intervals[g_rpl_file_interval_count].to_ms =
@@ -1695,6 +1727,7 @@ void Rpl_LoadIntervalsFile(const string tag)
       g_rpl_file_interval_count++;
    }
    FileClose(h);
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -1708,9 +1741,15 @@ bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
    bool header_skipped = false;
    string fields[];
    while(Rpl_CsvReadLineFields(h, fields)) {
+      if(Rpl_CsvFieldsAllEmpty(fields))
+         continue;
       if(StringFind(fields[0], "#") == 0)
          continue;
       if(!header_skipped) {
+         if(!Rpl_CsvHeaderOk(fields, "time_msc_server", filename)) {
+            FileClose(h);
+            return false;
+         }
          header_skipped = true;
          continue;
       }
@@ -1848,55 +1887,109 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
 {
    g_rpl_swap_count = 0;
    ArrayResize(g_rpl_swaps, 0);
-   int sh = FileOpen("replay\\swaps.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
-   if(sh != INVALID_HANDLE) {
-      bool header_skipped = false;
-      string fields[];
-      while(Rpl_CsvReadLineFields(sh, fields)) {
-         if(ArraySize(fields) > 0 && StringFind(fields[0], "#") == 0)
-            continue;
-         if(!header_skipped) {
-            header_skipped = true;
-            continue;
-         }
-         const string d = fields[0];
-         const double pl = (ArraySize(fields) > 1) ? StringToDouble(fields[1]) : 0.0;
-         const double ps = (ArraySize(fields) > 2) ? StringToDouble(fields[2]) : 0.0;
-         const double mult = (ArraySize(fields) > 3) ? StringToDouble(fields[3]) : 1.0;
-         Rpl_AppendTestSwap(d, pl, ps, mult);
-      }
-      FileClose(sh);
+   Rpl_RunReplayClearFileState();
+   const int sh = FileOpen("replay\\swaps.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(sh == INVALID_HANDLE) {
+      Print("RPL|ABORT|MISSING_SWAPS");
+      Rpl_RunReplayClearFileState();
+      return false;
    }
-   Rpl_LoadIntervalsFile(tag);
+   bool swap_header = false;
+   string sfields[];
+   while(Rpl_CsvReadLineFields(sh, sfields)) {
+      if(Rpl_CsvFieldsAllEmpty(sfields))
+         continue;
+      if(StringFind(sfields[0], "#") == 0)
+         continue;
+      if(!swap_header) {
+         if(!Rpl_CsvHeaderOk(sfields, "server_date", "swaps.csv")) {
+            FileClose(sh);
+            Print("RPL|ABORT|BAD_SWAPS");
+            Rpl_RunReplayClearFileState();
+            return false;
+         }
+         swap_header = true;
+         continue;
+      }
+      const string d = sfields[0];
+      const double pl = (ArraySize(sfields) > 1) ? StringToDouble(sfields[1]) : 0.0;
+      const double ps = (ArraySize(sfields) > 2) ? StringToDouble(sfields[2]) : 0.0;
+      const double mult = (ArraySize(sfields) > 3) ? StringToDouble(sfields[3]) : 1.0;
+      Rpl_AppendTestSwap(d, pl, ps, mult);
+   }
+   FileClose(sh);
+   if(!Rpl_LoadIntervalsFile(tag)) {
+      Print("RPL|ABORT|BAD_INTERVALS");
+      Rpl_RunReplayClearFileState();
+      return false;
+   }
    if(sync_mode && !Rpl_LoadRealCsvFile(tag)) {
       Print("RPL|ABORT|MISSING_REAL");
+      Rpl_RunReplayClearFileState();
       return false;
    }
    const int rh = FileOpen("replay\\run_" + tag + ".csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
    if(rh == INVALID_HANDLE) {
       Print("RPL|ABORT|MISSING_RUN");
+      Rpl_RunReplayClearFileState();
       return false;
    }
    RplRunOutputHandles out;
    if(!Rpl_OpenRunOutputs(tag, out)) {
       FileClose(rh);
       Print("RPL|ABORT|OUTPUT_OPEN");
+      Rpl_RunReplayClearFileState();
       return false;
    }
    string tick_cache_name = "";
    RplTick tick_cache[];
    int tick_cache_count = 0;
-   bool header_skipped = false;
+   bool run_header = false;
+   int seg_line = 0;
    string fields[];
    while(Rpl_CsvReadLineFields(rh, fields)) {
-      if(ArraySize(fields) > 0 && StringFind(fields[0], "#") == 0)
+      if(Rpl_CsvFieldsAllEmpty(fields))
          continue;
-      if(!header_skipped) {
-         header_skipped = true;
+      if(StringFind(fields[0], "#") == 0)
+         continue;
+      if(!run_header) {
+         if(!Rpl_CsvHeaderOk(fields, "seg_id", "run_" + tag + ".csv")) {
+            FileClose(rh);
+            Rpl_CloseRunOutputs(out);
+            Print("RPL|ABORT|BAD_RUN");
+            Rpl_RunReplayClearFileState();
+            return false;
+         }
+         run_header = true;
          continue;
       }
-      if(ArraySize(fields) < 22)
-         continue;
+      seg_line++;
+      if(ArraySize(fields) < 22) {
+         FileClose(rh);
+         Rpl_CloseRunOutputs(out);
+         Print("RPL|ABORT|BAD_RUN_ROW|seg_line=", seg_line, "|fields=", ArraySize(fields));
+         Rpl_RunReplayClearFileState();
+         return false;
+      }
+      const string seed_file = fields[20];
+      const string ticks_file = fields[21];
+      if(StringLen(ticks_file) == 0) {
+         FileClose(rh);
+         Rpl_CloseRunOutputs(out);
+         Print("RPL|ABORT|BAD_RUN_ROW|seg_line=", seg_line, "|ticks_file=empty");
+         Rpl_RunReplayClearFileState();
+         return false;
+      }
+      if(ticks_file != tick_cache_name) {
+         if(!Rpl_LoadTicksCsv(ticks_file, tick_cache, tick_cache_count)) {
+            Print("RPL|ABORT|MISSING_TICKS");
+            FileClose(rh);
+            Rpl_CloseRunOutputs(out);
+            Rpl_RunReplayClearFileState();
+            return false;
+         }
+         tick_cache_name = ticks_file;
+      }
       RplSegmentConfig cfg;
       Rpl_SegmentConfigDefaults(cfg);
       cfg.seg_id = (int)StringToInteger(fields[0]);
@@ -1919,17 +2012,6 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
       cfg.carry = (StringToInteger(fields[17]) != 0);
       cfg.fill_time_place = (StringToInteger(fields[18]) != 0);
       cfg.reserve = (int)StringToInteger(fields[19]);
-      const string seed_file = fields[20];
-      const string ticks_file = (ArraySize(fields) > 21) ? fields[21] : "";
-      if(ticks_file != tick_cache_name) {
-         if(!Rpl_LoadTicksCsv(ticks_file, tick_cache, tick_cache_count)) {
-            Print("RPL|ABORT|MISSING_TICKS");
-            FileClose(rh);
-            Rpl_CloseRunOutputs(out);
-            return false;
-         }
-         tick_cache_name = ticks_file;
-      }
       Rpl_ResetAll();
       g_rpl_gap_count = 0;
       ArrayResize(g_rpl_gaps, 0);
@@ -1943,25 +2025,36 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
             Print("RPL|ABORT|MISSING_SEED");
             FileClose(rh);
             Rpl_CloseRunOutputs(out);
+            Rpl_RunReplayClearFileState();
             return false;
          }
          bool seed_header = false;
-         string sfields[];
-         while(Rpl_CsvReadLineFields(sd, sfields)) {
-            if(ArraySize(sfields) > 0 && StringFind(sfields[0], "#") == 0)
+         string seed_fields[];
+         while(Rpl_CsvReadLineFields(sd, seed_fields)) {
+            if(Rpl_CsvFieldsAllEmpty(seed_fields))
+               continue;
+            if(StringFind(seed_fields[0], "#") == 0)
                continue;
             if(!seed_header) {
+               if(!Rpl_CsvHeaderOk(seed_fields, "side", seed_file)) {
+                  FileClose(sd);
+                  FileClose(rh);
+                  Rpl_CloseRunOutputs(out);
+                  Print("RPL|ABORT|BAD_SEED");
+                  Rpl_RunReplayClearFileState();
+                  return false;
+               }
                seed_header = true;
                continue;
             }
-            const string side = sfields[0];
-            const int layer = (ArraySize(sfields) > 1) ? (int)StringToInteger(sfields[1]) : 0;
-            const double entry = (ArraySize(sfields) > 2) ? StringToDouble(sfields[2]) : 0.0;
-            const long open_ms = (ArraySize(sfields) > 3) ? (long)StringToInteger(sfields[3]) : 0;
-            const ulong ticket = (ArraySize(sfields) > 4) ? (ulong)StringToInteger(sfields[4]) : 0;
-            const double vl = (ArraySize(sfields) > 5) ? StringToDouble(sfields[5]) : 0.0;
-            const double swap = (ArraySize(sfields) > 6) ? StringToDouble(sfields[6]) : 0.0;
-            const double vol = (ArraySize(sfields) > 7) ? StringToDouble(sfields[7]) : RPL_LOTS_DEFAULT;
+            const string side = seed_fields[0];
+            const int layer = (ArraySize(seed_fields) > 1) ? (int)StringToInteger(seed_fields[1]) : 0;
+            const double entry = (ArraySize(seed_fields) > 2) ? StringToDouble(seed_fields[2]) : 0.0;
+            const long open_ms = (ArraySize(seed_fields) > 3) ? (long)StringToInteger(seed_fields[3]) : 0;
+            const ulong ticket = (ArraySize(seed_fields) > 4) ? (ulong)StringToInteger(seed_fields[4]) : 0;
+            const double vl = (ArraySize(seed_fields) > 5) ? StringToDouble(seed_fields[5]) : 0.0;
+            const double swap = (ArraySize(seed_fields) > 6) ? StringToDouble(seed_fields[6]) : 0.0;
+            const double vol = (ArraySize(seed_fields) > 7) ? StringToDouble(seed_fields[7]) : RPL_LOTS_DEFAULT;
             Rpl_SeedLayer(side, layer, entry, open_ms, ticket, vl, swap, vol);
          }
          FileClose(sd);
@@ -1972,13 +2065,16 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
          FileClose(rh);
          Rpl_AppendSegmentOutputs(out);
          Rpl_CloseRunOutputs(out);
+         Rpl_RunReplayClearFileState();
          return false;
       }
       Rpl_AppendSegmentOutputs(out);
    }
    FileClose(rh);
    Rpl_CloseRunOutputs(out);
-   return !g_rpl_aborted;
+   const bool ok = !g_rpl_aborted;
+   Rpl_RunReplayClearFileState();
+   return ok;
 }
 
 #endif // FXGRIND_REPLAY_CORE_MQH
