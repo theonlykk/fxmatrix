@@ -457,5 +457,13 @@ changes a preset; no mark adjusted to fit a result.
   rounded to 0.01 per position, so rate changes under ~0.5 points a night
   are not resolved. **The EA's carry pass applies its triple one night
   early** (backlog C144); the harness runs that code as it is.
+- **The segment table (8 Oct ~20:00Z, Claude,
+  `research/replay/build_segments.py`, 10 tests, a mutation round 16 of
+  16).** The archive's `ea_time_ms` is UTC; run-file times are server ms
+  (+3 h). On the three archive exports: B 9 rows, C 10, D 10 = **29 = the
+  23 Load segments of s2 + 6 compile inits** (each holds 0 IN deals; they
+  stay in the run file as segments of their own). Every W / add / exit, S,
+  DB, re-roll and gate matches the s2 table, and the IN deals per Load
+  segment to the 01:10Z export match s2's IN column on all 23.
 
-Line count: 461
+Line count: 469

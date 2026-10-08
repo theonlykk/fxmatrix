@@ -2167,4 +2167,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   RT15 asserted "after the first tick" after all ticks; it passed only
   while every swap was 0.
 
-Line count: 2170
+## TRAPS FROM 2026-10-08 EVENING (THE REPLAY'S INPUT FILES)
+
+- **The archive's `ea_time_ms` is UTC epoch ms; `deal_time_broker` /
+  `deal_time_broker_msc` are SERVER time (GMT+3).** The harness's run,
+  seed and real-deal files want server ms: add 10,800,000 to any
+  `ea_time_ms`. Check a builder on the real archive before trusting its
+  synthetic tests (the first segment builder passed its own tests with
+  the wrong premise).
+- **`--export-archive` files start with a UTF-8 BOM:** `json.loads` on
+  line 1 fails; open with `encoding='utf-8-sig'`. Files written FOR the
+  harness carry no BOM.
+- **No `pytest` in the sandbox:** the tests run with `python -B -m
+  unittest`. A mutation loop that calls a missing runner "catches" every
+  mutant; check the unmutated run passes inside the loop.
+- **Plan s2's table counts deals to the 01:10Z export (8 Oct 01:10Z =
+  1791432600000 UTC ms):** a cut-off one hour out changes only the last
+  segment's count, which looks like a builder error.
+
+Line count: 2188
