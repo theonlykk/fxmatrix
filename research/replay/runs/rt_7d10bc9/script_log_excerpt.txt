@@ -1,0 +1,35 @@
+# MT5 script log excerpt: fxgrind_replay_tests @ 7d10bc9 (2026-10-08 ~14:49 local)
+# portable: D:\mt5-replay | ini: replay_rt_7d10bc9.ini (UTF-16 LE)
+# Terminal exit code: 0
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|ABORT|LATTICE_HISTORY|start_ms=1791277201000|retained=1791280800000
+RPL|ABORT|LATTICE_HISTORY
+RPL|GAP|1791280800000|50399
+RPL|GAP|1791280830000|90
+RPL|BAD_HEADER|ticks_rt28.csv|1791280800000
+RPL|ABORT|BAD_RUN_ROW|seg_line=1|fields=21
+RPL|ABORT|MISSING_SWAPS
+RPL|ABORT|BAD_RUN_ROW|seg_line=1|ticks_file=empty
+RPL|SUMMARY|run=266|pass=261
+
+FAIL | RT3 scalp pnl
+FAIL | RT10 exit shifted
+FAIL | RT3 scalp pnl
+FAIL | RT10 exit shifted
+FAIL | RT10 exit shifted
+
+FAIL-DETAIL | RT10 exit shifted | got=1.10081000 | expected=1.10113153 | tol=0.00000500
+FAIL-DETAIL | RT10 exit shifted | got=1.10081000 | expected=1.10113153 | tol=0.00000500
+FAIL-DETAIL | RT10 exit shifted | got=1.10081000 | expected=1.10113153 | tol=0.00000500
+
+RT10-EVENT | CARRY_SNAPSHOT | {"type":"ea_event","seq":0,"ea_time_ms":84889125,"magic":null,"level":"INFO","code":"CARRY_SNAPSHOT","reason":"EURUSD","ticket":null,"detail":{"symbol":"EURUSD","swap_mode":1,"swap_long":-8.0510,"swap_short":1.3550,"multiplier":1,"day_of_week":2,"rollover3days":3,"digits":5,"point":0.00001000,"tick_value":0.00000000,"tick_size":0.00001000,"stops_level":0,"freeze_level":0,"long_pips":-0.805,"short_pips":0.136,"eligible_long":1,"eligible_short":0,"trade_mode_full":true,"mult_today":1,"mult_tomorrow":3,"accrued_swap_long":0.00,"accrued_swap_short":0.00}}
+RT10-EVENT | CARRY_PASS_SUMMARY | {"type":"ea_event","seq":1,"ea_time_ms":84889125,"magic":null,"level":"INFO","code":"CARRY_PASS_SUMMARY","reason":"EURUSD","ticket":null,"detail":{"eligible":1,"shifted":0,"clamped":0,"skipped":1,"failed":0,"incomplete":false}}
+RT10-EVENT | CARRY_SNAPSHOT | {"type":"ea_event","seq":0,"ea_time_ms":84889171,"magic":null,"level":"INFO","code":"CARRY_SNAPSHOT","reason":"EURUSD","ticket":null,"detail":{"symbol":"EURUSD","swap_mode":1,"swap_long":-8.0510,"swap_short":1.3550,"multiplier":1,"day_of_week":2,"rollover3days":3,"digits":5,"point":0.00001000,"tick_value":0.00000000,"tick_size":0.00001000,"stops_level":0,"freeze_level":0,"long_pips":-0.805,"short_pips":0.136,"eligible_long":1,"eligible_short":0,"trade_mode_full":true,"mult_today":1,"mult_tomorrow":3,"accrued_swap_long":0.00,"accrued_swap_short":0.00}}
+RT10-EVENT | CARRY_PASS_SUMMARY | {"type":"ea_event","seq":1,"ea_time_ms":84889171,"magic":null,"level":"INFO","code":"CARRY_PASS_SUMMARY","reason":"EURUSD","ticket":null,"detail":{"eligible":1,"shifted":0,"clamped":0,"skipped":1,"failed":0,"incomplete":false}}
+RT10-EVENT | CARRY_SNAPSHOT | {"type":"ea_event","seq":0,"ea_time_ms":84889171,"magic":null,"level":"INFO","code":"CARRY_SNAPSHOT","reason":"EURUSD","ticket":null,"detail":{"symbol":"EURUSD","swap_mode":1,"swap_long":-8.0510,"swap_short":1.3550,"multiplier":1,"day_of_week":2,"rollover3days":3,"digits":5,"point":0.00001000,"tick_value":0.00000000,"tick_size":0.00001000,"stops_level":0,"freeze_level":0,"long_pips":-0.805,"short_pips":0.136,"eligible_long":1,"eligible_short":0,"trade_mode_full":true,"mult_today":1,"mult_tomorrow":3,"accrued_swap_long":0.00,"accrued_swap_short":0.00}}
+RT10-EVENT | CARRY_PASS_SUMMARY | {"type":"ea_event","seq":1,"ea_time_ms":84889171,"magic":null,"level":"INFO","code":"CARRY_PASS_SUMMARY","reason":"EURUSD","ticket":null,"detail":{"eligible":1,"shifted":0,"clamped":0,"skipped":1,"failed":0,"incomplete":false}}
+
+RT10-ORDER | found=true | price=1.10081000
+RT10-ORDER | found=true | price=1.10081000
+RT10-ORDER | found=true | price=1.10081000
