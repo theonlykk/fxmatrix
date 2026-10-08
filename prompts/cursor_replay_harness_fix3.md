@@ -153,4 +153,12 @@ message with its reason.
   itself becomes a test that must PASS (RT31b: a trailing empty field is
   tolerated).
 
-Line count: 156
+- **Gemini on the amendment (8 Oct ~05:02Z): E12, Z6, RT31, RT31b SOUND;
+  his GH3-1 amendment withdrawn.** His new point (the tick cache bleeds
+  across runs, so a test that rewrites a tick file under the same name
+  replays the old ticks) REJECTED: `tick_cache_name`, `tick_cache[]` and
+  `tick_cache_count` are LOCALS of `Rpl_RunReplayFiles` (core 1847, declared
+  1886-1888), so every call starts empty and reloads; the cache only spares
+  a reload between segments of ONE run that name the same file. No change.
+
+Line count: 164
