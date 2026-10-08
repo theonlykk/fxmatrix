@@ -5,10 +5,14 @@ row per server date D = the rollover INTO D 00:00 server. The harness adds
 points x mult x tick_value x volume to every open position when a tick
 crosses into D (fix 1 A3).
 
-The rule, measured 8 Oct ~19:50Z on every closed EURUSD ENT position of B, C
-and D since 24 Sep (622 of 622 to the cent; HANDOFF s72): the points are the
-latest CARRY_SNAPSHOT's swap_long / swap_short before D 00:00 server; the
-multiplier is 3 into Thursday, 0 into Saturday and Sunday, 1 otherwise. (The
+The rule, measured EXACTLY (no tolerance) 8 Oct ~20:35Z on every closed EURUSD
+ENT position of B, C and D since 24 Sep (626 of 626; HANDOFF s73): the points
+are the swap_long / swap_short of the CARRY_SNAPSHOT NEAREST to D 00:00 server
+(ties: the earlier; none within MAX_RATE_GAP = no rate); the multiplier is 3
+into Thursday, 0 into Saturday and Sunday, 1 otherwise; the broker charges
+each night round(points x mult x tick_value x volume, 2). (s72's first model,
+the latest snapshot before D 00:00 with one rounding of the sum, matched 600
+of 626 exactly: there was no snapshot on Mon 5 Oct night.) (The
 EA's own carry pass applies its triple one night EARLY, at the rollover into
 Wednesday: backlog C144. The harness runs that code as it is; swaps.csv
 carries what the broker charged.)
@@ -58,13 +62,24 @@ def snapshots_server(rows, offset=SERVER_OFFSET):
     return out
 
 
+MAX_RATE_GAP = dt.timedelta(hours=96)
+
+
 def rate_for(snaps, d):
-    """(points_long, points_short) of the latest snapshot strictly before d 00:00, or None."""
+    """(points_long, points_short) of the snapshot nearest d 00:00 (ties: the earlier), or None."""
     times = [s[0] for s in snaps]
-    i = bisect.bisect_left(times, dt.datetime.combine(d, dt.time())) - 1
-    if i < 0:
+    t = dt.datetime.combine(d, dt.time())
+    i = bisect.bisect_left(times, t)
+    best = None
+    for j in (i - 1, i):
+        if 0 <= j < len(snaps):
+            gap = abs(times[j] - t)
+            if gap <= MAX_RATE_GAP and (best is None or gap < best[0]):
+                best = (gap, j)
+    if best is None:
         return None
-    return (snaps[i][1], snaps[i][2])
+    j = best[1]
+    return (snaps[j][1], snaps[j][2])
 
 
 def build_rows(snaps, first, last):
@@ -86,7 +101,8 @@ def to_csv(rows):
 
 
 def predict_swap(snaps, side, opened, closed, volume):
-    """Account-currency swap of a position (EURUSD, tick value 1.0) from open to close, server times."""
+    """Account-currency swap of a position (EURUSD, tick value 1.0) from open to close, server
+    times: each night's charge rounded to the cent, as the broker books it."""
     total = 0.0
     d = opened.date() + dt.timedelta(days=1)
     while dt.datetime.combine(d, dt.time()) <= closed:
@@ -95,9 +111,9 @@ def predict_swap(snaps, side, opened, closed, volume):
             r = rate_for(snaps, d)
             if r is None:
                 raise ValueError("no rate for %s" % d)
-            total += (r[0] if side == "L" else r[1]) * m * 1.0 * volume
+            total += round((r[0] if side == "L" else r[1]) * m * 1.0 * volume, 2)
         d += dt.timedelta(days=1)
-    return total
+    return round(total, 2) + 0.0
 
 
 def _load(paths):
