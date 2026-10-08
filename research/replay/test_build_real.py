@@ -49,6 +49,16 @@ class TestRealRows(unittest.TestCase):
             (T + 5300, "OUT_BY", "L", 2, 1.10000, 12, 0.0),
         ])
 
+    def test_out_by_short_side(self):
+        # A short L03 scalp: ENT SELL 1.10300, EXT BUY 1.10200; both OUT_BY rows carry S / 3.
+        rows = [fill(71, 701, "IN", "ENT", "S", 3, 1.10300, T),
+                fill(72, 702, "IN", "EXT", "S", 3, 1.10200, T + 10),
+                fill(71, 703, "OUT_BY", None, None, None, 1.10200, T + 20),
+                fill(72, 704, "OUT_BY", None, None, None, 1.10300, T + 20)]
+        got = br.real_rows(rows, T, T + 100)
+        self.assertEqual([(r[1], r[2], r[3]) for r in got],
+                         [("ENT", "S", 3), ("EXT", "S", 3), ("OUT_BY", "S", 3), ("OUT_BY", "S", 3)])
+
     def test_window_half_open(self):
         rows = [fill(21, 201, "IN", "ENT", "L", 0, 1.1, T),
                 fill(22, 202, "IN", "ENT", "L", 1, 1.1, T + 10000),
