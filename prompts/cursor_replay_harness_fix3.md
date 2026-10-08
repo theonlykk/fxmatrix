@@ -6,12 +6,13 @@ This message has a line count at the bottom
 `fc0fb26` (`22aa998` fix-2 tests, `fc0fb26` fix-2 implementation). Read
 `prompts/cursor_replay_harness.md`, `..._fix1.md`, `..._fix2.md` and THIS
 file. Claude read `fc0fb26` (8 Oct ~04:10Z; E1-E7) and again (~04:50Z;
-E8-E11). Line numbers are `ea/fxgrind_replay_core.mqh` and
+E8-E11; ~05:00Z: E12 from Gemini's GH3-1). Line numbers are `ea/fxgrind_replay_core.mqh` and
 `ea/fxgrind_replay_tests.mq5` at `fc0fb26`. Defects only, no design change.
 **The operator's desktop syntax compile at `fc0fb26` (8 Oct ~04:42Z):
 `fxgrind_replay_tests.mq5` 0 errors, 0 warnings; `fxgrind_replay.mq5`
 (its first compile; `desktop_sync.ps1` puts it in `MQL5\Experts\`) 0
-errors, 0 warnings.** One question for Gemini in s5.
+errors, 0 warnings.** One question for Gemini in s5; his ruling, Claude's
+check and the one addition (E12, Z6, RT31, RT31b) in s6 (8 Oct ~04:55Z).
 
 Fix 2's Y4-Y8 are in and correct (outputs opened once per run; intervals
 applied after the sync rows and before the market seeds; real rows
@@ -27,7 +28,7 @@ say so (E7).
 
 1. `git log --oneline origin/main..HEAD` starts `fc0fb26`, `22aa998`,
    `8a92e22`; otherwise STOP.
-2. Restate E1-E11, Z1-Z5 and every test change of s3 in one line each, with
+2. Restate E1-E12, Z1-Z6 and every test change of s3 in one line each, with
    each test's EXACT assertion count and the number that FAIL at commit 1.
 3. STOP until "go".
 
@@ -46,6 +47,7 @@ say so (E7).
 | E9 | RT18 reads the LAST two deal rows, but tick 3 also closes L00 by close-by (base s3.4 step 6, same tick), so the last two rows are the OUT_BY pair (side L), not the two IN fills: "RT18 first S00" fails against a correct harness. The rows are: 0 IN BUY ENT L 0 1.09981 t2; 1 IN SELL ENT S 0 1.10151 t3 (placed at tick 1); 2 IN SELL EXT L 0 1.10081 t3 (placed at tick 2); 3-4 OUT_BY. `>= 2` where the count is exact (5) | tests 757-763 |
 | E10 | RT19 "four rows" counts FIELDS (one `FileReadString` per field on a `FILE_CSV` handle) and asserts `rows >= 5`: true for any non-empty file. Fix 1's RT19 says the header and 4 rows | tests 794-800 |
 | E11 | RT23 asserts `nl >= 2` where fix 2's RT23 says exactly 2 summary lines | tests 874 |
+| E12 | A run row whose `ticks_file` is EMPTY replays zero ticks silently: `tick_cache_name` starts `""` (core 1886), so on the first segment `ticks_file != tick_cache_name` is false (core 1924), nothing is loaded, and the segment runs on the empty cache (Gemini GH3-1, s6) | core 1886, 1922-1931 |
 
 ## 2. FIXES (commit 2, core only)
 
@@ -56,6 +58,7 @@ say so (E7).
 | Z3 | E3: a run row with fewer than 22 fields -> `RPL|ABORT|BAD_RUN_ROW|seg_line=<n>|fields=<k>`, close files, return false |
 | Z4 | On every return from `Rpl_RunReplayFiles`, clear the file intervals and the real file rows, so a later `Rpl_RunTicks` inherits neither |
 | Z5 | E8: `swaps.csv` missing -> print `RPL|ABORT|MISSING_SWAPS` and return false, BEFORE the run file is opened and before any output file is opened |
+| Z6 | E12: a run row whose `ticks_file` (field 21) is empty -> `RPL|ABORT|BAD_RUN_ROW|seg_line=<n>|ticks_file=empty`, close files, return false (as Z3). Fields after the 22nd stay ignored. An empty `seed_file` stays legal (a flat start) |
 
 ## 3. COMMITS AND TEST CHANGES
 
@@ -105,9 +108,19 @@ say so (E7).
      `FileIsExist("replay\\out_rt30_deals.csv")` is false (2 assertions);
      then write `replay\swaps.csv` again exactly as RT19 does (header and
      the `2026.10.06` row), so later tests find it.
-   - Register RT28, RT29 and RT30, in that order, after `Test_RT27_SummaryCounts();`
-     in `OnStart`.
-2. **Z1-Z5**, core only. The tests file is NOT touched. If a test cannot
+   - **RT31** (new; Z6): `run_rt31.csv` = RT19's header and RT19's row with
+     its last field emptied (the row ends `,8,,`: `seed_file` and
+     `ticks_file` both empty): `Rpl_RunReplayFiles("rt31", false)` returns
+     false (1 assertion). (MT5 may or may not return a trailing empty field
+     on a `FILE_CSV` read; either way the row is refused, by Z6 or by Z3.)
+   - **RT31b** (new; GH3-1's case, trailing empties tolerated):
+     `run_rt31b.csv` = RT19's header and RT19's row with ONE extra `,` at
+     its end: `Rpl_RunReplayFiles("rt31b", false)` returns true, and
+     `out_rt31b_deals.csv` read with `Rpl_ReadWholeFile` splits on `'\n'`
+     into exactly 5 lines (2 assertions).
+   - Register RT28, RT29, RT30, RT31 and RT31b, in that order, after
+     `Test_RT27_SummaryCounts();` in `OnStart`.
+2. **Z1-Z6**, core only. The tests file is NOT touched. If a test cannot
    pass as written, STOP and report.
 
 Push after each. Do not compile; the operator compiles BOTH
@@ -116,7 +129,7 @@ Push after each. Do not compile; the operator compiles BOTH
 ## 4. NEGATIVE SPACE
 
 As before: no new inputs; no change to any expected value; nothing outside
-Z1-Z5 in commit 2, and anything you find you must change is named in the
+Z1-Z6 in commit 2, and anything you find you must change is named in the
 message with its reason.
 
 ## 5. FOR GEMINI (attack the premises; say which fact is missing)
@@ -126,4 +139,18 @@ message with its reason.
   its two IN rows. E1-E11 are defects against the base prompt and fixes 1-2
   as ruled; Z1-Z5 change no design. What fact is missing?
 
-Line count: 129
+## 6. GEMINI'S RULING (8 OCT ~04:55Z) AND CLAUDE'S CHECK
+
+- **GH3-1: E1-E11 and Z1-Z5 SOUND (his review); his amendment REJECTED as
+  stated, one defect found from it (E12).** His case: a CSV saved from
+  Excel with trailing commas changes the field count, so Z3 must check
+  that the first 22 fields "contain data". Checked at `fc0fb26`: no input
+  file passes through Excel (Claude writes every input, base s3.2); fields
+  after the 22nd are never read (core 1898-1923); and an EMPTY `seed_file`
+  is legal (a flat start: D's first segment; RT19, RT23, RT27), so "22
+  fields with data" would refuse good rows. What his point exposes: an
+  empty `ticks_file` replays nothing, silently (E12; Z6; RT31). His case
+  itself becomes a test that must PASS (RT31b: a trailing empty field is
+  tolerated).
+
+Line count: 156
