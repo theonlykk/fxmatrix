@@ -140,7 +140,7 @@
     "GRIND_AUDNZD_OPTC": "2026-10-06T03:28:51Z",
     "GRIND_AUDNZD_OPTD": "2026-10-06T03:22:01Z"
   },
-  "decides": "COHORT EQUITY (research/compass/equity_score.py: layers opened in the round, end mark 9 Oct 20:45Z; operator 7 Oct ~14:53Z / ~15:07Z, docs/research/compass-equity-amendment.md s7); plain equity and realised (compass_score.py) reported",
+  "decides": "COHORT EQUITY (research/compass/equity_score.py: layers opened in the round, end mark 8 Oct 22:30Z (equity_end; 9 Oct 20:45Z before round 2 moved, amendment s8); operator 7 Oct ~14:53Z / ~15:07Z, docs/research/compass-equity-amendment.md s7); plain equity and realised (compass_score.py) reported",
   "equity_end": "2026-10-08T22:30Z",
   "window_note": "Operator 7 Oct ~15:27Z: round 2 starts at the build (the last gate Load 02:22:50Z; nothing structural since) and ends Thu 8 Oct 22:00Z, scored Thu evening; round 3 reloads Fri 9. Day 1 is 19.6 h, counted as 1 day (every margin and control gap shares the divisor). Set AFTER a partial look at 7 Oct data: the roll counts (all fleets) and EURUSD long B vs C realised to 13:36Z (HANDOFF s64); no probe's cohort P&L was computed. The cohort end mark Thu 8 Oct 22:30Z (a weekday end, GQ7-1)."
 }
