@@ -48,6 +48,12 @@ class TestRateFor(unittest.TestCase):
         # Into Thu 8 Oct: the Wed 23:50:22 snapshot.
         self.assertEqual(bs.rate_for(self.snaps, dt.date(2026, 10, 8)), (-8.051, 1.355))
 
+    def test_default_offset_is_three_hours(self):
+        # GUARD-free check of the default: 20:50Z with no offset given = 23:50 server,
+        # so it is the rate INTO the next day, not into the same day.
+        s = bs.snapshots_server([snap("2026-10-06 20:50:09", -8.067, 1.364)])
+        self.assertEqual(s[0][0], dt.datetime(2026, 10, 6, 23, 50, 9))
+
     def test_none_before_first(self):
         self.assertIsNone(bs.rate_for(self.snaps, dt.date(2026, 10, 6)))
 
