@@ -116,6 +116,16 @@ class TestLatestVl(unittest.TestCase):
         self.assertEqual(r["ea_time_ms"], INIT - 2 * H)
         self.assertEqual(bsd.latest_vl([r], 101, INIT), 0.0)
 
+    def test_roll_at_init_exactly_not_before(self):
+        self.assertEqual(bsd.latest_vl([roll(101, 1.09, INIT)], 101, INIT), 0.0)
+
+    def test_only_roll_accepted(self):
+        r = roll(101, 1.09, INIT - H)
+        r["code"] = "ROLL_REFUSED"
+        d = roll(101, 1.08, INIT - 2 * H)
+        d["code"] = "ROLL_DEFERRED"
+        self.assertEqual(bsd.latest_vl([r, d], 101, INIT), 0.0)
+
     def test_detail_as_json_string(self):
         r = roll(101, 1.09500, INIT - H)
         r["detail"] = '{"ticket": 101, "level": 1.095}'
@@ -138,6 +148,14 @@ class TestSeedRows(unittest.TestCase):
         self.assertAlmostEqual(got[0]["swap"], -0.33, places=9)
         self.assertEqual(got[1]["vl"], 0.0)
         self.assertAlmostEqual(got[1]["swap"], 0.05, places=9)
+
+    def test_init_just_after_server_midnight(self):
+        # Long opened Wed 7 Oct 12:00 server, init Thu 8 Oct 01:30 server (Wed 22:30Z):
+        # the rollover into Thu 8 (x3 at -8.2) is before the init: -0.246 -> -0.25.
+        open_l = int((srv(2026, 10, 7, 12) - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
+        at = int((srv(2026, 10, 8, 1, 30) - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
+        got = bsd.seed_rows([fill(611, 1, "IN", "ENT", "L", 0, 1.1, open_l)], SNAPS, at)
+        self.assertAlmostEqual(got[0]["swap"], -0.25, places=9)
 
     def test_flat(self):
         self.assertEqual(bsd.seed_rows([], SNAPS, INIT), [])
@@ -174,6 +192,13 @@ class TestCapWarnings(unittest.TestCase):
         seed = self._seed("S", 8, INIT - 30 * H)
         self.assertEqual(bsd.cap_warnings(seed, 8, INIT, INIT - 2 * H),
                          [("S", 8, INIT - 24 * H)])
+
+    def test_at_cap_boundary(self):
+        # Newest open 1 ms before the tick file starts warns; at the start it does not.
+        t0 = INIT - 2 * H
+        self.assertEqual(bsd.cap_warnings(self._seed("L", 8, t0 - 1), 8, INIT, t0),
+                         [("L", 8, t0 - 1)])
+        self.assertEqual(bsd.cap_warnings(self._seed("L", 8, t0), 8, INIT, t0), [])
 
     def test_at_cap_inside_ticks_ok(self):
         seed = self._seed("L", 8, INIT - 1 * H)
