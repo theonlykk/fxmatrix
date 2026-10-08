@@ -20,7 +20,7 @@ void OnStart()
    }
    const int gv0 = Rpl_DeleteGrindGlobalVariables();
    Print("RPL|GV_DELETE|", gv0);
-   if(!Rpl_RunReplayScript(InpRunTag, InpSync)) {
+   if(!Rpl_RunReplayFiles(InpRunTag, InpSync)) {
       if(Rpl_WasAborted())
          Print("RPL|ABORT|", Rpl_AbortReason());
       return;

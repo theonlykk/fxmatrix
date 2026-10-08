@@ -508,14 +508,24 @@ void Test_RT16_CarryTwice()
 
 void Test_RT11_Outputs()
 {
-   Rpl_ResetAll();
-   RplSegmentConfig cfg;
-   Rpl_DefaultConfig(cfg);
-   cfg.to_ms = RplMs(RPL_T0, 4);
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt11.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
    RplTick ticks[];
    Rpl_FillRT3Ticks(ticks, 4);
-   Rpl_ConfigureEngine(cfg);
-   Rpl_RunTicks(ticks, 4, cfg);
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(ticks[i].time_msc), DoubleToString(ticks[i].bid, 5),
+                DoubleToString(ticks[i].ask, 5), "0");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt11.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,,ticks_rt11.csv");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
    AssertTrue("RT11 run files", Rpl_RunReplayFiles("rt11", false));
    int h = FileOpen("replay\\out_rt11_deals.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
    AssertTrue("RT11 open deals", h != INVALID_HANDLE);
@@ -623,7 +633,8 @@ void Test_RT14_LatticeHistory()
 
 void Test_RT15_SegmentRollover()
 {
-   Rpl_SetTestSwaps("2026.10.07", -8.067, 1.364, 1.0);
+   Rpl_AppendTestSwap("2026.10.06", -8.111, 1.409, 1.0);
+   Rpl_AppendTestSwap("2026.10.07", -8.067, 1.364, 1.0);
    Rpl_ResetAll();
    RplSegmentConfig cfg1;
    Rpl_DefaultConfig(cfg1);

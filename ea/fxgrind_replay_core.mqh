@@ -101,6 +101,27 @@ struct RplPosMeta
    double volume;
    long   open_ms;
    bool   is_long;
+   string side;
+   int    layer;
+   string role;
+   long   order_type;
+};
+
+struct RplSyncRealRow
+{
+   long   time_ms;
+   string kind;
+   string side;
+   int    layer;
+   double price;
+   ulong  position_id;
+   double level;
+};
+
+struct RplGapRow
+{
+   long from_ms;
+   long seconds;
 };
 
 struct RplOrderPlaced
@@ -161,6 +182,18 @@ int              g_rpl_true_book_count = 0;
 string           g_rpl_last_scalp_json = "";
 bool             g_rpl_seeded = false;
 long             g_rpl_newest_seed_open_ms = 0;
+long             g_rpl_retained_from_ms = 0;
+long             g_rpl_segment_day_key = 0;
+bool             g_rpl_segment_first_tick = true;
+long             g_rpl_last_processed_tick_ms = 0;
+RplSyncRealRow   g_rpl_sync_real[];
+int              g_rpl_sync_real_count = 0;
+int              g_rpl_sync_real_applied = 0;
+RplGapRow        g_rpl_gaps[];
+int              g_rpl_gap_count = 0;
+bool             g_rpl_skip_true_book_add = false;
+RplTick          g_rpl_all_ticks[];
+int              g_rpl_all_tick_count = 0;
 
 //+------------------------------------------------------------------+
 string Rpl_NormalizeDataPath(string path)
@@ -174,7 +207,11 @@ string Rpl_NormalizeDataPath(string path)
 //+------------------------------------------------------------------+
 bool Rpl_SafeToRun(const string data_path, const bool trade_allowed, const long login, const string server)
 {
-   if(Rpl_NormalizeDataPath(data_path) != Rpl_NormalizeDataPath(RPL_DATA_PATH))
+   string got = Rpl_NormalizeDataPath(data_path);
+   string want = Rpl_NormalizeDataPath(RPL_DATA_PATH);
+   StringToLower(got);
+   StringToLower(want);
+   if(got != want)
       return false;
    if(trade_allowed)
       return false;
@@ -255,6 +292,7 @@ void Rpl_ClearCarryGvs()
    GlobalVariablesDeleteAll(GRIND_CARRY_RELEASE_PREFIX);
    GlobalVariablesDeleteAll("GRIND_EJECT_");
    GlobalVariablesDeleteAll("GRIND_VL_");
+   GlobalVariablesDeleteAll("GRIND_CARRY_DAY_");
 }
 
 //+------------------------------------------------------------------+
@@ -295,6 +333,7 @@ void Rpl_ResetAll()
    Rpl_ClearSideState();
    ArrayResize(g_rpl_deals, 0);
    ArrayResize(g_rpl_events, 0);
+   ArrayResize(g_rpl_deals, 0);
    ArrayResize(g_rpl_broker_only, 0);
    g_rpl_broker_only_count = 0;
    ArrayResize(g_rpl_pos_meta, 0);
@@ -316,6 +355,18 @@ void Rpl_ResetAll()
    g_rpl_next_pos_id = 900000001UL;
    g_rpl_next_deal_id = 800000001UL;
    g_rpl_next_broker_ticket = 9500UL;
+   g_rpl_retained_from_ms = 0;
+   g_rpl_segment_day_key = 0;
+   g_rpl_segment_first_tick = true;
+   g_rpl_last_processed_tick_ms = 0;
+   ArrayResize(g_rpl_sync_real, 0);
+   g_rpl_sync_real_count = 0;
+   g_rpl_sync_real_applied = 0;
+   ArrayResize(g_rpl_gaps, 0);
+   g_rpl_gap_count = 0;
+   ArrayResize(g_rpl_all_ticks, 0);
+   g_rpl_all_tick_count = 0;
+   g_rpl_skip_true_book_add = false;
    g_grind_order_test_active = true;
    g_grind_closeby_test_active = true;
    g_grind_deal_test_active = true;
@@ -326,14 +377,22 @@ void Rpl_ResetAll()
 }
 
 //+------------------------------------------------------------------+
+void Rpl_AppendTestSwap(const string date, const double pl, const double ps, const double mult)
+{
+   ArrayResize(g_rpl_swaps, g_rpl_swap_count + 1);
+   g_rpl_swaps[g_rpl_swap_count].date = date;
+   g_rpl_swaps[g_rpl_swap_count].points_long = pl;
+   g_rpl_swaps[g_rpl_swap_count].points_short = ps;
+   g_rpl_swaps[g_rpl_swap_count].mult = mult;
+   g_rpl_swap_count++;
+}
+
+//+------------------------------------------------------------------+
 void Rpl_SetTestSwaps(const string date, const double pl, const double ps, const double mult)
 {
-   ArrayResize(g_rpl_swaps, 1);
-   g_rpl_swap_count = 1;
-   g_rpl_swaps[0].date = date;
-   g_rpl_swaps[0].points_long = pl;
-   g_rpl_swaps[0].points_short = ps;
-   g_rpl_swaps[0].mult = mult;
+   ArrayResize(g_rpl_swaps, 0);
+   g_rpl_swap_count = 0;
+   Rpl_AppendTestSwap(date, pl, ps, mult);
 }
 
 //+------------------------------------------------------------------+
@@ -390,7 +449,9 @@ void Rpl_ScanNewOrders(const long tick_ms)
 
 //+------------------------------------------------------------------+
 void Rpl_AddPosMeta(const ulong ticket, const double entry, const double swap,
-                    const double volume, const long open_ms, const bool is_long)
+                    const double volume, const long open_ms, const bool is_long,
+                    const string side = "", const int layer = -1, const string role = "",
+                    const long order_type = 0)
 {
    ArrayResize(g_rpl_pos_meta, g_rpl_pos_meta_count + 1);
    g_rpl_pos_meta[g_rpl_pos_meta_count].ticket = ticket;
@@ -399,6 +460,10 @@ void Rpl_AddPosMeta(const ulong ticket, const double entry, const double swap,
    g_rpl_pos_meta[g_rpl_pos_meta_count].volume = volume;
    g_rpl_pos_meta[g_rpl_pos_meta_count].open_ms = open_ms;
    g_rpl_pos_meta[g_rpl_pos_meta_count].is_long = is_long;
+   g_rpl_pos_meta[g_rpl_pos_meta_count].side = side;
+   g_rpl_pos_meta[g_rpl_pos_meta_count].layer = layer;
+   g_rpl_pos_meta[g_rpl_pos_meta_count].role = role;
+   g_rpl_pos_meta[g_rpl_pos_meta_count].order_type = order_type;
    g_rpl_pos_meta_count++;
 }
 
@@ -527,26 +592,28 @@ void Rpl_SeedLayer(const string side,
    Grind_PositionTestAdd(ticket);
    Rpl_AddCloseByPos(ticket, is_long);
    Grind_CarryTestSetPosition(ticket, swap, volume, open_ms / 1000);
-   Rpl_AddPosMeta(ticket, entry, swap, volume, open_ms, is_long);
+   Rpl_AddPosMeta(ticket, entry, swap, volume, open_ms, is_long, side, layer_index, "ENT", 0);
    if(vl > 0.0)
       Grind_VLSet(ticket, vl);
    if(open_ms > g_rpl_newest_seed_open_ms)
       g_rpl_newest_seed_open_ms = open_ms;
    g_rpl_seeded = true;
-   if(g_rpl_cfg.sync)
+   if(g_rpl_cfg.sync && !g_rpl_skip_true_book_add)
       Rpl_TrueBookAdd(side, layer_index, entry, ticket, swap, volume, open_ms, vl);
 }
 
 //+------------------------------------------------------------------+
-void Rpl_PreloadLattice(const RplSegmentConfig &cfg)
+void Rpl_PreloadLatticeFromTicks(const RplSegmentConfig &cfg)
 {
    if(cfg.skip_lattice_preload || !g_rpl_seeded)
       return;
    const long start_ms = MathMax(g_rpl_newest_seed_open_ms, cfg.from_ms - 86400000L);
-   for(long ms = start_ms; ms < cfg.from_ms; ms += 1000) {
-      const double bid = 1.09900;
-      const double ask = 1.09902;
-      Grind_LatticeTestAddTick((datetime)(ms / 1000), bid, ask);
+   g_rpl_retained_from_ms = start_ms;
+   for(int i = 0; i < g_rpl_all_tick_count; i++) {
+      const long ms = g_rpl_all_ticks[i].time_msc;
+      if(ms < start_ms || ms >= cfg.from_ms)
+         continue;
+      Grind_LatticeTestAddTick((datetime)(ms / 1000), g_rpl_all_ticks[i].bid, g_rpl_all_ticks[i].ask);
    }
 }
 
@@ -585,13 +652,12 @@ void Rpl_WriteDealOutput(const long time_ms,
                          const ulong order,
                          const ulong position,
                          const long entry_type,
-                         const string comment,
+                         const long deal_type,
+                         const string role,
+                         const string side,
+                         const int layer,
                          const double price)
 {
-   string slot, side, role;
-   int layer;
-   if(!GrindCommentParse(comment, slot, side, layer, role))
-      return;
    const int n = ArraySize(g_rpl_deals);
    ArrayResize(g_rpl_deals, n + 1);
    g_rpl_deals[n].seg_id = g_rpl_cfg.seg_id;
@@ -601,7 +667,7 @@ void Rpl_WriteDealOutput(const long time_ms,
    g_rpl_deals[n].order = order;
    g_rpl_deals[n].position = position;
    g_rpl_deals[n].entry_type = entry_type;
-   g_rpl_deals[n].deal_type = (entry_type == DEAL_ENTRY_OUT_BY) ? DEAL_TYPE_SELL : DEAL_TYPE_BUY;
+   g_rpl_deals[n].deal_type = deal_type;
    g_rpl_deals[n].role = role;
    g_rpl_deals[n].side = side;
    g_rpl_deals[n].layer = layer;
@@ -628,6 +694,15 @@ bool Rpl_CheckSeams()
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_EngineSeamsOrAbort()
+{
+   if(Rpl_CheckSeams())
+      return true;
+   Rpl_Abort("SEAMS");
+   return false;
+}
+
+//+------------------------------------------------------------------+
 long Rpl_OldestLatticeMs()
 {
    long oldest = 0;
@@ -642,9 +717,8 @@ long Rpl_OldestLatticeMs()
 void Rpl_LatticeHistoryCheck(const bool is_long)
 {
    const long from_msc = is_long ? g_grind_vl_from_msc_long : g_grind_vl_from_msc_short;
-   const long oldest = Rpl_OldestLatticeMs();
-   if(oldest > 0 && from_msc < oldest) {
-      Print("RPL|ABORT|LATTICE_HISTORY|from=", from_msc, "|oldest=", oldest);
+   if(g_rpl_retained_from_ms > 0 && from_msc < g_rpl_retained_from_ms) {
+      Print("RPL|ABORT|LATTICE_HISTORY|from=", from_msc, "|retained=", g_rpl_retained_from_ms);
       Rpl_Abort("LATTICE_HISTORY");
    }
 }
@@ -676,6 +750,8 @@ void Rpl_PruneLattice(const long tick_ms)
       g_grind_vl_test_tick_bid[i] = kept_bid[i];
       g_grind_vl_test_tick_ask[i] = kept_ask[i];
    }
+   if(cutoff > g_rpl_retained_from_ms)
+      g_rpl_retained_from_ms = cutoff;
 }
 
 //+------------------------------------------------------------------+
@@ -771,9 +847,36 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
       if(Rpl_QueueHasTask(after, after_n, before[i].t1, before[i].t2))
          continue;
       RplPosMeta ent, ext;
+      ext.ticket = 0;
       if(!Rpl_FindPosMeta(before[i].t1, ent))
          continue;
-      if(!Rpl_FindPosMeta(before[i].t2, ext))
+      if(!Rpl_FindPosMeta(before[i].t2, ext)) {
+         for(int li = 0; li < ArraySize(g_grind_long.layers); li++) {
+            if(g_grind_long.layers[li].exit_position_ticket == before[i].t2) {
+               ext.ticket = before[i].t2;
+               ext.entry = g_grind_long.layers[li].exit_target;
+               ext.is_long = false;
+               ext.side = "L";
+               ext.layer = g_grind_long.layers[li].layer_index;
+               ext.role = "EXT";
+               ext.volume = RPL_LOTS_DEFAULT;
+               break;
+            }
+         }
+         for(int li = 0; li < ArraySize(g_grind_short.layers); li++) {
+            if(g_grind_short.layers[li].exit_position_ticket == before[i].t2) {
+               ext.ticket = before[i].t2;
+               ext.entry = g_grind_short.layers[li].exit_target;
+               ext.is_long = true;
+               ext.side = "S";
+               ext.layer = g_grind_short.layers[li].layer_index;
+               ext.role = "EXT";
+               ext.volume = RPL_LOTS_DEFAULT;
+               break;
+            }
+         }
+      }
+      if(ext.ticket == 0)
          continue;
       const double gross = (ext.entry - ent.entry) * (ent.is_long ? 1.0 : -1.0);
       const double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
@@ -789,12 +892,20 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
       Rpl_ReplayAppendDeal(d2, "#" + IntegerToString((long)before[i].t2) + " by #" + IntegerToString((long)before[i].t1),
                            DEAL_ENTRY_OUT_BY, order_ticket, before[i].t2, profit * 0.5, ext.swap * 0.5, 0.0,
                            ext.entry, tsec, g_rpl_cfg.magic);
-      Rpl_WriteDealOutput(tick_ms, d1, order_ticket, before[i].t1, DEAL_ENTRY_OUT_BY,
-                          GrindCommentBuild(RPL_SLOT_DEFAULT, ent.is_long ? "L" : "S", 0, "EXT"), ent.entry);
-      Rpl_WriteDealOutput(tick_ms, d2, order_ticket, before[i].t2, DEAL_ENTRY_OUT_BY,
-                          GrindCommentBuild(RPL_SLOT_DEFAULT, ent.is_long ? "L" : "S", 0, "EXT"), ext.entry);
+      const long dt1 = ent.is_long ? DEAL_TYPE_SELL : DEAL_TYPE_BUY;
+      const long dt2 = ext.is_long ? DEAL_TYPE_SELL : DEAL_TYPE_BUY;
+      Rpl_WriteDealOutput(tick_ms, d1, order_ticket, before[i].t1, DEAL_ENTRY_OUT_BY, dt1,
+                          ent.role != "" ? ent.role : "ENT", ent.side != "" ? ent.side : (ent.is_long ? "L" : "S"),
+                          ent.layer >= 0 ? ent.layer : 0, ent.entry);
+      Rpl_WriteDealOutput(tick_ms, d2, order_ticket, before[i].t2, DEAL_ENTRY_OUT_BY, dt2,
+                          ext.role != "" ? ext.role : "EXT", ext.side != "" ? ext.side : (ext.is_long ? "L" : "S"),
+                          ext.layer >= 0 ? ext.layer : 0, ext.entry);
+      if(!Rpl_EngineSeamsOrAbort())
+         return;
       Grind_ProcessDeal(d1, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
+      if(!Rpl_EngineSeamsOrAbort())
+         return;
       Grind_ProcessDeal(d2, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
       Rpl_RemoveCloseByPos(before[i].t1);
@@ -809,6 +920,8 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
 //+------------------------------------------------------------------+
 void Rpl_FillsOnTick(const long tick_ms, const double bid, const double ask)
 {
+   ulong fill_tickets[];
+   int fill_n = 0;
    for(int i = 0; i < g_grind_order_test_count; i++) {
       const ulong oticket = g_grind_order_test_records[i].ticket;
       const long placed = Rpl_OrderPlacedMs(oticket);
@@ -823,22 +936,38 @@ void Rpl_FillsOnTick(const long tick_ms, const double bid, const double ask)
          touch = true;
       if(!touch)
          continue;
-      const string comment = g_grind_order_test_records[i].comment;
-      Grind_OrderTestRemove(oticket);
+      ArrayResize(fill_tickets, fill_n + 1);
+      fill_tickets[fill_n++] = oticket;
+   }
+   for(int f = 0; f < fill_n; f++) {
+      GrindOrderTestRecord rec;
+      if(!Grind_OrderTestFind(fill_tickets[f], rec))
+         continue;
+      const long otype = rec.type;
+      const double price = rec.price;
+      const string comment = rec.comment;
+      Grind_OrderTestRemove(fill_tickets[f]);
       const ulong pos_id = g_rpl_next_pos_id++;
       const ulong deal_id = g_rpl_next_deal_id++;
       const datetime tsec = (datetime)(tick_ms / 1000);
       const bool is_long_ent = (otype == ORDER_TYPE_BUY_LIMIT);
-      Rpl_ReplayAppendDeal(deal_id, comment, DEAL_ENTRY_IN, oticket, pos_id, 0.0, 0.0, 0.0, price, tsec,
+      string slot, side, role;
+      int layer;
+      if(!GrindCommentParse(comment, slot, side, layer, role))
+         side = is_long_ent ? "L" : "S";
+      const long deal_type = (otype == ORDER_TYPE_BUY_LIMIT) ? DEAL_TYPE_BUY : DEAL_TYPE_SELL;
+      Rpl_ReplayAppendDeal(deal_id, comment, DEAL_ENTRY_IN, fill_tickets[f], pos_id, 0.0, 0.0, 0.0, price, tsec,
                            g_rpl_cfg.magic);
       Grind_PositionTestAdd(pos_id);
       Rpl_AddCloseByPos(pos_id, is_long_ent);
       Grind_CarryTestSetPosition(pos_id, 0.0, RPL_LOTS_DEFAULT, tick_ms / 1000);
-      Rpl_AddPosMeta(pos_id, price, 0.0, RPL_LOTS_DEFAULT, tick_ms, is_long_ent);
-      Rpl_WriteDealOutput(tick_ms, deal_id, oticket, pos_id, DEAL_ENTRY_IN, comment, price);
+      Rpl_AddPosMeta(pos_id, price, 0.0, RPL_LOTS_DEFAULT, tick_ms, is_long_ent, side, layer, role, otype);
+      Rpl_WriteDealOutput(tick_ms, deal_id, fill_tickets[f], pos_id, DEAL_ENTRY_IN, deal_type, role, side, layer,
+                          price);
+      if(!Rpl_EngineSeamsOrAbort())
+         return;
       Grind_ProcessDeal(deal_id, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
-      i--;
    }
 }
 
@@ -901,10 +1030,18 @@ void Rpl_SyncResetToTrueBook()
          }
       }
       if(!present) {
+         g_rpl_skip_true_book_add = true;
          Rpl_SeedLayer(g_rpl_true_book[t].side, g_rpl_true_book[t].layer, g_rpl_true_book[t].entry,
                        g_rpl_true_book[t].open_ms, g_rpl_true_book[t].ticket, g_rpl_true_book[t].vl,
                        g_rpl_true_book[t].swap, g_rpl_true_book[t].volume);
+         g_rpl_skip_true_book_add = false;
       }
+   }
+   for(int t = 0; t < g_rpl_true_book_count; t++) {
+      if(g_rpl_true_book[t].vl > 0.0)
+         Grind_VLSet(g_rpl_true_book[t].ticket, g_rpl_true_book[t].vl);
+      else
+         Grind_VLDelete(g_rpl_true_book[t].ticket);
    }
    g_grind_long.l0_pending_ticket = keep_l0;
    g_grind_long.add_pending_ticket = keep_add;
@@ -920,10 +1057,18 @@ void Rpl_ApplySyncDealsUpTo(const long tick_ms)
    if(!g_rpl_cfg.sync)
       return;
    bool changed = false;
-   while(g_rpl_real_applied < g_rpl_real_deal_count
-         && g_rpl_real_deals[g_rpl_real_applied].time_ms <= tick_ms) {
-      const RplRealDeal rd = g_rpl_real_deals[g_rpl_real_applied];
-      if(rd.entry_type == DEAL_ENTRY_OUT_BY) {
+   while(g_rpl_sync_real_applied < g_rpl_sync_real_count
+         && g_rpl_sync_real[g_rpl_sync_real_applied].time_ms <= tick_ms) {
+      const RplSyncRealRow rd = g_rpl_sync_real[g_rpl_sync_real_applied];
+      if(rd.kind == "ENT") {
+         Rpl_TrueBookAdd(rd.side, rd.layer, rd.price, rd.position_id, 0.0, RPL_LOTS_DEFAULT, rd.time_ms, 0.0);
+         for(int i = g_rpl_true_book_count - 1; i >= 0; i--) {
+            if(g_rpl_true_book[i].ticket == rd.position_id) {
+               g_rpl_true_book[i].open_ms = rd.time_ms;
+               break;
+            }
+         }
+      } else if(rd.kind == "OUT_BY") {
          for(int i = g_rpl_true_book_count - 1; i >= 0; i--) {
             if(g_rpl_true_book[i].ticket == rd.position_id) {
                for(int j = i; j < g_rpl_true_book_count - 1; j++)
@@ -932,13 +1077,58 @@ void Rpl_ApplySyncDealsUpTo(const long tick_ms)
                break;
             }
          }
+      } else if(rd.kind == "ROLL") {
+         for(int i = 0; i < g_rpl_true_book_count; i++) {
+            if(g_rpl_true_book[i].ticket == rd.position_id) {
+               g_rpl_true_book[i].vl = rd.level;
+               break;
+            }
+         }
       }
-      g_rpl_sync_idx = g_rpl_real_applied;
-      g_rpl_real_applied++;
+      g_rpl_sync_idx = g_rpl_sync_real_applied;
+      g_rpl_sync_real_applied++;
       changed = true;
    }
    if(changed)
       Rpl_SyncResetToTrueBook();
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_InNightlyGapExclude(const datetime tsec)
+{
+   MqlDateTime dt;
+   TimeToStruct(tsec, dt);
+   if(dt.hour == 23 && dt.min >= 50)
+      return true;
+   if(dt.hour == 0 && dt.min <= 15)
+      return true;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_IsWeekday(const datetime tsec)
+{
+   MqlDateTime dt;
+   TimeToStruct(tsec, dt);
+   return (dt.day_of_week >= 1 && dt.day_of_week <= 5);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_RecordGapIfNeeded(const long prev_ms, const long cur_ms)
+{
+   if(prev_ms <= 0 || cur_ms <= prev_ms)
+      return;
+   const long gap_sec = (cur_ms - prev_ms) / 1000;
+   if(gap_sec <= 60)
+      return;
+   const datetime mid = (datetime)((prev_ms + cur_ms) / 2000);
+   if(!Rpl_IsWeekday(mid) || Rpl_InNightlyGapExclude(mid))
+      return;
+   ArrayResize(g_rpl_gaps, g_rpl_gap_count + 1);
+   g_rpl_gaps[g_rpl_gap_count].from_ms = prev_ms;
+   g_rpl_gaps[g_rpl_gap_count].seconds = gap_sec;
+   g_rpl_gap_count++;
+   Print("RPL|GAP|", prev_ms, "|", gap_sec);
 }
 
 //+------------------------------------------------------------------+
@@ -947,14 +1137,23 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(g_rpl_aborted)
       return;
    const long t = tick.time_msc;
-   static long last_day = 0;
    const datetime tsec = (datetime)(t / 1000);
    MqlDateTime dt;
    TimeToStruct(tsec, dt);
    const long day_key = dt.year * 10000 + dt.mon * 100 + dt.day;
-   if(last_day != 0 && day_key != last_day)
-      Rpl_ApplySwapRollover(t);
-   last_day = day_key;
+   if(g_rpl_segment_first_tick) {
+      g_rpl_segment_day_key = day_key;
+      g_rpl_segment_first_tick = false;
+      if(g_rpl_retained_from_ms == 0)
+         g_rpl_retained_from_ms = t;
+   } else {
+      Rpl_RecordGapIfNeeded(g_rpl_last_processed_tick_ms, t);
+      if(day_key != g_rpl_segment_day_key) {
+         Rpl_ApplySwapRollover(t);
+         g_rpl_segment_day_key = day_key;
+      }
+   }
+   g_rpl_last_processed_tick_ms = t;
 
    Rpl_ApplySyncDealsUpTo(t);
 
@@ -975,18 +1174,20 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    int cb_n = 0;
    Rpl_SnapshotQueues(cb_before, cb_n);
 
-   if(!Rpl_CheckSeams()) {
-      Rpl_Abort("SEAMS");
+   if(!Rpl_EngineSeamsOrAbort())
       return;
-   }
 
    const bool trkL0 = g_grind_vl_tracking_long;
    const bool trkS0 = g_grind_vl_tracking_short;
 
    Grind_ProcessCloseByQueues(g_rpl_cfg.magic, false);
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
    Grind_LatticeOnTick(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, RPL_LOTS_DEFAULT, g_rpl_cfg.lattice,
                        g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, t / 1000,
                        g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
    Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                       g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
                       g_rpl_cfg.width_s, g_rpl_cfg.add_s);
@@ -1000,6 +1201,8 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    Rpl_ProcessCloseByDone(t, cb_before, cb_n);
 
    if(g_rpl_last_timer_ms == 0 || t - g_rpl_last_timer_ms >= 60000) {
+      if(!Rpl_EngineSeamsOrAbort())
+         return;
       Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, t / 1000, g_rpl_cfg.exit_s);
       g_rpl_last_timer_ms = t;
    }
@@ -1012,8 +1215,16 @@ void Rpl_ProcessOneTick(const RplTick &tick)
 bool Rpl_RunTicks(const RplTick &ticks[], const int tick_count, RplSegmentConfig &cfg)
 {
    g_rpl_cfg = cfg;
+   g_rpl_segment_first_tick = true;
+   g_rpl_last_processed_tick_ms = 0;
+   ArrayResize(g_rpl_all_ticks, tick_count);
+   for(int i = 0; i < tick_count; i++)
+      g_rpl_all_ticks[i] = ticks[i];
+   g_rpl_all_tick_count = tick_count;
    if(g_rpl_seeded)
-      Rpl_PreloadLattice(cfg);
+      Rpl_PreloadLatticeFromTicks(cfg);
+   else if(g_rpl_retained_from_ms == 0)
+      g_rpl_retained_from_ms = cfg.from_ms;
    if(g_rpl_seeded) {
       g_grind_start_add_reprice_long = true;
       g_grind_start_add_reprice_short = true;
@@ -1162,13 +1373,23 @@ bool Rpl_WasAborted() { return g_rpl_aborted; }
 string Rpl_AbortReason() { return g_rpl_abort_reason; }
 
 //+------------------------------------------------------------------+
-void Rpl_SetRealDeals(const RplRealDeal &deals[], const int count)
+void Rpl_SetSyncRealKindRows(const string csv_rows[], const int count)
 {
-   ArrayResize(g_rpl_real_deals, count);
-   for(int i = 0; i < count; i++)
-      g_rpl_real_deals[i] = deals[i];
-   g_rpl_real_deal_count = count;
-   g_rpl_real_applied = 0;
+   ArrayResize(g_rpl_sync_real, count);
+   g_rpl_sync_real_count = count;
+   g_rpl_sync_real_applied = 0;
+   for(int i = 0; i < count; i++) {
+      string parts[];
+      const int n = StringSplit(csv_rows[i], ',', parts);
+      g_rpl_sync_real[i].time_ms = (n > 0) ? (long)StringToInteger(parts[0]) : 0;
+      g_rpl_sync_real[i].kind = (n > 1) ? parts[1] : "";
+      g_rpl_sync_real[i].side = (n > 2) ? parts[2] : "";
+      g_rpl_sync_real[i].layer = (n > 3) ? (int)StringToInteger(parts[3]) : 0;
+      g_rpl_sync_real[i].price = (n > 4) ? StringToDouble(parts[4]) : 0.0;
+      g_rpl_sync_real[i].position_id = (n > 5) ? (ulong)StringToInteger(parts[5]) : 0;
+      g_rpl_sync_real[i].level = (n > 6) ? StringToDouble(parts[6]) : 0.0;
+   }
+   g_rpl_cfg.sync = true;
 }
 
 //+------------------------------------------------------------------+
@@ -1180,13 +1401,6 @@ string Rpl_ScalpEventPeek()
    if(Grind_ScalpEventQueueSize() > 0)
       return Grind_ScalpEventQueuePeek();
    return g_rpl_last_scalp_json;
-}
-
-//+------------------------------------------------------------------+
-bool Rpl_RunReplayScript(const string tag, const bool sync_mode)
-{
-   Print("RPL|STUB_RUN|", tag, "|sync=", sync_mode);
-   return false;
 }
 
 //+------------------------------------------------------------------+
@@ -1210,24 +1424,205 @@ bool Rpl_HasPosition(const ulong ticket)
 }
 
 //+------------------------------------------------------------------+
-bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
-{
-   return Rpl_RunReplayScript(tag, sync_mode);
-}
-
-//+------------------------------------------------------------------+
-void Rpl_SetSyncRealKindRows(const string csv_rows[], const int count) {}
-
-//+------------------------------------------------------------------+
 int Rpl_GapReportCount()
 {
-   return 0;
+   return g_rpl_gap_count;
 }
 
 //+------------------------------------------------------------------+
 bool Rpl_GapReportAt(const int index, long &from_ms, long &seconds)
 {
-   return false;
+   if(index < 0 || index >= g_rpl_gap_count)
+      return false;
+   from_ms = g_rpl_gaps[index].from_ms;
+   seconds = g_rpl_gaps[index].seconds;
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
+{
+   count = 0;
+   ArrayResize(out, 0);
+   const int h = FileOpen("replay\\" + filename, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   if(!FileIsEnding(h))
+      FileReadString(h);
+   while(!FileIsEnding(h)) {
+      const long ms = (long)StringToInteger(FileReadString(h));
+      const double bid = StringToDouble(FileReadString(h));
+      const double ask = StringToDouble(FileReadString(h));
+      if(!FileIsEnding(h))
+         FileReadString(h);
+      ArrayResize(out, count + 1);
+      out[count].time_msc = ms;
+      out[count].bid = bid;
+      out[count].ask = ask;
+      count++;
+   }
+   FileClose(h);
+   return count > 0;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_WriteSegmentOutputs(const string tag)
+{
+   const string prefix = "replay\\out_" + tag + "_";
+   int w = FileOpen(prefix + "deals.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id", "sync_idx", "time_ms", "deal", "order", "position", "entry_type", "deal_type", "role",
+             "side", "layer", "price");
+   for(int i = 0; i < ArraySize(g_rpl_deals); i++) {
+      FileWrite(w, IntegerToString(g_rpl_deals[i].seg_id), IntegerToString(g_rpl_deals[i].sync_idx),
+                IntegerToString(g_rpl_deals[i].time_ms), IntegerToString((long)g_rpl_deals[i].deal),
+                IntegerToString((long)g_rpl_deals[i].order), IntegerToString((long)g_rpl_deals[i].position),
+                IntegerToString(g_rpl_deals[i].entry_type), IntegerToString(g_rpl_deals[i].deal_type),
+                g_rpl_deals[i].role, g_rpl_deals[i].side, IntegerToString(g_rpl_deals[i].layer),
+                DoubleToString(g_rpl_deals[i].price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)));
+   }
+   FileClose(w);
+   w = FileOpen(prefix + "events.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id", "sync_idx", "time_ms", "kind", "code", "json");
+   for(int i = 0; i < ArraySize(g_rpl_events); i++) {
+      FileWrite(w, IntegerToString(g_rpl_events[i].seg_id), IntegerToString(g_rpl_events[i].sync_idx),
+                IntegerToString(g_rpl_events[i].time_ms), g_rpl_events[i].kind, g_rpl_events[i].code,
+                g_rpl_events[i].json);
+   }
+   FileClose(w);
+   w = FileOpen(prefix + "book.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id", "side", "layer", "entry", "vl", "open_ms", "swap");
+   for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
+      const ulong pt = g_grind_long.layers[i].position_ticket;
+      RplPosMeta m;
+      double swap = 0.0;
+      long open_ms = 0;
+      if(Rpl_FindPosMeta(pt, m)) {
+         swap = m.swap;
+         open_ms = m.open_ms;
+      }
+      FileWrite(w, IntegerToString(g_rpl_cfg.seg_id), "L", IntegerToString(g_grind_long.layers[i].layer_index),
+                DoubleToString(g_grind_long.layers[i].entry_price, 5), DoubleToString(Grind_VLGet(pt), 5),
+                IntegerToString(open_ms), DoubleToString(swap, 8));
+   }
+   for(int i = 0; i < ArraySize(g_grind_short.layers); i++) {
+      const ulong pt = g_grind_short.layers[i].position_ticket;
+      RplPosMeta m;
+      double swap = 0.0;
+      long open_ms = 0;
+      if(Rpl_FindPosMeta(pt, m)) {
+         swap = m.swap;
+         open_ms = m.open_ms;
+      }
+      FileWrite(w, IntegerToString(g_rpl_cfg.seg_id), "S", IntegerToString(g_grind_short.layers[i].layer_index),
+                DoubleToString(g_grind_short.layers[i].entry_price, 5), DoubleToString(Grind_VLGet(pt), 5),
+                IntegerToString(open_ms), DoubleToString(swap, 8));
+   }
+   FileClose(w);
+   w = FileOpen(prefix + "summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
+   FileWrite(w, "ticks=", IntegerToString(g_rpl_all_tick_count), " gaps=", IntegerToString(g_rpl_gap_count),
+             " gv=", IntegerToString(Rpl_DeleteGrindGlobalVariables()));
+   FileClose(w);
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
+{
+   g_rpl_swap_count = 0;
+   ArrayResize(g_rpl_swaps, 0);
+   int sh = FileOpen("replay\\swaps.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(sh != INVALID_HANDLE) {
+      if(!FileIsEnding(sh))
+         FileReadString(sh);
+      while(!FileIsEnding(sh)) {
+         const string d = FileReadString(sh);
+         if(StringFind(d, "#") == 0)
+            continue;
+         const double pl = StringToDouble(FileReadString(sh));
+         const double ps = StringToDouble(FileReadString(sh));
+         const double mult = StringToDouble(FileReadString(sh));
+         Rpl_AppendTestSwap(d, pl, ps, mult);
+      }
+      FileClose(sh);
+   }
+   const int rh = FileOpen("replay\\run_" + tag + ".csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(rh == INVALID_HANDLE) {
+      Print("RPL|ABORT|MISSING_RUN");
+      return false;
+   }
+   if(!FileIsEnding(rh))
+      FileReadString(rh);
+   string tick_cache_name = "";
+   RplTick tick_cache[];
+   int tick_cache_count = 0;
+   while(!FileIsEnding(rh)) {
+      RplSegmentConfig cfg;
+      Rpl_DefaultConfig(cfg);
+      cfg.seg_id = (int)StringToInteger(FileReadString(rh));
+      cfg.instance = FileReadString(rh);
+      cfg.magic = (ulong)StringToInteger(FileReadString(rh));
+      cfg.from_ms = (long)StringToInteger(FileReadString(rh));
+      cfg.to_ms = (long)StringToInteger(FileReadString(rh));
+      cfg.width_l = StringToDouble(FileReadString(rh));
+      cfg.width_s = StringToDouble(FileReadString(rh));
+      cfg.add_l = StringToDouble(FileReadString(rh));
+      cfg.add_s = StringToDouble(FileReadString(rh));
+      cfg.exit_l = StringToDouble(FileReadString(rh));
+      cfg.exit_s = StringToDouble(FileReadString(rh));
+      cfg.cap = (int)StringToInteger(FileReadString(rh));
+      cfg.stranded = StringToDouble(FileReadString(rh));
+      cfg.deadband = StringToDouble(FileReadString(rh));
+      cfg.lattice = (StringToInteger(FileReadString(rh)) != 0);
+      cfg.reroll = (StringToInteger(FileReadString(rh)) != 0);
+      cfg.gate = (int)StringToInteger(FileReadString(rh));
+      cfg.carry = (StringToInteger(FileReadString(rh)) != 0);
+      cfg.fill_time_place = (StringToInteger(FileReadString(rh)) != 0);
+      cfg.reserve = (int)StringToInteger(FileReadString(rh));
+      const string seed_file = FileReadString(rh);
+      const string ticks_file = FileReadString(rh);
+      if(ticks_file != tick_cache_name) {
+         if(!Rpl_LoadTicksCsv(ticks_file, tick_cache, tick_cache_count)) {
+            Print("RPL|ABORT|MISSING_TICKS");
+            FileClose(rh);
+            return false;
+         }
+         tick_cache_name = ticks_file;
+      }
+      Rpl_ResetAll();
+      g_rpl_gap_count = 0;
+      ArrayResize(g_rpl_gaps, 0);
+      cfg.sync = sync_mode;
+      g_rpl_cfg = cfg;
+      Rpl_ConfigureEngine(cfg);
+      if(seed_file != "") {
+         int sd = FileOpen("replay\\" + seed_file, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+         if(sd == INVALID_HANDLE) {
+            Print("RPL|ABORT|MISSING_SEED");
+            FileClose(rh);
+            return false;
+         }
+         if(!FileIsEnding(sd))
+            FileReadString(sd);
+         while(!FileIsEnding(sd)) {
+            const string side = FileReadString(sd);
+            const int layer = (int)StringToInteger(FileReadString(sd));
+            const double entry = StringToDouble(FileReadString(sd));
+            const long open_ms = (long)StringToInteger(FileReadString(sd));
+            const ulong ticket = (ulong)StringToInteger(FileReadString(sd));
+            const double vl = StringToDouble(FileReadString(sd));
+            const double swap = StringToDouble(FileReadString(sd));
+            const double vol = StringToDouble(FileReadString(sd));
+            Rpl_SeedLayer(side, layer, entry, open_ms, ticket, vl, swap, vol);
+         }
+         FileClose(sd);
+      }
+      if(!Rpl_RunTicks(tick_cache, tick_cache_count, cfg)) {
+         FileClose(rh);
+         return false;
+      }
+      Rpl_WriteSegmentOutputs(tag);
+   }
+   FileClose(rh);
+   return !g_rpl_aborted;
 }
 
 #endif // FXGRIND_REPLAY_CORE_MQH
