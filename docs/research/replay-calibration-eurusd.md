@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **PRE-REGISTERED DRAFT FOR GEMINI** (Claude, 8 Oct ~02:20Z). Nothing is built or run before Gemini's rulings (s11) and the operator's go. The marks in s6 are fixed BEFORE any tick is read; a mark changed after a run is a new pre-registration, recorded as such |
+| Status | **PRE-REGISTERED; RULED** (draft 8 Oct ~02:20Z; Gemini GRC-1..8 ~02:10Z local paste, checked by Claude, operator ~02:16Z: s12). Engine (c) first, the Python port after it (s5). Nothing is built or run before the Cursor prompt for (c) has been through Gemini. The marks in s6 are fixed BEFORE any tick is read; a mark changed after a run is a new pre-registration, recorded as such |
 | Origin | Operator 8 Oct ~01:22Z-01:31Z: "we were loathe to do a backtest because we felt it did not replicate real life ... pick a fxpair with a lot of trade points we can calibrate against and see if we can replicate the trade history we observed"; "getting a reliable replay would be a huge result" (`grid-as-variance-trade.md` s12; backlog C135 as rewritten) |
 | Rules it keeps | Our trade history is the gold standard; a replay is trusted only once it reproduces our trades. No time-series analysis or price signals (operator 8 Oct ~01:07Z): the ticks only drive our own rules; no statistic of price is computed or used. Nothing a replay says changes a rule, a geometry or a compass verdict before s8's holdout has passed and the operator has ruled |
 | Supersedes | `scalps-per-roll.md` s7 "reconcile on round 2" (one fleet, minute bars, counts only) |
@@ -169,7 +169,7 @@ API constants (check 4.2.3), and (3) the recon scan dedupe at an init
 as data where 4.2.3 finds it. If a miss in an early segment traces to a
 build difference, that is category M10 / M13 and is reported as such.
 
-## 5. THE ENGINE (GEMINI TO RULE, GRC-1)
+## 5. THE ENGINE (RULED: (c) FIRST, THEN (b) PROVEN EQUAL TO IT; s12)
 
 **(a) MT5 Strategy Tester with the real EA on IC's real ticks.** The real
 compiled code. But K21: the tester starts every run from an empty account,
@@ -196,9 +196,28 @@ call is seamed (the position open time behind the lattice's extreme, swap
 accrual: an audit first); slower; a Cursor build (production-adjacent
 MQL5), Gemini and the suite.
 
-**Claude's lean: (b).** The replay we sweep with is the one that has to be
-calibrated; calibrating (c) and sweeping with (b) means proving (b) equal to
-(c) as well. (a) is out by K21.
+**Ruled (s12): (c) first, as the calibration REFERENCE; then (b).** (c)
+runs the EA's own rules, so a miss cannot be a porting error. It is not the
+Strategy Tester: it drives one engine holding BOTH sides, as live. Cursor
+builds it on a branch (RESTATE AND STOP; the prompt through Gemini first)
+and RUNS it on the desktop, as it runs the suite (operator ~02:16Z: "i
+hate having to set up test runs - i would want cursor to do it"). Then (b),
+the Python port (C118), is proven EQUAL to (c) on the same tick streams
+(layer events, as C118's equality test) and becomes the sweep engine,
+multi-process on the Surface (operator: "if we could at some point test in
+python then we would be able to run multithreaded process on the Surface
+... the scope of what we could achieve with [the terminal] will be less").
+A pass of (c) calibrates the RULES; (b) inherits the calibration only
+through its equality with (c).
+
+**What (c) does not run as real code** (Claude's check of GRC-1): the init
+rebuild `Grind_ReconstructState` reads the live terminal with no test seam
+(`grind_recon.mqh` 1321-1356), so a seeded segment sets the engine's state
+directly and M10's rebuild path is the harness's, not the EA's; the
+simulated broker is new code; slots read 0 under the order seams
+(`grind_exitq.mqh` 125-131: M11, as planned). The lattice's position open
+time IS seamed (`grind_carry.mqh` 232). The prompt opens with a seam audit
+of every live call on K1-K11's paths. (a) is out by K21.
 
 ## 6. THE TESTS AND THE PASS MARKS (FIXED BEFORE ANY RUN)
 
@@ -217,23 +236,34 @@ through; 250 ms and 1 s placement latency.
   fill + 0.5 s]. **Mark: >= 95% of real deals, each fleet.** Below it the
   ticks or the fill rule cannot carry a tick-level replay: STOP, back to
   Gemini before any engine is built.
+- **T0b, history against near-live (GRC-8):** one hour dumped within 10
+  minutes of its end, then the same hour dumped again 24 h later, compared
+  tick for tick. **Mark: identical (count, times, prices).** A difference
+  means IC thins its history after the fact: STOP, back to Gemini (the
+  dump would not be the stream the EA traded on).
 - **T1, one step at a time (re-synchronised):** after every real deal the
   replay's POSITIONS are reset to the true ones (its resting orders are its
   own, s3) and it must produce the next real deal. **Marks, per fleet:
-  >= 90% of real deals matched; replay-only deals (fills that did not
-  happen) <= 10% of the real count.** Tests the rules one decision at a
-  time; one miss cannot cascade.
+  >= 95% of the real deals T0 finds touchable matched (GRC-3, on T0's
+  base: rules net of data); replay-only deals (fills that did not happen)
+  <= 5% of the real count.** The match rate over ALL real deals is
+  reported beside it. Tests the rules one decision at a time; one miss
+  cannot cascade.
 - **T2, free-running blocks:** from the true book at each init (s3), the
   replay runs alone to the next init. Per fleet and side, summed over
   segments: **scalps S and roll closes R within 10% (or 1, whichever is
   larger); `ROLL_ACCEPTED` within 10% (or 1); rho = (S + R) e / (R D) with
   the open book at each segment end (`grid-as-variance-trade.md` s11)
-  within 0.1.** Per-segment errors reported.
+  within 0.1.** Per-segment errors reported. **A segment whose own T1
+  falls below T1's mark is UNPRICED for T2** (GRC-2: its free run follows a
+  phantom book) and left out of T2's sums; **if UNPRICED segments hold
+  more than 20% of a fleet's real deals, T2 FAILS for that fleet** (so T2
+  cannot pass by dropping its worst segments).
 - **T3, the whole window from flat (D only), reported, never deciding:**
   the time of the first divergence, deals matched before it, S, R and rho
   per side at the end.
 
-**PASS = T0, T1 and T2 pass on all three fleets.**
+**PASS = T0, T0b, T1 and T2 pass on all three fleets.**
 
 ## 7. MISSES: EACH ONE GETS ONE CATEGORY
 
@@ -258,8 +288,9 @@ Assigned in this order (the first that fits):
 ## 8. WHAT A RESULT MEANS
 
 - **Pass:** a HOLDOUT on data the replay has not seen, with NO code
-  change: Fri 9 + Mon 12 Oct EURUSD on B, C, D (round 3's geometry: new
-  inputs on C and D), same marks. Only after the holdout passes is the
+  change: from round 3's reload (Fri 9 Oct) to **Tue 13 Oct 22:00Z**
+  (GRC-6: three trading days, not a Friday and a Monday alone), EURUSD on
+  B, C, D, each segment's own inputs, same marks. Only after the holdout passes is the
   replay "calibrated on EURUSD" and sweeps on EURUSD allowed. Another pair
   needs its own T0-T2 on its own history first (GBPUSD and AUDCHF next).
 - **Fail in M4-M10 (a rule):** that rule's model is wrong. Fix it (cause
@@ -290,13 +321,17 @@ eject (none in the window, K20); account-wide slots (M11, measured).
 
 1. `scripts/grind_tick_dump.mq5` (Claude; the operator compiles on wine-d,
    runs a one-chunk check, then the window; the wine-test and wine-c hour).
-2. T0 on the current export (no engine): the floor, reported at once.
+2. T0 on the current export (no engine): the floor, reported at once;
+   T0b's two dumps of one hour.
 3. s4.2's archive checks, written into s12.
-4. The engine (as ruled), tests first with hand-derived values, a mutation
-   round.
+4. Engine (c): a Cursor prompt (RESTATE AND STOP; the seam audit first;
+   the harness's broker tested first against hand-derived fills; Cursor
+   runs it), through Gemini, then built, run and read by Claude in the
+   committed source and output. Then (b): the Python port, tests first,
+   equality with (c) on the same ticks, then the sweeps on the Surface.
 5. Thu 8 ~22:35Z: the round-2 scoring export becomes the ground truth.
 6. T1, T2, T3 and the miss table; a report to the operator.
-7. The holdout after Mon 12 Oct 22:00Z.
+7. The holdout after Tue 13 Oct 22:00Z.
 
 Negative space: no fleet action and no chart edit; no run before the marks
 are ruled; no time-series or price statistic from the ticks; no sweep
@@ -328,6 +363,32 @@ changes a preset; no mark adjusted to fit a result.
 
 ## 12. RULINGS AND RECORD
 
-(Empty until Gemini rules.)
+**Gemini's rulings (pasted 8 Oct ~02:10Z), Claude's check, the operator.**
+- **GRC-1: (c), the MQL5 harness, ACCEPTED** (porting errors removed from
+  the calibration). His "if (c) fails, the tick data or fill model is
+  wrong, definitively" CORRECTED: the init rebuild has no seam, the
+  harness's broker is new code, and slots are unmodelled (s5). **Operator
+  ~02:16Z: "fine as a first step"; the destination is Python (both sides
+  at once, multi-process on the Surface), and Cursor runs the test runs.**
+- **GRC-2: UNPRICED ACCEPTED, with a guard** (Claude): UNPRICED segments
+  over 20% of a fleet's deals fail T2 (s6).
+- **GRC-3: T1 >= 95% ACCEPTED on T0's base** (Claude: T1 cannot exceed T0's
+  coverage, so 95% of ALL deals would demand perfect ticks AND perfect
+  rules); replay-only deals tightened to 5% to match; the all-deals rate
+  reported.
+- **GRC-4: the whole window ACCEPTED** (as drafted).
+- **GRC-5: the fill rule fixed ACCEPTED** (as drafted).
+- **GRC-6: holdout EXTENDED to Tue 13 Oct 22:00Z** (Claude: his
+  Friday-liquidity claim is not measured here; the point that two days is
+  thin stands, so three days).
+- **GRC-7: M11 ACCEPTED.** His "186-slot limit" is the far-from-market
+  guard (used + resting <= 200 - 14); near the market it is 194
+  (`grind_exitq.mqh` 180-182). Unchanged: M11 is measured, not modelled.
+- **GRC-8: historical vs live ticks ACCEPTED as the largest uncontrolled
+  variable.** Partly bounded already: the EA's own lattice reads
+  `CopyTicksRange` live (K7), the same tick database; T0 measures touches
+  at real fills. Added: T0b (s6).
+- Operator ~02:16Z on the amendments: taken as accepted with "fine as a
+  first step" (Claude said so in the reply; to be corrected if not).
 
-Line count: 333
+Line count: 394
