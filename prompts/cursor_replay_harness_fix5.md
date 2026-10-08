@@ -6,7 +6,7 @@ This message has a line count at the bottom
 `6a3dfc0` (`802b6c3` fix-4 tests, `7d10bc9` fix-4 core, `6a3dfc0` the second
 RT run's log). Read the base prompt, fixes 1-4 and THIS file. Line numbers
 are `ea/fxgrind_replay_core.mqh` and `ea/fxgrind_replay_tests.mq5` at
-`7d10bc9`. Questions for Gemini in s5.
+`7d10bc9`. Questions for Gemini in s5; his rulings and Claude's check in s6.
 
 **The second RT run (rt_7d10bc9, 8 Oct ~18:50Z): 266 run, 261 pass.** H1-H3
 work (RT3 `exit px`, RT5b, RT14's abort with `start_ms=1791277201000`
@@ -76,4 +76,21 @@ change to the carry path or any engine call; nothing outside H4 / T6.
   EURUSD on this account?
 - **GH5-3.** What fact is missing?
 
-Line count: 79
+## 6. GEMINI'S RULINGS (8 OCT ~19:00Z) AND CLAUDE'S CHECK
+
+- **GH5-1 ACCEPTED** (a wait, not injected data). His aside that the live
+  EA "genuinely skips" the carry pass at 0 does not apply: the live EA
+  read 1.0 in 15 of 15 snapshots; the 0 is the replay terminal's.
+- **GH5-2 ACCEPTED; his condition holds:** the IC client portal shows
+  Currency USD for 53077984 (and 53066709, 53071896), so 1.0 is the
+  constant.
+- **GH5-3 NOTED, no change.** The Strategy Tester is not used (plan K21,
+  engine (a) out). The harness's dependence on a live IC connection for
+  symbol properties is by design and already ruled (base GH-4): the
+  offline engine is the Python port (C118), which takes swap rates and
+  tick values from the archive.
+- **Correction to his T6 check:** -0.08111 and -0.08067 come from the
+  tests' own swap rows (-8.111, -8.067), not from the live
+  `SYMBOL_SWAP_LONG`. The values stand.
+
+Line count: 96
