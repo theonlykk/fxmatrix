@@ -8,7 +8,8 @@ This message has a line count at the bottom
 and THIS file. Claude read `8a92e22` (8 Oct ~03:50Z); the operator compiled
 `ea/fxgrind_replay_tests.mq5` on the desktop for syntax only (8 Oct
 03:51Z): **1 error, 1 warning** (D1, D2). Line numbers are
-`ea/fxgrind_replay_core.mqh` at `8a92e22`. Questions for Gemini in s6.
+`ea/fxgrind_replay_core.mqh` at `8a92e22`. Questions for Gemini in s6; his
+rulings and Claude's check in s7 (8 Oct ~03:58Z): no change to s1-s5.
 
 Fix 1's X1-X4, X6-X16 are in and correct; what is left is below. D7 is a
 gap in fix 1's A1 wording (Claude's), not your work.
@@ -100,4 +101,27 @@ commit 2.
   that exit filled and its close-by is still queued. Anything lost?
 - **GH2-3.** What fact is missing?
 
-Line count: 103
+## 7. GEMINI'S RULINGS (8 OCT ~03:58Z) AND CLAUDE'S CHECK
+
+- **GH2-1 ACCEPTED** (each segment starts from the true book at an init, so
+  only the rows inside its own window apply).
+- **GH2-2 REJECTED; Y7 stands.** His premise: removing a replay layer's
+  exit position and queued close-by loses scalps and roll closes from T2.
+  But SYNC runs only for T1; T2 runs free, without sync (calibration plan
+  s6), so no sync removal ever touches a T2 count. T1 counts IN deals only;
+  OUT_BY rows are bookkeeping (plan s6), and the replay's EXT IN deal is
+  already written when it fills. The pending case is also near-empty: a
+  close-by queued by a fill is sent and completed in the SAME tick (base
+  s3.4 steps 4-6), before the next tick's sync rows apply; it can carry
+  over only if a send fails, which the close-by seam does not do in the
+  harness. And the layers sync removes are the replay's OWN (their tickets
+  are never true tickets): nothing true is removed.
+- **GH2-3 NOTED, no change.** The real rows are one EA instance's own deals
+  (EURUSD's magic); no hand action or other EA closed a EURUSD position in
+  the window (plan K20). The live EA learns a deal milliseconds after the
+  broker's deal time (plan T0: deal times a median 260 ms after the
+  touch), and T1 by design resets to the truth after every real deal to
+  test one decision at a time; any head start is under one tick, inside
+  T1's 60 s.
+
+Line count: 127
