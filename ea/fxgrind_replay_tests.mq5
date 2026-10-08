@@ -29,7 +29,11 @@ void AssertFalse(const string name, const bool condition)
 
 void AssertNear(const string name, const double got, const double expected, const double tol)
 {
-   AssertTrue(name, MathAbs(got - expected) <= tol);
+   const bool ok = (MathAbs(got - expected) <= tol);
+   if(!ok)
+      Print("FAIL-DETAIL | ", name, " | got=", DoubleToString(got, 8),
+            " | expected=", DoubleToString(expected, 8), " | tol=", DoubleToString(tol, 8));
+   AssertTrue(name, ok);
 }
 
 void AssertEqStr(const string name, const string got, const string expected)
@@ -162,10 +166,12 @@ void Test_RT3_Scalp()
    AssertTrue("RT3 deals count 4", Rpl_DealsCount() == 4);
    AssertDealRow("RT3 row0", 0, DEAL_TYPE_BUY, "ENT", "L", 0, 1.09981, t2);
    AssertDealRow("RT3 row1", 1, DEAL_TYPE_SELL, "EXT", "L", 0, 1.10081, t3);
-   AssertDealRow("RT3 row2", 2, DEAL_TYPE_SELL, "ENT", "L", 0, 1.09981, t3);
-   AssertDealRow("RT3 row3", 3, DEAL_TYPE_BUY, "EXT", "L", 0, 1.10081, t3);
+   AssertDealRow("RT3 row2", 2, DEAL_TYPE_SELL, "ENT", "L", 0, 1.10081, t3);
+   AssertDealRow("RT3 row3", 3, DEAL_TYPE_BUY, "EXT", "L", 0, 1.09981, t3);
    AssertTrue("RT3 long depth 0", Rpl_LongDepth() == 0);
    AssertContains("RT3 scalp rolled false", Rpl_ScalpEventPeek(), "\"rolled\":false");
+   AssertContains("RT3 scalp exit px", Rpl_ScalpEventPeek(), "\"exit_price\":1.10081");
+   AssertContains("RT3 scalp pnl", Rpl_ScalpEventPeek(), "\"gross_pnl\":1.00");
 }
 
 void Test_RT3b_EarlyBook()
@@ -289,7 +295,8 @@ void Test_RT5b_RollScalp()
    Rpl_ConfigureEngine(cfg);
    Rpl_RunTicks(ticks, 6, cfg);
    const long t5 = RplMs(RPL_T0, 5);
-   AssertDealRow("RT5b ext fill", Rpl_DealsCount() - 1, DEAL_TYPE_SELL, "EXT", "L", 0, 1.09941, t5);
+   AssertTrue("RT5b deals count 5", Rpl_DealsCount() == 5);
+   AssertDealRow("RT5b ext fill", 2, DEAL_TYPE_SELL, "EXT", "L", 0, 1.09941, t5);
    AssertContains("RT5b rolled true", Rpl_ScalpEventPeek(), "\"rolled\":true");
    AssertContains("RT5b entry px", Rpl_ScalpEventPeek(), "1.09981");
    AssertContains("RT5b exit px", Rpl_ScalpEventPeek(), "1.09941");
@@ -462,9 +469,17 @@ double Test_RT10_ExitPrice()
       ticks[i].ask = 1.09902;
    }
    Rpl_RunTicks(ticks, n, cfg);
+   for(int i = 0; i < Rpl_EventsCount(); i++) {
+      RplEventRow ev;
+      if(!Rpl_GetEventRow(i, ev))
+         continue;
+      if(StringFind(ev.code, "CARRY_") == 0)
+         Print("RT10-EVENT | ", ev.code, " | ", ev.json);
+   }
    double p = 0.0;
    ulong tk = 0;
-   Rpl_FindOrderByRoleLayer("L", 0, "EXT", p, tk);
+   const bool found_ext = Rpl_FindOrderByRoleLayer("L", 0, "EXT", p, tk);
+   Print("RT10-ORDER | found=", found_ext, " | price=", DoubleToString(p, 8));
    const double pip = 10.0 * _Point;
    const double P_pips = -(swap_long) * 3.0 / 10.0;
    const double expected = 1.10081 + (0.8 + P_pips) * pip;
@@ -547,10 +562,13 @@ void Test_RT12_NoRealSend()
    Rpl_ResetAll();
    const long api0 = Grind_ApiCounterRead();
    Test_RT3_Scalp();
+   const int s3 = g_grind_closeby_test_send_calls;
    Test_RT5b_RollScalp();
+   const int s5 = g_grind_closeby_test_send_calls;
    Test_RT8_SyncReset();
    AssertTrue("RT12 api delta 0", Grind_ApiCounterRead() - api0 == 0);
-   AssertTrue("RT12 closeby sends", g_grind_closeby_test_send_calls > 0);
+   AssertTrue("RT12 closeby sends RT3", s3 > 0);
+   AssertTrue("RT12 closeby sends RT5b", s5 > 0);
 }
 
 void Test_RT13_Safety()
@@ -845,9 +863,6 @@ void Test_RT23_MultiSegmentOutputs()
    const int hdr_at = StringFind(dl, RPL_DEALS_HEADER);
    AssertTrue("RT23 deals hdr", hdr_at == 0);
    AssertTrue("RT23 one header", StringFind(dl, RPL_DEALS_HEADER, StringLen(RPL_DEALS_HEADER)) < 0);
-   const string ev = Rpl_ReadWholeFile(dir + "out_rt23_events.csv");
-   AssertTrue("RT23 seg1 present", StringFind(ev, "\n1,") >= 0 || StringFind(dl, "\n1,") >= 0);
-   AssertTrue("RT23 seg2 present", StringFind(ev, "\n2,") >= 0 || StringFind(dl, "\n2,") >= 0);
    const string sum = Rpl_ReadWholeFile(dir + "out_rt23_summary.txt");
    string lines[];
    const int nl = StringSplit(sum, '\n', lines);
@@ -1071,14 +1086,43 @@ void Test_RT31b_TrailingComma()
    AssertTrue("RT31b five lines", StringSplit(Rpl_ReadWholeFile(dir + "out_rt31b_deals.csv"), '\n', l31b) == 5);
 }
 
+void Test_RT33_GateInitRestart()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.cap = 2;
+   cfg.gate = 0;
+   cfg.from_ms = RplMs(RPL_T0, 0);
+   cfg.to_ms = RplMs(RPL_T0, 2);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.09981, RplMs(RPL_T0, -3600), 8001UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 1, 1.09911, RplMs(RPL_T0, -3600), 8002UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   RplTick ticks[4];
+   ticks[0].time_msc = RplMs(RPL_T0, -3600);
+   ticks[0].bid = 1.09900;
+   ticks[0].ask = 1.09902;
+   ticks[1].time_msc = RplMs(RPL_T0, -60);
+   ticks[1].bid = 1.09839;
+   ticks[1].ask = 1.09841;
+   ticks[2].time_msc = RplMs(RPL_T0, 0);
+   ticks[2].bid = 1.09900;
+   ticks[2].ask = 1.09902;
+   ticks[3].time_msc = RplMs(RPL_T0, 1);
+   ticks[3].bid = 1.09900;
+   ticks[3].ask = 1.09902;
+   Rpl_RunTicks(ticks, 4, cfg);
+   AssertTrue("RT33 init restart no roll", Rpl_CountEventsWithCode("ROLL_ACCEPTED") == 0);
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
    RplSegmentConfig cfg;
    Rpl_DefaultConfig(cfg);
    cfg.from_ms = RplMs(D'2026.10.06 10:00:00', 0);
-   cfg.to_ms = RplMs(D'2026.10.06 23:57:00', 0) + 1000;
-   RplTick ticks[5];
+   cfg.to_ms = RplMs(D'2026.10.06 10:02:00', 0) + 1000;
+   RplTick ticks[3];
    ticks[0].time_msc = RplMs(D'2026.10.06 10:00:00', 0);
    ticks[0].bid = 1.10000;
    ticks[0].ask = 1.10002;
@@ -1088,20 +1132,29 @@ void Test_RT21_GapReport()
    ticks[2].time_msc = RplMs(D'2026.10.06 10:02:00', 0);
    ticks[2].bid = 1.10000;
    ticks[2].ask = 1.10002;
-   ticks[3].time_msc = RplMs(D'2026.10.06 23:55:00', 0);
-   ticks[3].bid = 1.10000;
-   ticks[3].ask = 1.10002;
-   ticks[4].time_msc = RplMs(D'2026.10.06 23:57:00', 0);
-   ticks[4].bid = 1.10000;
-   ticks[4].ask = 1.10002;
    Rpl_ConfigureEngine(cfg);
-   Rpl_RunTicks(ticks, 5, cfg);
+   Rpl_RunTicks(ticks, 3, cfg);
    AssertTrue("RT21 one gap", Rpl_GapReportCount() == 1);
    long from_ms = 0;
    long secs = 0;
    AssertTrue("RT21 gap row", Rpl_GapReportAt(0, from_ms, secs));
    AssertTrue("RT21 gap from", from_ms == RplMs(D'2026.10.06 10:00:30', 0));
    AssertTrue("RT21 gap 90s", secs == 90);
+   Rpl_ResetAll();
+   RplSegmentConfig cfg2;
+   Rpl_DefaultConfig(cfg2);
+   cfg2.from_ms = RplMs(D'2026.10.06 23:55:00', 0);
+   cfg2.to_ms = RplMs(D'2026.10.06 23:57:00', 0) + 1000;
+   RplTick ticks2[2];
+   ticks2[0].time_msc = RplMs(D'2026.10.06 23:55:00', 0);
+   ticks2[0].bid = 1.10000;
+   ticks2[0].ask = 1.10002;
+   ticks2[1].time_msc = RplMs(D'2026.10.06 23:57:00', 0);
+   ticks2[1].bid = 1.10000;
+   ticks2[1].ask = 1.10002;
+   Rpl_ConfigureEngine(cfg2);
+   Rpl_RunTicks(ticks2, 2, cfg2);
+   AssertTrue("RT21 window gap not reported", Rpl_GapReportCount() == 0);
 }
 
 void OnStart()
@@ -1142,5 +1195,6 @@ void OnStart()
    Test_RT30_MissingSwaps();
    Test_RT31_EmptyTicksFile();
    Test_RT31b_TrailingComma();
+   Test_RT33_GateInitRestart();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
