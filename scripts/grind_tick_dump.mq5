@@ -18,7 +18,7 @@
 input string InpSymbols      = "EURUSD";
 input string InpFrom         = "2026.10.01 06:30";   // server time, inclusive
 input string InpTo           = "";                   // server time, exclusive; empty = now
-input int    InpChunkMinutes = 60;                   // ticks read per CopyTicksRange call
+input int    InpChunkMinutes = 60;                   // minutes of ticks per CopyTicksRange call
 input int    InpRetries      = 5;                    // retries per chunk while history syncs
 input bool   InpProbeOnly    = true;                 // true: print the earliest tick only, no file
 input string InpTag          = "";                   // added to the file name (e.g. t0b_a)

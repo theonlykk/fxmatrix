@@ -391,4 +391,27 @@ changes a preset; no mark adjusted to fit a result.
 - Operator ~02:16Z on the amendments: taken as accepted with "fine as a
   first step" (Claude said so in the reply; to be corrected if not).
 
-Line count: 394
+**Record.**
+- **K19 answered (8 Oct 02:39Z, wine-d, `grind_tick_dump.mq5` probe):** IC
+  serves EURUSD ticks from the window start: first tick at or after
+  `2026.10.01 06:30` server = 06:30:00.134 (gap 0 s); the first hour 1,772
+  ticks.
+- **Dump `w1` (02:42:49-02:43:06Z, wine-d, account 53077984):**
+  `ticks_53077984_EURUSD_w1.csv`, 13,947,871 bytes, sha256
+  `556b33c682c5c5e5`: 405,245 ticks, 1 Oct 06:30:00.134 - 8 Oct 05:42:44.895
+  server, bad_px 0, time_back 0, 168 hourly chunks, no empty weekday hour.
+  The tail to 8 Oct 22:30Z is a second dump after round 2 closes.
+- **T0 on the 01:10Z export (pre-registered window and rule; reported at
+  once, s10.2): PASS, 867 / 867 real IN deals touched (B 259 / 259, C 294 /
+  294, D 314 / 314; ENT and EXT alike).** Checks that the test is not
+  trivial (reported, not marks): the first touching tick precedes every
+  fill (touch - fill from -1,959 to -45 ms, median -260 ms: IC's fill
+  latency after the touch); in 861 of 867 the last tick at or before the
+  fill sits exactly AT the limit (fills at the touch, not through it);
+  moving every limit 0.5 / 1 / 2 pips against drops the rate to 4.8% /
+  1.8% / 0.6% (the ticks are exact to the price); the same prices 5
+  minutes later touch 48%. B's and C's fills match wine-d's ticks as well
+  as D's (one feed, inferred; the wine-test / wine-c hour of s4.1 still
+  runs). T0 is re-run on the round-2 scoring export.
+
+Line count: 417
