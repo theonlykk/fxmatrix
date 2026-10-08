@@ -2128,4 +2128,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   close-by on the same tick:** the OUT_BY pair is appended after the IN rows
   (RT18, fix 3, E9). Index from the start with an exact count.
 
-Line count: 2131
+## TRAPS FROM 2026-10-08 DAY (THE BOXES FROM POWERSHELL)
+
+- **PowerShell drops the INNER double quotes of an `ssh box '...'` command**
+  (Windows PowerShell 5.1 passing to a native exe): `"Program Files/..."`
+  reaches the box as two words, `"TICKS|"` as a pipe, `"$f"` as a split
+  path. Write remote commands with NO inner double quotes: glob the spaces
+  (`Program*Files/MetaTrader*5`), `cd` through the glob and use bare file
+  names, `grep -a TICKS` instead of `"TICKS|"`, `tr -d \\000`.
+- **`e3b0c44298fc1c14` is the sha256 of EMPTY input:** a hash that starts
+  so means the file was never read.
+- **"Connection refused by the computer" in the VNC viewer is the DESKTOP:**
+  no tunnel is listening on the local port (x11vnc on wine-c was up,
+  `-forever`). Open the tunnel in its own window and leave it:
+  `ssh -o ServerAliveInterval=15 -L 5911:127.0.0.1:5911 box2` (127.0.0.1:
+  x11vnc runs `-noipv6`).
+- **Cursor left the desktop on `replay-harness` again** after fix 3: check
+  `git status -sb` before every `git am` (traps 8 Oct night late).
+
+Line count: 2149

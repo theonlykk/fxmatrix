@@ -413,5 +413,14 @@ changes a preset; no mark adjusted to fit a result.
   minutes later touch 48%. B's and C's fills match wine-d's ticks as well
   as D's (one feed, inferred; the wine-test / wine-c hour of s4.1 still
   runs). T0 is re-run on the round-2 scoring export.
+- **s4.1 PASSED: one feed (8 Oct 16:10-16:24Z, operator).**
+  `grind_tick_dump.mq5` (`main` `dc74051`, sha256 `4fdbb601f3b816db`, on
+  wine-test and wine-c; wine-d's `eae09b4` copy differs by a comment) on a
+  fresh EURUSD chart, inputs `2026.10.08 12:00` to `13:00` server, probe off,
+  tag `cmp`: wine-test 53066709, wine-c 53071896 and wine-d 53077984 each
+  3,689 ticks, 12:00:00.163-12:59:59.567, bad_px 0, time_back 0; the files
+  without their `#` header line (it names the account) hash IDENTICAL,
+  `1dcf00db198632c9` over 3,690 lines. B, C and D trade one EURUSD feed:
+  every fleet replays on wine-d's ticks (no per-fleet dump).
 
-Line count: 417
+Line count: 426
