@@ -6,7 +6,7 @@ This message has a line count at the bottom
 `da81664` (`6e63d50` fix-3 core, `da81664` the first RT run's log). Read
 `prompts/cursor_replay_harness.md`, `..._fix1.md`, `..._fix2.md`,
 `..._fix3.md` and THIS file. Line numbers are `ea/fxgrind_replay_core.mqh`
-and `ea/fxgrind_replay_tests.mq5` at `6e63d50`. Questions for Gemini in s6.
+and `ea/fxgrind_replay_tests.mq5` at `6e63d50`. Questions for Gemini in s6; his rulings and Claude's check in s7.
 
 **The first RT run (8 Oct ~18:00Z, `D:\mt5-replay`, investor login,
 `research/replay/runs/rt_6e63d50/script_log_excerpt.txt`): 259 run, 246
@@ -45,7 +45,7 @@ H1, H2, H3, T2 and T4 are Claude's spec or audit errors, not your work.
 | # | Fix |
 |---|---|
 | H1 | In `Rpl_ProcessCloseByDone` (core 897-975), for each completed task (`t1` = the position the EA closes, `t2` = the one it closes by): deal `d1` (position `t1`) price = `t2`'s open price (`ext.entry`), profit = the whole pair profit (`profit`, not halved), swap = `t1`'s swap in full (`ent.swap`); deal `d2` (position `t2`) price = `t1`'s open price (`ent.entry`), profit 0, swap = `t2`'s swap in full (`ext.swap`). The deals output rows (`Rpl_WriteDealOutput`, 953-958) carry the same two prices. Nothing else in the function changes (deal types, order ticket, removal, the `Grind_ProcessDeal` calls and their order) |
-| H2 | `Rpl_LatticeHistoryCheck(is_long)` (called exactly where it is now, core 1287-1290) checks only when the side's extreme is NON-zero after the call (`g_grind_vl_extreme_long` / `_short`): the normal start folded ticks; an extreme of 0.0 means the gate restart ran (H2 row, s1) or no stored tick was at or after the start, and neither needs history. It then computes the start the EA used: `start_ms = max((newest open second of that side's layers + 1) * 1000, (now_s - 86400) * 1000)` (`ea/grind_engine.mqh` 826-843; `GRIND_VL_CATCHUP_MAX_SEC` = 86400, `ea/grind_config.mqh` 20), the newest open being the largest `open_ms / 1000` among that side's layers' position metas and `now_s` the tick's second; abort `LATTICE_HISTORY` (printing `start_ms` and `g_rpl_retained_from_ms`) when `g_rpl_retained_from_ms > 0 && start_ms < g_rpl_retained_from_ms` |
+| H2 | `Rpl_LatticeHistoryCheck(is_long)` (called exactly where it is now, core 1287-1290) checks only when the side's extreme is NON-zero after the call (`g_grind_vl_extreme_long` / `_short`): the normal start folded ticks; an extreme of 0.0 means the gate restart ran (H2 row, s1) or no stored tick was at or after the start, and neither needs history. It then computes the start the EA used: `start_ms = max((newest open second of that side's layers + 1) * 1000, (now_s - GRIND_VL_CATCHUP_MAX_SEC) * 1000)` (`ea/grind_engine.mqh` 826-843; use the EA's macro from `ea/grind_config.mqh` 20, never the literal 86400, so a change to the cap reaches the check; GH4-2), the newest open being the largest `open_ms / 1000` among that side's layers' position metas and `now_s` the tick's second; abort `LATTICE_HISTORY` (printing `start_ms` and `g_rpl_retained_from_ms`) when `g_rpl_retained_from_ms > 0 && start_ms < g_rpl_retained_from_ms` |
 | H3 | On a segment's FIRST processed tick, after the market seeds (core 1251-1256) and BEFORE `Rpl_FillsOnTick` (1261; the live EA runs it in `OnInit`, before any tick), call `Grind_LatticeRollGateInitRestart(g_rpl_cfg.gate)` once (it returns at once for gate -1; it needs `Grind_MarketTimeMsc() > 0`, which the seed provides). Every segment starts at an init (plan s3), seeded or flat |
 
 ## 3. COMMITS AND TEST CHANGES
@@ -143,4 +143,29 @@ OUT_BY 1.13182 profit 0.90; EXT SELL 1.13182 -> OUT_BY 1.13092 profit
   first OnTick, on the live tick time). Any difference that matters?
 - **GH4-3.** What fact is missing?
 
-Line count: 146
+## 7. GEMINI'S RULINGS (8 OCT ~18:20Z) AND CLAUDE'S CHECK
+
+- **GH4-1 ACCEPTED (H1).** His premise (the EA "expects" this structure)
+  is not the evidence; the evidence is the 489 measured pairs. Claude
+  answered the part he did not: no other EA path acts on an OUT_BY deal's
+  price or profit. The scalp event (`ea/grind_engine.mqh` 2884-2922) is the
+  only decision-side reader; 3290 is the fill-log archive (telemetry);
+  1634 / 1689 read BALANCE deals and the day's history for the breaker (off
+  in the harness, live history not seamed).
+- **GH4-2 ACCEPTED, his maintenance point taken:** H2 now uses the EA's
+  `GRIND_VL_CATCHUP_MAX_SEC` (the harness includes the EA headers) instead
+  of 86400, so the cap cannot decouple. The newest-open half stays a
+  duplicate of `ea/grind_engine.mqh` 826-843, recorded here as a
+  maintenance liability: the pin (base s5 step 0) covers `fxgrind.mq5`
+  only, so a change to the lattice start in `grind_engine.mqh` must be
+  re-checked against H2 by hand.
+- **GH4-2b ACCEPTED** (H3 on each segment's first tick, before the fills).
+- **GH4-3 REJECTED, measured.** Close-by deal order cannot matter: the
+  EA's OUT_BY branch acts only on a deal whose position is a layer's ENT
+  position and returns after its layer loop (`ea/grind_engine.mqh`
+  2888-2944), so the EXT leg's deal is a no-op in either order. And the
+  broker numbers the ENT leg first in 489 of 489 real pairs (B 148, C
+  166, D 175, lower `deal_ticket` = ENT), the harness's order (`d1`
+  before `d2`, core 945-970).
+
+Line count: 171
