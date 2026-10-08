@@ -1,13 +1,17 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-08 ~01:40Z (THURSDAY EARLY, HANDOVER; FIRST TASK: THE REPLAY CALIBRATION PLAN, EURUSD B / C / D; FTMO 1514878887 RUNS THE IC STRATEGY STATIC; ROUND 2 ENDS 8 OCT 22:00Z)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-08 ~04:15Z (THURSDAY EARLY, HANDOVER; FIRST TASK: THE REPLAY HARNESS, FIX 3 TO CURSOR; FTMO 1514878887 RUNS THE IC STRATEGY STATIC; ROUND 2 ENDS 8 OCT 22:00Z)
 
-**Handover 8 Oct ~01:40Z (end of HANDOFF s67).** The first task is the
-replay calibration plan (s67 NEXT SESSION item 1): a pre-registered
-document for Gemini, `docs/research/replay-calibration-eurusd.md`. Read
-`docs/research/grid-as-variance-trade.md` **s9-s12** (the literature read,
-three scales W / e / D, the edge ratio rho, calibration before any replay)
-and backlog **C135** (rewritten) and **C141**.
+**Handover 8 Oct ~04:15Z (end of HANDOFF s68, at s68k).** The replay
+calibration plan (`docs/research/replay-calibration-eurusd.md`) is written,
+ruled by Gemini (s12) and pushed; T0 PASSED (867 / 867). The engine is (c),
+an MQL5 harness on the EA's own engine and test seams, which Cursor builds
+on branch `replay-harness` and will run itself; the Python port (C118)
+follows, proven equal to (c). Cursor has built the base prompt, fix 1 and
+fix 2 (`f0b2445` .. `fc0fb26`). Claude read `fc0fb26` and wrote fix 3
+(`prompts/cursor_replay_harness_fix3.md`, E1-E7, Z1-Z4, RT28-RT29); it has
+NOT gone to Cursor yet. The first task is HANDOFF s68 NEXT SESSION items
+2-3: the desktop compile of both replay files at `fc0fb26`, then fix 3.
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps (`theonlykk/mfperp`) is PARKED.
 Do not read or ask about it unless the operator brings it back.
@@ -16,9 +20,15 @@ You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
 into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
 order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP for Cursor
-prompts; s6 the state); `handoffs/HANDOFF_2026-09-24.md` **s64-s67** (s67's
+prompts; s6 the state); `handoffs/HANDOFF_2026-09-24.md` **s67-s68** (s68's
 NEXT SESSION list is the one to follow); `handoffs/Handover/02_TRAPS.md`
-sections dated 2026-10-07 and **2026-10-08** (early, night);
+sections dated 2026-10-07 and **2026-10-08** (early, night, night late);
+`docs/research/replay-calibration-eurusd.md` (all; s12 the rulings and
+record); `prompts/cursor_replay_harness.md`, `..._fix1.md`, `..._fix2.md`,
+`..._fix3.md` (in that order; each has Gemini's rulings at the end); the
+branch `replay-harness` in git (`ea/fxgrind_replay_core.mqh`,
+`ea/fxgrind_replay_tests.mq5`, `ea/fxgrind_replay.mq5`);
+`scripts/grind_tick_dump.mq5`;
 `handoffs/Handover/08_BACKLOG.md` (C1; C135, C137-C141);
 `docs/research/grid-as-variance-trade.md` (all; s9-s12 new);
 `docs/research/scalps-per-roll.md` (s1-s6); `docs/runbooks/ftmo-ic-start.md`
@@ -96,30 +106,30 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 
 | | |
 |---|---|
-| fxmatrix `main` | **this patch (s67 docs + handover) on `5a5400a` (s66b, tree `c7779dc9`) on `2b0d696` (s66) on `2d257af` (s65b).** EA code `5bb5fdb`, live on A, B, C, D |
+| fxmatrix `main` | **this patch (s68k: fix 3 prompt + handover) on `aad272e` (s68j, tree `acf1c4f8`).** EA code `5bb5fdb`, live on A, B, C, D |
+| fxmatrix `replay-harness` (Cursor) | `f0b2445`, `a280736` (base), `0c3d5ef`, `8a92e22` (fix 1), `22aa998`, `fc0fb26` (fix 2). Never merged; never run yet. The desktop is left on this branch after a compile: `git checkout main` |
 | pipshed `main` | **`d1ad256` (tree `f95f8cc9`): C102 on `2385d24` (C137, tree `882c43da`) on `9b1faba`; 45/45 suites; migration 005 applied** |
 | VPS (A) | `main` `9346e42` (EA `5bb5fdb`), tag `vps-9346e42`, FTMO 1514878887 |
 | wine-test (B), wine-c (C), wine-d (D) | EA `5bb5fdb` since 7 Oct, gate 0 on all 27; repos at `565ea53`; `ssh box1` / `ssh box2` / `root@216.128.158.33`; VNC 5910 / 5911 / 5912 |
+| Ticks on wine-d | `ticks_53077984_EURUSD_w1.csv` (405,245 ticks from 1 Oct 06:30 server; sha256 `556b33c682c5c5e5`); `..._t0b_a.csv` (2,144 ticks, 8 Oct 05:00-06:00 server) |
 | Data in Downloads | `study_2026-10-08_0110.jsonl` (export-study 16 days: fill_logs, scalp_history, ROLL_* / EJECT_* / CARRY_* events, config_events from 22 Sep); `history_1514731800.csv` and `bidask_ftmo_2026-10-07\` (cycle 3, C125) |
 
-## 2. NEXT, IN ORDER (= HANDOFF s67 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s68 NEXT SESSION)
 
 1. The questions for the previous chat (above).
-2. **The calibration plan** (`docs/research/replay-calibration-eurusd.md`,
-   pre-registered, for Gemini; s12 of `grid-as-variance-trade.md`): EURUSD
-   on B, C, D from 1 Oct 05:30Z (D flat at the start); IC ticks from
-   wine-d (a tick-writing variant of `grind_bidask_dump.mq5`); ground truth
-   from the study export; the engine choice for Gemini (MT5 Strategy Tester
-   with the real EA vs the C118 Python port); rules modelled / not; pass
-   marks fixed before any run (e.g. >= 90% of deals matched on side and
-   layer within 0.2 pip and 60 s; daily S and R per side within 10%; rho
-   per side within 0.1); miss categories; what a fail means.
-3. Thu 8 morning: a status read; A's `api_count`; A's first scalp / roll.
-4. The IC-vs-FTMO rewrite to Gemini (one document at a time).
-5. Thu 8 ~22:35Z: score round 2 (rho per probe reported beside equity);
-   round 3's table, Gemini, `_r3` presets; Fri 9 round 3's reload.
-6. pipshed C140 charts (after a full FTMO day of snapshots); C141 rho;
-   C139 carry; C138; Osler on order clustering (not read).
+2. The desktop syntax compile of BOTH replay files at `fc0fb26`; errors go
+   into fix 3 (a follow-up patch) before Cursor sees it. Then fix 3 to
+   Cursor (restate and stop; exact assertion counts; "go"); read both
+   commits in git; compile again.
+3. Operator one-time: `D:\mt5-replay` portable MT5, IC 53077984 INVESTOR
+   login; Cursor runs the RT suite via `[StartUp]`; Claude reads the log.
+4. Thu 8 morning: a status read; A's `api_count`; A's first scalp / roll.
+5. Thu 8 ~22:35Z: score round 2; tick-dump tail to 22:30Z; T0 rerun on the
+   scoring export; round 3's table, Gemini, `_r3` presets.
+6. Fri 9 >= 03:00Z: T0b's second dump (`t0b_b`) and `cmp`.
+7. The replay input files from the archive (Python, Claude).
+8. The IC-vs-FTMO rewrite to Gemini (one document at a time); pipshed
+   C140 charts; Fri 9 round 3's reload.
 
 ## 3. TRAPS (full list in 02_TRAPS)
 
@@ -135,6 +145,11 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
 - Realised-only ratios flatter a trend (count the open book); per-day
   ratios filtered to days with a roll are biased low.
 - Profile on the server (Server-Timing), not by guessing.
+- MQL5 CSV: one `FileReadString` on a `FILE_CSV` handle reads ONE field,
+  not a line; `FileIsLineEnding` is set by a read, so test it after
+  reading, never before. Cursor's tests have carried both bugs.
+- Read Cursor's commits before trusting its tests or its fail counts;
+  compile EVERY `.mq5` it touches (the runner went uncompiled to fix 2).
 - Claude works only inside a turn: "meanwhile" means now or not at all.
 - Verify every agent claim in committed source; count every line; clock
   times from the clock tool.
@@ -158,4 +173,4 @@ pass 20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z:
   getting long; propose a handoff only near the limit ("we should be happy
   to roll - we have a good handover process").
 
-Line count: 161
+Line count: 176
