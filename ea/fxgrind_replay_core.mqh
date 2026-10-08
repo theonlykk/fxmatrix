@@ -13,6 +13,7 @@ const ulong  RPL_MAGIC_DEFAULT = 22260201UL;
 const string RPL_SLOT_DEFAULT = "OPT";
 const double RPL_LOTS_DEFAULT = 0.01;
 const string RPL_DATA_PATH = "D:\\mt5-replay";
+const datetime RPL_T0_DEFAULT = D'2026.10.06 10:00:00';
 
 struct RplTick
 {
@@ -204,8 +205,21 @@ struct RplTestInterval
 
 RplTestInterval  g_rpl_test_intervals[];
 int              g_rpl_test_interval_count = 0;
+RplTestInterval  g_rpl_file_intervals[];
+int              g_rpl_file_interval_count = 0;
 RplSyncRealRow   g_rpl_real_file_rows[];
 int              g_rpl_real_file_count = 0;
+int              g_rpl_seg_ticks_processed = 0;
+uint             g_rpl_seg_run_start_ms = 0;
+
+struct RplRunOutputHandles
+{
+   int deals;
+   int events;
+   int book;
+   int summary;
+   bool open;
+};
 
 //+------------------------------------------------------------------+
 string Rpl_NormalizeDataPath(string path)
@@ -379,6 +393,9 @@ void Rpl_ResetAll()
    ArrayResize(g_rpl_all_ticks, 0);
    g_rpl_all_tick_count = 0;
    g_rpl_skip_true_book_add = false;
+   ArrayResize(g_rpl_test_intervals, 0);
+   g_rpl_test_interval_count = 0;
+   g_rpl_seg_ticks_processed = 0;
    g_grind_order_test_active = true;
    g_grind_closeby_test_active = true;
    g_grind_deal_test_active = true;
@@ -386,6 +403,33 @@ void Rpl_ResetAll()
    g_grind_closeby_test_send_retcode = TRADE_RETCODE_DONE;
    g_grind_market_test_active = true;
    g_grind_pnl_test_active = true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_SegmentConfigDefaults(RplSegmentConfig &cfg)
+{
+   cfg.seg_id = 1;
+   cfg.instance = "GRIND_TEST";
+   cfg.magic = RPL_MAGIC_DEFAULT;
+   cfg.from_ms = ((long)RPL_T0_DEFAULT) * 1000;
+   cfg.to_ms = ((long)RPL_T0_DEFAULT + 100) * 1000;
+   cfg.width_l = 2.0;
+   cfg.width_s = 15.0;
+   cfg.add_l = 7.0;
+   cfg.add_s = 7.0;
+   cfg.exit_l = 10.0;
+   cfg.exit_s = 10.0;
+   cfg.cap = 8;
+   cfg.stranded = 50.0;
+   cfg.deadband = 2.0;
+   cfg.lattice = true;
+   cfg.reroll = false;
+   cfg.gate = -1;
+   cfg.carry = false;
+   cfg.fill_time_place = true;
+   cfg.reserve = 8;
+   cfg.sync = false;
+   cfg.skip_lattice_preload = false;
 }
 
 //+------------------------------------------------------------------+
@@ -984,16 +1028,49 @@ void Rpl_FillsOnTick(const long tick_ms, const double bid, const double ask)
 }
 
 //+------------------------------------------------------------------+
+void Rpl_RemoveCloseByQueueTicket(const ulong ticket)
+{
+   for(int i = ArraySize(g_grind_long_closeby_queue) - 1; i >= 0; i--) {
+      if(g_grind_long_closeby_queue[i].ticket1 != ticket && g_grind_long_closeby_queue[i].ticket2 != ticket)
+         continue;
+      for(int j = i; j < ArraySize(g_grind_long_closeby_queue) - 1; j++)
+         g_grind_long_closeby_queue[j] = g_grind_long_closeby_queue[j + 1];
+      ArrayResize(g_grind_long_closeby_queue, ArraySize(g_grind_long_closeby_queue) - 1);
+   }
+   for(int i = ArraySize(g_grind_short_closeby_queue) - 1; i >= 0; i--) {
+      if(g_grind_short_closeby_queue[i].ticket1 != ticket && g_grind_short_closeby_queue[i].ticket2 != ticket)
+         continue;
+      for(int j = i; j < ArraySize(g_grind_short_closeby_queue) - 1; j++)
+         g_grind_short_closeby_queue[j] = g_grind_short_closeby_queue[j + 1];
+      ArrayResize(g_grind_short_closeby_queue, ArraySize(g_grind_short_closeby_queue) - 1);
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_PurgeTicketFromSeams(const ulong ticket)
+{
+   if(ticket == 0)
+      return;
+   Rpl_RemovePositionTicket(ticket);
+   Rpl_RemoveCloseByPos(ticket);
+   Rpl_RemovePosMeta(ticket);
+   Rpl_RemoveCloseByQueueTicket(ticket);
+}
+
+//+------------------------------------------------------------------+
 void Rpl_RemoveLayerByTicket(GrindSideState &side, const ulong pos_ticket)
 {
    for(int i = 0; i < ArraySize(side.layers); i++) {
       if(side.layers[i].position_ticket != pos_ticket)
          continue;
+      const ulong exit_pos = side.layers[i].exit_position_ticket;
       if(side.layers[i].exit_order_ticket != 0)
          Grind_OrderTestRemove(side.layers[i].exit_order_ticket);
       for(int j = i; j < ArraySize(side.layers) - 1; j++)
          side.layers[j] = side.layers[j + 1];
       ArrayResize(side.layers, ArraySize(side.layers) - 1);
+      Rpl_PurgeTicketFromSeams(pos_ticket);
+      Rpl_PurgeTicketFromSeams(exit_pos);
       return;
    }
 }
@@ -1166,8 +1243,11 @@ void Rpl_ProcessOneTick(const RplTick &tick)
       }
    }
    g_rpl_last_processed_tick_ms = t;
+   g_rpl_seg_ticks_processed++;
 
    Rpl_ApplySyncDealsUpTo(t);
+
+   Rpl_ApplyIntervalsAt(t);
 
    Grind_MarketTestSeed(tick.bid, tick.ask, 0, 0);
    Grind_MarketTestSeedTimeMsc(t);
@@ -1242,6 +1322,7 @@ bool Rpl_RunTicks(const RplTick &ticks[], const int tick_count, RplSegmentConfig
       g_grind_start_add_reprice_long = true;
       g_grind_start_add_reprice_short = true;
    }
+   g_rpl_seg_ticks_processed = 0;
    for(int i = 0; i < tick_count; i++) {
       if(ticks[i].time_msc < cfg.from_ms || ticks[i].time_msc >= cfg.to_ms)
          continue;
@@ -1488,6 +1569,135 @@ bool Rpl_PosMetaHas(const ulong ticket)
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_CsvSkipLine(const int h)
+{
+   if(FileIsEnding(h))
+      return false;
+   while(!FileIsEnding(h) && !FileIsLineEnding(h))
+      FileReadString(h);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_CsvReadLineFields(const int h, string &fields[])
+{
+   ArrayResize(fields, 0);
+   if(FileIsEnding(h))
+      return false;
+   int n = 0;
+   while(!FileIsEnding(h) && !FileIsLineEnding(h)) {
+      ArrayResize(fields, n + 1);
+      fields[n++] = FileReadString(h);
+   }
+   return (n > 0);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_ParseSyncFields(const string &fields[], const int n, RplSyncRealRow &row)
+{
+   row.time_ms = (n > 0) ? (long)StringToInteger(fields[0]) : 0;
+   row.kind = (n > 1) ? fields[1] : "";
+   row.side = (n > 2) ? fields[2] : "";
+   row.layer = (n > 3) ? (int)StringToInteger(fields[3]) : 0;
+   row.price = (n > 4) ? StringToDouble(fields[4]) : 0.0;
+   row.position_id = (n > 5) ? (ulong)StringToInteger(fields[5]) : 0;
+   row.level = (n > 6) ? StringToDouble(fields[6]) : 0.0;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_ApplyIntervalsAt(const long tick_ms)
+{
+   const int n = (g_rpl_test_interval_count > 0) ? g_rpl_test_interval_count : g_rpl_file_interval_count;
+   bool gated = false;
+   bool api_warn = false;
+   for(int i = 0; i < n; i++) {
+      const RplTestInterval iv = (g_rpl_test_interval_count > 0) ? g_rpl_test_intervals[i]
+                                                                 : g_rpl_file_intervals[i];
+      if(tick_ms < iv.from_ms || tick_ms >= iv.to_ms)
+         continue;
+      if(iv.kind == "BREAKER_GATED")
+         gated = true;
+      if(iv.kind == "API_SOFT_WARN")
+         api_warn = true;
+   }
+   g_grind_breaker_enabled = gated;
+   g_grind_breaker_gated = gated;
+   if(api_warn)
+      Grind_ApiLimitsSet(1000000, 1);
+   else
+      Grind_ApiLimitsSet(1000000, 999000);
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_LoadRealCsvFile(const string tag)
+{
+   g_rpl_real_file_count = 0;
+   ArrayResize(g_rpl_real_file_rows, 0);
+   const int h = FileOpen("replay\\real_" + tag + ".csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   bool header_skipped = false;
+   string fields[];
+   while(Rpl_CsvReadLineFields(h, fields)) {
+      if(StringFind(fields[0], "#") == 0)
+         continue;
+      if(!header_skipped) {
+         header_skipped = true;
+         continue;
+      }
+      ArrayResize(g_rpl_real_file_rows, g_rpl_real_file_count + 1);
+      Rpl_ParseSyncFields(fields, ArraySize(fields), g_rpl_real_file_rows[g_rpl_real_file_count]);
+      g_rpl_real_file_count++;
+   }
+   FileClose(h);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_LoadSegmentSyncFromFile(const long from_ms, const long to_ms)
+{
+   ArrayResize(g_rpl_sync_real, 0);
+   g_rpl_sync_real_count = 0;
+   g_rpl_sync_real_applied = 0;
+   for(int i = 0; i < g_rpl_real_file_count; i++) {
+      const long tm = g_rpl_real_file_rows[i].time_ms;
+      if(tm < from_ms || tm >= to_ms)
+         continue;
+      ArrayResize(g_rpl_sync_real, g_rpl_sync_real_count + 1);
+      g_rpl_sync_real[g_rpl_sync_real_count] = g_rpl_real_file_rows[i];
+      g_rpl_sync_real_count++;
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_LoadIntervalsFile(const string tag)
+{
+   g_rpl_file_interval_count = 0;
+   ArrayResize(g_rpl_file_intervals, 0);
+   const int h = FileOpen("replay\\intervals_" + tag + ".csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return;
+   bool header_skipped = false;
+   string fields[];
+   while(Rpl_CsvReadLineFields(h, fields)) {
+      if(ArraySize(fields) > 0 && StringFind(fields[0], "#") == 0)
+         continue;
+      if(!header_skipped) {
+         header_skipped = true;
+         continue;
+      }
+      ArrayResize(g_rpl_file_intervals, g_rpl_file_interval_count + 1);
+      g_rpl_file_intervals[g_rpl_file_interval_count].kind = (ArraySize(fields) > 0) ? fields[0] : "";
+      g_rpl_file_intervals[g_rpl_file_interval_count].from_ms =
+         (ArraySize(fields) > 1) ? (long)StringToInteger(fields[1]) : 0;
+      g_rpl_file_intervals[g_rpl_file_interval_count].to_ms =
+         (ArraySize(fields) > 2) ? (long)StringToInteger(fields[2]) : 0;
+      g_rpl_file_interval_count++;
+   }
+   FileClose(h);
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
 {
    count = 0;
@@ -1495,14 +1705,18 @@ bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
    const int h = FileOpen("replay\\" + filename, FILE_READ | FILE_CSV | FILE_ANSI, ',');
    if(h == INVALID_HANDLE)
       return false;
-   if(!FileIsEnding(h))
-      FileReadString(h);
-   while(!FileIsEnding(h)) {
-      const long ms = (long)StringToInteger(FileReadString(h));
-      const double bid = StringToDouble(FileReadString(h));
-      const double ask = StringToDouble(FileReadString(h));
-      if(!FileIsEnding(h))
-         FileReadString(h);
+   bool header_skipped = false;
+   string fields[];
+   while(Rpl_CsvReadLineFields(h, fields)) {
+      if(StringFind(fields[0], "#") == 0)
+         continue;
+      if(!header_skipped) {
+         header_skipped = true;
+         continue;
+      }
+      const long ms = (long)StringToInteger(fields[0]);
+      const double bid = (ArraySize(fields) > 1) ? StringToDouble(fields[1]) : 0.0;
+      const double ask = (ArraySize(fields) > 2) ? StringToDouble(fields[2]) : 0.0;
       ArrayResize(out, count + 1);
       out[count].time_msc = ms;
       out[count].bid = bid;
@@ -1514,31 +1728,80 @@ bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
 }
 
 //+------------------------------------------------------------------+
-void Rpl_WriteSegmentOutputs(const string tag)
+void Rpl_ComputeSegmentStats(int &fills, int &scalps, int &roll_closes, int &roll_accepted)
+{
+   fills = 0;
+   scalps = 0;
+   roll_closes = 0;
+   roll_accepted = 0;
+   for(int i = 0; i < ArraySize(g_rpl_deals); i++) {
+      if(g_rpl_deals[i].entry_type == DEAL_ENTRY_IN)
+         fills++;
+   }
+   for(int i = 0; i < ArraySize(g_rpl_events); i++) {
+      if(g_rpl_events[i].code == "ROLL_ACCEPTED")
+         roll_accepted++;
+      if(g_rpl_events[i].kind != "scalp")
+         continue;
+      if(StringFind(g_rpl_events[i].json, "\"rolled\":true") >= 0)
+         roll_closes++;
+      else if(StringFind(g_rpl_events[i].json, "\"rolled\":false") >= 0)
+         scalps++;
+   }
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_OpenRunOutputs(const string tag, RplRunOutputHandles &handles)
 {
    const string prefix = "replay\\out_" + tag + "_";
-   int w = FileOpen(prefix + "deals.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
-   FileWrite(w, "seg_id", "sync_idx", "time_ms", "deal", "order", "position", "entry_type", "deal_type", "role",
-             "side", "layer", "price");
+   handles.deals = FileOpen(prefix + "deals.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   handles.events = FileOpen(prefix + "events.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   handles.book = FileOpen(prefix + "book.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   handles.summary = FileOpen(prefix + "summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
+   handles.open = (handles.deals != INVALID_HANDLE && handles.events != INVALID_HANDLE
+                   && handles.book != INVALID_HANDLE && handles.summary != INVALID_HANDLE);
+   if(!handles.open)
+      return false;
+   FileWrite(handles.deals, "seg_id", "sync_idx", "time_ms", "deal", "order", "position", "entry_type", "deal_type",
+             "role", "side", "layer", "price");
+   FileWrite(handles.events, "seg_id", "sync_idx", "time_ms", "kind", "code", "json");
+   FileWrite(handles.book, "seg_id", "side", "layer", "entry", "vl", "open_ms", "swap");
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_CloseRunOutputs(RplRunOutputHandles &handles)
+{
+   if(handles.deals != INVALID_HANDLE)
+      FileClose(handles.deals);
+   if(handles.events != INVALID_HANDLE)
+      FileClose(handles.events);
+   if(handles.book != INVALID_HANDLE)
+      FileClose(handles.book);
+   if(handles.summary != INVALID_HANDLE)
+      FileClose(handles.summary);
+   handles.open = false;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_AppendSegmentOutputs(RplRunOutputHandles &handles)
+{
+   if(!handles.open)
+      return;
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    for(int i = 0; i < ArraySize(g_rpl_deals); i++) {
-      FileWrite(w, IntegerToString(g_rpl_deals[i].seg_id), IntegerToString(g_rpl_deals[i].sync_idx),
+      FileWrite(handles.deals, IntegerToString(g_rpl_deals[i].seg_id), IntegerToString(g_rpl_deals[i].sync_idx),
                 IntegerToString(g_rpl_deals[i].time_ms), IntegerToString((long)g_rpl_deals[i].deal),
                 IntegerToString((long)g_rpl_deals[i].order), IntegerToString((long)g_rpl_deals[i].position),
                 IntegerToString(g_rpl_deals[i].entry_type), IntegerToString(g_rpl_deals[i].deal_type),
                 g_rpl_deals[i].role, g_rpl_deals[i].side, IntegerToString(g_rpl_deals[i].layer),
-                DoubleToString(g_rpl_deals[i].price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)));
+                DoubleToString(g_rpl_deals[i].price, digits));
    }
-   FileClose(w);
-   w = FileOpen(prefix + "events.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
-   FileWrite(w, "seg_id", "sync_idx", "time_ms", "kind", "code", "json");
    for(int i = 0; i < ArraySize(g_rpl_events); i++) {
-      FileWrite(w, IntegerToString(g_rpl_events[i].seg_id), IntegerToString(g_rpl_events[i].sync_idx),
+      FileWrite(handles.events, IntegerToString(g_rpl_events[i].seg_id), IntegerToString(g_rpl_events[i].sync_idx),
                 IntegerToString(g_rpl_events[i].time_ms), g_rpl_events[i].kind, g_rpl_events[i].code,
                 g_rpl_events[i].json);
    }
-   FileClose(w);
-   w = FileOpen(prefix + "book.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
-   FileWrite(w, "seg_id", "side", "layer", "entry", "vl", "open_ms", "swap");
    for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
       const ulong pt = g_grind_long.layers[i].position_ticket;
       RplPosMeta m;
@@ -1548,7 +1811,7 @@ void Rpl_WriteSegmentOutputs(const string tag)
          swap = m.swap;
          open_ms = m.open_ms;
       }
-      FileWrite(w, IntegerToString(g_rpl_cfg.seg_id), "L", IntegerToString(g_grind_long.layers[i].layer_index),
+      FileWrite(handles.book, IntegerToString(g_rpl_cfg.seg_id), "L", IntegerToString(g_grind_long.layers[i].layer_index),
                 DoubleToString(g_grind_long.layers[i].entry_price, 5), DoubleToString(Grind_VLGet(pt), 5),
                 IntegerToString(open_ms), DoubleToString(swap, 8));
    }
@@ -1561,15 +1824,23 @@ void Rpl_WriteSegmentOutputs(const string tag)
          swap = m.swap;
          open_ms = m.open_ms;
       }
-      FileWrite(w, IntegerToString(g_rpl_cfg.seg_id), "S", IntegerToString(g_grind_short.layers[i].layer_index),
+      FileWrite(handles.book, IntegerToString(g_rpl_cfg.seg_id), "S", IntegerToString(g_grind_short.layers[i].layer_index),
                 DoubleToString(g_grind_short.layers[i].entry_price, 5), DoubleToString(Grind_VLGet(pt), 5),
                 IntegerToString(open_ms), DoubleToString(swap, 8));
    }
-   FileClose(w);
-   w = FileOpen(prefix + "summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
-   FileWrite(w, "ticks=", IntegerToString(g_rpl_all_tick_count), " gaps=", IntegerToString(g_rpl_gap_count),
-             " gv=", IntegerToString(Rpl_DeleteGrindGlobalVariables()));
-   FileClose(w);
+   int fills = 0;
+   int scalps = 0;
+   int roll_closes = 0;
+   int roll_accepted = 0;
+   Rpl_ComputeSegmentStats(fills, scalps, roll_closes, roll_accepted);
+   const uint run_ms = GetTickCount() - g_rpl_seg_run_start_ms;
+   const int aborted = g_rpl_aborted ? 1 : 0;
+   FileWrite(handles.summary,
+             "seg_id=" + IntegerToString(g_rpl_cfg.seg_id) + ",ticks=" + IntegerToString(g_rpl_seg_ticks_processed)
+             + ",fills=" + IntegerToString(fills) + ",scalps=" + IntegerToString(scalps) + ",roll_closes="
+             + IntegerToString(roll_closes) + ",roll_accepted=" + IntegerToString(roll_accepted) + ",gaps="
+             + IntegerToString(g_rpl_gap_count) + ",aborted=" + IntegerToString(aborted) + ",run_ms="
+             + IntegerToString((int)run_ms));
 }
 
 //+------------------------------------------------------------------+
@@ -1579,58 +1850,82 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
    ArrayResize(g_rpl_swaps, 0);
    int sh = FileOpen("replay\\swaps.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
    if(sh != INVALID_HANDLE) {
-      if(!FileIsEnding(sh))
-         FileReadString(sh);
-      while(!FileIsEnding(sh)) {
-         const string d = FileReadString(sh);
-         if(StringFind(d, "#") == 0)
+      bool header_skipped = false;
+      string fields[];
+      while(Rpl_CsvReadLineFields(sh, fields)) {
+         if(ArraySize(fields) > 0 && StringFind(fields[0], "#") == 0)
             continue;
-         const double pl = StringToDouble(FileReadString(sh));
-         const double ps = StringToDouble(FileReadString(sh));
-         const double mult = StringToDouble(FileReadString(sh));
+         if(!header_skipped) {
+            header_skipped = true;
+            continue;
+         }
+         const string d = fields[0];
+         const double pl = (ArraySize(fields) > 1) ? StringToDouble(fields[1]) : 0.0;
+         const double ps = (ArraySize(fields) > 2) ? StringToDouble(fields[2]) : 0.0;
+         const double mult = (ArraySize(fields) > 3) ? StringToDouble(fields[3]) : 1.0;
          Rpl_AppendTestSwap(d, pl, ps, mult);
       }
       FileClose(sh);
+   }
+   Rpl_LoadIntervalsFile(tag);
+   if(sync_mode && !Rpl_LoadRealCsvFile(tag)) {
+      Print("RPL|ABORT|MISSING_REAL");
+      return false;
    }
    const int rh = FileOpen("replay\\run_" + tag + ".csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
    if(rh == INVALID_HANDLE) {
       Print("RPL|ABORT|MISSING_RUN");
       return false;
    }
-   if(!FileIsEnding(rh))
-      FileReadString(rh);
+   RplRunOutputHandles out;
+   if(!Rpl_OpenRunOutputs(tag, out)) {
+      FileClose(rh);
+      Print("RPL|ABORT|OUTPUT_OPEN");
+      return false;
+   }
    string tick_cache_name = "";
    RplTick tick_cache[];
    int tick_cache_count = 0;
-   while(!FileIsEnding(rh)) {
+   bool header_skipped = false;
+   string fields[];
+   while(Rpl_CsvReadLineFields(rh, fields)) {
+      if(ArraySize(fields) > 0 && StringFind(fields[0], "#") == 0)
+         continue;
+      if(!header_skipped) {
+         header_skipped = true;
+         continue;
+      }
+      if(ArraySize(fields) < 22)
+         continue;
       RplSegmentConfig cfg;
-      Rpl_DefaultConfig(cfg);
-      cfg.seg_id = (int)StringToInteger(FileReadString(rh));
-      cfg.instance = FileReadString(rh);
-      cfg.magic = (ulong)StringToInteger(FileReadString(rh));
-      cfg.from_ms = (long)StringToInteger(FileReadString(rh));
-      cfg.to_ms = (long)StringToInteger(FileReadString(rh));
-      cfg.width_l = StringToDouble(FileReadString(rh));
-      cfg.width_s = StringToDouble(FileReadString(rh));
-      cfg.add_l = StringToDouble(FileReadString(rh));
-      cfg.add_s = StringToDouble(FileReadString(rh));
-      cfg.exit_l = StringToDouble(FileReadString(rh));
-      cfg.exit_s = StringToDouble(FileReadString(rh));
-      cfg.cap = (int)StringToInteger(FileReadString(rh));
-      cfg.stranded = StringToDouble(FileReadString(rh));
-      cfg.deadband = StringToDouble(FileReadString(rh));
-      cfg.lattice = (StringToInteger(FileReadString(rh)) != 0);
-      cfg.reroll = (StringToInteger(FileReadString(rh)) != 0);
-      cfg.gate = (int)StringToInteger(FileReadString(rh));
-      cfg.carry = (StringToInteger(FileReadString(rh)) != 0);
-      cfg.fill_time_place = (StringToInteger(FileReadString(rh)) != 0);
-      cfg.reserve = (int)StringToInteger(FileReadString(rh));
-      const string seed_file = FileReadString(rh);
-      const string ticks_file = FileReadString(rh);
+      Rpl_SegmentConfigDefaults(cfg);
+      cfg.seg_id = (int)StringToInteger(fields[0]);
+      cfg.instance = fields[1];
+      cfg.magic = (ulong)StringToInteger(fields[2]);
+      cfg.from_ms = (long)StringToInteger(fields[3]);
+      cfg.to_ms = (long)StringToInteger(fields[4]);
+      cfg.width_l = StringToDouble(fields[5]);
+      cfg.width_s = StringToDouble(fields[6]);
+      cfg.add_l = StringToDouble(fields[7]);
+      cfg.add_s = StringToDouble(fields[8]);
+      cfg.exit_l = StringToDouble(fields[9]);
+      cfg.exit_s = StringToDouble(fields[10]);
+      cfg.cap = (int)StringToInteger(fields[11]);
+      cfg.stranded = StringToDouble(fields[12]);
+      cfg.deadband = StringToDouble(fields[13]);
+      cfg.lattice = (StringToInteger(fields[14]) != 0);
+      cfg.reroll = (StringToInteger(fields[15]) != 0);
+      cfg.gate = (int)StringToInteger(fields[16]);
+      cfg.carry = (StringToInteger(fields[17]) != 0);
+      cfg.fill_time_place = (StringToInteger(fields[18]) != 0);
+      cfg.reserve = (int)StringToInteger(fields[19]);
+      const string seed_file = fields[20];
+      const string ticks_file = (ArraySize(fields) > 21) ? fields[21] : "";
       if(ticks_file != tick_cache_name) {
          if(!Rpl_LoadTicksCsv(ticks_file, tick_cache, tick_cache_count)) {
             Print("RPL|ABORT|MISSING_TICKS");
             FileClose(rh);
+            Rpl_CloseRunOutputs(out);
             return false;
          }
          tick_cache_name = ticks_file;
@@ -1641,35 +1936,48 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
       cfg.sync = sync_mode;
       g_rpl_cfg = cfg;
       Rpl_ConfigureEngine(cfg);
+      g_rpl_seg_run_start_ms = GetTickCount();
       if(seed_file != "") {
          int sd = FileOpen("replay\\" + seed_file, FILE_READ | FILE_CSV | FILE_ANSI, ',');
          if(sd == INVALID_HANDLE) {
             Print("RPL|ABORT|MISSING_SEED");
             FileClose(rh);
+            Rpl_CloseRunOutputs(out);
             return false;
          }
-         if(!FileIsEnding(sd))
-            FileReadString(sd);
-         while(!FileIsEnding(sd)) {
-            const string side = FileReadString(sd);
-            const int layer = (int)StringToInteger(FileReadString(sd));
-            const double entry = StringToDouble(FileReadString(sd));
-            const long open_ms = (long)StringToInteger(FileReadString(sd));
-            const ulong ticket = (ulong)StringToInteger(FileReadString(sd));
-            const double vl = StringToDouble(FileReadString(sd));
-            const double swap = StringToDouble(FileReadString(sd));
-            const double vol = StringToDouble(FileReadString(sd));
+         bool seed_header = false;
+         string sfields[];
+         while(Rpl_CsvReadLineFields(sd, sfields)) {
+            if(ArraySize(sfields) > 0 && StringFind(sfields[0], "#") == 0)
+               continue;
+            if(!seed_header) {
+               seed_header = true;
+               continue;
+            }
+            const string side = sfields[0];
+            const int layer = (ArraySize(sfields) > 1) ? (int)StringToInteger(sfields[1]) : 0;
+            const double entry = (ArraySize(sfields) > 2) ? StringToDouble(sfields[2]) : 0.0;
+            const long open_ms = (ArraySize(sfields) > 3) ? (long)StringToInteger(sfields[3]) : 0;
+            const ulong ticket = (ArraySize(sfields) > 4) ? (ulong)StringToInteger(sfields[4]) : 0;
+            const double vl = (ArraySize(sfields) > 5) ? StringToDouble(sfields[5]) : 0.0;
+            const double swap = (ArraySize(sfields) > 6) ? StringToDouble(sfields[6]) : 0.0;
+            const double vol = (ArraySize(sfields) > 7) ? StringToDouble(sfields[7]) : RPL_LOTS_DEFAULT;
             Rpl_SeedLayer(side, layer, entry, open_ms, ticket, vl, swap, vol);
          }
          FileClose(sd);
       }
+      if(sync_mode)
+         Rpl_LoadSegmentSyncFromFile(cfg.from_ms, cfg.to_ms);
       if(!Rpl_RunTicks(tick_cache, tick_cache_count, cfg)) {
          FileClose(rh);
+         Rpl_AppendSegmentOutputs(out);
+         Rpl_CloseRunOutputs(out);
          return false;
       }
-      Rpl_WriteSegmentOutputs(tag);
+      Rpl_AppendSegmentOutputs(out);
    }
    FileClose(rh);
+   Rpl_CloseRunOutputs(out);
    return !g_rpl_aborted;
 }
 
