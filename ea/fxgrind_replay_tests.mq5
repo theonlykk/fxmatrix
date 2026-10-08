@@ -383,10 +383,10 @@ void Test_RT10_CarryShift()
    double p = 0.0;
    ulong tk = 0;
    AssertTrue("RT10 exit order", Rpl_FindOrderByRoleLayer("L", 0, "EXT", p, tk));
-   const double P = -(swap_long) * 3.0 / 10.0 * _Point * 10.0;
-   const double ledger = -0.00008;
-   const double expected = 1.10081 + (0.8 * _Point * 10.0 + P);
-   AssertNear("RT10 exit shifted", p, expected, 0.5 * _Point * 10.0);
+   const double pip = 10.0 * _Point;
+   const double P_pips = -(swap_long) * 3.0 / 10.0;
+   const double expected = 1.10081 + (0.8 + P_pips) * pip;
+   AssertNear("RT10 exit shifted", p, expected, 0.5 * pip);
 }
 
 void Test_RT11_Outputs()
