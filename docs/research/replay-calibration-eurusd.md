@@ -422,5 +422,28 @@ changes a preset; no mark adjusted to fit a result.
   without their `#` header line (it names the account) hash IDENTICAL,
   `1dcf00db198632c9` over 3,690 lines. B, C and D trade one EURUSD feed:
   every fleet replays on wine-d's ticks (no per-fleet dump).
+- **s4.2 checks 1-4 DONE (8 Oct 16:30-16:46Z; Claude on `--export-archive`
+  of `GRIND_EURUSD_OPTB` / `OPTC` / `OPTD` (1,131,962 / 1,113,415 / 917,307
+  bytes, Downloads, 8 Oct ~16:32-16:37Z) and the boxes' Experts logs).**
+  (1) `LATTICE_CONFIG` at every init = K15 on all three (re-roll false at
+  the Monday compile init, true from the Load; gate -1 at the Wednesday
+  compile init, 0 from the Load). (2) No `BREAKER_GATE_ON` / `_OFF` on any
+  EURUSD instance (archived since `6c57830`, before `0335f25`): the float
+  gate never bound; no `BREAKER_GATED` interval. (3) `WARN_API_SOFT_LIMIT`
+  is a terminal log line only (`fxgrind.mq5` 432), not archived: on
+  wine-d's 1 Oct log, 88 EURUSD lines, one a minute, 19:31:58-20:59:31Z
+  (the log clock is UTC: it stops at the 21:00Z server-day reset); 2 Oct
+  none; wine-test and wine-c none either day. **One interval: D,
+  `API_SOFT_WARN` from 1 Oct 19:30:58Z (the earliest onset; up to 60 s
+  early) to 21:00:00Z = server `2026.10.01 22:30:58` to `2026.10.02
+  00:00:00`, inside D's D1 segment.** (4) `DEAL_EVENT_MISSED` 0 on all
+  three; `DEAL_REPLAYED` paired with `DEAL_EVENT_AFTER_REPLAY` (B 283, C
+  326, D 330: the healthy timer-first pattern); in-window quarantines, all
+  2 Oct around the 12:30Z US payrolls, none halted: C `I3_SHORT_NAKED`
+  12:33:51Z (1.3 s), `I3_LONG_NAKED` 12:52:10Z (1.4 s); D `I3_SHORT_NAKED`
+  12:30:20Z (1.5 s), `I6_LONG_EXIT_FILL_ADVERSE` 12:30:31Z (1.6 s); B's one
+  (1 Oct 01:24Z) is before its window. About 6 s of skipped engine calls
+  in all: recorded as data, not modelled (inside T1's 60 s; M11 if a miss
+  traces to one). Check (5), K18 on the scoring export, tonight.
 
-Line count: 426
+Line count: 449
