@@ -14,6 +14,19 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 7 Oct 23:55Z - 8 Oct 00:00Z -- pipshed C137 deployed; migration 005 applied (pipshed, all fleets' pages)
+- **What:** pipshed `2385d24` pushed 23:55Z (the Scalps per roll table,
+  one-minute `state_snapshots`, the `/sr` export, Server-Timing on
+  /fleets, A shown as FTMO-IC 1514878887). Railway redeployed the four
+  web services and the archive worker (~3 min; the worker's first table
+  23:58:13Z). The operator ran `db_migrate.py`: `Applied
+  005_c137_state_snapshots` (~00:00Z).
+- **Handled:** the EAs keep failed archive posts queued over a restart;
+  no alert raised. Snapshots 00:00Z on: 34 rows a minute.
+- **Changed:** the first Server-Timing read named the /fleets cost: the
+  ejection view, 8.7 of 8.8 s (C102).
+- **Evidence:** HANDOFF s66; pipshed `RAILWAY.md`.
+
 ### 7 Oct 21:23-22:17Z -- FTMO cycle 3 retired; new free trial 1514878887 runs the IC strategy static
 - **What:** FTMO 1514731800 expired with the 7 Oct session. Operator
   (~16:40-16:45Z): the new trial runs the latest IC strategy (lattice,
@@ -554,4 +567,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 557
+Line count: 570

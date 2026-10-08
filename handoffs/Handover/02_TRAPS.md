@@ -2048,4 +2048,32 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **The VPS Experts log is in UTC; the desktop terminal's clock is ET:**
   checker FROM times on the VPS are UTC.
 
-Line count: 2051
+
+## TRAPS FROM 2026-10-08 EARLY (PIPSHED C137, THE STRIP'S TIME)
+
+- **Profile on the server, not by guessing:** a local profile with
+  production-sized scalp lists blamed the scalp summaries (~1-2 s); the
+  Server-Timing header on the live /fleets put them at 68 ms and the
+  ejection view at 8,727 of 8,830 ms. Read `Server-Timing` from the pane
+  (`fetch(...).headers.get('server-timing')`) before any strip fix.
+- **A pipshed push deploys at once:** Railway rebuilds the web services
+  AND the archive worker from `main` within ~3 minutes (`/sr` 404 at
+  23:55Z, live by 23:58Z). Push outside 20:50-21:00Z (carry pass posts).
+  A new table (migration) is applied separately: `railway ssh --service
+  archive-worker ... python db_migrate.py`; code that writes to it must
+  skip quietly until then (C137's snapshot writer does).
+- **Account fields come from one instance per account:** in
+  `state_snapshots` (and the heartbeat) `balance` / `equity` are filled
+  on GBPUSD for A, B, D and AUDCAD for C, empty elsewhere. Read the
+  account's equity from that row.
+- **The book's per-position `profit` and the EA's `net_mtm` differ by
+  ~$1 on deep books** (inferred: swap / commission in `net_mtm`; not yet
+  checked in source). Do not sum `mtm_long + mtm_short` against the FTMO
+  limit; use `equity`.
+- **The pane's JavaScript tool times out at 45 s:** a loop of six slow
+  /fleets fetches never returned. Start the loop, store results on
+  `window`, return at once, and read them in a second call.
+- **A browser-pane site approval is per host:** `linux.pipshed.com`
+  needed its own approval (granted "site" 7 Oct ~23:20Z).
+
+Line count: 2079
