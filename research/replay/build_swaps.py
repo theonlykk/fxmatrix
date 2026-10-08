@@ -3,7 +3,11 @@
 Base prompt s3.2: swaps.csv = server_date,points_long,points_short,mult, one
 row per server date D = the rollover INTO D 00:00 server. The harness adds
 points x mult x tick_value x volume to every open position when a tick
-crosses into D (fix 1 A3).
+crosses into D (fix 1 A3). The points written are EFFECTIVE (operator 8 Oct
+~20:37Z): the broker rounds each night's charge to the cent, the harness
+does not, so each row carries round(rate x mult x 0.01, 2) / (mult x 0.01)
+and the harness books the broker's cent exactly at 0.01 lot (a '#' line in
+the file says so; mult-0 rows keep the raw rate).
 
 The rule, measured EXACTLY (no tolerance) 8 Oct ~20:35Z on every closed EURUSD
 ENT position of B, C and D since 24 Sep (626 of 626; HANDOFF s73): the points
@@ -82,6 +86,20 @@ def rate_for(snaps, d):
     return (snaps[j][1], snaps[j][2])
 
 
+REF_VOLUME = 0.01       # every EURUSD layer on B, C, D (fill_logs volume 0.01 throughout)
+REF_TICK_VALUE = 1.0    # IC EURUSD on a USD account (15 of 15 CARRY_SNAPSHOT; fix 5 GH5-2)
+COMMENT = ("# points are EFFECTIVE: each night's broker charge at 0.01 lot and tick value 1.0 "
+           "rounded to the cent / (mult x 0.01); mult 0 rows keep the raw rate (HANDOFF s73)")
+
+
+def effective_points(points, mult):
+    """Points that make points x mult x tick value x volume equal the broker's cent at REF_VOLUME."""
+    if mult == 0:
+        return points
+    unit = mult * REF_TICK_VALUE * REF_VOLUME
+    return round(points * unit, 2) / unit
+
+
 def build_rows(snaps, first, last):
     """One row per server date first..last inclusive; ValueError if a date has no rate."""
     rows = []
@@ -90,13 +108,14 @@ def build_rows(snaps, first, last):
         r = rate_for(snaps, d)
         if r is None:
             raise ValueError("no CARRY_SNAPSHOT before %s 00:00 server" % d.isoformat())
-        rows.append((d.strftime("%Y.%m.%d"), r[0], r[1], multiplier(d)))
+        m = multiplier(d)
+        rows.append((d.strftime("%Y.%m.%d"), effective_points(r[0], m), effective_points(r[1], m), m))
         d += dt.timedelta(days=1)
     return rows
 
 
 def to_csv(rows):
-    lines = [HEADER] + ["%s,%s,%s,%d" % (d, repr(pl), repr(ps), m) for d, pl, ps, m in rows]
+    lines = [COMMENT, HEADER] + ["%s,%s,%s,%d" % (d, repr(pl), repr(ps), m) for d, pl, ps, m in rows]
     return "\n".join(lines) + "\n"
 
 
