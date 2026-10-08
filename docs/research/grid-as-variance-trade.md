@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **NOTES FOR THE OPERATOR** (Claude, 7 Oct ~23:15Z). s1-s4 are algebra (s1 checked by simulation); s5 a first look at three days of FTMO minute data; s6 a literature map; s7 conjectures to test. Nothing here changes a rule. Gemini later, one document at a time (after the IC-vs-FTMO rewrite and `scalps-per-roll.md`) |
+| Status | **NOTES FOR THE OPERATOR** (Claude, 7 Oct ~23:15Z). s1-s4 are algebra (s1 checked by simulation); s5 a first look at three days of FTMO minute data; s6 a literature map; s7 conjectures to test. **8 Oct ~01:30Z: s9 the literature read in full (three readers), s10 the operator's two corrections (we follow the market; three scales W, e, D), s11 the edge ratio rho with its cost hurdle and a first look from our own trades, s12 calibration before any replay.** Nothing here changes a rule. Gemini later, one document at a time (after the IC-vs-FTMO rewrite and `scalps-per-roll.md`) |
 | Origin | Operator 7 Oct ~22:23Z: "i would like to spend time tonight really obsessing about S/R and k* ... I feel that we are not the first people to look at efficient delta hedging of an option - so there must be volumes of research out there. I want to get a very good intuitive feel of this as if we can condense the 3 dials we have add/exit and layers into lower dimensions, i think we can really make our trading more sophisticated" |
 | Builds on | `docs/research/scalps-per-roll.md` (k* = N*a/e - 1; S/R = k* under a random walk; the measures study s8) |
 
@@ -194,7 +194,169 @@ V(s) in pips^2 per day, legs in brackets. Source: the dump of 7 Oct
 - **The S/R replay (C135)** becomes the check that s1-s4's continuum
   picture matches the EA's discrete rules (width, deadband, gate).
 
+## 9. THE LITERATURE, READ (8 Oct ~00:45-01:00Z)
+
+Three readers, one strand each; each source marked as read. Results that
+are a reader's own derivation or check, not the paper's, are marked so.
+
+1. **Geometry alone cannot earn.** Every serious source agrees with s2:
+   zero expectation on a driftless random walk, negative after costs. The
+   academic grid papers add nothing (Taranto-Khan 2020: no costs, the
+   grid theorem unproved, ruin "almost surely"; Chen et al. 2025, arXiv
+   2506.11921: in-sample BTC/ETH). Olsen's Alpha Engine / coastline
+   trader (Golub, Glattfelder, Olsen 2017, SSRN 2951348; read in full with
+   its reference code: thresholds 0.25-1.5%, cascade one unit per
+   threshold, scalp = spacing, no cap, no stop, thresholds tilt above 15 /
+   30 units) claims a profit on a random walk: impossible, a warning about
+   unmarked open inventory.
+2. **FX scaling laws** (Glattfelder, Dupuis, Olsen 2011, arXiv 0809.1040,
+   read in full by extraction; 13 pairs, tick mid 2002-2007): directional
+   changes per year at threshold s ~ s^E, E averaging -2.03 (random walk
+   -2). In our terms V(s) ~ s^(2+E): **USD majors E ~ -1.91 (EURUSD
+   -1.908, GBPUSD -1.904, USDJPY -1.928): V rises 20-30% from 5 to 70
+   pips (trendy at the coarse scale); EUR / GBP / CHF crosses E ~ -2.13 to
+   -2.18 (EURGBP -2.178, EURCHF -2.158, GBPCHF -2.131): V falls 25-37%
+   (reverting).** Overshoot after a reversal ~ the threshold, which a
+   random walk also gives (P(run beyond x) = exp(-x/e); with e = 8, 5% at
+   24 pips, 0.01% at 72): our roll risk is the real tail beyond that curve.
+   V(s) is a known estimator (duration-based volatility, Andersen, Dobrev,
+   Schaumburg 2008): noise inflates it below ~3 spreads on ticks; minute
+   bars deflate it at a few pips.
+3. **Exit size against cost.** Mean-anchored (OU, Bertram 2010, via
+   restatements; reader re-derived): optimal band u* ~ (1.5 c sigma^2 /
+   theta)^(1/3), the cube-root law of the Whalley-Wilmott hedging band.
+   Unanchored lattice (the reader's derivation from our P&L identity, not
+   published): E[P&L] = RV(1 - VR)/(2a) - c n/2, maximised at **a* ~ 2c /
+   (1 - VR)**, VR = net move^2 / path variance over the stack's life. At
+   c 0.8 our exit of 10 is optimal at VR ~ 0.84 (GBPUSD); at c 1.4 at VR ~
+   0.72 (AUDNZD). Leung-Li 2015 (read in full): with a stop the optimal
+   entry region moves away from the stop.
+4. **Inventory-bounded market making** (Gueant, Lehalle, Fernandez-Tapia
+   2013, read in full by extraction): the quote step per unit of inventory
+   (our add) is linear in sigma (STEP ~ sigma sqrt(gamma / (2kA))) while the
+   cap is loose; the exit (2 x base ~ 2/k) does not depend on sigma or
+   depth. **With a tight cap (ours) the reader's own solution of the
+   paper's exact equations says the cap sets the spacing, which widens
+   toward it (gaps ~ 1 : 1.4 : 2.9 for a cap of 4) and barely moves with
+   sigma** (not the paper's claim; a lead for a graded add, cf. B1 27 Sep).
+   Avellaneda-Stoikov's skew: when long, quote the offer close, the bid far.
+5. **Hedging on price moves is efficient** (Fukasawa 2014; Rosenbaum-
+   Tankov 2014, read in full): hitting-time rebalancing gives ~1/3 of the
+   tracking variance of clock rebalancing at the same number of trades; a
+   constant band is the efficient scheme when the hedge changes by one lot
+   per band (our lattice). Efficient for tracking variance, not for P&L.
+
+## 10. WHAT OUR GRID DOES THAT THE MODELS DO NOT (operator 8 Oct ~01:00Z)
+
+1. **We follow the market (the roll).** A roll books the oldest layer's
+   loss and re-centres the stack where the price is: the grid needs price
+   to oscillate WITHIN D over a stack's life, not to return to a fixed
+   level. So the anchored OU result (s9.3, Bertram) does not fit us; the
+   lattice-local a* = 2c/(1 - VR) does. Operator: "we think that market
+   will cluster in different ranges - and we want to follow the market to
+   those cluster ranges ... trade that path dependent volatility". FX
+   literature on clustering at levels (not read yet): Osler 2000 / 2003
+   (take-profit and stop orders at round numbers: reversals there, then
+   acceleration through them). The operator's M1 vs M5 point: sum of ten
+   M1 ranges >= sum of two M5 ranges on ANY path; the information is the
+   size against a random walk (range ~ sqrt(time)): ratio sqrt(5) = 2.24;
+   above = back-and-forth, below = trend. Parked: operator ~01:07Z, "we
+   dont go down the path of time series analysis or worse signals".
+2. **Inventory drives entry (a momentum leg).** A loaded side buys only at
+   its fixed adds a away; an empty side's L0 floats W from the market
+   (C103; docs, not checked in source tonight). In a fall the long stack is
+   a reversion bet and the empty short side sells a W bounce and scalps if
+   the fall resumes: a continuation bet at the small scale. This week: short
+   EURUSD scalped 13 / 1, 14 / 0, 12 / 1 (S / R; B, C, D) while the longs
+   rolled. The GLFT / Avellaneda-Stoikov skew in direction; for them risk
+   control, for us also a profit leg.
+
+So the grid has **three scales: W (counter entry), e (exit) and D = N*a
+(stack)**, and its edge is a joint property of the path at W, e and D,
+not V(s) alone. Still zero on a random walk (optional stopping).
+
+## 11. ONE NUMBER: THE EDGE RATIO rho
+
+    rho = (S + R) * e / (R * D)        (closes per roll / (D/e))
+
+- **rho = 1 on a random walk at any geometry** (s2); rho > 1: the pair
+  turned inside the stack more often than a random walk would.
+- **The cost hurdle is e / (e - c)**: S/R > k* (with costs) is exactly
+  rho > e/(e - c). GBPUSD / EURUSD (e 10, c 0.8) 1.09; EURGBP (e 5) 1.14;
+  AUDNZD (c 1.4) 1.16; D AUDCHF (e 9) 1.08. Geometry drops out of the
+  comparison except through the hurdle: one number per pair and side,
+  comparable across fleets, probes and days.
+- **Count the open book.** Realised-only flatters: open losses are rolls
+  in waiting. R_eff = R + max(0, -open pips) / (D - e). Fleet D (started
+  flat 1 Oct 05:19Z), 1-8 Oct 00:02Z, gross of commission (D's ~$96 of
+  commission reconciles +$177 realised to its +$74 balance):
+
+| D | realised $ | open $ | equity $ | rho realised | rho with open book |
+|---|---:|---:|---:|---:|---:|
+| GBPUSD | +78.3 | -19.3 | +59.0 | 3.12 | 1.98 |
+| NZDCAD | +50.0 | -6.3 | +43.7 | (1 roll) | 7.5 (thin) |
+| AUDNZD | +28.9 | -12.6 | +16.3 | 1.95 | 1.33 |
+| AUDCHF | +32.0 | -27.1 | +4.9 | 1.06 | 0.81 |
+| NZDCHF | +1.4 | -6.0 | -4.6 | 1.15 | 1.02 |
+| AUDCAD | +12.8 | -23.2 | -10.4 | 1.26 | 0.77 |
+| CADCHF | +5.2 | -16.9 | -11.7 | 1.03 | 0.84 |
+| EURGBP | -12.0 | -18.5 | -30.5 | 0.99 | 0.79 |
+| EURUSD | -19.7 | -29.0 | -48.6 | 0.84 | 0.74 |
+
+- **Noise:** rho moves roughly with 1/R, so its relative error is ~1/sqrt(R):
+  35-45% for a two-day round on a pair with 5-10 rolls. Telling 0.81 from
+  1.0 needs ~50+ rolls (weeks live). Per-day figures filtered to days with
+  a roll are biased LOW (every pair's daily median sat below its pooled
+  value): ranges need multi-day blocks with the open book at each end.
+- **The operator's frame (~01:10Z):** like a forward spread that "in theory
+  could be 500bps, but over the last 5 yrs had been in a 100bp range" -
+  get "down to a single number of truth - even given a set of conditions"
+  and trade around it, from our own trade history. Structural use: choose
+  each pair's geometry so its hurdle sits below the low end of its rho
+  range. Tactical use ("this week is at the edge") is nearer a signal:
+  hold until the ranges are established.
+- From 8 Oct 00:00Z `state_snapshots` give each instance's open MTM per side
+  every minute: rho with the open book becomes exact per pair, side and
+  day on all four fleets from tonight (backlog C141).
+- **Can a probe lift a pair's rho (operator ~01:19Z, AUDCHF 0.81)?** Only
+  by moving the geometry onto scales where the pair does revert; a probe
+  finds an edge, it cannot make one. A two-day round cannot resolve it
+  (noise above): the replay sweep first (s12), then a probe aimed at its
+  peak, one scale at a time (C-4).
+
+## 12. CALIBRATION BEFORE ANY REPLAY (operator 8 Oct ~01:22Z-01:31Z)
+
+We were loath to backtest because a replay does not replicate real life.
+Operator: "we dont have much trade data, but we have more than zero ...
+pick a fxpair with a lot of trade points we can calibrate against and see
+if we can replicate the trade history we observed"; "getting a reliable
+replay would be a huge result". The plan (to be written as a
+pre-registered document for Gemini, next chat):
+
+- **EURUSD on B, C and D**: one IC price stream, three geometries, three
+  observed histories (D 115 scalps / 30 rolls / 618 deals since 1 Oct,
+  started flat 05:19Z; C 98 / 35; B 87 / 32 / 827 deals). A replay that
+  reproduces all three from one tick stream has the rules, not a fit.
+  A trend week and chop.
+- **Ticks**, not minute bars (limit fills are touch events): IC EURUSD
+  from wine-d, a tick-writing variant of `scripts/grind_bidask_dump.mq5`.
+- **Ground truth**: fill_logs, config_events (the geometry timeline),
+  ROLL_* events (`study_2026-10-08_0110.jsonl`, 21,999 fill rows, 5,195
+  scalps, 1,393 config events, from 22 Sep).
+- **Engine, Gemini to rule**: (a) MT5 Strategy Tester running the real EA
+  on IC's real ticks (same code; an IC terminal for testing; live-only
+  paths never run in the tester) or (b) the Python port (C118), tests first.
+- **Pass marks fixed before any run**, e.g. >= 90% of real deals matched
+  on side and layer within 0.2 pip and 60 s; daily S and R per side within
+  10%; rho per side within 0.1. Every miss categorised (deadband
+  re-quotes, carry shifts, the gate, API, latency).
+- Only after a pass: geometry sweeps on the same week, then back over IC's
+  tick history: the rho ranges (s11), AUDCHF the first case.
+
 ## SOURCES
+
+Added 8 Oct (s9): Glattfelder, Dupuis, Olsen (2011) https://arxiv.org/pdf/0809.1040 (read in full by extraction; appendix tables A13-A22 not seen); Golub, Glattfelder, Olsen (2017) Alpha Engine https://www.smallake.kr/wp-content/uploads/2019/02/SSRN-id2951348.pdf and https://raw.githubusercontent.com/AntonVonGolub/Code/master/code.java (read in full); Andersen, Dobrev, Schaumburg (2008) https://gcoe.ier.hit-u.ac.jp/information/schedule/pdf/ADS_DRVDraft_0807.pdf (read in full); Gueant, Lehalle, Fernandez-Tapia (2013) https://arxiv.org/pdf/1105.3115 (read in full by extraction, figures not seen); Avellaneda-Stoikov (2008) https://www.math.nyu.edu/~avellane/HighFrequencyTrading.pdf (read); Gueant (2017) https://arxiv.org/pdf/1605.01862 (s2-4); Fukasawa (2014) https://arxiv.org/pdf/1204.0637 (read in full); Baviera and Santagostino Baldi (2017) https://arxiv.org/pdf/1706.07021 (read in full); Chen, Chen, Jang (2025) https://arxiv.org/html/2506.11921v1 (read in full); Bertram (2010) original NOT accessed (restatements only); Cartea-Jaimungal-Penalva (2015), Osler (2000/2003), Guillaume et al. (1997) NOT read.
+
 
 - Rosenbaum, M. and Tankov, P. (2014), "Asymptotically optimal
   discretization of hedging strategies with jumps", Annals of Applied
@@ -220,4 +382,4 @@ V(s) in pips^2 per day, legs in brackets. Source: the dump of 7 Oct
   IMFI 17(3):
   https://businessperspectives.org/publishing-policies2/gambler-s-ruin-problem-and-bi-directional-grid-constrained-trading-and-investment-strategies
 
-Line count: 223
+Line count: 385

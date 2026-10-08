@@ -2076,4 +2076,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A browser-pane site approval is per host:** `linux.pipshed.com`
   needed its own approval (granted "site" 7 Oct ~23:20Z).
 
-Line count: 2079
+## TRAPS FROM 2026-10-08 NIGHT (READING OUR OWN TRADES)
+
+- **Realised-only ratios flatter a trending week:** open losses are rolls
+  in waiting. Count them (R_eff, `grid-as-variance-trade.md` s11) or the
+  "edge" hides in the open book (D 1-8 Oct: AUDCHF 1.06 realised, 0.81
+  with the book).
+- **Per-day ratios filtered to days with a roll are biased low:** days
+  of pure scalping drop out. Pool, or use multi-day blocks with the open
+  book at each end.
+- **scalp_history flags exist only from their migrations:** `ejected`
+  from 28 Sep, `rolled` from 1 Oct (the lattice); before that a close's
+  kind is unknown. Cycle 3's rows carry `rolled` null (no lattice).
+- **The Downloads folder is too large to list** (184 k characters): stage
+  a file by its exact name instead of listing the folder.
+- **Literature by subagent:** arXiv PDFs are read through text extraction
+  (figures and some equations lost); every result a reader derived or
+  checked itself is marked so in s9. Verify before building on one.
+
+Line count: 2097
