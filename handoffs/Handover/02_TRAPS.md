@@ -2146,4 +2146,25 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Cursor left the desktop on `replay-harness` again** after fix 3: check
   `git status -sb` before every `git am` (traps 8 Oct night late).
 
-Line count: 2149
+## TRAPS FROM 2026-10-08 AFTERNOON (THE REPLAY TERMINAL)
+
+- **A portable copy of the FTMO-branded MT5 logs in to IC:** search the
+  server name `ICMarketsSC-Demo` in the Open an Account wizard (it lists
+  as Raw Trading Ltd); the brand only sets the default server list.
+- **"Investor" = the same login with the read-only password.** The IC
+  portal shows only the master; set the read-only one from a terminal
+  logged in with the master (Tools -> Options -> Server -> Change ->
+  investor). Check the journal: "trading has been disabled - investor
+  mode" (the master prints "trading has been enabled"). Delete a saved
+  master login (Navigator -> Accounts) before logging in read-only.
+- **A `[StartUp]` .ini must be UTF-16 LE:** a UTF-8 file is refused
+  ("cannot load config ... at start").
+- **`SYMBOL_TRADE_TICK_VALUE` reads 0 for ~2 s after a scripted terminal
+  start:** anything that multiplies by it (carry, profit, swap) is 0, and
+  a test whose expected value uses the same live 0 passes vacuously.
+  Wait for it (fix 5 H4) and assert hand-derived values.
+- **A replay harness test can be right in name and wrong in timing:**
+  RT15 asserted "after the first tick" after all ticks; it passed only
+  while every swap was 0.
+
+Line count: 2170
