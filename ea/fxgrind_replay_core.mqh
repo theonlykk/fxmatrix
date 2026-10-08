@@ -563,20 +563,20 @@ void Rpl_ReplayAppendDeal(const ulong deal_ticket,
                           const datetime deal_time,
                           const ulong magic)
 {
-   ArrayResize(g_rpl_deal_test_records, g_rpl_deal_test_count + 1);
-   g_rpl_deal_test_records[g_rpl_deal_test_count].deal_ticket = deal_ticket;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].symbol = _Symbol;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].magic = (long)magic;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].comment = comment;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].entry_type = entry_type;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].order_ticket = order_ticket;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].position_id = position_id;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].price = price;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].profit = profit;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].swap = swap;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].commission = commission;
-   g_rpl_deal_test_records[g_rpl_deal_test_count].deal_time = deal_time;
-   g_rpl_deal_test_count++;
+   ArrayResize(g_grind_deal_test_records, g_grind_deal_test_count + 1);
+   g_grind_deal_test_records[g_grind_deal_test_count].deal_ticket = deal_ticket;
+   g_grind_deal_test_records[g_grind_deal_test_count].symbol = _Symbol;
+   g_grind_deal_test_records[g_grind_deal_test_count].magic = (long)magic;
+   g_grind_deal_test_records[g_grind_deal_test_count].comment = comment;
+   g_grind_deal_test_records[g_grind_deal_test_count].entry_type = entry_type;
+   g_grind_deal_test_records[g_grind_deal_test_count].order_ticket = order_ticket;
+   g_grind_deal_test_records[g_grind_deal_test_count].position_id = position_id;
+   g_grind_deal_test_records[g_grind_deal_test_count].price = price;
+   g_grind_deal_test_records[g_grind_deal_test_count].profit = profit;
+   g_grind_deal_test_records[g_grind_deal_test_count].swap = swap;
+   g_grind_deal_test_records[g_grind_deal_test_count].commission = commission;
+   g_grind_deal_test_records[g_grind_deal_test_count].deal_time = deal_time;
+   g_grind_deal_test_count++;
 }
 
 //+------------------------------------------------------------------+
@@ -682,7 +682,7 @@ void Rpl_PruneLattice(const long tick_ms)
 void Rpl_ApplySwapRollover(const long tick_ms)
 {
    const datetime day = (datetime)(tick_ms / 1000);
-   const MqlDateTime dt;
+   MqlDateTime dt;
    TimeToStruct(day, dt);
    const string dkey = StringFormat("%04d.%02d.%02d", dt.year, dt.mon, dt.day);
    double pl = 0.0, ps = 0.0, mult = 1.0;
@@ -890,9 +890,12 @@ void Rpl_SyncResetToTrueBook()
    }
    for(int t = 0; t < g_rpl_true_book_count; t++) {
       bool present = false;
-      GrindSideState side = (g_rpl_true_book[t].side == "L") ? g_grind_long : g_grind_short;
-      for(int i = 0; i < ArraySize(side.layers); i++) {
-         if(side.layers[i].position_ticket == g_rpl_true_book[t].ticket) {
+      const bool tb_long = (g_rpl_true_book[t].side == "L");
+      const int layer_n = tb_long ? ArraySize(g_grind_long.layers) : ArraySize(g_grind_short.layers);
+      for(int i = 0; i < layer_n; i++) {
+         const ulong pt = tb_long ? g_grind_long.layers[i].position_ticket
+                                : g_grind_short.layers[i].position_ticket;
+         if(pt == g_rpl_true_book[t].ticket) {
             present = true;
             break;
          }
@@ -946,7 +949,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    const long t = tick.time_msc;
    static long last_day = 0;
    const datetime tsec = (datetime)(t / 1000);
-   const MqlDateTime dt;
+   MqlDateTime dt;
    TimeToStruct(tsec, dt);
    const long day_key = dt.year * 10000 + dt.mon * 100 + dt.day;
    if(last_day != 0 && day_key != last_day)
@@ -1130,8 +1133,8 @@ bool Rpl_FindOrderByRoleLayer(const string side_letter, const int layer, const s
       if(!GrindCommentParse(g_grind_order_test_records[i].comment, slot, side, lyr, r))
          continue;
       if(side == side_letter && lyr == layer && r == role) {
-         price_out = g_rpl_order_test_records[i].price;
-         ticket_out = g_rpl_order_test_records[i].ticket;
+         price_out = g_grind_order_test_records[i].price;
+         ticket_out = g_grind_order_test_records[i].ticket;
          return true;
       }
    }
@@ -1183,6 +1186,47 @@ string Rpl_ScalpEventPeek()
 bool Rpl_RunReplayScript(const string tag, const bool sync_mode)
 {
    Print("RPL|STUB_RUN|", tag, "|sync=", sync_mode);
+   return false;
+}
+
+//+------------------------------------------------------------------+
+int Rpl_CurrentSyncIdx()
+{
+   return g_rpl_sync_idx;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_HasPosition(const ulong ticket)
+{
+   for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
+      if(g_grind_long.layers[i].position_ticket == ticket)
+         return true;
+   }
+   for(int i = 0; i < ArraySize(g_grind_short.layers); i++) {
+      if(g_grind_short.layers[i].position_ticket == ticket)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
+{
+   return Rpl_RunReplayScript(tag, sync_mode);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_SetSyncRealKindRows(const string csv_rows[], const int count) {}
+
+//+------------------------------------------------------------------+
+int Rpl_GapReportCount()
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_GapReportAt(const int index, long &from_ms, long &seconds)
+{
    return false;
 }
 
