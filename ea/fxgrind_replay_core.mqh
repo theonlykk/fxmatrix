@@ -251,7 +251,30 @@ bool Rpl_SafeToRun(const string data_path, const bool trade_allowed, const long 
 //+------------------------------------------------------------------+
 bool Rpl_WaitSymbolReady(const int timeout_ms)
 {
-   return true;
+   SymbolSelect(_Symbol, true);
+   int waited_ms = 0;
+   while(waited_ms < timeout_ms) {
+      const double tick_value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+      const double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+      MqlTick tick;
+      const bool tick_ok = SymbolInfoTick(_Symbol, tick);
+      if(tick_value > 0.0 && tick_size > 0.0 && tick_ok) {
+         Print("RPL|SYMBOL_READY|tick_value=", tick_value, "|tick_size=", tick_size, "|waited_ms=", waited_ms);
+         return true;
+      }
+      if(waited_ms % 5000 == 0) {
+         Print("RPL|SYMBOL_WAIT|tick_value=", tick_value, "|tick_size=", tick_size, "|tick_ok=", tick_ok ? 1 : 0,
+               "|waited_ms=", waited_ms);
+      }
+      Sleep(500);
+      waited_ms += 500;
+   }
+   const double tick_value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   const double tick_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   MqlTick tick;
+   const bool tick_ok = SymbolInfoTick(_Symbol, tick);
+   Print("RPL|ABORT|NO_TICK_VALUE|tick_value=", tick_value, "|tick_size=", tick_size, "|tick_ok=", tick_ok ? 1 : 0);
+   return false;
 }
 
 //+------------------------------------------------------------------+

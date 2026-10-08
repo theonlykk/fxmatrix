@@ -18,6 +18,8 @@ void OnStart()
       Print("RPL|ABORT|SAFETY");
       return;
    }
+   if(!Rpl_WaitSymbolReady(60000))
+      return;
    const int gv0 = Rpl_DeleteGrindGlobalVariables();
    Print("RPL|GV_DELETE|", gv0);
    if(!Rpl_RunReplayFiles(InpRunTag, InpSync)) {
