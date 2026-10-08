@@ -1,0 +1,26 @@
+# MT5 script log excerpt: fxgrind_replay_tests @ 6e63d50 (2026-10-08 ~14:00 local)
+# portable: D:\mt5-replay | ini: replay_rt_6e63d50.ini (UTF-16)
+# Terminal exit code: 0
+
+RPL|MIRRORS_EA|5bb5fdb
+FAIL | RT5b ext fill deal_type
+FAIL | RT5b exit px
+FAIL | RT10 exit shifted
+FAIL | RT5b ext fill deal_type
+FAIL | RT5b exit px
+FAIL | RT12 closeby sends
+FAIL | RT14 lattice abort
+FAIL | RT14 abort reason
+RPL|GAP|1791280800000|50399
+FAIL | RT10 exit shifted
+FAIL | RT10 exit shifted
+RPL|GAP|1791280830000|90
+RPL|GAP|1791280920000|49980
+FAIL | RT21 one gap
+FAIL | RT23 seg1 present
+FAIL | RT23 seg2 present
+RPL|BAD_HEADER|ticks_rt28.csv|1791280800000
+RPL|ABORT|BAD_RUN_ROW|seg_line=1|fields=21
+RPL|ABORT|MISSING_SWAPS
+RPL|ABORT|BAD_RUN_ROW|seg_line=1|ticks_file=empty
+RPL|SUMMARY|run=259|pass=246
