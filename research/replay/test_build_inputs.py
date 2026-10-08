@@ -54,6 +54,11 @@ class TestFleetFiles(unittest.TestCase):
         self.assertEqual(files["intervals_eurusd_d.csv"],
                          "kind,from_ms,to_ms\nAPI_SOFT_WARN,%d,%d\n" % (T1 + 5, T1 + 9))
 
+    def test_real_includes_a_deal_at_the_window_start(self):
+        rows = self.rows + [fill(901, 2, "IN", "ENT", "S", 0, 1.10200, T1)]
+        real = bi.fleet_files(rows, "eurusd_b", T1, END, 1, "t.csv", [], [])["real_eurusd_b.csv"]
+        self.assertIn("\n%d,ENT,S,0,1.10200,901,0.00000\n" % T1, real)
+
     def test_all_ascii_no_bom(self):
         for name, text in bi.fleet_files(self.rows, "eurusd_c", T1, END, 10, "t.csv", [], []).items():
             text.encode("ascii")
