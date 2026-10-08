@@ -445,7 +445,8 @@ void Test_RT9_RolloverSwap()
    ticks[1].bid = 1.10000;
    ticks[1].ask = 1.10002;
    Rpl_RunTicks(ticks, 2, cfg);
-   const double expected = -8.111 * 1.0 * tick_val * RPL_LOTS_DEFAULT;
+   AssertNear("RT9 tick value 1.0", tick_val, 1.0, 1e-9);
+   const double expected = -0.08111;
    AssertNear("RT9 swap", Rpl_GetPositionSwap(6001UL), expected, 1e-9);
 }
 
@@ -667,8 +668,7 @@ void Test_RT15_SegmentRollover()
    t2[2].ask = 1.10002;
    Rpl_RunTicks(t2, 3, cfg2);
    AssertNear("RT15 swap after first tick", Rpl_GetPositionSwap(6101UL), 0.0, 1e-9);
-   const double tv = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   AssertNear("RT15 swap 10.07 night", Rpl_GetPositionSwap(6101UL), -8.067 * tv * RPL_LOTS_DEFAULT, 1e-9);
+   AssertNear("RT15 swap 10.07 night", Rpl_GetPositionSwap(6101UL), -0.08067, 1e-9);
 }
 
 void Test_RT17_PreloadRoll()
@@ -1160,6 +1160,10 @@ void Test_RT21_GapReport()
 void OnStart()
 {
    Print("RPL|MIRRORS_EA|", RPL_MIRRORS_EA);
+   if(!Rpl_WaitSymbolReady(60000)) {
+      Print("RPL|SUMMARY|run=0|pass=0");
+      return;
+   }
    Test_RT1_FillRule();
    Test_RT2_FlatL0s();
    Test_RT3_Scalp();

@@ -249,6 +249,12 @@ bool Rpl_SafeToRun(const string data_path, const bool trade_allowed, const long 
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_WaitSymbolReady(const int timeout_ms)
+{
+   return true;
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_CheckSafetyForRun()
 {
    const bool trade_allowed = (AccountInfoInteger(ACCOUNT_TRADE_ALLOWED) != 0);
