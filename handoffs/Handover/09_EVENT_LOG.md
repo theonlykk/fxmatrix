@@ -14,6 +14,16 @@ wine-d (IC, from 1 Oct). Cycle 2
 
 ---
 
+### 8 Oct 00:25-00:28Z -- pipshed C102 deployed: /fleets from ~9 s to ~0.6 s (pipshed, all pages)
+- **What:** pipshed `d1ad256` (the ejection view's per-close scan of
+  every fill row replaced by an index; two FTMO-day helpers cached; views
+  unchanged) pushed 00:25Z; Railway redeployed web and worker.
+- **Handled:** read from the pane 00:28Z: four calls 546-701 ms, strip
+  build 430-497 ms, ejection 330-389 ms (before: 9-11 s, 8,830 / 8,727 ms).
+- **Changed:** the page's strip and Claude's status reads no longer time
+  out (C102 closed).
+- **Evidence:** HANDOFF s66.
+
 ### 7 Oct 23:55Z - 8 Oct 00:00Z -- pipshed C137 deployed; migration 005 applied (pipshed, all fleets' pages)
 - **What:** pipshed `2385d24` pushed 23:55Z (the Scalps per roll table,
   one-minute `state_snapshots`, the `/sr` export, Server-Timing on
@@ -567,4 +577,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 570
+Line count: 580
