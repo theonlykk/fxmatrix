@@ -12,7 +12,8 @@ and this prompt in full. Written by Claude from source at `dc74051` (EA code
 This is NOT production code: nothing in the live EA changes, no fleet is
 touched. It is a research script that drives the EA's own functions through
 their existing test seams on recorded IC ticks, so the replay runs the real
-rules (Gemini GRC-1). Questions for Gemini are in s9.
+rules (Gemini GRC-1). Questions for Gemini are in s9; his rulings, Claude's
+check and the changes made are in s10 (8 Oct ~03:20Z).
 
 ## 0. RESTATE AND STOP (do this first, then wait)
 
@@ -68,10 +69,12 @@ a terminal that trades (s3.1).
 
 ### 3.1 Safety (checked first, every run; a failure prints `RPL|ABORT|<reason>` and returns)
 
-- **S1** `Rpl_SafeToRun(data_path, trade_allowed)`: true only if
-  `TerminalInfoString(TERMINAL_DATA_PATH)` contains `mt5-replay` (case
-  insensitive) AND `AccountInfoInteger(ACCOUNT_TRADE_ALLOWED)` is 0 (a
-  read-only investor login). Pure, unit tested (s6 RT13).
+- **S1** `Rpl_SafeToRun(data_path, trade_allowed, login, server)`: true only
+  if `TerminalInfoString(TERMINAL_DATA_PATH)` EQUALS `D:\mt5-replay` (case
+  insensitive, no trailing backslash; GH-5) AND
+  `AccountInfoInteger(ACCOUNT_TRADE_ALLOWED)` is 0 (a read-only investor
+  login) AND the login is 53077984 AND the server is `ICMarketsSC-Demo`.
+  Pure, unit tested (s6 RT13).
 - **S2** `_Symbol` is `EURUSD` (the chart the script runs on) and
   `SymbolInfoInteger(_Symbol, SYMBOL_TRADE_MODE)` is FULL (A14).
 - **S3** Before the FIRST engine call and before EVERY engine call:
@@ -162,7 +165,11 @@ Claude prepares every input file from the archive; the harness only reads.
 8. **Drain:** move every `g_grind_archive_queue` item and every queued scalp
    event to the events output stamped with `t`; empty the queue.
 9. **Prune** the lattice tick list to ticks at or after `t - 300 s`, except
-   preloaded ticks not yet reached by a side's tracking (s3.3.3).
+   preloaded ticks not yet reached by a side's tracking (s3.3.3). **Loud
+   check (GH-3):** whenever a side's `g_grind_vl_tracking_*` goes from false
+   to true, its `g_grind_vl_from_msc_*` must be at or after the oldest tick
+   still in the list; otherwise print `RPL|ABORT|LATTICE_HISTORY` with both
+   times and stop the run (the replay never silently loses history).
 
 ### 3.5 Sync mode (replay-calibration s6 T1; input `InpSync = true`)
 
@@ -209,6 +216,11 @@ and `fxgrind_replay_tests.mq5` in THAT terminal's MetaEditor after copying
 (below) and reports `0 errors, 0 warnings`.
 
 Cursor, for each run:
+0. **Pin (GH-1):** `git diff --stat 5bb5fdb HEAD -- ea/fxgrind.mq5` must be
+   EMPTY (the harness copies its tick order, A2, and timer cadence, A3, from
+   that build). If not, STOP and report it: the harness must be re-checked
+   against the new `OnTick` / `OnTimer` before any run. The harness prints
+   `RPL|MIRRORS_EA|5bb5fdb` (a constant) at every start.
 1. Copy `ea\*.mq5` and `ea\*.mqh` to `D:\mt5-replay\MQL5\Scripts\fxmatrix\`
    and confirm each by SHA-256 (print the count of identical files).
 2. Write `D:\mt5-replay\replay_<tag>.ini` with `[StartUp]`
@@ -286,9 +298,15 @@ Assert prices to 1e-9 and counts exactly.
 - **RT12 no real send:** after RT3, RT5 and RT8, `g_grind_closeby_test_send_calls`
   and the seam book counts are consistent and the real-send counter
   (`Grind_ApiCounterRead()` difference over the test) is 0. (G)
-- **RT13 safety:** `Rpl_SafeToRun("D:\\mt5-replay\\x", false)` true;
-  `("C:\\Users\\k\\AppData\\Roaming\\MetaQuotes\\Terminal\\81A9", false)` false;
-  `("D:\\mt5-replay\\x", true)` false. (F)
+- **RT13 safety:** `Rpl_SafeToRun("D:\\mt5-replay", false, 53077984, "ICMarketsSC-Demo")`
+  true; `"d:\\MT5-Replay"` (case) true; `"D:\\mt5-replay-live"` false;
+  `"D:\\mt5-replay\\x"` false; `"C:\\Users\\k\\AppData\\Roaming\\MetaQuotes\\Terminal\\81A9"`
+  false; trade_allowed true false; login 53066709 false; server
+  `FTMO-Demo` false. (F)
+- **RT14 lattice history check:** cap 2; a side reaches cap by a fill at
+  tick 5 with the list holding ticks from tick 0: no abort. Then a seeded
+  side at cap whose newest layer opened 2 h before the segment, with the
+  preload REMOVED by the test: `RPL|ABORT|LATTICE_HISTORY`. (F)
 
 Each test starts with `Rpl_ResetAll()`. A test that passes at commit 1 and
 is not tagged G must be reported.
@@ -346,4 +364,41 @@ is not tagged G must be reported.
   and Cursor launching it with `[StartUp]`. Enough?
 - **GH-6.** What fact is missing?
 
-Line count: 349
+## 10. GEMINI'S RULINGS (8 OCT ~03:20Z), CLAUDE'S CHECK AND THE CHANGES
+
+- **GH-1 ACCEPTED, made mechanical.** He proposed an operator diff in a
+  runbook. Premise corrected: the harness calls the EA's own
+  `Grind_OnTickEngine`, `Grind_LatticeOnTick`, `Grind_ProcessCloseByQueues`
+  and `Grind_CarryOnTimerStep`; only `fxgrind.mq5`'s outer order (A2) and
+  timer cadence (A3) are copied, so the pin is on that ONE file: s5 step 0
+  (Cursor checks `git diff --stat 5bb5fdb HEAD -- ea/fxgrind.mq5` before
+  every run and STOPs if it is not empty) and `RPL|MIRRORS_EA|5bb5fdb`.
+- **GH-2 ACCEPTED** (fill before the tick's sequence, OUT_BY after).
+- **GH-3 REJECTED as stated, turned into a loud check.** His case (a side at
+  depth 7 for four hours, then capped, tracking from a 4-hour-old open) does
+  not occur: a side reaches its cap only by a FILL, and tracking starts from
+  the NEWEST layer's open time (`ea/grind_engine.mqh` 832-846), i.e. that
+  fill, on the same tick; the only old start is at a seed, which s3.3.3
+  preloads. Kept 300 s (the seam scans the list linearly every call, A11:
+  hours of ticks on every tick would not finish), and added
+  `RPL|ABORT|LATTICE_HISTORY` (s3.4.9) and RT14, so a missed path fails
+  loudly instead of silently.
+- **GH-4 ACCEPTED for the calibration.** Correction: the long sweeps run in
+  the Python port (operator 8 Oct ~02:16Z), which takes each night's swap
+  rate from the archive's `CARRY_SNAPSHOT`, so no EA seam is needed; and the
+  live rate enters only one night's PENDING part (the ledger is the
+  broker's own swap), so the error does not compound across nights.
+- **GH-5 ACCEPTED:** S1 now requires the EXACT data path `D:\mt5-replay`, the
+  investor login (trading not allowed), login 53077984 and server
+  `ICMarketsSC-Demo`; RT13 widened.
+- **GH-6 MEASURED, rule kept.** In the 16-day export, EURUSD B / C / D have
+  25 pairs of real IN deals within 1 s of each other (B 8, C 13, D 4), every
+  one an entry on one side and an exit on the other side at the SAME price
+  (two limits at one price filling together). His slot-limit consequence
+  cannot occur in the harness: slots read 0 under the seams
+  (`Grind_SlotUsed`, `ea/grind_exitq.mqh` 125-131; M11, measured not modelled). Same-tick
+  fills stay in placement order; Claude's comparator matches deals without
+  regard to order inside a tick and reports how many same-tick fills each
+  run had.
+
+Line count: 404
