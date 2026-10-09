@@ -1,0 +1,15 @@
+﻿# run dir: eurusd_d_smoke_free_86c1194
+# harness commit: 86c1194
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1500
+RPL|RUN|eurusd_d_smoke|sync=0|out=eurusd_d_smoke_free
+RPL|GV_DELETE|2
+RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2.csv|count=476821|load_ms=703
+RPL|SEG|20|from=1790842378000|to=1790846487288|seed=
+RPL|SEG_DONE|seg_id=20,ticks=2348,fills=1,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=15
+RPL|SEG|21|from=1790846487288|to=1790900423001|seed=seed_21.csv
+RPL|SEG_DONE|seg_id=21,ticks=74134,fills=84,scalps=35,roll_closes=4,roll_accepted=7,gaps=0,aborted=0,run_ms=1422
+RPL|GV_DELETE|18
+RPL|DONE|eurusd_d_smoke

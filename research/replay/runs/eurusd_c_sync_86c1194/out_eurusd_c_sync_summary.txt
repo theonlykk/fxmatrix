@@ -1,0 +1,2 @@
+seg_id=10,ticks=5256,fills=2,scalps=1,roll_closes=0,roll_accepted=1,gaps=0,aborted=0,run_ms=63
+seg_id=11,ticks=47745,fills=44,scalps=17,roll_closes=5,roll_accepted=0,gaps=0,aborted=1,run_ms=953

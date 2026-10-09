@@ -1,0 +1,29 @@
+﻿# run dir: eurusd_b_free_86c1194
+# harness commit: 86c1194
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1000
+RPL|RUN|eurusd_b|sync=0|out=eurusd_b_free
+RPL|GV_DELETE|48
+RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2.csv|count=476821|load_ms=641
+RPL|SEG|1|from=1790837932001|to=1790900826000|seed=seed_1.csv
+RPL|SEG_DONE|seg_id=1,ticks=78388,fills=70,scalps=25,roll_closes=9,roll_accepted=15,gaps=0,aborted=0,run_ms=1593
+RPL|SEG|2|from=1790900826000|to=1790920576002|seed=seed_2.csv
+RPL|SEG_DONE|seg_id=2,ticks=9159,fills=7,scalps=2,roll_closes=1,roll_accepted=0,gaps=0,aborted=0,run_ms=188
+RPL|SEG|3|from=1790920576002|to=1790961652001|seed=seed_3.csv
+RPL|SEG_DONE|seg_id=3,ticks=52539,fills=50,scalps=18,roll_closes=5,roll_accepted=1,gaps=0,aborted=0,run_ms=1109
+RPL|SEG|4|from=1790961652001|to=1791252994001|seed=seed_4.csv
+RPL|SEG_DONE|seg_id=4,ticks=112354,fills=67,scalps=26,roll_closes=6,roll_accepted=10,gaps=0,aborted=0,run_ms=2828
+RPL|SEG|5|from=1791252994001|to=1791253193000|seed=seed_5.csv
+RPL|SEG_DONE|seg_id=5,ticks=78,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=16
+RPL|SEG|6|from=1791253193000|to=1791268423001|seed=seed_6.csv
+RPL|SEG_DONE|seg_id=6,ticks=8743,fills=6,scalps=2,roll_closes=1,roll_accepted=0,gaps=0,aborted=0,run_ms=234
+RPL|SEG|7|from=1791268423001|to=1791350283005|seed=seed_7.csv
+RPL|SEG_DONE|seg_id=7,ticks=66679,fills=47,scalps=15,roll_closes=10,roll_accepted=7,gaps=0,aborted=0,run_ms=1469
+RPL|SEG|8|from=1791350283005|to=1791350480000|seed=seed_8.csv
+RPL|SEG_DONE|seg_id=8,ticks=107,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|SEG|9|from=1791350480000|to=1791507600000|seed=seed_9.csv
+RPL|SEG_DONE|seg_id=9,ticks=142123,fills=107,scalps=45,roll_closes=8,roll_accepted=10,gaps=0,aborted=0,run_ms=2985
+RPL|GV_DELETE|23
+RPL|DONE|eurusd_b

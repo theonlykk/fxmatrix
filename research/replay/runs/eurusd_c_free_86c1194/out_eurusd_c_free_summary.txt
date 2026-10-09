@@ -1,0 +1,5 @@
+seg_id=10,ticks=5256,fills=2,scalps=1,roll_closes=0,roll_accepted=1,gaps=0,aborted=0,run_ms=78
+seg_id=11,ticks=72662,fills=73,scalps=25,roll_closes=10,roll_accepted=16,gaps=0,aborted=0,run_ms=1563
+seg_id=12,ticks=9324,fills=7,scalps=2,roll_closes=1,roll_accepted=0,gaps=0,aborted=0,run_ms=234
+seg_id=13,ticks=52169,fills=64,scalps=25,roll_closes=5,roll_accepted=2,gaps=0,aborted=0,run_ms=1047
+seg_id=14,ticks=1,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=1,run_ms=0

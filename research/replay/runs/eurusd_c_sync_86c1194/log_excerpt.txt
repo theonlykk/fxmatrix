@@ -1,0 +1,16 @@
+﻿# run dir: eurusd_c_sync_86c1194
+# harness commit: 86c1194
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1000
+RPL|RUN|eurusd_c|sync=1|out=eurusd_c_sync
+RPL|GV_DELETE|4
+RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2.csv|count=476821|load_ms=641
+RPL|SEG|10|from=1790838868001|to=1790847969001|seed=seed_10.csv
+RPL|SEG_DONE|seg_id=10,ticks=5256,fills=2,scalps=1,roll_closes=0,roll_accepted=1,gaps=0,aborted=0,run_ms=63
+RPL|SEG|11|from=1790847969001|to=1790900610001|seed=seed_11.csv
+RPL|ABORT|LATTICE_HISTORY|start_ms=1790876807000|retained=1790879556236
+RPL|ABORT|LATTICE_HISTORY
+RPL|SEG_DONE|seg_id=11,ticks=47745,fills=44,scalps=17,roll_closes=5,roll_accepted=0,gaps=0,aborted=1,run_ms=953
+RPL|ABORT|LATTICE_HISTORY
