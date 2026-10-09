@@ -16,6 +16,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $Root = 'D:\mt5-replay'
+$RootPrefix = $Root + '\'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $SafeToken = '^[A-Za-z0-9_]+$'
 $SafeCommit = '^[0-9a-f]{7,40}$'
@@ -35,21 +36,21 @@ function Stop-ReplayTerminals() {
       foreach ($p in $procs) {
          $path = $p.ExecutablePath
          if ([string]::IsNullOrEmpty($path)) { continue }
-         if ($path.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase)) {
+         if ($path.StartsWith($RootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
             Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
          }
       }
       Start-Sleep -Milliseconds 500
    } while ((Get-CimInstance Win32_Process -Filter "Name='terminal64.exe'" -ErrorAction SilentlyContinue |
-             Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase) }) -and
+             Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($RootPrefix, [StringComparison]::OrdinalIgnoreCase) }) -and
             (Get-Date) -lt $deadline)
    $left = Get-CimInstance Win32_Process -Filter "Name='terminal64.exe'" -ErrorAction SilentlyContinue |
-      Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase) }
+      Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($RootPrefix, [StringComparison]::OrdinalIgnoreCase) }
    if ($left) { throw 'Replay terminal still running under D:\mt5-replay' }
 }
 
 function Write-Utf16LeIni([string]$Path, [string[]]$Lines) {
-   $text = ($Lines -join "`n") + "`n"
+   $text = $Lines -join "`n"
    [System.IO.File]::WriteAllText($Path, $text, [System.Text.UnicodeEncoding]::new($false, $true))
 }
 
@@ -59,9 +60,11 @@ function Write-Utf8CrlfPreset([string]$Path, [string[]]$Lines) {
    [System.IO.File]::WriteAllText($Path, $text, $utf8)
 }
 
-function Get-LogLinesAfter([datetime]$StartLocal, [string[]]$LogPaths) {
+function Get-LogLinesAfter([datetime]$StartLocal, [object[]]$LogSources) {
    $out = New-Object System.Collections.Generic.List[string]
-   foreach ($lp in $LogPaths) {
+   foreach ($src in $LogSources) {
+      $lp = $src.Path
+      $lineDate = $src.LineDate
       if (-not (Test-Path $lp)) { continue }
       $raw = [System.IO.File]::ReadAllText($lp, [System.Text.Encoding]::Unicode)
       foreach ($line in ($raw -split "`r?`n")) {
@@ -69,7 +72,7 @@ function Get-LogLinesAfter([datetime]$StartLocal, [string[]]$LogPaths) {
          if ($line -notmatch 'RPL\|' -and $line -notmatch 'FAIL \|' -and $line -notmatch 'RT35-LOAD-MS') { continue }
          if ($line -match '^\S+\s+\d+\s+(\d{2}):(\d{2}):(\d{2})\.\d+\s+') {
             $h = [int]$Matches[1]; $m = [int]$Matches[2]; $s = [int]$Matches[3]
-            $ts = Get-Date -Year $StartLocal.Year -Month $StartLocal.Month -Day $StartLocal.Day -Hour $h -Minute $m -Second $s
+            $ts = Get-Date -Year $lineDate.Year -Month $lineDate.Month -Day $lineDate.Day -Hour $h -Minute $m -Second $s
             if ($ts -lt $StartLocal.AddSeconds(-2)) { continue }
          }
          $out.Add($line) | Out-Null
@@ -122,18 +125,22 @@ if ($Mode -eq 'Inputs') {
    if ($LASTEXITCODE -ne 0) { throw "git show manifest failed" }
    $dest = Join-Path $Root 'MQL5\Files\replay'
    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-   $good = 0
+   $entries = New-Object System.Collections.Generic.List[object]
    foreach ($line in ($manifest -split "`n")) {
       if ($line -notmatch '^([a-f0-9]{64})\s+(.+)$') { continue }
       $want = $Matches[1]; $name = $Matches[2].Trim()
       Assert-Match 'input file' $name $SafeFile
       if ($name -match '\.\.') { throw 'Invalid input file' }
-      $path = Join-Path $dest $name
-      $gitPath = "research/replay/inputs/$Set/$name"
+      $entries.Add([pscustomobject]@{ Want = $want; Name = $name }) | Out-Null
+   }
+   $good = 0
+   foreach ($e in $entries) {
+      $path = Join-Path $dest $e.Name
+      $gitPath = "research/replay/inputs/$Set/$($e.Name)"
       cmd /c "git -C `"$RepoRoot`" show ${Commit}:$gitPath > `"$path`"" | Out-Null
-      if ($LASTEXITCODE -ne 0) { throw "git show $name failed" }
+      if ($LASTEXITCODE -ne 0) { throw "git show $($e.Name) failed" }
       $got = (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
-      if ($got -ne $want) { throw "INPUT hash mismatch $name" }
+      if ($got -ne $e.Want) { throw "INPUT hash mismatch $($e.Name)" }
       $good++
    }
    $w2 = Join-Path $dest 'ticks_53077984_EURUSD_w2.csv'
@@ -182,8 +189,13 @@ $iniPath = Join-Path $Root "replay_$Label.ini"
 Write-Utf16LeIni $iniPath $iniLines
 
 $startLocal = Get-Date
+$startDate = $startLocal.Date
 $logToday = Join-Path $Root "MQL5\Logs\$($startLocal.ToString('yyyyMMdd')).log"
 $logTomorrow = Join-Path $Root "MQL5\Logs\$($startLocal.AddDays(1).ToString('yyyyMMdd')).log"
+$logSources = @(
+   [pscustomobject]@{ Path = $logToday; LineDate = $startDate },
+   [pscustomobject]@{ Path = $logTomorrow; LineDate = $startDate.AddDays(1) }
+)
 
 $proc = Start-Process -FilePath (Join-Path $Root 'terminal64.exe') `
    -ArgumentList @('/portable', "/config:$iniPath") -PassThru
@@ -196,7 +208,7 @@ if (-not $proc.HasExited) {
    throw "Timeout after $TimeoutSec s"
 }
 
-$lines = Get-LogLinesAfter $startLocal @($logToday, $logTomorrow)
+$lines = Get-LogLinesAfter $startLocal $logSources
 $outDir = Join-Path $RepoRoot 'research\replay\runs'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outFile = Join-Path $outDir "_rpl_$Label.txt"
