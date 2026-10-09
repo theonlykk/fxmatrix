@@ -1,0 +1,37 @@
+﻿# run dir: eurusd_d_sync_32c90be
+# harness commit: 32c90be
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1000
+RPL|RUN|eurusd_d|sync=1|out=eurusd_d_sync
+RPL|GV_DELETE|0
+RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2.csv|count=476821|load_ms=781
+RPL|SEG|20|from=1790842378000|to=1790846487288|seed=
+RPL|SEG_DONE|seg_id=20,ticks=2348,fills=1,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=15
+RPL|SEG|21|from=1790846487288|to=1790900423001|seed=seed_21.csv
+RPL|LATTICE_BACKFILL|L|need=1790876817000|count=5763
+RPL|LATTICE_BACKFILL|L|need=1790883218000|count=4433
+RPL|SEG_DONE|seg_id=21,ticks=74134,fills=80,scalps=33,roll_closes=4,roll_accepted=9,gaps=0,aborted=0,run_ms=1594
+RPL|SEG|22|from=1790900423001|to=1790920989002|seed=seed_22.csv
+RPL|SEG_DONE|seg_id=22,ticks=9473,fills=3,scalps=1,roll_closes=1,roll_accepted=0,gaps=0,aborted=0,run_ms=250
+RPL|SEG|23|from=1790920989002|to=1790961360001|seed=seed_23.csv
+RPL|SEG_DONE|seg_id=23,ticks=51645,fills=62,scalps=29,roll_closes=4,roll_accepted=1,gaps=0,aborted=0,run_ms=1141
+RPL|SEG|24|from=1790961360001|to=1791250681000|seed=seed_24.csv
+RPL|LATTICE_BACKFILL|S|need=1790960346000|count=1713
+RPL|LATTICE_BACKFILL|S|need=1791203168000|count=741
+RPL|SEG_DONE|seg_id=24,ticks=112186,fills=91,scalps=39,roll_closes=5,roll_accepted=0,gaps=0,aborted=0,run_ms=2531
+RPL|SEG|25|from=1791250681000|to=1791250964000|seed=seed_25.csv
+RPL|SEG_DONE|seg_id=25,ticks=69,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=16
+RPL|SEG|26|from=1791250964000|to=1791267621138|seed=seed_26.csv
+RPL|SEG_DONE|seg_id=26,ticks=9188,fills=5,scalps=1,roll_closes=1,roll_accepted=1,gaps=0,aborted=0,run_ms=172
+RPL|SEG|27|from=1791267621138|to=1791349058001|seed=seed_27.csv
+RPL|SEG_DONE|seg_id=27,ticks=66268,fills=34,scalps=13,roll_closes=4,roll_accepted=0,gaps=0,aborted=0,run_ms=1375
+RPL|SEG|28|from=1791349058001|to=1791349296000|seed=seed_28.csv
+RPL|SEG_DONE|seg_id=28,ticks=141,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|SEG|29|from=1791349296000|to=1791507600000|seed=seed_29.csv
+RPL|LATTICE_BACKFILL|L|need=1791368196000|count=5900
+RPL|LATTICE_BACKFILL|S|need=1791480635000|count=2485
+RPL|SEG_DONE|seg_id=29,ticks=142863,fills=101,scalps=42,roll_closes=7,roll_accepted=3,gaps=0,aborted=0,run_ms=3265
+RPL|GV_DELETE|26
+RPL|DONE|eurusd_d

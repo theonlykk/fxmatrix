@@ -1,0 +1,32 @@
+﻿# run dir: eurusd_d_free_32c90be
+# harness commit: 32c90be
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1500
+RPL|RUN|eurusd_d|sync=0|out=eurusd_d_free
+RPL|GV_DELETE|8
+RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2.csv|count=476821|load_ms=812
+RPL|SEG|20|from=1790842378000|to=1790846487288|seed=
+RPL|SEG_DONE|seg_id=20,ticks=2348,fills=1,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=32
+RPL|SEG|21|from=1790846487288|to=1790900423001|seed=seed_21.csv
+RPL|SEG_DONE|seg_id=21,ticks=74134,fills=84,scalps=35,roll_closes=4,roll_accepted=7,gaps=0,aborted=0,run_ms=1406
+RPL|SEG|22|from=1790900423001|to=1790920989002|seed=seed_22.csv
+RPL|SEG_DONE|seg_id=22,ticks=9473,fills=6,scalps=2,roll_closes=1,roll_accepted=0,gaps=0,aborted=0,run_ms=235
+RPL|SEG|23|from=1790920989002|to=1790961360001|seed=seed_23.csv
+RPL|SEG_DONE|seg_id=23,ticks=51645,fills=54,scalps=24,roll_closes=3,roll_accepted=1,gaps=0,aborted=0,run_ms=1047
+RPL|SEG|24|from=1790961360001|to=1791250681000|seed=seed_24.csv
+RPL|LATTICE_BACKFILL|S|need=1790960346000|count=1713
+RPL|SEG_DONE|seg_id=24,ticks=112186,fills=97,scalps=39,roll_closes=9,roll_accepted=10,gaps=0,aborted=0,run_ms=2797
+RPL|SEG|25|from=1791250681000|to=1791250964000|seed=seed_25.csv
+RPL|SEG_DONE|seg_id=25,ticks=69,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=15
+RPL|SEG|26|from=1791250964000|to=1791267621138|seed=seed_26.csv
+RPL|SEG_DONE|seg_id=26,ticks=9188,fills=6,scalps=1,roll_closes=2,roll_accepted=1,gaps=0,aborted=0,run_ms=203
+RPL|SEG|27|from=1791267621138|to=1791349058001|seed=seed_27.csv
+RPL|SEG_DONE|seg_id=27,ticks=66268,fills=37,scalps=12,roll_closes=6,roll_accepted=7,gaps=0,aborted=0,run_ms=1516
+RPL|SEG|28|from=1791349058001|to=1791349296000|seed=seed_28.csv
+RPL|SEG_DONE|seg_id=28,ticks=141,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=16
+RPL|SEG|29|from=1791349296000|to=1791507600000|seed=seed_29.csv
+RPL|SEG_DONE|seg_id=29,ticks=142863,fills=97,scalps=39,roll_closes=9,roll_accepted=7,gaps=0,aborted=0,run_ms=3093
+RPL|GV_DELETE|18
+RPL|DONE|eurusd_d
