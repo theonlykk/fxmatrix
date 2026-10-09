@@ -152,6 +152,7 @@ struct RplTrueLayer
    double volume;
    long   open_ms;
    double vl;
+   double accrued;
 };
 
 struct RplCbTask
@@ -671,6 +672,7 @@ void Rpl_TrueBookAdd(const string side, const int layer, const double entry, con
    g_rpl_true_book[g_rpl_true_book_count].volume = volume;
    g_rpl_true_book[g_rpl_true_book_count].open_ms = open_ms;
    g_rpl_true_book[g_rpl_true_book_count].vl = vl;
+   g_rpl_true_book[g_rpl_true_book_count].accrued = 0.0;
    g_rpl_true_book_count++;
 }
 
@@ -759,8 +761,13 @@ void Rpl_SeedOrder(const string side,
 //+------------------------------------------------------------------+
 void Rpl_SeedAccrued(const ulong ticket, const double accrued)
 {
-   (void)ticket;
-   (void)accrued;
+   Grind_CarryAccruedSet(ticket, accrued);
+   for(int i = 0; i < g_rpl_true_book_count; i++) {
+      if(g_rpl_true_book[i].ticket == ticket) {
+         g_rpl_true_book[i].accrued = accrued;
+         break;
+      }
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -1127,6 +1134,10 @@ void Rpl_ApplySwapRollover(const long tick_ms)
                                  g_rpl_pos_meta[i].volume,
                                  (datetime)(g_rpl_pos_meta[i].open_ms / 1000));
    }
+   for(int i = 0; i < g_rpl_true_book_count; i++) {
+      const double points = (g_rpl_true_book[i].side == "L") ? pl : ps;
+      g_rpl_true_book[i].swap += points * mult * tick_val * g_rpl_true_book[i].volume;
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -1366,6 +1377,11 @@ void Rpl_RemoveLayerByTicket(GrindSideState &side, const ulong pos_ticket)
 //+------------------------------------------------------------------+
 void Rpl_SyncResetToTrueBook()
 {
+   for(int t = 0; t < g_rpl_true_book_count; t++) {
+      const ulong tb_ticket = g_rpl_true_book[t].ticket;
+      if(GlobalVariableCheck(Grind_CarryAccruedGvName(tb_ticket)))
+         g_rpl_true_book[t].accrued = Grind_CarryAccruedGet(tb_ticket);
+   }
    ulong keep_l0 = g_grind_long.l0_pending_ticket;
    ulong keep_add = g_grind_long.add_pending_ticket;
    ulong keep_l0s = g_grind_short.l0_pending_ticket;
@@ -1412,6 +1428,8 @@ void Rpl_SyncResetToTrueBook()
                        g_rpl_true_book[t].open_ms, g_rpl_true_book[t].ticket, g_rpl_true_book[t].vl,
                        g_rpl_true_book[t].swap, g_rpl_true_book[t].volume);
          g_rpl_skip_true_book_add = false;
+         if(g_rpl_true_book[t].accrued != 0.0)
+            Grind_CarryAccruedSet(g_rpl_true_book[t].ticket, g_rpl_true_book[t].accrued);
       }
    }
    for(int t = 0; t < g_rpl_true_book_count; t++) {
@@ -2371,7 +2389,10 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
             const double vl = (ArraySize(seed_fields) > 5) ? StringToDouble(seed_fields[5]) : 0.0;
             const double swap = (ArraySize(seed_fields) > 6) ? StringToDouble(seed_fields[6]) : 0.0;
             const double vol = (ArraySize(seed_fields) > 7) ? StringToDouble(seed_fields[7]) : RPL_LOTS_DEFAULT;
+            const double accrued = (ArraySize(seed_fields) > 8) ? StringToDouble(seed_fields[8]) : 0.0;
             Rpl_SeedLayer(side, layer, entry, open_ms, ticket, vl, swap, vol);
+            if(accrued != 0.0)
+               Rpl_SeedAccrued(ticket, accrued);
          }
          FileClose(sd);
       }
