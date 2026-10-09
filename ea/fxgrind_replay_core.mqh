@@ -15,6 +15,8 @@ const double RPL_LOTS_DEFAULT = 0.01;
 const string RPL_DATA_PATH = "D:\\mt5-replay";
 const datetime RPL_T0_DEFAULT = D'2026.10.06 10:00:00';
 
+string g_rpl_out_suffix = "";
+
 struct RplTick
 {
    long   time_msc;
@@ -246,6 +248,11 @@ bool Rpl_SafeToRun(const string data_path, const bool trade_allowed, const long 
    if(server != "ICMarketsSC-Demo")
       return false;
    return true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_SetOutputSuffix(const string s)
+{
 }
 
 //+------------------------------------------------------------------+

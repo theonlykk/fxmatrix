@@ -654,6 +654,22 @@ void Test_RT15_SegmentRollover()
    Rpl_DefaultConfig(cfg2);
    cfg2.from_ms = RplMs(D'2026.10.06 10:00:00', 0);
    cfg2.to_ms = RplMs(D'2026.10.07 00:00:00', 0) + 1000;
+   RplSegmentConfig cfg2_pre;
+   Rpl_DefaultConfig(cfg2_pre);
+   cfg2_pre.from_ms = cfg2.from_ms;
+   cfg2_pre.to_ms = RplMs(D'2026.10.06 23:59:59', 0) + 1;
+   Rpl_ConfigureEngine(cfg2_pre);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(D'2026.10.06 09:00:00', 0), 6101UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   RplTick t2_pre[2];
+   t2_pre[0].time_msc = RplMs(D'2026.10.06 10:00:00', 0);
+   t2_pre[0].bid = 1.10000;
+   t2_pre[0].ask = 1.10002;
+   t2_pre[1].time_msc = RplMs(D'2026.10.06 23:59:59', 0);
+   t2_pre[1].bid = 1.10000;
+   t2_pre[1].ask = 1.10002;
+   Rpl_RunTicks(t2_pre, 2, cfg2_pre);
+   AssertNear("RT15 swap before midnight", Rpl_GetPositionSwap(6101UL), 0.0, 1e-9);
+   Rpl_ResetAll();
    Rpl_ConfigureEngine(cfg2);
    Rpl_SeedLayer("L", 0, 1.10000, RplMs(D'2026.10.06 09:00:00', 0), 6101UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
    RplTick t2[3];
@@ -667,7 +683,6 @@ void Test_RT15_SegmentRollover()
    t2[2].bid = 1.10000;
    t2[2].ask = 1.10002;
    Rpl_RunTicks(t2, 3, cfg2);
-   AssertNear("RT15 swap after first tick", Rpl_GetPositionSwap(6101UL), 0.0, 1e-9);
    AssertNear("RT15 swap 10.07 night", Rpl_GetPositionSwap(6101UL), -0.08067, 1e-9);
 }
 
@@ -1115,6 +1130,112 @@ void Test_RT33_GateInitRestart()
    AssertTrue("RT33 init restart no roll", Rpl_CountEventsWithCode("ROLL_ACCEPTED") == 0);
 }
 
+void Test_RT34_LatticePrune()
+{
+   Rpl_ResetAll();
+   const datetime T = RPL_T0;
+   Grind_LatticeTestAddTick(T - 10, 1.10000, 1.10002);
+   Grind_LatticeTestAddTick(T - 400, 1.20000, 1.20002);
+   Grind_LatticeTestAddTick(T - 300, 1.30000, 1.30002);
+   Grind_LatticeTestAddTick(T - 301, 1.40000, 1.40002);
+   Rpl_PruneLattice((long)T * 1000);
+   const int n = ArraySize(g_grind_vl_test_tick_msc);
+   AssertTrue("RT34 size 2", n == 2);
+   AssertTrue("RT34 msc0", g_grind_vl_test_tick_msc[0] == RplMs(T, -10));
+   AssertTrue("RT34 msc1", g_grind_vl_test_tick_msc[1] == RplMs(T, -300));
+   AssertNear("RT34 bid0", g_grind_vl_test_tick_bid[0], 1.10000, 1e-9);
+   AssertNear("RT34 bid1", g_grind_vl_test_tick_bid[1], 1.30000, 1e-9);
+   AssertNear("RT34 ask0", g_grind_vl_test_tick_ask[0], 1.10002, 1e-9);
+   AssertNear("RT34 ask1", g_grind_vl_test_tick_ask[1], 1.30002, 1e-9);
+   AssertTrue("RT34 retained", g_rpl_retained_from_ms == RplMs(T, -300));
+}
+
+void Test_RT35_TickLoader()
+{
+   const string path = "replay\\rt35_ticks.csv";
+   int w = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI);
+   FileWrite(w, "# rt35");
+   FileWrite(w, "time_msc_server,bid,ask,flags");
+   for(int i = 0; i < 200000; i++) {
+      const long ms = 1790812800000L + 500L * i;
+      const double bid = 1.10000 + (double)(i % 100) * 0.00001;
+      const double ask = bid + 0.00002;
+      FileWrite(w, IntegerToString(ms) + "," + DoubleToString(bid, 5) + "," + DoubleToString(ask, 5) + ",6");
+   }
+   FileClose(w);
+   RplTick ticks[];
+   int n = 0;
+   const uint t0 = GetTickCount();
+   const bool ok = Rpl_LoadTicksCsv("rt35_ticks.csv", ticks, n);
+   const uint load_ms = GetTickCount() - t0;
+   Print("RT35-LOAD-MS|", load_ms);
+   AssertTrue("RT35 load ok", ok);
+   AssertTrue("RT35 count", n == 200000);
+   AssertTrue("RT35 t0 ms", ticks[0].time_msc == 1790812800000L);
+   AssertTrue("RT35 tLast ms", ticks[199999].time_msc == 1790912799500L);
+   AssertNear("RT35 tLast bid", ticks[199999].bid, 1.10099, 1e-9);
+   AssertNear("RT35 tLast ask", ticks[199999].ask, 1.10101, 1e-9);
+}
+
+void Test_RT36_OutputSuffix()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt36.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   RplTick ticks[];
+   Rpl_FillRT3Ticks(ticks, 4);
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(ticks[i].time_msc), DoubleToString(ticks[i].bid, 5),
+                DoubleToString(ticks[i].ask, 5), "0");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt36.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,,ticks_rt36.csv");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt36.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   Rpl_SetOutputSuffix("_free");
+   AssertTrue("RT36 run", Rpl_RunReplayFiles("rt36", false));
+   AssertTrue("RT36 deals file", FileIsExist(dir + "out_rt36_free_deals.csv"));
+   AssertTrue("RT36 summary file", FileIsExist(dir + "out_rt36_free_summary.txt"));
+   Rpl_SetOutputSuffix("");
+}
+
+void Test_RT37_PreloadLattice()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.from_ms = RplMs(RPL_T0, 5);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 6201UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   ArrayResize(g_rpl_all_ticks, 3);
+   g_rpl_all_tick_count = 3;
+   g_rpl_all_ticks[0].time_msc = RplMs(RPL_T0, 0) + 250;
+   g_rpl_all_ticks[0].bid = 1.10000;
+   g_rpl_all_ticks[0].ask = 1.10002;
+   g_rpl_all_ticks[1].time_msc = RplMs(RPL_T0, 1) - 1;
+   g_rpl_all_ticks[1].bid = 1.10010;
+   g_rpl_all_ticks[1].ask = 1.10012;
+   g_rpl_all_ticks[2].time_msc = RplMs(RPL_T0, 2);
+   g_rpl_all_ticks[2].bid = 1.10020;
+   g_rpl_all_ticks[2].ask = 1.10022;
+   Rpl_PreloadLatticeFromTicks(cfg);
+   const int n = ArraySize(g_grind_vl_test_tick_msc);
+   AssertTrue("RT37 size 3", n == 3);
+   AssertTrue("RT37 msc0", g_grind_vl_test_tick_msc[0] == RplMs(RPL_T0, 0));
+   AssertTrue("RT37 msc1", g_grind_vl_test_tick_msc[1] == RplMs(RPL_T0, 1));
+   AssertTrue("RT37 msc2", g_grind_vl_test_tick_msc[2] == RplMs(RPL_T0, 2));
+   AssertNear("RT37 bid0", g_grind_vl_test_tick_bid[0], 1.10000, 1e-9);
+   AssertNear("RT37 bid1", g_grind_vl_test_tick_bid[1], 1.10010, 1e-9);
+   AssertNear("RT37 bid2", g_grind_vl_test_tick_bid[2], 1.10020, 1e-9);
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
@@ -1200,5 +1321,9 @@ void OnStart()
    Test_RT31_EmptyTicksFile();
    Test_RT31b_TrailingComma();
    Test_RT33_GateInitRestart();
+   Test_RT34_LatticePrune();
+   Test_RT35_TickLoader();
+   Test_RT36_OutputSuffix();
+   Test_RT37_PreloadLattice();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
