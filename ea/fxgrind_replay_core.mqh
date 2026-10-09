@@ -600,7 +600,7 @@ bool Rpl_GetOrderLogRow(const int i, RplOrderRow &out)
    out.ticket = 0;
    out.type = 0;
    out.side = "";
-   out.layer = -1;
+   out.layer = 0;
    out.role = "";
    out.price = 0.0;
    out.old_price = 0.0;

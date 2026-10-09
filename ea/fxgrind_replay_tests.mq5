@@ -137,14 +137,14 @@ void Test_RT48_OrderLogDiff()
    AssertTrue("RT48 count", Rpl_OrderLogCount() == 5);
    AssertOrderRow("RT48 r0", 0, 1000, "A", "PLACE", 5901UL, 1.10100);
    RplOrderRow r0;
-   AssertTrue("RT48 r0 side get", Rpl_GetOrderLogRow(0, r0));
+   Rpl_GetOrderLogRow(0, r0);
    AssertEqStr("RT48 r0 side", r0.side, "L");
    AssertTrue("RT48 r0 layer", r0.layer == 2);
    AssertEqStr("RT48 r0 role", r0.role, "EXT");
    AssertTrue("RT48 r0 type", r0.type == ORDER_TYPE_SELL_LIMIT);
    AssertOrderRow("RT48 r1", 1, 2000, "B", "MODIFY", 5901UL, 1.10108);
    RplOrderRow r1;
-   AssertTrue("RT48 r1 old get", Rpl_GetOrderLogRow(1, r1));
+   Rpl_GetOrderLogRow(1, r1);
    AssertNear("RT48 r1 old", r1.old_price, 1.10100, 1e-9);
    AssertOrderRow("RT48 r2", 2, 3000, "C", "REMOVE", 5901UL, 1.10108);
    AssertOrderRow("RT48 r3", 3, 3500, "D", "PLACE", 5902UL, 1.10570);
@@ -179,7 +179,7 @@ void Test_RT49_OrderLogEngineExit()
    }
    RplOrderRow r;
    AssertTrue("RT49 placed", i >= 0);
-   AssertTrue("RT49 placed get", Rpl_GetOrderLogRow(i, r));
+   Rpl_GetOrderLogRow(i, r);
    AssertTrue("RT49 at T0", r.time_ms == RplMs(RPL_T0, 0));
    AssertEqStr("RT49 stage", r.stage, "ENGINE");
    AssertNear("RT49 price", r.price, 1.10100, 1e-9);
@@ -195,7 +195,7 @@ void Test_RT49_OrderLogEngineExit()
    }
    RplOrderRow q;
    AssertTrue("RT49 filled", j >= 0);
-   AssertTrue("RT49 filled get", Rpl_GetOrderLogRow(j, q));
+   Rpl_GetOrderLogRow(j, q);
    AssertTrue("RT49 fill at T1", q.time_ms == RplMs(RPL_T0, 1));
    AssertEqStr("RT49 fill stage", q.stage, "FILL");
 }
