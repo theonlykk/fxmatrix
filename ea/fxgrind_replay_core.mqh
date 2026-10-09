@@ -481,16 +481,112 @@ void Rpl_ResetAll()
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_OrderLogSnapFind(const ulong ticket, RplOrderSnap &out)
+{
+   for(int i = 0; i < ArraySize(g_rpl_order_snap); i++) {
+      if(g_rpl_order_snap[i].ticket == ticket) {
+         out = g_rpl_order_snap[i];
+         return true;
+      }
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_OrderLogBookFind(const ulong ticket, GrindOrderTestRecord &out)
+{
+   return Grind_OrderTestFind(ticket, out);
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_OrderLogDealFillAt(const long t, const ulong order_ticket)
+{
+   for(int i = ArraySize(g_rpl_deals) - 1; i >= 0; i--) {
+      if(g_rpl_deals[i].order == order_ticket && g_rpl_deals[i].time_ms == t)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_OrderLogParseComment(const string comment, string &side, int &layer, string &role)
+{
+   side = "";
+   layer = -1;
+   role = "";
+   string slot;
+   if(!GrindCommentParse(comment, slot, side, layer, role)) {
+      side = "";
+      layer = -1;
+      role = "";
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_OrderLogAppendRow(const long t,
+                           const string stage,
+                           const string action,
+                           const ulong ticket,
+                           const long otype,
+                           const string comment,
+                           const double price,
+                           const double old_price)
+{
+   string side;
+   int layer;
+   string role;
+   Rpl_OrderLogParseComment(comment, side, layer, role);
+   const int n = ArraySize(g_rpl_orders);
+   ArrayResize(g_rpl_orders, n + 1, 4096);
+   g_rpl_orders[n].seg_id = g_rpl_cfg.seg_id;
+   g_rpl_orders[n].sync_idx = g_rpl_sync_idx;
+   g_rpl_orders[n].time_ms = t;
+   g_rpl_orders[n].stage = stage;
+   g_rpl_orders[n].action = action;
+   g_rpl_orders[n].ticket = ticket;
+   g_rpl_orders[n].type = otype;
+   g_rpl_orders[n].side = side;
+   g_rpl_orders[n].layer = layer;
+   g_rpl_orders[n].role = role;
+   g_rpl_orders[n].price = price;
+   g_rpl_orders[n].old_price = old_price;
+}
+
+//+------------------------------------------------------------------+
 void Rpl_OrderLogDiff(const long t, const string stage)
 {
-   (void)t;
-   (void)stage;
+   const double pt_half = _Point / 2.0;
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      const GrindOrderTestRecord rec = g_grind_order_test_records[i];
+      RplOrderSnap snap;
+      if(!Rpl_OrderLogSnapFind(rec.ticket, snap)) {
+         Rpl_OrderLogAppendRow(t, stage, "PLACE", rec.ticket, rec.type, rec.comment, rec.price, 0.0);
+         continue;
+      }
+      if(MathAbs(rec.price - snap.price) > pt_half)
+         Rpl_OrderLogAppendRow(t, stage, "MODIFY", rec.ticket, rec.type, rec.comment, rec.price, snap.price);
+   }
+   for(int s = 0; s < ArraySize(g_rpl_order_snap); s++) {
+      const RplOrderSnap snap = g_rpl_order_snap[s];
+      GrindOrderTestRecord book_rec;
+      if(Rpl_OrderLogBookFind(snap.ticket, book_rec))
+         continue;
+      const string action = Rpl_OrderLogDealFillAt(t, snap.ticket) ? "FILL" : "REMOVE";
+      Rpl_OrderLogAppendRow(t, stage, action, snap.ticket, snap.type, snap.comment, snap.price, 0.0);
+   }
+   ArrayResize(g_rpl_order_snap, g_grind_order_test_count);
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      g_rpl_order_snap[i].ticket = g_grind_order_test_records[i].ticket;
+      g_rpl_order_snap[i].type = g_grind_order_test_records[i].type;
+      g_rpl_order_snap[i].comment = g_grind_order_test_records[i].comment;
+      g_rpl_order_snap[i].price = g_grind_order_test_records[i].price;
+   }
 }
 
 //+------------------------------------------------------------------+
 int Rpl_OrderLogCount()
 {
-   return 0;
+   return ArraySize(g_rpl_orders);
 }
 
 //+------------------------------------------------------------------+
@@ -508,7 +604,10 @@ bool Rpl_GetOrderLogRow(const int i, RplOrderRow &out)
    out.role = "";
    out.price = 0.0;
    out.old_price = 0.0;
-   return false;
+   if(i < 0 || i >= ArraySize(g_rpl_orders))
+      return false;
+   out = g_rpl_orders[i];
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -1630,6 +1729,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    g_rpl_seg_ticks_processed++;
 
    Rpl_ApplySyncDealsUpTo(t);
+   Rpl_OrderLogDiff(t, "SYNC");
 
    Rpl_ApplyIntervalsAt(t);
 
@@ -1646,6 +1746,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
       Grind_LatticeRollGateInitRestart(g_rpl_cfg.gate);
 
    Rpl_FillsOnTick(t, tick.bid, tick.ask);
+   Rpl_OrderLogDiff(t, "FILL");
    if(g_rpl_aborted)
       return;
 
@@ -1660,17 +1761,20 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    const bool trkS0 = g_grind_vl_tracking_short;
 
    Grind_ProcessCloseByQueues(g_rpl_cfg.magic, false);
+   Rpl_OrderLogDiff(t, "CLOSEBY");
    if(!Rpl_EngineSeamsOrAbort())
       return;
    Rpl_EnsureLatticeHistory(t);
    Grind_LatticeOnTick(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, RPL_LOTS_DEFAULT, g_rpl_cfg.lattice,
                        g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, (datetime)(t / 1000),
                        g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
+   Rpl_OrderLogDiff(t, "LATTICE");
    if(!Rpl_EngineSeamsOrAbort())
       return;
    Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                       g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
                       g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+   Rpl_OrderLogDiff(t, "ENGINE");
 
    if(!trkL0 && g_grind_vl_tracking_long)
       Rpl_LatticeHistoryCheck(true, t);
@@ -1681,6 +1785,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(seg_first_tick)
       Rpl_ReportOrdersKept();
    Rpl_ProcessCloseByDone(t, cb_before, cb_n);
+   Rpl_OrderLogDiff(t, "CB_DONE");
 
    if(g_rpl_last_timer_ms == 0 || t - g_rpl_last_timer_ms >= 60000) {
       if(!Rpl_EngineSeamsOrAbort())
@@ -1689,6 +1794,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
                              g_rpl_cfg.exit_s);
       g_rpl_last_timer_ms = t;
    }
+   Rpl_OrderLogDiff(t, "TIMER");
 
    Rpl_DrainOutputs(t);
    Rpl_PruneLattice(t);
@@ -1713,6 +1819,7 @@ bool Rpl_RunTicks(const RplTick &ticks[], const int tick_count, RplSegmentConfig
       g_grind_start_add_reprice_short = true;
    }
    g_rpl_seg_ticks_processed = 0;
+   Rpl_OrderLogDiff(cfg.from_ms, "SEED");
    for(int i = 0; i < tick_count; i++) {
       if(ticks[i].time_msc < cfg.from_ms || ticks[i].time_msc >= cfg.to_ms)
          continue;
@@ -2180,6 +2287,16 @@ void Rpl_ComputeSegmentStats(int &fills, int &scalps, int &roll_closes, int &rol
 }
 
 //+------------------------------------------------------------------+
+string Rpl_OrderLogTypeCsv(const long otype)
+{
+   if(otype == ORDER_TYPE_BUY_LIMIT)
+      return "BUY_LIMIT";
+   if(otype == ORDER_TYPE_SELL_LIMIT)
+      return "SELL_LIMIT";
+   return IntegerToString(otype);
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_OpenRunOutputs(const string tag, RplRunOutputHandles &handles)
 {
    const string prefix = "replay\\out_" + tag + g_rpl_out_suffix + "_";
@@ -2187,14 +2304,18 @@ bool Rpl_OpenRunOutputs(const string tag, RplRunOutputHandles &handles)
    handles.events = FileOpen(prefix + "events.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    handles.book = FileOpen(prefix + "book.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    handles.summary = FileOpen(prefix + "summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
+   handles.orders = FileOpen(prefix + "orders.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    handles.open = (handles.deals != INVALID_HANDLE && handles.events != INVALID_HANDLE
-                   && handles.book != INVALID_HANDLE && handles.summary != INVALID_HANDLE);
+                   && handles.book != INVALID_HANDLE && handles.summary != INVALID_HANDLE
+                   && handles.orders != INVALID_HANDLE);
    if(!handles.open)
       return false;
    FileWrite(handles.deals, "seg_id", "sync_idx", "time_ms", "deal", "order", "position", "entry_type", "deal_type",
              "role", "side", "layer", "price");
    FileWrite(handles.events, "seg_id", "sync_idx", "time_ms", "kind", "code", "json");
    FileWrite(handles.book, "seg_id", "side", "layer", "entry", "vl", "open_ms", "swap");
+   FileWrite(handles.orders, "seg_id", "sync_idx", "time_ms", "stage", "action", "ticket", "type", "side", "layer",
+             "role", "price", "old_price");
    return true;
 }
 
@@ -2209,6 +2330,8 @@ void Rpl_CloseRunOutputs(RplRunOutputHandles &handles)
       FileClose(handles.book);
    if(handles.summary != INVALID_HANDLE)
       FileClose(handles.summary);
+   if(handles.orders != INVALID_HANDLE)
+      FileClose(handles.orders);
    handles.open = false;
 }
 
@@ -2230,6 +2353,13 @@ void Rpl_AppendSegmentOutputs(RplRunOutputHandles &handles)
       FileWrite(handles.events, IntegerToString(g_rpl_events[i].seg_id), IntegerToString(g_rpl_events[i].sync_idx),
                 IntegerToString(g_rpl_events[i].time_ms), g_rpl_events[i].kind, g_rpl_events[i].code,
                 g_rpl_events[i].json);
+   }
+   for(int i = 0; i < ArraySize(g_rpl_orders); i++) {
+      FileWrite(handles.orders, IntegerToString(g_rpl_orders[i].seg_id), IntegerToString(g_rpl_orders[i].sync_idx),
+                IntegerToString(g_rpl_orders[i].time_ms), g_rpl_orders[i].stage, g_rpl_orders[i].action,
+                IntegerToString((long)g_rpl_orders[i].ticket), Rpl_OrderLogTypeCsv(g_rpl_orders[i].type),
+                g_rpl_orders[i].side, IntegerToString(g_rpl_orders[i].layer), g_rpl_orders[i].role,
+                DoubleToString(g_rpl_orders[i].price, digits), DoubleToString(g_rpl_orders[i].old_price, digits));
    }
    for(int i = 0; i < ArraySize(g_grind_long.layers); i++) {
       const ulong pt = g_grind_long.layers[i].position_ticket;
