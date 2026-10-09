@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **NOTES FOR THE OPERATOR** (Claude, 7 Oct ~23:15Z). s1-s4 are algebra (s1 checked by simulation); s5 a first look at three days of FTMO minute data; s6 a literature map; s7 conjectures to test. **8 Oct ~01:30Z: s9 the literature read in full (three readers), s10 the operator's two corrections (we follow the market; three scales W, e, D), s11 the edge ratio rho with its cost hurdle and a first look from our own trades, s12 calibration before any replay. 9 Oct ~04:55Z: s13 add versus exit -- event rates, the layers / volatility trade-off, why pairs differ (operator's questions).** Nothing here changes a rule. Gemini later, one document at a time (after the IC-vs-FTMO rewrite and `scalps-per-roll.md`) |
+| Status | **NOTES FOR THE OPERATOR** (Claude, 7 Oct ~23:15Z). s1-s4 are algebra (s1 checked by simulation); s5 a first look at three days of FTMO minute data; s6 a literature map; s7 conjectures to test. **8 Oct ~01:30Z: s9 the literature read in full (three readers), s10 the operator's two corrections (we follow the market; three scales W, e, D), s11 the edge ratio rho with its cost hurdle and a first look from our own trades, s12 calibration before any replay. 9 Oct ~04:55Z: s13 add versus exit -- event rates, the layers / volatility trade-off, why pairs differ (operator's questions); s14 the operator's preference: the replay as the veteran, ranges not optima.** Nothing here changes a rule. Gemini later, one document at a time (after the IC-vs-FTMO rewrite and `scalps-per-roll.md`) |
 | Origin | Operator 7 Oct ~22:23Z: "i would like to spend time tonight really obsessing about S/R and k* ... I feel that we are not the first people to look at efficient delta hedging of an option - so there must be volumes of research out there. I want to get a very good intuitive feel of this as if we can condense the 3 dials we have add/exit and layers into lower dimensions, i think we can really make our trading more sophisticated" |
 | Builds on | `docs/research/scalps-per-roll.md` (k* = N*a/e - 1; S/R = k* under a random walk; the measures study s8) |
 
@@ -447,6 +447,52 @@ several layers live at once, re-roll (ADR-165), the roll gate (ADR-166)
 and the carry pass. The rates are intuition until the replay measures
 them (S, R per day against e and D across the sweep).
 
+## 14. THE VETERAN AND THE MODEL: WHAT THE REPLAY IS FOR (operator 9 Oct ~05:03Z)
+
+The operator (9 Oct ~05:03Z): "i think this replay is kind of my
+preference. i view it like comparing two different types of traders -
+one who has built a quantitative model of the market from first
+principles and the other a grizzled veteran who has watched the ticker
+for years. the model will highlight arbitrages where you are 100% likely
+to make money - but those situations happen so rarely. the veteran will
+understand the 'vibration' of the numbers and know where they live and
+how often they visit there - perhaps another way to say that is that they
+understand the statistics of the market. i feel that with spot fx - and
+this ratio of scalps vs rolls - the latter might be the better approach.
+searching for a mathematical proof will not yield much." (typos
+corrected.) Agreed (~05:05Z):
+document it; the replay work continues.
+
+**The principle (recorded, not a rule change):**
+- **The replay is the veteran's memory made systematic.** A calibrated
+  replay watches months of IC's tape under every geometry at once and
+  remembers exactly. It stays inside the 8 Oct ruling: the ticks only
+  drive OUR rules; what comes out is the statistics of our own trading
+  (S, R, rho per pair, side and week), not a price signal.
+- **The first-principles model is the ruler, not the source of edge.**
+  On a random walk every geometry makes zero (s2, s13); the toy finds no
+  arbitrage and is not asked to. Its job is to say what to look at
+  (scalps depend on e x D, rolls on D; edge = reversion at the chosen
+  scales: s4, s13) and to catch a sweep result that has no mechanism.
+- **The output we want is RANGES and their STABILITY, not optima** (the
+  operator's forward-spread range, s11): for each pair and side, where
+  rho lives across geometries, how wide that range is, and how fast it
+  drifts week to week. A narrow, stable range is conviction to set a
+  geometry; a wide or wandering one is conviction NOT to lean on that
+  pair's geometry.
+- **The veteran's failure mode is a regime change** (his statistics
+  describe a market that has moved on). Guards: everything a sweep
+  finds must hold on data it has not seen (as the calibration's own
+  holdout, `replay-calibration-eurusd.md` s8); ranges are re-measured
+  as weeks are added; the compass stays as the live confirmation.
+
+**Order (unchanged):** calibrate on EURUSD (T1 / T2 on the 29 segments),
+pass the holdout (to Tue 13 Oct 22:00Z), port to Python (C118, proven
+equal), then sweep per pair for rho ranges and their week-to-week
+stability, with edge per unit of equity volatility (s13.3) beside them;
+C145 (which book states pay) and C146 (a pre-emptive roll) as replay
+variants.
+
 ## SOURCES
 
 Added 8 Oct (s9): Glattfelder, Dupuis, Olsen (2011) https://arxiv.org/pdf/0809.1040 (read in full by extraction; appendix tables A13-A22 not seen); Golub, Glattfelder, Olsen (2017) Alpha Engine https://www.smallake.kr/wp-content/uploads/2019/02/SSRN-id2951348.pdf and https://raw.githubusercontent.com/AntonVonGolub/Code/master/code.java (read in full); Andersen, Dobrev, Schaumburg (2008) https://gcoe.ier.hit-u.ac.jp/information/schedule/pdf/ADS_DRVDraft_0807.pdf (read in full); Gueant, Lehalle, Fernandez-Tapia (2013) https://arxiv.org/pdf/1105.3115 (read in full by extraction, figures not seen); Avellaneda-Stoikov (2008) https://www.math.nyu.edu/~avellane/HighFrequencyTrading.pdf (read); Gueant (2017) https://arxiv.org/pdf/1605.01862 (s2-4); Fukasawa (2014) https://arxiv.org/pdf/1204.0637 (read in full); Baviera and Santagostino Baldi (2017) https://arxiv.org/pdf/1706.07021 (read in full); Chen, Chen, Jang (2025) https://arxiv.org/html/2506.11921v1 (read in full); Bertram (2010) original NOT accessed (restatements only); Cartea-Jaimungal-Penalva (2015), Osler (2000/2003), Guillaume et al. (1997) NOT read.
@@ -476,4 +522,4 @@ Added 8 Oct (s9): Glattfelder, Dupuis, Olsen (2011) https://arxiv.org/pdf/0809.1
   IMFI 17(3):
   https://businessperspectives.org/publishing-policies2/gambler-s-ruin-problem-and-bi-directional-grid-constrained-trading-and-investment-strategies
 
-Line count: 479
+Line count: 525

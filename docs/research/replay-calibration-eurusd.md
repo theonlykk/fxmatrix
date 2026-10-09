@@ -287,6 +287,10 @@ Assigned in this order (the first that fits):
 
 ## 8. WHAT A RESULT MEANS
 
+- **What a calibrated replay is FOR** (operator 9 Oct ~05:03Z;
+  `grid-as-variance-trade.md` s14): the statistics of our own trading,
+  per pair and side, as RANGES and their week-to-week STABILITY, not a
+  single optimum; the first-principles toy (s13 there) is the ruler.
 - **Pass:** a HOLDOUT on data the replay has not seen, with NO code
   change: from round 3's reload (Fri 9 Oct) to **Tue 13 Oct 22:00Z**
   (GRC-6: three trading days, not a Friday and a Monday alone), EURUSD on
@@ -518,4 +522,4 @@ changes a preset; no mark adjusted to fit a result.
   `rebuild=true/false`)**: one more init inside the holdout (s8), run with
   its own inputs.
 
-Line count: 521
+Line count: 525
