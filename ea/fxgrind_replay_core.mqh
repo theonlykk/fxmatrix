@@ -825,8 +825,90 @@ long Rpl_OldestLatticeMs()
 }
 
 //+------------------------------------------------------------------+
+void Rpl_EnsureLatticeHistoryOneSide(const GrindSideState &side, const bool is_long, const long t)
+{
+   const int depth = Grind_SideDepth(side);
+   if(depth < g_rpl_cfg.cap)
+      return;
+   if(is_long ? g_grind_vl_tracking_long : g_grind_vl_tracking_short)
+      return;
+
+   datetime newest = 0;
+   bool any = false;
+   for(int i = 0; i < depth; i++) {
+      const ulong pos = side.layers[i].position_ticket;
+      if(pos == 0)
+         continue;
+      datetime ot = 0;
+      if(!Grind_CarryPositionOpenTime(pos, g_rpl_cfg.magic, ot))
+         return;
+      if(!any || ot > newest) {
+         newest = ot;
+         any = true;
+      }
+   }
+   if(!any)
+      return;
+
+   const long need = MathMax((long)(newest + 1) * 1000,
+                             (long)((datetime)(t / 1000) - GRIND_VL_CATCHUP_MAX_SEC) * 1000);
+   if(need >= g_rpl_retained_from_ms)
+      return;
+   if(g_rpl_all_tick_count <= 0)
+      return;
+
+   const long front = Rpl_OldestLatticeMs();
+   int lo = 0;
+   int hi = g_rpl_all_tick_count;
+   while(lo < hi) {
+      const int mid = (lo + hi) / 2;
+      if(g_rpl_all_ticks[mid].time_msc < need)
+         lo = mid + 1;
+      else
+         hi = mid;
+   }
+
+   int n_ins = 0;
+   for(int i = lo; i < g_rpl_all_tick_count; i++) {
+      const long s = (long)((datetime)(g_rpl_all_ticks[i].time_msc / 1000)) * 1000;
+      if(s >= front)
+         break;
+      n_ins++;
+   }
+
+   if(n_ins > 0) {
+      const int n0 = ArraySize(g_grind_vl_test_tick_msc);
+      const int n1 = n0 + n_ins;
+      ArrayResize(g_grind_vl_test_tick_msc, n1, RPL_LATTICE_RESERVE);
+      ArrayResize(g_grind_vl_test_tick_bid, n1, RPL_LATTICE_RESERVE);
+      ArrayResize(g_grind_vl_test_tick_ask, n1, RPL_LATTICE_RESERVE);
+      for(int i = n0 - 1; i >= 0; i--) {
+         g_grind_vl_test_tick_msc[i + n_ins] = g_grind_vl_test_tick_msc[i];
+         g_grind_vl_test_tick_bid[i + n_ins] = g_grind_vl_test_tick_bid[i];
+         g_grind_vl_test_tick_ask[i + n_ins] = g_grind_vl_test_tick_ask[i];
+      }
+      int j = 0;
+      for(int i = lo; i < g_rpl_all_tick_count && j < n_ins; i++) {
+         const long s = (long)((datetime)(g_rpl_all_ticks[i].time_msc / 1000)) * 1000;
+         if(s >= front)
+            break;
+         g_grind_vl_test_tick_msc[j] = s;
+         g_grind_vl_test_tick_bid[j] = g_rpl_all_ticks[i].bid;
+         g_grind_vl_test_tick_ask[j] = g_rpl_all_ticks[i].ask;
+         j++;
+      }
+      g_rpl_lattice_backfills++;
+      Print("RPL|LATTICE_BACKFILL|", is_long ? "L" : "S", "|need=", need, "|count=", n_ins);
+   }
+
+   g_rpl_retained_from_ms = MathMax(need, g_rpl_all_ticks[0].time_msc);
+}
+
+//+------------------------------------------------------------------+
 void Rpl_EnsureLatticeHistory(const long t)
 {
+   Rpl_EnsureLatticeHistoryOneSide(g_grind_long, true, t);
+   Rpl_EnsureLatticeHistoryOneSide(g_grind_short, false, t);
 }
 
 //+------------------------------------------------------------------+
@@ -1353,6 +1435,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    Grind_ProcessCloseByQueues(g_rpl_cfg.magic, false);
    if(!Rpl_EngineSeamsOrAbort())
       return;
+   Rpl_EnsureLatticeHistory(t);
    Grind_LatticeOnTick(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, RPL_LOTS_DEFAULT, g_rpl_cfg.lattice,
                        g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, (datetime)(t / 1000),
                        g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
