@@ -8,7 +8,7 @@ branch, the fix-3 outputs (`research/replay/runs/*_624a29b/`) and
 `research/replay/results/eurusd_20261008_624a29b/` on `main`. Line numbers
 are `624a29b`'s (core, `ea/fxgrind_replay_core.mqh`) and `438a00b`'s (tests,
 `ea/fxgrind_replay_tests.mq5`). Questions for Gemini in s8; his rulings and
-Claude's check go in s9 before you get this file. The earlier replay prompts
+Claude's check are in s9. The earlier replay prompts
 (first run, fixes 1-3) govern what this file does not change. **No replay
 rule changes here:** the harness only WRITES what its order book does.
 
@@ -168,6 +168,34 @@ Any model of the broker's close-by latency (K4): see GO4-2.
 
 ## 9. GEMINI'S RULINGS AND CLAUDE'S CHECK
 
-To be added before Cursor gets this file.
+Gemini 9 Oct ~23:40Z on the file at `5e32484` (attached); checked by Claude
+the same evening. Gemini: "Proceed with Cursor execution." Nothing here
+changes s2 or s3: Cursor builds O1-O3 and RT48-RT49 as written (381 run, 43
+fail at commit 1).
 
-Line count: 173
+- **GO4-1. Accepted.** A place and remove inside one engine call leaves no
+  row; send_logs would show both. The comparison after R5 reads the replay
+  log as the book's state at each point, not as a list of sends, and a real
+  send pair with no replay row is read as such. No EA hook is possible here
+  (the pin: no EA file changes).
+- **GO4-2. Ruled: the close-by latency stays a REPORTED SENSITIVITY; no
+  latency model in the harness.** His premise is corrected: a value fixed in
+  advance from send_logs would be a measurement, not a fit, and GRC-5 fixed
+  the FILL rule, not the close-by. The ruling stands on the plan itself: the
+  broker model (s6) was fixed before any run, and changing it after seeing
+  results would be a new pre-registration. So M3 misses stay counted in T1,
+  and s8 applies as written: a fail in M1-M3 means a tick-level replay is not
+  trusted and T2 alone decides count-level use.
+- **GO4-3. Ruled: fixes 1-3 do not count toward s8's three attempts**
+  (harness state, not a rule's model: fix 1 the lattice history start, fix 2
+  the resting book at an init, fix 3 the carry ledger GVs and the sync true
+  book). Claude agrees. The count starts with the first fix to a rule's
+  model (M4-M10).
+- **GO4-4. Not a missing fact: his own reasoning shows O1 handles it.** Each
+  diff copies the book into the snapshot, so a second MODIFY on the same
+  tick (e.g. a re-seed at SYNC, a carry shift at TIMER) carries the price the
+  first one left as its old_price. (Sync re-seeds and removes; it does not
+  shift an exit.) No change.
+
+
+Line count: 201
