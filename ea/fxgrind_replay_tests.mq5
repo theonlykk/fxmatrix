@@ -1334,7 +1334,7 @@ void Test_RT41_SyncExtClosesLayer()
       RplDealRow row;
       if(!Rpl_GetDealRow(i, row))
          continue;
-      if(row.role == "EXT" && row.side == "S") {
+      if(row.role == "EXT" && row.side == "S" && row.entry_type == DEAL_ENTRY_IN) {
          n++;
          ext_ms = row.time_ms;
       }
