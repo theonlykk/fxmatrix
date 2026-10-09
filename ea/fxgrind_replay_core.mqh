@@ -199,6 +199,8 @@ bool             g_rpl_skip_true_book_add = false;
 RplTick          g_rpl_all_ticks[];
 int              g_rpl_all_tick_count = 0;
 int              g_rpl_lattice_backfills = 0;
+ulong            g_rpl_seeded_order_tickets[];
+int              g_rpl_seeded_order_count = 0;
 
 struct RplTestInterval
 {
@@ -432,6 +434,8 @@ void Rpl_ResetAll()
    ArrayResize(g_rpl_all_ticks, 0);
    g_rpl_all_tick_count = 0;
    g_rpl_lattice_backfills = 0;
+   ArrayResize(g_rpl_seeded_order_tickets, 0);
+   g_rpl_seeded_order_count = 0;
    g_rpl_skip_true_book_add = false;
    ArrayResize(g_rpl_test_intervals, 0);
    g_rpl_test_interval_count = 0;
@@ -699,6 +703,34 @@ void Rpl_SeedLayer(const string side,
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_LinkSeedOrderToSide(GrindSideState &side,
+                             const string side_code,
+                             const int layer,
+                             const string role,
+                             const double price,
+                             const ulong ticket)
+{
+   if(role == "EXT") {
+      for(int i = 0; i < ArraySize(side.layers); i++) {
+         if(side.layers[i].layer_index != layer)
+            continue;
+         side.layers[i].exit_order_ticket = ticket;
+         side.layers[i].exit_target = price;
+         return true;
+      }
+      return false;
+   }
+   if(role == "ENT") {
+      if(ArraySize(side.layers) == 0)
+         side.l0_pending_ticket = ticket;
+      else
+         side.add_pending_ticket = ticket;
+      return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
 void Rpl_SeedOrder(const string side,
                    const int layer,
                    const string role,
@@ -706,6 +738,89 @@ void Rpl_SeedOrder(const string side,
                    const ulong ticket,
                    const long otype)
 {
+   Grind_OrderTestUpsert(ticket, g_rpl_cfg.magic,
+                         GrindCommentBuild(RPL_SLOT_DEFAULT, side, layer, role),
+                         price, otype);
+   Rpl_TrackOrderPlaced(ticket, 1);
+   bool linked = false;
+   if(side == "L")
+      linked = Rpl_LinkSeedOrderToSide(g_grind_long, side, layer, role, price, ticket);
+   else if(side == "S")
+      linked = Rpl_LinkSeedOrderToSide(g_grind_short, side, layer, role, price, ticket);
+   if(!linked) {
+      Rpl_Abort("SEED_ORDER_NO_LAYER");
+      return;
+   }
+   ArrayResize(g_rpl_seeded_order_tickets, g_rpl_seeded_order_count + 1);
+   g_rpl_seeded_order_tickets[g_rpl_seeded_order_count] = ticket;
+   g_rpl_seeded_order_count++;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_ReportOrdersKept()
+{
+   if(g_rpl_seeded_order_count <= 0)
+      return;
+   int kept = 0;
+   for(int i = 0; i < g_rpl_seeded_order_count; i++) {
+      GrindOrderTestRecord rec;
+      if(Grind_OrderTestFind(g_rpl_seeded_order_tickets[i], rec))
+         kept++;
+   }
+   Print("RPL|ORDERS_KEPT|", g_rpl_cfg.seg_id, "|", kept, "/", g_rpl_seeded_order_count);
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_LoadOrdersFile(const string orders_file, const int seg_id)
+{
+   const int od = FileOpen("replay\\" + orders_file, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(od == INVALID_HANDLE) {
+      Print("RPL|ABORT|MISSING_ORDERS");
+      return false;
+   }
+   bool ord_header = false;
+   string ord_fields[];
+   int n_orders = 0;
+   while(Rpl_CsvReadLineFields(od, ord_fields)) {
+      if(Rpl_CsvFieldsAllEmpty(ord_fields))
+         continue;
+      if(StringFind(ord_fields[0], "#") == 0)
+         continue;
+      if(!ord_header) {
+         if(!Rpl_CsvHeaderOk(ord_fields, "side", orders_file)) {
+            FileClose(od);
+            Print("RPL|ABORT|BAD_ORDERS");
+            return false;
+         }
+         ord_header = true;
+         continue;
+      }
+      const string side = ord_fields[0];
+      const int layer = (ArraySize(ord_fields) > 1) ? (int)StringToInteger(ord_fields[1]) : 0;
+      const string role = (ArraySize(ord_fields) > 2) ? ord_fields[2] : "";
+      const double price = (ArraySize(ord_fields) > 3) ? StringToDouble(ord_fields[3]) : 0.0;
+      const ulong ticket = (ArraySize(ord_fields) > 4) ? (ulong)StringToInteger(ord_fields[4]) : 0;
+      const string type_str = (ArraySize(ord_fields) > 5) ? ord_fields[5] : "";
+      long otype = 0;
+      if(type_str == "BUY_LIMIT")
+         otype = ORDER_TYPE_BUY_LIMIT;
+      else if(type_str == "SELL_LIMIT")
+         otype = ORDER_TYPE_SELL_LIMIT;
+      else {
+         FileClose(od);
+         Print("RPL|ABORT|BAD_ORDERS");
+         return false;
+      }
+      Rpl_SeedOrder(side, layer, role, price, ticket, otype);
+      if(g_rpl_aborted) {
+         FileClose(od);
+         return false;
+      }
+      n_orders++;
+   }
+   FileClose(od);
+   Print("RPL|ORDERS|", seg_id, "|count=", n_orders);
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -1323,6 +1438,22 @@ void Rpl_ApplySyncDealsUpTo(const long tick_ms)
                break;
             }
          }
+      } else if(rd.kind == "EXT") {
+         int remove_i = -1;
+         long newest_ms = 0;
+         for(int i = 0; i < g_rpl_true_book_count; i++) {
+            if(g_rpl_true_book[i].side != rd.side || g_rpl_true_book[i].layer != rd.layer)
+               continue;
+            if(remove_i < 0 || g_rpl_true_book[i].open_ms >= newest_ms) {
+               newest_ms = g_rpl_true_book[i].open_ms;
+               remove_i = i;
+            }
+         }
+         if(remove_i >= 0) {
+            for(int j = remove_i; j < g_rpl_true_book_count - 1; j++)
+               g_rpl_true_book[j] = g_rpl_true_book[j + 1];
+            g_rpl_true_book_count--;
+         }
       } else if(rd.kind == "OUT_BY") {
          for(int i = g_rpl_true_book_count - 1; i >= 0; i--) {
             if(g_rpl_true_book[i].ticket == rd.position_id) {
@@ -1461,6 +1592,8 @@ void Rpl_ProcessOneTick(const RplTick &tick)
       Rpl_LatticeHistoryCheck(false, t);
 
    Rpl_ScanNewOrders(t);
+   if(seg_first_tick)
+      Rpl_ReportOrdersKept();
    Rpl_ProcessCloseByDone(t, cb_before, cb_n);
 
    if(g_rpl_last_timer_ms == 0 || t - g_rpl_last_timer_ms >= 60000) {
@@ -2234,6 +2367,21 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
             Rpl_SeedLayer(side, layer, entry, open_ms, ticket, vl, swap, vol);
          }
          FileClose(sd);
+      }
+      if(ArraySize(fields) > 22 && StringLen(fields[22]) > 0) {
+         if(!Rpl_LoadOrdersFile(fields[22], cfg.seg_id)) {
+            FileClose(rh);
+            Rpl_CloseRunOutputs(out);
+            Rpl_RunReplayClearFileState();
+            return false;
+         }
+         if(g_rpl_aborted) {
+            FileClose(rh);
+            Rpl_AppendSegmentOutputs(out);
+            Rpl_CloseRunOutputs(out);
+            Rpl_RunReplayClearFileState();
+            return false;
+         }
       }
       if(sync_mode)
          Rpl_LoadSegmentSyncFromFile(cfg.from_ms, cfg.to_ms);
