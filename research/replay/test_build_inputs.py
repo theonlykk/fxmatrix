@@ -48,8 +48,8 @@ class TestFleetFiles(unittest.TestCase):
         self.assertTrue(run[2].startswith("2,GRIND_EURUSD_OPTB,22260201,%d,%d," % (T2, END)))
         self.assertTrue(run[2].endswith(",seed_2.csv,ticks_w2.csv,"))
         self.assertEqual(files["seed_2.csv"],
-                         "side,layer_index,entry,open_ms,ticket,vl,swap,volume\n"
-                         "L,0,1.10000,%d,900,0.00000,0.00,0.01\n" % (T1 + 60000))
+                         "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued\n"
+                         "L,0,1.10000,%d,900,0.00000,0.00,0.01,0.00000000\n" % (T1 + 60000))
         self.assertEqual(files["real_eurusd_b.csv"],
                          "time_ms,kind,side,layer,price,position_id,level\n"
                          "%d,ENT,L,0,1.10000,900,0.00000\n" % (T1 + 60000))

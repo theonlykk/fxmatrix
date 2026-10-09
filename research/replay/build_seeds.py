@@ -1,6 +1,6 @@
 """build_seeds.py -- the replay harness's seed_<seg_id>.csv files.
 
-Base prompt s3.2: seed = side,layer_index,entry,open_ms,ticket,vl,swap,volume
+Base prompt s3.2 (fix 3 adds accrued): seed = side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued
 (times SERVER ms; vl 0 = not rolled; swap in account currency). Plan s3: every
 segment after D's flat attach starts at an init from the TRUE open positions at
 that moment, rebuilt from fill_logs:
@@ -16,6 +16,11 @@ that moment, rebuilt from fill_logs:
   broker's POSITION_SWAP, which the EA's carry ledger reads at init: 69 of 69
   CARRY_EXIT_SHIFT accrued_ledger_pips agree, HANDOFF s73).
 
+- accrued = the EA's accrued carry (terminal GV GRIND_CARRY_ACCRUED_<ticket>, a PRICE offset
+  the exit formula adds; it survives a restart, the harness seeds it, fix 3) as the last carry
+  pass before the init left it (accrued_price below). Checked against every exit placement in
+  send_logs between that pass and the next (174 of 174 seeded positions with one; 9 Oct).
+
 cap_warnings: a seeded side AT CAP tracks the lattice from its newest open (at
 most GRIND_VL_CATCHUP_MAX_SEC = 24 h back), so its preload needs ticks from
 max(newest open, init - 24 h); warn when the tick file starts later.
@@ -27,7 +32,7 @@ import json
 
 import build_swaps
 
-SEED_HEADER = "side,layer_index,entry,open_ms,ticket,vl,swap,volume"
+SEED_HEADER = "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued"
 SERVER_OFFSET_MS = 3 * 3600 * 1000      # IC server GMT+3 (BOOT s6)
 CATCHUP_MS = 86400 * 1000              # GRIND_VL_CATCHUP_MAX_SEC
 _EPOCH = dt.datetime(1970, 1, 1)
@@ -99,6 +104,45 @@ def _srv_dt(ms):
     return _EPOCH + dt.timedelta(milliseconds=ms)
 
 
+PASS_TIME = dt.time(23, 50)      # Grind_CarryGateInWindow: 23:50-23:59 server
+
+
+def ea_mult_tomorrow(d):
+    """The EA's pending multiplier at the pass on server date d: Grind_CarrySwapMultiplier of
+    TOMORROW's weekday, rollover day Wednesday (0 Sat / Sun, 3 Wednesday, else 1; the
+    broker's triple falls into Thursday: the EA's is a night early, backlog C144)."""
+    wd = (d + dt.timedelta(days=1)).weekday()
+    if wd in (5, 6):
+        return 0
+    if wd == 2:
+        return 3
+    return 1
+
+
+def accrued_price(snaps, side, open_ms, at_ms, volume=0.01):
+    """The GV value at at_ms: set by the last weekday pass (23:50 server) before at_ms for a
+    position open at it; 0.0 when none. ledger pips = swap so far x tick size / (tick value x
+    volume) / pip; pending pips = the pass snapshot's points x ea_mult_tomorrow / 10; price =
+    -direction x (ledger + pending) x 0.0001 (grind_carry.mqh 1080-1130)."""
+    at = _srv_dt(at_ms)
+    d = at.date()
+    while True:
+        p = dt.datetime.combine(d, PASS_TIME)
+        if p <= at and d.weekday() < 5:
+            break
+        d -= dt.timedelta(days=1)
+    if _srv_dt(open_ms) >= p:
+        return 0.0
+    ledger_usd = build_swaps.predict_swap(snaps, side, _srv_dt(open_ms), p, volume)
+    ledger = ledger_usd * 0.00001 / (build_swaps.REF_TICK_VALUE * volume) / 0.0001
+    r = build_swaps.rate_for(snaps, d + dt.timedelta(days=1))
+    if r is None:
+        raise ValueError("no rate for the pass on %s" % d)
+    pending = (r[0] if side == "L" else r[1]) * ea_mult_tomorrow(d) / 10.0
+    direction = 1 if side == "L" else -1
+    return -direction * (ledger + pending) * 0.0001
+
+
 def seed_rows(rows, snaps, at_ms):
     out = []
     for p in open_positions(rows, at_ms):
@@ -107,6 +151,7 @@ def seed_rows(rows, snaps, at_ms):
         q = dict(p)
         q["vl"] = latest_vl(rows, p["ticket"], at_ms)
         q["swap"] = round(sw, 2) + 0.0
+        q["accrued"] = accrued_price(snaps, p["side"], p["open_ms"], at_ms, p["volume"]) + 0.0
         out.append(q)
     return out
 
@@ -114,9 +159,9 @@ def seed_rows(rows, snaps, at_ms):
 def to_seed_csv(seed):
     lines = [SEED_HEADER]
     for p in seed:
-        lines.append("%s,%d,%.5f,%d,%d,%.5f,%.2f,%.2f" % (
+        lines.append("%s,%d,%.5f,%d,%d,%.5f,%.2f,%.2f,%.8f" % (
             p["side"], p["layer_index"], p["entry"], p["open_ms"], p["ticket"],
-            p["vl"], p["swap"], p["volume"]))
+            p["vl"], p["swap"], p["volume"], p["accrued"]))
     return "\n".join(lines) + "\n"
 
 

@@ -1,6 +1,7 @@
 """Tests for build_seeds.py (hand-derived; run: python -B -m unittest test_build_seeds).
 
-Seed format (base prompt s3.2): side,layer_index,entry,open_ms,ticket,vl,swap,volume;
+Seed format (base prompt s3.2; fix 3 adds accrued): side,layer_index,entry,open_ms,ticket,vl,
+swap,volume,accrued;
 times SERVER ms. Plan s3: the true open ENT positions at an init, from fill_logs;
 vl = the latest ROLL_ACCEPTED detail "level" for the ticket before the init (0 = not
 rolled); swap = build_swaps.predict_swap to the init (69 of 69 CARRY_EXIT_SHIFT
@@ -161,16 +162,81 @@ class TestSeedRows(unittest.TestCase):
         self.assertEqual(bsd.seed_rows([], SNAPS, INIT), [])
 
 
+def ms(t):
+    return int((t - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
+
+
+class TestAccrued(unittest.TestCase):
+    """Fix 3: the EA's accrued carry (GV GRIND_CARRY_ACCRUED_<ticket>, a PRICE offset) as the
+    last carry pass before the init left it: the pass runs 23:50 server on Mon-Fri; for a
+    position open at it, accrued pips = ledger (its swap so far, USD x 10 at 0.01 lot) +
+    pending (the pass snapshot's points x the EA's multiplier for TOMORROW / 10: 0 when
+    tomorrow is Sat / Sun, 3 when tomorrow is WEDNESDAY, else 1: grind_carry.mqh 196-213,
+    1115-1123); price = -direction x pips x 0.0001; 0 when opened after that pass."""
+
+    def test_one_night_long_and_short(self):
+        # Long opened Tue 6 10:00, init Thu 8 05:00: the Wed 7 23:50 pass; ledger = into Wed 7
+        # (x1 at -8.0: -0.08 USD = -0.8 pip); pending = -8.2 x 1 / 10 = -0.82: +0.000162.
+        self.assertAlmostEqual(bsd.accrued_price(SNAPS, "L", ms(srv(2026, 10, 6, 10)), INIT),
+                               0.000162, places=10)
+        # Short opened Wed 7 12:00: ledger 0; pending +1.6 / 10 = +0.16 pip: +0.000016.
+        self.assertAlmostEqual(bsd.accrued_price(SNAPS, "S", ms(srv(2026, 10, 7, 12)), INIT),
+                               0.000016, places=10)
+
+    def test_triple_a_night_early(self):
+        # Long opened Mon 5 10:00, init Wed 7 05:00: the Tue 6 23:50 pass; ledger into Tue 6
+        # (-0.08 USD = -0.8); pending: tomorrow is Wednesday -> x3: -8.0 x 3 / 10 = -2.4.
+        self.assertAlmostEqual(
+            bsd.accrued_price(SNAPS, "L", ms(srv(2026, 10, 5, 10)), ms(srv(2026, 10, 7, 5))),
+            0.00032, places=10)
+
+    def test_opened_after_the_pass(self):
+        self.assertEqual(bsd.accrued_price(SNAPS, "L", ms(srv(2026, 10, 7, 23, 55)), INIT), 0.0)
+        # opened exactly at the pass's start: not in its work list either
+        self.assertEqual(bsd.accrued_price(SNAPS, "L", ms(srv(2026, 10, 7, 23, 50)), INIT), 0.0)
+
+    def test_no_pass_on_the_weekend(self):
+        snaps = SNAPS + [(srv(2026, 10, 8, 23, 50), -8.0, 1.4), (srv(2026, 10, 9, 23, 50), -8.0, 1.4)]
+        opened = ms(srv(2026, 10, 8, 10))
+        # Mon 12 10:00 and Sat 10 12:00 both read the Fri 9 pass: ledger into Fri 9 (-0.8);
+        # pending x0 (tomorrow Saturday): +0.00008.
+        for at in (srv(2026, 10, 12, 10), srv(2026, 10, 10, 12)):
+            self.assertAlmostEqual(bsd.accrued_price(snaps, "L", opened, ms(at)), 0.00008,
+                                   places=10)
+        # Fri 9 at 23:49 still reads Thu 8's pass: ledger 0 (opened Thu 10:00, no rollover
+        # yet); pending into Fri x1 at the Thu snapshot (-8.0): +0.00008.
+        self.assertAlmostEqual(bsd.accrued_price(snaps, "L", opened, ms(srv(2026, 10, 9, 23, 49))),
+                               0.00008, places=10)
+
+    def test_at_the_pass_minute(self):
+        # Defined, not observed (no init falls in 23:50-23:59): an init at 23:50:00 reads that
+        # day's pass. Long opened Tue 6 10:00, at Wed 7 23:50: ledger into Wed 7 (-0.8),
+        # pending -8.2 x 1 / 10 (tomorrow Thursday): +0.000162; at 23:49:59, Tue 6's pass:
+        # ledger 0, pending -8.0 x 3 / 10 (tomorrow Wednesday): +0.00024.
+        opened = ms(srv(2026, 10, 6, 10))
+        self.assertAlmostEqual(bsd.accrued_price(SNAPS, "L", opened, ms(srv(2026, 10, 7, 23, 50))),
+                               0.000162, places=10)
+        self.assertAlmostEqual(
+            bsd.accrued_price(SNAPS, "L", opened, ms(srv(2026, 10, 7, 23, 50)) - 1000),
+            0.00024, places=10)
+
+    def test_seed_rows_carry_it(self):
+        got = bsd.seed_rows([fill(621, 1, "IN", "ENT", "L", 0, 1.1, ms(srv(2026, 10, 6, 10)))],
+                            SNAPS, INIT)
+        self.assertAlmostEqual(got[0]["accrued"], 0.000162, places=10)
+
+
 class TestCsv(unittest.TestCase):
     def test_format(self):
         seed = [{"side": "L", "layer_index": 0, "entry": 1.1, "open_ms": 1791400000123,
-                 "ticket": 1975880441, "vl": 1.09300, "swap": -0.33, "volume": 0.01},
+                 "ticket": 1975880441, "vl": 1.09300, "swap": -0.33, "volume": 0.01,
+                 "accrued": 0.000162},
                 {"side": "S", "layer_index": 2, "entry": 1.12345, "open_ms": 1791400001000,
-                 "ticket": 1975880442, "vl": 0.0, "swap": 0.0, "volume": 0.01}]
+                 "ticket": 1975880442, "vl": 0.0, "swap": 0.0, "volume": 0.01, "accrued": 0.0}]
         self.assertEqual(bsd.to_seed_csv(seed),
-                         "side,layer_index,entry,open_ms,ticket,vl,swap,volume\n"
-                         "L,0,1.10000,1791400000123,1975880441,1.09300,-0.33,0.01\n"
-                         "S,2,1.12345,1791400001000,1975880442,0.00000,0.00,0.01\n")
+                         "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued\n"
+                         "L,0,1.10000,1791400000123,1975880441,1.09300,-0.33,0.01,0.00016200\n"
+                         "S,2,1.12345,1791400001000,1975880442,0.00000,0.00,0.01,0.00000000\n")
 
     def test_ascii_no_bom(self):
         out = bsd.to_seed_csv([])
