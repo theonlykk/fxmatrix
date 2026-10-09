@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT42 (fix2 T13–16)|
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT47 (fix3 T17–T21) |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -1387,6 +1387,135 @@ void Test_RT42_OrdersFile()
    AssertFalse("RT42 missing orders", Rpl_RunReplayFiles("rt42m", false));
 }
 
+double Rpl_TestTrueBookSwap(const ulong ticket)
+{
+   for(int i = 0; i < g_rpl_true_book_count; i++) {
+      if(g_rpl_true_book[i].ticket == ticket)
+         return g_rpl_true_book[i].swap;
+   }
+   return -999.0;
+}
+
+void Test_RT43_SeededAccruedExit()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.to_ms = RplMs(RPL_T0, 4);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 5401UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedAccrued(5401UL, 0.00008);
+   AssertNear("RT43 accrued", Grind_CarryAccruedGet(5401UL), 0.00008, 1e-12);
+   RplTick ticks[4];
+   const double bids[4] = {1.10050, 1.10100, 1.10108, 1.10050};
+   for(int i = 0; i < 4; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = bids[i];
+      ticks[i].ask = bids[i] + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 4, cfg);
+   AssertDealRow("RT43 ext", 0, DEAL_TYPE_SELL, "EXT", "L", 0, 1.10108, RplMs(RPL_T0, 2));
+}
+
+void Test_RT44_SeedField9()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt44.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   const double bids[4] = {1.10050, 1.10100, 1.10108, 1.10050};
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(RplMs(RPL_T0, i)), DoubleToString(bids[i], 5),
+                DoubleToString(bids[i] + RPL_SPREAD, 5), "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt44.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued");
+   FileWrite(w, "L,0,1.10000," + IntegerToString(RplMs(RPL_T0, -3600)) + ",5401,0,0,0.01,0.00008000");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt44.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt44.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt44.csv,ticks_rt44.csv");
+   FileClose(w);
+   AssertTrue("RT44 run", Rpl_RunReplayFiles("rt44", false));
+   AssertTrue("RT44 shifted exit",
+              StringFind(Rpl_ReadWholeFile(dir + "out_rt44_deals.csv"), ",EXT,L,0,1.10108") >= 0);
+}
+
+void Test_RT45_SyncReseedAccrued()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.sync = true;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 5401UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedAccrued(5401UL, 0.00008);
+   Rpl_SeedLayer("L", 1, 1.09900, RplMs(RPL_T0, -1800), 5402UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedAccrued(5402UL, 0.00008);
+   Rpl_RemoveLayerByTicket(g_grind_long, 5401UL);
+   Grind_CarryAccruedDelete(5401UL);
+   Grind_CarryAccruedSet(5402UL, 0.00011);
+   AssertTrue("RT45 removed", ArraySize(g_grind_long.layers) == 1);
+   Rpl_SyncResetToTrueBook();
+   AssertTrue("RT45 reseeded", ArraySize(g_grind_long.layers) == 2);
+   AssertNear("RT45 restored", Grind_CarryAccruedGet(5401UL), 0.00008, 1e-12);
+   AssertNear("RT45 held kept", Grind_CarryAccruedGet(5402UL), 0.00011, 1e-12);
+}
+
+void Test_RT46_TrueBookSwapRollover()
+{
+   Rpl_AppendTestSwap("2026.10.07", -8.067, 1.364, 1.0);
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.sync = true;
+   cfg.from_ms = RplMs(D'2026.10.06 10:00:00', 0);
+   cfg.to_ms = RplMs(D'2026.10.07 00:00:00', 0) + 1000;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(D'2026.10.06 09:00:00', 0), 6201UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_TrueBookAdd("L", 1, 1.09900, 6202UL, 0.0, RPL_LOTS_DEFAULT, RplMs(D'2026.10.06 12:00:00', 0), 0.0);
+   RplTick ticks[3];
+   ticks[0].time_msc = RplMs(D'2026.10.06 10:00:00', 0);
+   ticks[0].bid = 1.10000;
+   ticks[0].ask = 1.10002;
+   ticks[1].time_msc = RplMs(D'2026.10.06 23:59:59', 0);
+   ticks[1].bid = 1.10000;
+   ticks[1].ask = 1.10002;
+   ticks[2].time_msc = RplMs(D'2026.10.07 00:00:00', 0);
+   ticks[2].bid = 1.10000;
+   ticks[2].ask = 1.10002;
+   Rpl_RunTicks(ticks, 3, cfg);
+   AssertNear("RT46 held swap", Rpl_GetPositionSwap(6201UL), -0.08067, 1e-9);
+   AssertNear("RT46 true seeded", Rpl_TestTrueBookSwap(6201UL), -0.08067, 1e-9);
+   AssertNear("RT46 true only", Rpl_TestTrueBookSwap(6202UL), -0.08067, 1e-9);
+}
+
+void Test_RT47_SyncReseedLatestAccrued()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.sync = true;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 5701UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedAccrued(5701UL, 0.00008);
+   Grind_CarryAccruedSet(5701UL, 0.00011);
+   Rpl_SyncResetToTrueBook();
+   AssertNear("RT47 held", Grind_CarryAccruedGet(5701UL), 0.00011, 1e-12);
+   Rpl_RemoveLayerByTicket(g_grind_long, 5701UL);
+   Grind_CarryAccruedDelete(5701UL);
+   Rpl_SyncResetToTrueBook();
+   AssertTrue("RT47 reseeded", ArraySize(g_grind_long.layers) == 1);
+   AssertNear("RT47 latest", Grind_CarryAccruedGet(5701UL), 0.00011, 1e-12);
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
@@ -1481,5 +1610,10 @@ void OnStart()
    Test_RT40_SeededAddAndL00();
    Test_RT41_SyncExtClosesLayer();
    Test_RT42_OrdersFile();
+   Test_RT43_SeededAccruedExit();
+   Test_RT44_SeedField9();
+   Test_RT45_SyncReseedAccrued();
+   Test_RT46_TrueBookSwapRollover();
+   Test_RT47_SyncReseedLatestAccrued();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }

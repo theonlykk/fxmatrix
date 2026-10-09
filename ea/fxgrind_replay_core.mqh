@@ -757,6 +757,13 @@ void Rpl_SeedOrder(const string side,
 }
 
 //+------------------------------------------------------------------+
+void Rpl_SeedAccrued(const ulong ticket, const double accrued)
+{
+   (void)ticket;
+   (void)accrued;
+}
+
+//+------------------------------------------------------------------+
 void Rpl_ReportOrdersKept()
 {
    if(g_rpl_seeded_order_count <= 0)
