@@ -33,7 +33,7 @@ governs everything not changed here.
 
 | # | Fix |
 |---|---|
-| L1 | New `void Rpl_EnsureLatticeHistory(const long t)` called in `Rpl_ProcessOneTick` IMMEDIATELY BEFORE `Grind_LatticeOnTick` (core 1349; after `Grind_ProcessCloseByQueues` and its seam check). For each side (long, short): skip unless `ArraySize(<side>.layers) >= g_rpl_cfg.cap` AND that side's `g_grind_vl_tracking_*` is false. Then `newest` = the latest open time over the side's layers with a non-zero `position_ticket`, read with the EA's own `Grind_CarryPositionOpenTime(pos, g_rpl_cfg.magic, ot)` (as `ea/grind_engine.mqh` 831-834; skip the side if it returns false); `need = MathMax((long)(newest + 1) * 1000, (long)((datetime)(t / 1000) - GRIND_VL_CATCHUP_MAX_SEC) * 1000)` (the EA's formula, 841-842). If `need < g_rpl_retained_from_ms`: let `front = Rpl_OldestLatticeMs()` and, for each tick of `g_rpl_all_ticks`, `s = (long)((datetime)(time_msc / 1000)) * 1000` (the seam's stored value); insert at the FRONT of the three lattice arrays, in time order, every tick with `need <= s < front` (G5: by stored second, NOT raw ms against `retained`), stored as the seam stores it (`s`, bid, ask; count first, then one resize with `RPL_LATTICE_RESERVE`, shift the existing entries back, fill the front); then set `g_rpl_retained_from_ms = MathMax(need, g_rpl_all_ticks[0].time_msc)` (never earlier than the file reaches: a history the file does not hold must still abort, RT14); increment a global `int g_rpl_lattice_backfills` (reset to 0 in `Rpl_ResetAll`); print `RPL|LATTICE_BACKFILL|<L or S>|need=<ms>|count=<n>`. Nothing else changes: the preload, the prune, `Rpl_LatticeHistoryCheck` (now a guard that should never fire on real data) and every EA call stay as they are |
+| L1 | New `void Rpl_EnsureLatticeHistory(const long t)` called in `Rpl_ProcessOneTick` IMMEDIATELY BEFORE `Grind_LatticeOnTick` (core 1349; after `Grind_ProcessCloseByQueues` and its seam check). For each side (long, short): skip unless `ArraySize(<side>.layers) >= g_rpl_cfg.cap` AND that side's `g_grind_vl_tracking_*` is false. Then `newest` = the latest open time over the side's layers with a non-zero `position_ticket`, read with the EA's own `Grind_CarryPositionOpenTime(pos, g_rpl_cfg.magic, ot)` (as `ea/grind_engine.mqh` 831-834; skip the side if it returns false); `need = MathMax((long)(newest + 1) * 1000, (long)((datetime)(t / 1000) - GRIND_VL_CATCHUP_MAX_SEC) * 1000)` (the EA's formula, 841-842). If `need < g_rpl_retained_from_ms`: let `front = Rpl_OldestLatticeMs()` and, for each tick of `g_rpl_all_ticks`, `s = (long)((datetime)(time_msc / 1000)) * 1000` (the seam's stored value); find the first tick with `time_msc >= need` by BINARY search (the array is sorted, G4; `need` is a whole second, so `time_msc >= need` is the same as `s >= need`) and walk forward only until `s >= front` (s7 GF1-4: no linear scan of the whole file); insert at the FRONT of the three lattice arrays, in time order, every tick with `need <= s < front` (G5: by stored second, NOT raw ms against `retained`), stored as the seam stores it (`s`, bid, ask; count first, then one resize with `RPL_LATTICE_RESERVE`, shift the existing entries back, fill the front); then set `g_rpl_retained_from_ms = MathMax(need, g_rpl_all_ticks[0].time_msc)` (never earlier than the file reaches: a history the file does not hold must still abort, RT14); increment a global `int g_rpl_lattice_backfills` (reset to 0 in `Rpl_ResetAll`); print `RPL|LATTICE_BACKFILL|<L or S>|need=<ms>|count=<n>`. Nothing else changes: the preload, the prune, `Rpl_LatticeHistoryCheck` (now a guard that should never fire on real data) and every EA call stay as they are |
 
 ## 3. COMMITS AND TESTS
 
@@ -113,6 +113,16 @@ in Python, after R5. C seg 11's free run being hotter than the record
 
 ## 7. GEMINI'S RULINGS AND CLAUDE'S CHECK
 
-(To be added before this file goes to Cursor.)
+Gemini 9 Oct ~16:05Z; checked by Claude against `86c1194`. Gemini: "The
+prompt is verified ... Proceed with the Cursor execution."
 
-Line count: 118
+| # | Gemini | Claude's check | Result |
+|---|---|---|---|
+| GF1-1 | No other EA path reads old ticks | True for the trading path, with two corrections. `Grind_LatticeCopyTicks` is called at `ea/grind_engine.mqh` 850 and 883 (inside `Grind_LatticeTrackOneSide`, 796-892), not 838; `Grind_LatticeTestAddTick` WRITES the array (723-730), it does not read it. One reader he missed: `Grind_MeasureExitPenetrationFromTicks` (`ea/grind_pnl.mqh` 257-266, `CopyTicksRange`) - telemetry only (a heartbeat field, `ea/grind_telemetry.mqh` 228, 265), no decision reads it, and the replay core does not call it | ACCEPTED; no change |
+| GF1-2 | Abort on history the file does not hold (RT14) | Agreed: starting late would hide an extreme the live EA saw | ACCEPTED; no change |
+| GF1-3 | L1 covers G1 and G2 | Agreed | ACCEPTED; no change |
+| GF1-4 | A linear scan of the whole tick file per backfill is a performance risk if a side crosses cap often | Valid. Repeats should be rare (a new episode's `need` is at or after that side's newest open, usually inside the retained 300 s, so no insert), but the cost is easy to remove | ACCEPTED; L1 now finds the start by binary search and stops at `front` (s2) |
+
+Nothing here changes T12 or the totals (295).
+
+Line count: 128
