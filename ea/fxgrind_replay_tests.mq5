@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT31b (fix3 s3)     |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT38 (fix1 T12)     |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -1236,6 +1236,33 @@ void Test_RT37_PreloadLattice()
    AssertNear("RT37 bid2", g_grind_vl_test_tick_bid[2], 1.10020, 1e-9);
 }
 
+void Test_RT38_LatticeBackfill()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.cap = 2;
+   cfg.from_ms = RplMs(RPL_T0, 0);
+   cfg.to_ms = RplMs(RPL_T0, 3);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("S", 0, 1.10500, RplMs(RPL_T0, -900), 9101UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("S", 1, 1.10570, RplMs(RPL_T0, -600), 9102UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 0, 1.09900, RplMs(RPL_T0, -60), 9103UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   RplTick ticks[903];
+   int k = 0;
+   for(int off = -900; off <= 2; off++) {
+      ticks[k].time_msc = RplMs(RPL_T0, off);
+      ticks[k].bid = (off == -300) ? 1.10300 : 1.10000;
+      ticks[k].ask = ticks[k].bid + RPL_SPREAD;
+      k++;
+   }
+   Rpl_RunTicks(ticks, 903, cfg);
+   AssertFalse("RT38 no abort", Rpl_WasAborted());
+   AssertTrue("RT38 short tracking", g_grind_vl_tracking_short);
+   AssertNear("RT38 short extreme", g_grind_vl_extreme_short, 1.10300, 1e-9);
+   AssertTrue("RT38 one backfill", g_rpl_lattice_backfills == 1);
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
@@ -1325,5 +1352,6 @@ void OnStart()
    Test_RT35_TickLoader();
    Test_RT36_OutputSuffix();
    Test_RT37_PreloadLattice();
+   Test_RT38_LatticeBackfill();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }

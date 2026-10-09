@@ -198,6 +198,7 @@ int              g_rpl_gap_count = 0;
 bool             g_rpl_skip_true_book_add = false;
 RplTick          g_rpl_all_ticks[];
 int              g_rpl_all_tick_count = 0;
+int              g_rpl_lattice_backfills = 0;
 
 struct RplTestInterval
 {
@@ -430,6 +431,7 @@ void Rpl_ResetAll()
    g_rpl_gap_count = 0;
    ArrayResize(g_rpl_all_ticks, 0);
    g_rpl_all_tick_count = 0;
+   g_rpl_lattice_backfills = 0;
    g_rpl_skip_true_book_add = false;
    ArrayResize(g_rpl_test_intervals, 0);
    g_rpl_test_interval_count = 0;
@@ -820,6 +822,11 @@ long Rpl_OldestLatticeMs()
          oldest = g_grind_vl_test_tick_msc[i];
    }
    return oldest;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_EnsureLatticeHistory(const long t)
+{
 }
 
 //+------------------------------------------------------------------+
