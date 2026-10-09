@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **NOTES FOR THE OPERATOR** (Claude, 7 Oct ~23:15Z). s1-s4 are algebra (s1 checked by simulation); s5 a first look at three days of FTMO minute data; s6 a literature map; s7 conjectures to test. **8 Oct ~01:30Z: s9 the literature read in full (three readers), s10 the operator's two corrections (we follow the market; three scales W, e, D), s11 the edge ratio rho with its cost hurdle and a first look from our own trades, s12 calibration before any replay.** Nothing here changes a rule. Gemini later, one document at a time (after the IC-vs-FTMO rewrite and `scalps-per-roll.md`) |
+| Status | **NOTES FOR THE OPERATOR** (Claude, 7 Oct ~23:15Z). s1-s4 are algebra (s1 checked by simulation); s5 a first look at three days of FTMO minute data; s6 a literature map; s7 conjectures to test. **8 Oct ~01:30Z: s9 the literature read in full (three readers), s10 the operator's two corrections (we follow the market; three scales W, e, D), s11 the edge ratio rho with its cost hurdle and a first look from our own trades, s12 calibration before any replay. 9 Oct ~04:55Z: s13 add versus exit -- event rates, the layers / volatility trade-off, why pairs differ (operator's questions).** Nothing here changes a rule. Gemini later, one document at a time (after the IC-vs-FTMO rewrite and `scalps-per-roll.md`) |
 | Origin | Operator 7 Oct ~22:23Z: "i would like to spend time tonight really obsessing about S/R and k* ... I feel that we are not the first people to look at efficient delta hedging of an option - so there must be volumes of research out there. I want to get a very good intuitive feel of this as if we can condense the 3 dials we have add/exit and layers into lower dimensions, i think we can really make our trading more sophisticated" |
 | Builds on | `docs/research/scalps-per-roll.md` (k* = N*a/e - 1; S/R = k* under a random walk; the measures study s8) |
 
@@ -353,6 +353,100 @@ pre-registered document for Gemini, next chat):
 - Only after a pass: geometry sweeps on the same week, then back over IC's
   tick history: the rho ranges (s11), AUDCHF the first case.
 
+## 13. ADD VERSUS EXIT: WHICH DIAL DRIVES SCALPS, AND WHAT GEOMETRY BUYS (operator 9 Oct ~04:43Z)
+
+The operator (9 Oct ~04:43Z): "we should be able to arrive at the
+settings almost without [the compass] -- like there is some geometry we
+need to understand that would give us conviction. the optimal values
+derived empirically -- i just feel that means we are always a step
+behind ... i dont have a good intuitive feel why the optimal values for
+eurusd should be different to gbpusd or cadchf ... more layers means
+more scalps then rolls -- but means more equity volatility -- perhaps
+that is the ultimate trade off ... does lower add and higher exit mean
+the same as higher add and lower exit? is one of them more a driver of
+number of scalps?"
+
+**13.1 The rates (Claude's derivation; checked by a 4,000,000-step
+simulation of the one-layer toy, e 10, D 40: scalps / rolls 2.92 vs 3.0,
+scalps per step 0.00244 vs 0.0025, rolls per step 0.000834 vs 0.000833;
+not yet by the replay).** The toy of s2-s3, one step further: one layer at a time on
+one side, price a driftless random walk with variance sigma^2 per day;
+the layer scalps at +e and rolls at -(D - e) below its entry (D = N x a,
+the roll cost of s1: N a - e pips). Gambler's ruin: a scalp first with
+probability (D - e) / D, the expected time to either e (D - e) /
+sigma^2; then the next layer starts (a renewal). So
+
+    scalps per day  =  sigma^2 / (e x D)
+    rolls per day   =  sigma^2 / (D x (D - e))
+    scalps / rolls  =  D / e - 1                     (= k*, s4; before costs)
+    closes per day  =  sigma^2 / (e x (D - e))
+    P&L per day     =  scalps x e - rolls x (D - e)  =  0
+    with a cost c per close:  P&L per day = - c x closes per day
+
+**13.2 The operator's question, answered in the toy.**
+- **Scalp count depends on the PRODUCT e x D:** halving the exit or
+  halving the depth (add x cap) raises scalps per day by the same
+  factor. "Lower add, higher exit" and "higher add, lower exit" with the
+  same e x a (same cap) give the SAME scalps per day.
+- **Roll count depends almost only on D:** sigma^2 / (D (D - e)). The
+  low-add version has the shallower corridor and rolls far more often.
+- So **"more scalps than rolls" is a statement about D / e**, and the
+  depth (add, cap) is the lever for it; the exit mainly sets the size
+  of each scalp and, with D, their frequency.
+- **No geometry makes money on a random walk** (13.1's last line; s2).
+  A geometry only chooses WHICH SCALES we bet on: e (where we get paid)
+  and D (where we pay). The edge exists only where the pair turns back
+  inside D more often than a random walk does: rho > e / (e - c) (s11),
+  or V(e) > V(D) (s4).
+
+**13.3 More layers = more equity volatility: the trade-off.** At the
+bottom of a full stack the side holds about N layers, on average about
+D / 2 under water, so the open-loss scale grows like N x D / 2 = N^2 a
+/ 2 (pip-lots). Depth buys a better scalps-per-roll ratio (13.1) and
+pays for it in the tail, like selling options further out of the money:
+more premium, a fatter left tail. The objective that follows is not
+"most scalps" but **edge per unit of equity volatility**, e.g. (rho -
+e / (e - c)) x closes per day x e, divided by N x D / 2. Proposal only:
+reported beside rho by the replay sweeps, nothing decided.
+
+**13.4 Why EURUSD, GBPUSD and CADCHF want different settings.** In 13.1
+only the ratios e / sigma and D / sigma matter (every rate scales with
+sigma^2): **stated in units of the pair's own daily move, the toy is the
+same for every pair.** What is left to differ:
+- **scale** (sigma): a 10-pip exit is a different bet on a pair that
+  moves 60 pips a day than on one that moves 30;
+- **where the reversion lives** (the slope of V(s), s4): crosses of
+  related economies (EURGBP, AUDNZD, CADCHF) plausibly revert at small
+  scales, majors carry macro flow and trend at larger ones (conjecture);
+- **cost** (c / e: the hurdle bites harder on small exits and wide
+  spreads).
+Hypothesis H13 (to test, not assumed): in units of each pair's own
+scale, pairs with similar reversion profiles share their best geometry;
+the remaining differences are each pair's V(s) slope and cost.
+**Open for the operator:** a pair's "own scale" is a statistic of price,
+and the operator ruled out time-series analysis and signals (8 Oct
+~01:07Z). Either the scale comes from our own trade history (how far
+each pair travels between our deals), or the operator rules that a scale
+used to SET geometry (not to trade on) is allowed.
+
+**13.5 Why the compass is a step behind, and what replaces it.** The
+compass is a noisy local search on two-day rounds: rho's relative error
+is ~1/sqrt(R), 35-45% on a two-day round (s11), and round 1's three
+winners kept their sign 0 of 3 in round 2 (compass-round3-review s6). It
+cannot show a surface, or whether the surface is stable. **The
+calibrated replay can** (s12; plan `replay-calibration-eurusd.md`): once
+it reproduces our trades and passes the holdout (to Tue 13 Oct 22:00Z),
+it can run every (e, D) on months of IC ticks per pair: the rho surface,
+where its peak sits, how far it wanders week to week (the operator's
+forward-spread range, s11), the scalp and roll rates against 13.1, and
+13.3's edge per unit of volatility. Conviction comes from that map; the
+compass becomes its live confirmation, not the search.
+
+**13.6 Caveats.** 13.1 is the one-layer idealisation: the real grid has
+several layers live at once, re-roll (ADR-165), the roll gate (ADR-166)
+and the carry pass. The rates are intuition until the replay measures
+them (S, R per day against e and D across the sweep).
+
 ## SOURCES
 
 Added 8 Oct (s9): Glattfelder, Dupuis, Olsen (2011) https://arxiv.org/pdf/0809.1040 (read in full by extraction; appendix tables A13-A22 not seen); Golub, Glattfelder, Olsen (2017) Alpha Engine https://www.smallake.kr/wp-content/uploads/2019/02/SSRN-id2951348.pdf and https://raw.githubusercontent.com/AntonVonGolub/Code/master/code.java (read in full); Andersen, Dobrev, Schaumburg (2008) https://gcoe.ier.hit-u.ac.jp/information/schedule/pdf/ADS_DRVDraft_0807.pdf (read in full); Gueant, Lehalle, Fernandez-Tapia (2013) https://arxiv.org/pdf/1105.3115 (read in full by extraction, figures not seen); Avellaneda-Stoikov (2008) https://www.math.nyu.edu/~avellane/HighFrequencyTrading.pdf (read); Gueant (2017) https://arxiv.org/pdf/1605.01862 (s2-4); Fukasawa (2014) https://arxiv.org/pdf/1204.0637 (read in full); Baviera and Santagostino Baldi (2017) https://arxiv.org/pdf/1706.07021 (read in full); Chen, Chen, Jang (2025) https://arxiv.org/html/2506.11921v1 (read in full); Bertram (2010) original NOT accessed (restatements only); Cartea-Jaimungal-Penalva (2015), Osler (2000/2003), Guillaume et al. (1997) NOT read.
@@ -382,4 +476,4 @@ Added 8 Oct (s9): Glattfelder, Dupuis, Olsen (2011) https://arxiv.org/pdf/0809.1
   IMFI 17(3):
   https://businessperspectives.org/publishing-policies2/gambler-s-ruin-problem-and-bi-directional-grid-constrained-trading-and-investment-strategies
 
-Line count: 385
+Line count: 479
