@@ -3,7 +3,7 @@
 Base prompt s3.2: one row per segment,
 seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,
 cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,
-seed_file,ticks_file (times SERVER ms).
+seed_file,ticks_file,orders_file (times SERVER ms; orders_file fix 2, empty when none).
 
 Plan s2: a segment runs from each INIT to the next INIT (every input change
 and compile is an init) or to the window end. The archive's ea_time_ms is UTC
@@ -21,7 +21,7 @@ import json
 
 RUN_HEADER = ("seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,"
               "cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,"
-              "seed_file,ticks_file")
+              "seed_file,ticks_file,orders_file")
 SERVER_OFFSET_MS = 3 * 3600 * 1000   # IC server GMT+3 (BOOT s6)
 LATTICE_MATCH_MS = 2000       # a LATTICE_CONFIG belongs to the init within 2 s of it
 FILL_TIME_PLACE = 1
@@ -68,14 +68,19 @@ def segments(rows, window_from_ms, window_to_ms):
     return out
 
 
-def to_run_csv(segs, ticks_file, seed_names, first_id=1):
+def to_run_csv(segs, ticks_file, seed_names, first_id=1, order_names=None):
     if len(seed_names) != len(segs):
         raise ValueError("one seed name per segment")
+    if order_names is None:
+        order_names = [""] * len(segs)
+    if len(order_names) != len(segs):
+        raise ValueError("one orders name per segment")
     lines = [RUN_HEADER]
     for k, s in enumerate(segs):
         lines.append(",".join(str(v) for v in (
             first_id + k, s["instance"], s["magic"], s["from_ms"], s["to_ms"],
             s["width_l"], s["width_s"], s["add_l"], s["add_s"], s["exit_l"], s["exit_s"],
             s["cap"], s["stranded"], s["deadband"], s["lattice"], s["reroll"], s["gate"],
-            s["carry"], s["fill_time_place"], s["reserve"], seed_names[k], ticks_file)))
+            s["carry"], s["fill_time_place"], s["reserve"], seed_names[k], ticks_file,
+            order_names[k])))
     return "\n".join(lines) + "\n"

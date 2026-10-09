@@ -88,13 +88,24 @@ class TestSegments(unittest.TestCase):
         text = bseg.to_run_csv(segs, "ticks_w.csv", seed_names=["", "seed_2.csv"], first_id=7)
         lines = text.splitlines()
         self.assertEqual(lines[0], bseg.RUN_HEADER)
-        self.assertEqual(len(lines[0].split(",")), 22)
-        # seg 7: flat (empty seed), seg 8 seeded; exactly 22 fields each
-        self.assertEqual(lines[1], "7,GRIND_EURUSD_OPTB,22260201,%d,%d,2.0,2.0,7.0,7.0,10.0,10.0,8,3.0,2.0,1,1,-1,1,1,8,,ticks_w.csv" % (T1, T2))
+        self.assertTrue(lines[0].endswith(",seed_file,ticks_file,orders_file"))
+        self.assertEqual(len(lines[0].split(",")), 23)
+        # seg 7: flat (empty seed), seg 8 seeded; no orders files given: the 23rd field empty
+        self.assertEqual(lines[1], "7,GRIND_EURUSD_OPTB,22260201,%d,%d,2.0,2.0,7.0,7.0,10.0,10.0,8,3.0,2.0,1,1,-1,1,1,8,,ticks_w.csv," % (T1, T2))
         self.assertEqual(lines[2].split(",")[16], "0")
         self.assertEqual(lines[2].split(",")[20], "seed_2.csv")
-        self.assertEqual(len(lines[2].split(",")), 22)
+        self.assertEqual(len(lines[2].split(",")), 23)
 
+    def test_run_csv_orders_files(self):
+        # fix 2: field 23 names the segment's resting-orders file (empty when none).
+        segs = bseg.segments(self.rows, T1, END)
+        text = bseg.to_run_csv(segs, "ticks_w.csv", seed_names=["", "seed_2.csv"], first_id=7,
+                               order_names=["orders_7.csv", ""])
+        lines = text.splitlines()
+        self.assertTrue(lines[1].endswith(",,ticks_w.csv,orders_7.csv"))
+        self.assertTrue(lines[2].endswith(",seed_2.csv,ticks_w.csv,"))
+        with self.assertRaises(ValueError):
+            bseg.to_run_csv(segs, "ticks_w.csv", seed_names=["", ""], order_names=[""])
 
     # Added after the mutation round (7 of 16 mutants survived the first six tests).
     def test_init_at_window_end_is_not_a_segment(self):

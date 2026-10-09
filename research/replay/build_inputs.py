@@ -2,12 +2,14 @@
 
 Per fleet tag (eurusd_b / eurusd_c / eurusd_d; seg_id global: B 1-9, C 10-19, D 20-29,
 HANDOFF s73): run_<tag>.csv (build_segments), seed_<seg_id>.csv for every segment that
-does not start flat (build_seeds; the run row names it, or leaves it empty), real_<tag>.csv
+does not start flat (build_seeds; the run row names it, or leaves it empty), orders_<seg_id>.csv
+for every init with resting orders (build_orders, fix 2; from send_logs), real_<tag>.csv
 over the whole window (build_real; the harness keeps each segment's own rows) and
 intervals_<tag>.csv (header only when none). swaps.csv comes from build_swaps.py.
 
     python -B research/replay/build_inputs.py --out DIR --ticks ticks_53077984_EURUSD_w2.csv \
-        --tick-start-ms MS --b ARCHIVE_B --c ARCHIVE_C --d ARCHIVE_D
+        --tick-start-ms MS --b ARCHIVE_B --c ARCHIVE_C --d ARCHIVE_D \
+        --sends-b SENDS_B --sends-c SENDS_C --sends-d SENDS_D
 
 Standard library only; ascii, LF, no BOM.
 """
@@ -17,6 +19,7 @@ import json
 import os
 import sys
 
+import build_orders
 import build_real
 import build_seeds
 import build_segments
@@ -29,13 +32,22 @@ FLEETS = (("b", "eurusd_b", "2026-10-01T03:58:52", 1),
           ("d", "eurusd_d", "2026-10-01T05:12:58", 20))
 WINDOW_END_SERVER_MS = 1791507600000          # 2026.10.09 01:00:00 server = 8 Oct 22:00Z
 # Plan s12, s4.2 check 3: D's API soft warn, server 2026.10.01 22:30:58 - 2026.10.02 00:00:00.
-INTERVALS = {"eurusd_d": [("API_SOFT_WARN", 1790893858000, 1790899200000)]}
+# Plan s12 (9 Oct, send_logs): the 1 Oct ADR-160 entry gate. On 1 ms after the last
+# gate-checked entry each EA placed (S L00: B 17:51:06.226, C 17:50:43.354, D 17:46:35.708
+# server) before the fill-time add it did not place (S L00 fills 18:36:5x); off at B's / C's
+# breaker-off re-init (their segment end) and at D's first entry after it (L08, 19:07:24.789).
+INTERVALS = {"eurusd_b": [("BREAKER_GATED", 1790877066227, 1790900826000)],
+             "eurusd_c": [("BREAKER_GATED", 1790877043355, 1790900610001)],
+             "eurusd_d": [("BREAKER_GATED", 1790876795709, 1790881644789),
+                          ("API_SOFT_WARN", 1790893858000, 1790899200000)]}
 
 
-def fleet_files(rows, tag, window_from_ms, window_to_ms, first_id, ticks_file, snaps, intervals):
+def fleet_files(rows, tag, window_from_ms, window_to_ms, first_id, ticks_file, snaps, intervals,
+                sends=None):
     segs = build_segments.segments(rows, window_from_ms, window_to_ms)
     files = {}
     names = []
+    order_names = []
     for k, s in enumerate(segs):
         seed = build_seeds.seed_rows(rows, snaps, s["from_ms"])
         if seed:
@@ -44,7 +56,18 @@ def fleet_files(rows, tag, window_from_ms, window_to_ms, first_id, ticks_file, s
             names.append(name)
         else:
             names.append("")
-    files["run_%s.csv" % tag] = build_segments.to_run_csv(segs, ticks_file, names, first_id)
+        orders = [] if sends is None else build_orders.book_at(list(sends) + list(rows), s["from_ms"])
+        problems = build_orders.check_against_seed(orders, seed)
+        if problems:
+            raise ValueError("%s init %d: %s" % (tag, s["from_ms"], "; ".join(problems)))
+        if orders:
+            name = "orders_%d.csv" % (first_id + k)
+            files[name] = build_orders.to_orders_csv(orders)
+            order_names.append(name)
+        else:
+            order_names.append("")
+    files["run_%s.csv" % tag] = build_segments.to_run_csv(segs, ticks_file, names, first_id,
+                                                         order_names)
     files["real_%s.csv" % tag] = build_real.to_real_csv(
         build_real.real_rows(rows, window_from_ms, window_to_ms))
     files["intervals_%s.csv" % tag] = build_real.to_intervals_csv(intervals)
@@ -74,14 +97,17 @@ def main(argv=None):
     ap.add_argument("--end-ms", type=int, default=WINDOW_END_SERVER_MS)
     for k, _t, _w, _f in FLEETS:
         ap.add_argument("--" + k, required=True)
+        ap.add_argument("--sends-" + k, required=True)
     a = ap.parse_args(argv)
     data = {k: _load(getattr(a, k)) for k, _t, _w, _f in FLEETS}
+    sends = {k: _load(getattr(a, "sends_" + k)) for k, _t, _w, _f in FLEETS}
     snaps = build_swaps.snapshots_server([r for k in data for r in data[k]])
     os.makedirs(a.out, exist_ok=True)
     for k, tag, w, first in FLEETS:
         rows = data[k]
         start = _init_server_ms(rows, w)
-        files = fleet_files(rows, tag, start, a.end_ms, first, a.ticks, snaps, INTERVALS.get(tag, []))
+        files = fleet_files(rows, tag, start, a.end_ms, first, a.ticks, snaps, INTERVALS.get(tag, []),
+                            sends=sends[k])
         for s in build_segments.segments(rows, start, a.end_ms):
             warn = build_seeds.cap_warnings(build_seeds.seed_rows(rows, snaps, s["from_ms"]),
                                             s["cap"], s["from_ms"], a.tick_start_ms)
