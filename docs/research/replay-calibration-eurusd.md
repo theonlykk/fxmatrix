@@ -580,5 +580,16 @@ changes a preset; no mark adjusted to fit a result.
   placement = formula + accrued). Then to classify: 1 Oct short L00
   placements (M4), the 2 Oct 12:30Z news burst (M3), B's L07 exits on 5 Oct,
   C's first minutes after its 6 Oct re-roll reload.
+- **Fix 3** (`prompts/cursor_replay_fix3.md`, Gemini GF3-1..4; written 9
+  Oct, not yet run): seed column 9 `accrued` (`build_seeds.accrued_price`:
+  the last weekday 23:50 server pass before the init; ledger = swap so far,
+  pending = the pass snapshot's points x the EA's multiplier for TOMORROW
+  (x3 into Wednesday, C144; x0 Sat / Sun); -direction x pips x 0.0001; 0
+  when opened after it), 174 of 174 checked against the exit placements in
+  send_logs; the harness sets the GV at each init (A1) and keeps it in the
+  sync true book for re-seeds (A2). Expected: the 15 paired exit misses at
+  `b8adb15` (0.8-1.6 pips; B 9, C 4, D 2) go. Sync-only residue: a re-seed
+  after an in-segment pass carries the pre-pass value until the next pass,
+  and the true book's swap does not roll.
 
-Line count: 584
+Line count: 595

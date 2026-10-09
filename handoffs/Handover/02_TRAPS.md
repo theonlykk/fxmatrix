@@ -2251,4 +2251,23 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   Oct, 9 Oct: `failed`, nothing incomplete, mult_tomorrow 0): a pattern, not
   news. Retcodes not yet read.
 
-Line count: 2254
+## TRAPS FROM 2026-10-09 EVENING (FIX 3)
+
+- **A replay exit deletes its layer's carry GVs** (`grind_engine.mqh`
+  2925-2940: SHIFT, ACCRUED, eject offset, VL on close). A sync re-seed
+  restores only what the true book holds: any per-position state the real
+  EA keeps must be in the true book too (fix 3 A2).
+- **An allowlisted script must check its arguments before it builds a path
+  or a command line** (`-Label ..\x`, a quote, `&`); the fixed paths alone
+  do not hold the limits (fix 3 P1 step 0).
+- **Claude's sandbox after the operator's `git am`:** the pushed commits
+  carry new hashes, so the sandbox's `main` "diverges". `git fetch`, `git
+  reset --hard origin/main` before every `format-patch`. To check a patch,
+  clone and reset to the REAL base hash: a clone of the sandbox repo has
+  the sandbox as `origin`, so its `origin/main` already holds the patch and
+  `git am` "fails" (9 Oct ~21:35Z).
+- **Gemini found a real gap with the wrong mechanism (GF3-4):** "the pass
+  adds to 0" where the pass recomputes from swap. Keep the finding, check
+  the mechanism in source.
+
+Line count: 2273

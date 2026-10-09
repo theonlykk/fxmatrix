@@ -1,101 +1,127 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-08 ~20:10Z (THURSDAY EVENING; THE HARNESS RUNS 266 / 267; swaps.csv AND THE SEGMENT TABLE BUILT; NEXT: SEEDS; CARRY PASS 20:50Z; ROUND 2 SCORED ~22:35Z)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-09 ~21:50Z (FRIDAY EVENING; THE REPLAY RUNS END TO END; T1 STILL FAILS; FIX 3 RULED, NEXT TO CURSOR)
 
-**Handover prepared 8 Oct ~20:10Z (HANDOFF s72).** The EURUSD replay
-calibration (`docs/research/replay-calibration-eurusd.md`) is ruled by
-Gemini; T0 PASSED (867 / 867); plan s4.1 PASSED (B, C, D trade ONE EURUSD
-feed: an hour dumped on all three boxes hashes identical); s4.2 checks 1-4
-done (s12). The engine is (c), an MQL5 harness on the EA's own engine,
-built by Cursor on branch `replay-harness` (base + fixes 1-5; tip
-`8cea613` = the third run's log; code `53fbe90`), never merged. **It runs
-its suite on `D:\mt5-replay`** (a portable copy of the desktop's
-FTMO-branded MT5, IC 53077984 with the READ-ONLY password; Cursor starts
-it by `[StartUp]`): **267 run, 266 pass**. The one failure (RT15 "swap
-after first tick") is a test asserted after all its ticks; its fix goes
-into the NEXT harness prompt (not its own cycle). The runner
-`fxgrind_replay.mq5` has never run on real input files: the replay's
-input files (Python, Claude, `research/replay/`, tests first) come first.
-**Two of them are built:** `build_swaps.py` (the swap model, 622 / 622:
-x3 into Thursday, x0 into Sat / Sun; the EA's carry pass triples one
-night early, C144) and `build_segments.py` (29 run rows = plan s2's 23
-Load segments + 6 compile inits; every geometry and IN count matches s2).
-**Next: the seeds**, then `run_<tag>.csv`, `real_<tag>.csv`,
-`intervals_<tag>.csv`, and `swaps.csv` rebuilt to 9 Oct.
+**Handover prepared 9 Oct ~21:50Z (HANDOFF s76).** The EURUSD replay
+calibration (`docs/research/replay-calibration-eurusd.md`, plan) runs end
+to end. The engine is an MQL5 harness on the EA's own engine. Cursor
+builds it on branch `replay-harness`, which is never merged. It runs in
+`D:\mt5-replay`, a portable MT5 on IC 53077984 with the READ-ONLY login.
+Its 29 segments run on the committed inputs
+(`research/replay/inputs/eurusd_20261008/`, 66 files) and the w2 ticks.
+`research/replay/compare.py` scores the runs on the ORDER price, against
+plan s6's marks. **T1 FAILS** at `b8adb15` (after fixes 1 and 2):
 
-**PRIORITY: FXMatrix ONLY.** MyFundedPerps (`theonlykk/mfperp`) is PARKED.
+| Fleet | Matched | Replay-only |
+|---|---|---|
+| B | 87.6% | 12.1% |
+| C | 91.1% | 8.4% |
+| D | 91.4% | 4.3% |
+
+**The next cause is the EA's carry ledger.** It lives in the terminal GV
+`GRIND_CARRY_ACCRUED_<ticket>`, which survives a real restart; the harness
+deletes it. **Fix 3** (`prompts/cursor_replay_fix3.md`, `main` `26d9f1f`,
+164 lines, Gemini's GF3 rulings checked in s7) does four things:
+- seeds that value at each init (seed column 9; 174 of 174 checked against
+  send_logs);
+- keeps the value for sync re-seeds (A2);
+- adds one run script, `tools/replay_run.ps1`, for one allowlistable
+  command;
+- adds tests RT43-RT45 (332 in all).
+
+**It has NOT gone to Cursor yet.**
+
+**PRIORITY: FXMatrix ONLY.** MyFundedPerps is PARKED.
 
 You are picking up mid-project as Lead Engineer. Clone
 `https://github.com/theonlykk/fxmatrix` and `https://github.com/theonlykk/pipshed`
-into your sandbox and READ FROM THEM. Verify HEADs in git first. Read, in
-order: `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP; s6 the state);
-`handoffs/HANDOFF_2026-09-24.md` **s68-s72** (s72's NEXT SESSION list is
-the one to follow); `handoffs/Handover/02_TRAPS.md` sections dated
-**2026-10-08** (early, early morning, day, afternoon, evening, night,
-night late);
-`docs/research/replay-calibration-eurusd.md` (all; s3 seeding, s6 the
-marks, s12 the rulings and record); `prompts/cursor_replay_harness.md`
-and `..._fix1.md` .. `..._fix5.md` in order (each has Gemini's rulings at
-the end; fix 4 s1 and s5 are the close-by evidence); the branch
-`replay-harness` in git (`ea/fxgrind_replay_core.mqh`,
-`ea/fxgrind_replay_tests.mq5`, `ea/fxgrind_replay.mq5`,
-`research/replay/runs/`); `research/replay/build_swaps.py`,
-`build_segments.py` and their tests on `main`; `scripts/grind_tick_dump.mq5`;
-`handoffs/Handover/08_BACKLOG.md` (C135, C118, C137-C144);
-`docs/research/grid-as-variance-trade.md` (s9-s12);
-`docs/runbooks/ftmo-ic-start.md` (s12, s14); `docs/runbooks/compass-round.md`
-(s4, s11) with `research/compass/round2.json`;
-`docs/research/compass-equity-amendment.md` (s7, s8);
-`handoffs/Handover/10_GEOMETRY_REGISTER.md` (LIVE NOW = round 2); pipshed
-`sr_table.py`, `archive_worker.py`; then this.
+into your sandbox and READ FROM THEM. Verify the HEADs in git first.
 
-**YOUR FIRST REPLY, after the reading (operator's request, 2 Oct):**
-1. A short restate of the state as you found it in git (HEADs, fleets,
-   anything in the docs that disagrees with itself).
+Read, in order:
+1. `handoffs/Handover/01_BOOT.md` (s2 RESTATE-AND-STOP; s6 the state).
+2. `handoffs/HANDOFF_2026-09-24.md` **s73-s76**. Follow s76's NEXT
+   SESSION list.
+3. `handoffs/Handover/02_TRAPS.md`: the sections dated **2026-10-08** and
+   **2026-10-09**.
+4. `docs/research/replay-calibration-eurusd.md`: all of it (s3 seeding,
+   s6 the marks, s12 the rulings and the record).
+5. The prompts `prompts/cursor_replay_first_run.md`, `cursor_replay_first_run_fix1.md`,
+   `cursor_replay_fix2.md` and **`cursor_replay_fix3.md`**. Each has
+   Gemini's rulings at its end.
+6. The branch `replay-harness` in git:
+   - `ea/fxgrind_replay_core.mqh`
+   - `ea/fxgrind_replay_tests.mq5`
+   - `ea/fxgrind_replay.mq5`
+   - `research/replay/runs/*_b8adb15/`
+7. On `main`, `research/replay/`:
+   - `build_swaps.py`, `build_segments.py`, `build_seeds.py`,
+     `build_real.py`, `build_inputs.py`, `build_orders.py` and
+     `compare.py`, with their tests;
+   - `results/eurusd_20261008_b8adb15/` (`report.md`, `misses.csv`).
+8. The EA, `ea/grind_carry.mqh` 700-730 and 1080-1170 (the carry GVs and
+   the pass) and `ea/grind_exitq.mqh` 241-255.
+9. `handoffs/Handover/08_BACKLOG.md` (C142-C146).
+10. `docs/research/grid-as-variance-trade.md` (s11-s14).
+11. `docs/runbooks/compass-round.md` with `research/compass/round3.json`.
+12. `handoffs/Handover/10_GEOMETRY_REGISTER.md` (LIVE NOW).
+13. pipshed `scripts/archive_counts.py` (`--export-sends`,
+    `--export-archive`, `--carrypass`).
+14. Then this.
+
+**YOUR FIRST REPLY, after the reading (operator's request):**
+1. A short restate of the state as you found it in git: the HEADs, the
+   fleets, and anything in the docs that disagrees with itself.
 2. **A numbered list of questions for the PREVIOUS chat**, ready for the
-   operator to copy and paste across in ONE block. Short, answerable in a
-   line each; at most ~12.
+   operator to copy and paste across in ONE block. Keep them short and
+   answerable in a line each, at most ~12.
+
 Do not start any fleet action before the answers are in.
 
 ---
 
 ## 0. THE MOST IMPORTANT FACTS
 
-**Four fleets live. Call the boxes by HOSTNAME:**
+**Four fleets live. Call the boxes by HOSTNAME.**
 - **A (VPS, FTMO free trial 1514878887, $10k, since 7 Oct 22:08-22:17Z):**
-  the IC strategy STATIC at B's round-2 anchor (`ea/presets/*_opt_a_r2.set`),
-  seven `_OPT` instances, `main` `9346e42` (EA `5bb5fdb`), tag
-  `vps-9346e42`. No input change for the trial (to ~21 Oct) except a defect
-  fix. 8 Oct 15:11Z: api 556 (the 1,000-by-14:00Z watch not tripped), 68
-  scalps, no roll, equity $10,027.59.
-- **IC B (wine-test, 53066709, anchor), C (wine-c, 53071896, add probe),
-  D (wine-d, 53077984, exit probe):** nine instances each, EA `5bb5fdb`
-  since 7 Oct 01:57-02:23Z, roll gate 0 on all 27, re-roll ON, breaker off.
-  wine-c's charts load the Scripts `.ex5` (C88).
-- **Compass round 2 = 7 Oct 02:25Z - 8 Oct 22:00Z** (`round2.json`),
-  scored Thu ~22:35Z; the COHORT's EQUITY decides; round 3 reloads Fri 9.
-- **pipshed `d1ad256`**: S/R table, one-minute `state_snapshots`, /fleets
-  ~0.6 s. A's card shows day P&L null and old API thresholds (C143).
+  - Runs the IC strategy STATIC at B's round-2 anchor, as seven `_OPT`
+    instances.
+  - EA `5bb5fdb`, tag `vps-9346e42`.
+  - No input change until the trial ends (~21 Oct), except a defect fix.
+- **IC B (wine-test, 53066709, anchor), C (wine-c, 53071896, add probe)
+  and D (wine-d, 53077984, exit probe):**
+  - Nine instances each, EA `5bb5fdb`, roll gate 0, re-roll ON, breaker
+    off.
+  - **Round 3 reloaded 9 Oct 04:24-04:32Z** on four charts: D EURUSD exit
+    9 / 11; AUDCHF width 1.5 on B, C and D; C add 5 / 3; D exit 11 / 9.
+  - Its window is Mon 12 + Tue 13; it is **scored Tue 13 ~22:35Z**. The
+    COHORT's EQUITY decides.
+- **The carry pass runs 20:50-20:59Z nightly.** Fri 9 was clean (34 / 34).
+  Every Friday shows `failed` 3-4 per instance; this is not news.
 
-**Operator rulings (do not re-open):** the static FTMO-IC trial; the
-COHORT's EQUITY decides a compass round; equity decides the holdout and
-the roll gate; NZDCAD the control; IC keeps nine pairs; no twins; no API
-limit may stop trading; no broker contact; post-once execution, one
-2,000-request pool; the 200 positions+orders limit holds on IC too; cap 8
-this week; no time-series analysis or price signals (extract from our own
-trade history); a replay is trusted only once it reproduces our trades;
-pipshed may be pushed outside 20:50-21:00Z; a missing `swaps.csv` aborts
-the harness (8 Oct).
+**Operator rulings (do not re-open):**
+- The static FTMO-IC trial runs as it is.
+- The COHORT's EQUITY decides a compass round; equity decides the holdout
+  and the roll gate.
+- NZDCAD is the control. IC keeps nine pairs. No twins.
+- No API limit may stop trading. No broker contact.
+- Post-once execution with one 2,000-request pool.
+- The 200 positions+orders limit holds on IC too.
+- No time-series analysis or price signals: work from our own trade
+  history.
+- A replay is trusted only once it reproduces our trades. The replay is the
+  veteran: ranges and stability, not optima.
+- The desktop FTMO terminal never trades. Cursor's `taskkill /IM
+  terminal64.exe /F` is allowlisted until the script replaces it.
 
-**Reading live state:** pipshed through the desktop app's built-in
-browser pane (`/api/g/<token>/fleets/<n>`: the operator gives the URL; the
-token is not in the repo); parse the JSON with the pane's JavaScript tool;
-quote `generated_at`. Downloads must be GRANTED each session; deliverables
-go there under NEW names, read back by hash.
-
-**Watch every night on B, C, D:** no chart edits 20:50-21:15Z; carry pass
-20:50-20:59Z (`archive_counts.py --carrypass --hours 2` after ~21:00Z, from
-`D:\pipshed` via `railway ssh`: 34 summaries).
+**The replay's facts:**
+- Server time is UTC+3. The archive's `ea_time_ms` is UTC; harness files
+  use server ms.
+- The real EA keeps its resting orders across an init (fix 2 adopts them).
+- The exit queue is K = 1, H = 0.
+- IC fills carry price improvement, so compare on the order price.
+- The 1 Oct ADR-160 gate bound on B, C and D. Its marker is reporter-only;
+  the intervals come from send_logs.
+- send_logs keep 14 days.
 
 ---
 
@@ -103,63 +129,71 @@ go there under NEW names, read back by hash.
 
 | | |
 |---|---|
-| fxmatrix `main` | **this patch (s72c) on `b402142` (s72b, tree `336e44c6`).** EA code `5bb5fdb`, live on A, B, C, D |
-| fxmatrix `replay-harness` | base `f0b2445`/`a280736`; fixes 1-5; code tip `53fbe90`; run logs `da81664` (rt_6e63d50), `6a3dfc0` (rt_7d10bc9), `8cea613` (rt_53fbe90). Three new files in `ea/` only + `research/replay/runs/` |
-| `D:\mt5-replay` | portable MT5 (copy of `C:\Program Files\FTMO Global Markets MT5 Terminal`), IC 53077984 READ-ONLY ("trading has been disabled - investor mode"), Algo off, no EA. Cursor copies `ea\*` to `MQL5\Scripts\fxmatrix\`; the operator compiles BOTH replay files in ITS MetaEditor (IDE button), then closes it; Cursor runs |
-| pipshed `main` | `d1ad256` (tree `f95f8cc9`) |
-| Ticks | `ticks_53077984_EURUSD_w1.csv` on wine-d (1 Oct 06:30 - 8 Oct 05:42 server, sha256 `556b33c682c5c5e5`); `..._t0b_a.csv`; `ticks_<login>_EURUSD_cmp.csv` on all three boxes (8 Oct 12:00-13:00 server, identical) |
-| Data in Downloads | `study_2026-10-08_0110.jsonl`; `archive_EURUSD_OPTB/OPTC/OPTD_2026-10-08.jsonl` (`--export-archive`, ~16:32-16:37Z; UTF-8 BOM; deals are `fill_logs`). Stage them (Downloads must be granted) |
-| Replay inputs | `build_swaps.py` CLI writes `swaps.csv` (last build 1-8 Oct, sha `5a8987573de65628`, not committed: rebuild); `build_segments.segments()` gives the 29 rows (window starts B 1 Oct 03:58:52Z, C 04:14:28Z, D 05:12:58Z = the INIT `ea_time_ms` + 3 h; end server 9 Oct 01:00 = `1791507600000`) |
+| fxmatrix `main` | `26d9f1f` + the s76 patch. EA code `5bb5fdb`, live on A, B, C, D |
+| `replay-harness` | tip `b933a2f` (code `b8adb15`, tests `e76c5af`, suite 318 / 318). Fix 3 will add three commits (tests; core; `tools/replay_run.ps1`) |
+| `D:\mt5-replay` | Its MetaEditor compiles `MQL5\Scripts\fxmatrix\`: copy BEFORE compiling. Close it before runs. Runs start it with `/portable /config:<ini>` (UTF-16 LE) and it shuts itself down |
+| pipshed `main` | `6ea487e` (`--export-sends`) |
+| Data on the desktop (Downloads) | `archive_EURUSD_OPT{B,C,D}_2026-10-08_2240.jsonl`, `study_2026-10-08_2235.jsonl`, `sends_EURUSD_OPT{B,C,D}_2026-10-09.jsonl`, `ticks_53077984_EURUSD_w2.csv` (sha256 `db2ea941...abd28`). Downloads must be GRANTED each session |
+| Inputs | `research/replay/inputs/eurusd_20261008/` + `eurusd_20261008.sha256` (66 lines; seeds have 9 columns since `4bd2f3d`) |
 
-## 2. NEXT, IN ORDER (= HANDOFF s72 NEXT SESSION)
+## 2. NEXT, IN ORDER (= HANDOFF s76 NEXT SESSION)
 
 1. The questions for the previous chat.
-2. Carry pass check after ~21:00Z (if not done): 34 summaries.
-3. Thu 8 ~22:35Z: score round 2; the tick dump's tail on wine-d to 22:30Z;
-   T0 rerun on the scoring export; round 3's table.
-4. The replay's remaining input files (Python, Claude; tests first; no
-   BOM; formats base prompt s3.2): **seeds** `seed_<seg>.csv`
-   (`side,layer_index,entry,open_ms,ticket,vl,swap,volume`: the true open
-   positions at each init from `fill_logs`; swap from
-   `build_swaps.predict_swap` to the init; `vl` from the latest
-   `ROLL_ACCEPTED`; empty = flat); `run_<tag>.csv` from `build_segments`
-   with those names; `real_<tag>.csv` (IN and OUT_BY rows, server ms);
-   `intervals_<tag>.csv` (D: `API_SOFT_WARN` server `2026.10.01 22:30:58`
-   - `2026.10.02 00:00:00`; B, C empty); `swaps.csv` rebuilt to 9 Oct
-   after tonight's snapshot. Then the next harness prompt (the runner's
-   first real run; RT15's fix) to Gemini and Cursor.
-5. Fri 9 >= 03:00Z: T0b's `t0b_b` and `cmp`. Fri 9: round 3's reload.
-6. The IC-vs-FTMO rewrite to Gemini; pipshed C140, C143; C142 (skew) and
-   C144 (carry triple a night early) for the operator to rank.
+2. **Fix 3 to Cursor.**
+   - The operator's line: read `prompts/cursor_replay_fix3.md` from
+     `main` at `26d9f1f` BEFORE switching branches; do s0; STOP.
+   - Check the restate: A1, A2 and P1, one line each; RT43 has 8
+     assertions, RT44 2, RT45 4; commit 1 fails 5. Then "go".
+   - After commit 3, read all three commits, the script line by line
+     against P1 (step 0 included), before "go run".
+   - Then R0-R5: copy; the operator compiles; 332 / 332; inputs from
+     `26d9f1f`; six runs; commit the outputs.
+3. Run `compare.py --inputs <dir> --runs <runs dir> --harness <sha7> --ticks
+   <w2> --archive-b/-c/-d <archives> --out
+   research/replay/results/eurusd_20261008_<sha7>/`. Expect the 15 paired
+   exit misses to go. Then classify what remains:
+   - the 1 Oct short L00s (M4);
+   - the 2 Oct 12:30Z news burst (M3);
+   - B's L07 exits on 5 Oct;
+   - C's 6 Oct re-roll reload (seg 16);
+   - the S L0 entries the replay missed on 1 Oct.
+4. Get the holdout's data before retention drops it: send_logs for 9-13
+   Oct, the archives, and a tick dump from `2026.10.09 01:30` server.
+5. Tue 13 ~22:35Z: score round 3; the replay holdout ends.
+6. The IC-vs-FTMO rewrite to Gemini; pipshed C140 and C143; C142 and
+   C144-C146 for the operator to rank.
 
 ## 3. TRAPS (full list in 02_TRAPS)
 
-- PowerShell drops INNER double quotes in `ssh box '...'`: glob the
-  spaces (`Program*Files/MetaTrader*5`), `cd` through the glob, no
-  `"TICKS|"`; `e3b0c442...` is the hash of empty input.
-- Cursor leaves the desktop on its branch: `git checkout main` and check
-  the branch before every `git am`.
-- The replay terminal's tick value is 0 for ~2 s after a scripted start;
-  a test whose expected value uses the live value passes 0 = 0.
-- Gemini's tell: commendations and a sign-off. Check every ruling in
-  source; his premises were wrong three times on 8 Oct (fix 3 GH3-1, the
-  tick cache, GH4-3).
-- The archive's `ea_time_ms` is UTC; `deal_time_broker_msc` and every
-  harness file are server ms (+10,800,000). Exports open with
-  `utf-8-sig`. No pytest: `python -B -m unittest`.
-- One shell step per message; say which window; grep logs, never paste.
-- Verify every agent claim in committed source; count every line.
+- Cursor leaves the desktop on its branch: run `git checkout main` before
+  every `git am`. Quote `"HEAD^{tree}"` in PowerShell.
+- Gemini's premises are often wrong even when the finding is right (GF3-4
+  on 9 Oct). Check every ruling in source.
+- Cursor must STOP when it thinks a test is wrong (fix 2's RT41 was edited
+  without stopping).
+- The deals output's close-by leg also reads `EXT`. Count exit fills with
+  entry_type 0.
+- Your sandbox: `git fetch` and `git reset --hard origin/main` before every
+  patch. Check a patch on a clone reset to the REAL base hash.
+- Exports open with `utf-8-sig`. There is no pytest: use `python -B -m
+  unittest`.
 
 ## 4. WORKING PRACTICE
 
-- **One shell step per message**; plain-text pipshed URLs.
-- Docs and small fixes: Claude commits in its sandbox, `git format-patch`,
-  checks `git am` on a clean clone at the base, delivers to Downloads,
-  reads it back by hash; the operator `git am`s, checks the tree, pushes;
-  Claude verifies on GitHub and resets its sandbox. **Claude never pushes.**
-- Harness changes: a prompt (RESTATE AND STOP, exact counts) -> Gemini ->
-  Cursor on `replay-harness` -> Claude reads the commits -> the operator
-  compiles in `D:\mt5-replay` -> Cursor runs -> Claude reads the log.
-- Long chats: keep docs current; propose a handoff only near the limit.
+- **One shell step per message.** Grep logs (`Select-String`); never ask
+  for pasted logs. pipshed URLs go in plain text.
+- **Docs and small fixes:**
+  - Claude commits in its sandbox and runs `git format-patch`.
+  - Claude checks `git am` on a clean clone at the base.
+  - Claude delivers the patch STRAIGHT to Downloads and gives its hash.
+  - The operator runs `git am`, checks the tree and pushes.
+  - **Claude never pushes.**
+- **Harness changes:** a prompt (RESTATE AND STOP, exact counts, questions
+  for Gemini inside it) -> Gemini -> Claude checks his rulings into s7 ->
+  Cursor -> Claude reads the commits -> the operator compiles -> Cursor
+  runs -> Claude reads the outputs.
+- Count every line mechanically. Verify every agent claim in committed
+  source.
+- Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 165
+Line count: 199
