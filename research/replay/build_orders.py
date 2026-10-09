@@ -9,7 +9,9 @@ send_logs and fill_logs (pipshed archive_counts --export-sends / --export-archiv
   result_order (side, layer_index, role, requested_price, order_type); MODIFY sets
   order_ticket's price; REMOVE drops order_ticket; CLOSE_BY is not an order;
 - fill_logs IN deals drop their order_ticket at deal_time_broker_msc (server ms);
-- events strictly before the init count; same-ms events keep their input order;
+- sends at or before the init's ms count (an init's own rebuild modifies carry the INIT
+  row's ea_time_ms: D 6 Oct 06:20:21.138), fills strictly before it (a fill at the init's
+  ms is the segment's); same-ms events keep their input order;
 - an order alive at the init that no PENDING row labels is an error.
 
 Checked on the 9 Oct exports: the rebuilt book's price and label equal every fill's
@@ -42,8 +44,10 @@ def _events(rows):
 def book_at(rows, at_ms):
     book = {}
     for t, _k, a, r in _events(rows):
-        if t >= at_ms:
+        if t > at_ms:
             break
+        if t == at_ms and a == "FILL":
+            continue
         if a == "PENDING":
             book[int(r["result_order"])] = {
                 "side": r["side"], "layer": int(r["layer_index"]), "role": r["role"],

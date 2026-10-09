@@ -5,8 +5,8 @@ EA keeps across an init (no send in the minutes after 27 of the 29 inits; send_l
 Rebuilt from send_logs (ok rows only: PENDING opens result_order with its side, layer, role,
 requested_price and order_type; MODIFY sets order_ticket's price; REMOVE drops it) and
 fill_logs (an IN deal drops its order_ticket at deal_time_broker_msc). Send times are
-ea_time_ms (UTC) + 10,800,000 (server). An order alive at the init that no PENDING row
-labels is an error. Header side,layer,role,price,ticket,type; rows L before S, EXT before
+ea_time_ms (UTC) + 10,800,000 (server); sends at or before the init's ms count, fills strictly
+before it. An order alive at the init that no PENDING row labels is an error. Header side,layer,role,price,ticket,type; rows L before S, EXT before
 ENT, then layer.
 """
 import os
@@ -59,15 +59,22 @@ class TestBook(unittest.TestCase):
             {"side": "S", "layer": 0, "role": "ENT", "price": 1.10500, "ticket": 12,
              "type": "SELL_LIMIT"}])
 
-    def test_strictly_before_the_init(self):
+    def test_the_init_ms(self):
+        # Sends AT the init's ms count (an init's own rebuild modifies carry the INIT row's
+        # ea_time_ms: D 6 Oct 06:20:21.138 S L01 exit 1.11670 -> 1.11650); fills at that ms
+        # belong to the segment.
         rows = [place(T, 11, "L", 0, "ENT", 1.1, "ORDER_TYPE_BUY_LIMIT"),
                 send("REMOVE", T + 5, order_ticket=11)]
-        self.assertEqual([o["ticket"] for o in bo.book_at(rows, T + 5)], [11])
-        self.assertEqual(bo.book_at(rows, T + 6), [])
-        self.assertEqual(bo.book_at(rows, T), [])
-        # a fill at the init's own ms has not happened yet either
+        self.assertEqual([o["ticket"] for o in bo.book_at(rows, T)], [11])
+        self.assertEqual([o["ticket"] for o in bo.book_at(rows, T + 4)], [11])
+        self.assertEqual(bo.book_at(rows, T + 5), [])
+        self.assertEqual(bo.book_at(rows, T - 1), [])
         rows2 = [place(T, 11, "L", 0, "ENT", 1.1, "ORDER_TYPE_BUY_LIMIT"), fill(11, T + 5)]
         self.assertEqual([o["ticket"] for o in bo.book_at(rows2, T + 5)], [11])
+        self.assertEqual(bo.book_at(rows2, T + 6), [])
+        rows3 = [place(T, 11, "S", 1, "EXT", 1.11670, "ORDER_TYPE_BUY_LIMIT"),
+                 send("MODIFY", T + 9, order_ticket=11, requested_price=1.11650)]
+        self.assertEqual([o["price"] for o in bo.book_at(rows3, T + 9)], [1.11650])
 
     def test_same_ms_order(self):
         # a REMOVE and a PLACE in the same ms (the EA replaces an exit): the new one stays.
