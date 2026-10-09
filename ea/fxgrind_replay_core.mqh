@@ -225,8 +225,36 @@ struct RplRunOutputHandles
    int events;
    int book;
    int summary;
+   int orders;
    bool open;
 };
+
+struct RplOrderRow
+{
+   int    seg_id;
+   int    sync_idx;
+   long   time_ms;
+   string stage;
+   string action;
+   ulong  ticket;
+   long   type;
+   string side;
+   int    layer;
+   string role;
+   double price;
+   double old_price;
+};
+
+struct RplOrderSnap
+{
+   ulong  ticket;
+   long   type;
+   string comment;
+   double price;
+};
+
+RplOrderRow  g_rpl_orders[];
+RplOrderSnap g_rpl_order_snap[];
 
 //+------------------------------------------------------------------+
 string Rpl_NormalizeDataPath(string path)
@@ -448,6 +476,39 @@ void Rpl_ResetAll()
    g_grind_closeby_test_send_retcode = TRADE_RETCODE_DONE;
    g_grind_market_test_active = true;
    g_grind_pnl_test_active = true;
+   ArrayResize(g_rpl_orders, 0);
+   ArrayResize(g_rpl_order_snap, 0);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_OrderLogDiff(const long t, const string stage)
+{
+   (void)t;
+   (void)stage;
+}
+
+//+------------------------------------------------------------------+
+int Rpl_OrderLogCount()
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_GetOrderLogRow(const int i, RplOrderRow &out)
+{
+   out.seg_id = 0;
+   out.sync_idx = 0;
+   out.time_ms = 0;
+   out.stage = "";
+   out.action = "";
+   out.ticket = 0;
+   out.type = 0;
+   out.side = "";
+   out.layer = -1;
+   out.role = "";
+   out.price = 0.0;
+   out.old_price = 0.0;
+   return false;
 }
 
 //+------------------------------------------------------------------+

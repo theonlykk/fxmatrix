@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT47 (fix3 T17–T21) |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT49 (fix4 T22–T23) |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -98,6 +98,106 @@ void AssertDealRow(const string prefix,
    AssertTrue(prefix + " layer", row.layer == layer);
    AssertNear(prefix + " price", row.price, price, 1e-9);
    AssertTrue(prefix + " time", row.time_ms == time_ms);
+}
+
+void AssertOrderRow(const string prefix,
+                    const int index,
+                    const long time_ms,
+                    const string stage,
+                    const string action,
+                    const ulong ticket,
+                    const double price)
+{
+   RplOrderRow row;
+   AssertTrue(prefix + " get", Rpl_GetOrderLogRow(index, row));
+   AssertTrue(prefix + " time", row.time_ms == time_ms);
+   AssertEqStr(prefix + " stage", row.stage, stage);
+   AssertEqStr(prefix + " action", row.action, action);
+   AssertTrue(prefix + " ticket", row.ticket == ticket);
+   AssertNear(prefix + " price", row.price, price, 1e-9);
+}
+
+void Test_RT48_OrderLogDiff()
+{
+   Rpl_ResetAll();
+   const string c1 = GrindCommentBuild(RPL_SLOT_DEFAULT, "L", 2, "EXT");
+   Grind_OrderTestUpsert(5901UL, (long)RPL_MAGIC_DEFAULT, c1, 1.10100, ORDER_TYPE_SELL_LIMIT);
+   Rpl_OrderLogDiff(1000, "A");
+   Grind_OrderTestUpsert(5901UL, (long)RPL_MAGIC_DEFAULT, c1, 1.10108, ORDER_TYPE_SELL_LIMIT);
+   Rpl_OrderLogDiff(2000, "B");
+   Rpl_OrderLogDiff(2500, "B2");
+   Grind_OrderTestRemove(5901UL);
+   Rpl_OrderLogDiff(3000, "C");
+   const string c2 = GrindCommentBuild(RPL_SLOT_DEFAULT, "S", 1, "ENT");
+   Grind_OrderTestUpsert(5902UL, (long)RPL_MAGIC_DEFAULT, c2, 1.10570, ORDER_TYPE_SELL_LIMIT);
+   Rpl_OrderLogDiff(3500, "D");
+   Grind_OrderTestRemove(5902UL);
+   Rpl_WriteDealOutput(4000, 7001UL, 5902UL, 7101UL, DEAL_ENTRY_IN, DEAL_TYPE_SELL, "ENT", "S", 1, 1.10570);
+   Rpl_OrderLogDiff(4000, "E");
+   AssertTrue("RT48 count", Rpl_OrderLogCount() == 5);
+   AssertOrderRow("RT48 r0", 0, 1000, "A", "PLACE", 5901UL, 1.10100);
+   RplOrderRow r0;
+   AssertTrue("RT48 r0 side get", Rpl_GetOrderLogRow(0, r0));
+   AssertEqStr("RT48 r0 side", r0.side, "L");
+   AssertTrue("RT48 r0 layer", r0.layer == 2);
+   AssertEqStr("RT48 r0 role", r0.role, "EXT");
+   AssertTrue("RT48 r0 type", r0.type == ORDER_TYPE_SELL_LIMIT);
+   AssertOrderRow("RT48 r1", 1, 2000, "B", "MODIFY", 5901UL, 1.10108);
+   RplOrderRow r1;
+   AssertTrue("RT48 r1 old get", Rpl_GetOrderLogRow(1, r1));
+   AssertNear("RT48 r1 old", r1.old_price, 1.10100, 1e-9);
+   AssertOrderRow("RT48 r2", 2, 3000, "C", "REMOVE", 5901UL, 1.10108);
+   AssertOrderRow("RT48 r3", 3, 3500, "D", "PLACE", 5902UL, 1.10570);
+   AssertOrderRow("RT48 r4", 4, 4000, "E", "FILL", 5902UL, 1.10570);
+}
+
+void Test_RT49_OrderLogEngineExit()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.to_ms = RplMs(RPL_T0, 4);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 5951UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   RplTick ticks[4];
+   const double bids[4] = {1.10050, 1.10100, 1.10108, 1.10050};
+   for(int i = 0; i < 4; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = bids[i];
+      ticks[i].ask = bids[i] + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 4, cfg);
+   int i = -1;
+   for(int k = 0; k < Rpl_OrderLogCount(); k++) {
+      RplOrderRow row;
+      if(!Rpl_GetOrderLogRow(k, row))
+         continue;
+      if(row.action == "PLACE" && row.side == "L" && row.layer == 0 && row.role == "EXT") {
+         i = k;
+         break;
+      }
+   }
+   RplOrderRow r;
+   AssertTrue("RT49 placed", i >= 0);
+   AssertTrue("RT49 placed get", Rpl_GetOrderLogRow(i, r));
+   AssertTrue("RT49 at T0", r.time_ms == RplMs(RPL_T0, 0));
+   AssertEqStr("RT49 stage", r.stage, "ENGINE");
+   AssertNear("RT49 price", r.price, 1.10100, 1e-9);
+   int j = -1;
+   for(int k = 0; k < Rpl_OrderLogCount(); k++) {
+      RplOrderRow row;
+      if(!Rpl_GetOrderLogRow(k, row))
+         continue;
+      if(row.action == "FILL" && row.ticket == r.ticket) {
+         j = k;
+         break;
+      }
+   }
+   RplOrderRow q;
+   AssertTrue("RT49 filled", j >= 0);
+   AssertTrue("RT49 filled get", Rpl_GetOrderLogRow(j, q));
+   AssertTrue("RT49 fill at T1", q.time_ms == RplMs(RPL_T0, 1));
+   AssertEqStr("RT49 fill stage", q.stage, "FILL");
 }
 
 void Test_RT1_FillRule()
@@ -1615,5 +1715,7 @@ void OnStart()
    Test_RT45_SyncReseedAccrued();
    Test_RT46_TrueBookSwapRollover();
    Test_RT47_SyncReseedLatestAccrued();
+   Test_RT48_OrderLogDiff();
+   Test_RT49_OrderLogEngineExit();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
