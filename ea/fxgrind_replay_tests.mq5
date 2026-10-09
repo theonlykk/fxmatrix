@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT38 (fix1 T12)     |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT42 (fix2 T13–16)|
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -1263,6 +1263,130 @@ void Test_RT38_LatticeBackfill()
    AssertTrue("RT38 one backfill", g_rpl_lattice_backfills == 1);
 }
 
+void Test_RT39_SeededRestingExit()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.to_ms = RplMs(RPL_T0, 4);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 5101UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedOrder("L", 0, "EXT", 1.10108, 5111UL, ORDER_TYPE_SELL_LIMIT);
+   AssertTrue("RT39 exit linked", g_grind_long.layers[0].exit_order_ticket == 5111UL);
+   RplTick ticks[4];
+   const double bids[4] = {1.10050, 1.10100, 1.10108, 1.10050};
+   for(int i = 0; i < 4; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = bids[i];
+      ticks[i].ask = bids[i] + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 4, cfg);
+   AssertDealRow("RT39 ext", 0, DEAL_TYPE_SELL, "EXT", "L", 0, 1.10108, RplMs(RPL_T0, 2));
+}
+
+void Test_RT40_SeededAddAndL00()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.to_ms = RplMs(RPL_T0, 3);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("S", 0, 1.10500, RplMs(RPL_T0, -3600), 5201UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedOrder("S", 0, "EXT", 1.10400, 5211UL, ORDER_TYPE_BUY_LIMIT);
+   Rpl_SeedOrder("S", 1, "ENT", 1.10570, 5212UL, ORDER_TYPE_SELL_LIMIT);
+   Rpl_SeedOrder("L", 0, "ENT", 1.10481, 5213UL, ORDER_TYPE_BUY_LIMIT);
+   AssertTrue("RT40 short ext linked", g_grind_short.layers[0].exit_order_ticket == 5211UL);
+   AssertTrue("RT40 short add linked", g_grind_short.add_pending_ticket == 5212UL);
+   AssertTrue("RT40 long L00 linked", g_grind_long.l0_pending_ticket == 5213UL);
+   RplTick ticks[3];
+   const double bids[3] = {1.10500, 1.10570, 1.10500};
+   for(int i = 0; i < 3; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = bids[i];
+      ticks[i].ask = bids[i] + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 3, cfg);
+   AssertDealRow("RT40 add", 0, DEAL_TYPE_SELL, "ENT", "S", 1, 1.10570, RplMs(RPL_T0, 1));
+}
+
+void Test_RT41_SyncExtClosesLayer()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.sync = true;
+   cfg.to_ms = RplMs(RPL_T0, 6);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("S", 0, 1.10500, RplMs(RPL_T0, -3600), 5301UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   string rows[1];
+   rows[0] = IntegerToString(RplMs(RPL_T0, 2) + 300) + ",EXT,S,0,1.10400,5302,";
+   Rpl_SetSyncRealKindRows(rows, 1);
+   RplTick ticks[6];
+   for(int i = 0; i < 6; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = (i == 0) ? 1.10450 : 1.10398;
+      ticks[i].ask = ticks[i].bid + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 6, cfg);
+   int n = 0;
+   long ext_ms = 0;
+   for(int i = 0; i < Rpl_DealsCount(); i++) {
+      RplDealRow row;
+      if(!Rpl_GetDealRow(i, row))
+         continue;
+      if(row.role == "EXT" && row.side == "S") {
+         n++;
+         ext_ms = row.time_ms;
+      }
+   }
+   AssertTrue("RT41 one exit", n == 1);
+   AssertTrue("RT41 exit at T1", ext_ms == RplMs(RPL_T0, 1));
+}
+
+void Test_RT42_OrdersFile()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt42.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   const double bids[4] = {1.10050, 1.10100, 1.10108, 1.10050};
+   for(int i = 0; i < 4; i++)
+      FileWrite(w, IntegerToString(RplMs(RPL_T0, i)), DoubleToString(bids[i], 5),
+                DoubleToString(bids[i] + RPL_SPREAD, 5), "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt42.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer,entry,open_ms,ticket,vl,swap,volume");
+   FileWrite(w, "L,0,1.10000," + IntegerToString(RplMs(RPL_T0, -3600)) + ",5101,0,0,0.01");
+   FileClose(w);
+   w = FileOpen(dir + "orders_rt42.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer,role,price,ticket,type");
+   FileWrite(w, "L,0,EXT,1.10108,5111,SELL_LIMIT");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt42.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt42.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt42.csv,ticks_rt42.csv,orders_rt42.csv");
+   FileClose(w);
+   AssertTrue("RT42 run", Rpl_RunReplayFiles("rt42", false));
+   AssertTrue("RT42 kept exit",
+              StringFind(Rpl_ReadWholeFile(dir + "out_rt42_deals.csv"), ",EXT,L,0,1.10108") >= 0);
+   w = FileOpen(dir + "run_rt42m.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt42.csv,ticks_rt42.csv,orders_none.csv");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt42m.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   AssertFalse("RT42 missing orders", Rpl_RunReplayFiles("rt42m", false));
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
@@ -1353,5 +1477,9 @@ void OnStart()
    Test_RT36_OutputSuffix();
    Test_RT37_PreloadLattice();
    Test_RT38_LatticeBackfill();
+   Test_RT39_SeededRestingExit();
+   Test_RT40_SeededAddAndL00();
+   Test_RT41_SyncExtClosesLayer();
+   Test_RT42_OrdersFile();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }

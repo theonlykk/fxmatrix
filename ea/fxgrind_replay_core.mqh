@@ -699,6 +699,16 @@ void Rpl_SeedLayer(const string side,
 }
 
 //+------------------------------------------------------------------+
+void Rpl_SeedOrder(const string side,
+                   const int layer,
+                   const string role,
+                   const double price,
+                   const ulong ticket,
+                   const long otype)
+{
+}
+
+//+------------------------------------------------------------------+
 void Rpl_PreloadLatticeFromTicks(const RplSegmentConfig &cfg)
 {
    if(cfg.skip_lattice_preload || !g_rpl_seeded)
