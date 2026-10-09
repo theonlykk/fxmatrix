@@ -106,7 +106,7 @@ Push after each commit. Do not compile.
   run, 291 pass. Report every `RPL|` line, every `FAIL |` line and
   `RT35-LOAD-MS`. Any FAIL: STOP.
 - **R2 The inputs** (only AFTER R1: F8). From `main` at M (`git show
-  M:<path>`, never a checkout of `main`) copy the 40 files of
+  M:<path>`, never a checkout of `main`) copy the 41 files of
   `research/replay/inputs/eurusd_20261008/` to `D:\mt5-replay\MQL5\Files\replay\`,
   and `C:\Users\Khalid Khan\Downloads\ticks_53077984_EURUSD_w2.csv` there
   too. Check: w2's SHA-256 is
@@ -114,12 +114,17 @@ Push after each commit. Do not compile.
   each input file's SHA-256 equals the matching line of
   `research/replay/inputs/eurusd_20261008.sha256` (the LF bytes `git show`
   gives; report any mismatch, do not "fix" one).
-- **R3 The smoke run:** `fxgrind_replay` with `InpRunTag=eurusd_d_smoke`,
-  `InpSync=false` (a preset in `MQL5\Presets` passed by `ScriptParameters`;
-  the `.ini` UTF-16 LE). Expected log: `RPL|RUN|eurusd_d_smoke|sync=0|out=eurusd_d_smoke_free`,
-  `TICKS_LOADED` 476821, two `SEG` / `SEG_DONE` (20 and 21), `RPL|DONE`.
-  Report every `RPL|` line verbatim and `out_eurusd_d_smoke_free_summary.txt`.
-  STOP after R3 and wait for "go" (Claude reads the outputs first).
+- **R3 Two smoke runs (GH6-2, s8):** `fxgrind_replay` with `InpSync=false`
+  (a preset in `MQL5\Presets` passed by `ScriptParameters`; the `.ini`
+  UTF-16 LE), first `InpRunTag=eurusd_d_smoke` (D's flat start, seg 20,
+  and 15 h from a seed, seg 21, with D's API soft-warn interval), then
+  `InpRunTag=eurusd_c_smoke` (C seg 11: seeded long AT CAP 8, a 3.7 h
+  preload, no interval). Expected logs: `RPL|RUN|eurusd_d_smoke|sync=0|out=eurusd_d_smoke_free`,
+  `TICKS_LOADED` 476821, `SEG` / `SEG_DONE` 20 and 21, `RPL|DONE`; then
+  `RPL|RUN|eurusd_c_smoke|sync=0|out=eurusd_c_smoke_free`, `TICKS_LOADED`
+  476821, `SEG` / `SEG_DONE` 11, `RPL|DONE`. Report every `RPL|` line
+  verbatim and both `out_*_smoke_free_summary.txt`. STOP after R3 and wait
+  for "go" (Claude reads the outputs first).
 - **R4 The six runs** (after "go"), one at a time, in this order:
   `eurusd_d` free, `eurusd_d` sync, `eurusd_c` free, `eurusd_c` sync,
   `eurusd_b` free, `eurusd_b` sync. Before each, re-check `swaps.csv`'s
@@ -179,8 +184,26 @@ Do not analyse or compare the outputs: Claude reads them.
   Claude compares them with the archive afterwards (plan s6 marks, fixed).
   What fact is missing before the first comparison?
 
-## 8. GEMINI'S RULINGS AND CLAUDE'S CHECK
+## 8. GEMINI'S RULINGS (9 OCT ~13:30Z) AND CLAUDE'S CHECK
 
-(To be added before this file goes to Cursor.)
+Gemini read this file at `913c3a5` as an attachment; the operator pasted
+his answers; each premise checked here.
 
-Line count: 186
+- **GH6-1 ACCEPTED** (no behaviour change; no EA path reads an array's
+  capacity, only `ArraySize`; RT34 and RT37 guard the prune and preload).
+- **GH6-2 ACCEPTED, corrected:** the smoke must include a segment seeded
+  AT CAP. His "B seg 13" does not exist (B is seg 1-9); C seg 11 is the
+  case (seed long 8 deep, cap 8, newest open 1 Oct 06:01:24 server, a
+  3.7 h preload). It runs as its OWN tag, `eurusd_c_smoke`, not inside
+  D's smoke file: an intervals file applies to every segment of a run,
+  and D's API soft warn (1 Oct 22:30:58 - 2 Oct 00:00:00 server) falls
+  inside C seg 11's window. Added: `research/replay/inputs/eurusd_20261008/run_eurusd_c_smoke.csv`
+  (no intervals file = none); R2 copies 41 files; R3 runs both smokes.
+- **GH6-3 ACCEPTED** (effective points book the broker's cent on the
+  position; the carry pass's pending part reads the live rate, base s1
+  A13; no path reads `swaps.csv` as a rate).
+- **GH6-4 NOTED, already in the plan:** a deal matches within 0.2 pip and
+  60 s (`replay-calibration-eurusd.md` s6, fixed before any run); the
+  comparison never tests price equality.
+
+Line count: 209
