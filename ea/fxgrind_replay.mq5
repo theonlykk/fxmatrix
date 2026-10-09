@@ -20,6 +20,8 @@ void OnStart()
    }
    if(!Rpl_WaitSymbolReady(60000))
       return;
+   Rpl_SetOutputSuffix(InpSync ? "_sync" : "_free");
+   Print("RPL|RUN|", InpRunTag, "|sync=", InpSync ? 1 : 0, "|out=", InpRunTag, (InpSync ? "_sync" : "_free"));
    const int gv0 = Rpl_DeleteGrindGlobalVariables();
    Print("RPL|GV_DELETE|", gv0);
    if(!Rpl_RunReplayFiles(InpRunTag, InpSync)) {

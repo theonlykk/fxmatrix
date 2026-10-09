@@ -14,6 +14,7 @@ const string RPL_SLOT_DEFAULT = "OPT";
 const double RPL_LOTS_DEFAULT = 0.01;
 const string RPL_DATA_PATH = "D:\\mt5-replay";
 const datetime RPL_T0_DEFAULT = D'2026.10.06 10:00:00';
+#define RPL_LATTICE_RESERVE 200000
 
 string g_rpl_out_suffix = "";
 
@@ -253,6 +254,7 @@ bool Rpl_SafeToRun(const string data_path, const bool trade_allowed, const long 
 //+------------------------------------------------------------------+
 void Rpl_SetOutputSuffix(const string s)
 {
+   g_rpl_out_suffix = s;
 }
 
 //+------------------------------------------------------------------+
@@ -701,11 +703,26 @@ void Rpl_PreloadLatticeFromTicks(const RplSegmentConfig &cfg)
       return;
    const long start_ms = MathMax(g_rpl_newest_seed_open_ms, cfg.from_ms - 86400000L);
    g_rpl_retained_from_ms = start_ms;
+   int k = 0;
+   for(int i = 0; i < g_rpl_all_tick_count; i++) {
+      const long ms = g_rpl_all_ticks[i].time_msc;
+      if(ms >= start_ms && ms < cfg.from_ms)
+         k++;
+   }
+   const int n0 = ArraySize(g_grind_vl_test_tick_msc);
+   const int n1 = n0 + k;
+   ArrayResize(g_grind_vl_test_tick_msc, n1, RPL_LATTICE_RESERVE);
+   ArrayResize(g_grind_vl_test_tick_bid, n1, RPL_LATTICE_RESERVE);
+   ArrayResize(g_grind_vl_test_tick_ask, n1, RPL_LATTICE_RESERVE);
+   int j = n0;
    for(int i = 0; i < g_rpl_all_tick_count; i++) {
       const long ms = g_rpl_all_ticks[i].time_msc;
       if(ms < start_ms || ms >= cfg.from_ms)
          continue;
-      Grind_LatticeTestAddTick((datetime)(ms / 1000), g_rpl_all_ticks[i].bid, g_rpl_all_ticks[i].ask);
+      g_grind_vl_test_tick_msc[j] = (long)((datetime)(ms / 1000)) * 1000;
+      g_grind_vl_test_tick_bid[j] = g_rpl_all_ticks[i].bid;
+      g_grind_vl_test_tick_ask[j] = g_rpl_all_ticks[i].ask;
+      j++;
    }
 }
 
@@ -722,7 +739,7 @@ void Rpl_ReplayAppendDeal(const ulong deal_ticket,
                           const datetime deal_time,
                           const ulong magic)
 {
-   ArrayResize(g_grind_deal_test_records, g_grind_deal_test_count + 1);
+   ArrayResize(g_grind_deal_test_records, g_grind_deal_test_count + 1, 4096);
    g_grind_deal_test_records[g_grind_deal_test_count].deal_ticket = deal_ticket;
    g_grind_deal_test_records[g_grind_deal_test_count].symbol = _Symbol;
    g_grind_deal_test_records[g_grind_deal_test_count].magic = (long)magic;
@@ -751,7 +768,7 @@ void Rpl_WriteDealOutput(const long time_ms,
                          const double price)
 {
    const int n = ArraySize(g_rpl_deals);
-   ArrayResize(g_rpl_deals, n + 1);
+   ArrayResize(g_rpl_deals, n + 1, 4096);
    g_rpl_deals[n].seg_id = g_rpl_cfg.seg_id;
    g_rpl_deals[n].sync_idx = g_rpl_sync_idx;
    g_rpl_deals[n].time_ms = time_ms;
@@ -770,7 +787,7 @@ void Rpl_WriteDealOutput(const long time_ms,
 void Rpl_WriteEventOutput(const long time_ms, const string kind, const string code, const string json)
 {
    const int n = ArraySize(g_rpl_events);
-   ArrayResize(g_rpl_events, n + 1);
+   ArrayResize(g_rpl_events, n + 1, 4096);
    g_rpl_events[n].seg_id = g_rpl_cfg.seg_id;
    g_rpl_events[n].sync_idx = g_rpl_sync_idx;
    g_rpl_events[n].time_ms = time_ms;
@@ -841,29 +858,21 @@ void Rpl_LatticeHistoryCheck(const bool is_long, const long tick_ms)
 void Rpl_PruneLattice(const long tick_ms)
 {
    const long cutoff = tick_ms - 300000L;
-   long kept_msc[];
-   double kept_bid[];
-   double kept_ask[];
-   int n = 0;
-   for(int i = 0; i < ArraySize(g_grind_vl_test_tick_msc); i++) {
+   int j = 0;
+   const int n = ArraySize(g_grind_vl_test_tick_msc);
+   for(int i = 0; i < n; i++) {
       if(g_grind_vl_test_tick_msc[i] >= cutoff) {
-         ArrayResize(kept_msc, n + 1);
-         ArrayResize(kept_bid, n + 1);
-         ArrayResize(kept_ask, n + 1);
-         kept_msc[n] = g_grind_vl_test_tick_msc[i];
-         kept_bid[n] = g_grind_vl_test_tick_bid[i];
-         kept_ask[n] = g_grind_vl_test_tick_ask[i];
-         n++;
+         if(j != i) {
+            g_grind_vl_test_tick_msc[j] = g_grind_vl_test_tick_msc[i];
+            g_grind_vl_test_tick_bid[j] = g_grind_vl_test_tick_bid[i];
+            g_grind_vl_test_tick_ask[j] = g_grind_vl_test_tick_ask[i];
+         }
+         j++;
       }
    }
-   ArrayResize(g_grind_vl_test_tick_msc, n);
-   ArrayResize(g_grind_vl_test_tick_bid, n);
-   ArrayResize(g_grind_vl_test_tick_ask, n);
-   for(int i = 0; i < n; i++) {
-      g_grind_vl_test_tick_msc[i] = kept_msc[i];
-      g_grind_vl_test_tick_bid[i] = kept_bid[i];
-      g_grind_vl_test_tick_ask[i] = kept_ask[i];
-   }
+   ArrayResize(g_grind_vl_test_tick_msc, j, RPL_LATTICE_RESERVE);
+   ArrayResize(g_grind_vl_test_tick_bid, j, RPL_LATTICE_RESERVE);
+   ArrayResize(g_grind_vl_test_tick_ask, j, RPL_LATTICE_RESERVE);
    if(cutoff > g_rpl_retained_from_ms)
       g_rpl_retained_from_ms = cutoff;
 }
@@ -1818,7 +1827,7 @@ bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
       const long ms = (long)StringToInteger(fields[0]);
       const double bid = (ArraySize(fields) > 1) ? StringToDouble(fields[1]) : 0.0;
       const double ask = (ArraySize(fields) > 2) ? StringToDouble(fields[2]) : 0.0;
-      ArrayResize(out, count + 1);
+      ArrayResize(out, count + 1, 65536);
       out[count].time_msc = ms;
       out[count].bid = bid;
       out[count].ask = ask;
@@ -1854,7 +1863,7 @@ void Rpl_ComputeSegmentStats(int &fills, int &scalps, int &roll_closes, int &rol
 //+------------------------------------------------------------------+
 bool Rpl_OpenRunOutputs(const string tag, RplRunOutputHandles &handles)
 {
-   const string prefix = "replay\\out_" + tag + "_";
+   const string prefix = "replay\\out_" + tag + g_rpl_out_suffix + "_";
    handles.deals = FileOpen(prefix + "deals.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    handles.events = FileOpen(prefix + "events.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    handles.book = FileOpen(prefix + "book.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
@@ -1936,12 +1945,14 @@ void Rpl_AppendSegmentOutputs(RplRunOutputHandles &handles)
    Rpl_ComputeSegmentStats(fills, scalps, roll_closes, roll_accepted);
    const uint run_ms = GetTickCount() - g_rpl_seg_run_start_ms;
    const int aborted = g_rpl_aborted ? 1 : 0;
-   FileWrite(handles.summary,
-             "seg_id=" + IntegerToString(g_rpl_cfg.seg_id) + ",ticks=" + IntegerToString(g_rpl_seg_ticks_processed)
-             + ",fills=" + IntegerToString(fills) + ",scalps=" + IntegerToString(scalps) + ",roll_closes="
-             + IntegerToString(roll_closes) + ",roll_accepted=" + IntegerToString(roll_accepted) + ",gaps="
-             + IntegerToString(g_rpl_gap_count) + ",aborted=" + IntegerToString(aborted) + ",run_ms="
-             + IntegerToString((int)run_ms));
+   const string seg_summary =
+      "seg_id=" + IntegerToString(g_rpl_cfg.seg_id) + ",ticks=" + IntegerToString(g_rpl_seg_ticks_processed)
+      + ",fills=" + IntegerToString(fills) + ",scalps=" + IntegerToString(scalps) + ",roll_closes="
+      + IntegerToString(roll_closes) + ",roll_accepted=" + IntegerToString(roll_accepted) + ",gaps="
+      + IntegerToString(g_rpl_gap_count) + ",aborted=" + IntegerToString(aborted) + ",run_ms="
+      + IntegerToString((int)run_ms);
+   FileWrite(handles.summary, seg_summary);
+   Print("RPL|SEG_DONE|", seg_summary);
 }
 
 //+------------------------------------------------------------------+
@@ -2043,6 +2054,7 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
          return false;
       }
       if(ticks_file != tick_cache_name) {
+         const uint load_t0 = GetTickCount();
          if(!Rpl_LoadTicksCsv(ticks_file, tick_cache, tick_cache_count)) {
             Print("RPL|ABORT|MISSING_TICKS");
             FileClose(rh);
@@ -2050,6 +2062,8 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
             Rpl_RunReplayClearFileState();
             return false;
          }
+         Print("RPL|TICKS_LOADED|", ticks_file, "|count=", tick_cache_count, "|load_ms=",
+               (int)(GetTickCount() - load_t0));
          tick_cache_name = ticks_file;
       }
       RplSegmentConfig cfg;
@@ -2123,6 +2137,7 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
       }
       if(sync_mode)
          Rpl_LoadSegmentSyncFromFile(cfg.from_ms, cfg.to_ms);
+      Print("RPL|SEG|", cfg.seg_id, "|from=", cfg.from_ms, "|to=", cfg.to_ms, "|seed=", seed_file);
       if(!Rpl_RunTicks(tick_cache, tick_cache_count, cfg)) {
          FileClose(rh);
          Rpl_AppendSegmentOutputs(out);
