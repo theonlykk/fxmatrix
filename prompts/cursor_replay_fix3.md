@@ -314,6 +314,36 @@ against `b8adb15` the same evening. Operator ~22:40Z: A3 now, through Gemini.
 
 ## 11. GEMINI'S THIRD-ROUND RULINGS AND CLAUDE'S CHECK
 
-To be added before Cursor gets this file.
+Gemini 9 Oct ~22:45Z on the file at `6304dfc` (attached); checked by Claude
+against `b8adb15` and the inputs the same evening. Gemini: "Proceed with
+Cursor execution." Nothing in this section changes s2 or s3: Cursor builds
+A1, A2, A3 and P1 and the tests RT43-RT47 as written (338 run, 8 fail at
+commit 1).
 
-Line count: 319
+- **GF3c-1. Accepted; his mechanism is backwards, the case is empty.** He
+  says sync rows with `time_ms <= t` are applied before the rollover. In
+  `Rpl_ProcessOneTick` the rollover runs FIRST (core 1539), then
+  `Rpl_ApplySyncDealsUpTo(t)` (1546). So a real row timed before midnight
+  but first applied at the first tick after it is charged after the rollover: a
+  late ENT would miss that night in the true book (a late close's extra
+  night is moot: the entry is removed on the same tick). In the inputs no
+  real row of B, C or D falls in 23:55-24:00 server (0 / 0 / 0): no change.
+- **GF3c-2. Accepted.** The first loops of the sync reset remove only replay
+  layers whose ticket is NOT in the true book, and a ticket never re-enters
+  it; the engine's own close deletes the GV (`ea/grind_engine.mqh` 2937).
+- **GF3c-3. Accepted.** 318 + 8 + 2 + 4 + 3 + 3 = 338; 3 + 1 + 1 + 2 + 1 = 8
+  fail at commit 1.
+- **GF3c-4. Rejected as stated: its premise is the one s73 already
+  removed.** `swaps.csv` carries EFFECTIVE points (operator 8 Oct ~20:37Z;
+  replay plan s12): each night's points are the broker's cent at 0.01 lot /
+  (mult x 0.01), so the harness's unrounded `points x mult x tick_value x
+  volume` IS the broker's cent (e.g. 2 Oct: -8.0 x 1 x 1.0 x 0.01 = -0.08);
+  booked that way it reproduced every closed position whose nights fall in
+  1-8 Oct (116 of 116). A3 (a) uses the same formula and the same rows, so
+  the true book books the same cents; what is left is double-precision
+  epsilon (about 1e-17 a night), far below a cent and below the 0.00001
+  price step at which exits are placed. T1 matches the order price within
+  0.2 pip, not P&L.
+
+
+Line count: 349
