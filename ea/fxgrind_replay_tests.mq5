@@ -1219,7 +1219,7 @@ void Test_RT37_PreloadLattice()
    g_rpl_all_ticks[0].time_msc = RplMs(RPL_T0, 0) + 250;
    g_rpl_all_ticks[0].bid = 1.10000;
    g_rpl_all_ticks[0].ask = 1.10002;
-   g_rpl_all_ticks[1].time_msc = RplMs(RPL_T0, 1) - 1;
+   g_rpl_all_ticks[1].time_msc = RplMs(RPL_T0, 2) - 1;
    g_rpl_all_ticks[1].bid = 1.10010;
    g_rpl_all_ticks[1].ask = 1.10012;
    g_rpl_all_ticks[2].time_msc = RplMs(RPL_T0, 2);
