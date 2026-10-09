@@ -29,15 +29,15 @@ This file holds the rules and a readable view of what is live now.
   the git history of `ea/presets` (e.g. `e1efa23` 19 Sep), live times
   unverified; backfill only if needed.
 
-## LIVE NOW (round 2 from 6 Oct 03:18-03:35Z; width / add / exit pips, "L / S" where the sides differ; cap 8 everywhere; deadband 2 and S = W + 1 on B, C, D)
+## LIVE NOW (round 3 from Fri 9 Oct 04:24-04:32Z on four charts, round 2 from 6 Oct 03:18-03:35Z on the rest; width / add / exit pips, "L / S" where the sides differ; cap 8 everywhere; deadband 2 and S = W + 1 on B, C, D)
 
 | pair | A: FTMO 1514878887 (IC static, from 7 Oct 22:08-22:17Z) | B: wine-test (anchor) | C: wine-c (ADD probe) | D: wine-d (EXIT probe) |
 |---|---|---|---|---|
 | GBPUSD | 2.5 / 9 / 10 | 2.5 / 9 / 10 | 2.5 / 8 / 10 | 2.5 / 9 / 9 |
-| EURUSD | 2 / 7 / 10 | 2 / 7 / 10 | 2 / 6 / 10 | 2 / 7 / 11 |
+| EURUSD | 2 / 7 / 10 | 2 / 7 / 10 | 2 / 6 / 10 | 2 / 7 / **9 L, 11 S** (9 Oct) |
 | EURGBP | 1 / 3 / 5 | 1 / 3 / 5 | 1 / 2.5 L, 4 S / 5 | 1 / 3 / 6 L, 4 S |
 | AUDCAD | retired 2 Oct | 1.5 / 6 / 10 | 1.5 / 5 / 10 | 1.5 / 6 / 9 |
-| AUDCHF | 1 / 4 / 10 | 1 / 4 / 10 | 1 / 3 / 10 | 1 / 4 / 9 |
+| AUDCHF | 1 / 4 / 10 | **1.5** / 4 / 10 (9 Oct) | **1.5** / **5 L, 3 S** / 10 (9 Oct) | **1.5** / 4 / **11 L, 9 S** (9 Oct) |
 | CADCHF | 1 / 4 / 10 | 1 / 4 / 10 | 1 / 3 / 10 | 1 / 4 / 11 L, 9 S |
 | NZDCHF | retired 2 Oct | 1 / 3 / 10 | 1 / 4 / 10 | 1 / 3 / 9 |
 | NZDCAD (control) | 2 / 8 / 10 | 2 / 8 / 10 | 2 / 8 / 10 | 2 / 8 / 10 |
@@ -55,7 +55,7 @@ change anywhere is D1 on D (the first live ADR-163 rebuild).
 
 ## NEXT EXPECTED ROWS
 
-**Fri 9 Oct round-3 reload (compass-round s11; review s6): FOUR rows close and open at each Load: B AUDCHF (width 1.5), C AUDCHF (width 1.5, add 5 L / 3 S), D AUDCHF (width 1.5, exit 11 L / 9 S), D EURUSD (exit 9 L / 11 S); `preset_commit` = the `_r3` commit. The other 23 rows stay open.**
+**DONE Fri 9 Oct 04:24-04:32Z (HANDOFF s74; rows in the CSV, `fb92da8`).** Was: **Fri 9 Oct round-3 reload (compass-round s11; review s6): FOUR rows close and open at each Load: B AUDCHF (width 1.5), C AUDCHF (width 1.5, add 5 L / 3 S), D AUDCHF (width 1.5, exit 11 L / 9 S), D EURUSD (exit 9 L / 11 S); `preset_commit` = the `_r3` commit. The other 23 rows stay open.**
 **7 Oct 21:23-22:17Z (ftmo-ic-start s12): A's seven cycle-3 rows CLOSED at 21:23Z (the detach); seven new A rows on FTMO 1514878887 from each attach (22:08-22:17Z), `preset_commit` `afb65f7` (the `_opt_a_r2` presets on GitHub). A is static for the trial: no A row until it ends (~21 Oct). Cycle 3's geometry (5 / 10 / 10 etc.) is in the closed rows.**
 **Wed 7 Oct build (HANDOFF s64): NO rows.** The roll gate (`InpRollGateOpposite=0`) and the v2.2a API inputs are not geometry; the regenerated `_r2` presets carry them with the same width / add / exit / cap, so the round-2 rows stay open (their `preset_commit` stays `b438420`, the geometry loaded 6 Oct).
 **6 Oct 03:18-03:35Z (HANDOFF s61): round 2's rows are open** (30: 27

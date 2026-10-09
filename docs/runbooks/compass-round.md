@@ -305,4 +305,15 @@ on their round-2 geometry. Window FTMO days Mon 12 + Tue 13 (Sun 11 22:00Z -
 Tue 13 22:00Z), end mark Tue 13 22:30Z, scored Tuesday evening; `round3.json`
 after the reload.
 
-Line count: 308
+**Round 3 RELOADED Fri 9 Oct 04:24-04:32Z** (round-reload.md, four charts;
+HANDOFF s74): repos at `9425141` on wine-d, wine-c, wine-test, `_r3`
+fingerprints D `0c5ce1f15eea`, C `d0cdb26a35de`, B `a514ca79c8ff` (9 staged
+each, SAME_EXCEPT_KEY 43); checker rows (log UTC): D EURUSD 04:24:14
+`geo=L2/7/9 S2/7/11 rebuild=true/false`; D AUDCHF 04:26:19 `L1.5/4/11
+S1.5/4/9 true/false`; C AUDCHF 04:29:18 `L1.5/5/10 S1.5/3/10 false/false`;
+B AUDCHF 04:32:19 `L1.5/4/10 S1.5/4/10 false/false`; BAD 0 on each; archive
+check (ROLL_STRANDED .. QUARANTINE_HALT, 1 h) none. `research/compass/
+round3.json` (windows Sun 11 22:00Z - Tue 13 22:00Z, end mark Tue 13
+22:30Z; reloads = each probe's open register row).
+
+Line count: 319

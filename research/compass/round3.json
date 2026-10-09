@@ -1,0 +1,146 @@
+{
+  "round": "compass round 3 (cap 8, tight widths, deadband 2, re-roll on, roll gate 0; FTMO days Mon 12 + Tue 13 Oct after the Fri 9 reload of four charts)",
+  "doc": "docs/research/compass-round3-review.md; docs/runbooks/compass-round.md s11; docs/runbooks/round-reload.md",
+  "accounts": {
+    "B": 53066709,
+    "C": 53071896,
+    "D": 53077984
+  },
+  "windows": [
+    [
+      "2026-10-11T22:00Z",
+      "2026-10-12T22:00Z",
+      1
+    ],
+    [
+      "2026-10-12T22:00Z",
+      "2026-10-13T22:00Z",
+      1
+    ]
+  ],
+  "threshold": 1.19,
+  "interventions": [],
+  "min_days_after_cut": 1.0,
+  "control": {
+    "pair": "NZDCAD",
+    "instances": {
+      "B": "GRIND_NZDCAD_OPTB",
+      "C": "GRIND_NZDCAD_OPTC",
+      "D": "GRIND_NZDCAD_OPTD"
+    }
+  },
+  "pairs": {
+    "GBPUSD": {
+      "anchor": "GRIND_GBPUSD_OPTB",
+      "C": {
+        "probe": "GRIND_GBPUSD_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_GBPUSD_OPTD",
+        "lever": "exit"
+      }
+    },
+    "EURUSD": {
+      "anchor": "GRIND_EURUSD_OPTB",
+      "C": {
+        "probe": "GRIND_EURUSD_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_EURUSD_OPTD",
+        "lever": "exit"
+      }
+    },
+    "EURGBP": {
+      "anchor": "GRIND_EURGBP_OPTB",
+      "C": {
+        "probe": "GRIND_EURGBP_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_EURGBP_OPTD",
+        "lever": "exit"
+      }
+    },
+    "AUDCAD": {
+      "anchor": "GRIND_AUDCAD_OPTB",
+      "C": {
+        "probe": "GRIND_AUDCAD_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_AUDCAD_OPTD",
+        "lever": "exit"
+      }
+    },
+    "AUDCHF": {
+      "anchor": "GRIND_AUDCHF_OPTB",
+      "C": {
+        "probe": "GRIND_AUDCHF_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_AUDCHF_OPTD",
+        "lever": "exit"
+      }
+    },
+    "CADCHF": {
+      "anchor": "GRIND_CADCHF_OPTB",
+      "C": {
+        "probe": "GRIND_CADCHF_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_CADCHF_OPTD",
+        "lever": "exit"
+      }
+    },
+    "NZDCHF": {
+      "anchor": "GRIND_NZDCHF_OPTB",
+      "C": {
+        "probe": "GRIND_NZDCHF_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_NZDCHF_OPTD",
+        "lever": "exit"
+      }
+    },
+    "NZDCAD": {
+      "anchor": "GRIND_NZDCAD_OPTB"
+    },
+    "AUDNZD": {
+      "anchor": "GRIND_AUDNZD_OPTB",
+      "C": {
+        "probe": "GRIND_AUDNZD_OPTC",
+        "lever": "add"
+      },
+      "D": {
+        "probe": "GRIND_AUDNZD_OPTD",
+        "lever": "exit"
+      }
+    }
+  },
+  "reloads": {
+    "GRIND_GBPUSD_OPTC": "2026-10-06T03:25:10Z",
+    "GRIND_GBPUSD_OPTD": "2026-10-06T03:18:23Z",
+    "GRIND_EURUSD_OPTC": "2026-10-06T03:27:12Z",
+    "GRIND_EURUSD_OPTD": "2026-10-09T04:24:14Z",
+    "GRIND_EURGBP_OPTC": "2026-10-06T03:27:26Z",
+    "GRIND_EURGBP_OPTD": "2026-10-06T03:20:35Z",
+    "GRIND_AUDCAD_OPTC": "2026-10-06T03:27:37Z",
+    "GRIND_AUDCAD_OPTD": "2026-10-06T03:20:53Z",
+    "GRIND_AUDCHF_OPTC": "2026-10-09T04:29:18Z",
+    "GRIND_AUDCHF_OPTD": "2026-10-09T04:26:19Z",
+    "GRIND_CADCHF_OPTC": "2026-10-06T03:28:11Z",
+    "GRIND_CADCHF_OPTD": "2026-10-06T03:21:19Z",
+    "GRIND_NZDCHF_OPTC": "2026-10-06T03:28:26Z",
+    "GRIND_NZDCHF_OPTD": "2026-10-06T03:21:36Z",
+    "GRIND_AUDNZD_OPTC": "2026-10-06T03:28:51Z",
+    "GRIND_AUDNZD_OPTD": "2026-10-06T03:22:01Z"
+  },
+  "decides": "COHORT EQUITY (research/compass/equity_score.py: layers opened in the round, end mark 8 Oct 22:30Z (equity_end; 9 Oct 20:45Z before round 2 moved, amendment s8); operator 7 Oct ~14:53Z / ~15:07Z, docs/research/compass-equity-amendment.md s7); plain equity and realised (compass_score.py) reported",
+  "equity_end": "2026-10-13T22:30Z",
+  "window_note": "Gemini GR3-4 and the operator (8 Oct ~23:20Z): two full FTMO days after the last reload (compass-round s4.1), Mon 12 + Tue 13; the cohort counts layers opened from Sun 11 22:00Z; end mark Tue 13 22:30Z. Reload Fri 9 Oct 04:24-04:32Z (four charts; BAD 0; HANDOFF s74). reloads = each probe's open register row (the three changed probes 9 Oct; the rest their round-2 load 6 Oct)."
+}

@@ -508,4 +508,14 @@ changes a preset; no mark adjusted to fit a result.
   touch before every fill (median -260 ms, range -1,959 to -42 ms).
   Check (5) of s4.2: these are the window's IN deals.
 
-Line count: 511
+- **T0b PASSED (9 Oct 04:20Z, wine-d):** `t0b_b` (the same inputs as
+  `t0b_a`: `2026.10.08 05:00` - `06:00` server) against `t0b_a` (dumped 8
+  Oct 03:02Z, within 10 minutes of the hour's end): 2,144 ticks each;
+  time, bid and ask identical (sha256 of the three columns `a4061adcd02f5c70`
+  on both). Only `flags` differ (bit 128 added after the fact, as w1 / w2).
+  With T0 (1052 / 1052), T0b and s4.1, the data marks of s6 have passed.
+- **D's EURUSD reloaded for round 3 (9 Oct 04:24:14Z: exit 9 L / 11 S,
+  `rebuild=true/false`)**: one more init inside the holdout (s8), run with
+  its own inputs.
+
+Line count: 521

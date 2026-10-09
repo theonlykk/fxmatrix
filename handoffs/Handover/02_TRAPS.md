@@ -2212,5 +2212,8 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   on any instance from 20:08Z to the 22:35Z export on 8 Oct (7 Oct: 0 at
   19Z, 5 at 20Z, 0 at 21Z). Check the hourly fill counts and the carry
   pass before calling data missing.
+- **PowerShell: quote `"HEAD^{tree}"`.** Unquoted, `{tree}` is a script
+  block: git receives `HEAD^` plus `-encodedCommand ...` and prints the
+  PARENT COMMIT's hash, which looks like a wrong tree (9 Oct ~03:00Z).
 
-Line count: 2216
+Line count: 2219
