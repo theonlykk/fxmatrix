@@ -1,0 +1,41 @@
+# MT5 script log excerpt: fxgrind_replay_tests @ 86c1194 (2026-10-09 ~10:06 local)
+# portable: D:\mt5-replay | ini: replay_rt_86c1194.ini (UTF-16 LE)
+# Terminal exit code: 0
+
+RPL|MIRRORS_EA|5bb5fdb
+RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1500
+RPL|TICKS_LOADED|ticks_rt11.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280804000|seed=
+RPL|SEG_DONE|seg_id=1,ticks=4,fills=2,scalps=1,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|ABORT|LATTICE_HISTORY|start_ms=1791277201000|retained=1791280800000
+RPL|ABORT|LATTICE_HISTORY
+RPL|GAP|1791280800000|50399
+RPL|GAP|1791280800000|50399
+RPL|TICKS_LOADED|ticks_rt19.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280804000|seed=
+RPL|SEG_DONE|seg_id=1,ticks=4,fills=2,scalps=1,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|GAP|1791280830000|90
+RPL|TICKS_LOADED|ticks_rt23.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280802000|seed=
+RPL|SEG_DONE|seg_id=1,ticks=2,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|SEG|2|from=1791280802000|to=1791280804000|seed=
+RPL|SEG_DONE|seg_id=2,ticks=2,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|TICKS_LOADED|ticks_rt25.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280804000|seed=seed_rt25.csv
+RPL|SEG_DONE|seg_id=1,ticks=4,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|TICKS_LOADED|ticks_rt19.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280804000|seed=
+RPL|SEG_DONE|seg_id=1,ticks=4,fills=2,scalps=1,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|BAD_HEADER|ticks_rt28.csv|1791280800000
+RPL|ABORT|BAD_RUN_ROW|seg_line=1|fields=21
+RPL|ABORT|MISSING_SWAPS
+RPL|ABORT|BAD_RUN_ROW|seg_line=1|ticks_file=empty
+RPL|TICKS_LOADED|ticks_rt19.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280804000|seed=
+RPL|SEG_DONE|seg_id=1,ticks=4,fills=2,scalps=1,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RT35-LOAD-MS|328
+RPL|TICKS_LOADED|ticks_rt36.csv|count=4|load_ms=0
+RPL|SEG|1|from=1791280800000|to=1791280804000|seed=
+RPL|SEG_DONE|seg_id=1,ticks=4,fills=2,scalps=1,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=0
+RPL|SUMMARY|run=291|pass=291
