@@ -18,7 +18,7 @@ does not change.
    branches; then `git checkout replay-harness`, `git pull`; report `git log
    --oneline -1` (must be `b212e0b`) and the pin (`git diff --stat 5bb5fdb
    origin/main -- ea/fxgrind.mq5` EMPTY).
-2. Restate O1, O2 and S1 (s2) in ONE line each, quoting this prompt; give the
+2. Restate O1, O2, O3 and S1 (s2) in ONE line each, quoting this prompt; give the
    assertion count of each of RT39-RT42 (s3) and how many fail at commit 1.
 3. Report anything in s1 you read differently in source.
 4. STOP until the operator replies "go".
@@ -48,6 +48,7 @@ itself (Claude's).
 |---|---|
 | O1 | New `void Rpl_SeedOrder(const string side, const int layer, const string role, const double price, const ulong ticket, const long otype)`: `Grind_OrderTestUpsert(ticket, g_rpl_cfg.magic, GrindCommentBuild(RPL_SLOT_DEFAULT, side, layer, role), price, otype)`; `Rpl_TrackOrderPlaced(ticket, 1)` (placed before any tick); then link it: role `EXT` -> the layer of that side with `layer_index == layer` gets `exit_order_ticket = ticket` and `exit_target = price` (no such layer: `Rpl_Abort("SEED_ORDER_NO_LAYER")`); role `ENT` -> that side's `l0_pending_ticket = ticket` when the side has no layer, else its `add_pending_ticket = ticket`. Call it only after every seed layer is in. Nothing else about the order: the engine treats it as its own |
 | O2 | `Rpl_RunReplayFiles`: field 23 (`fields[22]`, when `ArraySize(fields) > 22` and non-empty) names `orders_<seg_id>.csv`, read right after the seed file (core 2226) and before `Rpl_LoadSegmentSyncFromFile` (2229): header first field `side` (else `RPL|ABORT|BAD_ORDERS`); rows `side,layer,role,price,ticket,type`, type `BUY_LIMIT` / `SELL_LIMIT` -> `ORDER_TYPE_BUY_LIMIT` / `ORDER_TYPE_SELL_LIMIT`; each row -> `Rpl_SeedOrder`; a missing file -> `RPL|ABORT|MISSING_ORDERS` (return false, as `MISSING_SEED`); print `RPL|ORDERS|<seg_id>|count=<n>`. A 22-field row runs exactly as before |
+| O3 | (s7, GF2-5) A guard, print only: `Rpl_SeedOrder` also appends the ticket to a global list (reset in `Rpl_ResetAll`); in `Rpl_ProcessOneTick`, on the segment's first tick (`seg_first_tick`) right after `Rpl_ScanNewOrders(t)` (core 1453), when the list is not empty print `RPL|ORDERS_KEPT|<seg_id>|<kept>/<seeded>`, kept = the listed tickets still in the order seam (`Grind_OrderTestFind`). No test: R4 reports the lines |
 | S1 | `Rpl_ApplySyncDealsUpTo` (core 1300-1340): a new branch for `rd.kind == "EXT"`: remove from the true book the newest entry with `side == rd.side` and `layer == rd.layer` (the layer whose exit filled; none: nothing). The ENT position's later `OUT_BY` then finds nothing, as today for an unknown position. `changed` is set as for every row |
 
 ## 3. COMMITS AND TESTS
@@ -107,7 +108,7 @@ of `Rpl_SeedOrder` in the core (not called) so the file compiles. Tickets
 Totals: **318 run** (295 + 23); commit 1 fails 9. Every other test unchanged
 (22-field rows still run).
 
-**Commit 2: O1, O2, S1**, core only; the tests file is NOT touched. If a test
+**Commit 2: O1, O2, O3, S1**, core only; the tests file is NOT touched. If a test
 fails and you believe its expected value is wrong, STOP and report with
 source lines; never change an expected value. Push after each. Do not compile.
 
@@ -127,7 +128,8 @@ source lines; never change an expected value. Push after each. Do not compile.
 - **R4** The six runs (`eurusd_d` free, sync; `eurusd_c` free, sync;
   `eurusd_b` free, sync), `swaps.csv`'s SHA-256 checked before each. Report
   every `RPL|` line (`ORDERS`, `LATTICE_BACKFILL`, any `ABORT`) and each
-  summary.
+  summary. Every `ORDERS_KEPT` line (O3) whose kept is below seeded: list it
+  first.
 - **R5** Commit each run's outputs to `research/replay/runs/<tag>_<free|sync>_<commit 2 sha7>/`
   as before. Push. STOP. Do not analyse the outputs.
 
@@ -160,6 +162,15 @@ spike, L0 placement and touch-without-fill misses: classified after this run.
 
 ## 7. GEMINI'S RULINGS AND CLAUDE'S CHECK
 
-(To be added before this file goes to Cursor.)
+Gemini 9 Oct ~18:58Z; checked by Claude against `5bb5fdb` / `32c90be`.
+Gemini: "The modifications are sound. Proceed with Cursor execution."
 
-Line count: 165
+| # | Gemini | Claude's check | Result |
+|---|---|---|---|
+| GF2-1 | Safe: no EA state desynchronises from adopted orders | Agreed, with two corrections. `Grind_RebuildExitsAtStartSide` (`ea/grind_engine.mqh` 3074-3142) reprices RESTING exits at a rebuild init; the harness does not run it, and it is not what holds exits: the exit queue's ranks do (`ea/grind_exitq.mqh` 43-60, K = 1, H = 0, `ea/grind_config.mqh` 7-8: rank 0 and the deepest rest). The carry ledger is recomputed from the position's swap at each nightly pass (`ea/grind_carry.mqh` 1080-1169), not kept incrementally | ACCEPTED; no change |
+| GF2-2 | Drop the layer at the EXT row | Agreed, correcting the mechanism: the replay's close-by completes on a LATER tick (the queue's DONE, base s3.4 step 6), and the sync reset runs only when a real row is applied (core 1300-1340), not before every tick; the re-seed happens at the real EXT row itself | ACCEPTED; no change |
+| GF2-3 | The earliest ON time | Agreed. (Actions did happen in the gap: exits, rolls, the short L00's re-centre; none checks the gate) | ACCEPTED; no change |
+| GF2-4 | The order price is the measure of T1 | Agreed; the deal-price T1 stays in the report | ACCEPTED |
+| GF2-5 | Will the exit queue cancel an adopted exit that is not rank 0 or the deepest? | A fair question. The adopted set IS the queue's own output at the init (the real EA ran the same ranks on the same layers), and the real EA sent nothing after 23 of 29 inits, so the same queue keeps it. A guard costs little: | ACCEPTED; **O3 added** (a print, no test; totals unchanged, 318) |
+
+Line count: 176
