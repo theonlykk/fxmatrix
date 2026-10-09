@@ -294,7 +294,12 @@ Assigned in this order (the first that fits):
 - **Pass:** a HOLDOUT on data the replay has not seen, with NO code
   change: from round 3's reload (Fri 9 Oct) to **Tue 13 Oct 22:00Z**
   (GRC-6: three trading days, not a Friday and a Monday alone), EURUSD on
-  B, C, D, each segment's own inputs, same marks. Only after the holdout passes is the
+  B, C, D, each segment's own inputs, same marks. **Operator 9 Oct ~22:40Z:**
+  only D's EURUSD re-inited on 9 Oct (04:24:14Z), so B and C run on from
+  their 7 Oct inits (no synthetic init: the real EA did not restart) to Tue
+  13 22:00Z, and all three fleets are scored on the deals after 9 Oct
+  04:32Z; B and C read w2 + the holdout dump joined at w2's 01:30 server
+  seam (checked for no gap and no overlap). Only after the holdout passes is the
   replay "calibrated on EURUSD" and sweeps on EURUSD allowed. Another pair
   needs its own T0-T2 on its own history first (GBPUSD and AUDCHF next).
 - **Fail in M4-M10 (a rule):** that rule's model is wrong. Fix it (cause
@@ -591,5 +596,64 @@ changes a preset; no mark adjusted to fit a result.
   `b8adb15` (0.8-1.6 pips; B 9, C 4, D 2) go. Sync-only residue: a re-seed
   after an in-segment pass carries the pre-pass value until the next pass,
   and the true book's swap does not roll.
+- **Fix 3's count and check CORRECTED (9 Oct ~22:15Z, new chat).** "15
+  (B 9, C 4, D 2)" was a miscount: in the committed b8adb15 `misses.csv`,
+  real exits with a replay exit of the same layer 0.8-1.6 pips lower within
+  60 s are B 8, C 4, D 2 (18 at any distance in time). "174 of 174" could
+  not be reproduced; `research/replay/check_accrued.py` re-derives it with
+  two written rules: rule N (init to the next pass) 108 of 118 seed rows
+  with a placement agree, rule W (pass to pass) 217 of 241, every difference
+  a non-carry cause (C's 6 Oct re-roll burst, D's rebuilds with new exit
+  pips, one roll timing). The Mon 5 Oct pass DID run on EURUSD B, C, D (2
+  snapshots each; s73's "no snapshot" did not hold for EURUSD).
+- **Fix 3 through Gemini three times** (`prompts/cursor_replay_fix3.md`,
+  `44edcc9`, 349 lines; s8 second round, s9-s10 third, s11 his rulings
+  checked): GF3b-4 (real, wider than stated) added **A3**: the sync true
+  book rolls its swap nightly and copies each held layer's accrued GV at
+  every sync reset (a real ENT entered it with swap 0 / accrued 0 and the
+  seeded swap stayed frozen; ~110 in-segment and ~47 seeded layers held
+  across a pass). RT43-RT47; 338 run. P1 `tools/replay_run.ps1` made
+  explicit (the `Script=` ini; 9 Oct's B and C r4 inis read `Expert=`).
+- **Fix 3 built and run (9 Oct ~23:00-23:20Z, `replay-harness`):** tests
+  `438a00b`, core `624a29b` (A1-A3), script `4e624fc` + `8a58547` (Claude's
+  read found four departures from P1: the `$Root` prefix without `\`, the
+  next day's log lines dated today, input names checked while writing, a
+  trailing LF in the ini; fixed, nothing new added). Suite **338 / 338**
+  (`rt_624a29b`); six runs, no ABORT, ORDERS_KEPT below seeded only on C
+  seg 16 (3/4, 2/4, as before); outputs `a08fb0d`.
+- **T1 at `624a29b`: still FAIL, much closer.** Matched / touchable: **B
+  92.3%, C 93.0%, D 93.8%** (b8adb15: 87.6 / 91.1 / 91.4); replay-only **B
+  3.4%, C 4.2%, D 2.4%** (12.1 / 8.4 / 4.3): **within the 5% mark on all
+  three.** Short of 95% matched by B 9, C 8, D 5 deals. No exit miss is left
+  with a replay exit 0.8-1.6 pips lower within 60 s (the carry pairs are
+  gone). T2: five of six sides pass on the priced segments (B short S 28
+  real / 31 replay); T2 still FAILS on the UNPRICED share. Results:
+  `research/replay/results/eurusd_20261008_624a29b/`.
+- **The 73 misses and 35 replay-only deals, first pass**
+  (`research/replay/classify_misses.py` -> `classified.csv`; rules in its
+  header). Misses: **M3 16** (the 2 Oct 12:30Z payrolls burst; and L00
+  placements: the replay's close-by completes at once (B 1 Oct 11:12:11.208:
+  the EXT and both close-by legs on one tick), so it places the new L0 at
+  that tick's mid; the real EA places it after the broker's close-by (EXT
+  11:12:11.489, OUT_BY 11:12:12.497, L0 11:12:13.026) at another mid, and
+  the touch reaches one price and not the other (there 1.13025 real against
+  1.13034 replay, touch 1.13027); twice the replay filled at exactly the
+  predicted price 0.7-9 s before the real), **M4? 11** (L00 re-centred before its fill: the
+  tick that re-centred decides the price), M10 3 (C seg 16), M11 1 (D's 1 Oct
+  gate edge), M9 1 (D 5 Oct 23:50:01), M13? 4, **open 37** (22 exits of held
+  or rolled layers, 14 deep adds, 1 L00 exit). Replay-only: M3 21, M4? 3,
+  M10 2, M13? 1, open 8. The open rows cannot be read without the replay's
+  OWN order log (placements, modifies, removals and their prices): the
+  harness writes deals and events only.
+- **For the operator and Gemini (not ruled):** (1) the M3 placement case is
+  the simulated broker's close-by latency (0 in the harness; the real
+  close-by follows its EXT by 0.35-14 s, median 0.84 s on B): s6
+  pre-registered placement-latency sensitivities (250 ms, 1 s) as REPORTED,
+  never deciding; s8 reads a fail in M1-M3 as "tick-level cannot be
+  trusted". (2) Fixes 1-3 corrected the harness's state (seeding, resting
+  orders, GVs), not a rule's model; whether they count toward s8's three
+  attempts is not ruled. Next: a harness prompt that writes the replay's
+  order log (observability only), then the open rows.
 
-Line count: 595
+
+Line count: 659

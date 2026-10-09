@@ -2270,4 +2270,35 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   adds to 0" where the pass recomputes from swap. Keep the finding, check
   the mechanism in source.
 
-Line count: 2273
+
+## TRAPS FROM 2026-10-09 NIGHT (FIX 3 THROUGH; THE RUNS)
+
+- **A count with no committed check is not a fact.** "15 (B 9, C 4, D 2)"
+  and "174 of 174" came from uncommitted scratch work and could not be
+  reproduced the same night. Commit the check (`check_accrued.py`,
+  `classify_misses.py`) with its rule written in its header, or do not cite
+  the number.
+- **Anything added to a prompt after Gemini's reading must go back to him**
+  (A2, RT45 and P1 step 0 were added in s7 and he had not seen them). He
+  reads only the attached file: a commit hash means nothing to him.
+- **"Exactly as your previous runs did" is not a spec:** the fix-2 run files
+  on `D:\mt5-replay` disagreed (`Expert=` for B / C, `Script=` for D and the
+  suite). Name every key and byte. The earlier presets are LF with a stray
+  CRLF at the end, not CRLF (Claude's s8 description was wrong; MT5 reads
+  both).
+- **The replay terminal's log is in the desktop's LOCAL time** (EDT), named
+  by the local date.
+- **An allowlist line is a prefix, not a command:** the script needs
+  `-Mode`; approve the first real call to allowlist it.
+- **PowerShell `-match '^...$'` is case-insensitive and `$` accepts one
+  trailing newline** (.NET); `\z` would not. Worked through for
+  `replay_run.ps1`: the worst case is a throw. Use `-cmatch` and `\z` in the
+  next script.
+- **Read every Cursor script line by line against its spec:** 4e624fc
+  stopped any terminal under `D:\mt5-replay*` (prefix without `\`) and
+  would have dropped a run's lines after local midnight.
+- **The harness's close-by is instant; the broker's takes ~1 s:** the
+  replay places the next L0 at another mid. A miss whose replay twin sits a
+  few points away 1-10 s earlier is placement timing, not an L0 rule.
+
+Line count: 2304
