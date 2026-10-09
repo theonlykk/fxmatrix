@@ -522,4 +522,63 @@ changes a preset; no mark adjusted to fit a result.
   `rebuild=true/false`)**: one more init inside the holdout (s8), run with
   its own inputs.
 
-Line count: 525
+- **The first real runs (9 Oct, branch `replay-harness`).** At `86c1194`
+  (first-run prompt) five runs aborted `LATTICE_HISTORY`: the preload began
+  at the newest open across BOTH sides, the EA tracks a capped side from its
+  OWN newest open, and the 300 s prune dropped a capped side's history in
+  sync. Fix 1 (`prompts/cursor_replay_first_run_fix1.md`, Gemini GF1-1..4):
+  the lattice is backfilled from the ticks in memory, once per capped
+  episode, by the EA's own formula (`32c90be`; suite 295 / 295): all six runs
+  complete.
+- **The comparison tool (`research/replay/compare.py`, tests first, a
+  mutation round).** A deal matches on segment, side, role, layer, price
+  within 0.2 pip and time within 60 s, one to one (nearest first, then the
+  largest number of pairs). **The price is the ORDER's** (fill_logs
+  `order_price_open`; Gemini GF2-4): IC fills carry price improvement (D: 237
+  of 370 IN deals not at the order price, up to 2.3 pips) that the fixed fill
+  rule (GRC-5) does not model; the deal-price T1 is reported beside it.
+  Results: `research/replay/results/eurusd_20261008_<harness>/`.
+- **T1 at `32c90be`: FAIL** (matched / touchable; replay-only): B 88.5% /
+  28%, C 92.2% / 20%, D 91.1% / 11%. Most matched deals agree to the point,
+  ~0.26 s before the real fill (the broker's latency after the touch).
+  Causes found: (H1) the real EA keeps its resting orders across an init (no
+  send in 2 min after 23 of the 29 window inits; the other six explained),
+  the replay placed new ones; (H2) sync re-opened a layer the replay had
+  already exited (17 / 13 / 9 replay-only exits); (H3) the 1 Oct gate below.
+- **s4.2 check 2 CORRECTED: the 1 Oct ADR-160 entry gate DID bind** on B and
+  C (and on D for half an hour). `BREAKER_GATE_ON` is written only by an
+  account's REPORTER instance (`Grind_BreakerGateTransition`), and none is
+  archived on any instance (200 h query, 9 Oct): its absence on EURUSD
+  proved nothing. The event log (1 Oct 21:16Z) recorded the gate. From
+  send_logs: each EA placed its short L00 through the gate check at 17:51:06
+  (B), 17:50:43 (C), 17:46:35 (D) server, then did NOT place the fill-time
+  add after the short L00 filled at 18:36:5x; D placed again at 19:07:24. In
+  the inputs as `BREAKER_GATED` (the EARLIEST ON time the record allows,
+  Gemini GF2-3; off at B's / C's re-init and D's 19:07:24.789).
+- **send_logs exported** (pipshed `--export-sends`, `6ea487e`; send_logs keep
+  14 days): `sends_EURUSD_OPT{B,C,D}_2026-10-09.jsonl` (Downloads; 1,623 /
+  1,722 / 1,403 rows from 25 / 28 Sep / 1 Oct). The rebuilt order book
+  (`research/replay/build_orders.py`) equals the order price, side, layer
+  and role of EVERY real fill (B 439, C 461, D 370). Only 2-6 orders rest at
+  an init (the exit queue, K = 1, H = 0, holds the rest).
+- **Fix 2** (`prompts/cursor_replay_fix2.md`, Gemini GF2-1..5): each
+  segment adopts its init's resting book (`orders_<seg_id>.csv`, run field
+  23); a real EXT row drops its layer from the true book; a print-only guard
+  `RPL|ORDERS_KEPT`. `b8adb15` (suite 318 / 318 at `e76c5af`: Cursor
+  corrected RT41's count to the exit fills, the close-by leg also reads
+  `EXT`; Claude's spec error). **T1 at `b8adb15`: still FAIL**: B 87.6% /
+  12.1%, C 91.1% / 8.4%, D 91.4% / 4.3% (D's replay-only now within its
+  mark). T2 fails on the UNPRICED share (most segments miss T1's mark on
+  their own); on the priced segments S, R, ROLL_ACCEPTED and rho agree.
+- **The next cause (fix 3): the carry ledger lives in terminal Global
+  Variables** (`GRIND_CARRY_ACCRUED_<ticket>`, `ea/grind_carry.mqh`
+  703-729; also `_SHIFT_`, `GRIND_VL_`, `GRIND_CARRY_DAY_`), which survive a
+  restart; the harness deletes them (`Rpl_ClearCarryGvs`) and seeds only the
+  VL. An exit the queue places later in a segment then lacks its accrued
+  carry: the remaining 0.8 / 1.6-pip exit pairs (B seg 1, 7; C seg 11, 13).
+  The accrued value at an init is readable from send_logs (every exit
+  placement = formula + accrued). Then to classify: 1 Oct short L00
+  placements (M4), the 2 Oct 12:30Z news burst (M3), B's L07 exits on 5 Oct,
+  C's first minutes after its 6 Oct re-roll reload.
+
+Line count: 584

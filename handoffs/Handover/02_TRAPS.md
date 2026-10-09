@@ -2216,4 +2216,39 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   block: git receives `HEAD^` plus `-encodedCommand ...` and prints the
   PARENT COMMIT's hash, which looks like a wrong tree (9 Oct ~03:00Z).
 
-Line count: 2219
+## TRAPS FROM 2026-10-09 (THE REPLAY'S FIRST RUNS)
+
+- **Copy the replay code into `D:\mt5-replay` BEFORE compiling.** Its
+  MetaEditor builds `MQL5\Scripts\fxmatrix\` there, not `D:\fxmatrix\ea`;
+  fix 1's prompt put the copy (R0) after "compiled", so the first compile
+  would have rebuilt the old code. Check with `Select-String` for a string
+  new in the commit. Fix 2 on: R0 copies, then the operator compiles.
+- **Close the replay terminal before Cursor's runs;** each run starts it
+  with its own `/config` and it shuts itself down. Cursor's run block
+  begins `taskkill /IM terminal64.exe /F` (allowlisted "Always Run" 9 Oct):
+  it closes EVERY MT5 on the desktop. The desktop terminal never trades
+  (operator), but anything open there is closed without warning. To be
+  replaced by a replay-only script (`tools/replay_run.ps1`, fix 3).
+- **An absent archive marker can be a reporter-only marker.**
+  `BREAKER_GATE_ON` is written only by an account's reporter instance;
+  "none on EURUSD" (plan s4.2 check 2) read as "the gate never bound" and it
+  had. Read the EA's emit path before concluding from an absence.
+- **send_logs keep 14 days** (archive_worker retention): 1 Oct's orders go
+  on 15 Oct. `archive_counts.py --export-sends --instance X | Set-Content
+  -Encoding utf8 <file>` copies one instance (pipshed `6ea487e`).
+- **The EA's carry ledger, VLs and carry day live in terminal Global
+  Variables** (`GRIND_CARRY_ACCRUED_`, `_SHIFT_`, `GRIND_VL_`,
+  `GRIND_CARRY_DAY_`) and survive a restart; the harness deletes them per
+  segment. Anything the EA keeps in a GV is state a replay must seed.
+- **The real EA keeps its resting orders across an init** (no send after
+  23 of 29 inits): a replay that seeds positions only re-places exits at
+  the formula, without the carry shifts the real ones carry.
+- **Compare a replay on the ORDER price, not the deal price:** IC fills
+  carry price improvement (D: 237 of 370 deals, up to 2.3 pips).
+- **In the replay's deals output the close-by leg of an exit position also
+  reads `role` EXT** (entry_type 3): count exit FILLS with entry_type 0.
+- **The Friday carry pass fails 3-4 per instance every week** (25 Sep, 2
+  Oct, 9 Oct: `failed`, nothing incomplete, mult_tomorrow 0): a pattern, not
+  news. Retcodes not yet read.
+
+Line count: 2254
