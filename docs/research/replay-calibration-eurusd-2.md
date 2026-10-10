@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT; Gemini's first round in s11 (10 Oct ~02:15Z), his SECOND ROUND (s12) not yet sent; NOTHING BUILT.** No harness change and no run on any data before Gemini's rulings and the operator's go. The constants in s3 are fixed BEFORE any run under this plan; a constant changed after a run is a new pre-registration, recorded as such |
+| Status | ****RULED** (Gemini s11 first round, s13 second round, 10 Oct ~02:14Z / ~02:24Z; checked by Claude); NOTHING BUILT. Next: one Cursor prompt (s5), through Gemini.** No harness change and no run on any data before Gemini's rulings and the operator's go. The constants in s3 are fixed BEFORE any run under this plan; a constant changed after a run is a new pre-registration, recorded as such |
 | Origin | Operator 10 Oct ~01:53Z: a new pre-registration after the first one failed (`replay-calibration-eurusd.md` s12, Gemini GRC2-1: s8's "fail in M1-M3" branch governs; the misses left are mostly timing, M3) |
 | Rules it keeps | Everything in the first plan that this file does not change (s4 here lists it): the question (s1 there), the window and segments (s2), seeding at an init (s3), the data (s4), the engine (c) (s5), T0 / T0b (passed; not re-run), T1 and T2 and their marks (s6), the miss categories (s7), not modelled (s9). Our trade history is the gold standard; no time-series analysis or price signal: the ticks only drive our rules; the timing constants are measured from OUR sends and fills, never from a replay result |
 | Supersedes | The first plan's fill rule in part ("an order placed on a tick can fill from the next tick", s6 there): replaced by s3's broker and EA timing. Its placement-latency sensitivities (250 ms, 1 s) are re-stated in s6 here |
@@ -127,7 +127,10 @@ T0-touchable matched (side, role, layer, order price within 0.2 pip, time
 within 60 s) and replay-only <= 5%, per fleet; T2 per fleet and side over
 the priced segments (S, R, ROLL_ACCEPTED within 10% or 1, rho within 0.1),
 failing when UNPRICED segments hold more than 20% of the fleet's real
-deals; the miss categories M1-M13. T0 (1052 / 1052) and T0b stand.
+deals; the miss categories M1-M13. **T0 and T1's touchable base on the
+ORDER price** (K15, GTM2-3; `compare.py --t0-price order`): T0 1047 of 1052
+(99.5%) on this window; the 5 untouched deals are M1 and leave T1's base.
+T0b stands.
 
 ## 5. THE HARNESS CHANGES (FOR ONE CURSOR PROMPT, AFTER GEMINI)
 
@@ -143,7 +146,10 @@ deals; the miss categories M1-M13. T0 (1052 / 1052) and T0b stand.
   for byte** (deals, events, orders; the run clock aside), proved in the
   suite and on the six runs.
 - Tests first, against hand-derived timelines (one per rule R1-R4, and a
-  close-by chain like K6-K9 end to end), then the core; the suite; the
+  close-by chain like K6-K9 end to end; R3's two cases each: ticks that
+  arrive during an `OnTick`'s sends get no `OnTick`, and ticks that arrive
+  during a trade handler queue ONE `OnTick` that reads the newest tick,
+  GTM2-4), then the core; the suite; the
   operator compiles; Cursor runs; Claude reads the commits line by line.
 
 ## 6. THE RUNS
@@ -155,6 +161,8 @@ s3's constants; `compare.py` as now.
 GRC2-4: the latency on every place and modify):
 - `timing = 0` after H1 (the instant broker; what H1 alone changes).
 - Fill only 0.1 pip through (the first plan's s6), with `timing = 1`.
+- The deal at the LIMIT price instead of R1's market price (GTM2-1), with
+  `timing = 1`: how much the fixed lam's tick choice moves T1 / T2.
 - +250 ms and +1 s on every place and modify (d_PENDING and d_MODIFY
   raised by that much), with `timing = 1`.
 - All five constants at the median of the fleets' p10 (283, 284, 289, 38,
@@ -308,8 +316,34 @@ before s7 allows it; no mark adjusted to a result.
   5 untouched deals are M1 (data) and leave T1's base. Right?
 - **GTM2-4.** What fact is missing?
 
-## 13. RECORD
+## 13. GEMINI'S SECOND-ROUND RULINGS (GTM2-1..4, 10 Oct ~02:24Z) AND CLAUDE'S CHECK
+
+- **GTM2-1: ACCEPTED; the sensitivity he requires ADDED** (s6: the deal at
+  the limit price, reported, never deciding). His premise is consistent
+  with K13: the fixed lam picks the deal's tick in 1021 of 1047, the real
+  deal time in 1046 of 1052.
+- **GTM2-2: ACCEPTED.**
+- **GTM2-3: ACCEPTED: T0 and T1's touchable base on the ORDER price** (s4).
+  Built: `compare.py --t0-price order` (tests first, mutants 3 of 3; the
+  default stays `deal`, so the first plan's reports reproduce byte for
+  byte: checked on the `90fbce4` runs, `report.md` and `misses.csv`
+  identical). Note the RT8b trap (02_TRAPS 10 Oct): `test_compare.py`'s
+  `test_touch_reads_the_fill_price` asserts the deal-price behaviour; it
+  stays, for the default.
+- **GTM2-4: his requirement ACCEPTED (s5's tests), his premise CORRECTED.**
+  He placed the close-by's 294 ms inside a trade handler. It is sent from
+  `OnTick` (`ea/fxgrind.mq5` 440: `Grind_ProcessCloseByQueues` is
+  `OnTick`'s first call; K6), so a tick that arrives during it gets NO
+  `OnTick` (R3, K10): the next `OnTick` is the next tick that arrives after
+  the EA is free, at that tick's price. The OUT_BY deals then reach the EA
+  as trade events after that `OnTick` returns (R2, R3), and a tick that
+  arrives while those handlers run queues one `OnTick` with the newest
+  tick. Both cases are now named tests in s5. R3 itself is unchanged.
+- **The Cursor prompt carries these to Gemini** (s5's tests, s6's added
+  sensitivity) with the prompt itself.
+
+## 14. RECORD
 
 (empty)
 
-Line count: 315
+Line count: 349
