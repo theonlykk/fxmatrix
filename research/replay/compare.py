@@ -140,9 +140,25 @@ def real_rolls(real_rows, segs):
     return out
 
 
-def replay_deals(deal_rows):
+def replay_deals(deal_rows, order_rows=None):
+    """A replay IN deal at its ORDER price: the FILL row of the run's order log for its
+    segment and order ticket (tickets restart per segment; the row nearest the deal's time
+    when the ticket filled more than once) when there is one (plan 2: timing = 1 writes the deal at R1's market price),
+    else the deal's own price (plan 1's runs, where the two are equal)."""
+    fills = {}
+    for o in order_rows or []:
+        if o.get("action") == "FILL":
+            fills.setdefault((o["seg_id"], o["ticket"]), []).append((int(o["time_ms"]), o["price"]))
+
+    def order_price(r):
+        rows = fills.get((r["seg_id"], r.get("order")))
+        if not rows:
+            return r["price"]
+        t = int(r["time_ms"])
+        return min(rows, key=lambda x: (abs(x[0] - t), x[0]))[1]
+
     return [_deal(int(r["seg_id"]), int(r["time_ms"]), r["side"], r["role"], int(r["layer"]),
-                  pts(r["price"]))
+                  pts(order_price(r)))
             for r in deal_rows if r["entry_type"] == "0"]
 
 
@@ -379,14 +395,18 @@ def fleet_report(inputs, runs, harness, tag, ticks, archive_rows, t0_price="deal
     reals_fill = real_deals(real_rows, segs)
     touch = [ticks.touchable(d, t0_price) for d in reals]
 
+    def out_orders(mode):
+        p = os.path.join(runs, "%s_%s_%s" % (tag, mode, harness), "out_%s_%s_orders.csv" % (tag, mode))
+        return read_csv(p) if os.path.exists(p) else None
+
     def out(mode, kind):
         d = os.path.join(runs, "%s_%s_%s" % (tag, mode, harness))
         return read_csv(os.path.join(d, "out_%s_%s_%s.csv" % (tag, mode, kind)))
 
-    sync_deals = replay_deals(out("sync", "deals"))
+    sync_deals = replay_deals(out("sync", "deals"), out_orders("sync"))
     t1r = t1(reals, sync_deals, touch)
     t1_fill = t1(reals_fill, sync_deals, touch)     # on the deal's price: reported
-    free_deals = replay_deals(out("free", "deals"))
+    free_deals = replay_deals(out("free", "deals"), out_orders("free"))
     free_t1 = t1(reals, free_deals, touch)          # reported, never deciding
     ev = read_events(os.path.join(runs, "%s_free_%s" % (tag, harness),
                                   "out_%s_free_events.csv" % tag))
