@@ -10,6 +10,8 @@
 
 input string InpRunTag = "calib";
 input bool   InpSync = false;
+input int    InpTiming = 0;
+input string InpSens = "base";
 
 void OnStart()
 {
@@ -20,6 +22,12 @@ void OnStart()
    }
    if(!Rpl_WaitSymbolReady(60000))
       return;
+   if(!Rpl_SetTiming(InpTiming, InpSens)) {
+      Print("RPL|ABORT|TIMING_INPUT");
+      return;
+   }
+   Print("RPL|TIMING|", InpTiming, "|", InpSens, "|", Rpl_TmD("PLACE"), "|", Rpl_TmD("MODIFY"), "|",
+         Rpl_TmD("CLOSE_BY"), "|", Rpl_TmD("REMOVE"), "|", Rpl_TmD("LAM"), "|thru=", g_rpl_tm_thru_pts);
    Rpl_SetOutputSuffix(InpSync ? "_sync" : "_free");
    Print("RPL|RUN|", InpRunTag, "|sync=", InpSync ? 1 : 0, "|out=", InpRunTag, (InpSync ? "_sync" : "_free"));
    const int gv0 = Rpl_DeleteGrindGlobalVariables();

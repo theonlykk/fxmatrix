@@ -10,6 +10,9 @@ param(
    [string]$Commit = '',
    [string]$SwapsSha = '',
    [switch]$Sync,
+   [ValidateSet(0, 1)]
+   [int]$Timing = 0,
+   [string]$Sens = 'base',
    [int]$TimeoutSec = 1800
 )
 
@@ -98,6 +101,8 @@ switch ($Mode) {
       Assert-Match 'Tag' $Tag $SafeToken
       Assert-Match 'Label' $Label $SafeToken
       Assert-Match 'SwapsSha' $SwapsSha $SafeSha64
+      if ($Sens -notmatch '^(base|limitpx|thru01|lat250|lat1000|p10|p90)\z') { throw 'Invalid Sens' }
+      if ($Timing -eq 0 -and $Sens -ne 'base') { throw 'Timing 0 requires Sens base' }
    }
 }
 
@@ -165,7 +170,9 @@ if ($Mode -eq 'Run') {
    Write-Utf8CrlfPreset $presetPath @(
       '; fxgrind_replay',
       "InpRunTag=$Tag",
-      $syncLine
+      $syncLine,
+      "InpTiming=$Timing",
+      "InpSens=$Sens"
    )
    $iniLines = @(
       '[StartUp]',
