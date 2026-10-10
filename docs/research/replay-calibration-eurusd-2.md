@@ -532,4 +532,53 @@ and data. s15 stands as written except where this section corrects it.
   only. For the operator.
 - Detail: `prompts/cursor_replay_fix7.md` s8.
 
-Line count: 535
+## 18. FIX 7'S RESULT AND THE RECORD CLOSED (10 Oct ~17:30Z; harness `145f092`)
+
+Fix 7 (`prompts/cursor_replay_fix7.md`; not an attempt, GO4-3): F1 the TIMER
+stage's "server now" = the timer moment, F2 events at their handler's
+start, F3 two casts. Suite 461 / 461 (GUI compile 0 errors, 0 warnings).
+48 runs `efada62` (`replay-harness`). Results:
+`research/replay/results/eurusd_20261008_145f092/` (`compare.py --t0-price
+order`; the method reproduces `868bcc3`'s report and misses byte for byte).
+
+- **Off-switch:** all 24 `timing = 0` files equal `868bcc3`'s (events with
+  `ea_time_ms` masked).
+- **What moved, as s16 / fix 7 s1 predicted:** deals, orders and book
+  changed only in B 4, C 14 and D 24, in every timed run. F2 moved no
+  scalp or roll between segments. B 4 67 / 67; C 14 60 / 60, 0
+  replay-only; D 24 92 / 94, 1 replay-only (hand prediction 90). Live's
+  weekend carry shape is now reproduced on all three fleets (Sat
+  snapshot; INCOMPLETE Sun and Mon 00:00; no Sunday or Monday snapshot).
+  Weekday carry MODIFY prices: unchanged (`carry_prices.txt`).
+
+| run | B T1 / replay-only | C | D | UNPRICED B / C / D | T2 B / C / D |
+|---|---|---|---|---|---|
+| **base (DECIDING)** | **96.0% / 2.8%** | **95.5% / 3.3%** | **97.3% / 2.4%** | **18.6 / 55.7 / 34.6%** | **PASS / FAIL / FAIL** |
+| `t0` | 96.3 / 3.7 | 96.1 / 4.7 | 96.5 / 2.7 | 31.9 / 36.2 / 34.6 | FAIL x3 |
+| limitpx, p10, p90 | as base | as base | as base | as base | as base |
+| lat250 | 96.9 / 2.5 | 95.5 / 3.6 | 97.3 / 2.4 | 18.6 / 36.2 / 34.6 | PASS / FAIL / FAIL |
+| lat1000 | 96.3 / 1.5 | 95.3 / 3.1 | 97.0 / 1.9 | 32.5 / 55.7 / 29.7 | FAIL x3 |
+| thru01 | 45.5 / 2.5 | 42.3 / 2.8 | 45.2 / 2.4 | 100 x3 | FAIL x3 |
+
+- **G7-1's open fact (s17), read:** the first-pass classifier
+  (`classify/classified.csv`) and a hand read of D 21 against the order
+  logs (`classify/d21_stranded.py` / `.txt`):
+  - D 21: 09:54 is M3 (timing 1 re-centred the S L00 1.8 s after live and
+    `t0`, a point lower); the 10:31-11:26 chain is M3 carried forward: the
+    short L0 re-centres only past 14.0 pips from mid (seg 21's stranded,
+    the 1 Oct inputs), and the replay's resting price (placed at another
+    read moment: 1.13125 timing 1, 1.13133 `t0`, live 1.13122) crossed it
+    at 10:31:19.599 while live's never exceeded 14.00; 13:15 and 20:20 are
+    trailing re-centres made at other moments (M3). The rule is right each
+    time; its input differs.
+  - C 16: M10 (the 6 Oct re-roll reload), the exception plan 1 already
+    recorded when GRC2-1 ruled (b). C 12: one row, first pass M13, unread.
+  - **Neither can change a verdict:** with C 12 and C 16 priced, C's
+    UNPRICED share is C 13 + C 19 = 49.9% (FAIL); D fails on D 21 and D 23,
+    both M3.
+- **The record closes under s8's (b) (Gemini G7-1):** EURUSD is NOT
+  calibrated under plan 2. A tick-level replay is not trusted; count-level
+  use is not allowed (T2 fails). The holdout does not run under this plan;
+  Tue 13 stays export-and-hash only. What follows is the operator's call.
+
+Line count: 584

@@ -304,4 +304,23 @@ under 20 deals may miss none.
 - **G7b-1 (for Gemini).** C1 restores s3's assertion count and its
   discriminating checks. Does it change anything else?
 
-Line count: 307
+## 10. THE RUNS AND WHAT HAPPENED (10 Oct ~14:55Z to ~17:30Z)
+
+- **G7b-1: ACCEPTED** (Gemini: C1 only restores s3).
+- Commit 5 `a2f1e65` (C1) read: matches s9.
+- **Process, recorded:** Cursor ran R1 on the stale `.ex5` before the
+  operator's compile (448 / 448; it stopped on the count); after the
+  compile R1 was 460 / 461 and **Cursor fixed the test itself** (`252aae5`)
+  instead of stopping (s6). **C2, the cause, was Claude's spec error:**
+  fill_log rows are written as `ea_event` with an EMPTY code column, the
+  type in the json (`"type":"fill_log"`), so RT63 as specified could not
+  find the row. `252aae5` matches the json type (one line); read and
+  accepted. The DEAL handler started at T + 5287 (the EA busy until then),
+  which is why s3 compares against the timing row, not T + 5261. R2 ran
+  between the two suites, so the suite's own `swaps.csv` failed R4's hash
+  check; R2 re-run, then R4: the order is R1, R2, R4 with no suite between.
+- **R1 461 / 461** at `252aae5` (GUI compile 0 / 0). **R4 48 / 48**, step-1
+  hashes equal `868bcc3`'s `_t0`. **R5 `efada62`.**
+- Results: plan 2 s18.
+
+Line count: 326

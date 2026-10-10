@@ -2411,4 +2411,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   timed path at `868bcc3`: nothing drains them. Design tests so each
   assertion has a state in which it fails (fix 7 s3's table).
 
-Line count: 2414
+## TRAPS FROM 2026-10-10 EVENING (FIX 7 RUNS)
+
+- **The suite rewrites `replay\swaps.csv`** for its own tests: R2 (inputs)
+  must run AFTER the last suite run and before R4, or R4's hash check
+  refuses the file.
+- **Cursor may run R1 before the operator's compile** and may "fix" a
+  failing test instead of stopping. Name the stop in the operator's line
+  too: "on any failure STOP and report, do not fix".
+- **Events files write fill_log rows with an empty code column**: the type
+  is in the json (`"type":"fill_log"`). Specify tests from a real output
+  row, not from memory.
+- **A handler can start after its event** (the EA busy): compare a handler's
+  rows with its timing row's start, never with the event time.
+- **A small placement difference can cross a threshold the rule tests**
+  (D 21: 0.3 pip took the replay past the 14-pip stranded mark; live
+  stayed at 14.00). Before calling a re-centre "a rule miss", compute the
+  rule's input for live's price and the replay's on the ticks.
+
+Line count: 2432

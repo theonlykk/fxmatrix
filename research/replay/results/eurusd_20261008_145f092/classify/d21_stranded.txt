@@ -1,0 +1,4 @@
+ticks in window: 3291
+live      resting 1.13122  max distance 14.00 pips  first > 14.0: -
+timing 1  resting 1.13125  max distance 14.30 pips  first > 14.0: 10:31:19.599 (14.05)
+timing 0  resting 1.13133  max distance 15.10 pips  first > 14.0: 10:31:19.599 (14.85)
