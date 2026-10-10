@@ -29,6 +29,10 @@ sorted values):
   send returns;
 - M6 the gap from the close-by's end to the next send's start (within 2 s; the next send
   starting at or after the end);
+- M8 the deal's price: points better than the limit; whether it equals the executable side
+  (ask for a buy, bid for a sell) of the newest tick at or before F; and of the newest tick
+  at or before (first touch + 261 ms, the model's lam), and by how many points the deal is
+  better for us than that price (buy: model - deal; sell: deal - model);
 - M7 L0 after the close-by: the first PENDING or MODIFY, role ENT, layer 0, the fill's side,
   starting in [close-by end, close-by end + 120 s], minus fill log, minus (t2 - F), t2 = the
   first tick after F + (close-by end - fill log). About 0 = the L0 goes out on the first
@@ -57,6 +61,7 @@ LEAD_MS = 50
 REACT_MAX_MS = 2000
 CB_MAX_MS = 30000
 L0_MAX_MS = 120000
+LAM_MODEL_MS = 261                   # the timing model's lam (plan 2 s3)
 SERVER_OFFSET_MS = 3 * 3600 * 1000   # IC's server time is UTC + 3 (BOOT s6)
 
 
@@ -132,6 +137,42 @@ def lam(ticks, f):
         if (ticks.ask[k] <= px) if buy else (ticks.bid[k] >= px):
             return fb - ticks.t[k]
     return None
+
+
+def first_touch(ticks, f):
+    fb = int(f["deal_time_broker_msc"])
+    px = pts(f["order_price_open"])
+    buy = is_buy(f)
+    i = bisect.bisect_left(ticks.t, fb - 2000)
+    j = bisect.bisect_right(ticks.t, fb + 500)
+    for k in range(i, j):
+        if (ticks.ask[k] <= px) if buy else (ticks.bid[k] >= px):
+            return ticks.t[k]
+    return None
+
+
+def market_at(ticks, ms, buy):
+    i = bisect.bisect_right(ticks.t, ms) - 1
+    if i < 0:
+        return None
+    return ticks.ask[i] if buy else ticks.bid[i]
+
+
+def deal_price_class(ticks, f, lam_ms):
+    buy = is_buy(f)
+    px = pts(f["order_price_open"])
+    dp = pts(f["deal_price"])
+    out = {"vs_limit": (px - dp) if buy else (dp - px),
+           "at_market_F": market_at(ticks, int(f["deal_time_broker_msc"]), buy) == dp}
+    t0 = first_touch(ticks, f)
+    if t0 is None:
+        out["at_model"] = None
+        out["model_pts"] = None
+        return out
+    m = market_at(ticks, t0 + lam_ms, buy)
+    out["at_model"] = (m == dp)
+    out["model_pts"] = (m - dp) if buy else (dp - m)
+    return out
 
 
 def _start(s):
@@ -227,6 +268,20 @@ def measure_fleet(ticks, run_rows, sends, fills):
     res["M1b"] = over_ms(win_sends, 1000)
     res["M0"] = summary(clock_offsets(ins))
     res["M2"] = summary([x for x in (lam(ticks, r) for r in ins) if x is not None])
+    pc = [deal_price_class(ticks, r, LAM_MODEL_MS) for r in ins]
+    res["M8"] = {"n": len(pc),
+                 "at_limit": sum(1 for c in pc if c["vs_limit"] == 0),
+                 "better": sum(1 for c in pc if c["vs_limit"] > 0),
+                 "worse": sum(1 for c in pc if c["vs_limit"] < 0),
+                 "net_pts": sum(c["vs_limit"] for c in pc),
+                 "at_market_F": sum(1 for c in pc if c["at_market_F"]),
+                 "touched": sum(1 for c in pc if c["at_model"] is not None),
+                 "at_model": sum(1 for c in pc if c["at_model"]),
+                 "model_within_2": sum(1 for c in pc if c["model_pts"] is not None
+                                       and abs(c["model_pts"]) <= 2),
+                 "ent_off_2": sum(1 for r, c in zip(ins, pc) if r["role"] == "ENT"
+                                  and abs(c["vs_limit"]) > 2),
+                 "ent": sum(1 for r in ins if r["role"] == "ENT")}
     res["M3"] = summary([x for x in (ent_reaction(sends, r, cache) for r in ins
                                      if r["role"] == "ENT") if x is not None])
     chains = [closeby_chain(ticks, sends, r, outby, cache) for r in ins if r["role"] == "EXT"]
@@ -268,6 +323,13 @@ def main():
             lines.append("- M1 %s duration (ms): %s" % (act, fmt(r["M1"].get(act, {"n": 0}))))
         lines.append("- M1b sends over 1 s: %d of %d" % r["M1b"])
         lines.append("- M0 clock offset, fill log - (deal time - 3 h) (ms): %s" % fmt(r["M0"]))
+        m8 = r["M8"]
+        lines.append("- M8 deal price: %d deals; at the limit %d, better %d, worse %d (net %+d points); "
+                     "= the market at the deal (newest tick at or before F) %d; touched (order price) %d, "
+                     "= the market at first touch + %d ms %d, within 0.2 pip of it %d; ENT deals more than "
+                     "0.2 pip from the order price %d of %d"
+                     % (m8["n"], m8["at_limit"], m8["better"], m8["worse"], m8["net_pts"], m8["at_market_F"],
+                        m8["touched"], LAM_MODEL_MS, m8["at_model"], m8["model_within_2"], m8["ent_off_2"], m8["ent"]))
         for name, label in (("M2", "lam, deal - first touch"), ("M3", "ENT reaction"),
                             ("M4", "close-by reaction residual"), ("M5", "OUT_BY - close-by end"),
                             ("M6", "gap after the close-by"), ("M7", "L0 after the close-by, residual")):
