@@ -147,6 +147,32 @@ class TestParse(unittest.TestCase):
                                                       {"seg": 6, "side": "L", "rolled": True}])
 
 
+class TestReplayOrderPrice(unittest.TestCase):
+    # plan 2 (timing = 1): a replay deal's price is R1's market price; its ORDER price is
+    # the FILL row of the run's order log for that order ticket. Without an order log (or
+    # without a FILL row for the ticket) the deal's own price stands (plan 1's runs, where
+    # the two are equal).
+    def deal_row(self, order, price):
+        return {"seg_id": "1", "time_ms": str(T), "side": "L", "role": "ENT", "layer": "0",
+                "entry_type": "0", "order": order, "price": price}
+
+    def test_order_price_from_fill_row(self):
+        deals = [self.deal_row("77", "1.09995")]
+        orders = [{"action": "FILL", "ticket": "77", "price": "1.10000"},
+                  {"action": "PLACE", "ticket": "77", "price": "1.10010"}]
+        got = cp.replay_deals(deals, orders)
+        self.assertEqual(got[0]["pts"], cp.pts(1.10000))
+
+    def test_no_order_log_keeps_deal_price(self):
+        got = cp.replay_deals([self.deal_row("77", "1.09995")])
+        self.assertEqual(got[0]["pts"], cp.pts(1.09995))
+
+    def test_no_fill_row_keeps_deal_price(self):
+        orders = [{"action": "PLACE", "ticket": "77", "price": "1.10010"}]
+        got = cp.replay_deals([self.deal_row("77", "1.09995")], orders)
+        self.assertEqual(got[0]["pts"], cp.pts(1.09995))
+
+
 class TestTicks(unittest.TestCase):
     def setUp(self):
         # (time, bid, ask)
