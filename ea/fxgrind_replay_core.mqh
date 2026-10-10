@@ -997,6 +997,7 @@ void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
    Rpl_TmDiffStageSends("DEAL", cursor, sends, false, cb_empty, 0, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
    Rpl_TmWriteTimingRow("DEAL", ev.start_ms, start, cursor, sends, market_ms, 0);
+   Rpl_DrainOutputs(start);
 }
 
 //+------------------------------------------------------------------+
@@ -1018,6 +1019,7 @@ void Rpl_TmRunCloseByDoneHandler(const RplTmPendingEv &ev)
    Rpl_TmDiffStageSends("CB_DONE", cursor, sends, false, cb_empty, 0, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
    Rpl_TmWriteTimingRow("CLOSEBY_DONE", ev.start_ms, start, cursor, sends, market_ms, 0);
+   Rpl_DrainOutputs(start);
 }
 
 //+------------------------------------------------------------------+
@@ -1033,6 +1035,7 @@ void Rpl_TmRunTimerHandler(const RplTmPendingEv &ev)
    Rpl_TmRunStage("TIMER", ev.start_ms, cursor, sends, false, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
    Rpl_TmWriteTimingRow("TIMER", ev.start_ms, start, cursor, sends, market_ms, 0);
+   Rpl_DrainOutputs(start);
 }
 
 //+------------------------------------------------------------------+
@@ -1071,6 +1074,7 @@ void Rpl_TmRunOntickHandler(const long event_ms, const bool queued, const bool s
       Rpl_ReportOrdersKept();
    g_rpl_tm_free_ms = cursor;
    Rpl_TmWriteTimingRow(queued ? "QUEUED_ONTICK" : "ONTICK", event_ms, start, cursor, handler_sends, market_ms, 0);
+   Rpl_DrainOutputs(start);
 }
 
 //+------------------------------------------------------------------+
