@@ -212,10 +212,15 @@ class Ticks:
                 a.append(pts(parts[ia]))
         return cls(t, b, a)
 
-    def touchable(self, d):
+    def touchable(self, d, price_mode="deal"):
         lo = bisect.bisect_left(self.t, d["t"] - T0_BEFORE_MS)
         hi = bisect.bisect_right(self.t, d["t"] + T0_AFTER_MS)
-        price = d.get("fill_pts", d["pts"])
+        if price_mode == "order":
+            price = d["pts"]
+        elif price_mode == "deal":
+            price = d.get("fill_pts", d["pts"])
+        else:
+            raise ValueError("price_mode must be 'order' or 'deal'")
         if is_buy(d["side"], d["role"]):
             return any(self.a[i] <= price for i in range(lo, hi))
         return any(self.b[i] >= price for i in range(lo, hi))
@@ -367,12 +372,12 @@ def _count(items, seg, side, rolled=None):
                and (rolled is None or x["rolled"] == rolled))
 
 
-def fleet_report(inputs, runs, harness, tag, ticks, archive_rows):
+def fleet_report(inputs, runs, harness, tag, ticks, archive_rows, t0_price="deal"):
     segs = segments(read_csv(os.path.join(inputs, "run_%s.csv" % tag)))
     real_rows = read_csv(os.path.join(inputs, "real_%s.csv" % tag))
     reals = real_deals(real_rows, segs, order_prices(archive_rows))
     reals_fill = real_deals(real_rows, segs)
-    touch = [ticks.touchable(d) for d in reals]
+    touch = [ticks.touchable(d, t0_price) for d in reals]
 
     def out(mode, kind):
         d = os.path.join(runs, "%s_%s_%s" % (tag, mode, harness))
@@ -458,8 +463,10 @@ def _f(x):
     return "n/a" if x is None else "%.2f" % x
 
 
-def report_md(reps, harness):
+def report_md(reps, harness, t0_price="deal"):
     out = ["# Replay vs archive, harness %s (compare.py)" % harness, ""]
+    if t0_price != "deal":   # plan 1's reports (deal price) stay byte for byte as committed
+        out += ["T0 touches on the %s price." % t0_price.upper(), ""]
     out.append("| fleet | T0 | T1 matched / touchable | T1 all | replay-only | T1 | "
                "unpriced segs (share) | T2 | T1 on deal price (reported) |")
     out.append("|---|---|---|---|---|---|---|---|---|")
@@ -520,16 +527,18 @@ def main(argv=None):
     ap.add_argument("--archive-c", required=True)
     ap.add_argument("--archive-d", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--t0-price", choices=("deal", "order"), default="deal",
+                    help="T0's touch price: deal (plan 1) or order (plan 2, K15)")
     a = ap.parse_args(argv)
     ticks = Ticks.load(a.ticks)
     arch = {"B": a.archive_b, "C": a.archive_c, "D": a.archive_d}
     reps = []
     for name, tag in FLEETS:
         reps.append((name, fleet_report(a.inputs, a.runs, a.harness, tag, ticks,
-                                        read_jsonl(arch[name]))))
+                                        read_jsonl(arch[name]), a.t0_price)))
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "report.md"), "w", newline="\n") as f:
-        f.write(report_md(reps, a.harness))
+        f.write(report_md(reps, a.harness, a.t0_price))
     with open(os.path.join(a.out, "misses.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=MISS_HEADER, lineterminator="\n")
         w.writeheader()
