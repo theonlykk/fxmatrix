@@ -160,4 +160,68 @@ Please answer F1-F6 in order, briefly, with what you would pre-register.
 Your answer goes back to the main chat, which checks it in source before
 anything is built.
 
-Line count: 163
+## 9. FABLE'S ANSWER (10 Oct ~17:20Z) AND CLAUDE'S CHECK
+
+Fable read the repo at `d5e976d` and recomputed from the committed results;
+it ran nothing in the harness. Claude re-ran its three findings from
+`results/eurusd_20261008_145f092/report.md` and `misses.csv`: all three hold.
+
+- **Finding 1 (VERIFIED): the payrolls segments are not chance.** B 3, C 13
+  and D 23 are the same minute (2 Oct 12:30Z); replay-only 7, 5 and 4
+  against 2, 3 and 2 allowed. Section 5's "every UNPRICED segment misses
+  by one or two deals" is WRONG for B 3. Free-run scalps there, real /
+  replay: long 4 / 8, 5 / 10, 7 / 11; short 9 / 11, 9 / 13, 10 / 11.
+- **Finding 2 (VERIFIED): free-run totals over ALL 29 segments, nothing
+  excluded.** S real 384, replay 401 (+4.4%): five sides over, one equal,
+  none under. R 108 / 107, roll acceptances 124 / 123. The payrolls
+  segments carry +20 of S; the other 26 net -3 (340 / 337). Under the 10%
+  mark only B long fails (35 / 39).
+- **Finding 3 (VERIFIED): misses are shared across fleets.** 6 of B's 23
+  miss / extra rows recur on C within 10 ms (same kind, side, role); B on
+  D 2, C on D 1. One feed (plan 1 s4.1).
+- **Also verified:** the live fleet differences in S are reproduced (long
+  C - B +8 / +8, D - B +24 / +24; short +4 / +5, 0 / -2): on the seen
+  window, so not evidence for a new plan. C 19 free: 70 of 115 deals
+  matched, yet S 20 / 19 and 29 / 29, R 8 / 8.
+- **F1 (its proposal):** keep pooled SYNC T1 (the rules reproduce); gate
+  the purpose on FREE-run S, R and roll acceptances per fleet and side
+  over ALL deals; tolerances from the LIVE day-to-day spread of each count
+  (its suggestion: error <= one third of it, the operator to set the
+  fraction from the smallest difference that would change a decision); a
+  BIAS mark (fail if the signed S error has one sign on all six sides and
+  sums past 5%); a DIFFERENCE mark (the replay reproduces live C - B and
+  D - B: the use closest to ranking geometries).
+- **F2:** not yet stochastic: p10 and p90 equal base (verified, s18), so
+  the send distributions alone give no spread; what moves outcomes is the
+  read moment and bursts (inferred). Its conditions if built later: offset
+  estimated from calibration sends only and frozen; draws shared across
+  fleets; N fixed; pass inside the central 90% with a half-width within
+  F1's tolerance.
+- **F3:** drop the per-segment gate; a binomial bound would price C 13 and
+  D 23 and hide the burst bias. Report S, R and misses per server day.
+- **F4:** the holdout can falsify gross failure, not confirm fit (one
+  segment per fleet; one feed; R in single figures; no burst unless the
+  calendar holds one). A pre-registered fail; an "inconclusive" outcome
+  (fewer than 5 real rolls on a side: no rho score; fewer than four
+  scoreable sides: not falsified, not confirmed); a pass licenses
+  QUIET-MARKET count-level use only. It suggests extending the verdict
+  window to 20 Oct before anything is read.
+- **F5:** no Python port (it discards the engine that passes T1); live A/B
+  rounds are the ground truth; use the replay only for geometries
+  bracketed by live fleets and confirm rankings live.
+- **F6, missing facts:** why the replay over-fills in the payrolls minute
+  (the 2 Oct 12:30-12:31Z send logs: slow or refused live sends, orders not
+  yet live); whether the dump is the stream each terminal saw (T0b passed;
+  one feed, s4.1); the smallest S / R / rho difference that would change a
+  decision (the operator); the live day-to-day spread of S and R per side.
+  **Wrong premises:** "UNPRICED is close to chance" (false for 3, 13, 23);
+  "right in the large" (biased up in scalps in a burst, which should grow
+  with tighter exits); three fleets as three tests (one feed); rho within
+  0.1 where rho is 0.08-0.11.
+- **Claude's view:** the facts stand; the gate it proposes fits the
+  replay's purpose better than the one we pre-registered, and plan 3 may
+  need NO harness change (scoring only), so the harness stays at
+  `145f092`. Two reads come first, both on seen data and allowed: the
+  payrolls over-fill's cause, and the live day-to-day spread of S and R.
+
+Line count: 227
