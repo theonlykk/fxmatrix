@@ -522,7 +522,15 @@ void Test_RT8b_SyncEntRoll()
    AssertTrue("RT8b has 7001", Rpl_HasPosition(7001UL));
    AssertTrue("RT8b has 7002", Rpl_HasPosition(7002UL));
    AssertTrue("RT8b has 7003", Rpl_HasPosition(7003UL));
-   AssertNear("RT8b VL7001", Grind_VLGet(7001UL), 1.09771, 1e-9);
+   double tb_vl7001 = 0.0;
+   for(int i = 0; i < g_rpl_true_book_count; i++) {
+      if(g_rpl_true_book[i].ticket == 7001UL) {
+         tb_vl7001 = g_rpl_true_book[i].vl;
+         break;
+      }
+   }
+   AssertNear("RT8b true VL7001", tb_vl7001, 1.09771, 1e-9);
+   AssertTrue("RT8b held 7001 not rolled", !Grind_VLHas(7001UL));
    AssertTrue("RT8b sync_idx", Rpl_CurrentSyncIdx() == 1);
 }
 
