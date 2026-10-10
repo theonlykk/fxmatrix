@@ -1,0 +1,10 @@
+seg_id=20,ticks=2348,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=31
+seg_id=21,ticks=74134,fills=39,scalps=0,roll_closes=1,roll_accepted=7,gaps=0,aborted=0,run_ms=1734
+seg_id=22,ticks=9473,fills=1,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=250
+seg_id=23,ticks=51645,fills=29,scalps=5,roll_closes=1,roll_accepted=1,gaps=0,aborted=0,run_ms=1297
+seg_id=24,ticks=112186,fills=49,scalps=3,roll_closes=0,roll_accepted=10,gaps=0,aborted=0,run_ms=3578
+seg_id=25,ticks=69,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=16
+seg_id=26,ticks=9188,fills=2,scalps=0,roll_closes=0,roll_accepted=1,gaps=0,aborted=0,run_ms=203
+seg_id=27,ticks=66268,fills=18,scalps=0,roll_closes=0,roll_accepted=7,gaps=0,aborted=0,run_ms=1672
+seg_id=28,ticks=141,fills=0,scalps=0,roll_closes=0,roll_accepted=0,gaps=0,aborted=0,run_ms=16
+seg_id=29,ticks=142863,fills=41,scalps=1,roll_closes=0,roll_accepted=7,gaps=0,aborted=0,run_ms=3984
