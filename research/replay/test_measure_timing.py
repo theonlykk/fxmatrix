@@ -14,6 +14,10 @@ durations (the EA's clock and the broker's differ by a drifting offset; duration
 - M6 the gap from the close-by's end to the next send's start (within 2 s);
 - M0 the clock offset: fill log - (deal time - 3 h) per IN fill (reported, never used);
 - M1b sends over 1 s (ok rows): count of the window's sends;
+- M8 the deal's price: points better than the limit; whether it equals the executable side
+  (ask for a buy, bid for a sell) of the newest tick at or before F; and of the newest tick
+  at or before (first touch + lam), and by how many points the deal is better for us than
+  that price (buy: model - deal; sell: deal - model);
 - M7 L0 after the close-by: (the first PENDING / MODIFY ENT layer 0 of the same side starting
   in [close-by end, + 120 s]) - fill log - (t2 - F), t2 = the first tick after
   F + (close-by end - fill log).
@@ -133,6 +137,34 @@ class TestClockAndOutliers(unittest.TestCase):
         rows = [send(E, 287, "PENDING"), send(E, 1001, "MODIFY"), send(E, 1000, "REMOVE"),
                 send(E, 5000, "CLOSE_BY", ok=False)]
         self.assertEqual(mt.over_ms(rows, 1000), (1, 3))     # 1001 only; failed rows left out
+
+
+class TestDealPrice(unittest.TestCase):
+    def test_price_classes(self):
+        # ticks: F-300 bid/ask 1.09995/1.10000 (touches the buy limit 1.10000),
+        # F-39 ask 1.09992 (newest at or before F-300+261 = F-39, and before F)
+        t = mt.Ticks([F - 300, F - 39, F + 50], [1.09990, 1.09987, 1.09990],
+                     [1.10000, 1.09992, 1.10001])
+        better = dict(fill(E, F, "IN", "ENT", "L", 1, 1.10000), deal_price=1.09992)
+        c = mt.deal_price_class(t, better, 261)
+        # market at F = ask of F-39 = 1.09992 = deal; at touch (F-300) + 261 = F-39: the same
+        self.assertEqual(c, {"vs_limit": 8, "at_market_F": True, "at_model": True, "model_pts": 0})
+        worse = dict(fill(E, F, "IN", "ENT", "L", 1, 1.10000), deal_price=1.10001)
+        c = mt.deal_price_class(t, worse, 261)
+        # deal 1 point worse than the limit; market at F is 1.09992, not the deal; model 1.09992
+        self.assertEqual(c, {"vs_limit": -1, "at_market_F": False, "at_model": False, "model_pts": -9})
+
+    def test_sell_side(self):
+        # a sell (L EXT) at 1.10010: bid 1.10010 at F-300 touches; bid 1.10013 at F-39
+        t = mt.Ticks([F - 300, F - 39], [1.10010, 1.10013], [1.10015, 1.10018])
+        f = dict(fill(E, F, "IN", "EXT", "L", 1, 1.10010), deal_price=1.10013)
+        c = mt.deal_price_class(t, f, 261)
+        self.assertEqual(c, {"vs_limit": 3, "at_market_F": True, "at_model": True, "model_pts": 0})
+
+    def test_no_touch(self):
+        t = mt.Ticks([F - 3000], [1.0], [2.0])
+        f = dict(fill(E, F, "IN", "ENT", "L", 1, 1.5), deal_price=1.5)
+        self.assertIsNone(mt.deal_price_class(t, f, 261)["at_model"])
 
 
 class TestFirstAfter(unittest.TestCase):
