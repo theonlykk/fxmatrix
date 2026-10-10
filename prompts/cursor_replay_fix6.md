@@ -382,4 +382,47 @@ checked by Claude the same night. Gemini: "Proceed with Part A execution."
   the next tick exactly as live, and D7 (b) runs the late handler before
   that tick's broker step (d).
 
-Line count: 385
+
+## 13. CORRECTIONS AFTER CLAUDE'S READ OF COMMITS 3-5 (10 Oct ~04:35Z)
+
+Claude read `a488110`, `09735d1` and `e63753e` line by line. The spec
+(s2-s6) does not change; the code departs from it in the places below.
+**Commits 6-8 make it match; then STOP for Claude's read again.** Line
+numbers are `e63753e`'s core.
+
+| # | Defect | Spec | Correction |
+|---|---|---|---|
+| C1 | `Rpl_BkModify` keeps ONE pending change: a second modify overwrites the first, so between the first's from_ms and the second's `Rpl_BkPriceAt` returns the placed price, and an intermediate price can be lost | D2 ("the old price holds until from_ms") | Keep every change: per order a list of (from_ms, price); `Rpl_BkPriceAt(t)` = the price of the latest change with from_ms <= t, else the placed price |
+| C2 | Core 758 reads `g_rpl_order_test_records[i]`, which does not exist (the seam is `g_grind_order_test_records`): the file does not compile | - | Use `g_grind_order_test_records` |
+| C3 | `Rpl_TmRunDealHandler` prices the deal and stamps its row, the position's open time and its meta at the HANDLER's start (`max(event, free_ms)`) | R1, D6 ("the deal at the deal time"; the price at the newest tick at or before it) | Price = the executable side of the newest tick at or before the DEAL event's own time (touch + lam); the deal row's time, `Rpl_AddPosMeta` open_ms and `Grind_CarryTestSetPosition`'s time = that deal time. The market the EA sees (`Grind_ProcessDeal`) stays the handler's start (D5). The handler's own removal of the filled order is a FILL row matched by TICKET (not by time), never a REMOVE send |
+| C4 | If the EA removed an order after its touch (`exec_remove_overruled`), `Rpl_TmRunDealHandler` does not find it in the seam and returns: the fill is lost | D8 ("the DEAL still fills it") | The DEAL event carries the touched order's record (ticket, type, comment, price at the touch); if the seam no longer holds it, the handler re-creates it there before filling it as usual |
+| C5 | Every handler resets `g_rpl_tm_busy_kind` to "" at its end, and handlers run whole, so a later tick inside a handler's time finds "" and is neither dropped nor queued; the queue flag only becomes an event at the end of some LATER handler. R3 never acts | R3, D3, D7 (e) | `g_rpl_tm_busy_kind` = the kind of the handler that last set free_ms, kept until another handler starts (not reset at a handler's end). At a tick t with free_ms > t: "ONTICK" -> the tick gets no `OnTick` and a timing row `DROPPED` (event_ms = start_ms = end_ms = t, sends 0, market_ms t, dropped 1); "HANDLER" -> if no `OnTick` is queued, enqueue QUEUED_ONTICK at free_ms NOW and set `g_rpl_tm_queued`, cleared when that event runs. Remove the end-of-handler conversions of the flag and `g_rpl_tm_ontick_dropped`'s per-handler reset (the ONTICK row's dropped column is 0) |
+| C6 | `tools/replay_run.ps1` checks `$Sens -notmatch`: case-insensitive | s4 (`-cmatch '^(...)\z'`; 02_TRAPS 9 Oct night) | Use `-cnotmatch` with the pattern written out under this table (the table cannot hold its bars) |
+| C7 | RT55 has 14 assertions (its twelfth split into three), RT60 has 5 (its fourth split in two), RT57 has a stray `AssertTrue("RT57 run", true)`: 449 run, not 445 | s5 | RT55's twelfth = ONE assertion: the row is found AND start_ms == T + 5694 AND market_ms == T + 5500; RT60's fourth = ONE assertion (found AND market_ms == T + 0); delete RT57's stray line |
+
+C6's line, exactly (no backslash before any bar):
+
+    if ($Sens -cnotmatch '^(base|limitpx|thru01|lat250|lat1000|p10|p90)\z') { throw 'Invalid Sens' }
+
+**Commit 6: tests only** (`ea/fxgrind_replay_tests.mq5`): C7, and **T35 RT61
+two modifies in a row (3 assertions)**: `Rpl_ResetAll()`; `Rpl_BkPlace(5,
+ORDER_TYPE_BUY_LIMIT, 1.10000, 0)`; `Rpl_BkModify(5, 1.10010, 2000)`;
+`Rpl_BkModify(5, 1.10020, 2500)`: "RT61 placed price before"
+`Rpl_BkPriceAt(5, 1999)` near 1.10000; "RT61 first modify holds"
+`Rpl_BkPriceAt(5, 2200)` near 1.10010 (fails at `e63753e`: it returns
+1.10000); "RT61 second from its time" `Rpl_BkPriceAt(5, 2500)` near 1.10020.
+**Totals: 448 run** (445 + 3). **Commit 7:** C1-C5, core only. **Commit 8:**
+C6, the runner only. Push after each; do not compile; STOP after commit 8.
+
+Not changed, recorded: commit 3 put no stubs in the core (its message says
+it did; it was never compiled, so nothing ran on it); D7 (b) runs events
+whose own time is <= t (not max(time, free_ms)): their handlers still start
+at max(time, free_ms), the broker's book is time-stamped and later events
+are later in time, so the order of effects is the same; a handler's STAGE
+rows come before its own row (the tests find rows by kind).
+
+- **GTP3-1 (for Gemini).** C1-C7, RT61 and the DROPPED rows: does any of
+  them change the model of s2-s6 rather than restore it? Is the DROPPED row
+  (one per tick with no `OnTick`) the right record for R3?
+
+Line count: 428
