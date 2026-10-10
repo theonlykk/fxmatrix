@@ -454,4 +454,26 @@ rows come before its own row (the tests find rows by kind).
   the handle. Nothing else changes.** Then STOP; R0 copy; the OPERATOR
   compiles; R1 (448 / 448) and the rest of s6 as in the operator's line.
 
-Line count: 457
+## 15. THE RUNS (10 Oct ~06:15Z to ~12:20Z)
+
+- **C9, C10 (commit 10, `868bcc3`; tests only):** RT60's run row named
+  `ticks_rt53.csv` (s5: `ticks_rt60.csv`), so its timer read RT53's last
+  tick (T + 4000); RT55's helper looked for the `STAGE:LATTICE` row after
+  its handler's row, but stage rows come first (accepted in s13): it now
+  matches the row's own event_ms. Both restore s5; no expected value moved.
+- **Compile (operator, GUI): 0 errors, 2 warnings** (core 959, 1124:
+  `rec.magic = g_rpl_cfg.magic`, ulong to long; the magic numbers fit;
+  the existing code casts: accepted for these runs, a `(long)` cast at the
+  next harness change).
+- **R1 448 / 448** (`_rpl_rt_868bcc3.txt`); A4 (first ONTICK sends 3) and
+  A5 (the ONTICK at T + 5400 sends 1) hold.
+- **The off-switch gate:** s6 listed `events` for byte equality, but every
+  EA event carries `"ea_time_ms"`, the EA archive's GetTickCount clock,
+  which differs on every run (fix 4's record): Claude's spec error. With
+  that field masked, all 24 files (deals, book, orders, events; B / C / D x
+  free / sync) of `timing = 0` equal Part A's `cb28224` byte for byte
+  (checked by Claude from the committed folders).
+- **The 48 runs** committed (`e4fda38`; the timing files kept on the
+  desktop: GitHub's 100 MB limit). Results: plan 2 s14.
+
+Line count: 479

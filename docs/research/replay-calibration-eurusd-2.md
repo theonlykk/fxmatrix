@@ -346,4 +346,44 @@ before s7 allows it; no mark adjusted to a result.
 
 (empty)
 
-Line count: 349
+## 14. RESULT ON THE CALIBRATION WINDOW (10 Oct ~12:20Z; harness `868bcc3`)
+
+`compare.py --t0-price order` (`research/replay/results/eurusd_20261008_868bcc3/`;
+`report.md` = the deciding run, `report_<sens>.md` the sensitivities).
+**`compare.py` changed after the runs, before any verdict was read:** with
+`timing = 1` a replay deal row carries R1's MARKET price, so matching it
+against the real ORDER price mixed two prices (first read: T1 73-78%). It
+now reads each replay deal's order price from the run's order log (the
+FILL row of its segment and ticket, nearest in time); the plan's basis
+(order price, s4) is unchanged, and the first plan's `90fbce4` report and
+misses reproduce byte for byte. Tests first, mutants caught.
+
+| run | B T1 / replay-only | C | D | UNPRICED B / C / D | T2 B / C / D |
+|---|---|---|---|---|---|
+| `timing = 0` (H1) | 96.3% / 3.7% | 96.1% / 4.7% | 96.5% / 2.7% | 31.9 / 36.2 / 34.6% | FAIL / FAIL / FAIL |
+| **base (DECIDING)** | **95.6% / 2.8%** | **95.3% / 3.6%** | **95.9% / 3.2%** | **18.6 / 55.7 / 60.0%** | **PASS / FAIL / FAIL** |
+| limitpx | 95.6 / 3.1 | 95.3 / 3.9 | 95.9 / 3.5 | 18.6 / 55.7 / 60.0 | PASS / FAIL / FAIL |
+| thru01 | 45.5 / 2.5 | 43.2 / 2.8 | 45.0 / 3.2 | 100 / 100 / 100 | FAIL x3 |
+| lat250 | 96.6 / 2.5 | 95.3 / 3.9 | 95.9 / 3.2 | 18.6 / 36.2 / 60.0 | PASS / FAIL / FAIL |
+| lat1000 | 95.6 / 1.5 | 95.0 / 3.3 (T1 FAIL) | 95.6 / 2.4 | 32.5 / 55.7 / 55.1 | FAIL x3 |
+| p10 | as base | as base | as base | as base | as base |
+| p90 | as base | as base | as base | as base | as base |
+
+- **The deciding run: T1 PASSES on all three fleets; T2 PASSES on B and
+  FAILS on C and D** (UNPRICED C 12, 13, 16, 19; D 21, 23, 24). By s8 this
+  is not a calibration pass. Which branch of s8 applies (a rule, M4-M10, or
+  timing / fill, M1-M3) waits on the classification of the misses that
+  made C 19 and D 24 unpriced (both priced at `timing = 0`): C 19 112 ->
+  109 matched; D 24 92 -> 87 matched with 4 replay-only (three short
+  exits 0.2 pip and 2-4 min apart, one L00). limitpx gives the same
+  UNPRICED segments, so R1's price rule is not their cause.
+- **What timing improved:** replay-only in the 2 Oct payrolls segments (B 3
+  10 -> 7, C 13 9 -> 5, D 23 6 -> 4); C 11 priced; B's T2 now passes.
+- **Reported:** the deal-price T1 (real deal price against the replay's
+  R1 price) 93.8 / 93.0 / 94.0% with replay-only 5.0 / 5.8 / 5.9% (it was
+  74-78% at `timing = 0`): R1's price rule reproduces IC's improvement and
+  slippage. thru01 (a fill only 0.1 pip through) collapses T1 to 43-46%:
+  IC fills on the exact touch. p10 and p90 equal base on every figure: the
+  verdict does not lean on the constants' spread.
+
+Line count: 389
