@@ -158,8 +158,8 @@ class TestReplayOrderPrice(unittest.TestCase):
 
     def test_order_price_from_fill_row(self):
         deals = [self.deal_row("77", "1.09995")]
-        orders = [{"action": "FILL", "ticket": "77", "price": "1.10000"},
-                  {"action": "PLACE", "ticket": "77", "price": "1.10010"}]
+        orders = [{"seg_id": "1", "time_ms": str(T), "action": "FILL", "ticket": "77", "price": "1.10000"},
+                  {"seg_id": "1", "time_ms": str(T), "action": "PLACE", "ticket": "77", "price": "1.10010"}]
         got = cp.replay_deals(deals, orders)
         self.assertEqual(got[0]["pts"], cp.pts(1.10000))
 
@@ -167,8 +167,22 @@ class TestReplayOrderPrice(unittest.TestCase):
         got = cp.replay_deals([self.deal_row("77", "1.09995")])
         self.assertEqual(got[0]["pts"], cp.pts(1.09995))
 
+    def test_ticket_reused_in_another_segment(self):
+        # tickets restart per segment: the FILL row must be the deal's own segment's
+        deals = [self.deal_row("77", "1.09995")]
+        orders = [{"seg_id": "1", "time_ms": str(T), "action": "FILL", "ticket": "77", "price": "1.10000"},
+                  {"seg_id": "2", "time_ms": str(T), "action": "FILL", "ticket": "77", "price": "1.20000"}]
+        self.assertEqual(cp.replay_deals(deals, orders)[0]["pts"], cp.pts(1.10000))
+
+    def test_nearest_fill_row_in_time(self):
+        # the same ticket filled twice in a segment: the FILL row nearest the deal's time
+        deals = [self.deal_row("77", "1.09995")]
+        orders = [{"seg_id": "1", "time_ms": str(T - 300), "action": "FILL", "ticket": "77", "price": "1.10000"},
+                  {"seg_id": "1", "time_ms": str(T + 90000), "action": "FILL", "ticket": "77", "price": "1.11111"}]
+        self.assertEqual(cp.replay_deals(deals, orders)[0]["pts"], cp.pts(1.10000))
+
     def test_no_fill_row_keeps_deal_price(self):
-        orders = [{"action": "PLACE", "ticket": "77", "price": "1.10010"}]
+        orders = [{"seg_id": "1", "time_ms": str(T), "action": "PLACE", "ticket": "77", "price": "1.10010"}]
         got = cp.replay_deals([self.deal_row("77", "1.09995")], orders)
         self.assertEqual(got[0]["pts"], cp.pts(1.09995))
 
