@@ -2324,4 +2324,18 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **T2 can fail with every side's sums passing:** the UNPRICED share counts
   whole segments, and a 5- or 7-deal segment fails T1's mark on one miss.
 
-Line count: 2327
+## TRAPS FROM 2026-10-10 EARLY, NEW CHAT (BEFORE THE HOLDOUT)
+
+- **Read the plan's conditions before planning its next step.** s8 puts
+  the holdout after a PASS (T2 included). The handover planned the
+  holdout after T2 failed, and nobody had ruled it. A step the plan does
+  not allow is a question for Gemini, not a task.
+- **A fix can be real and still not move the verdict.** The CB_DONE
+  defect touches at most one replay-only deal in each of the three
+  segments it reaches, and each sits more than one above its allowance.
+  Count what a fix can change before selling it as the route to a pass.
+- **A handover's timestamp can run ahead of the clock.** s77i was stamped
+  ~01:45Z; the new chat's first message came at 01:34Z. Use the operator's
+  message times.
+
+Line count: 2341

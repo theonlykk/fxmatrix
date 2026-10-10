@@ -116,7 +116,10 @@ GRC-4 asks Gemini.
   held exit, an L0 placed earlier at another mid) that cannot be rebuilt;
   at an init the EA itself threw that state away. So B and C start at their
   lattice inits, not at D's attach, and T1's re-synchronisation (s6) resets
-  positions only.
+  positions only. (Superseded in part, s12: each segment also adopts its
+  init's resting orders (fix 2); the sync true book carries each layer's
+  swap and accrued carry for re-seeds (fix 3); a sync reset leaves the
+  replay's own rolls alone (fix 5).)
 - Seeding at every init means one wrong deal cannot carry into the next
   segment; a whole-window run from flat (D only) is reported (T3).
 
@@ -725,4 +728,76 @@ changes a preset; no mark adjusted to fit a result.
   s6's placement-latency sensitivities (250 ms, 1 s; reported, never
   deciding), or freeze `90fbce4` as it is?
 
-Line count: 728
+- **Before the holdout (10 Oct ~01:35-01:50Z, new chat; NOTHING RULED).**
+  The new chat's boot found that this plan puts the holdout after a PASS
+  (s6: T0, T0b, T1 and T2 on all three fleets), and T2 fails. Nobody has
+  ruled that the holdout runs anyway (previous chat, ~01:40Z). Its data
+  are collected whatever is ruled (send_logs keep 14 days). The facts
+  below were checked in the committed outputs of the current harness:
+  - **Why each UNPRICED segment is unpriced** (s6: a segment fails T1's
+    mark when matched is below 95% of its touchable deals, or replay-only
+    is above 5% of its real deals):
+    - B 1: 40 of 43 matched (93.0%).
+    - B 2: 4 of 5.
+    - B 3: 9 replay-only of 55 (allowance 2.75).
+    - C 11: 42 of 45 (93.3%).
+    - C 12: 6 of 7.
+    - C 13: 8 replay-only of 64 (allowance 3.2).
+    - C 16: 12 of 14 (85.7%).
+    - D 21: 69 of 74 (93.2%).
+    - D 23: 5 replay-only of 54 (allowance 2.7).
+  - **The CB_DONE defect cannot move T2's verdict.** In the harness's
+    tick, `Rpl_ScanNewOrders` (which stamps each order's placement time)
+    runs before `Rpl_ProcessCloseByDone`, and `Rpl_FillsOnTick` skips an
+    order whose placement time is not before the tick. So an order placed
+    after a close-by can fill only from the second tick after it. The
+    defect touches at most one replay-only deal in each of B 3, C 13 and
+    D 23, and those segments are above their allowance by more than one.
+    The TIMER stage also runs after the scan. In the six runs it placed no
+    order (the order logs: TIMER PLACE 0; the carry pass moves exits by
+    MODIFY, which keeps the placement time).
+  - **s6's three sensitivities were pre-registered and never run:** fill
+    only 0.1 pip through; 250 ms and 1 s placement latency.
+  - **The holdout has not started:** the harness has read no tick after
+    w2's end (9 Oct 01:30 server). The holdout's deals begin at 9 Oct
+    04:32Z (07:32 server).
+- **For Gemini (GRC2; attack the premises; say which fact is missing).
+  Answer only these.**
+  - **GRC2-1.** T1 passes on all three fleets. T2 fails only because
+    UNPRICED segments hold more than 20% of each fleet's real deals (B
+    31.9%, C 36.2%, D 34.6%); the per-side sums (S, R, ROLL_ACCEPTED, rho)
+    pass on all six sides. The misses left are mostly timing (M3: 16 of 40
+    misses, 21 of 36 replay-only deals). s8 has two branches that could
+    apply. "T1 passes, T2 fails" says the rules are right and rare paths
+    compound. "Fail in M1-M3" says a tick-level replay is not trusted and
+    T2 alone decides count-level use, and T2 fails. Which governs, and
+    what does it allow?
+  - **GRC2-2.** Does the holdout run with T2 failing on the window? s8
+    puts it after a PASS. If it runs, what does a holdout pass or fail
+    then mean?
+  - **GRC2-3.** If it runs:
+    - (a) Is each segment's T1 mark (for UNPRICED) taken over the deals
+      after 9 Oct 04:32Z only, as s8 scores them?
+    - (b) B and C each run ONE segment, from their 7 Oct inits (no
+      synthetic init: the real EA did not restart). D also has one after
+      its 9 Oct 04:24Z init. So for each fleet the UNPRICED share is 0% or
+      100%. Is the 20% rule still the right guard there? If not, what form,
+      fixed before any holdout run?
+    - (c) T2's free run for B and C starts from the 7 Oct true book (no
+      init on 9 Oct) and is scored on the deals after 04:32Z: right?
+  - **GRC2-4.** No code change is allowed once the holdout starts.
+    Before it, which: (a) fix the CB_DONE defect, run s6's three
+    sensitivities (reported, never deciding), then freeze; or (b) freeze
+    the harness as it is? GO4-2 ruled "no latency model in the harness".
+    Would a placement-latency input that defaults to 0, and is used only
+    for s6's reported runs, stay inside that ruling? And does s6's latency
+    delay every placement and modify, or only placements after a close-by?
+  - **GRC2-5.** rho with the open book (s6). `compare.py` computes rho =
+    sum (S + R) e / sum R_eff D, with R_eff = R + max(0, -open pips) /
+    (D - e). Open losses are rolls in waiting with no closes yet, so they
+    go in the denominator only (`grid-as-variance-trade.md` s11). s6's
+    words "rho = (S + R) e / (R D) with the open book" do not say where the
+    open book goes. Is `compare.py` right?
+  - **GRC2-6.** What fact is missing?
+
+Line count: 803
