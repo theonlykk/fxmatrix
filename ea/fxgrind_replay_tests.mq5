@@ -2384,10 +2384,8 @@ void Test_RT63_EventsAtHandlerStart()
    AssertTrue("RT63 run", Rpl_RunReplayFiles("rt55", false));
    long deal_start = 0;
    long cb_start = 0;
-   AssertTrue("RT63 deal timing row",
-              Rpl_TestTimingStartForEvent(dir + "out_rt55_free_timing.csv", "DEAL", T + 5261, deal_start));
-   AssertTrue("RT63 close-by timing row",
-              Rpl_TestTimingStartForEvent(dir + "out_rt55_free_timing.csv", "CLOSEBY_DONE", T + 5694, cb_start));
+   const bool deal_row = Rpl_TestTimingStartForEvent(dir + "out_rt55_free_timing.csv", "DEAL", T + 5261, deal_start);
+   const bool cb_row = Rpl_TestTimingStartForEvent(dir + "out_rt55_free_timing.csv", "CLOSEBY_DONE", T + 5694, cb_start);
    long fill_ms = 0;
    bool fill_found = false;
    string ev_lines[];
@@ -2409,9 +2407,9 @@ void Test_RT63_EventsAtHandlerStart()
       break;
    }
    AssertTrue("RT63 fill_log at its deal handler",
-              fill_found && fill_ms == deal_start && fill_ms < T + 5400);
+              deal_row && fill_found && fill_ms == deal_start && fill_ms < T + 5400);
    const long scalp_ms = Rpl_TestFirstEventFileTime(dir + "out_rt55_free_events.csv", "scalp", "SCALP_CLOSED");
-   AssertTrue("RT63 scalp at its close-by handler", scalp_ms == cb_start && scalp_ms < T + 5900);
+   AssertTrue("RT63 scalp at its close-by handler", cb_row && scalp_ms == cb_start && scalp_ms < T + 5900);
    const long rt58_scalp = Rpl_TestFirstEventFileTime(dir + "out_rt58_free_events.csv", "scalp", "SCALP_CLOSED");
    AssertTrue("RT63 timing 0 unchanged", rt58_scalp == T + 5000);
    Rpl_SetOutputSuffix("");
