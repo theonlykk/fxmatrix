@@ -656,4 +656,32 @@ changes a preset; no mark adjusted to fit a result.
   order log (observability only), then the open rows.
 
 
-Line count: 659
+- **Fix 4: the replay's own order log** (`prompts/cursor_replay_fix4.md`,
+  `d318aa5`; Gemini GO4-1..4: the close-by latency stays a REPORTED
+  SENSITIVITY, s6, and fixes 1-3 do NOT count toward s8's three attempts).
+  Built `6386a22` / `8d05796` / `298d9c1` (Claude's read: four extra
+  assertions and one default removed); suite **381 / 381**; six runs
+  `7fd02d3`. The deals and books are byte-identical to `624a29b`'s, the
+  events differ only in the run clock: the log only observes.
+- **The 37 open misses read against it** (`research/replay/read_orders.py`
+  -> `results/eurusd_20261008_624a29b/orders_reading.csv`): **14
+  AT_PRICE_TOUCHED** (a replay order sat at the real price, a tick reached
+  it exactly, no replay fill), **16 OTHER_PRICE_ROLLED** (the real rolled
+  the layer, the replay did not), 4 OTHER_PRICE (two adds 1 point apart, two
+  rolled exits with replay lattice rows), 3 NO_ORDER (adds after earlier
+  misses). Two harness defects found:
+  (1) **exact touches never fill at 14 price values** (84 touches in all six
+  runs; 600 other values always fill; no value both): order prices are
+  NormalizeDouble'd at the send, tick prices StringToDouble'd from the file,
+  compared raw; (2) **sync marks a held layer rolled before the replay can
+  roll it**: the sync reset sets the true VL on every layer, and a ROLL row
+  carries the EA's clock, 0.57-0.60 s ahead of the crossing tick (B 6 Oct S
+  L01 / L02); ROLL_ACCEPTED sync vs free B seg 4 0 / 10, seg 7 0 / 7, C seg
+  11 0 / 13, D seg 24 0 / 10. The L00 cases are confirmed: the replay
+  placed L0 one tick after its close-by (B 1 Oct 11:12:11.412 at 1.13033;
+  real 11:12:13.026 at 1.13025); the three M13? L00 rows are the same timing
+  (a replay order 1 point away). Fix 5 (`prompts/cursor_replay_fix5.md`):
+  P1 every file price on the symbol grid; S2 the sync reset leaves a held
+  layer's VL alone; to Gemini.
+
+Line count: 687
