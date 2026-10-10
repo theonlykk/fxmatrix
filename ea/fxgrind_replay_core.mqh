@@ -925,6 +925,7 @@ void Rpl_TmRunStage(const string stage_name,
                          g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
                          g_rpl_cfg.width_s, g_rpl_cfg.add_s);
    } else if(stage_name == "TIMER") {
+      g_grind_carry_test_server_time = (datetime)(cursor / 1000);
       Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, (datetime)(cursor / 1000),
                              g_rpl_cfg.exit_s);
    }
