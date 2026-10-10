@@ -1,8 +1,10 @@
 # HANDOVER -- START HERE
 
-You are picking up an active algorithmic FX market-making project. Two fleets
-of eleven EA instances trade live on two demo accounts right now (cycle 3 on
-FTMO from the VPS; Fleet B on IC Markets from the Linux box).
+You are picking up an active algorithmic FX market-making project. Four fleets
+trade live on demo accounts (as of 10 Oct 2026): A, the IC strategy static on
+an FTMO free trial (seven instances, the VPS); B, C and D on IC Markets (nine
+instances each, the Linux boxes wine-test, wine-c, wine-d). A replay of the
+EA's own engine on IC ticks is under calibration on EURUSD (`docs/research/`).
 
 This folder is the entry point for a new chat. Read these in order.
 

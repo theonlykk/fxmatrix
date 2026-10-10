@@ -8,11 +8,21 @@ the full record. Newest first. Times UTC. Add an entry for any event
 that halts an instance, moves a book by more than a few layers in
 minutes, touches an account limit, or needed a manual action.
 
-Fleets: A = cycle 3 (FTMO, VPS), B = box 1 (IC), C = box 2 (IC), D =
-wine-d (IC, from 1 Oct). Cycle 2
+Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
+1514878887 (VPS); B = wine-test (IC), C = wine-c (IC), D = wine-d (IC, from 1 Oct). Cycle 2
 = the previous FTMO account (1514582088, ended 23 Sep).
 
 ---
+
+### 9 Oct 04:24-04:32Z -- compass round 3 reload: four IC charts (B, C, D)
+- **What:** round 3's `_r3` presets loaded by hand on four charts: D
+  EURUSD exit 9 L / 11 S; AUDCHF width 1.5 on B, C and D (C add 5 L / 3 S;
+  D exit 11 L / 9 S); presets only, no compile (EA code `5bb5fdb`).
+- **Handled:** every read-back and checker row as the table, BAD 0;
+  wine-d's EURUSD the pilot.
+- **Changed:** round 3 runs Mon 12 + Tue 13 (scored Tue 13 ~22:35Z, cohort
+  equity); D's EURUSD init at 04:24:14Z is the replay holdout's D segment.
+- **Evidence:** HANDOFF s74; register LIVE NOW; `research/compass/round3.json`.
 
 ### 8 Oct 00:25-00:28Z -- pipshed C102 deployed: /fleets from ~9 s to ~0.6 s (pipshed, all pages)
 - **What:** pipshed `d1ad256` (the ejection view's per-close scan of
@@ -142,6 +152,19 @@ wine-d (IC, from 1 Oct). Cycle 2
 - **Changed:** C107 done; the same method for the IC twins after the
   Monday build (runbook monday-build s7).
 - **Evidence:** HANDOFF s42; 02_TRAPS 3 Oct afternoon (C93, C107).
+
+### 2 Oct 12:30Z -- US payrolls: IC slowed and refused order sends for ~20 s (B, C, D)
+- **What:** in the release minute (15:30:00-15:30:19 server) live sends
+  took 1.2-5.8 s (normally ~0.29 s) and modifies were refused: 10029
+  (frozen) on C and D, 10013 on B, C and D, 10015 on D. Several fills a
+  second on EURUSD.
+- **Handled:** nothing needed live; found 10 Oct while classifying the
+  replay's misses.
+- **Changed:** the replay (which sends in ~0.29 s and is never refused)
+  over-scalps in such a burst (+20 S over B 3, C 13, D 23); plan 3 scopes
+  the replay to markets without a scheduled-release burst.
+- **Evidence:** `research/replay/results/plan3/burst_sends.*`; plan 3 P3;
+  `docs/research/replay-consult-fable.md` s9.
 
 ### 2 Oct ~16:18-17:36Z -- pipshed.com saturated by its own page reads; C110
 - **What:** from ~16:18Z (the C109 deploy) pipshed.com's CPU sat at ~4-4.5
@@ -577,4 +600,4 @@ wine-d (IC, from 1 Oct). Cycle 2
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 580
+Line count: 603

@@ -2429,4 +2429,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   stayed at 14.00). Before calling a re-centre "a rule miss", compute the
   rule's input for live's price and the replay's on the ticks.
 
-Line count: 2432
+## TRAPS FROM 2026-10-10 LATE (THE CONSULT AND PLAN 3)
+
+- **A per-segment gate can hide a one-way bias.** Plan 2's UNPRICED rule
+  dropped the payrolls segments, where the replay over-scalps on every
+  fleet; the whole-window totals showed it (+20 S). Score totals over ALL
+  deals beside any per-segment view.
+- **"Misses by one or two deals" was true for some segments, not all**
+  (B 3 had 7 replay-only against 2 allowed). Check a summary claim against
+  every row it covers before putting it in a brief.
+- **Quote a figure from the committed script, not from a quick read.** A
+  rough spread over 11 days (3.9) became 5.22 over the plan's 6 days, and
+  "the calibration week fails three sides" became "one side out".
+- **An outside reviewer's facts can be checked in minutes; do it before
+  acting.** Fable's three findings were re-run from the committed tables
+  before anything was built on them.
+
+Line count: 2448
