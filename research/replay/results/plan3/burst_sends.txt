@@ -1,0 +1,17 @@
+B sends 27 {('CLOSE_BY', True, 10009): 5, ('MODIFY', False, 10013): 1, ('MODIFY', True, 10009): 1, ('PENDING', True, 10009): 15, ('REMOVE', True, 10009): 5} median ms 290 max ms 5844 over 1 s 4
+   15:30:00.933 MODIFY ok True rc 10009 4301 ms
+   15:30:08.264 MODIFY ok False rc 10013 4421 ms
+   15:30:12.685 PENDING ok True rc 10009 5844 ms
+   15:30:18.529 PENDING ok True rc 10009 1228 ms
+C sends 29 {('CLOSE_BY', True, 10009): 5, ('MODIFY', False, 10013): 1, ('MODIFY', False, 10029): 2, ('PENDING', True, 10009): 16, ('REMOVE', True, 10009): 5} median ms 289 max ms 3814 over 1 s 4
+   15:30:02.697 MODIFY ok False rc 10029 1332 ms
+   15:30:05.277 MODIFY ok False rc 10029 3814 ms
+   15:30:10.125 MODIFY ok False rc 10013 2900 ms
+   15:30:13.025 PENDING ok True rc 10009 3493 ms
+D sends 33 {('CLOSE_BY', True, 10009): 5, ('MODIFY', False, 10013): 1, ('MODIFY', False, 10029): 2, ('PENDING', False, 10015): 1, ('PENDING', True, 10009): 16, ('REMOVE', True, 10009): 8} median ms 293 max ms 3075 over 1 s 6
+   15:30:02.157 MODIFY ok False rc 10029 1233 ms
+   15:30:04.545 MODIFY ok False rc 10029 2912 ms
+   15:30:08.484 MODIFY ok False rc 10013 3075 ms
+   15:30:11.559 REMOVE ok True rc 10009 2844 ms
+   15:30:14.403 PENDING ok False rc 10015 1228 ms
+   15:30:15.631 PENDING ok True rc 10009 1240 ms

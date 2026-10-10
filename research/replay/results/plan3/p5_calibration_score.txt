@@ -1,0 +1,16 @@
+B L S 35/39 R 28/28 A 33/33 S +4 tol 4.26 R +0 tol 2.00 A +0 tol 4.67 ok
+B S S 81/83 R 8/8 A 8/8 S +2 tol 4.28 R +0 tol 2.00 A +0 tol 2.29 ok
+C L S 43/47 R 29/29 A 40/40 S +4 tol 4.58 R +0 tol 2.33 A +0 tol 4.43 ok
+C S S 85/88 R 10/10 A 10/10 S +3 tol 5.04 R +0 tol 2.56 A +0 tol 2.62 ok
+D L S 59/63 R 24/23 A 24/24 S +4 tol 2.75 R -1 tol 2.19 A +0 tol 3.69 OUT S
+D S S 81/81 R 9/9 A 9/8 S +0 tol 5.34 R +0 tol 2.00 A -1 tol 2.62 ok
+C: sides OUT 1 beyond 2x tol 0 -> pass
+B: S errors [4, 2, 4, 3, 4, 0] one sign False sum +17 of 384 (+4.4%) -> pass
+D: L S C-B live +8 replay +8 (limit 4.58) ok
+D: L S D-B live +24 replay +24 (limit 4.26) ok
+D: L R C-B live +1 replay +1 (limit 2.33) ok
+D: L R D-B live -4 replay -5 (limit 2.19) ok
+D: S S C-B live +4 replay +5 (limit 5.04) ok
+D: S S D-B live +0 replay -2 (limit 5.34) ok
+D: S R C-B live +2 replay +2 (limit 2.56) ok
+D: S R D-B live +1 replay +1 (limit 2.00) ok

@@ -1,0 +1,19 @@
+days: 2026-10-01, 2026-10-02, 2026-10-05, 2026-10-06, 2026-10-07, 2026-10-08; holdout days n = 6; tol = max(2, sd * sqrt(n) / 3)
+B L S daily [4, 6, 0, 10, 2, 14]       sd  5.22 tol  4.26
+B L R daily [6, 5, 6, 4, 3, 4]         sd  1.21 tol  2.00
+B L A daily [12, 1, 10, 0, 10, 0]      sd  5.72 tol  4.67
+B S S daily [13, 15, 20, 4, 15, 14]    sd  5.24 tol  4.28
+B S R daily [0, 0, 0, 6, 2, 0]         sd  2.42 tol  2.00
+B S A daily [0, 0, 1, 7, 0, 0]         sd  2.80 tol  2.29
+C L S daily [4, 6, 0, 14, 6, 14]       sd  5.61 tol  4.58
+C L R daily [7, 6, 0, 8, 4, 4]         sd  2.86 tol  2.33
+C L A daily [14, 1, 6, 9, 10, 0]       sd  5.43 tol  4.43
+C S S daily [14, 15, 22, 3, 16, 15]    sd  6.18 tol  5.04
+C S R daily [0, 0, 1, 8, 1, 0]         sd  3.14 tol  2.56
+C S A daily [0, 0, 2, 8, 0, 0]         sd  3.20 tol  2.62
+D L S daily [14, 9, 10, 10, 4, 12]     sd  3.37 tol  2.75
+D L R daily [3, 4, 9, 1, 4, 3]         sd  2.68 tol  2.19
+D L A daily [7, 0, 10, 0, 7, 0]        sd  4.52 tol  3.69
+D S S daily [16, 15, 22, 2, 13, 13]    sd  6.53 tol  5.34
+D S R daily [0, 1, 0, 5, 3, 0]         sd  2.07 tol  2.00
+D S A daily [0, 1, 0, 8, 0, 0]         sd  3.21 tol  2.62
