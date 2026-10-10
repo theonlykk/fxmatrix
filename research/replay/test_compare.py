@@ -170,7 +170,7 @@ class TestReplayOrderPrice(unittest.TestCase):
     def test_ticket_reused_in_another_segment(self):
         # tickets restart per segment: the FILL row must be the deal's own segment's
         deals = [self.deal_row("77", "1.09995")]
-        orders = [{"seg_id": "1", "time_ms": str(T), "action": "FILL", "ticket": "77", "price": "1.10000"},
+        orders = [{"seg_id": "1", "time_ms": str(T - 5), "action": "FILL", "ticket": "77", "price": "1.10000"},
                   {"seg_id": "2", "time_ms": str(T), "action": "FILL", "ticket": "77", "price": "1.20000"}]
         self.assertEqual(cp.replay_deals(deals, orders)[0]["pts"], cp.pts(1.10000))
 

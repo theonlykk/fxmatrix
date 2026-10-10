@@ -405,7 +405,8 @@ def fleet_report(inputs, runs, harness, tag, ticks, archive_rows, t0_price="deal
 
     sync_deals = replay_deals(out("sync", "deals"), out_orders("sync"))
     t1r = t1(reals, sync_deals, touch)
-    t1_fill = t1(reals_fill, sync_deals, touch)     # on the deal's price: reported
+    sync_deals_fill = replay_deals(out("sync", "deals"))   # the replay's own deal price
+    t1_fill = t1(reals_fill, sync_deals_fill, touch)     # on the deal's price: reported
     free_deals = replay_deals(out("free", "deals"), out_orders("free"))
     free_t1 = t1(reals, free_deals, touch)          # reported, never deciding
     ev = read_events(os.path.join(runs, "%s_free_%s" % (tag, harness),
