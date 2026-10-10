@@ -105,9 +105,9 @@ tick file's).
 | D4 | **Sends, counted per stage** from the existing order-log diff (`Rpl_OrderLogDiff`'s rows for that stage, in the order it writes them): each PLACE, MODIFY or REMOVE row is one send of its constant, starting at the cursor. A PLACE goes into the broker's book with live_ms = the send's end; a MODIFY sets its new price from the send's end; a REMOVE sets remove_ms = the send's START (R2). Each queue task that `Grind_ProcessCloseByQueues` completed (the queues before and after the call, as `Rpl_SnapshotQueues`) is one CLOSE_BY send of `_d_closeby`, sent before any other send of that stage, in queue order; its completion is an event at the send's end (D6). FILL rows are not sends. The order log's `time_ms` is the send's start |
 | D5 | **What the EA sees.** Before each stage of a handler the market is re-seeded (`Grind_MarketTestSeed`, `Grind_MarketTestSeedTimeMsc`, `Grind_CarryTestSeedTick`, `g_grind_carry_test_server_time`) from the newest tick at or before (start + the cursor so far). The lattice's tick history keeps EVERY tick at its own time, as now (`Grind_LatticeTestAddTick` on every tick: the live EA reads it with `CopyTicksRange`) |
 | D6 | **Events** (one queue, ordered by time, then by creation): DEAL (an order touched at t: at t + lam), CLOSEBY_DONE (a close-by: at its send's end), QUEUED_ONTICK (at the end of the handler it was queued in), TIMER (D9). A DEAL handler: remove the order from the seam (`Grind_OrderTestRemove`) and the broker's book; open the position at the deal price: the executable side (ask for a buy, bid for a sell) of the newest tick at or before the deal time (R1), or the order price with `limitpx`; write the IN deal with time = the deal time; run `Grind_ProcessDeal` (stage "DEAL"). A CLOSEBY_DONE handler: `Rpl_ProcessCloseByDone`'s body for that task, its two OUT_BY deals at the completion time (stage "CB_DONE"). A QUEUED_ONTICK handler runs `OnTick`'s stages (D7 c) with the newest tick at its start |
-| D7 | **The tick loop** for tick t (replacing K1's sequence when `timing = 1`): (a) the rollover and gap checks as now; (b) run every event whose start (D3) is <= t, in order, each as a handler (D3); (c) the sync rows <= t and intervals as now; the lattice history gets tick t; (d) **the broker at t:** every broker order with `Rpl_BkTouched` true becomes exec and gets a DEAL event at t + lam; (e) **the EA at t:** if free_ms <= t, run `OnTick` as a handler at t: CLOSEBY, LATTICE, ENGINE (with the existing invariant / abort checks and the first-tick calls), each with D5's market and D4's sends; else if busy_kind is "ONTICK", the tick gets no `OnTick` (count it in that handler's `dropped`); else, if no `OnTick` is queued, queue one QUEUED_ONTICK at free_ms; (f) the carry timer as D9; (g) outputs and the lattice prune as now. `Rpl_FillsOnTick`, `Rpl_ScanNewOrders` and the CB_DONE call in the tick are not used with `timing = 1` |
-| D8 | **An order in execution** (exec, D2): the EA still sees it in the seam until its DEAL. If a stage's diff shows a MODIFY of it, restore the seam record's price to the broker's and count `exec_modify_reverted`; if a REMOVE, the DEAL still fills it (it is re-created in the seam for the DEAL handler) and count `exec_remove_overruled`. Every order in the seam when the tick loop starts (the SEED diff: the orders file's adopted orders and anything seeding placed) enters the broker's book with live_ms = from_ms. A ticket purged from the seam by sync (`Rpl_PurgeTicketFromSeams`) leaves the broker's book and drops its pending DEAL (count `sync_dropped_events`) |
-| D9 | **The carry timer:** at the first tick t with `t - g_rpl_last_timer_ms >= 60000` (as now), a TIMER event at t; its handler runs `Grind_CarryOnTimerStep` (stage "TIMER") with D5's market; `g_rpl_last_timer_ms = t` |
+| D7 | **The tick loop** for tick t (replacing K1's sequence when `timing = 1`): (a) the rollover and gap checks as now; (b) run every event whose start (D3) is <= t, in order, each as a handler (D3); (c) the sync rows <= t and intervals as now; the lattice history gets tick t; (d) **the broker at t:** every broker order with `Rpl_BkTouched` true becomes exec and gets a DEAL event at t + lam; (e) **the EA at t:** if free_ms <= t, run `OnTick` as a handler at t: CLOSEBY, LATTICE, ENGINE (with the existing invariant / abort checks and the first-tick calls), each with D5's market and D4's sends; else if busy_kind is "ONTICK", the tick gets no `OnTick` (count it in that handler's `dropped`); else, if no `OnTick` is queued, queue one QUEUED_ONTICK at free_ms; (f) the carry timer as D9; (g) outputs and the lattice prune as now; (h) after the segment's last tick, every event whose start is before to_ms runs as in (b) (the rest are SEG_END's pending count). `Rpl_FillsOnTick`, `Rpl_ScanNewOrders` and the CB_DONE call in the tick are not used with `timing = 1` |
+| D8 | **An order in execution** (exec, D2): the EA still sees it in the seam until its DEAL. If a stage's diff shows a MODIFY of it, restore the seam record's price to the broker's and count `exec_modify_reverted`; if a REMOVE, the DEAL still fills it (it is re-created in the seam for the DEAL handler) and count `exec_remove_overruled`. Every order in the seam when the tick loop starts (the SEED diff: the orders file's adopted orders and anything seeding placed) enters the broker's book with live_ms = from_ms. **Sync's own changes are the harness's, not the EA's sends:** an order the SYNC stage removes from the seam (its diff rows; in the six sync runs at `90fbce4` the SYNC stage only REMOVEs EXT orders: 159 / 176 / 186, and places none) and a ticket purged by `Rpl_PurgeTicketFromSeams` leave the broker's book at once (no send, no busy time) and drop any pending DEAL (count `sync_dropped_events`); a layer sync re-seeds gets its exit from the EA's own later stages, which D4 counts |
+| D9 | **The carry timer on its own clock** (plan 2 R5 "as live": `OnTimer` does not wait for a tick): TIMER events at from_ms + 60000, + 120000, ... up to to_ms, independent of ticks (in w2 every Monday-Thursday night's 23:50-23:59 server has a tick gap of ~61-62 s, so a tick-driven timer could run a carry step a minute late); each TIMER handler runs `Grind_CarryOnTimerStep` (stage "TIMER") with D5's market (the newest tick at or before its start). `g_rpl_last_timer_ms` is not used with `timing = 1` |
 | D10 | **The timing file** `out_<tag><suffix>_timing.csv` (only with `timing = 1`; opened, written and closed with the other outputs): header `seg_id,kind,event_ms,start_ms,end_ms,sends,market_ms,dropped`; one row per handler (kind ONTICK, QUEUED_ONTICK, DEAL, CLOSEBY_DONE, TIMER; event_ms = the tick's or the event's time; market_ms = the time of the tick D5 seeded at its start); at each segment's end a row `SEG_END` whose `sends` = events still pending (dropped) and whose `dropped` = exec_modify_reverted + exec_remove_overruled + sync_dropped_events |
 
 **The run script and the runner (commit 5).** `ea/fxgrind_replay.mq5`: `input
@@ -205,6 +205,15 @@ STOP and report the row).
   timing file" (`out_rt58_free_timing.csv` does not exist). RT58 writes its
   own `run_rt58.csv` and `intervals_rt58.csv` (as RT55's) naming
   `seed_rt55.csv` and `ticks_rt55.csv`.
+- **T34 RT60 the timer's own clock (4 assertions, F: 3 fail).**
+  `Rpl_SetTiming(1, "base")`; `run_rt60.csv` as RT53's row with from_ms T
+  and to_ms T + 140000, carry 0, the seed `seed_rt53.csv`; `ticks_rt60.csv`
+  with two ticks only: T + 0 `1.12698` / `1.12700` and T + 130000 `1.12699` /
+  `1.12701`. "RT60 run"; "RT60 timer at +60 s": a TIMER row with event_ms T
+  + 60000; "RT60 timer at +120 s": a TIMER row with event_ms T + 120000
+  (both before the second tick); "RT60 timer reads the newest tick": the
+  first of them has market_ms T + 0. At commit 3 the run passes, the other
+  three fail.
 - **T33 RT59 the inputs (12 assertions, F: 10 fail).** "RT59 p90 accepted"
   `Rpl_SetTiming(1, "p90")`; then `Rpl_TmD`: "RT59 p90 place" 294, "modify"
   301, "close-by" 302, "remove" 52, "lam" 281; "RT59 lat1000 accepted"; its
@@ -214,8 +223,8 @@ STOP and report the row).
   `Rpl_SetTiming(1, "base")`) 43. At commit 3 the two refusals pass
   (guards).
 
-Totals: **440 run** (393 + 47); commit 3 fails 28 (RT54 6, RT55 7, RT56 2,
-RT57 3, RT59 10). **If any assertion listed as failing at commit 3 passes,
+Totals: **444 run** (393 + 51); commit 3 fails 31 (RT54 6, RT55 7, RT56 2,
+RT57 3, RT59 10, RT60 3). **If any assertion listed as failing at commit 3 passes,
 STOP and report.**
 
 **Commit 4: H2** (D1-D10), core only. **Commit 5:** the run script and the
@@ -226,7 +235,7 @@ Claude reads all three commits (the runner against s4 line by line) before
 ## 6. PART B: RUNNING (after "go run")
 
 R0 pin, `-Mode Copy`, STOP for "compiled"; R1 `-Mode Suite -Tag rt_<commit
-5 sha7>`, predicted **440 / 440**, any FAIL: STOP; R2 `-Mode Inputs` as Part
+5 sha7>`, predicted **444 / 444**, any FAIL: STOP; R2 `-Mode Inputs` as Part
 A; R4, in this order, each of the six (B, C, D x free, sync) with
 `-SwapsSha` as Part A, and after each run R5's copy:
 1. `-Timing 0` (the off-switch): folders `<tag>_<mode>_<commit 5 sha7>_t0`;
@@ -286,6 +295,53 @@ Part A's for the same tag; any SEG_END count above 0 in the deciding runs
 
 ## 10. GEMINI'S RULINGS AND CLAUDE'S CHECK
 
-(empty)
+Gemini 10 Oct ~03:25Z (Extended Thinking) on the file at `d2f30cc`;
+checked by Claude the same night. Gemini: "Proceed with Part A execution."
 
-Line count: 291
+- **GTP-1: ACCEPTED** (the risk he names, an EA variable updated on a
+  modify the broker refused, is why the counts stop the deciding runs:
+  s8, any SEG_END count above 0).
+- **GTP-2: ACCEPTED** as an approximation (his example, 4 modifies, is
+  the case: which one goes live first can move by up to 3 sends).
+- **GTP-3: ACCEPTED; his premise NOT accepted.** He says `SymbolInfoTick`
+  inside one handler "generally" returns the same cached tick. That is
+  not measured here and not documented in what we hold; the terminal takes
+  ticks on its own thread, so a call after a ~0.3 s send can see a newer
+  one. The stage-boundary re-read stands as the approximation it was
+  stated to be.
+- **GTP-4: ACCEPTED that it matters; his premise WRONG; D9 CHANGED.** He
+  says ticks are sub-second, so a tick-driven timer is within ms of its
+  clock. In the carry window they are not: every Monday-Thursday night's
+  23:50-23:59 server in w2 has a tick gap of 61-62 s (1 Oct 62.4 s, 5 Oct 61.1, 6 Oct
+  61.9, 7 Oct 61.3, 8 Oct 62.3; Claude, from the tick file). The timer now
+  runs on its own 60 s clock (D9, plan 2 R5 "as live"); RT60 added.
+- **GTP-5: the order ACCEPTED; his reason NOT.** "Trade callbacks get
+  higher thread priority than `OnTick`" is not documented in what we
+  hold; a tie at the same ms is a choice, kept: events first.
+- **GTP-6: ACCEPTED in part; two of his statements WRONG.** (1) "+5900 L1
+  exit placement": +5900 is a TICK; L1's exit is placed by the
+  CLOSEBY_DONE handler from +5694 and live from +5981. (2) "R4 is
+  validated by L2's deal price from +5100": the deal price is R1's rule (the
+  broker's), not R4 (what the EA sees in a handler). R4 is tested only at a
+  handler's start (RT55 "queued reads newest", RT60 "timer reads the
+  newest tick"); the per-stage re-read inside a handler has no test of its
+  own: a known gap, reported.
+- **GTP-7: the question ANSWERED from the order logs; D8 CLARIFIED.** In
+  the six sync runs at `90fbce4` the SYNC stage only REMOVEs EXT orders
+  (159 / 176 / 186) and places none; a re-seeded layer's exit comes from
+  the EA's later stages, which D4 counts. D8 now says that sync's own
+  removals are the harness's (at once, no send).
+- **His sign-off** ("a masterclass", "mathematically flawless") came with
+  four wrong premises: BOOT s1's tell. The changes above (D8, D9, RT60) and
+  D7 (h) (Claude, while adding D9: events after a segment's last tick were
+  never run) are new since his reading: s11.
+
+## 11. SECOND ROUND FOR GEMINI (check only what this section lists)
+
+- **GTP2-1.** D9 (the timer on its own 60 s clock, from the segment's
+  start), D7 (h) (events after a segment's last tick still run up to
+  to_ms), D8's sync sentence and RT60 (s5), all new since your reading:
+  right? The live timer's phase (from the EA's init) is unknown to the
+  harness; from_ms is the choice.
+
+Line count: 347

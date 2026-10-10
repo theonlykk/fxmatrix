@@ -2341,5 +2341,10 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   EURUSD data are the new pre-registration's holdout. Export and hash
   them on Tue 13; no replay, `compare.py` or T0 on them until the new plan
   is ruled.
+- **A reviewer's "sub-second ticks" is a session-hours premise.** In the
+  carry window (23:50-23:59 server) EURUSD ticks are ~1 a minute at
+  worst (w2: 61-62 s gaps every Mon-Thu night): anything on the tick path
+  there can run a minute late. Check timing claims against the tick file
+  for the hour in question.
 
-Line count: 2345
+Line count: 2350
