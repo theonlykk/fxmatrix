@@ -101,7 +101,7 @@ switch ($Mode) {
       Assert-Match 'Tag' $Tag $SafeToken
       Assert-Match 'Label' $Label $SafeToken
       Assert-Match 'SwapsSha' $SwapsSha $SafeSha64
-      if ($Sens -notmatch '^(base|limitpx|thru01|lat250|lat1000|p10|p90)\z') { throw 'Invalid Sens' }
+      if ($Sens -cnotmatch '^(base|limitpx|thru01|lat250|lat1000|p10|p90)\z') { throw 'Invalid Sens' }
       if ($Timing -eq 0 -and $Sens -ne 'base') { throw 'Timing 0 requires Sens base' }
    }
 }
