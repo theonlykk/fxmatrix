@@ -2385,4 +2385,30 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Never assume the desktop is on `main`.** Cursor leaves it on
   `replay-harness`; every patch step starts with `git checkout main`.
 
-Line count: 2388
+## TRAPS FROM 2026-10-10 AFTERNOON (NEW CHAT; FIX 7)
+
+- **A timed run's event rows carry the time they were WRITTEN, not emitted**
+  (to `868bcc3`): `Rpl_DrainOutputs(t)` runs once per tick, so a DEAL,
+  CLOSEBY_DONE, TIMER or QUEUED_ONTICK handler's rows read the next tick's
+  time, and handlers after a segment's last tick are written in the next
+  segment (or never). Read deal and order times from the deals and orders
+  files; read event times as "written at" until fix 7 F2.
+- **A harness divergence that commits state persists.** A successful carry
+  shift writes `GRIND_CARRY_ACCRUED_<position>`, which every later exit
+  placement for that position adds: one wrong Saturday pass moved Monday's
+  re-placed exits (B 4, C 14, D 24). Trace a miss back through the GVs a
+  handler commits, not only through the orders it sends.
+- **Name layers from the committed log, not from memory.** s15 named the
+  wrong shifted layers (S L4 / L3 / L2; the log says L L0, L L3, S L1, S
+  L4).
+- **An incomplete carry pass does not reset the snapshot flag**: after a
+  weekend there is no snapshot until a complete pass (live, Mon 5 Oct:
+  SUMMARY only). Derive expected events from the code path, then check them
+  against the archive.
+- **Live's carry MODIFYs carry no side, layer or role in send_logs**:
+  match them by server night and requested price.
+- **A test of a weekend step with no later tick sees no events** on the
+  timed path at `868bcc3`: nothing drains them. Design tests so each
+  assertion has a state in which it fails (fix 7 s3's table).
+
+Line count: 2414

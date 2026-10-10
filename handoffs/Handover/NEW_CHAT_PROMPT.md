@@ -28,8 +28,8 @@ left UNPRICED:
 - **C 19: timing (M3), one deal** (109 / 115; 110 passes).
 - R4's market re-read matches live's PLACEMENT price 93.5-96.1% against
   78.7-83.3% at `timing = 0`: the timing model is a real improvement.
-- **Fixing D 24 leaves T2 FAILING** on C (23.7%) and D (34.6%), on the
-  segments that fail at `timing = 0` too, each by one or two deals.
+- **Fixing D 24 leaves T2 FAILING** on C (55.7%; CORRECTED 10 Oct, plan 2
+  s16: 23.7% also dropped C 19) and D (34.6%), each segment by one or two deals.
 
 **Open: s8's branch** (a rule fail, M4-M10, with up to three attempts;
 or "fail in M1-M3 again"), for the operator and Gemini.

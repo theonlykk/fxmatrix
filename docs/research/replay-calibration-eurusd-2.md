@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | ****RULED** (Gemini s11 first round, s13 second round, 10 Oct ~02:14Z / ~02:24Z; checked by Claude); NOTHING BUILT. Next: one Cursor prompt (s5), through Gemini.** No harness change and no run on any data before Gemini's rulings and the operator's go. The constants in s3 are fixed BEFORE any run under this plan; a constant changed after a run is a new pre-registration, recorded as such |
+| Status | **RULED** (Gemini s11 / s13); **RUN** at harness `868bcc3` (s14: T1 PASSES on B, C, D; T2 FAILS on C and D, UNPRICED share only); s15 classified, **s16 corrects s15**. Next: fix 7 (`prompts/cursor_replay_fix7.md`) through Gemini, with s8's branch (G7-1) and the attempt count (G7-2). The constants in s3 are fixed; a constant changed after a run is a new pre-registration, recorded as such |
 | Origin | Operator 10 Oct ~01:53Z: a new pre-registration after the first one failed (`replay-calibration-eurusd.md` s12, Gemini GRC2-1: s8's "fail in M1-M3" branch governs; the misses left are mostly timing, M3) |
 | Rules it keeps | Everything in the first plan that this file does not change (s4 here lists it): the question (s1 there), the window and segments (s2), seeding at an init (s3), the data (s4), the engine (c) (s5), T0 / T0b (passed; not re-run), T1 and T2 and their marks (s6), the miss categories (s7), not modelled (s9). Our trade history is the gold standard; no time-series analysis or price signal: the ticks only drive our rules; the timing constants are measured from OUR sends and fills, never from a replay result |
 | Supersedes | The first plan's fill rule in part ("an order placed on a tick can fill from the next tick", s6 there): replaced by s3's broker and EA timing. Its placement-latency sensitivities (250 ms, 1 s) are re-stated in s6 here |
@@ -183,6 +183,10 @@ GRC2-4: the latency on every place and modify):
   (b)). T2's free runs for B and C start from the 7 Oct true book and are
   scored after 04:32Z (their calibration part is segments 9 and 19, both
   priced at `90fbce4`, re-scored under this plan).
+- **Note (10 Oct ~15:30Z, s16):** the premise above that segments 9 and 19 are
+  "both priced" is FALSE at `timing = 1`: C 19 is UNPRICED (one deal, M3).
+  It does not touch Tue 13 (export and hash only) and the holdout runs only
+  after a calibration pass; for Gemini (fix 7 G7-5).
 - **Data:** exported on Tue 13 after the 22:00Z close (send_logs 9-13 Oct
   before their 14-day retention, the archives, one tick dump on wine-d from
   `2026.10.09 01:30` server to `2026.10.14 01:00` or later), hashed, and
@@ -342,10 +346,6 @@ before s7 allows it; no mark adjusted to a result.
 - **The Cursor prompt carries these to Gemini** (s5's tests, s6's added
   sensitivity) with the prompt itself.
 
-## 14. RECORD
-
-(empty)
-
 ## 14. RESULT ON THE CALIBRATION WINDOW (10 Oct ~12:20Z; harness `868bcc3`)
 
 `compare.py --t0-price order` (`research/replay/results/eurusd_20261008_868bcc3/`;
@@ -392,7 +392,8 @@ Read from the deciding run's order and event logs against the real send
 logs, archives and ticks (s0's inputs). The script and its output:
 `research/replay/results/eurusd_20261008_868bcc3/classify/`.
 
-- **D 24: a harness defect in R5 (M9, carry), not a timing miss.** Every
+- **D 24: a harness defect in R5, not a timing miss** (the layers, the
+  attempt label and the C figure below are CORRECTED in s16). Every
   `timing = 1` run (all eight, all three fleets: B 4, C 14, D 24) runs a
   full carry pass on **Saturday 3 Oct 23:50-23:53 server** and again on
   Sunday; the `timing = 0` runs do not. Live ran no such pass: no send on 3
@@ -454,4 +455,64 @@ Friday tick: no modify, `CARRY_PASS_INCOMPLETE`). Its expected effect: D
 after it is M3 (timing) on C 13 / 19 and D 23, and single-deal misses on
 small segments: s8's "fail in M1-M3 again" branch.
 
-Line count: 457
+## 16. CORRECTIONS TO s15 AND CHECKS (10 Oct ~13:50Z to ~15:30Z, new chat)
+
+The previous chat's answers (10 Oct ~13:54Z) and Claude's checks in source
+and data. s15 stands as written except where this section corrects it.
+
+- **D 24's Saturday shifts (s15 WRONG).** The committed seg-24 order log and
+  its `CARRY_EXIT_SHIFT` rows: L EXT L0 1.12870 -> 1.12878 and L EXT L3
+  1.12659 -> 1.12667 (+0.8 pip), S EXT L1 1.12204 -> 1.12206 and S EXT L4
+  1.12445 -> 1.12447 (+0.2 pip); not "S EXT L4 / L3 / L2". How the early
+  fills follow (VERIFIED in source): a successful shift commits
+  `GRIND_CARRY_ACCRUED_<position>` (`grind_carry.mqh` 1168-1169), which
+  every later exit placement for that position adds (`grind_engine.mqh`
+  413, 1057; `grind_exitq.mqh` 248). The Monday S EXT L4 / L3 / L2
+  re-placements sit 0.2 pip above `t0`'s (1.12447, 1.12375, 1.12305 vs
+  1.12445, 1.12373, 1.12303: the previous chat's read of the order logs)
+  and fill 2-4 minutes early. Live's Saturday pass did no work, so it
+  committed nothing.
+- **D 24 "90 / 94" is a hand count** (report row 87 / 94 and 4 replay-only,
+  minus the three S EXT EXTRA / MISS pairs in `misses.csv`), not a
+  committed check; a prediction for fix 7's runs.
+- **B 4 and C 14 carry the same defect** (hand reads, the previous chat):
+  B 4's Saturday +0.8 on L EXT L6 is inherited by every Monday L EXT L6
+  placement (1.12250 vs `t0` 1.12242): B 4's one miss (Mon 23:50:01). C
+  14's S EXT L1 is placed Mon 04:09 at 1.12321 vs 1.12319 and fills 2.6
+  min early: C 14's EXTRA / MISS pair. Predicted after fix 7: B 4 67 / 67,
+  C 14 60 / 60 and 0 replay-only. Neither moves UNPRICED.
+- **The C figure after fix 7 is 55.7%, not 23.7%** (the handover prompt's
+  line was wrong: 23.7% also drops C 19, which is M3 and untouched).
+  Expected after fix 7: B 18.6% PASS, C 55.7% FAIL, D 34.6% FAIL.
+- **The attempt label (s15 "M9, attempt 1") WITHDRAWN as a ruling.** Our
+  view: GO4-3 applies (s2): the fix corrects the harness's emulation of
+  `TimeTradeServer()`, a stage's clock, not the EA's carry rule. For Gemini
+  (fix 7 G7-2).
+- **s8's branches: plan 1 s8's fourth branch was not considered** ("T1
+  passes, T2 fails: the rules are right but rare paths compound; the
+  largest segments are read first"), which plan 2 inherits and which fits
+  the state by its words. An omission, not a judgement. For Gemini (G7-1).
+- **Live's weekend carry rows** (archives, s0 hashes; B, C, D the same
+  shape): Sat 3 Oct 23:50 `CARRY_SNAPSHOT` (day_of_week 6); Sun 4 Oct 00:00
+  `CARRY_PASS_INCOMPLETE`; no Sunday snapshot; Mon 5 Oct 00:00
+  `CARRY_PASS_INCOMPLETE`; no Monday 23:50 snapshot. The source gives this
+  exactly: the snapshot flag resets only after a COMPLETE pass
+  (`Grind_CarryExitPassReset(true)`), not after an incomplete one.
+- **The timed path's event clock (VERIFIED in source; new).** EA events are
+  written once per tick (`Rpl_DrainOutputs(t)`, core 2770), so a DEAL,
+  CLOSEBY_DONE, TIMER or QUEUED_ONTICK handler's rows carry the NEXT
+  tick's time, and handlers after a segment's last tick are written in the
+  next segment (or never, after the last). The weekend passes' rows read
+  Mon 5 Oct 00:00:00. Fix 7 F2 (for Gemini, G7-3).
+- **Live's Friday unchanged-price MODIFY** (send_logs): 4 per fleet,
+  retcode 10025, `duration_ms` 0; on failure the EA counts `failed` and
+  returns before committing the accrual. The harness returns 10009 and
+  commits. Checked (`classify/carry_prices.py` / `.txt`): in the six sync
+  runs every weekday carry MODIFY price equals a live 10009 price that
+  night (B 18 / 18, C 18 / 18, D 19 / 20 at both timings), so no weekday
+  price effect in this window. Recorded, out of fix 7 (G7-4).
+- **Observed, both timings:** D sync sends one carry MODIFY live did not
+  (Mon 5 Oct 23:50:00 L EXT L1 1.12253; live sent 3 that night, with a
+  CLOSE_BY, a PENDING and a REMOVE in the window). Not read further.
+
+Line count: 518
