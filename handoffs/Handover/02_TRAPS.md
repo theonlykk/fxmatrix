@@ -2355,4 +2355,34 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   once per run). When a spec lists what a reset keeps, name the output
   handles too.
 
-Line count: 2358
+## TRAPS FROM 2026-10-10 MIDDAY (PLAN 2'S RESULT AND ITS CLASSIFICATION)
+
+- **A replay's "server now" in a timer step is the timer moment, not the
+  newest tick.** Live's `OnTimer` reads `TimeTradeServer()`, which runs on
+  with no ticks (weekends, quiet nights); the harness's TIMER stage gave
+  the carry code the newest tick's time, so the 120 s freshness check
+  could never fail and a Saturday carry pass ran that live never did (plan
+  2 s15, D 24). Check any clock a stage seeds against what live reads, and
+  check weekend behaviour against the archive's `CARRY_*` rows.
+- **Compare like with like.** With `timing = 1` the replay's deal row
+  carries R1's MARKET price; matching it against the real ORDER price
+  mixed two prices (first read: T1 73-78%). `compare.py` now reads the
+  order price from the order log keyed by segment AND ticket (tickets
+  repeat across segments).
+- **Tests that pass by accident prove nothing.** `compare.py`'s first
+  tests passed because the rows happened to be in order; make them
+  order-adversarial, then run the mutants.
+- **Every UNPRICED segment fails by one or two deals.** The per-segment bar
+  is the fleet's 95%, so a segment under 20 deals may miss none, and which
+  segments fall under it is close to chance. Before calling a fix "the
+  route to a pass", recount the UNPRICED share without the segments it
+  can change (s15: still 23.7% C, 34.6% D).
+- **The run outputs are in git, `timing.csv` is not.** `replay-harness`
+  `e4fda38` holds `research/replay/runs/eurusd_*_868bcc3*/` (orders,
+  deals, events, book, summary); each run's `timing.csv` stays on the
+  desktop (GitHub's 100 MB limit). A question about a handler's stages
+  needs it staged from there.
+- **Never assume the desktop is on `main`.** Cursor leaves it on
+  `replay-harness`; every patch step starts with `git checkout main`.
+
+Line count: 2388
