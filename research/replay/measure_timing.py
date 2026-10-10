@@ -11,6 +11,9 @@ Measures (each summarised as n, p10, p25, p50, p75, p90, max; index int(n x q) o
 sorted values):
 - M1 send duration per action (PENDING, MODIFY, CLOSE_BY, REMOVE; ok rows only), over the
   sends whose ea_time_ms lies between the window's first and last IN fill logs;
+- M0 the clock offset: fill log - (deal time - 3 h) per IN fill (reported, never used:
+  it shows why no measure crosses the two clocks);
+- M1b the sends over 1 s (ok rows, the same sends as M1): count of all;
 - M2 lam: a real IN deal's broker time F minus the first touching tick in [F - 2 s,
   F + 0.5 s] (T0's rule: ask <= price for a buy, bid >= price for a sell; ENT on L and EXT
   on S are buys; prices compared in points);
@@ -54,6 +57,7 @@ LEAD_MS = 50
 REACT_MAX_MS = 2000
 CB_MAX_MS = 30000
 L0_MAX_MS = 120000
+SERVER_OFFSET_MS = 3 * 3600 * 1000   # IC's server time is UTC + 3 (BOOT s6)
 
 
 def summary(v):
@@ -74,6 +78,16 @@ def durations(rows):
         if r.get("ok") and r.get("action") in ACTIONS:
             out[r["action"]].append(int(r["duration_ms"]))
     return dict(out)
+
+
+def clock_offsets(fills):
+    return [int(r["ea_time_ms"]) - (int(r["deal_time_broker_msc"]) - SERVER_OFFSET_MS)
+            for r in fills if r["entry_type"] == "IN"]
+
+
+def over_ms(rows, limit):
+    ok = [r for r in rows if r.get("ok") and r.get("action") in ACTIONS]
+    return (sum(1 for r in ok if int(r["duration_ms"]) > limit), len(ok))
 
 
 def pts(x):
@@ -208,8 +222,10 @@ def measure_fleet(ticks, run_rows, sends, fills):
     ins = [r for r in fills if r["entry_type"] == "IN"]
     e_lo = min(int(r["ea_time_ms"]) for r in ins)
     e_hi = max(int(r["ea_time_ms"]) for r in ins)
-    res["M1"] = {a: summary(v) for a, v in
-                 durations([s for s in sends if e_lo <= int(s["ea_time_ms"]) <= e_hi]).items()}
+    win_sends = [s for s in sends if e_lo <= int(s["ea_time_ms"]) <= e_hi]
+    res["M1"] = {a: summary(v) for a, v in durations(win_sends).items()}
+    res["M1b"] = over_ms(win_sends, 1000)
+    res["M0"] = summary(clock_offsets(ins))
     res["M2"] = summary([x for x in (lam(ticks, r) for r in ins) if x is not None])
     res["M3"] = summary([x for x in (ent_reaction(sends, r, cache) for r in ins
                                      if r["role"] == "ENT") if x is not None])
@@ -250,6 +266,8 @@ def main():
         lines.append("")
         for act in ACTIONS:
             lines.append("- M1 %s duration (ms): %s" % (act, fmt(r["M1"].get(act, {"n": 0}))))
+        lines.append("- M1b sends over 1 s: %d of %d" % r["M1b"])
+        lines.append("- M0 clock offset, fill log - (deal time - 3 h) (ms): %s" % fmt(r["M0"]))
         for name, label in (("M2", "lam, deal - first touch"), ("M3", "ENT reaction"),
                             ("M4", "close-by reaction residual"), ("M5", "OUT_BY - close-by end"),
                             ("M6", "gap after the close-by"), ("M7", "L0 after the close-by, residual")):
