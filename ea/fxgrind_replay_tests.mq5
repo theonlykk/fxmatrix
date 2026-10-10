@@ -1158,7 +1158,6 @@ bool Rpl_TestTimingLatticeAfterCloseBy(const string path,
       }
       FileReadString(h);
    }
-   bool in_handler = false;
    while(!FileIsEnding(h)) {
       FileReadString(h);
       const string row_kind = FileReadString(h);
@@ -1168,17 +1167,12 @@ bool Rpl_TestTimingLatticeAfterCloseBy(const string path,
       FileReadString(h);
       const long mkt = (long)StringToInteger(FileReadString(h));
       FileReadString(h);
-      if(row_kind == "ONTICK" && ev == ontick_event_ms)
-         in_handler = true;
-      if(in_handler && row_kind == "STAGE:LATTICE") {
+      if(row_kind == "STAGE:LATTICE" && ev == ontick_event_ms) {
          stage_start_ms = st;
          stage_market_ms = mkt;
          FileClose(h);
          return true;
       }
-      if(in_handler && (row_kind == "ONTICK" || row_kind == "QUEUED_ONTICK" || row_kind == "DEAL"
-                        || row_kind == "CLOSEBY_DONE" || row_kind == "TIMER") && ev != ontick_event_ms)
-         in_handler = false;
    }
    FileClose(h);
    return false;
@@ -2169,7 +2163,7 @@ void Test_RT60_TimerClock()
    w = FileOpen(dir + "run_rt60.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
    FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(T) + "," + IntegerToString(T + 140000) +
-             ",15,2,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt53.csv,ticks_rt53.csv");
+             ",15,2,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt53.csv,ticks_rt60.csv");
    FileClose(w);
    Rpl_SetOutputSuffix("_free");
    Rpl_SetTiming(1, "base");
