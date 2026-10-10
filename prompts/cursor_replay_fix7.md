@@ -232,8 +232,52 @@ under 20 deals may miss none.
   bears on C 19), with base deciding and `t0` the off-switch. Right?
 - **G7-7.** What fact is missing?
 
-## 8. GEMINI'S RULINGS AND CLAUDE'S CHECK
+## 8. GEMINI'S RULINGS (G7-1..7, 10 Oct ~14:30Z) AND CLAUDE'S CHECK
 
-(empty)
+**Nothing in s0-s6 changes; Cursor builds s2-s4 as written.**
 
-Line count: 239
+- **G7-1: branch (b), "a fail in M1-M3 again", ACCEPTED, with one open
+  fact.** Under (b) a tick-level replay is not trusted and count-level use
+  is not allowed (T2 fails), so EURUSD is not calibrated under plan 2. The
+  fact his ruling rests on: every remaining miss is M1-M3. C 13, D 23 and C
+  19 are M3 (plan 2 s15); C 12, C 16 and D 21 are "M3 / M4, by hand". If
+  any of those is M4 (a rule), (a) applies to it. So Claude classifies
+  them from fix 7's deciding runs, as a committed script, before plan 2's
+  record is closed. What follows a closed (b) is the operator's call.
+- **G7-2: ACCEPTED.** F1 is harness state (GO4-3, plan 2 s2): it does not
+  count as an attempt.
+- **G7-3: ACCEPTED (F2 in this fix, the handler's START), one premise
+  corrected.** The EA's market is not frozen at the handler's start:
+  each stage re-reads it (R4, `Rpl_TmRunStage` -> `Rpl_TmSeedMarketAt`).
+  The start stays the right stamp: live writes its archive row during the
+  handler, and its start is the fixed point nearest to it (a row emitted
+  after a send is later by up to that send).
+- **G7-4: ACCEPTED** (recorded in plan 2 s16; not modelled).
+- **G7-5: his requirement NOT ADOPTED; for the operator.** He asks that C
+  19 be priced or the holdout be re-seeded from the true book. A re-seed
+  is the synthetic init the operator ruled out (9 Oct ~22:40Z), and GTM-6
+  already records that B's and C's holdout runs inherit their free run's
+  state. Under G7-1 the holdout does not run under plan 2 at all (s7: only
+  after a calibration pass), so the point is moot here. Tue 13 stays
+  export-and-hash only. Plan 2 s7 carries the note.
+- **G7-6: ACCEPTED (all 48), one premise corrected.** The sensitivities
+  are reported, never deciding (plan 2 s6, s8). `lat250` can show how
+  C 19 leans on the read moment; it cannot price C 19 for the verdict.
+- **G7-7: ANSWERED IN SOURCE; no change.** F1 sets
+  `g_grind_carry_test_server_time` in the TIMER stage only. That clock is
+  read only through `Grind_CarryServerTime()`, inside `ea/grind_carry.mqh`
+  (lines 739, 812, 1113, 1141, 1183, 1292). Every stage re-seeds it from
+  the newest tick (`Rpl_TmSeedMarketAt`, core 687), so the first stage of
+  Monday's first `OnTick` reads Monday's tick. The gap report
+  (`Rpl_RecordGapIfNeeded`) and the swap rollover read tick times, never
+  this clock. One small effect, recorded: a sync deal applied at Monday's
+  first tick, before its `OnTick`, sees the last seed: the last timer
+  moment after F1, Friday's last tick before it. The weekend segments (B 4,
+  C 14, D 24) cross a Monday open in every run; s6 stops on any
+  `RPL|ABORT`. The Monday gate needs nothing either: an incomplete pass
+  does not mark the day done, so Monday's pass is due, as live's
+  (`Grind_CarryExitPassOnWindowClose`; live Mon 5 Oct SUMMARY).
+- **His sign-off has no questions for us** (BOOT s1's tell). Every ruling
+  above was checked against source or the plan.
+
+Line count: 283

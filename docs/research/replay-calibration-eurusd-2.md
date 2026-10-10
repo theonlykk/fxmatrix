@@ -515,4 +515,21 @@ and data. s15 stands as written except where this section corrects it.
   (Mon 5 Oct 23:50:00 L EXT L1 1.12253; live sent 3 that night, with a
   CLOSE_BY, a PENDING and a REMOVE in the window). Not read further.
 
-Line count: 518
+## 17. GEMINI ON s8's BRANCH (fix 7 G7-1..7, 10 Oct ~14:30Z), CHECKED
+
+- **Branch (b) governs** ("a fail in M1-M3 again"): EURUSD is not
+  calibrated under this plan; tick-level use not trusted; count-level use
+  not allowed (T2 fails). Open fact: C 12, C 16 and D 21 are classified by
+  hand as "M3 / M4". Claude classifies them from fix 7's deciding runs, as
+  a committed script, before this record is closed; an M4 among them would
+  put that segment under (a).
+- **Fix 7 is not an attempt** (GO4-3). F2 in fix 7 (events at the
+  handler's start). The 10025 difference recorded, not modelled. All 48
+  runs; sensitivities never deciding.
+- **The holdout:** Gemini asked that C 19 be priced or the holdout be
+  re-seeded. A re-seed is the synthetic init the operator ruled out; under
+  (b) the holdout does not run under this plan. Tue 13: export and hash
+  only. For the operator.
+- Detail: `prompts/cursor_replay_fix7.md` s8.
+
+Line count: 535
