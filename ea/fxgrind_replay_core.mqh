@@ -226,8 +226,63 @@ struct RplRunOutputHandles
    int book;
    int summary;
    int orders;
+   int timing;
    bool open;
 };
+
+struct RplBkOrder
+{
+   ulong  ticket;
+   long   type;
+   double price;
+   long   live_ms;
+   double new_price;
+   long   new_from_ms;
+   long   remove_ms;
+   bool   exec;
+};
+
+bool   g_rpl_tm_on = false;
+string g_rpl_tm_sens = "base";
+long   g_rpl_tm_d_place = 0;
+long   g_rpl_tm_d_modify = 0;
+long   g_rpl_tm_d_closeby = 0;
+long   g_rpl_tm_d_remove = 0;
+long   g_rpl_tm_lam = 0;
+int    g_rpl_tm_thru_pts = 0;
+bool   g_rpl_tm_limit_price = false;
+
+enum RplTmEvKind
+{
+   RPL_TM_EV_DEAL = 0,
+   RPL_TM_EV_CLOSEBY_DONE = 1,
+   RPL_TM_EV_QUEUED_ONTICK = 2,
+   RPL_TM_EV_TIMER = 3
+};
+
+struct RplTmPendingEv
+{
+   RplTmEvKind kind;
+   long        start_ms;
+   long        seq;
+   ulong       deal_ticket;
+   RplCbTask   cb;
+};
+
+RplBkOrder       g_rpl_bk[];
+int              g_rpl_bk_count = 0;
+long             g_rpl_tm_free_ms = 0;
+string           g_rpl_tm_busy_kind = "";
+bool             g_rpl_tm_queued = false;
+int              g_rpl_tm_ontick_dropped = 0;
+int              g_rpl_tm_exec_modify_reverted = 0;
+int              g_rpl_tm_exec_remove_overruled = 0;
+int              g_rpl_tm_sync_dropped_events = 0;
+long             g_rpl_tm_event_seq = 0;
+long             g_rpl_tm_next_timer_ms = 0;
+RplTmPendingEv   g_rpl_tm_pend[];
+int              g_rpl_tm_pend_count = 0;
+int              g_rpl_tm_timing_h = INVALID_HANDLE;
 
 struct RplOrderRow
 {
@@ -269,6 +324,789 @@ string Rpl_NormalizeDataPath(string path)
 double Rpl_FilePrice(const string s)
 {
    return NormalizeDouble(StringToDouble(s), (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_TmApplySens(const string sens)
+{
+   g_rpl_tm_sens = sens;
+   g_rpl_tm_thru_pts = 0;
+   g_rpl_tm_limit_price = false;
+   if(sens == "base") {
+      g_rpl_tm_d_place = 287;
+      g_rpl_tm_d_modify = 288;
+      g_rpl_tm_d_closeby = 294;
+      g_rpl_tm_d_remove = 43;
+      g_rpl_tm_lam = 261;
+      return true;
+   }
+   if(sens == "limitpx") {
+      g_rpl_tm_d_place = 287;
+      g_rpl_tm_d_modify = 288;
+      g_rpl_tm_d_closeby = 294;
+      g_rpl_tm_d_remove = 43;
+      g_rpl_tm_lam = 261;
+      g_rpl_tm_limit_price = true;
+      return true;
+   }
+   if(sens == "thru01") {
+      g_rpl_tm_d_place = 287;
+      g_rpl_tm_d_modify = 288;
+      g_rpl_tm_d_closeby = 294;
+      g_rpl_tm_d_remove = 43;
+      g_rpl_tm_lam = 261;
+      g_rpl_tm_thru_pts = 1;
+      return true;
+   }
+   if(sens == "lat250") {
+      g_rpl_tm_d_place = 537;
+      g_rpl_tm_d_modify = 538;
+      g_rpl_tm_d_closeby = 294;
+      g_rpl_tm_d_remove = 43;
+      g_rpl_tm_lam = 261;
+      return true;
+   }
+   if(sens == "lat1000") {
+      g_rpl_tm_d_place = 1287;
+      g_rpl_tm_d_modify = 1288;
+      g_rpl_tm_d_closeby = 294;
+      g_rpl_tm_d_remove = 43;
+      g_rpl_tm_lam = 261;
+      return true;
+   }
+   if(sens == "p10") {
+      g_rpl_tm_d_place = 283;
+      g_rpl_tm_d_modify = 284;
+      g_rpl_tm_d_closeby = 289;
+      g_rpl_tm_d_remove = 38;
+      g_rpl_tm_lam = 256;
+      return true;
+   }
+   if(sens == "p90") {
+      g_rpl_tm_d_place = 294;
+      g_rpl_tm_d_modify = 301;
+      g_rpl_tm_d_closeby = 302;
+      g_rpl_tm_d_remove = 52;
+      g_rpl_tm_lam = 281;
+      return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_SetTiming(const int timing, const string sens)
+{
+   if(timing == 0) {
+      if(sens != "base")
+         return false;
+      g_rpl_tm_on = false;
+      g_rpl_tm_sens = "base";
+      return true;
+   }
+   if(timing != 1)
+      return false;
+   if(!Rpl_TmApplySens(sens))
+      return false;
+   g_rpl_tm_on = true;
+   return true;
+}
+
+//+------------------------------------------------------------------+
+long Rpl_TmD(const string action)
+{
+   if(action == "PLACE")
+      return g_rpl_tm_d_place;
+   if(action == "MODIFY")
+      return g_rpl_tm_d_modify;
+   if(action == "CLOSE_BY")
+      return g_rpl_tm_d_closeby;
+   if(action == "REMOVE")
+      return g_rpl_tm_d_remove;
+   if(action == "LAM")
+      return g_rpl_tm_lam;
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+int Rpl_BkFindIndex(const ulong ticket)
+{
+   for(int i = 0; i < g_rpl_bk_count; i++) {
+      if(g_rpl_bk[i].ticket == ticket)
+         return i;
+   }
+   return -1;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_BkPlace(const ulong ticket, const long type, const double price, const long live_ms)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix >= 0) {
+      g_rpl_bk[ix].type = type;
+      g_rpl_bk[ix].price = price;
+      g_rpl_bk[ix].live_ms = live_ms;
+      g_rpl_bk[ix].new_price = 0.0;
+      g_rpl_bk[ix].new_from_ms = 0;
+      g_rpl_bk[ix].remove_ms = 0;
+      g_rpl_bk[ix].exec = false;
+      return;
+   }
+   ArrayResize(g_rpl_bk, g_rpl_bk_count + 1);
+   g_rpl_bk[g_rpl_bk_count].ticket = ticket;
+   g_rpl_bk[g_rpl_bk_count].type = type;
+   g_rpl_bk[g_rpl_bk_count].price = price;
+   g_rpl_bk[g_rpl_bk_count].live_ms = live_ms;
+   g_rpl_bk[g_rpl_bk_count].new_price = 0.0;
+   g_rpl_bk[g_rpl_bk_count].new_from_ms = 0;
+   g_rpl_bk[g_rpl_bk_count].remove_ms = 0;
+   g_rpl_bk[g_rpl_bk_count].exec = false;
+   g_rpl_bk_count++;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_BkModify(const ulong ticket, const double new_price, const long from_ms)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix < 0)
+      return;
+   g_rpl_bk[ix].new_price = new_price;
+   g_rpl_bk[ix].new_from_ms = from_ms;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_BkRemove(const ulong ticket, const long at_ms)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix < 0)
+      return;
+   g_rpl_bk[ix].remove_ms = at_ms;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_BkSetExec(const ulong ticket)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix < 0)
+      return;
+   g_rpl_bk[ix].exec = true;
+}
+
+//+------------------------------------------------------------------+
+double Rpl_BkPriceAt(const ulong ticket, const long t)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix < 0)
+      return 0.0;
+   if(g_rpl_bk[ix].new_from_ms > 0 && t >= g_rpl_bk[ix].new_from_ms)
+      return g_rpl_bk[ix].new_price;
+   return g_rpl_bk[ix].price;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_BkTouched(const ulong ticket, const long t, const double bid, const double ask, const int thru_pts)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix < 0)
+      return false;
+   const RplBkOrder o = g_rpl_bk[ix];
+   if(o.live_ms > t)
+      return false;
+   if(o.remove_ms > 0 && o.remove_ms <= t)
+      return false;
+   if(o.exec)
+      return false;
+   const double pt = _Point;
+   const double thr = thru_pts * pt;
+   const double px = Rpl_BkPriceAt(ticket, t);
+   if(o.type == ORDER_TYPE_BUY_LIMIT)
+      return (ask <= px - thr);
+   if(o.type == ORDER_TYPE_SELL_LIMIT)
+      return (bid >= px + thr);
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_BkDrop(const ulong ticket)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   if(ix < 0)
+      return;
+   for(int j = ix; j < g_rpl_bk_count - 1; j++)
+      g_rpl_bk[j] = g_rpl_bk[j + 1];
+   g_rpl_bk_count--;
+   ArrayResize(g_rpl_bk, g_rpl_bk_count);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmCancelDealEvents(const ulong ticket)
+{
+   int j = 0;
+   for(int i = 0; i < g_rpl_tm_pend_count; i++) {
+      if(g_rpl_tm_pend[i].kind == RPL_TM_EV_DEAL && g_rpl_tm_pend[i].deal_ticket == ticket) {
+         g_rpl_tm_sync_dropped_events++;
+         continue;
+      }
+      if(j != i)
+         g_rpl_tm_pend[j] = g_rpl_tm_pend[i];
+      j++;
+   }
+   if(j != g_rpl_tm_pend_count) {
+      g_rpl_tm_pend_count = j;
+      ArrayResize(g_rpl_tm_pend, g_rpl_tm_pend_count);
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmEnqueueEventEx(const RplTmEvKind kind, const long start_ms, const ulong deal_ticket,
+                          const RplCbTask &cb_task)
+{
+   ArrayResize(g_rpl_tm_pend, g_rpl_tm_pend_count + 1);
+   g_rpl_tm_pend[g_rpl_tm_pend_count].kind = kind;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].start_ms = start_ms;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].seq = g_rpl_tm_event_seq++;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].deal_ticket = deal_ticket;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].cb = cb_task;
+   g_rpl_tm_pend_count++;
+   for(int i = g_rpl_tm_pend_count - 1; i > 0; i--) {
+      const bool swap = (g_rpl_tm_pend[i].start_ms < g_rpl_tm_pend[i - 1].start_ms)
+                        || (g_rpl_tm_pend[i].start_ms == g_rpl_tm_pend[i - 1].start_ms
+                            && g_rpl_tm_pend[i].seq < g_rpl_tm_pend[i - 1].seq);
+      if(!swap)
+         break;
+      const RplTmPendingEv tmp = g_rpl_tm_pend[i];
+      g_rpl_tm_pend[i] = g_rpl_tm_pend[i - 1];
+      g_rpl_tm_pend[i - 1] = tmp;
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmEnqueueEvent(const RplTmEvKind kind, const long start_ms, const ulong deal_ticket = 0)
+{
+   RplCbTask empty;
+   empty.t1 = 0;
+   empty.t2 = 0;
+   Rpl_TmEnqueueEventEx(kind, start_ms, deal_ticket, empty);
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_TmNewestTickAtOrBefore(const long ms, RplTick &out)
+{
+   if(g_rpl_all_tick_count <= 0)
+      return false;
+   int lo = 0;
+   int hi = g_rpl_all_tick_count - 1;
+   int best = -1;
+   while(lo <= hi) {
+      const int mid = (lo + hi) / 2;
+      if(g_rpl_all_ticks[mid].time_msc <= ms) {
+         best = mid;
+         lo = mid + 1;
+      } else
+         hi = mid - 1;
+   }
+   if(best < 0)
+      return false;
+   out = g_rpl_all_ticks[best];
+   return true;
+}
+
+//+------------------------------------------------------------------+
+long Rpl_TmMarketMsAt(const long cursor_ms)
+{
+   RplTick tk;
+   if(!Rpl_TmNewestTickAtOrBefore(cursor_ms, tk))
+      return cursor_ms;
+   return tk.time_msc;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmSeedMarketAt(const long ms)
+{
+   RplTick tk;
+   if(!Rpl_TmNewestTickAtOrBefore(ms, tk))
+      return;
+   Grind_MarketTestSeed(tk.bid, tk.ask, 0, 0);
+   Grind_MarketTestSeedTimeMsc(tk.time_msc);
+   Grind_CarryTestSeedTick((datetime)(tk.time_msc / 1000), tk.bid, tk.ask);
+   g_grind_carry_test_server_time = (datetime)(tk.time_msc / 1000);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmWriteTimingRow(const string kind, const long event_ms, const long start_ms, const long end_ms,
+                          const int sends, const long market_ms, const int dropped)
+{
+   if(g_rpl_tm_timing_h == INVALID_HANDLE)
+      return;
+   FileWrite(g_rpl_tm_timing_h, IntegerToString(g_rpl_cfg.seg_id), kind, IntegerToString(event_ms),
+             IntegerToString(start_ms), IntegerToString(end_ms), IntegerToString(sends),
+             IntegerToString(market_ms), IntegerToString(dropped));
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_BkIsExec(const ulong ticket)
+{
+   const int ix = Rpl_BkFindIndex(ticket);
+   return (ix >= 0 && g_rpl_bk[ix].exec);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmSeedBrokerFromSeam(const long live_ms)
+{
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      const GrindOrderTestRecord rec = g_grind_order_test_records[i];
+      Rpl_BkPlace(rec.ticket, rec.type, rec.price, live_ms);
+   }
+}
+
+//+------------------------------------------------------------------+
+long Rpl_TmSendDur(const string action)
+{
+   if(action == "PLACE")
+      return g_rpl_tm_d_place;
+   if(action == "MODIFY")
+      return g_rpl_tm_d_modify;
+   if(action == "REMOVE")
+      return g_rpl_tm_d_remove;
+   return 0;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_OrderLogAppendRowAt(const long t,
+                             const string stage,
+                             const string action,
+                             const ulong ticket,
+                             const long otype,
+                             const string comment,
+                             const double price,
+                             const double old_price)
+{
+   string side;
+   int layer;
+   string role;
+   Rpl_OrderLogParseComment(comment, side, layer, role);
+   const int n = ArraySize(g_rpl_orders);
+   ArrayResize(g_rpl_orders, n + 1, 4096);
+   g_rpl_orders[n].seg_id = g_rpl_cfg.seg_id;
+   g_rpl_orders[n].sync_idx = g_rpl_sync_idx;
+   g_rpl_orders[n].time_ms = t;
+   g_rpl_orders[n].stage = stage;
+   g_rpl_orders[n].action = action;
+   g_rpl_orders[n].ticket = ticket;
+   g_rpl_orders[n].type = otype;
+   g_rpl_orders[n].side = side;
+   g_rpl_orders[n].layer = layer;
+   g_rpl_orders[n].role = role;
+   g_rpl_orders[n].price = price;
+   g_rpl_orders[n].old_price = old_price;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmApplySendRow(const string stage,
+                        const long send_start,
+                        const long send_end,
+                        const string action,
+                        const ulong ticket,
+                        const long otype,
+                        const string comment,
+                        const double price,
+                        const double old_price)
+{
+   Rpl_OrderLogAppendRowAt(send_start, stage, action, ticket, otype, comment, price, old_price);
+   if(action == "PLACE")
+      Rpl_BkPlace(ticket, otype, price, send_end);
+   else if(action == "MODIFY") {
+      if(Rpl_BkIsExec(ticket)) {
+         GrindOrderTestRecord rec;
+         if(Grind_OrderTestFind(ticket, rec))
+            Grind_OrderTestUpsert(ticket, rec.magic, rec.comment, Rpl_BkPriceAt(ticket, send_end), rec.type);
+         g_rpl_tm_exec_modify_reverted++;
+      } else
+         Rpl_BkModify(ticket, price, send_end);
+   } else if(action == "REMOVE") {
+      if(Rpl_BkIsExec(ticket))
+         g_rpl_tm_exec_remove_overruled++;
+      Rpl_BkRemove(ticket, send_start);
+   } else if(action == "FILL")
+      return;
+   if(action == "PLACE" || action == "MODIFY" || action == "REMOVE")
+      Rpl_TrackOrderPlaced(ticket, send_start);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmDiffStageSends(const string stage, long &cursor, int &stage_sends, const bool closeby_first,
+                           const RplCbTask &cb_before[], const int cb_before_n, const RplCbTask &cb_done[],
+                           const int cb_done_n)
+{
+   if(closeby_first) {
+      for(int i = 0; i < cb_done_n; i++) {
+         const long send_start = cursor;
+         cursor += g_rpl_tm_d_closeby;
+         stage_sends++;
+         RplCbTask t = cb_done[i];
+         Rpl_TmEnqueueEventEx(RPL_TM_EV_CLOSEBY_DONE, cursor, 0, t);
+      }
+   }
+   const double pt_half = _Point / 2.0;
+   string pending_actions[];
+   ulong pending_tickets[];
+   long pending_types[];
+   string pending_comments[];
+   double pending_prices[];
+   double pending_old[];
+   int pending_n = 0;
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      const GrindOrderTestRecord rec = g_rpl_order_test_records[i];
+      RplOrderSnap snap;
+      if(!Rpl_OrderLogSnapFind(rec.ticket, snap)) {
+         ArrayResize(pending_actions, pending_n + 1);
+         ArrayResize(pending_tickets, pending_n + 1);
+         ArrayResize(pending_types, pending_n + 1);
+         ArrayResize(pending_comments, pending_n + 1);
+         ArrayResize(pending_prices, pending_n + 1);
+         ArrayResize(pending_old, pending_n + 1);
+         pending_actions[pending_n] = "PLACE";
+         pending_tickets[pending_n] = rec.ticket;
+         pending_types[pending_n] = rec.type;
+         pending_comments[pending_n] = rec.comment;
+         pending_prices[pending_n] = rec.price;
+         pending_old[pending_n] = 0.0;
+         pending_n++;
+         continue;
+      }
+      if(MathAbs(rec.price - snap.price) > pt_half) {
+         ArrayResize(pending_actions, pending_n + 1);
+         ArrayResize(pending_tickets, pending_n + 1);
+         ArrayResize(pending_types, pending_n + 1);
+         ArrayResize(pending_comments, pending_n + 1);
+         ArrayResize(pending_prices, pending_n + 1);
+         ArrayResize(pending_old, pending_n + 1);
+         pending_actions[pending_n] = "MODIFY";
+         pending_tickets[pending_n] = rec.ticket;
+         pending_types[pending_n] = rec.type;
+         pending_comments[pending_n] = rec.comment;
+         pending_prices[pending_n] = rec.price;
+         pending_old[pending_n] = snap.price;
+         pending_n++;
+      }
+   }
+   for(int s = 0; s < ArraySize(g_rpl_order_snap); s++) {
+      const RplOrderSnap snap = g_rpl_order_snap[s];
+      GrindOrderTestRecord book_rec;
+      if(Rpl_OrderLogBookFind(snap.ticket, book_rec))
+         continue;
+      ArrayResize(pending_actions, pending_n + 1);
+      ArrayResize(pending_tickets, pending_n + 1);
+      ArrayResize(pending_types, pending_n + 1);
+      ArrayResize(pending_comments, pending_n + 1);
+      ArrayResize(pending_prices, pending_n + 1);
+      ArrayResize(pending_old, pending_n + 1);
+      pending_actions[pending_n] = Rpl_OrderLogDealFillAt(cursor, snap.ticket) ? "FILL" : "REMOVE";
+      pending_tickets[pending_n] = snap.ticket;
+      pending_types[pending_n] = snap.type;
+      pending_comments[pending_n] = snap.comment;
+      pending_prices[pending_n] = snap.price;
+      pending_old[pending_n] = 0.0;
+      pending_n++;
+   }
+   for(int p = 0; p < pending_n; p++) {
+      if(pending_actions[p] == "FILL") {
+         Rpl_OrderLogAppendRowAt(cursor, stage, "FILL", pending_tickets[p], pending_types[p], pending_comments[p],
+                                 pending_prices[p], pending_old[p]);
+         continue;
+      }
+      const long dur = Rpl_TmSendDur(pending_actions[p]);
+      const long send_start = cursor;
+      cursor += dur;
+      stage_sends++;
+      Rpl_TmApplySendRow(stage, send_start, cursor, pending_actions[p], pending_tickets[p], pending_types[p],
+                         pending_comments[p], pending_prices[p], pending_old[p]);
+   }
+   ArrayResize(g_rpl_order_snap, g_grind_order_test_count);
+   for(int i = 0; i < g_grind_order_test_count; i++) {
+      g_rpl_order_snap[i].ticket = g_grind_order_test_records[i].ticket;
+      g_rpl_order_snap[i].type = g_grind_order_test_records[i].type;
+      g_rpl_order_snap[i].comment = g_grind_order_test_records[i].comment;
+      g_rpl_order_snap[i].price = g_grind_order_test_records[i].price;
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmRunStage(const string stage_name,
+                    const long handler_event_ms,
+                    long &cursor,
+                    int &handler_sends,
+                    const bool run_closeby,
+                    const RplCbTask &cb_before[],
+                    const int cb_before_n)
+{
+   const long stage_start = cursor;
+   const long stage_market_ms = Rpl_TmMarketMsAt(stage_start);
+   Rpl_TmSeedMarketAt(stage_market_ms);
+   int stage_sends = 0;
+   RplCbTask cb_done[];
+   int cb_done_n = 0;
+   if(run_closeby) {
+      Grind_ProcessCloseByQueues(g_rpl_cfg.magic, false);
+      RplCbTask cb_after[];
+      int cb_after_n = 0;
+      Rpl_SnapshotQueues(cb_after, cb_after_n);
+      for(int i = 0; i < cb_before_n; i++) {
+         if(!Rpl_QueueHasTask(cb_after, cb_after_n, cb_before[i].t1, cb_before[i].t2)) {
+            ArrayResize(cb_done, cb_done_n + 1);
+            cb_done[cb_done_n++] = cb_before[i];
+         }
+      }
+   } else if(stage_name == "LATTICE") {
+      Rpl_EnsureLatticeHistory(cursor);
+      Grind_LatticeOnTick(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, RPL_LOTS_DEFAULT, g_rpl_cfg.lattice,
+                          g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, (datetime)(cursor / 1000),
+                          g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
+   } else if(stage_name == "ENGINE") {
+      Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
+                         g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
+                         g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+   } else if(stage_name == "TIMER") {
+      Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, (datetime)(cursor / 1000),
+                             g_rpl_cfg.exit_s);
+   }
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
+   Rpl_TmDiffStageSends(stage_name, cursor, stage_sends, run_closeby, cb_before, cb_before_n, cb_done, cb_done_n);
+   handler_sends += stage_sends;
+   Rpl_TmWriteTimingRow("STAGE:" + stage_name, handler_event_ms, stage_start, cursor, stage_sends, stage_market_ms, 0);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
+{
+   g_rpl_tm_busy_kind = "HANDLER";
+   const long start = MathMax(ev.start_ms, g_rpl_tm_free_ms);
+   long cursor = start;
+   const long market_ms = Rpl_TmMarketMsAt(start);
+   Rpl_TmSeedMarketAt(market_ms);
+   int sends = 0;
+   ulong ticket = ev.deal_ticket;
+   GrindOrderTestRecord rec;
+   if(!Grind_OrderTestFind(ticket, rec)) {
+      g_rpl_tm_free_ms = start;
+      g_rpl_tm_busy_kind = "";
+      return;
+   }
+   const int bix = Rpl_BkFindIndex(ticket);
+   if(bix >= 0)
+      g_rpl_bk[bix].exec = true;
+   Grind_OrderTestRemove(ticket);
+   Rpl_BkDrop(ticket);
+   RplTick tk;
+   double fill_price = rec.price;
+   if(Rpl_TmNewestTickAtOrBefore(start, tk)) {
+      if(rec.type == ORDER_TYPE_BUY_LIMIT)
+         fill_price = g_rpl_tm_limit_price ? rec.price : tk.ask;
+      else
+         fill_price = g_rpl_tm_limit_price ? rec.price : tk.bid;
+   }
+   const long otype = rec.type;
+   const string comment = rec.comment;
+   const ulong pos_id = g_rpl_next_pos_id++;
+   const ulong deal_id = g_rpl_next_deal_id++;
+   const datetime tsec = (datetime)(start / 1000);
+   const bool is_long_ent = (otype == ORDER_TYPE_BUY_LIMIT);
+   string slot, side, role;
+   int layer;
+   if(!GrindCommentParse(comment, slot, side, layer, role))
+      side = is_long_ent ? "L" : "S";
+   const long deal_type = (otype == ORDER_TYPE_BUY_LIMIT) ? DEAL_TYPE_BUY : DEAL_TYPE_SELL;
+   Rpl_ReplayAppendDeal(deal_id, comment, DEAL_ENTRY_IN, ticket, pos_id, 0.0, 0.0, 0.0, fill_price, tsec,
+                        g_rpl_cfg.magic);
+   Grind_PositionTestAdd(pos_id);
+   Rpl_AddCloseByPos(pos_id, is_long_ent);
+   Grind_CarryTestSetPosition(pos_id, 0.0, RPL_LOTS_DEFAULT, (datetime)(start / 1000));
+   Rpl_AddPosMeta(pos_id, fill_price, 0.0, RPL_LOTS_DEFAULT, start, is_long_ent, side, layer, role, otype);
+   Rpl_WriteDealOutput(start, deal_id, ticket, pos_id, DEAL_ENTRY_IN, deal_type, role, side, layer, fill_price);
+   if(Rpl_EngineSeamsOrAbort())
+      Grind_ProcessDeal(deal_id, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
+                        g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
+   RplCbTask cb_empty[];
+   Rpl_TmDiffStageSends("DEAL", cursor, sends, false, cb_empty, 0, cb_empty, 0);
+   g_rpl_tm_free_ms = cursor;
+   g_rpl_tm_busy_kind = "";
+   Rpl_TmWriteTimingRow("DEAL", ev.start_ms, start, cursor, sends, market_ms, 0);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmRunCloseByDoneHandler(const RplTmPendingEv &ev)
+{
+   g_rpl_tm_busy_kind = "HANDLER";
+   const long start = MathMax(ev.start_ms, g_rpl_tm_free_ms);
+   long cursor = start;
+   const long market_ms = Rpl_TmMarketMsAt(start);
+   Rpl_TmSeedMarketAt(market_ms);
+   int sends = 0;
+   RplCbTask one[];
+   ArrayResize(one, 1);
+   one[0] = ev.cb;
+   Rpl_ProcessCloseByDone(start, one, 1);
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
+   RplCbTask cb_empty[];
+   Rpl_TmDiffStageSends("CB_DONE", cursor, sends, false, cb_empty, 0, cb_empty, 0);
+   g_rpl_tm_free_ms = cursor;
+   g_rpl_tm_busy_kind = "";
+   if(g_rpl_tm_queued) {
+      g_rpl_tm_queued = false;
+      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, cursor);
+   }
+   Rpl_TmWriteTimingRow("CLOSEBY_DONE", ev.start_ms, start, cursor, sends, market_ms, 0);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmRunTimerHandler(const RplTmPendingEv &ev)
+{
+   g_rpl_tm_busy_kind = "HANDLER";
+   const long start = MathMax(ev.start_ms, g_rpl_tm_free_ms);
+   long cursor = start;
+   const long market_ms = Rpl_TmMarketMsAt(start);
+   Rpl_TmSeedMarketAt(market_ms);
+   int sends = 0;
+   RplCbTask cb_empty[];
+   Rpl_TmRunStage("TIMER", ev.start_ms, cursor, sends, false, cb_empty, 0);
+   g_rpl_tm_free_ms = cursor;
+   g_rpl_tm_busy_kind = "";
+   if(g_rpl_tm_queued) {
+      g_rpl_tm_queued = false;
+      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, cursor);
+   }
+   Rpl_TmWriteTimingRow("TIMER", ev.start_ms, start, cursor, sends, market_ms, 0);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmRunOntickHandler(const long event_ms, const bool queued, const bool seg_first_tick)
+{
+   const long start = MathMax(event_ms, g_rpl_tm_free_ms);
+   long cursor = start;
+   const long market_ms = Rpl_TmMarketMsAt(start);
+   Rpl_TmSeedMarketAt(market_ms);
+   int handler_sends = 0;
+   g_rpl_tm_busy_kind = "ONTICK";
+   g_rpl_tm_ontick_dropped = 0;
+   if(seg_first_tick)
+      Grind_LatticeRollGateInitRestart(g_rpl_cfg.gate);
+   const bool trkL0 = g_grind_vl_tracking_long;
+   const bool trkS0 = g_grind_vl_tracking_short;
+   RplCbTask cb_before[];
+   int cb_n = 0;
+   Rpl_SnapshotQueues(cb_before, cb_n);
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
+   Rpl_TmRunStage("CLOSEBY", event_ms, cursor, handler_sends, true, cb_before, cb_n);
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
+   RplCbTask cb_empty[];
+   Rpl_TmRunStage("LATTICE", event_ms, cursor, handler_sends, false, cb_empty, 0);
+   if(!Rpl_EngineSeamsOrAbort())
+      return;
+   Rpl_TmRunStage("ENGINE", event_ms, cursor, handler_sends, false, cb_empty, 0);
+   if(!trkL0 && g_grind_vl_tracking_long)
+      Rpl_LatticeHistoryCheck(true, cursor);
+   if(!trkS0 && g_grind_vl_tracking_short)
+      Rpl_LatticeHistoryCheck(false, cursor);
+   if(seg_first_tick)
+      Rpl_ReportOrdersKept();
+   g_rpl_tm_free_ms = cursor;
+   g_rpl_tm_busy_kind = "";
+   if(g_rpl_tm_queued) {
+      g_rpl_tm_queued = false;
+      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, cursor);
+   }
+   Rpl_TmWriteTimingRow(queued ? "QUEUED_ONTICK" : "ONTICK", event_ms, start, cursor, handler_sends, market_ms,
+                        g_rpl_tm_ontick_dropped);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmRunEventsUpTo(const long t_limit)
+{
+   while(g_rpl_tm_pend_count > 0 && g_rpl_tm_pend[0].start_ms <= t_limit) {
+      const RplTmPendingEv ev = g_rpl_tm_pend[0];
+      for(int i = 0; i < g_rpl_tm_pend_count - 1; i++)
+         g_rpl_tm_pend[i] = g_rpl_tm_pend[i + 1];
+      g_rpl_tm_pend_count--;
+      ArrayResize(g_rpl_tm_pend, g_rpl_tm_pend_count);
+      if(g_rpl_aborted)
+         return;
+      if(ev.kind == RPL_TM_EV_DEAL)
+         Rpl_TmRunDealHandler(ev);
+      else if(ev.kind == RPL_TM_EV_CLOSEBY_DONE)
+         Rpl_TmRunCloseByDoneHandler(ev);
+      else if(ev.kind == RPL_TM_EV_QUEUED_ONTICK)
+         Rpl_TmRunOntickHandler(ev.start_ms, true, false);
+      else if(ev.kind == RPL_TM_EV_TIMER)
+         Rpl_TmRunTimerHandler(ev);
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmProcessSyncRemovals(const long t)
+{
+   const int n0 = ArraySize(g_rpl_orders);
+   Rpl_OrderLogDiff(t, "SYNC");
+   for(int i = n0; i < ArraySize(g_rpl_orders); i++) {
+      if(g_rpl_orders[i].action != "REMOVE")
+         continue;
+      Rpl_BkDrop(g_rpl_orders[i].ticket);
+      Rpl_TmCancelDealEvents(g_rpl_orders[i].ticket);
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmBrokerStep(const long t, const double bid, const double ask)
+{
+   for(int i = 0; i < g_rpl_bk_count; i++) {
+      const ulong ticket = g_rpl_bk[i].ticket;
+      if(!Rpl_BkTouched(ticket, t, bid, ask, g_rpl_tm_thru_pts))
+         continue;
+      g_rpl_bk[i].exec = true;
+      Rpl_TmEnqueueEvent(RPL_TM_EV_DEAL, t + g_rpl_tm_lam, ticket);
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmEaStepAtTick(const long t, const bool seg_first_tick)
+{
+   if(g_rpl_tm_free_ms <= t) {
+      Rpl_TmRunOntickHandler(t, false, seg_first_tick);
+      return;
+   }
+   if(g_rpl_tm_busy_kind == "ONTICK")
+      g_rpl_tm_ontick_dropped++;
+   else if(g_rpl_tm_busy_kind == "HANDLER" && !g_rpl_tm_queued)
+      g_rpl_tm_queued = true;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmInitSegment(const RplSegmentConfig &cfg)
+{
+   g_rpl_tm_free_ms = cfg.from_ms;
+   g_rpl_tm_busy_kind = "";
+   g_rpl_tm_queued = false;
+   g_rpl_tm_ontick_dropped = 0;
+   g_rpl_tm_exec_modify_reverted = 0;
+   g_rpl_tm_exec_remove_overruled = 0;
+   g_rpl_tm_sync_dropped_events = 0;
+   g_rpl_tm_event_seq = 0;
+   ArrayResize(g_rpl_tm_pend, 0);
+   g_rpl_tm_pend_count = 0;
+   g_rpl_tm_next_timer_ms = cfg.from_ms + 60000;
+   while(g_rpl_tm_next_timer_ms < cfg.to_ms) {
+      Rpl_TmEnqueueEvent(RPL_TM_EV_TIMER, g_rpl_tm_next_timer_ms);
+      g_rpl_tm_next_timer_ms += 60000;
+   }
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmWriteSegEnd()
+{
+   Rpl_TmWriteTimingRow("SEG_END", g_rpl_cfg.to_ms, g_rpl_cfg.to_ms, g_rpl_cfg.to_ms, g_rpl_tm_pend_count,
+                        0, g_rpl_tm_exec_modify_reverted + g_rpl_tm_exec_remove_overruled + g_rpl_tm_sync_dropped_events);
 }
 
 //+------------------------------------------------------------------+
@@ -484,6 +1322,20 @@ void Rpl_ResetAll()
    g_grind_pnl_test_active = true;
    ArrayResize(g_rpl_orders, 0);
    ArrayResize(g_rpl_order_snap, 0);
+   ArrayResize(g_rpl_bk, 0);
+   g_rpl_bk_count = 0;
+   g_rpl_tm_free_ms = 0;
+   g_rpl_tm_busy_kind = "";
+   g_rpl_tm_queued = false;
+   g_rpl_tm_ontick_dropped = 0;
+   g_rpl_tm_exec_modify_reverted = 0;
+   g_rpl_tm_exec_remove_overruled = 0;
+   g_rpl_tm_sync_dropped_events = 0;
+   g_rpl_tm_event_seq = 0;
+   g_rpl_tm_next_timer_ms = 0;
+   ArrayResize(g_rpl_tm_pend, 0);
+   g_rpl_tm_pend_count = 0;
+   g_rpl_tm_timing_h = INVALID_HANDLE;
 }
 
 //+------------------------------------------------------------------+
@@ -1703,7 +2555,7 @@ void Rpl_RecordGapIfNeeded(const long prev_ms, const long cur_ms)
 }
 
 //+------------------------------------------------------------------+
-void Rpl_ProcessOneTick(const RplTick &tick)
+void Rpl_ProcessOneTickInstant(const RplTick &tick)
 {
    if(g_rpl_aborted)
       return;
@@ -1803,6 +2655,60 @@ void Rpl_ProcessOneTick(const RplTick &tick)
 }
 
 //+------------------------------------------------------------------+
+void Rpl_ProcessOneTickTimed(const RplTick &tick)
+{
+   if(g_rpl_aborted)
+      return;
+   const long t = tick.time_msc;
+   const bool seg_first_tick = g_rpl_segment_first_tick;
+   const datetime tsec = (datetime)(t / 1000);
+   MqlDateTime dt;
+   TimeToStruct(tsec, dt);
+   const long day_key = dt.year * 10000 + dt.mon * 100 + dt.day;
+   if(g_rpl_segment_first_tick) {
+      g_rpl_segment_day_key = day_key;
+      g_rpl_segment_first_tick = false;
+      if(g_rpl_retained_from_ms == 0)
+         g_rpl_retained_from_ms = t;
+   } else {
+      Rpl_RecordGapIfNeeded(g_rpl_last_processed_tick_ms, t);
+      if(day_key != g_rpl_segment_day_key) {
+         Rpl_ApplySwapRollover(t);
+         g_rpl_segment_day_key = day_key;
+      }
+   }
+   g_rpl_last_processed_tick_ms = t;
+   g_rpl_seg_ticks_processed++;
+
+   Rpl_TmRunEventsUpTo(t);
+
+   Rpl_ApplySyncDealsUpTo(t);
+   Rpl_TmProcessSyncRemovals(t);
+
+   Rpl_ApplyIntervalsAt(t);
+
+   Grind_LatticeTestAddTick((datetime)(t / 1000), tick.bid, tick.ask);
+   MqlTick live;
+   if(SymbolInfoTick(_Symbol, live))
+      g_grind_last_feed_tick_msc = live.time_msc;
+
+   Rpl_TmBrokerStep(t, tick.bid, tick.ask);
+   Rpl_TmEaStepAtTick(t, seg_first_tick);
+
+   Rpl_DrainOutputs(t);
+   Rpl_PruneLattice(t);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_ProcessOneTick(const RplTick &tick)
+{
+   if(g_rpl_tm_on)
+      Rpl_ProcessOneTickTimed(tick);
+   else
+      Rpl_ProcessOneTickInstant(tick);
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_RunTicks(const RplTick &ticks[], const int tick_count, RplSegmentConfig &cfg)
 {
    g_rpl_cfg = cfg;
@@ -1821,13 +2727,21 @@ bool Rpl_RunTicks(const RplTick &ticks[], const int tick_count, RplSegmentConfig
       g_grind_start_add_reprice_short = true;
    }
    g_rpl_seg_ticks_processed = 0;
+   if(g_rpl_tm_on)
+      Rpl_TmInitSegment(cfg);
    Rpl_OrderLogDiff(cfg.from_ms, "SEED");
+   if(g_rpl_tm_on)
+      Rpl_TmSeedBrokerFromSeam(cfg.from_ms);
    for(int i = 0; i < tick_count; i++) {
       if(ticks[i].time_msc < cfg.from_ms || ticks[i].time_msc >= cfg.to_ms)
          continue;
       Rpl_ProcessOneTick(ticks[i]);
       if(g_rpl_aborted)
          return false;
+   }
+   if(g_rpl_tm_on) {
+      Rpl_TmRunEventsUpTo(cfg.to_ms);
+      Rpl_TmWriteSegEnd();
    }
    return !g_rpl_aborted;
 }
@@ -2307,9 +3221,17 @@ bool Rpl_OpenRunOutputs(const string tag, RplRunOutputHandles &handles)
    handles.book = FileOpen(prefix + "book.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    handles.summary = FileOpen(prefix + "summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
    handles.orders = FileOpen(prefix + "orders.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   handles.timing = INVALID_HANDLE;
+   if(g_rpl_tm_on) {
+      handles.timing = FileOpen(prefix + "timing.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+      g_rpl_tm_timing_h = handles.timing;
+   } else
+      g_rpl_tm_timing_h = INVALID_HANDLE;
    handles.open = (handles.deals != INVALID_HANDLE && handles.events != INVALID_HANDLE
                    && handles.book != INVALID_HANDLE && handles.summary != INVALID_HANDLE
                    && handles.orders != INVALID_HANDLE);
+   if(g_rpl_tm_on && handles.timing == INVALID_HANDLE)
+      handles.open = false;
    if(!handles.open)
       return false;
    FileWrite(handles.deals, "seg_id", "sync_idx", "time_ms", "deal", "order", "position", "entry_type", "deal_type",
@@ -2318,6 +3240,8 @@ bool Rpl_OpenRunOutputs(const string tag, RplRunOutputHandles &handles)
    FileWrite(handles.book, "seg_id", "side", "layer", "entry", "vl", "open_ms", "swap");
    FileWrite(handles.orders, "seg_id", "sync_idx", "time_ms", "stage", "action", "ticket", "type", "side", "layer",
              "role", "price", "old_price");
+   if(g_rpl_tm_on && handles.timing != INVALID_HANDLE)
+      FileWrite(handles.timing, "seg_id", "kind", "event_ms", "start_ms", "end_ms", "sends", "market_ms", "dropped");
    return true;
 }
 
@@ -2334,6 +3258,9 @@ void Rpl_CloseRunOutputs(RplRunOutputHandles &handles)
       FileClose(handles.summary);
    if(handles.orders != INVALID_HANDLE)
       FileClose(handles.orders);
+   if(handles.timing != INVALID_HANDLE)
+      FileClose(handles.timing);
+   g_rpl_tm_timing_h = INVALID_HANDLE;
    handles.open = false;
 }
 
