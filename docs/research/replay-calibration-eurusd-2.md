@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for Gemini (10 Oct ~02:10Z); NOTHING RULED.** No harness change and no run on any data before Gemini's rulings and the operator's go. The constants in s3 are fixed BEFORE any run under this plan; a constant changed after a run is a new pre-registration, recorded as such |
+| Status | **DRAFT; Gemini's first round in s11 (10 Oct ~02:15Z), his SECOND ROUND (s12) not yet sent; NOTHING BUILT.** No harness change and no run on any data before Gemini's rulings and the operator's go. The constants in s3 are fixed BEFORE any run under this plan; a constant changed after a run is a new pre-registration, recorded as such |
 | Origin | Operator 10 Oct ~01:53Z: a new pre-registration after the first one failed (`replay-calibration-eurusd.md` s12, Gemini GRC2-1: s8's "fail in M1-M3" branch governs; the misses left are mostly timing, M3) |
 | Rules it keeps | Everything in the first plan that this file does not change (s4 here lists it): the question (s1 there), the window and segments (s2), seeding at an init (s3), the data (s4), the engine (c) (s5), T0 / T0b (passed; not re-run), T1 and T2 and their marks (s6), the miss categories (s7), not modelled (s9). Our trade history is the gold standard; no time-series analysis or price signal: the ticks only drive our rules; the timing constants are measured from OUR sends and fills, never from a replay result |
 | Supersedes | The first plan's fill rule in part ("an order placed on a tick can fill from the next tick", s6 there): replaced by s3's broker and EA timing. Its placement-latency sensitivities (250 ms, 1 s) are re-stated in s6 here |
@@ -13,8 +13,8 @@ This message has a line count at the bottom
 
 Source at `main` EA code `5bb5fdb`; harness `replay-harness` code `90fbce4`
 (core `ea/fxgrind_replay_core.mqh`). Measurements:
-`research/replay/measure_timing.py` (rules in its header; 13 tests, mutants
-16 of 16) on the calibration window (each fleet's run rows, 1 Oct to 8 Oct
+`research/replay/measure_timing.py` (rules in its header; 16 tests, mutants
+21 of 21) on the calibration window (each fleet's run rows, 1 Oct to 8 Oct
 22:00Z), results `research/replay/results/timing_20261008/timing.md`. Inputs:
 send_logs `sends_EURUSD_OPT{B,C,D}_2026-10-09.jsonl`, archives
 `archive_EURUSD_OPT{B,C,D}_2026-10-08_2240.jsonl` (sha256 B `4b584882a288681f`,
@@ -33,6 +33,10 @@ C `c51dd5b5fec41502`, D `3866d5ff6324266f`), ticks w2 (`db2ea94173a4d0c8`).
 | K9 | The L0 that follows a close-by goes out on the first tick after the close-by ends: residual median 9, 61, 10 ms (n 20, 26, 20); p75 0.4-0.6 s (a later tick) | `timing.md` M7 | MEASURED (thin) |
 | K10 | MT5 does not queue a new `OnTick` while one is queued or running; the next `OnTick` reads the newest price | MQL5 book, "Expert Advisors main event: OnTick" | DOCUMENTED, not tested here |
 | K11 | The harness today (90fbce4): a touch fills on the touching tick (`Rpl_FillsOnTick`, core 1441-1449: the order needs a placement time before the tick); the EA's deal handler runs in that tick; `Grind_ProcessCloseByQueues` runs in the same tick (1763) and the simulated close-by completes at once; placement times are stamped by `Rpl_ScanNewOrders` after the engine (1784), BEFORE `Rpl_ProcessCloseByDone` (1787) and the timer (CB_DONE defect) | core at `90fbce4` | VERIFIED |
+| K13 | **The deal's price is the market at the deal, not the limit.** Of 1052 IN deals: at the limit 402, better 510, worse 140 (net +1801 points, ~0.17 pip a deal in our favour); equal to the executable side (ask for a buy, bid for a sell) of the newest tick at or before the deal time 1046 (B 321, C 357, D 368). So the 140 worse deals filled although the market had moved off the limit by the deal: a touch that reverses within lam still fills. Of the 1047 deals whose ORDER price a tick touched in [F - 2 s, F + 0.5 s], the market at first touch + 261 ms equals the deal in 1021 and is within 0.2 pip in 1027 | `timing.md` M8 | MEASURED |
+| K14 | The EA sets a layer's entry, and so its exit target, from the DEAL price (`Grind_AppendLayer(side, deal_price, ...)`); the harness's simulated deal carries the ORDER price (`Rpl_FillsOnTick`, `price = rec.price`). Real ENT deals more than 0.2 pip from their order price: B 35 of 163, C 39 of 181, D 47 of 190 | `ea/grind_engine.mqh` 2885, 2972; core ~1468-1488 | VERIFIED; MEASURED |
+| K15 | `compare.py`'s T0 touch uses the DEAL price when it has one (`fill_pts`), which K13 makes nearly certain to touch (the deal's own tick priced it). On the ORDER price T0 is 1047 of 1052 (99.5%; B 321 / 323, C 359 / 359, D 367 / 370) | `research/replay/compare.py` 215-221; `timing.md` M2 n | VERIFIED |
+| K16 | The real carry pass runs in `OnTimer` (1 s timer) only when the 60 s telemetry interval falls due (`TelemetryIntervalSec` 60 in the presets), at most 2 layers a step (`GRIND_CARRY_PASS_CHUNK`); the harness runs it once a minute on the tick path | `ea/fxgrind.mq5` 391, 419-430; `ea/grind_carry.mqh` 32, 1228; core 1790 | VERIFIED |
 | K12 | What the first plan's misses look like against K4-K9: the real L0 after a close-by goes out lam + the gap to the next tick + 294 ms + the gap to the tick after that after the touch (B 1 Oct 11:12: the replay's EXT on the touching tick 11:12:11.208, the real EXT deal 11:12:11.489, OUT_BY 11:12:12.497, L0 placed 11:12:13.026 by send_logs, the EA's clock, K2); the replay's on the touch. Six misses read by hand were each one of: the close-by, serial sends, the fill after a touch, or a placement difference carried forward | first plan s12 record | DATA |
 
 ## 1. THE QUESTION
@@ -68,8 +72,11 @@ Fixes to the harness's own state remain outside the attempt count (GO4-3).
 - **R1 the broker fills at the touch, the deal lands lam later.** A resting
   order whose price a tick reaches (the first plan's touch: ask <= price for
   a buy limit, bid >= price for a sell limit; prices on the symbol grid)
-  is FILLED by that tick at its own price; the deal exists, and the EA is
-  told, at touch + lam. From the touch the order cannot be modified or
+  is FILLED by that tick; the deal exists, and the EA is told, at touch +
+  lam, at the PRICE of the market then: the executable side (ask for a buy,
+  bid for a sell) of the newest tick at or before touch + lam (K13; better
+  or worse than the limit, as IC fills). The position opens at that price,
+  as live (K14). From the touch the order cannot be modified or
   removed (a send to it in that interval fails, as a send to an order in
   execution); until touch + lam the EA still sees it resting. (The last
   two are CHOICES, not measured: GTM-1.)
@@ -91,8 +98,13 @@ Fixes to the harness's own state remain outside the attempt count (GO4-3).
 - **R4 what the EA sees.** In any handler the EA's market (bid, ask, time)
   is the newest tick at or before the moment the handler runs; its book is
   the broker's at that moment (R1, R2).
-- **R5 the carry timer** runs as now (once a minute on the tick path, core
-  1790), as a handler under R3.
+- **R5 the carry timer** runs once a minute, as live (K16: the 1 s `OnTimer`
+  does the carry step only when the 60 s telemetry interval falls due; the
+  harness keeps its once-a-minute call on the tick path, core 1790), as a
+  handler under R3: its sends (at most 2 modifies a step, ~576 ms) make the
+  EA busy like any other; a timer that falls due while the EA is busy runs
+  when it is free (one timer event queued: the MQL5 event reference states
+  the same rule for the timer as for `OnTick`, K10; not tested here).
 
 What these rules give against K6-K9, by construction: the close-by on the
 first tick after the deal (the queue is served first in `OnTick`), its
@@ -240,8 +252,64 @@ before s7 allows it; no mark adjusted to a result.
 - **GTM-7.** s8: the attempt count starts at 0 under this plan. Right?
 - **GTM-8.** What fact is missing?
 
-## 11. RULINGS AND RECORD
+## 11. GEMINI'S RULINGS (GTM-1..8, 10 Oct ~02:14Z) AND CLAUDE'S CHECK
+
+- **GTM-1: the ruling ACCEPTED (filled at the touch); his premise WRONG,
+  and R1 AMENDED.** He argued that a delayed execution would show as
+  slippage, and that the deal price "precisely matches the touching tick".
+  It does not: IC's deal is priced at the market at the deal (K13: 1046 of
+  1052), better than the limit in 510 and WORSE in 140. The 140 worse deals
+  are the evidence that decides the reading: they filled although the
+  market had left the limit by the deal time, so the fill is decided at the
+  touch and priced lam later. R1 now carries that price rule, and K14 says
+  why it matters (the EA's exits follow the deal price). The rule is new
+  since his reading: s12 GTM2-1. R1's two choices (no send to the order
+  after the touch; the EA sees it resting until touch + lam) accepted as
+  modelling the terminal; not measured.
+- **GTM-2: ACCEPTED** (an order rests from its send's end; a removal stops
+  it at its start: the bounds that never fill an order the broker could
+  not have filled). K7 is consistent (OUT_BY ~7 ms before the send returns).
+- **GTM-3: ACCEPTED.** His "MT5 queues exactly one `OnTick`" during a
+  trade handler is the documented rule (K10); his reading of K9's later
+  ticks (the next tick's arrival, not the queue) is consistent with M7 and
+  not tested.
+- **GTM-4: ACCEPTED: a measurement, not a fit.** Recorded as a rule (s3):
+  a constant changed after a run to rescue a segment is a fit.
+- **GTM-5: ACCEPTED.** s5 already requires the hand-derived timelines
+  first; the byte-for-byte check proves only that `timing = 0` is H1.
+- **GTM-6: ACCEPTED as a limitation, recorded.** B's and C's holdout free
+  runs carry the state of a free run from 7 Oct into 04:32Z (VLs, books),
+  so a B or C T2 fail in the holdout cannot be separated from that drift.
+  D (re-inited 9 Oct 04:24:14Z) is the clean fleet. The operator's ruling
+  (no synthetic init) stands; the holdout's verdict is read with this.
+- **GTM-7: ACCEPTED** (the attempt count starts at 0 here).
+- **GTM-8: the concern ANSWERED in source; R5 RESTATED.** His premise (a
+  carry pass in a narrow window could be pushed out by close-by sends) does
+  not hold: the step runs every 60 s across the 20:50-20:59Z window, 2
+  layers a step (K16), and a busy EA delays a timer by at most its sends
+  (seconds). R5 now says how the timer and its sends sit under R3: s12
+  GTM2-2.
+- **Claude's own finding while checking (K15):** T0's touch is on the deal
+  price, which K13 makes nearly circular. s12 GTM2-3.
+
+## 12. SECOND ROUND FOR GEMINI (check only what this section lists)
+
+- **GTM2-1.** R1's price rule (new): the deal at the executable side of the
+  newest tick at or before touch + lam (K13: equal in 1021 of 1047 with the
+  fixed lam, within 0.2 pip in 1027; at the real deal time 1046 of 1052).
+  The fill is still decided at the touch. Right, and is a sensitivity
+  needed (e.g. the deal at the limit, as now)?
+- **GTM2-2.** R5 restated (K16): the carry step once a minute, as live; its
+  sends under R3. Enough?
+- **GTM2-3.** T0's base (K15): `compare.py` touches on the deal price,
+  nearly circular after K13. Proposed for this plan, before any run: T0 and
+  T1's "touchable" use the ORDER price (a fill needs its order price
+  touched): T0 1047 of 1052 (99.5%, above the 95% mark on every fleet). The
+  5 untouched deals are M1 (data) and leave T1's base. Right?
+- **GTM2-4.** What fact is missing?
+
+## 13. RECORD
 
 (empty)
 
-Line count: 247
+Line count: 315
