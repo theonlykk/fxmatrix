@@ -683,5 +683,46 @@ changes a preset; no mark adjusted to fit a result.
   (a replay order 1 point away). Fix 5 (`prompts/cursor_replay_fix5.md`):
   P1 every file price on the symbol grid; S2 the sync reset leaves a held
   layer's VL alone; to Gemini.
+- **Fix 5** (`prompts/cursor_replay_fix5.md`, Gemini GF5-1..4, GF5b-1 for
+  RT8b): built `bafe936` / `58e3c0f` / `90fbce4`; suite **390 / 390**
+  (`rt_90fbce4`); six runs `6972e16`, no ABORT, ORDERS_KEPT short only on C
+  seg 16 (3/4, as before). ROLL_ACCEPTED sync vs free now agree (B seg 4
+  11 / 10, seg 7 7 / 7; C seg 11 13 / 13; D seg 24 10 / 10).
+- **T1 at `90fbce4`: PASS on all three fleets.** Matched / touchable **B
+  96.0%, C 96.1%, D 96.5%** (310 / 323, 345 / 359, 357 / 370); replay-only
+  **B 3.4%, C 4.5%, D 2.4%**. **T2: FAIL on all three, on the UNPRICED share
+  alone** (B 31.9%: segs 1, 2, 3; C 36.2%: 11, 12, 13, 16; D 34.6%: 21, 23;
+  mark 20%); the per-side sums (S, R, ROLL_ACCEPTED, rho) pass on all six
+  sides. Two of the unpriced segments fail on one miss (B 2: 4 / 5; C 12:
+  6 / 7); B 3, C 13 and D 23 (the 2 Oct payrolls burst) fail on replay-only
+  deals (9, 8, 5). Results: `research/replay/results/eurusd_20261008_90fbce4/`.
+- **The 40 misses and 36 replay-only deals** (`classified.csv`,
+  `orders_reading.csv`): misses M3 16, M4? 11, M13? 4, open 5, M10 2 (C seg
+  16), M11 1, M9 1; replay-only M3 21, open 9, M4? 3, M10 2, M13? 1. The 32
+  misses fix 5 aimed at are gone: exact touches now fill at every price
+  value (621 values; no value never fills). Six of the open / M4? rows read
+  by hand from the order logs and send_logs are timing: (a) an ADD placed
+  after a close-by (B 2 Oct 16:57, B 6 Oct 14:25: the replay places it on
+  the next tick, the real after its close-by at another mid; the replay
+  fills, the real does not); (b) the EA's sends are serial (B 1 Oct 13:00:
+  the real re-centres L0 0.6 s after the replay, behind two other sends, at
+  another mid); (c) the broker's fill after a touch (C 8 Oct 19:17: both
+  sides' L05 at 1.11983; the bid 0.5 pip through it for 1.8 s without a real
+  fill, then the EA moved the order; the real L05 at 1.12007 filled 2.2 s
+  after its first touch); (d) a placement difference carried forward (D 1
+  Oct: the real L0 1.1 pip from the replay's after a close-by, so only the
+  replay crossed the 14-pip stranded mark at 10:31 and re-centred).
+- **One harness defect left (Claude's read of `90fbce4`):** an order placed
+  in `Rpl_ProcessCloseByDone` (stage CB_DONE) gets its placement time at
+  the NEXT tick's scan (`Rpl_ScanNewOrders` runs before it), so it cannot
+  fill on the first tick after it is placed, against s6's fill rule. 4 sync
+  cases where that tick touched (B 3, C 13 twice, D 23; the C 13 14:44:22
+  replay-only exit filled one tick late).
+- **For the operator and Gemini (not ruled):** (1) T1 passes and T2 fails
+  on the UNPRICED share only, with the misses left mostly timing: does s8's
+  "T1 passes, T2 fails" or its "fail in M1-M3" govern? (2) Before the
+  holdout (no code change after it starts): fix the CB_DONE defect and run
+  s6's placement-latency sensitivities (250 ms, 1 s; reported, never
+  deciding), or freeze `90fbce4` as it is?
 
-Line count: 687
+Line count: 728

@@ -1,0 +1,77 @@
+fleet,kind,seg,time_server,side,role,layer,price,near_dt_ms,near_dpts,category,evidence
+B,MISS,1,10-01 11:26:17.782,S,ENT,L00,1.13025,-3206715,39,M3,"placement: replay L0 at its own close 1.818 s earlier = 1.13034, real 1.13025 placed later; touch 1.13027 did not reach the replay price"
+B,MISS,1,10-01 12:17:33.222,S,ENT,L00,1.12992,-6282155,72,M13?,pred 1.12991 real 1.12992 touch 1.12992: replay should have filled; needs the replay order log
+B,MISS,1,10-01 13:07:42.117,S,ENT,L00,1.12741,-9291050,323,M4?,re-centred 3 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+B,MISS,2,10-02 05:31:38.657,S,ENT,L00,1.12426,-9960123,33,M3,"placement: replay L0 at its own close 2.708 s earlier = 1.12428, real 1.12426 placed later; touch 1.12426 did not reach the replay price"
+B,MISS,3,10-02 13:30:29.271,S,ENT,L00,1.12388,2756435,-32,M3,"placement: replay L0 at its own close 0.003 s earlier = 1.12396, real 1.12388 placed later; touch 1.12388 did not reach the replay price"
+B,EXTRA,3,10-02 15:30:02.061,S,ENT,L01,1.12357,7846,222,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 15:30:03.869,S,ENT,L02,1.12579,75327,-45,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 15:30:03.869,L,EXT,L16,1.12579,23434,-127,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,MISS,3,10-02 15:30:09.907,S,ENT,L01,1.12579,-7846,-222,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 15:30:18.109,S,ENT,L01,1.12414,-8202,165,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 15:30:25.129,S,ENT,L01,1.12447,5372,36,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 15:30:25.930,L,EXT,L16,1.12472,1373,-20,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,MISS,3,10-02 15:30:27.303,L,EXT,L16,1.12452,-1373,20,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 15:30:27.741,S,ENT,L01,1.12469,2760,14,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,MISS,3,10-02 15:30:30.501,S,ENT,L01,1.12483,-2760,-14,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+B,EXTRA,3,10-02 16:57:43.988,L,ENT,L02,1.12715,19917,29,open,to read with the replay order log
+B,EXTRA,3,10-02 16:57:44.993,L,ENT,L02,1.12706,18912,38,open,to read with the replay order log
+B,MISS,3,10-02 16:58:03.905,L,ENT,L02,1.12744,-18912,-38,open,to read with the replay order log
+B,EXTRA,7,10-06 14:25:38.284,L,ENT,L02,1.12631,29059,14,open,to read with the replay order log
+B,MISS,7,10-06 14:26:07.343,L,ENT,L02,1.12645,-29059,-14,open,to read with the replay order log
+B,MISS,9,10-07 10:54:25.633,S,ENT,L00,1.11921,176151,-82,M4?,re-centred 2 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+B,EXTRA,9,10-07 10:57:21.784,S,ENT,L00,1.11839,657,9,M3,paired with the miss at 10:57:22.441 (M3)
+B,MISS,9,10-07 10:57:22.441,S,ENT,L00,1.11848,-657,-9,M3,placement: the replay placed L0 at its own close (1.203 s before the real) at 1.11839 and filled there 0.657 s before the real fill at 1.11848
+B,MISS,9,10-07 15:11:54.108,S,ENT,L00,1.11762,829501,-79,M3,"placement: replay L0 at its own close 3.631 s earlier = 1.11767, real 1.11762 placed later; touch 1.11763 did not reach the replay price"
+C,MISS,11,10-01 11:26:17.779,S,ENT,L00,1.13025,-3206712,39,M3,"placement: replay L0 at its own close 1.480 s earlier = 1.13034, real 1.13025 placed later; touch 1.13027 did not reach the replay price"
+C,MISS,11,10-01 12:17:33.221,S,ENT,L00,1.12992,3024704,-247,M13?,pred 1.12991 real 1.12992 touch 1.12992: replay should have filled; needs the replay order log
+C,EXTRA,11,10-01 13:07:57.925,S,ENT,L00,1.12745,16333,3,M4?,paired with the miss at 13:08:14.258 (M4?)
+C,MISS,11,10-01 13:08:14.258,S,ENT,L00,1.12748,-16333,-3,M4?,re-centred 3 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+C,MISS,12,10-02 05:31:38.657,S,ENT,L00,1.12426,-9960123,33,M3,"placement: replay L0 at its own close 2.541 s earlier = 1.12428, real 1.12426 placed later; touch 1.12426 did not reach the replay price"
+C,MISS,13,10-02 13:20:43.819,L,ENT,L07,1.12324,5545758,0,open,to read with the replay order log
+C,MISS,13,10-02 13:30:29.270,S,ENT,L00,1.12388,2756436,-32,M3,"placement: replay L0 at its own close 1.110 s earlier = 1.12396, real 1.12388 placed later; touch 1.12388 did not reach the replay price"
+C,EXTRA,13,10-02 14:44:22.341,L,EXT,L03,1.12424,2748808,-62,open,to read with the replay order log
+C,EXTRA,13,10-02 15:30:03.869,S,ENT,L02,1.12579,68082,-100,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,EXTRA,13,10-02 15:30:03.869,L,EXT,L07,1.12579,16114,-157,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,EXTRA,13,10-02 15:30:10.685,S,EXT,L02,1.12479,759752,-94,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,EXTRA,13,10-02 15:30:14.097,L,EXT,L07,1.12453,5886,-31,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,EXTRA,13,10-02 15:30:18.911,L,EXT,L07,1.12428,1072,-6,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,MISS,13,10-02 15:30:19.983,L,EXT,L07,1.12422,-1072,6,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,EXTRA,13,10-02 15:30:57.046,S,ENT,L01,1.12404,1666,13,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+C,EXTRA,13,10-02 16:58:02.241,L,ENT,L02,1.12734,2866,9,open,to read with the replay order log
+C,MISS,16,10-06 02:17:53.314,L,EXT,L07,1.12196,,,M10,"C seg 16: the 6 Oct Monday-build re-roll reload (ORDERS_KEPT 3/4, 2/4; the real EA moved 27 orders)"
+C,EXTRA,16,10-06 02:18:31.068,L,EXT,L04,1.12201,321846,1,M10,"C seg 16: the 6 Oct Monday-build re-roll reload (ORDERS_KEPT 3/4, 2/4; the real EA moved 27 orders)"
+C,EXTRA,16,10-06 02:24:29.652,L,EXT,L02,1.12206,420578,1,M10,"C seg 16: the 6 Oct Monday-build re-roll reload (ORDERS_KEPT 3/4, 2/4; the real EA moved 27 orders)"
+C,MISS,16,10-06 03:06:56.782,L,ENT,L00,1.12139,6310992,82,M10,"C seg 16: the 6 Oct Monday-build re-roll reload (ORDERS_KEPT 3/4, 2/4; the real EA moved 27 orders)"
+C,EXTRA,17,10-06 14:24:17.553,L,ENT,L00,1.12564,133311,70,open,to read with the replay order log
+C,MISS,17,10-06 14:26:30.864,L,ENT,L00,1.12634,-133311,-70,M4?,re-centred 5 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+C,EXTRA,17,10-06 15:05:16.731,L,ENT,L00,1.12737,3076,-4,M4?,paired with the miss at 15:05:19.807 (M4?)
+C,MISS,17,10-06 15:05:19.807,L,ENT,L00,1.12733,-3076,4,M4?,re-centred 1 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+C,EXTRA,19,10-07 10:57:21.784,S,ENT,L00,1.11839,8903,15,M3,paired with the miss at 10:57:30.687 (M3)
+C,MISS,19,10-07 10:57:30.687,S,ENT,L00,1.11854,-8903,-15,M3,placement: the replay placed L0 at its own close (1.697 s before the real) at 1.11839 and filled there 8.903 s before the real fill at 1.11854
+C,MISS,19,10-08 15:24:49.962,S,ENT,L04,1.11923,2594481,0,open,to read with the replay order log
+C,EXTRA,19,10-08 19:17:28.640,S,ENT,L05,1.11983,6647,24,open,to read with the replay order log
+C,EXTRA,19,10-08 19:17:33.855,S,ENT,L05,1.12011,1432,-4,open,to read with the replay order log
+C,MISS,19,10-08 19:17:35.287,S,ENT,L05,1.12007,-1432,4,open,to read with the replay order log
+D,EXTRA,21,10-01 10:32:40.413,S,ENT,L00,1.13055,-2309880,97,open,to read with the replay order log
+D,EXTRA,21,10-01 11:26:24.955,S,ENT,L00,1.13034,18592,17,M4?,paired with the miss at 11:26:43.547 (M4?)
+D,MISS,21,10-01 11:26:43.547,S,ENT,L00,1.13051,-18592,-17,M4?,re-centred 1 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+D,MISS,21,10-01 13:15:12.860,S,ENT,L00,1.12787,-4052601,174,M4?,re-centred 2 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+D,MISS,21,10-01 18:36:53.273,S,ENT,L00,1.12388,2977199,60,M11,"at the edge of the 1 Oct ADR-160 gate interval (data, earliest ON)"
+D,EXTRA,21,10-01 19:26:30.472,S,ENT,L00,1.12448,857,3,M13?,paired with the miss at 19:26:31.329 (M13?)
+D,MISS,21,10-01 19:26:31.329,S,ENT,L00,1.12451,-857,-3,M13?,pred 1.12367 real 1.12451 touch 1.12451: replay should have filled; needs the replay order log
+D,MISS,21,10-01 20:20:41.413,S,ENT,L00,1.12224,-3250941,224,M4?,re-centred 3 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+D,EXTRA,23,10-02 15:30:03.869,S,ENT,L03,1.12579,79718,-26,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+D,EXTRA,23,10-02 15:30:03.869,L,EXT,L10,1.12579,26190,-101,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+D,EXTRA,23,10-02 15:30:16.902,S,ENT,L02,1.12412,-6935,-49,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+D,EXTRA,23,10-02 15:30:23.122,S,ENT,L02,1.12440,4165,12,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+D,EXTRA,23,10-02 15:30:26.335,L,EXT,L10,1.12478,3724,0,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+D,MISS,23,10-02 15:30:27.287,S,ENT,L02,1.12452,-4165,-12,M3,2 Oct 12:30Z US payrolls burst (15:30 server): several fills a second
+D,MISS,23,10-02 17:11:22.868,L,ENT,L00,1.12782,,,M4?,re-centred 2 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+D,MISS,24,10-05 05:58:09.576,S,ENT,L00,1.11737,-436810,208,M4?,re-centred 4 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+D,MISS,24,10-05 23:50:01.499,L,EXT,L01,1.12237,,,M9,placed in the carry window 23:50-23:59 server
+D,EXTRA,27,10-06 14:45:00.497,L,ENT,L00,1.12688,8909,-16,M3,paired with the miss at 14:45:09.406 (M3)
+D,MISS,27,10-06 14:45:09.406,L,ENT,L00,1.12672,-8909,16,M3,"placement: replay L0 at its own close 1.253 s earlier = 1.12667, real 1.12672 placed later; touch 1.12672 did not reach the replay price"
+D,MISS,29,10-07 10:42:16.730,S,ENT,L00,1.12068,-1077935,89,M13?,pred 1.12068 real 1.12068 touch 1.12068: replay should have filled; needs the replay order log
+D,MISS,29,10-07 10:54:25.632,S,ENT,L00,1.11921,-1806837,236,M4?,re-centred 2 times before the fill (K3): which tick re-centred decides the price; needs the replay order log
+D,MISS,29,10-07 11:17:40.658,S,ENT,L00,1.11826,-3201863,331,M3,"placement: replay L0 at its own close 1.021 s earlier = 1.11827, real 1.11826 placed later; touch 1.11826 did not reach the replay price"
