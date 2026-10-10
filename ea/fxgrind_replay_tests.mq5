@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT53 (fix6 Part A T27) |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT60 (fix6 H1 + H2) |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -987,6 +987,240 @@ bool Rpl_TestFindDeal(const string path,
    return false;
 }
 
+int Rpl_TestCountDealsAtTime(const string path, const long entry_type, const long time_ms)
+{
+   int n = 0;
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return 0;
+   for(int k = 0; k < 12; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return 0;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      FileReadString(h);
+      const long tm = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      const long et = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      if(et == entry_type && tm == time_ms)
+         n++;
+   }
+   FileClose(h);
+   return n;
+}
+
+bool Rpl_TestTimingHasKindEvent(const string path, const string kind, const long event_ms)
+{
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   for(int k = 0; k < 8; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return false;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      const string row_kind = FileReadString(h);
+      const long ev = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      if(row_kind == kind && ev == event_ms) {
+         FileClose(h);
+         return true;
+      }
+   }
+   FileClose(h);
+   return false;
+}
+
+bool Rpl_TestTimingFirstKindMarket(const string path, const string kind, long &market_ms)
+{
+   market_ms = 0;
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   for(int k = 0; k < 8; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return false;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      const string row_kind = FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      const long mkt = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      if(row_kind == kind) {
+         market_ms = mkt;
+         FileClose(h);
+         return true;
+      }
+   }
+   FileClose(h);
+   return false;
+}
+
+bool Rpl_TestTimingHasOntickOrQueuedAt(const string path, const long event_ms)
+{
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   for(int k = 0; k < 8; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return false;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      const string row_kind = FileReadString(h);
+      const long ev = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      if(ev == event_ms && (row_kind == "ONTICK" || row_kind == "QUEUED_ONTICK")) {
+         FileClose(h);
+         return true;
+      }
+   }
+   FileClose(h);
+   return false;
+}
+
+int Rpl_TestTimingCountQueuedInRange(const string path, const long start_lo, const long start_hi)
+{
+   int n = 0;
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return 0;
+   for(int k = 0; k < 8; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return 0;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      const string row_kind = FileReadString(h);
+      FileReadString(h);
+      const long st = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      if(row_kind == "QUEUED_ONTICK" && st >= start_lo && st < start_hi)
+         n++;
+   }
+   FileClose(h);
+   return n;
+}
+
+bool Rpl_TestTimingLatticeAfterCloseBy(const string path,
+                                       const long ontick_event_ms,
+                                       long &stage_start_ms,
+                                       long &stage_market_ms)
+{
+   stage_start_ms = 0;
+   stage_market_ms = 0;
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   for(int k = 0; k < 8; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return false;
+      }
+      FileReadString(h);
+   }
+   bool in_handler = false;
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      const string row_kind = FileReadString(h);
+      const long ev = (long)StringToInteger(FileReadString(h));
+      const long st = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      const long mkt = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      if(row_kind == "ONTICK" && ev == ontick_event_ms)
+         in_handler = true;
+      if(in_handler && row_kind == "STAGE:LATTICE") {
+         stage_start_ms = st;
+         stage_market_ms = mkt;
+         FileClose(h);
+         return true;
+      }
+      if(in_handler && (row_kind == "ONTICK" || row_kind == "QUEUED_ONTICK" || row_kind == "DEAL"
+                        || row_kind == "CLOSEBY_DONE" || row_kind == "TIMER") && ev != ontick_event_ms)
+         in_handler = false;
+   }
+   FileClose(h);
+   return false;
+}
+
+void Rpl_TestWriteRt55SharedFiles()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   int w = FileOpen(dir + "ticks_rt55.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   FileWrite(w, IntegerToString(T + 0), "1.12698", "1.12700", "0");
+   FileWrite(w, IntegerToString(T + 5000), "1.12643", "1.12645", "0");
+   FileWrite(w, IntegerToString(T + 5100), "1.12638", "1.12640", "0");
+   FileWrite(w, IntegerToString(T + 5400), "1.12640", "1.12642", "0");
+   FileWrite(w, IntegerToString(T + 5500), "1.12641", "1.12643", "0");
+   FileWrite(w, IntegerToString(T + 5900), "1.12573", "1.12575", "0");
+   FileWrite(w, IntegerToString(T + 5950), "1.12580", "1.12582", "0");
+   FileWrite(w, IntegerToString(T + 9000), "1.12573", "1.12575", "0");
+   FileWrite(w, IntegerToString(T + 9100), "1.12568", "1.12570", "0");
+   FileWrite(w, IntegerToString(T + 9500), "1.12590", "1.12592", "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt55.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued");
+   FileWrite(w, "S,0,1.12605," + IntegerToString(RplMs(RPL_T0, -3600)) + ",6601,0,0,0.01,0");
+   FileWrite(w, "S,1,1.12675," + IntegerToString(RplMs(RPL_T0, -1800)) + ",6602,0,0,0.01,0");
+   FileWrite(w, "S,2,1.12745," + IntegerToString(RplMs(RPL_T0, -900)) + ",6603,0,0,0.01,0");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt55.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt55.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(T) + "," + IntegerToString(T + 10000) +
+             ",15,2,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt55.csv,ticks_rt55.csv");
+   FileClose(w);
+}
+
 string Rpl_ReadWholeFile(const string rel_path)
 {
    int h = FileOpen(rel_path, FILE_READ | FILE_TXT | FILE_ANSI);
@@ -1759,6 +1993,199 @@ void Test_RT53_CbDoneExitFillNextTick()
    AssertTrue("RT53 next tick", fill_ms == RplMs(RPL_T0, 2));
 }
 
+void Test_RT54_BrokerBook()
+{
+   Rpl_ResetAll();
+   AssertFalse("RT54 not live before", Rpl_BkTouched(1, 999, 1.09990, 1.10000, 0));
+   Rpl_BkPlace(1, ORDER_TYPE_BUY_LIMIT, 1.10000, 1000);
+   AssertTrue("RT54 live at end", Rpl_BkTouched(1, 1000, 1.09990, 1.10000, 0));
+   Rpl_BkModify(1, 1.10010, 2000);
+   AssertNear("RT54 old price before", Rpl_BkPriceAt(1, 1999), 1.10000, 1e-9);
+   AssertNear("RT54 new price from", Rpl_BkPriceAt(1, 2000), 1.10010, 1e-9);
+   Rpl_BkRemove(1, 3000);
+   AssertTrue("RT54 rests until remove", Rpl_BkTouched(1, 2999, 1.10000, 1.10010, 0));
+   AssertFalse("RT54 gone at remove", Rpl_BkTouched(1, 3000, 1.10000, 1.10010, 0));
+   Rpl_BkPlace(2, ORDER_TYPE_BUY_LIMIT, 1.10000, 0);
+   Rpl_BkSetExec(2);
+   AssertFalse("RT54 exec not touchable", Rpl_BkTouched(2, 500, 1.09990, 1.10000, 0));
+   Rpl_BkPlace(3, ORDER_TYPE_BUY_LIMIT, 1.10000, 0);
+   AssertFalse("RT54 thru exact no", Rpl_BkTouched(3, 10, 1.09990, 1.10000, 1));
+   AssertTrue("RT54 thru one point", Rpl_BkTouched(3, 10, 1.09989, 1.09999, 1));
+   Rpl_BkPlace(4, ORDER_TYPE_SELL_LIMIT, 1.10050, 0);
+   AssertTrue("RT54 sell touch", Rpl_BkTouched(4, 10, 1.10050, 1.10052, 0));
+}
+
+void Test_RT55_TimingCloseByChain()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   Rpl_TestWriteRt55SharedFiles();
+   Rpl_SetOutputSuffix("_free");
+   Rpl_SetTiming(1, "base");
+   AssertTrue("RT55 run", Rpl_RunReplayFiles("rt55", false));
+   long fill_ms = 0;
+   double fill_px = 0.0;
+   AssertTrue("RT55 L2 exit",
+              Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 2, DEAL_ENTRY_IN, fill_ms, fill_px));
+   AssertTrue("RT55 L2 time", fill_ms == T + 5261);
+   AssertNear("RT55 L2 price", fill_px, 1.12640, 1e-5);
+   AssertTrue("RT55 OUT_BY at end of send",
+              Rpl_TestCountDealsAtTime(dir + "out_rt55_free_deals.csv", DEAL_ENTRY_OUT_BY, T + 5694) == 2);
+   AssertTrue("RT55 L1 exit",
+              Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 1, DEAL_ENTRY_IN, fill_ms, fill_px));
+   AssertTrue("RT55 L1 time", fill_ms == T + 9261);
+   AssertNear("RT55 L1 price", fill_px, 1.12570, 1e-5);
+   AssertFalse("RT55 no OnTick inside the close-by",
+               Rpl_TestTimingHasOntickOrQueuedAt(dir + "out_rt55_free_timing.csv", T + 5500));
+   bool queued_mkt_ok = false;
+   int th = FileOpen(dir + "out_rt55_free_timing.csv", FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(th != INVALID_HANDLE) {
+      for(int k = 0; k < 8 && !FileIsEnding(th); k++)
+         FileReadString(th);
+      while(!FileIsEnding(th)) {
+         FileReadString(th);
+         const string rk = FileReadString(th);
+         FileReadString(th);
+         FileReadString(th);
+         FileReadString(th);
+         FileReadString(th);
+         const long mkt = (long)StringToInteger(FileReadString(th));
+         FileReadString(th);
+         if(rk == "QUEUED_ONTICK" && mkt == T + 5950)
+            queued_mkt_ok = true;
+      }
+      FileClose(th);
+   }
+   AssertTrue("RT55 queued reads newest", queued_mkt_ok);
+   AssertTrue("RT55 one queued", Rpl_TestTimingCountQueuedInRange(dir + "out_rt55_free_timing.csv", T + 5694, T + 9000) == 1);
+   long lat_st = 0;
+   long lat_mkt = 0;
+   AssertTrue("RT55 lattice stage after the close-by reads +5500",
+              Rpl_TestTimingLatticeAfterCloseBy(dir + "out_rt55_free_timing.csv", T + 5400, lat_st, lat_mkt));
+   AssertTrue("RT55 lattice start", lat_st == T + 5694);
+   AssertTrue("RT55 lattice market", lat_mkt == T + 5500);
+   Rpl_SetOutputSuffix("");
+   Rpl_SetTiming(0, "base");
+}
+
+void Test_RT56_LimitPx()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   Rpl_SetOutputSuffix("_free");
+   Rpl_SetTiming(1, "limitpx");
+   AssertTrue("RT56 run", Rpl_RunReplayFiles("rt55", false));
+   long fill_ms = 0;
+   double fill_px = 0.0;
+   Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 2, DEAL_ENTRY_IN, fill_ms, fill_px);
+   AssertTrue("RT56 L2 time", fill_ms == T + 5261);
+   AssertNear("RT56 L2 price", fill_px, 1.12645, 1e-5);
+   Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 1, DEAL_ENTRY_IN, fill_ms, fill_px);
+   AssertTrue("RT56 L1 time", fill_ms == T + 9261);
+   AssertNear("RT56 L1 price", fill_px, 1.12575, 1e-5);
+   Rpl_SetOutputSuffix("");
+   Rpl_SetTiming(0, "base");
+}
+
+void Test_RT57_Thru01()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   Rpl_SetOutputSuffix("_free");
+   Rpl_SetTiming(1, "thru01");
+   AssertTrue("RT57 run", Rpl_RunReplayFiles("rt55", false));
+   long fill_ms = 0;
+   double fill_px = 0.0;
+   AssertTrue("RT57 run", true);
+   Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 2, DEAL_ENTRY_IN, fill_ms, fill_px);
+   AssertTrue("RT57 L2 time", fill_ms == T + 5361);
+   AssertNear("RT57 L2 price", fill_px, 1.12640, 1e-5);
+   Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 1, DEAL_ENTRY_IN, fill_ms, fill_px);
+   AssertTrue("RT57 L1 time", fill_ms == T + 9361);
+   Rpl_SetOutputSuffix("");
+   Rpl_SetTiming(0, "base");
+}
+
+void Test_RT58_TimingOff()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   Rpl_TestWriteRt55SharedFiles();
+   int w = FileOpen(dir + "intervals_rt58.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt58.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(T) + "," + IntegerToString(T + 10000) +
+             ",15,2,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt55.csv,ticks_rt55.csv");
+   FileClose(w);
+   Rpl_SetOutputSuffix("_free");
+   Rpl_SetTiming(0, "base");
+   AssertTrue("RT58 run", Rpl_RunReplayFiles("rt58", false));
+   long fill_ms = 0;
+   double fill_px = 0.0;
+   Rpl_TestFindDeal(dir + "out_rt58_free_deals.csv", "EXT", "S", 2, DEAL_ENTRY_IN, fill_ms, fill_px);
+   AssertTrue("RT58 L2 time", fill_ms == T + 5000);
+   AssertNear("RT58 L2 price", fill_px, 1.12645, 1e-5);
+   Rpl_TestFindDeal(dir + "out_rt58_free_deals.csv", "EXT", "S", 1, DEAL_ENTRY_IN, fill_ms, fill_px);
+   AssertTrue("RT58 L1 time", fill_ms == T + 5900);
+   AssertFalse("RT58 no timing file", FileIsExist(dir + "out_rt58_free_timing.csv"));
+   Rpl_SetOutputSuffix("");
+   Rpl_SetTiming(0, "base");
+}
+
+void Test_RT59_TimingInputs()
+{
+   AssertTrue("RT59 p90 accepted", Rpl_SetTiming(1, "p90"));
+   AssertTrue("RT59 p90 place", Rpl_TmD("PLACE") == 294);
+   AssertTrue("RT59 p90 modify", Rpl_TmD("MODIFY") == 301);
+   AssertTrue("RT59 p90 close-by", Rpl_TmD("CLOSE_BY") == 302);
+   AssertTrue("RT59 p90 remove", Rpl_TmD("REMOVE") == 52);
+   AssertTrue("RT59 p90 lam", Rpl_TmD("LAM") == 281);
+   AssertTrue("RT59 lat1000 accepted", Rpl_SetTiming(1, "lat1000"));
+   AssertTrue("RT59 lat1000 place", Rpl_TmD("PLACE") == 1287);
+   AssertTrue("RT59 lat1000 modify", Rpl_TmD("MODIFY") == 1288);
+   AssertFalse("RT59 bogus refused", Rpl_SetTiming(1, "bogus"));
+   AssertFalse("RT59 off with a sens refused", Rpl_SetTiming(0, "lat250"));
+   Rpl_SetTiming(1, "base");
+   AssertTrue("RT59 base remove", Rpl_TmD("REMOVE") == 43);
+   Rpl_SetTiming(0, "base");
+}
+
+void Test_RT60_TimerClock()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   int w = FileOpen(dir + "ticks_rt60.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   FileWrite(w, IntegerToString(T + 0), "1.12698", "1.12700", "0");
+   FileWrite(w, IntegerToString(T + 130000), "1.12699", "1.12701", "0");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt60.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt60.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(T) + "," + IntegerToString(T + 140000) +
+             ",15,2,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt53.csv,ticks_rt53.csv");
+   FileClose(w);
+   Rpl_SetOutputSuffix("_free");
+   Rpl_SetTiming(1, "base");
+   AssertTrue("RT60 run", Rpl_RunReplayFiles("rt60", false));
+   AssertTrue("RT60 timer at +60 s", Rpl_TestTimingHasKindEvent(dir + "out_rt60_free_timing.csv", "TIMER", T + 60000));
+   AssertTrue("RT60 timer at +120 s", Rpl_TestTimingHasKindEvent(dir + "out_rt60_free_timing.csv", "TIMER", T + 120000));
+   long mkt = 0;
+   AssertTrue("RT60 timer reads the newest tick",
+              Rpl_TestTimingFirstKindMarket(dir + "out_rt60_free_timing.csv", "TIMER", mkt));
+   AssertTrue("RT60 timer market T0", mkt == T + 0);
+   Rpl_SetOutputSuffix("");
+   Rpl_SetTiming(0, "base");
+}
+
 void Test_RT52_ExactTouchSellLimit()
 {
    const string dir = "replay\\";
@@ -1895,5 +2322,12 @@ void OnStart()
    Test_RT51_ExactTouchBuyLimit();
    Test_RT52_ExactTouchSellLimit();
    Test_RT53_CbDoneExitFillNextTick();
+   Test_RT54_BrokerBook();
+   Test_RT55_TimingCloseByChain();
+   Test_RT56_LimitPx();
+   Test_RT57_Thru01();
+   Test_RT58_TimingOff();
+   Test_RT59_TimingInputs();
+   Test_RT60_TimerClock();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
