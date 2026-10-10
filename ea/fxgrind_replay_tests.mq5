@@ -2397,7 +2397,7 @@ void Test_RT63_EventsAtHandlerStart()
       string json = "";
       if(!Rpl_TestParseEventsCsvLine(ev_lines[i], tm, kind, code, json))
          continue;
-      if(kind != "ea_event" || code != "fill_log")
+      if(kind != "ea_event" || StringFind(json, "\"type\":\"fill_log\"") < 0)
          continue;
       if(StringFind(json, "\"role\":\"EXT\"") < 0 || StringFind(json, "\"side\":\"S\"") < 0
          || StringFind(json, "\"layer_index\":2") < 0 || StringFind(json, "\"entry_type\":\"IN\"") < 0)
