@@ -268,7 +268,7 @@ string Rpl_NormalizeDataPath(string path)
 //+------------------------------------------------------------------+
 double Rpl_FilePrice(const string s)
 {
-   return StringToDouble(s);
+   return NormalizeDouble(StringToDouble(s), (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
 }
 
 //+------------------------------------------------------------------+
@@ -978,7 +978,7 @@ bool Rpl_LoadOrdersFile(const string orders_file, const int seg_id)
       const string side = ord_fields[0];
       const int layer = (ArraySize(ord_fields) > 1) ? (int)StringToInteger(ord_fields[1]) : 0;
       const string role = (ArraySize(ord_fields) > 2) ? ord_fields[2] : "";
-      const double price = (ArraySize(ord_fields) > 3) ? StringToDouble(ord_fields[3]) : 0.0;
+      const double price = (ArraySize(ord_fields) > 3) ? Rpl_FilePrice(ord_fields[3]) : 0.0;
       const ulong ticket = (ArraySize(ord_fields) > 4) ? (ulong)StringToInteger(ord_fields[4]) : 0;
       const string type_str = (ArraySize(ord_fields) > 5) ? ord_fields[5] : "";
       long otype = 0;
@@ -1598,12 +1598,6 @@ void Rpl_SyncResetToTrueBook()
             Grind_CarryAccruedSet(g_rpl_true_book[t].ticket, g_rpl_true_book[t].accrued);
       }
    }
-   for(int t = 0; t < g_rpl_true_book_count; t++) {
-      if(g_rpl_true_book[t].vl > 0.0)
-         Grind_VLSet(g_rpl_true_book[t].ticket, g_rpl_true_book[t].vl);
-      else
-         Grind_VLDelete(g_rpl_true_book[t].ticket);
-   }
    g_grind_long.l0_pending_ticket = keep_l0;
    g_grind_long.add_pending_ticket = keep_add;
    g_grind_short.l0_pending_ticket = keep_l0s;
@@ -2122,9 +2116,9 @@ void Rpl_ParseSyncFields(const string &fields[], const int n, RplSyncRealRow &ro
    row.kind = (n > 1) ? fields[1] : "";
    row.side = (n > 2) ? fields[2] : "";
    row.layer = (n > 3) ? (int)StringToInteger(fields[3]) : 0;
-   row.price = (n > 4) ? StringToDouble(fields[4]) : 0.0;
+   row.price = (n > 4) ? Rpl_FilePrice(fields[4]) : 0.0;
    row.position_id = (n > 5) ? (ulong)StringToInteger(fields[5]) : 0;
-   row.level = (n > 6) ? StringToDouble(fields[6]) : 0.0;
+   row.level = (n > 6) ? Rpl_FilePrice(fields[6]) : 0.0;
 }
 
 //+------------------------------------------------------------------+
@@ -2257,8 +2251,8 @@ bool Rpl_LoadTicksCsv(const string filename, RplTick &out[], int &count)
          continue;
       }
       const long ms = (long)StringToInteger(fields[0]);
-      const double bid = (ArraySize(fields) > 1) ? StringToDouble(fields[1]) : 0.0;
-      const double ask = (ArraySize(fields) > 2) ? StringToDouble(fields[2]) : 0.0;
+      const double bid = (ArraySize(fields) > 1) ? Rpl_FilePrice(fields[1]) : 0.0;
+      const double ask = (ArraySize(fields) > 2) ? Rpl_FilePrice(fields[2]) : 0.0;
       ArrayResize(out, count + 1, 65536);
       out[count].time_msc = ms;
       out[count].bid = bid;
@@ -2580,10 +2574,10 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
             }
             const string side = seed_fields[0];
             const int layer = (ArraySize(seed_fields) > 1) ? (int)StringToInteger(seed_fields[1]) : 0;
-            const double entry = (ArraySize(seed_fields) > 2) ? StringToDouble(seed_fields[2]) : 0.0;
+            const double entry = (ArraySize(seed_fields) > 2) ? Rpl_FilePrice(seed_fields[2]) : 0.0;
             const long open_ms = (ArraySize(seed_fields) > 3) ? (long)StringToInteger(seed_fields[3]) : 0;
             const ulong ticket = (ArraySize(seed_fields) > 4) ? (ulong)StringToInteger(seed_fields[4]) : 0;
-            const double vl = (ArraySize(seed_fields) > 5) ? StringToDouble(seed_fields[5]) : 0.0;
+            const double vl = (ArraySize(seed_fields) > 5) ? Rpl_FilePrice(seed_fields[5]) : 0.0;
             const double swap = (ArraySize(seed_fields) > 6) ? StringToDouble(seed_fields[6]) : 0.0;
             const double vol = (ArraySize(seed_fields) > 7) ? StringToDouble(seed_fields[7]) : RPL_LOTS_DEFAULT;
             const double accrued = (ArraySize(seed_fields) > 8) ? StringToDouble(seed_fields[8]) : 0.0;
