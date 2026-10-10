@@ -280,4 +280,28 @@ under 20 deals may miss none.
 - **His sign-off has no questions for us** (BOOT s1's tell). Every ruling
   above was checked against source or the plan.
 
-Line count: 283
+## 9. CORRECTION AFTER CLAUDE'S READ OF COMMITS 1-4 (10 Oct ~14:55Z)
+
+- **Read line by line:** `20e7b22` (tests), `1486f5a` (F2), `4be9bd4` (F1),
+  `145f092` (F3), on `e4fda38`. F1, F2 and F3 match s2 to the line; nothing
+  else in the core moved. Recorded: Cursor's first commit 2 also carried F1
+  and one F3 cast; it rewrote the branch with `--force-with-lease` so each
+  commit holds one change. Do not rewrite pushed history again: if a commit
+  is wrong, STOP and report it.
+- **C1. RT63 has 6 assertions, not 4.** "RT63 deal timing row" and "RT63
+  close-by timing row" are separate `AssertTrue` calls; they pass in every
+  state, so they test nothing, and the suite runs 463, not s3's 461. s3
+  puts finding each timing row INSIDE assertions 2 and 3.
+- **Commit 5 (tests only, `ea/fxgrind_replay_tests.mq5`):** delete the two
+  separate assertions and keep the two helper calls as plain statements
+  (`const bool deal_row = Rpl_TestTimingStartForEvent(...)`, the same for
+  `cb_row`). Assertion 2 "RT63 fill_log at its deal handler" =
+  `deal_row && fill_found && fill_ms == deal_start && fill_ms < T + 5400`.
+  Assertion 3 "RT63 scalp at its close-by handler" = `cb_row && scalp_ms
+  == cb_start && scalp_ms < T + 5900`. Names unchanged; nothing else
+  changes. **Totals: s3's table (461 run; at commit 5: 461 / 461).** Push;
+  do not compile; STOP.
+- **G7b-1 (for Gemini).** C1 restores s3's assertion count and its
+  discriminating checks. Does it change anything else?
+
+Line count: 307
