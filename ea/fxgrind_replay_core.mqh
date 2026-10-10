@@ -1785,6 +1785,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
    if(seg_first_tick)
       Rpl_ReportOrdersKept();
    Rpl_ProcessCloseByDone(t, cb_before, cb_n);
+   Rpl_ScanNewOrders(t);
    Rpl_OrderLogDiff(t, "CB_DONE");
 
    if(g_rpl_last_timer_ms == 0 || t - g_rpl_last_timer_ms >= 60000) {
@@ -1794,6 +1795,7 @@ void Rpl_ProcessOneTick(const RplTick &tick)
                              g_rpl_cfg.exit_s);
       g_rpl_last_timer_ms = t;
    }
+   Rpl_ScanNewOrders(t);
    Rpl_OrderLogDiff(t, "TIMER");
 
    Rpl_DrainOutputs(t);
