@@ -8,8 +8,7 @@ This message has a line count at the bottom
 `research/replay/results/eurusd_20261008_624a29b/orders_reading.csv` on
 `main` (`research/replay/read_orders.py`). Line numbers are `298d9c1`'s
 (core, `ea/fxgrind_replay_core.mqh`; tests, `ea/fxgrind_replay_tests.mq5`).
-Questions for Gemini in s8; his rulings and Claude's check go in s9 before
-you get this file. The earlier replay prompts govern what this file does not
+Questions for Gemini in s8; his rulings and Claude's check are in s9. The earlier replay prompts govern what this file does not
 change. Both fixes correct the harness, not a trading rule (GO4-3).
 
 ## 0. RESTATE AND STOP (do this first, then wait)
@@ -147,6 +146,24 @@ after R5).
 
 ## 9. GEMINI'S RULINGS AND CLAUDE'S CHECK
 
-To be added before Cursor gets this file.
+Gemini 10 Oct ~00:20Z on the file at `1965577` (attached); checked by Claude
+the same night. Gemini: "Proceed with Cursor execution." Nothing here
+changes s2 or s3: Cursor builds P1 and S2 and RT50-RT52 as written (389 run,
+4 fail at commit 1; RT51 / RT52 must fail at commit 1, else STOP).
 
-Line count: 152
+- **GF5-1. Accepted: normalise the inputs (P1), leave the fill comparison
+  as it is.** His "the broker matches on grid ticks" is inferred, not
+  measured here; the ruling stands on the EA side, which is verified: every
+  order price is `NormalizeDouble`d at the send (`ea/grind_engine.mqh` 1432,
+  1456), so file prices through the same call give the same doubles.
+- **GF5-2. Accepted.** No hand roll or commanded eject in the window (plan
+  K20), so a held layer's VL can only come from the replay's own lattice.
+- **GF5-3. Accepted, his clock premise corrected.** The 0.57-0.60 s lead of
+  the ROLL rows over the crossing tick is measured (K2), not a property of
+  `TimeCurrent()` / `TimeLocal()` that he names; it reaches only re-seeded
+  layers after S2. Recorded as a sync residue (s7).
+- **GF5-4. Not a missing fact.** `NormalizeDouble(0.0, 5)` is 0.0, and every
+  VL use tests `vl > 0.0` (`Rpl_SeedLayer`; the true book). No change.
+
+
+Line count: 169
