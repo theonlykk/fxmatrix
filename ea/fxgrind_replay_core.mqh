@@ -1398,7 +1398,6 @@ void Rpl_ResetAll()
    g_rpl_tm_next_timer_ms = 0;
    ArrayResize(g_rpl_tm_pend, 0);
    g_rpl_tm_pend_count = 0;
-   g_rpl_tm_timing_h = INVALID_HANDLE;
 }
 
 //+------------------------------------------------------------------+
