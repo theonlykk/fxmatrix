@@ -77,8 +77,9 @@ class TestLam(unittest.TestCase):
 
 class TestReactions(unittest.TestCase):
     def setUp(self):
-        # ticks (broker ms): F-500, F+340 (first after F), F+700, F+1100
-        self.t = mt.Ticks([F - 500, F + 340, F + 700, F + 1100], [1.1] * 4, [1.1] * 4)
+        # ticks (broker ms): F-500, F+340 (first after F), F+500 (inside the close-by's
+        # send, which runs F+345 - F+639), F+700 (first after it), F+1100
+        self.t = mt.Ticks([F - 500, F + 340, F + 500, F + 700, F + 1100], [1.1] * 5, [1.1] * 5)
 
     def test_ent_reaction(self):
         sends = [send(E - 300, 287, "PENDING"),            # starts E-587: before the window
@@ -117,6 +118,14 @@ class TestReactions(unittest.TestCase):
     def test_no_closeby(self):
         f = fill(E, F, "IN", "EXT", "L", 9)
         self.assertIsNone(mt.closeby_chain(self.t, [send(E + 300, 43, "REMOVE")], f, {}))
+
+
+class TestFirstAfter(unittest.TestCase):
+    def test_strictly_after(self):
+        t = mt.Ticks([F, F + 300], [1.1, 1.1], [1.1, 1.1])
+        self.assertEqual(t.first_after(F), F + 300)          # a tick AT F is not after it
+        self.assertEqual(t.first_after(F - 1), F)
+        self.assertIsNone(t.first_after(F + 300))
 
 
 class TestWindow(unittest.TestCase):
