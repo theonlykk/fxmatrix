@@ -178,6 +178,20 @@ class TestTicks(unittest.TestCase):
         d["fill_pts"] = cp.pts(1.10010)
         self.assertTrue(self.tk.touchable(d))
 
+    def test_touch_order_price_mode(self):
+        # plan 2 (K15, GTM2-3): T0 on the ORDER price. The order 1.10010 filled at 1.10000
+        # (improvement): the order price is touched at T-2000 (ask 1.10010) -> touchable;
+        # the order 1.10000 filled at 1.10010 (worse): no ask <= 1.10000 in the window.
+        d = deal(1, T, "L", "ENT", 0, 1.10010)
+        d["fill_pts"] = cp.pts(1.10000)
+        self.assertTrue(self.tk.touchable(d, "order"))
+        self.assertFalse(self.tk.touchable(d, "deal"))
+        e = deal(1, T, "L", "ENT", 0, 1.10000)
+        e["fill_pts"] = cp.pts(1.10010)
+        self.assertFalse(self.tk.touchable(e, "order"))
+        self.assertTrue(self.tk.touchable(e, "deal"))
+        self.assertTrue(self.tk.touchable(e))              # the default stays the deal price
+
     def test_mark(self):
         self.assertEqual(self.tk.mark(T + 500), (cp.pts(1.10000), cp.pts(1.10010)))
         self.assertEqual(self.tk.mark(T + 501), (cp.pts(1.10000), cp.pts(1.10020)))
