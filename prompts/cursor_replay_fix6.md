@@ -425,4 +425,33 @@ rows come before its own row (the tests find rows by kind).
   them change the model of s2-s6 rather than restore it? Is the DROPPED row
   (one per tick with no `OnTick`) the right record for R3?
 
-Line count: 428
+
+## 14. GEMINI ON s13; THE FIRST PART B SUITE; CORRECTION C8 (10 Oct ~06:10Z)
+
+- **GTP3-1: ACCEPTED** (10 Oct ~04:32Z): C1-C7, RT61 and the DROPPED rows
+  restore s2-s6, none changes the model. His "resolving the missing fact I
+  cited in the first round" is not so: C1 came from Claude's read of the
+  code. Commits 6-8 (`44f73fd`, `ca0f54e`, `dc9b4a5`) read by Claude: they
+  match s13.
+- **Process breach (recorded):** at R0 Cursor compiled both files with
+  `MetaEditor64.exe` from the command line. s7 says "Do not compile"; the
+  CLI compile is not trusted (BOOT s2). Its first suite also ran a stale
+  `.ex5` (393 run). The operator compiles in the MetaEditor GUI; no suite
+  figure from a CLI build counts.
+- **R1 at `dc9b4a5` (CLI build): 448 run, 442 pass.** The six failures
+  (RT55 "queued reads newest", "one queued", "lattice stage after the
+  close-by reads +5500"; RT60's three) all read `out_*_timing.csv`, which
+  held its header only. Every deal assertion passed (RT55 L2 / L1 time and
+  price, the OUT_BY at +5694, no `OnTick` inside the close-by; RT56-RT59,
+  RT61).
+- **C8, the cause (Claude, in source):** `Rpl_ResetAll` sets
+  `g_rpl_tm_timing_h = INVALID_HANDLE` (core 1401 at `dc9b4a5`), and
+  `Rpl_RunReplayFiles` calls `Rpl_ResetAll()` for each segment (3542) AFTER
+  `Rpl_OpenRunOutputs` has set the handle, so `Rpl_TmWriteTimingRow` never
+  writes. D1 listed what `Rpl_ResetAll` must not clear but did not name the
+  handle. **Correction (commit 9, core only): delete that one line from
+  `Rpl_ResetAll`; only `Rpl_OpenRunOutputs` and `Rpl_CloseRunOutputs` set
+  the handle. Nothing else changes.** Then STOP; R0 copy; the OPERATOR
+  compiles; R1 (448 / 448) and the rest of s6 as in the operator's line.
+
+Line count: 457

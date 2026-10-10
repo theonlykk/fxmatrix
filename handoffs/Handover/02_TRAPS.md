@@ -2346,5 +2346,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   worst (w2: 61-62 s gaps every Mon-Thu night): anything on the tick path
   there can run a minute late. Check timing claims against the tick file
   for the hour in question.
+- **Cursor may compile from the command line on its own** (fix 6 R0,
+  10 Oct: `MetaEditor64.exe` after it found a stale `.ex5`). The prompt's
+  "do not compile" is not enough: say "if the `.ex5` is stale, STOP and ask
+  the operator to compile". A suite from a CLI build does not count.
+- **A reset that runs per segment must not clear what lives for the whole
+  run** (fix 6 C8: `Rpl_ResetAll` cleared the timing file's handle, opened
+  once per run). When a spec lists what a reset keeps, name the output
+  handles too.
 
-Line count: 2350
+Line count: 2358
