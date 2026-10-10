@@ -181,10 +181,12 @@ missed it: s3 should have named RT8b. Cursor stopped as s6 says.
 replace that one assertion with: find the true-book entry of ticket 7001
 (loop over `g_rpl_true_book`, as RT50 does) and `AssertNear("RT8b true
 VL7001", <that entry>.vl, 1.09771, 1e-9)`: the ROLL row still reaches the
-true book, which re-seeds read (K3). The held layer's own VL is RT50's.
-Nothing else in RT8b changes. **Totals unchanged: 389 run.** Push, then R0
-(copy), STOP for "compiled", R1 again with `-Tag rt_<commit 3 sha7>`
-(predicted 389 / 389), then R2-R5 as s4 with the run folders named for
+true book, which re-seeds read (K3); and right after it add
+`AssertTrue("RT8b held 7001 not rolled", !Grind_VLHas(7001UL))` (GF5b-1:
+depth 3 is below cap 8, so the replay's lattice cannot roll it, and S2 no
+longer marks it). Nothing else in RT8b changes. **Totals: 390 run** (389 +
+1). Push, then R0 (copy), STOP for "compiled", R1 again with `-Tag
+rt_<commit 3 sha7>` (predicted 390 / 390), then R2-R5 as s4 with the run folders named for
 commit 3 (`<tag>_<free|sync>_<commit 3 sha7>`).
 
 - **GF5b-1.** Is the rewrite right (the held layer's VL is the replay's own;
@@ -192,4 +194,10 @@ commit 3 (`<tag>_<free|sync>_<commit 3 sha7>`).
   7001 has no VL after the reset (`!Grind_VLHas(7001UL)`; depth 3 is below
   cap 8, so the replay cannot have rolled it)?
 
-Line count: 195
+
+**Gemini GF5b-1 (10 Oct ~00:50Z), checked by Claude: accepted.** He requires
+the second assertion; in RT8b 7001 stays held (depth 3 after the ENT row,
+cap 8), so no lattice roll and no re-seed can give it a VL after S2: the
+assertion is derived, not observed. Added above; 390 run.
+
+Line count: 203
