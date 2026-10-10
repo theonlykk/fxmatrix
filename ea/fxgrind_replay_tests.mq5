@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT52 (fix5 T24–T26) |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT53 (fix6 Part A T27) |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -943,6 +943,50 @@ void Test_RT22_CsvHeaderLine()
    AssertNear("RT22 t1 ask", ticks[1].ask, 1.10012, 1e-9);
 }
 
+bool Rpl_TestFindDeal(const string path,
+                      const string role,
+                      const string side,
+                      const int layer,
+                      const long entry_type,
+                      long &time_ms,
+                      double &price)
+{
+   time_ms = 0;
+   price = 0.0;
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   for(int k = 0; k < 12; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return false;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      FileReadString(h);
+      const long tm = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      const long et = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      const string row_role = FileReadString(h);
+      const string row_side = FileReadString(h);
+      const int row_layer = (int)StringToInteger(FileReadString(h));
+      const double row_price = StringToDouble(FileReadString(h));
+      if(row_role == role && row_side == side && row_layer == layer && et == entry_type) {
+         time_ms = tm;
+         price = row_price;
+         FileClose(h);
+         return true;
+      }
+   }
+   FileClose(h);
+   return false;
+}
+
 string Rpl_ReadWholeFile(const string rel_path)
 {
    int h = FileOpen(rel_path, FILE_READ | FILE_TXT | FILE_ANSI);
@@ -1678,6 +1722,43 @@ void Test_RT51_ExactTouchBuyLimit()
               StringFind(Rpl_ReadWholeFile(dir + "out_rt51_deals.csv"), ",EXT,S,0,1.12505") >= 0);
 }
 
+void Test_RT53_CbDoneExitFillNextTick()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt53.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 0)), "1.12698", "1.12700", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 1)), "1.12643", "1.12645", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 2)), "1.12573", "1.12575", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 3)), "1.12573", "1.12575", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 4)), "1.12590", "1.12592", "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt53.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued");
+   FileWrite(w, "S,0,1.12605," + IntegerToString(RplMs(RPL_T0, -3600)) + ",6601,0,0,0.01,0");
+   FileWrite(w, "S,1,1.12675," + IntegerToString(RplMs(RPL_T0, -1800)) + ",6602,0,0,0.01,0");
+   FileWrite(w, "S,2,1.12745," + IntegerToString(RplMs(RPL_T0, -900)) + ",6603,0,0,0.01,0");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt53.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt53.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 5)) + ",15,2,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt53.csv,ticks_rt53.csv");
+   FileClose(w);
+   AssertTrue("RT53 run", Rpl_RunReplayFiles("rt53", false));
+   long fill_ms = 0;
+   double fill_px = 0.0;
+   AssertTrue("RT53 L1 exit filled",
+              Rpl_TestFindDeal(dir + "out_rt53_deals.csv", "EXT", "S", 1, DEAL_ENTRY_IN, fill_ms, fill_px));
+   AssertTrue("RT53 next tick", fill_ms == RplMs(RPL_T0, 2));
+}
+
 void Test_RT52_ExactTouchSellLimit()
 {
    const string dir = "replay\\";
@@ -1813,5 +1894,6 @@ void OnStart()
    Test_RT50_SyncResetLeavesHeldVl();
    Test_RT51_ExactTouchBuyLimit();
    Test_RT52_ExactTouchSellLimit();
+   Test_RT53_CbDoneExitFillNextTick();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
