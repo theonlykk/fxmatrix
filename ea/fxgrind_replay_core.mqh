@@ -957,7 +957,7 @@ void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
       rec.type = ev.deal_otype;
       rec.comment = ev.deal_comment;
       rec.price = ev.deal_price;
-      rec.magic = g_rpl_cfg.magic;
+      rec.magic = (long)g_rpl_cfg.magic;
       Grind_OrderTestUpsert(ticket, rec.magic, rec.comment, rec.price, rec.type);
    }
    const int bix = Rpl_BkFindIndex(ticket);
@@ -1126,7 +1126,7 @@ void Rpl_TmBrokerStep(const long t, const double bid, const double ask)
          rec.ticket = ticket;
          rec.type = g_rpl_bk[i].type;
          rec.comment = "";
-         rec.magic = g_rpl_cfg.magic;
+         rec.magic = (long)g_rpl_cfg.magic;
       }
       rec.price = Rpl_BkPriceAt(ticket, t);
       Rpl_TmEnqueueDealEvent(t + g_rpl_tm_lam, ticket, rec);
