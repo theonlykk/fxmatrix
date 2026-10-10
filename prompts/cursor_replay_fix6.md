@@ -359,4 +359,27 @@ checked by Claude the same night. Gemini: "Proceed with Part A execution."
   right? The live timer's phase (from the EA's init) is unknown to the
   harness; from_ms is the choice.
 
-Line count: 362
+
+## 12. GEMINI'S SECOND-ROUND RULING (GTP2-1, 10 Oct ~03:36Z) AND CLAUDE'S CHECK
+
+- **GTP2-1: ACCEPTED** (D9, D7 (h), D8, D10's stage rows, RT55's twelfth
+  assertion, RT60). Nothing in s2-s6 changes: Cursor builds the file as it
+  stands (445 run; 32 fail at commit 3).
+- **His phase premise checked in source:** the live carry step runs when
+  `OnTimer` (every 1 s, `ea/fxgrind.mq5` 391) finds the 60 s telemetry
+  interval due, and `g_grind_last_telemetry_tick` is 0 at init (259; due
+  at once when 0, `ea/grind_archive.mqh` 699-700), so live steps run at
+  about init + 1 s, then every 60 s. A segment's from_ms IS its init time
+  (the run rows; B seg 1 from_ms = 1 Oct 03:58:52.001Z + 3 h), so D9's steps
+  (from_ms + 60 s, + 120 s, ...) run ~59 s after the live ones, at the same
+  rate. No window init falls inside a 20:50-20:59Z carry window, so each
+  window keeps its steps; recorded as a known offset, D9 unchanged.
+- **Two statements NOT accepted.** (1) RT55's twelfth assertion proves that
+  the HARNESS re-seeds the market at stage boundaries (D5), not that the
+  live EA re-queries it. (2) His missing fact (a timer's sends in a 62 s
+  gap reach the broker only at the next tick) is not a gap: fills happen
+  only on ticks, so an order live from inside the gap is first evaluated at
+  the next tick exactly as live, and D7 (b) runs the late handler before
+  that tick's broker step (d).
+
+Line count: 385
