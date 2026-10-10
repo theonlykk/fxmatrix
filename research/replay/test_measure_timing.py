@@ -12,6 +12,8 @@ durations (the EA's clock and the broker's differ by a drifting offset; duration
 - M5 close-by completion = the first OUT_BY of the position at or after F - (F + close-by
   start - fill log + its duration);
 - M6 the gap from the close-by's end to the next send's start (within 2 s);
+- M0 the clock offset: fill log - (deal time - 3 h) per IN fill (reported, never used);
+- M1b sends over 1 s (ok rows): count of the window's sends;
 - M7 L0 after the close-by: (the first PENDING / MODIFY ENT layer 0 of the same side starting
   in [close-by end, + 120 s]) - fill log - (t2 - F), t2 = the first tick after
   F + (close-by end - fill log).
@@ -118,6 +120,19 @@ class TestReactions(unittest.TestCase):
     def test_no_closeby(self):
         f = fill(E, F, "IN", "EXT", "L", 9)
         self.assertIsNone(mt.closeby_chain(self.t, [send(E + 300, 43, "REMOVE")], f, {}))
+
+
+class TestClockAndOutliers(unittest.TestCase):
+    def test_clock_offset(self):
+        # fill log minus (broker deal time - 3 h): E - (F - 10800000) = E - 1791000000000 = 0;
+        # a second fill logged 900 ms before its deal: -900
+        fs = [fill(E, F, "IN", "ENT", "L", 1), fill(E + 100, F + 1000, "IN", "EXT", "L", 1)]
+        self.assertEqual(sorted(mt.clock_offsets(fs)), [-900, 0])
+
+    def test_over_1s(self):
+        rows = [send(E, 287, "PENDING"), send(E, 1001, "MODIFY"), send(E, 1000, "REMOVE"),
+                send(E, 5000, "CLOSE_BY", ok=False)]
+        self.assertEqual(mt.over_ms(rows, 1000), (1, 3))     # 1001 only; failed rows left out
 
 
 class TestFirstAfter(unittest.TestCase):
