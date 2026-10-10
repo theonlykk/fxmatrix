@@ -2301,4 +2301,27 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   replay places the next L0 at another mid. A miss whose replay twin sits a
   few points away 1-10 s earlier is placement timing, not an L0 rule.
 
-Line count: 2304
+## TRAPS FROM 2026-10-10 EARLY (FIXES 4 AND 5; T1 PASSES)
+
+- **Before a spec deletes a behaviour, grep the tests for any that assert
+  it.** Fix 5's S2 removed the sync VL overwrite; RT8b asserted it, R1 went
+  388 / 389, and the amendment had to go back through Gemini (GF5b-1).
+- **Two prices that print the same can differ as doubles:** order prices
+  are NormalizeDouble'd at the send, file prices were StringToDouble'd; 14
+  price values never filled on an exact touch. Put every file price on the
+  symbol grid (`Rpl_FilePrice`).
+- **A sync reset must not write state the replay owns:** setting the true
+  VL on held layers marked them rolled 0.6 s early (ROLL rows carry the
+  EA's clock); the replay then never rolled them.
+- **The order of steps inside one tick matters:** `Rpl_ScanNewOrders` runs
+  before `Rpl_ProcessCloseByDone`, so an order placed after a close-by
+  gets its placement time one tick late and cannot fill on the next tick.
+- **Timing misses come in three kinds, read from send_logs:** the broker's
+  close-by (~1 s; the harness's is instant), the EA's serial sends (a
+  re-centre goes out behind other sends), and the broker's fill after a
+  touch (up to ~2 s in bursts). A placement difference carries forward
+  (D 1 Oct: only the replay crossed the 14-pip stranded mark).
+- **T2 can fail with every side's sums passing:** the UNPRICED share counts
+  whole segments, and a 5- or 7-deal segment fails T1's mark on one miss.
+
+Line count: 2327
