@@ -166,4 +166,30 @@ changes s2 or s3: Cursor builds P1 and S2 and RT50-RT52 as written (389 run,
   VL use tests `vl > 0.0` (`Rpl_SeedLayer`; the true book). No change.
 
 
-Line count: 169
+
+## 10. AMENDMENT AFTER R1 (10 Oct ~00:45Z): RT8b
+
+**R1 at `58e3c0f`: 389 run, 388 pass; `FAIL | RT8b VL7001`.** RT51 and RT52
+pass (P1's cause confirmed). RT8b (base harness, `0c3d5ef`;
+`Test_RT8b_SyncEntRoll`, tests `58e3c0f`) feeds a sync `ROLL` row for layer
+7001 while the replay HOLDS that layer, then asserts `AssertNear("RT8b
+VL7001", Grind_VLGet(7001UL), 1.09771, 1e-9)`: the held layer takes the
+real VL. That is the behaviour S2 removes on purpose (K2). Claude's spec
+missed it: s3 should have named RT8b. Cursor stopped as s6 says.
+
+**Change (commit 3: the tests file only).** In `Test_RT8b_SyncEntRoll`
+replace that one assertion with: find the true-book entry of ticket 7001
+(loop over `g_rpl_true_book`, as RT50 does) and `AssertNear("RT8b true
+VL7001", <that entry>.vl, 1.09771, 1e-9)`: the ROLL row still reaches the
+true book, which re-seeds read (K3). The held layer's own VL is RT50's.
+Nothing else in RT8b changes. **Totals unchanged: 389 run.** Push, then R0
+(copy), STOP for "compiled", R1 again with `-Tag rt_<commit 3 sha7>`
+(predicted 389 / 389), then R2-R5 as s4 with the run folders named for
+commit 3 (`<tag>_<free|sync>_<commit 3 sha7>`).
+
+- **GF5b-1.** Is the rewrite right (the held layer's VL is the replay's own;
+  the real row's VL lives in the true book), or should RT8b also assert that
+  7001 has no VL after the reset (`!Grind_VLHas(7001UL)`; depth 3 is below
+  cap 8, so the replay cannot have rolled it)?
+
+Line count: 195
