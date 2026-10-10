@@ -386,4 +386,72 @@ misses reproduce byte for byte. Tests first, mutants caught.
   IC fills on the exact touch. p10 and p90 equal base on every figure: the
   verdict does not lean on the constants' spread.
 
-Line count: 389
+## 15. CLASSIFICATION OF THE NEW UNPRICED SEGMENTS (10 Oct ~12:45Z)
+
+Read from the deciding run's order and event logs against the real send
+logs, archives and ticks (s0's inputs). The script and its output:
+`research/replay/results/eurusd_20261008_868bcc3/classify/`.
+
+- **D 24: a harness defect in R5 (M9, carry), not a timing miss.** Every
+  `timing = 1` run (all eight, all three fleets: B 4, C 14, D 24) runs a
+  full carry pass on **Saturday 3 Oct 23:50-23:53 server** and again on
+  Sunday; the `timing = 0` runs do not. Live ran no such pass: no send on 3
+  or 4 Oct from any fleet; the archives hold `CARRY_SNAPSHOT` then
+  `CARRY_PASS_INCOMPLETE` at the window's close on Saturday and
+  `CARRY_PASS_INCOMPLETE` on Sunday. Cause: live's carry step reads
+  "server now" from `TimeTradeServer()`, which runs on over the weekend, so
+  `Grind_CarrySessionReady`'s tick-freshness check (120 s,
+  `GRIND_CARRY_TICK_FRESH_SEC`) fails and the pass does no work. The
+  replay's TIMER stage seeds `g_grind_carry_test_server_time` with the
+  NEWEST TICK's time (`Rpl_TmSeedMarketAt`, core 679-688), so the tick is
+  always 0 s old and the check always passes. The gate itself gets the
+  timer moment (core 928), so the pass begins as live's does; only the
+  freshness test is blind. In D the Saturday pass moved S EXT L4 / L3 / L2
+  by 0.2 pip (one Saturday modify is logged per order; live's Friday pass
+  sent the same four orders' unchanged prices, retcode 10025), and those
+  exits filled 2-4 minutes early: three of D 24's four replay-only deals
+  and three of its seven misses. Without them D 24 is 90 / 94 = 95.7%
+  with one replay-only: PRICED, as at `timing = 0`.
+  **The Friday pass's timing is right:** D's four Friday shifts land at
+  23:50:00, 23:51:00, 23:52:00, 23:53:00 server, live's at 23:50:00,
+  23:51:00, 23:52:01, 23:53:00.
+- **C 19: timing (M3), one deal.** 109 / 115 = 94.8%; 110 passes. The
+  chain (7 Oct): after the 15:23:16.694 S EXT L0 fill the replay priced
+  the next S ENT L0 at 1.11703 (ask 1.11683, the 15:23:17.307 tick);
+  live sent 1.11702 (ask 1.11682, a tick at or before 15:23:17.089), as
+  `timing = 0` does. With the order one point higher, the trailing modify
+  fired 2.6 s early (15:24:43.5) at 1.11683 instead of live's 15:24:46 at
+  1.11679; the bid then reached 1.11682 and not 1.11683, so the replay's
+  order never filled (live's filled at 15:25:11.4). `lat250` prices C 19.
+  The read moment is the issue, not R1's price rule (`limitpx` the same).
+- **The read moment, measured over all sends (not only fills).** Each
+  replay PLACE / MODIFY matched to a live send of the same action, side,
+  layer and role within 3 s; equal price, timed vs `timing = 0`:
+  PLACE B 93.5 vs 80.1%, C 95.0 vs 83.3%, D 96.1 vs 78.7%; MODIFY B 91.2
+  vs 92.5%, C 87.3 vs 88.0%, D 84.0 vs 84.8%. R4's stage re-read moves the
+  placement price toward live's on every fleet; C 19 is one of the 4-7%
+  it still misses by a point.
+- **What fixing D 24 would not change.** Without C 19 and D 24, UNPRICED
+  is C 12, 13, 16 = 23.7% and D 21, 23 = 34.6%: **T2 still FAILS on C and
+  D**, on the segments that fail at `timing = 0` too. Every UNPRICED
+  segment of the deciding run fails by one or two deals: C 12 6 / 7
+  (needs 7), C 16 13 / 14 (needs 14), C 13 60 / 64 and 5 replay-only
+  (needs 61 and 3), C 19 109 / 115 (needs 110), D 21 69 / 73 and 4
+  replay-only of 74 (needs 70 and 3), D 23 4 replay-only of 54 (needs 2),
+  D 24 (above). The misses there are the 2 Oct payrolls burst (C 13, D 23:
+  M3, as plan 1) and single entries a point or more apart (C 12, C 16, D
+  21: M3 / M4, by hand). **A segment under 20 deals may miss none:** the
+  per-segment bar is the fleet's 95%, and with the fleet at 95-96% which
+  segments fall under it is close to chance. That is a property of the
+  marks (s4, unchanged from plan 1), recorded here, not re-decided.
+
+**Branch (s8), for the operator and Gemini.** D 24 is a rule-model defect
+(M9; R5's implementation, no s3 constant): attempt 1 of 3 on this window
+fixes it (the TIMER stage's carry server time = the timer moment, the
+analogue of `TimeTradeServer()`; a test of a Saturday timer step with a
+Friday tick: no modify, `CARRY_PASS_INCOMPLETE`). Its expected effect: D
+24 priced, the verdict unchanged (C 55.7%, D 34.6%: FAIL). What fails
+after it is M3 (timing) on C 13 / 19 and D 23, and single-deal misses on
+small segments: s8's "fail in M1-M3 again" branch.
+
+Line count: 457
