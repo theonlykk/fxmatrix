@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT49 (fix4 T22–T23) |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT52 (fix5 T24–T26) |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -1616,6 +1616,91 @@ void Test_RT47_SyncReseedLatestAccrued()
    AssertNear("RT47 latest", Grind_CarryAccruedGet(5701UL), 0.00011, 1e-12);
 }
 
+void Test_RT50_SyncResetLeavesHeldVl()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.sync = true;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 6301UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 1, 1.09930, RplMs(RPL_T0, -1800), 6302UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   for(int i = 0; i < g_rpl_true_book_count; i++) {
+      if(g_rpl_true_book[i].ticket == 6301UL)
+         g_rpl_true_book[i].vl = 1.09500;
+   }
+   Grind_VLSet(6302UL, 1.09400);
+   Rpl_SyncResetToTrueBook();
+   AssertTrue("RT50 held not marked", !Grind_VLHas(6301UL));
+   AssertNear("RT50 own roll kept", Grind_VLGet(6302UL), 1.09400, 1e-9);
+   Rpl_RemoveLayerByTicket(g_grind_long, 6301UL);
+   Rpl_SyncResetToTrueBook();
+   AssertTrue("RT50 reseeded", ArraySize(g_grind_long.layers) == 2);
+   AssertNear("RT50 reseed takes true vl", Grind_VLGet(6301UL), 1.09500, 1e-9);
+}
+
+void Test_RT51_ExactTouchBuyLimit()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt51.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 0)), "1.12550", "1.12552", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 1)), "1.12505", "1.12505", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 2)), "1.12520", "1.12522", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 3)), "1.12520", "1.12522", "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt51.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued");
+   FileWrite(w, "S,0,1.12605," + IntegerToString(RplMs(RPL_T0, -3600)) + ",6401,0,0,0.01,0");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt51.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt51.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt51.csv,ticks_rt51.csv");
+   FileClose(w);
+   AssertTrue("RT51 run", Rpl_RunReplayFiles("rt51", false));
+   AssertTrue("RT51 exact touch fills",
+              StringFind(Rpl_ReadWholeFile(dir + "out_rt51_deals.csv"), ",EXT,S,0,1.12505") >= 0);
+}
+
+void Test_RT52_ExactTouchSellLimit()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt52.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 0)), "1.12390", "1.12392", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 1)), "1.12434", "1.12434", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 2)), "1.12410", "1.12412", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 3)), "1.12410", "1.12412", "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt52.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued");
+   FileWrite(w, "L,0,1.12334," + IntegerToString(RplMs(RPL_T0, -3600)) + ",6501,0,0,0.01,0");
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt52.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt52.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 4)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt52.csv,ticks_rt52.csv");
+   FileClose(w);
+   AssertTrue("RT52 run", Rpl_RunReplayFiles("rt52", false));
+   AssertTrue("RT52 exact touch fills",
+              StringFind(Rpl_ReadWholeFile(dir + "out_rt52_deals.csv"), ",EXT,L,0,1.12434") >= 0);
+}
+
 void Test_RT21_GapReport()
 {
    Rpl_ResetAll();
@@ -1717,5 +1802,8 @@ void OnStart()
    Test_RT47_SyncReseedLatestAccrued();
    Test_RT48_OrderLogDiff();
    Test_RT49_OrderLogEngineExit();
+   Test_RT50_SyncResetLeavesHeldVl();
+   Test_RT51_ExactTouchBuyLimit();
+   Test_RT52_ExactTouchSellLimit();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }

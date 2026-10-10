@@ -266,6 +266,12 @@ string Rpl_NormalizeDataPath(string path)
 }
 
 //+------------------------------------------------------------------+
+double Rpl_FilePrice(const string s)
+{
+   return StringToDouble(s);
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_SafeToRun(const string data_path, const bool trade_allowed, const long login, const string server)
 {
    string got = Rpl_NormalizeDataPath(data_path);
