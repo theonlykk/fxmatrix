@@ -236,10 +236,15 @@ struct RplBkOrder
    long   type;
    double price;
    long   live_ms;
-   double new_price;
-   long   new_from_ms;
    long   remove_ms;
    bool   exec;
+};
+
+struct RplBkModChg
+{
+   ulong  ticket;
+   long   from_ms;
+   double price;
 };
 
 bool   g_rpl_tm_on = false;
@@ -267,10 +272,16 @@ struct RplTmPendingEv
    long        seq;
    ulong       deal_ticket;
    RplCbTask   cb;
+   bool        deal_rec_ok;
+   long        deal_otype;
+   string      deal_comment;
+   double      deal_price;
 };
 
 RplBkOrder       g_rpl_bk[];
 int              g_rpl_bk_count = 0;
+RplBkModChg      g_rpl_bk_mod[];
+int              g_rpl_bk_mod_count = 0;
 long             g_rpl_tm_free_ms = 0;
 string           g_rpl_tm_busy_kind = "";
 bool             g_rpl_tm_queued = false;
@@ -438,6 +449,23 @@ int Rpl_BkFindIndex(const ulong ticket)
 }
 
 //+------------------------------------------------------------------+
+void Rpl_BkClearModsForTicket(const ulong ticket)
+{
+   int j = 0;
+   for(int i = 0; i < g_rpl_bk_mod_count; i++) {
+      if(g_rpl_bk_mod[i].ticket == ticket)
+         continue;
+      if(j != i)
+         g_rpl_bk_mod[j] = g_rpl_bk_mod[i];
+      j++;
+   }
+   if(j != g_rpl_bk_mod_count) {
+      g_rpl_bk_mod_count = j;
+      ArrayResize(g_rpl_bk_mod, g_rpl_bk_mod_count);
+   }
+}
+
+//+------------------------------------------------------------------+
 void Rpl_BkPlace(const ulong ticket, const long type, const double price, const long live_ms)
 {
    const int ix = Rpl_BkFindIndex(ticket);
@@ -445,10 +473,9 @@ void Rpl_BkPlace(const ulong ticket, const long type, const double price, const 
       g_rpl_bk[ix].type = type;
       g_rpl_bk[ix].price = price;
       g_rpl_bk[ix].live_ms = live_ms;
-      g_rpl_bk[ix].new_price = 0.0;
-      g_rpl_bk[ix].new_from_ms = 0;
       g_rpl_bk[ix].remove_ms = 0;
       g_rpl_bk[ix].exec = false;
+      Rpl_BkClearModsForTicket(ticket);
       return;
    }
    ArrayResize(g_rpl_bk, g_rpl_bk_count + 1);
@@ -456,11 +483,10 @@ void Rpl_BkPlace(const ulong ticket, const long type, const double price, const 
    g_rpl_bk[g_rpl_bk_count].type = type;
    g_rpl_bk[g_rpl_bk_count].price = price;
    g_rpl_bk[g_rpl_bk_count].live_ms = live_ms;
-   g_rpl_bk[g_rpl_bk_count].new_price = 0.0;
-   g_rpl_bk[g_rpl_bk_count].new_from_ms = 0;
    g_rpl_bk[g_rpl_bk_count].remove_ms = 0;
    g_rpl_bk[g_rpl_bk_count].exec = false;
    g_rpl_bk_count++;
+   Rpl_BkClearModsForTicket(ticket);
 }
 
 //+------------------------------------------------------------------+
@@ -469,8 +495,11 @@ void Rpl_BkModify(const ulong ticket, const double new_price, const long from_ms
    const int ix = Rpl_BkFindIndex(ticket);
    if(ix < 0)
       return;
-   g_rpl_bk[ix].new_price = new_price;
-   g_rpl_bk[ix].new_from_ms = from_ms;
+   ArrayResize(g_rpl_bk_mod, g_rpl_bk_mod_count + 1);
+   g_rpl_bk_mod[g_rpl_bk_mod_count].ticket = ticket;
+   g_rpl_bk_mod[g_rpl_bk_mod_count].from_ms = from_ms;
+   g_rpl_bk_mod[g_rpl_bk_mod_count].price = new_price;
+   g_rpl_bk_mod_count++;
 }
 
 //+------------------------------------------------------------------+
@@ -497,9 +526,17 @@ double Rpl_BkPriceAt(const ulong ticket, const long t)
    const int ix = Rpl_BkFindIndex(ticket);
    if(ix < 0)
       return 0.0;
-   if(g_rpl_bk[ix].new_from_ms > 0 && t >= g_rpl_bk[ix].new_from_ms)
-      return g_rpl_bk[ix].new_price;
-   return g_rpl_bk[ix].price;
+   double px = g_rpl_bk[ix].price;
+   long best_from = -1;
+   for(int i = 0; i < g_rpl_bk_mod_count; i++) {
+      if(g_rpl_bk_mod[i].ticket != ticket)
+         continue;
+      if(g_rpl_bk_mod[i].from_ms <= t && g_rpl_bk_mod[i].from_ms > best_from) {
+         best_from = g_rpl_bk_mod[i].from_ms;
+         px = g_rpl_bk_mod[i].price;
+      }
+   }
+   return px;
 }
 
 //+------------------------------------------------------------------+
@@ -531,6 +568,7 @@ void Rpl_BkDrop(const ulong ticket)
    const int ix = Rpl_BkFindIndex(ticket);
    if(ix < 0)
       return;
+   Rpl_BkClearModsForTicket(ticket);
    for(int j = ix; j < g_rpl_bk_count - 1; j++)
       g_rpl_bk[j] = g_rpl_bk[j + 1];
    g_rpl_bk_count--;
@@ -566,6 +604,10 @@ void Rpl_TmEnqueueEventEx(const RplTmEvKind kind, const long start_ms, const ulo
    g_rpl_tm_pend[g_rpl_tm_pend_count].seq = g_rpl_tm_event_seq++;
    g_rpl_tm_pend[g_rpl_tm_pend_count].deal_ticket = deal_ticket;
    g_rpl_tm_pend[g_rpl_tm_pend_count].cb = cb_task;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].deal_rec_ok = false;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].deal_otype = 0;
+   g_rpl_tm_pend[g_rpl_tm_pend_count].deal_comment = "";
+   g_rpl_tm_pend[g_rpl_tm_pend_count].deal_price = 0.0;
    g_rpl_tm_pend_count++;
    for(int i = g_rpl_tm_pend_count - 1; i > 0; i--) {
       const bool swap = (g_rpl_tm_pend[i].start_ms < g_rpl_tm_pend[i - 1].start_ms)
@@ -586,6 +628,20 @@ void Rpl_TmEnqueueEvent(const RplTmEvKind kind, const long start_ms, const ulong
    empty.t1 = 0;
    empty.t2 = 0;
    Rpl_TmEnqueueEventEx(kind, start_ms, deal_ticket, empty);
+}
+
+//+------------------------------------------------------------------+
+void Rpl_TmEnqueueDealEvent(const long start_ms, const ulong ticket, const GrindOrderTestRecord &rec)
+{
+   RplCbTask empty;
+   empty.t1 = 0;
+   empty.t2 = 0;
+   Rpl_TmEnqueueEventEx(RPL_TM_EV_DEAL, start_ms, ticket, empty);
+   const int ix = g_rpl_tm_pend_count - 1;
+   g_rpl_tm_pend[ix].deal_rec_ok = true;
+   g_rpl_tm_pend[ix].deal_otype = rec.type;
+   g_rpl_tm_pend[ix].deal_comment = rec.comment;
+   g_rpl_tm_pend[ix].deal_price = rec.price;
 }
 
 //+------------------------------------------------------------------+
@@ -755,7 +811,7 @@ void Rpl_TmDiffStageSends(const string stage, long &cursor, int &stage_sends, co
    double pending_old[];
    int pending_n = 0;
    for(int i = 0; i < g_grind_order_test_count; i++) {
-      const GrindOrderTestRecord rec = g_rpl_order_test_records[i];
+      const GrindOrderTestRecord rec = g_grind_order_test_records[i];
       RplOrderSnap snap;
       if(!Rpl_OrderLogSnapFind(rec.ticket, snap)) {
          ArrayResize(pending_actions, pending_n + 1);
@@ -800,7 +856,10 @@ void Rpl_TmDiffStageSends(const string stage, long &cursor, int &stage_sends, co
       ArrayResize(pending_comments, pending_n + 1);
       ArrayResize(pending_prices, pending_n + 1);
       ArrayResize(pending_old, pending_n + 1);
-      pending_actions[pending_n] = Rpl_OrderLogDealFillAt(cursor, snap.ticket) ? "FILL" : "REMOVE";
+      bool is_fill = Rpl_OrderLogDealFillAt(cursor, snap.ticket);
+      if(!is_fill && stage == "DEAL")
+         is_fill = Rpl_OrderLogDealFillForOrder(snap.ticket);
+      pending_actions[pending_n] = is_fill ? "FILL" : "REMOVE";
       pending_tickets[pending_n] = snap.ticket;
       pending_types[pending_n] = snap.type;
       pending_comments[pending_n] = snap.comment;
@@ -885,21 +944,27 @@ void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
    const long market_ms = Rpl_TmMarketMsAt(start);
    Rpl_TmSeedMarketAt(market_ms);
    int sends = 0;
-   ulong ticket = ev.deal_ticket;
+   const ulong ticket = ev.deal_ticket;
+   const long deal_time = ev.start_ms;
    GrindOrderTestRecord rec;
    if(!Grind_OrderTestFind(ticket, rec)) {
-      g_rpl_tm_free_ms = start;
-      g_rpl_tm_busy_kind = "";
-      return;
+      if(!ev.deal_rec_ok) {
+         g_rpl_tm_free_ms = start;
+         return;
+      }
+      rec.ticket = ticket;
+      rec.type = ev.deal_otype;
+      rec.comment = ev.deal_comment;
+      rec.price = ev.deal_price;
+      rec.magic = g_rpl_cfg.magic;
+      Grind_OrderTestUpsert(ticket, rec.magic, rec.comment, rec.price, rec.type);
    }
    const int bix = Rpl_BkFindIndex(ticket);
    if(bix >= 0)
       g_rpl_bk[bix].exec = true;
-   Grind_OrderTestRemove(ticket);
-   Rpl_BkDrop(ticket);
    RplTick tk;
    double fill_price = rec.price;
-   if(Rpl_TmNewestTickAtOrBefore(start, tk)) {
+   if(Rpl_TmNewestTickAtOrBefore(deal_time, tk)) {
       if(rec.type == ORDER_TYPE_BUY_LIMIT)
          fill_price = g_rpl_tm_limit_price ? rec.price : tk.ask;
       else
@@ -909,7 +974,7 @@ void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
    const string comment = rec.comment;
    const ulong pos_id = g_rpl_next_pos_id++;
    const ulong deal_id = g_rpl_next_deal_id++;
-   const datetime tsec = (datetime)(start / 1000);
+   const datetime tsec = (datetime)(deal_time / 1000);
    const bool is_long_ent = (otype == ORDER_TYPE_BUY_LIMIT);
    string slot, side, role;
    int layer;
@@ -920,16 +985,17 @@ void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
                         g_rpl_cfg.magic);
    Grind_PositionTestAdd(pos_id);
    Rpl_AddCloseByPos(pos_id, is_long_ent);
-   Grind_CarryTestSetPosition(pos_id, 0.0, RPL_LOTS_DEFAULT, (datetime)(start / 1000));
-   Rpl_AddPosMeta(pos_id, fill_price, 0.0, RPL_LOTS_DEFAULT, start, is_long_ent, side, layer, role, otype);
-   Rpl_WriteDealOutput(start, deal_id, ticket, pos_id, DEAL_ENTRY_IN, deal_type, role, side, layer, fill_price);
+   Grind_CarryTestSetPosition(pos_id, 0.0, RPL_LOTS_DEFAULT, (datetime)(deal_time / 1000));
+   Rpl_AddPosMeta(pos_id, fill_price, 0.0, RPL_LOTS_DEFAULT, deal_time, is_long_ent, side, layer, role, otype);
+   Rpl_WriteDealOutput(deal_time, deal_id, ticket, pos_id, DEAL_ENTRY_IN, deal_type, role, side, layer, fill_price);
+   Grind_OrderTestRemove(ticket);
+   Rpl_BkDrop(ticket);
    if(Rpl_EngineSeamsOrAbort())
       Grind_ProcessDeal(deal_id, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
    RplCbTask cb_empty[];
    Rpl_TmDiffStageSends("DEAL", cursor, sends, false, cb_empty, 0, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
-   g_rpl_tm_busy_kind = "";
    Rpl_TmWriteTimingRow("DEAL", ev.start_ms, start, cursor, sends, market_ms, 0);
 }
 
@@ -951,11 +1017,6 @@ void Rpl_TmRunCloseByDoneHandler(const RplTmPendingEv &ev)
    RplCbTask cb_empty[];
    Rpl_TmDiffStageSends("CB_DONE", cursor, sends, false, cb_empty, 0, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
-   g_rpl_tm_busy_kind = "";
-   if(g_rpl_tm_queued) {
-      g_rpl_tm_queued = false;
-      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, cursor);
-   }
    Rpl_TmWriteTimingRow("CLOSEBY_DONE", ev.start_ms, start, cursor, sends, market_ms, 0);
 }
 
@@ -971,11 +1032,6 @@ void Rpl_TmRunTimerHandler(const RplTmPendingEv &ev)
    RplCbTask cb_empty[];
    Rpl_TmRunStage("TIMER", ev.start_ms, cursor, sends, false, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
-   g_rpl_tm_busy_kind = "";
-   if(g_rpl_tm_queued) {
-      g_rpl_tm_queued = false;
-      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, cursor);
-   }
    Rpl_TmWriteTimingRow("TIMER", ev.start_ms, start, cursor, sends, market_ms, 0);
 }
 
@@ -988,7 +1044,8 @@ void Rpl_TmRunOntickHandler(const long event_ms, const bool queued, const bool s
    Rpl_TmSeedMarketAt(market_ms);
    int handler_sends = 0;
    g_rpl_tm_busy_kind = "ONTICK";
-   g_rpl_tm_ontick_dropped = 0;
+   if(queued)
+      g_rpl_tm_queued = false;
    if(seg_first_tick)
       Grind_LatticeRollGateInitRestart(g_rpl_cfg.gate);
    const bool trkL0 = g_grind_vl_tracking_long;
@@ -1013,13 +1070,7 @@ void Rpl_TmRunOntickHandler(const long event_ms, const bool queued, const bool s
    if(seg_first_tick)
       Rpl_ReportOrdersKept();
    g_rpl_tm_free_ms = cursor;
-   g_rpl_tm_busy_kind = "";
-   if(g_rpl_tm_queued) {
-      g_rpl_tm_queued = false;
-      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, cursor);
-   }
-   Rpl_TmWriteTimingRow(queued ? "QUEUED_ONTICK" : "ONTICK", event_ms, start, cursor, handler_sends, market_ms,
-                        g_rpl_tm_ontick_dropped);
+   Rpl_TmWriteTimingRow(queued ? "QUEUED_ONTICK" : "ONTICK", event_ms, start, cursor, handler_sends, market_ms, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -1065,7 +1116,15 @@ void Rpl_TmBrokerStep(const long t, const double bid, const double ask)
       if(!Rpl_BkTouched(ticket, t, bid, ask, g_rpl_tm_thru_pts))
          continue;
       g_rpl_bk[i].exec = true;
-      Rpl_TmEnqueueEvent(RPL_TM_EV_DEAL, t + g_rpl_tm_lam, ticket);
+      GrindOrderTestRecord rec;
+      if(!Grind_OrderTestFind(ticket, rec)) {
+         rec.ticket = ticket;
+         rec.type = g_rpl_bk[i].type;
+         rec.comment = "";
+         rec.magic = g_rpl_cfg.magic;
+      }
+      rec.price = Rpl_BkPriceAt(ticket, t);
+      Rpl_TmEnqueueDealEvent(t + g_rpl_tm_lam, ticket, rec);
    }
 }
 
@@ -1077,9 +1136,11 @@ void Rpl_TmEaStepAtTick(const long t, const bool seg_first_tick)
       return;
    }
    if(g_rpl_tm_busy_kind == "ONTICK")
-      g_rpl_tm_ontick_dropped++;
-   else if(g_rpl_tm_busy_kind == "HANDLER" && !g_rpl_tm_queued)
+      Rpl_TmWriteTimingRow("DROPPED", t, t, t, 0, t, 1);
+   else if(g_rpl_tm_busy_kind == "HANDLER" && !g_rpl_tm_queued) {
       g_rpl_tm_queued = true;
+      Rpl_TmEnqueueEvent(RPL_TM_EV_QUEUED_ONTICK, g_rpl_tm_free_ms);
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -1324,6 +1385,8 @@ void Rpl_ResetAll()
    ArrayResize(g_rpl_order_snap, 0);
    ArrayResize(g_rpl_bk, 0);
    g_rpl_bk_count = 0;
+   ArrayResize(g_rpl_bk_mod, 0);
+   g_rpl_bk_mod_count = 0;
    g_rpl_tm_free_ms = 0;
    g_rpl_tm_busy_kind = "";
    g_rpl_tm_queued = false;
@@ -1361,6 +1424,16 @@ bool Rpl_OrderLogDealFillAt(const long t, const ulong order_ticket)
 {
    for(int i = ArraySize(g_rpl_deals) - 1; i >= 0; i--) {
       if(g_rpl_deals[i].order == order_ticket && g_rpl_deals[i].time_ms == t)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_OrderLogDealFillForOrder(const ulong order_ticket)
+{
+   for(int i = ArraySize(g_rpl_deals) - 1; i >= 0; i--) {
+      if(g_rpl_deals[i].order == order_ticket && g_rpl_deals[i].entry_type == DEAL_ENTRY_IN)
          return true;
    }
    return false;
