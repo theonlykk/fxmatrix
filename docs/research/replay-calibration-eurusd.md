@@ -845,4 +845,9 @@ changes a preset; no mark adjusted to fit a result.
     HOLDOUT: export them on Tue 13 (send_logs retention), hash them, and
     run no replay, comparison or T0 on them before the new plan is ruled.
 
-Line count: 848
+- **The second pre-registration (10 Oct ~02:10Z, draft for Gemini):**
+  `docs/research/replay-calibration-eurusd-2.md` (the broker's and the EA's
+  timing measured from send_logs by `research/replay/measure_timing.py`,
+  fixed before any run; the holdout pre-registered there).
+
+Line count: 853
