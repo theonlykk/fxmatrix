@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT60 (fix6 H1 + H2) |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT61 (fix6 H1 + H2) |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -2061,9 +2061,8 @@ void Test_RT55_TimingCloseByChain()
    long lat_st = 0;
    long lat_mkt = 0;
    AssertTrue("RT55 lattice stage after the close-by reads +5500",
-              Rpl_TestTimingLatticeAfterCloseBy(dir + "out_rt55_free_timing.csv", T + 5400, lat_st, lat_mkt));
-   AssertTrue("RT55 lattice start", lat_st == T + 5694);
-   AssertTrue("RT55 lattice market", lat_mkt == T + 5500);
+              Rpl_TestTimingLatticeAfterCloseBy(dir + "out_rt55_free_timing.csv", T + 5400, lat_st, lat_mkt)
+              && lat_st == T + 5694 && lat_mkt == T + 5500);
    Rpl_SetOutputSuffix("");
    Rpl_SetTiming(0, "base");
 }
@@ -2096,7 +2095,6 @@ void Test_RT57_Thru01()
    AssertTrue("RT57 run", Rpl_RunReplayFiles("rt55", false));
    long fill_ms = 0;
    double fill_px = 0.0;
-   AssertTrue("RT57 run", true);
    Rpl_TestFindDeal(dir + "out_rt55_free_deals.csv", "EXT", "S", 2, DEAL_ENTRY_IN, fill_ms, fill_px);
    AssertTrue("RT57 L2 time", fill_ms == T + 5361);
    AssertNear("RT57 L2 price", fill_px, 1.12640, 1e-5);
@@ -2180,10 +2178,20 @@ void Test_RT60_TimerClock()
    AssertTrue("RT60 timer at +120 s", Rpl_TestTimingHasKindEvent(dir + "out_rt60_free_timing.csv", "TIMER", T + 120000));
    long mkt = 0;
    AssertTrue("RT60 timer reads the newest tick",
-              Rpl_TestTimingFirstKindMarket(dir + "out_rt60_free_timing.csv", "TIMER", mkt));
-   AssertTrue("RT60 timer market T0", mkt == T + 0);
+              Rpl_TestTimingFirstKindMarket(dir + "out_rt60_free_timing.csv", "TIMER", mkt) && mkt == T + 0);
    Rpl_SetOutputSuffix("");
    Rpl_SetTiming(0, "base");
+}
+
+void Test_RT61_BkTwoModifies()
+{
+   Rpl_ResetAll();
+   Rpl_BkPlace(5, ORDER_TYPE_BUY_LIMIT, 1.10000, 0);
+   Rpl_BkModify(5, 1.10010, 2000);
+   Rpl_BkModify(5, 1.10020, 2500);
+   AssertNear("RT61 placed price before", Rpl_BkPriceAt(5, 1999), 1.10000, 1e-9);
+   AssertNear("RT61 first modify holds", Rpl_BkPriceAt(5, 2200), 1.10010, 1e-9);
+   AssertNear("RT61 second from its time", Rpl_BkPriceAt(5, 2500), 1.10020, 1e-9);
 }
 
 void Test_RT52_ExactTouchSellLimit()
@@ -2329,5 +2337,6 @@ void OnStart()
    Test_RT58_TimingOff();
    Test_RT59_TimingInputs();
    Test_RT60_TimerClock();
+   Test_RT61_BkTwoModifies();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
