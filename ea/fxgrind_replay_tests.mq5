@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| fxgrind_replay_tests.mq5 — replay harness RT1–RT61 (fix6 H1 + H2) |
+//| fxgrind_replay_tests.mq5 — replay harness RT1–RT63 (fix7 F1–F3)   |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
@@ -2188,6 +2188,236 @@ void Test_RT61_BkTwoModifies()
    AssertNear("RT61 second from its time", Rpl_BkPriceAt(5, 2500), 1.10020, 1e-9);
 }
 
+int Rpl_TestCountMemEvents(const string code, const long time_lo, const long time_hi)
+{
+   int n = 0;
+   for(int i = 0; i < Rpl_EventsCount(); i++) {
+      RplEventRow ev;
+      if(!Rpl_GetEventRow(i, ev))
+         continue;
+      if(ev.code != code)
+         continue;
+      if(ev.time_ms < time_lo)
+         continue;
+      if(time_hi >= 0 && ev.time_ms >= time_hi)
+         continue;
+      n++;
+   }
+   return n;
+}
+
+bool Rpl_TestFirstMemEvent(const string code, const long time_lo, RplEventRow &out)
+{
+   for(int i = 0; i < Rpl_EventsCount(); i++) {
+      RplEventRow ev;
+      if(!Rpl_GetEventRow(i, ev))
+         continue;
+      if(ev.code == code && ev.time_ms >= time_lo) {
+         out = ev;
+         return true;
+      }
+   }
+   return false;
+}
+
+bool Rpl_TestTimingStartForEvent(const string path, const string kind, const long event_ms, long &start_ms)
+{
+   start_ms = 0;
+   int h = FileOpen(path, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(h == INVALID_HANDLE)
+      return false;
+   for(int k = 0; k < 8; k++) {
+      if(FileIsEnding(h)) {
+         FileClose(h);
+         return false;
+      }
+      FileReadString(h);
+   }
+   while(!FileIsEnding(h)) {
+      FileReadString(h);
+      const string row_kind = FileReadString(h);
+      const long ev = (long)StringToInteger(FileReadString(h));
+      const long st = (long)StringToInteger(FileReadString(h));
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      FileReadString(h);
+      if(row_kind == kind && ev == event_ms) {
+         start_ms = st;
+         FileClose(h);
+         return true;
+      }
+   }
+   FileClose(h);
+   return false;
+}
+
+bool Rpl_TestParseEventsCsvLine(const string line, long &time_ms, string &kind, string &code, string &json)
+{
+   if(StringLen(line) == 0)
+      return false;
+   int p0 = 0;
+   string field = "";
+   for(int c = 0; c < 5; c++) {
+      const int p = StringFind(line, ",", p0);
+      if(p < 0)
+         return false;
+      field = StringSubstr(line, p0, p - p0);
+      if(c == 2)
+         time_ms = (long)StringToInteger(field);
+      else if(c == 3)
+         kind = field;
+      else if(c == 4)
+         code = field;
+      p0 = p + 1;
+   }
+   json = StringSubstr(line, p0);
+   return true;
+}
+
+bool Rpl_TestFindEventFileRow(const string path,
+                              const string kind_want,
+                              const string code_want,
+                              const string json_needle,
+                              long &time_ms)
+{
+   time_ms = 0;
+   string lines[];
+   const int n = StringSplit(Rpl_ReadWholeFile(path), '\n', lines);
+   for(int i = 1; i < n; i++) {
+      long tm = 0;
+      string kind = "";
+      string code = "";
+      string json = "";
+      if(!Rpl_TestParseEventsCsvLine(lines[i], tm, kind, code, json))
+         continue;
+      if(kind != kind_want || code != code_want)
+         continue;
+      if(StringFind(json, json_needle) < 0)
+         continue;
+      time_ms = tm;
+      return true;
+   }
+   return false;
+}
+
+long Rpl_TestFirstEventFileTime(const string path, const string kind_want, const string code_want)
+{
+   string lines[];
+   const int n = StringSplit(Rpl_ReadWholeFile(path), '\n', lines);
+   for(int i = 1; i < n; i++) {
+      long tm = 0;
+      string kind = "";
+      string code = "";
+      string json = "";
+      if(!Rpl_TestParseEventsCsvLine(lines[i], tm, kind, code, json))
+         continue;
+      if(kind == kind_want && code == code_want)
+         return tm;
+   }
+   return -1;
+}
+
+void Test_RT62_WeekendTimerFridayTick()
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.carry = true;
+   cfg.from_ms = RplMs(D'2026.10.02 23:49:00', 0);
+   cfg.to_ms = RplMs(D'2026.10.05 00:00:30', 0);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("L", 0, 1.09981, RplMs(D'2026.10.01 12:00:00', 0), 8001UL, 0.0, -0.08, RPL_LOTS_DEFAULT);
+   const int n = 421;
+   RplTick ticks[];
+   ArrayResize(ticks, n);
+   for(int i = 0; i < n; i++) {
+      ticks[i].time_msc = cfg.from_ms + (long)i * 1000;
+      ticks[i].bid = 1.09900;
+      ticks[i].ask = 1.09902;
+   }
+   Rpl_SetTiming(1, "base");
+   AssertTrue("RT62 run", Rpl_RunTicks(ticks, n, cfg));
+   Rpl_SetTiming(0, "base");
+   const long weekend_lo = RplMs(D'2026.10.03 00:00:00', 0);
+   const long fri_summary_lo = RplMs(D'2026.10.02 23:50:00', 0);
+   const long fri_summary_hi = RplMs(D'2026.10.02 23:51:00', 0);
+   AssertTrue("RT62 Friday pass",
+              Rpl_TestCountMemEvents("CARRY_PASS_SUMMARY", fri_summary_lo, fri_summary_hi) >= 1);
+   AssertTrue("RT62 one weekend snapshot",
+              Rpl_TestCountMemEvents("CARRY_SNAPSHOT", weekend_lo, -1) == 1);
+   RplEventRow snap;
+   AssertTrue("RT62 snapshot at Sat 23:50",
+              Rpl_TestFirstMemEvent("CARRY_SNAPSHOT", weekend_lo, snap)
+              && snap.time_ms == RplMs(D'2026.10.03 23:50:00', 0));
+   AssertTrue("RT62 snapshot reads Saturday", StringFind(snap.json, "\"day_of_week\":6") >= 0);
+   AssertTrue("RT62 no weekend shift",
+              Rpl_TestCountMemEvents("CARRY_EXIT_SHIFT", weekend_lo, -1) == 0
+              && Rpl_TestCountMemEvents("CARRY_PASS_SUMMARY", weekend_lo, -1) == 0);
+   AssertTrue("RT62 two incomplete", Rpl_TestCountMemEvents("CARRY_PASS_INCOMPLETE", 0, -1) == 2);
+   int inc_n = 0;
+   long inc0 = 0;
+   long inc1 = 0;
+   for(int i = 0; i < Rpl_EventsCount(); i++) {
+      RplEventRow ev;
+      if(!Rpl_GetEventRow(i, ev))
+         continue;
+      if(ev.code != "CARRY_PASS_INCOMPLETE")
+         continue;
+      if(inc_n == 0)
+         inc0 = ev.time_ms;
+      else if(inc_n == 1)
+         inc1 = ev.time_ms;
+      inc_n++;
+   }
+   AssertTrue("RT62 incomplete Sun 00:00", inc0 == RplMs(D'2026.10.04 00:00:00', 0));
+   AssertTrue("RT62 incomplete Mon 00:00", inc1 == RplMs(D'2026.10.05 00:00:00', 0));
+}
+
+void Test_RT63_EventsAtHandlerStart()
+{
+   const string dir = "replay\\";
+   const long T = RplMs(RPL_T0, 0);
+   Rpl_TestWriteRt55SharedFiles();
+   Rpl_SetOutputSuffix("_free");
+   Rpl_SetTiming(1, "base");
+   AssertTrue("RT63 run", Rpl_RunReplayFiles("rt55", false));
+   long deal_start = 0;
+   long cb_start = 0;
+   AssertTrue("RT63 deal timing row",
+              Rpl_TestTimingStartForEvent(dir + "out_rt55_free_timing.csv", "DEAL", T + 5261, deal_start));
+   AssertTrue("RT63 close-by timing row",
+              Rpl_TestTimingStartForEvent(dir + "out_rt55_free_timing.csv", "CLOSEBY_DONE", T + 5694, cb_start));
+   long fill_ms = 0;
+   bool fill_found = false;
+   string ev_lines[];
+   const int ev_n = StringSplit(Rpl_ReadWholeFile(dir + "out_rt55_free_events.csv"), '\n', ev_lines);
+   for(int i = 1; i < ev_n; i++) {
+      long tm = 0;
+      string kind = "";
+      string code = "";
+      string json = "";
+      if(!Rpl_TestParseEventsCsvLine(ev_lines[i], tm, kind, code, json))
+         continue;
+      if(kind != "ea_event" || code != "fill_log")
+         continue;
+      if(StringFind(json, "\"role\":\"EXT\"") < 0 || StringFind(json, "\"side\":\"S\"") < 0
+         || StringFind(json, "\"layer_index\":2") < 0 || StringFind(json, "\"entry_type\":\"IN\"") < 0)
+         continue;
+      fill_ms = tm;
+      fill_found = true;
+      break;
+   }
+   AssertTrue("RT63 fill_log at its deal handler",
+              fill_found && fill_ms == deal_start && fill_ms < T + 5400);
+   const long scalp_ms = Rpl_TestFirstEventFileTime(dir + "out_rt55_free_events.csv", "scalp", "SCALP_CLOSED");
+   AssertTrue("RT63 scalp at its close-by handler", scalp_ms == cb_start && scalp_ms < T + 5900);
+   const long rt58_scalp = Rpl_TestFirstEventFileTime(dir + "out_rt58_free_events.csv", "scalp", "SCALP_CLOSED");
+   AssertTrue("RT63 timing 0 unchanged", rt58_scalp == T + 5000);
+   Rpl_SetOutputSuffix("");
+   Rpl_SetTiming(0, "base");
+}
+
 void Test_RT52_ExactTouchSellLimit()
 {
    const string dir = "replay\\";
@@ -2332,5 +2562,7 @@ void OnStart()
    Test_RT59_TimingInputs();
    Test_RT60_TimerClock();
    Test_RT61_BkTwoModifies();
+   Test_RT62_WeekendTimerFridayTick();
+   Test_RT63_EventsAtHandlerStart();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
