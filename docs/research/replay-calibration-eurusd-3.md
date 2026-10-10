@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for Gemini (10 Oct ~17:55Z).** Nothing runs on holdout data before Gemini's rulings, Claude's check and the scoring script's commit |
+| Status | **RULED** (Gemini G3-1..6, 10 Oct ~17:53Z; checked by Claude, s10). The scorer (`score_plan3.py`, s6) is built and committed; nothing reads the holdout before Tue 13's export and hash |
 | Origin | Plan 2 closed under its s8 (b) (`replay-calibration-eurusd-2.md` s18). Fable's consult (`replay-consult-fable.md` s9, its findings verified). Operator 10 Oct ~17:28Z: a plan 3 on Claude's proposals, holdout 9-13 Oct; ~17:37Z "proceed" on option 1 (score everything) |
 | Rules it keeps | Plan 1 and plan 2 where this file does not change them: the window and segments, seeding at an init, the data, the engine, T0, the miss categories, the replay's purpose (plan 1 s8: ranges and stability, never optima), no price signal, the EA pinned |
 | Supersedes | Plan 2's T2 (the per-segment UNPRICED rule and rho within 0.1) as the gate for the replay's purpose. T1 stays |
@@ -165,8 +165,33 @@ holdout's data before step 2 is committed.
   count because of it?
 - **G3-6.** What fact is missing?
 
-## 10. GEMINI'S RULINGS AND CLAUDE'S CHECK
+## 10. GEMINI'S RULINGS (G3-1..6, 10 Oct ~17:53Z) AND CLAUDE'S CHECK
 
-(empty)
+**No mark, tolerance or window changes.**
 
-Line count: 172
+- **G3-1: ACCEPTED (a measurement for the holdout), one premise
+  corrected.** He says the sd baseline is "a fit of the seen data". The sd
+  is the spread of LIVE daily counts only (`live_spread.py` reads the
+  archives and the real deals, never a replay output); what was seen
+  before the fraction and floor were set is live trading, not the
+  replay's error. P5 (the replay against live) came after. The holdout
+  stays the test.
+- **G3-2: ACCEPTED** (scope by claim is coherent for count-level use).
+- **G3-3: ACCEPTED, one premise corrected.** He reads the larger tol of two
+  fleets as allowing for "independent execution noise". The fleets share
+  one feed (P7), so their noise is not independent; the larger tol is the
+  conservative choice either way.
+- **G3-4: ACCEPTED.**
+- **G3-5: ACCEPTED:** two OUT sides from one feed are one systemic failure
+  seen from two geometries, which is what the mark is meant to catch.
+- **G3-6: ANSWERED in source; no change.** A "day" in P4 is a SERVER
+  calendar day (UTC+3: `close_time_broker[:10]` for S and R, the server-ms
+  date for A, `live_spread.py` 44, 54), which runs rollover to rollover.
+  The scored window (9 Oct 07:32 server to 14 Oct 01:00 server) is 0.68 of
+  Friday + Monday + Tuesday + 1 h = **2.73 server days**. Using n = 3 makes
+  each tolerance sqrt(3 / 2.73) = 1.05x the exact figure (where the floor
+  of 2 does not bind). Recorded; n = 3 stands as pre-registered.
+- **His sign-off has no questions for us** (BOOT s1's tell); every ruling
+  above was checked against the code or the plan.
+
+Line count: 197
