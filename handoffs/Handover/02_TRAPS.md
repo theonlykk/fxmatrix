@@ -2337,5 +2337,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A handover's timestamp can run ahead of the clock.** s77i was stamped
   ~01:45Z; the new chat's first message came at 01:34Z. Use the operator's
   message times.
+- **Unseen data is spent the first time anyone looks.** The 9-13 Oct
+  EURUSD data are the new pre-registration's holdout. Export and hash
+  them on Tue 13; no replay, `compare.py` or T0 on them until the new plan
+  is ruled.
 
-Line count: 2341
+Line count: 2345

@@ -800,4 +800,49 @@ changes a preset; no mark adjusted to fit a result.
     open book goes. Is `compare.py` right?
   - **GRC2-6.** What fact is missing?
 
-Line count: 803
+- **Gemini's GRC2 rulings (10 Oct ~01:49Z, on the plan as pushed);
+  Claude's check; the operator (~01:53Z).**
+  - **GRC2-1: ACCEPTED: s8's "fail in M1-M3" governs.** Under s8, a
+    tick-level replay is not trusted; T2 alone decides count-level use,
+    and T2 fails, so count-level use is not allowed either. His premise is
+    replaced by the deciding fact. He cited "21 of 36 replay-only deals",
+    which is all segments. What decides it is the rows inside the UNPRICED
+    segments (`classified.csv`): 29 of their 53 miss and replay-only rows
+    are M3. Most of the rest read as timing too, though only the six rows
+    read by hand are confirmed. The 8 M4? rows are cases where the tick
+    that re-centred the L0 decides its price. D 21's rows are a placement
+    difference carried forward. The exception is C 16 (M10, the 6 Oct
+    re-roll reload).
+  - **GRC2-2: ACCEPTED: the holdout does not run.** s8 puts it after a
+    PASS. His "a fail yields no actionable data" is overstated; the ruling
+    stands on s8 itself.
+  - **GRC2-3: MOOT** (no holdout run). Recorded for any later holdout:
+    his (c), re-starting B and C's free run at 9 Oct, is a synthetic init,
+    which the operator ruled out (s8).
+  - **GRC2-4: the CB_DONE fix ACCEPTED (it is harness state, GO4-3); his
+    method REJECTED.** He proposed hard-coding a latency, running it and
+    reverting it before the freeze. That makes two builds, and the
+    reverted one never runs in the suite (BOOT s4: a code path that has
+    never run is not a path that works). An input that defaults to 0, with
+    the suite proving the default changes nothing, is the safer form; it
+    goes to him in the new pre-registration. Accepted: a placement latency
+    delays every placement and modify, not only those after a close-by.
+  - **GRC2-5: ACCEPTED** (`compare.py`'s R_eff in the denominator only).
+  - **GRC2-6: REJECTED: the premise is backwards.** He said the guard
+    counts failed segments. It already counts real DEALS (s6: the share of
+    a fleet's real deals held by UNPRICED segments), so a 5-deal segment
+    weighs 5 deals. B 2 is 1.5% of B; without it B is still at 30.3%, and
+    without C 12, C is at 34.3%. The large segments drive the share.
+  - **The result: EURUSD is NOT calibrated under this plan.** No sweep, and
+    no use of the replay at the tick or count level.
+  - **Operator ~01:53Z: a NEW PRE-REGISTRATION** (Claude's option (a)). It
+    adds a timing model of the broker, its values measured from the
+    window's send_logs and fixed before any rerun: the close-by after an
+    exit fill (0.35-14 s, median ~0.84 s on B); the EA's serial sends; the
+    broker's fill after a touch (up to ~2 s). It also carries the CB_DONE
+    fix and s6's three sensitivities. The marks stay the same. It goes
+    through Gemini before anything is built. The 9-13 Oct data are its
+    HOLDOUT: export them on Tue 13 (send_logs retention), hash them, and
+    run no replay, comparison or T0 on them before the new plan is ruled.
+
+Line count: 848
