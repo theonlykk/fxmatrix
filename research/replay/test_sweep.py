@@ -178,5 +178,25 @@ class Sweep4(unittest.TestCase):
         self.assertEqual(sw.get_set("sw4_eurgbp")["geoms"][-1][:4], ("live", 3.0, 5.0, 8))
 
 
+class Sweep5(unittest.TestCase):
+    """sweep5: each of the 40 trading days (3 Aug - 25 Sep) its own flat start, 01:00 to 23:45
+    server; 5 sweep4 grid settings + the live B geometry; ticks h8w; carry off."""
+
+    def test_days_and_settings(self):
+        st = sw.get_set("sw5_nzdchf")
+        self.assertEqual(len(st["windows"]), 40)
+        self.assertEqual(st["windows"][0], ("2026-08-03", "2026-08-03 01:00", "2026-08-03 23:45"))
+        self.assertEqual(st["windows"][4][0], "2026-08-07")          # Friday
+        self.assertEqual(st["windows"][5][0], "2026-08-10")          # next Monday
+        self.assertEqual(st["windows"][-1][0], "2026-09-25")
+        self.assertEqual([g[0] for g in st["geoms"]],
+                         ["a5e5n10", "a7.5e7.5n6", "a7.5e7.5n10", "a10e10n6", "a10e10n10", "live"])
+        self.assertEqual(st["geoms"][-1][1:4], (3.0, 10.0, 8))
+        self.assertEqual(st["ticks"], "ticks_53077984_NZDCHF__h8w.csv")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 240)
+        self.assertEqual(rows[0]["carry"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

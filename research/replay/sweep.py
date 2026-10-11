@@ -70,6 +70,16 @@ GRID4 = tuple(("a%ge%gn10" % (a, e), a, e, 10, None) for a in (5.0, 7.5, 10.0) f
     tuple(("a%ge%gn%d" % (a, a, n), a, a, n, None) for a in (7.5, 10.0) for n in (6, 8))
 
 
+GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
+         ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
+         ("a10e10n10", 10.0, 10.0, 10, None))
+
+
+def _days(monday):
+    d0 = dt.datetime.strptime(monday, "%Y-%m-%d")
+    return [(d0 + dt.timedelta(days=k)).strftime("%Y-%m-%d") for k in range(5)]
+
+
 def _friday(monday):
     d = dt.datetime.strptime(monday, "%Y-%m-%d") + dt.timedelta(days=4)
     return d.strftime("%Y-%m-%d")
@@ -92,6 +102,11 @@ def get_set(tag):
         return {"windows": windows, "geoms": geoms, "base": base,
                 "ticks": "ticks_53077984_%s__h8w.csv" % pair,
                 "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd}
+    if tag.startswith("sw5_") and tag[4:].upper() in PAIRS:
+        st = get_set("sw4_" + tag[4:])
+        st["windows"] = tuple((d, d + " 01:00", d + " 23:45") for m in WEEKS4 for d in _days(m))
+        st["geoms"] = GRID5 + (st["geoms"][-1],)
+        return st
     if not tag.startswith("sw3_") or tag[4:].upper() not in PAIRS:
         raise KeyError(tag)
     pair = tag[4:].upper()

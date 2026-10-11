@@ -227,3 +227,52 @@ tests first; the weekly nets in `sweep4/weekly_<pair>.csv`):**
     it started to slide: persistence holds until it does not.
   - Mostly inconclusive, as the operator expected, with two informative
     exceptions (EURGBP, AUDNZD).
+
+## sweep5: start FLAT every day, close at market every evening (pre-registered 11 Oct ~19:30Z, before any run)
+
+The operator asked whether there is an edge in starting flat each day. sweep1
+said no on EURUSD (one week, two settings).
+- **Data:** the h8w ticks (sweep4), 40 trading days, 3 Aug - 25 Sep.
+- **Each day** is its own flat start: 01:00 to 23:45 server, the book marked
+  at market at 23:45.
+- **Settings:** a5e5n10, a7.5e7.5n6, a7.5e7.5n10, a10e10n6 and a10e10n10 (all
+  in sweep4's grid, so the comparison is direct), plus the pair's live B
+  geometry. Timing 0, carry off, the pair's width, commission per pair as in
+  sweep3 / sweep4.
+
+**Marks (fixed now):**
+- **D1, is daily-flat profitable on its own?** Per pair, the median over the
+  5 grid settings of the 40-day total net. Report how many pairs are positive.
+- **D2, does flattening every evening beat carrying the week?** Per pair,
+  compare, for each (setting, week), the sum of the week's daily nets with
+  sweep4's carried-week net (5 settings x 8 weeks = 40 comparisons).
+  - Daily-flat is BETTER for a pair if it wins >= 26 of 40, WORSE if it wins
+    <= 14, otherwise NO DIFFERENCE.
+  - Verdict: the counts of pairs in each class. Daily-flat "beats carrying"
+    if >= 5 of 9 pairs are BETTER and <= 1 is WORSE.
+- **Reported:** the spread (standard deviation) of weekly totals, daily-flat
+  against carried, per pair.
+
+**sweep5 RESULT (11 Oct ~21:55Z; `sweep5/marks.md` from `sweep5/analyse.py`,
+tests first; the daily nets in `sweep5/daily_<pair>.csv`):**
+- **D1:** 0 of 9 pairs are positive over 40 days. The grid-median totals run
+  from -79 (GBPUSD) to -2,119 (AUDNZD); the live geometry is negative on all
+  nine.
+- **D2:**
+  - BETTER 2 (AUDCHF 31 of 40, AUDNZD 30), NO DIFFERENCE 1 (EURUSD 17),
+    WORSE 6.
+  - Daily-flat does NOT beat carrying the week. Even EURGBP and NZDCHF (both
+    3 of 40) and GBPUSD (13) do better carried.
+- **Reported:** flattening makes weekly totals STEADIER on 8 of 9 pairs (the
+  weekly standard deviation is lower; EURGBP is the exception), but lower on
+  average.
+- **Reading:**
+  - More than half the days win on EURUSD and GBPUSD (27 of 40), yet the
+    totals lose. Many small winning days and fewer, larger losing days is a
+    short-gamma profile.
+  - Closing at market every evening turns the losers into realised losses
+    before an overnight bounce can scalp them back. That helps only on the
+    pairs that kept trending (AUDNZD, AUDCHF).
+  - "The first day of an EA is always great" holds on most days, but not on
+    the total. sweep1's EURUSD verdict holds across all nine pairs and eight
+    weeks.
