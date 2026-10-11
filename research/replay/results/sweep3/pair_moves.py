@@ -1,7 +1,9 @@
 import math
 import sys
 T = sys.argv[1] if len(sys.argv) > 1 else '/mnt/user-data/uploads/Downloads/'
-files={'EURUSD':T+'ticks_53077984_EURUSD_w2.csv','GBPUSD':T+'ticks_w2_8pairs/ticks_53077984_GBPUSD__w2.csv','EURGBP':T+'ticks_w2_8pairs/ticks_53077984_EURGBP__w2.csv'}
+files={'EURUSD':T+'ticks_53077984_EURUSD_w2.csv'}
+for _p in ('GBPUSD','EURGBP','AUDCAD','AUDCHF','CADCHF','NZDCHF','NZDCAD','AUDNZD'):
+    files[_p]=T+'ticks_w2_8pairs/ticks_53077984_%s__w2.csv' % _p
 END=1791503100000  # 8 Oct 23:45 server
 def load(f):
     out=[]
@@ -30,7 +32,8 @@ for k,f in files.items():
     for t,p in s: hours[t//3600000]=p
     H[k]=hours
     net=(px[-1]-px[0])*1e4; rng=(max(px)-min(px))*1e4
-    print(f"{k}: start {px[0]:.5f} end {px[-1]:.5f} net {net:+.0f} pips, high-low range {rng:.0f}, 10-pip swings {zigzag(px,10)}, 25-pip swings {zigzag(px,25)}")
+    z5, z10 = zigzag(px, 5), zigzag(px, 10)
+    print(f"{k}: start {px[0]:.5f} end {px[-1]:.5f} net {net:+.0f} pips, high-low range {rng:.0f}, 5-pip swings {z5}, 10-pip swings {z10}, 25-pip swings {zigzag(px,25)}, 10-pip swings per pip of net move {z10/max(1,abs(net)):.2f}")
 ks=sorted(set(H['EURUSD'])&set(H['GBPUSD']))
 def rets(h): return [math.log(h[ks[i]]/h[ks[i-1]]) for i in range(1,len(ks))]
 a,b=rets(H['EURUSD']),rets(H['GBPUSD'])

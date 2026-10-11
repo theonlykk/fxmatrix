@@ -152,5 +152,31 @@ class Sweep3(unittest.TestCase):
         self.assertIn("| add 2.5 | -10 | +4 |", txt)
 
 
+class Sweep4(unittest.TestCase):
+    """sweep4: 8 weeks (Mon 3 Aug - Fri 25 Sep), each week its own flat start (Mon 00:00 to
+    Fri 23:45 server), the nine pairs, 13 grid settings (add 5 / 7.5 / 10 x exit 5 / 7.5 / 10
+    at 10 layers; 7.5 / 7.5 and 10 / 10 at 6 and 8 layers) + the pair's live B geometry
+    (cap 8); carry off, timing 0; ticks from the one long dump (h8w)."""
+
+    def test_rows_and_windows(self):
+        st = sw.get_set("sw4_gbpusd")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(st["windows"]), 8)
+        self.assertEqual(len(st["geoms"]), 14)
+        self.assertEqual(len(rows), 14 * 8)
+        self.assertEqual(st["windows"][0], ("2026-08-03", "2026-08-03 00:00", "2026-08-07 23:45"))
+        self.assertEqual(st["windows"][-1], ("2026-09-21", "2026-09-21 00:00", "2026-09-25 23:45"))
+        self.assertEqual(st["ticks"], "ticks_53077984_GBPUSD__h8w.csv")
+        self.assertEqual(st["geoms"][-1][:4], ("live", 9.0, 10.0, 8))
+        self.assertEqual((rows[0]["carry"], rows[0]["width_l"]), (0, 2.5))
+
+    def test_grid_names(self):
+        names = [g[0] for g in sw.get_set("sw4_eurgbp")["geoms"]]
+        self.assertEqual(names[:3], ["a5e5n10", "a5e7.5n10", "a5e10n10"])
+        self.assertIn("a7.5e7.5n6", names)
+        self.assertIn("a10e10n8", names)
+        self.assertEqual(sw.get_set("sw4_eurgbp")["geoms"][-1][:4], ("live", 3.0, 5.0, 8))
+
+
 if __name__ == "__main__":
     unittest.main()

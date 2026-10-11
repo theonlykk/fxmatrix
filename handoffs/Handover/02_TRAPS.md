@@ -2477,4 +2477,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Write a prediction down before reading a result** (EURGBP, sweep_notes):
   it keeps hindsight honest.
 
-Line count: 2480
+
+## TRAPS FROM 2026-10-11 (THE EIGHT-WEEK PULL)
+
+- **A preset loaded from the script dialog may not set every input.** A
+  `.set` written UTF-16LE with a BOM left InpSymbols (its first line) and
+  InpTo at their defaults; the other inputs loaded. Read every row in the
+  dialog before OK (InpTo empty = dump to NOW, which would take in the
+  holdout). VNC takes typing but not paste.
+- **`grep -a WORD -e A -e B` reads WORD as a FILE NAME** once `-e` is used:
+  write `-e WORD` too.
+- **scp can copy straight into the harness folder:** `scp "root@...:<glob>"
+  D:\mt5-replay\MQL5\Files\replay`, then Get-FileHash, with no Downloads
+  copy. 1.15 GB took about 3 minutes.
+- **One long tick file serves many week segments:** the harness caches the
+  file once per run and skips ticks outside each segment's window, so there
+  is no need to split it.
+
+Line count: 2497

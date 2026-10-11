@@ -60,6 +60,21 @@ GRID3 = tuple(("a%ge%gn%d" % (a, e, n), a, e, n, None)
               for a in (2.5, 5.0, 7.5, 10.0) for e in (2.5, 5.0, 7.5, 10.0) for n in (6, 8, 10))
 
 
+# live B geometry (add, exit) per pair, cap 8 (register, LIVE NOW, 9 Oct)
+LIVE_B = {"EURUSD": (7.0, 10.0), "GBPUSD": (9.0, 10.0), "EURGBP": (3.0, 5.0), "AUDCAD": (6.0, 10.0),
+          "AUDCHF": (4.0, 10.0), "CADCHF": (4.0, 10.0), "NZDCHF": (3.0, 10.0), "NZDCAD": (8.0, 10.0),
+          "AUDNZD": (8.0, 10.0)}
+WEEKS4 = ("2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31",
+          "2026-09-07", "2026-09-14", "2026-09-21")
+GRID4 = tuple(("a%ge%gn10" % (a, e), a, e, 10, None) for a in (5.0, 7.5, 10.0) for e in (5.0, 7.5, 10.0)) + \
+    tuple(("a%ge%gn%d" % (a, a, n), a, a, n, None) for a in (7.5, 10.0) for n in (6, 8))
+
+
+def _friday(monday):
+    d = dt.datetime.strptime(monday, "%Y-%m-%d") + dt.timedelta(days=4)
+    return d.strftime("%Y-%m-%d")
+
+
 def get_set(tag):
     """windows, geoms (name, add, exit, cap, carry or None), base inputs, ticks file,
     commission in pips per close, USD per pip at 0.01 lots."""
@@ -67,6 +82,16 @@ def get_set(tag):
         windows, geoms = SETS[tag]
         return {"windows": windows, "geoms": tuple(tuple(g) + (None,) * (5 - len(g)) for g in geoms),
                 "base": dict(BASE), "ticks": TICKS_FILE, "comm_pips": COMM_PIPS, "pip_usd": 0.10}
+    if tag.startswith("sw4_") and tag[4:].upper() in PAIRS:
+        pair = tag[4:].upper()
+        width, pip_usd = PAIRS[pair]
+        base = dict(BASE)
+        base.update({"width_l": width, "width_s": width, "stranded": width + 1.0, "carry": 0})
+        windows = tuple((m, m + " 00:00", _friday(m) + " 23:45") for m in WEEKS4)
+        geoms = GRID4 + (("live",) + LIVE_B[pair] + (8, None),)
+        return {"windows": windows, "geoms": geoms, "base": base,
+                "ticks": "ticks_53077984_%s__h8w.csv" % pair,
+                "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd}
     if not tag.startswith("sw3_") or tag[4:].upper() not in PAIRS:
         raise KeyError(tag)
     pair = tag[4:].upper()

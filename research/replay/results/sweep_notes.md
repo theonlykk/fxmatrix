@@ -130,5 +130,75 @@ DIRECTION only: depth near the swing size, fewer layers for a bigger add.
 - no broad plateau; around EURUSD, a little better for its cheap commission
   (0.45 pip).
 
-**Still to come:** the other seven pairs (the loop was still running at
-~03:40Z 11 Oct). Then drawdown per setting, more weeks, a shuffled control.
+**All nine pairs (11 Oct ~04:55Z; `sweep3/summary.md` from `summary.py`):**
+
+| pair | net > 0 (of 48) | gross > 0 | pass neighbours rule | best (net pips, $ at 0.01 lots) | median net |
+|---|---|---|---|---|---|
+| GBPUSD | 33 | 44 | 21 | 10 / 10 / 10 +1,085 ($109) | +303 |
+| NZDCHF | 40 | 48 | 26 | 2.5 / 7.5 / 10 +137 ($16) | +45 |
+| NZDCAD | 28 | 40 | 15 | 5 / 7.5 / 10 +316 ($23) | +98 |
+| AUDCHF | 20 | 25 | 6 | 7.5 / 10 / 10 +276 ($34) | -57 |
+| CADCHF | 8 | 12 | 1 | 2.5 / 7.5 / 6 +109 ($13) | -125 |
+| AUDCAD | 3 | 13 | 0 | 2.5 / 10 / 6 +42 ($3) | -186 |
+| AUDNZD | 3 | 18 | 0 | 5 / 10 / 8 +38 ($2) | -201 |
+| EURUSD | 2 | 2 | 0 | 10 / 10 / 10 +196 ($20) | -596 |
+| EURGBP | 0 | 0 | 0 | 2.5 / 10 / 8 -45 (-$6) | -152 |
+
+- **By the rule fixed before the run:** GBPUSD, NZDCHF and NZDCAD show an
+  edge on this week (gross positive over most of the surface, many settings
+  pass the neighbours rule). AUDCHF is borderline; the other five show none.
+  One week only.
+- **EURGBP prediction check:**
+  - "No plateau, negative overall": RIGHT (0 of 48 positive).
+  - "Small adds worst": RIGHT (down to -404).
+  - "Big adds with 10 layers near zero, maybe positive at exit 5": HALF
+    (-60 to -90, none positive).
+  - "Exit 10 weak": WRONG (usually the least bad).
+  - It was far milder than EURUSD (median -152 vs -596).
+- **Net move does not explain the ranking** (`pair_moves.txt`, all nine):
+  NZDCHF -46 and NZDCAD -51 were positive; AUDCAD +14 was negative. See the
+  operator's point below.
+
+**Operator, 11 Oct ~05:04Z: the start-to-end move is NOT a sole reliable
+determinant of whether the grid makes money.** All nine pairs agree
+(`sweep3/pair_moves.txt`). NZDCHF fell 46 pips and was positive in all 48
+settings before commission; AUDCAD moved +14 and was mostly negative. The
+clean-lattice formula's (net move)^2 term holds only with no cap. With a cap,
+each roll pays for part of an excursion as it happens, so an excursion beyond
+the ladder's depth costs money even if price later comes back. What also
+counts: how far price wandered (NZDCHF and NZDCAD within 72-73 pips; EURUSD
+176) against the depth, the chop inside that range, and each pair's
+commission in pips.
+
+## sweep4: eight earlier weeks (pre-registered 11 Oct ~15:10Z, before any run)
+
+**Data:** one `grind_tick_dump` on wine-d (11 Oct from ~15:01Z, nine pairs,
+3 Aug 00:00 to 1 Oct 04:00 server, tag `_h8w`; preset `tickdump_h8w.set`,
+with InpSymbols and InpTo typed in after the preset load failed to set them).
+One file a pair; the harness takes each week from it by the segment window.
+
+**Runs (`run_sw4_<pair>.csv`, 112 segments a pair):**
+- **Weeks:** Mon 3 Aug ... Mon 21 Sep (8). Each week has its own flat start
+  (Mon 00:00 to Fri 23:45 server).
+- **14 settings:** add 5 / 7.5 / 10 x exit 5 / 7.5 / 10 at 10 layers;
+  7.5 / 7.5 and 10 / 10 at 6 and 8 layers; the pair's LIVE B geometry at cap
+  8 as the control.
+- **Otherwise as sweep3:** carry off, timing 0, the pair's live width,
+  stranded = width + 1, commission $0.06 / pip value.
+- **Why these settings:** sweep3's 1-8 Oct positives were at add / exit >= 7.5
+  and 10 layers. These 8 weeks are OUT of sample for that choice and for the
+  pair ranking.
+
+**Questions and marks (fixed now):**
+- **Q1, is a pair persistently positive?** For each pair-week, take the
+  MEDIAN net of the 13 grid settings. A pair is persistently positive if its
+  median is > 0 in at least 6 of 8 weeks, persistently negative if < 0 in at
+  least 6 of 8, otherwise mixed.
+- **Q2, does sweep3's top three hold?** GBPUSD, NZDCHF and NZDCAD each in the
+  top half (top 4 of 9 by that week's median) in at least 5 of 8 weeks.
+- **Q3, is any setting robust?** It is positive (net) in at least 6 of 8 weeks
+  on at least 5 of 9 pairs.
+- **Q4, does the control beat the grid?** The live geometry's weekly net
+  against the grid median, per pair (reported, not marked).
+- **INCONCLUSIVE** is the expected and acceptable outcome (operator): no pair
+  persistently positive, the top three not holding, no robust setting.
