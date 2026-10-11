@@ -202,3 +202,28 @@ One file a pair; the harness takes each week from it by the segment window.
   against the grid median, per pair (reported, not marked).
 - **INCONCLUSIVE** is the expected and acceptable outcome (operator): no pair
   persistently positive, the top three not holding, no robust setting.
+
+**sweep4 RESULT (11 Oct ~18:00Z; `sweep4/marks.md` from `sweep4/analyse.py`,
+tests first; the weekly nets in `sweep4/weekly_<pair>.csv`):**
+- **Q1:**
+  - EURGBP is PERSISTENTLY POSITIVE: the grid median was > 0 in 7 of 8 weeks,
+    but small (+12 to +52 pips a week, $2-7 at 0.01 lots). On 1-8 Oct it was
+    0 of 48 positive.
+  - AUDNZD is PERSISTENTLY NEGATIVE: 0 of 8 weeks, -32 to -826 a week.
+  - The other seven are MIXED (3-5 of 8).
+- **Q2:** GBPUSD HOLDS (top half 5 of 8, the bare minimum); NZDCHF HOLDS
+  (6 of 8); NZDCAD does NOT (4 of 8).
+- **Q3:** NO robust setting. The best grid setting is positive in >= 6 of 8
+  weeks on 3 of 9 pairs.
+- **Q4 (reported):** the live geometry is not consistently better or worse
+  than the grid median (better on 5 pairs, worse on 4, by 8-week sums).
+- **Reading:**
+  - The pair matters more than the setting. No setting generalises; two
+    pairs behave consistently (one good, one bad), and the rest swing week
+    to week.
+  - EURUSD and GBPUSD have the SAME sign in all 8 weeks (+ + - - + + - -):
+    the dollar leg decides whether both chop or trend in a given week.
+  - EURGBP's small steady gain in Aug-Sep turned into its 1-8 Oct loss when
+    it started to slide: persistence holds until it does not.
+  - Mostly inconclusive, as the operator expected, with two informative
+    exceptions (EURGBP, AUDNZD).
