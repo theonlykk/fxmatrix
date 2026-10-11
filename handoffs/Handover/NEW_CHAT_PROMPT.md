@@ -127,6 +127,8 @@ Do not start any fleet action before the answers are in.
 1. **C142 ADR** (the operator's "linear equalizer of layers": light-side add
    by depth gap, a table input; C146 / C127 / C103 folded in as options), one
    document for Gemini; code after plan 3. Then C148's carry table.
+   Open question: an edge from starting FLAT each day? (sweep1 says no on EURUSD,
+   one week, two settings; a candidate sweep5, HANDOFF s79 continued 12 NEXT 3b.)
 1b. On each box: `git -C /home/khalid/fxmatrix-repo log --oneline -1`.
 2. **Tue 13 after 22:00Z: the holdout's data exported and hashed ONLY**
    (send_logs 9-13 Oct via pipshed `--export-sends`, the archives, one tick
@@ -173,4 +175,4 @@ Do not start any fleet action before the answers are in.
   Count every line mechanically.
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 176
+Line count: 178
