@@ -1,0 +1,6 @@
+bounce 20, leg 30 (drift 10/step, trend 150): best a1 e13 N20  D=20  e/bounce 0.65  D/bounce 1.00  net +1359
+bounce 40, leg 60 (drift 20/step, trend 140): best a1 e26 N40  D=40  e/bounce 0.65  D/bounce 1.00  net +1816
+bounce 10, leg 15 (drift  5/step, trend 150): best a1 e7 N10  D=10  e/bounce 0.70  D/bounce 1.00  net +771
+bounce 20, leg 40 (drift 20/step, trend 140): best a10 e30 N2  D=20  e/bounce 1.50  D/bounce 1.00  net +82
+bounce 20, leg 25 (drift  5/step, trend 150): best a1 e12 N20  D=20  e/bounce 0.60  D/bounce 1.00  net +4410
+bounce 40, leg 45 (drift  5/step, trend 150): best a1 e22 N40  D=40  e/bounce 0.55  D/bounce 1.00  net +20312

@@ -1,8 +1,8 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-10 ~18:45Z (SATURDAY; PLAN 3 RULED; NOTHING IN FLIGHT UNTIL TUE 13)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-11 ~04:15Z (SUNDAY; PLAN 3 RULED; GEOMETRY SWEEPS RUNNING; PLAN 3 HOLDOUT TUE 13)
 
-**Prepared 10 Oct ~18:45Z (HANDOFF s79 continued 9).** The EURUSD replay
+**Prepared 11 Oct ~04:15Z (HANDOFF s79 continued 10; first written 10 Oct ~18:45Z, continued 9).** The EURUSD replay
 (an MQL5 harness on the EA's own engine, branch `replay-harness`, never
 merged) has been through three pre-registrations:
 - **Plan 1** closed (M1-M3).
@@ -19,6 +19,17 @@ merged) has been through three pre-registrations:
   live day-to-day spread, plus bias and fleet-difference marks. The harness
   is frozen at `145f092`. The scorer `research/replay/score_plan3.py` is
   committed (tests first). The holdout is 9-13 Oct, unseen.
+
+**Since then (10 Oct evening, HANDOFF s79 continued 10):** geometry sweeps on
+the frozen harness by INPUT files only (`research/replay/sweep.py`,
+`results/sweep_notes.md`). On EURUSD 1-8 Oct, every add / exit / layers setting
+is near zero before commission, and commission ranks them. The operator's
+conclusion: settings move the break-even with the scalps, so they cannot make
+an edge; the grid needs chop that beats drift. sweep3 runs all nine IC pairs
+(48 settings each): EURUSD fails, GBPUSD shows a broad positive plateau, and
+seven pairs were still running at handover. The operator's design idea (C142):
+react to INVENTORY, not regime, with the light side's add shrinking as the
+depth gap grows.
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps is PARKED.
 
@@ -38,7 +49,7 @@ Read, in order:
 5. `docs/research/replay-consult-fable.md` s5-s9;
    `docs/research/replay-calibration-eurusd-2.md` s3 (the timing model),
    s7 (the holdout as first written), s14-s18.
-6. `research/replay/`: `score_plan3.py` + `test_score_plan3.py`,
+6. `research/replay/`: `results/sweep_notes.md` (the sweeps), `score_plan3.py` + `test_score_plan3.py`,
    `live_spread.py` + tests, `compare.py` (`--t0-price order`),
    `results/plan3/`, `results/eurusd_20261008_145f092/`.
 7. `prompts/cursor_replay_fix7.md` s4 (how the runs are made) and s10 (what
@@ -101,7 +112,7 @@ Do not start any fleet action before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `13d129d` + this docs patch (s79 continued 9). EA code `5bb5fdb`, live on A, B, C, D |
+| fxmatrix `main` | `629b25c` + this docs patch (s79 continued 10). EA code `5bb5fdb`, live on A, B, C, D |
 | `replay-harness` | tip `efada62`; code **`145f092`, FROZEN for plan 3**; suite 461 / 461 at `252aae5`; the 48-run matrix `research/replay/runs/eurusd_*_145f092*/` (each run's `timing.csv` is on the desktop only) |
 | `D:\mt5-replay` | Copy BEFORE compiling (`replay_run.ps1 -Mode Copy`); the OPERATOR compiles in the MetaEditor GUI (never a CLI build); R1 (suite), then R2 (inputs), then R4 (runs), no suite between R2 and R4 (the suite rewrites `swaps.csv`) |
 | pipshed `main` | `6ea487e` (`--export-sends`) |
@@ -110,7 +121,11 @@ Do not start any fleet action before the answers are in.
 
 ## 2. NEXT, IN ORDER
 
-1. On each box: `git -C /home/khalid/fxmatrix-repo log --oneline -1`.
+1. **sweep3:** read the nine pairs' outputs from `D:\mt5-replay\MQL5\Files\replay`
+   (`out_sw3_<pair>_free_*`; the chat has folder access), score each with
+   `sweep.py score --tag sw3_<pair>`, check the EURGBP prediction in
+   `sweep_notes.md`, apply the reading rule fixed there, report.
+1b. On each box: `git -C /home/khalid/fxmatrix-repo log --oneline -1`.
 2. **Tue 13 after 22:00Z: the holdout's data exported and hashed ONLY**
    (send_logs 9-13 Oct via pipshed `--export-sends`, the archives, one tick
    dump on wine-d from `2026.10.09 01:30` server to `2026.10.14 01:00` or
@@ -156,4 +171,4 @@ Do not start any fleet action before the answers are in.
   Count every line mechanically.
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 159
+Line count: 174

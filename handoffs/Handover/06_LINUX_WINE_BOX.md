@@ -341,6 +341,22 @@ file there, or re-attach from Experts first.
 wine-d = box 3 (Fleet D, 216.128.158.33). The desktop's `~/.ssh/config`
 short names `box1`, `box1-vnc`, `box2`, `box2-rdp` are unchanged.
 
+**wine-d has NO ssh-config short name (10 Oct):** address it as
+`root@216.128.158.33` (ssh and scp ask root's password). Root reads khalid's
+files directly; chown or `install -o` is needed only for files going TO a box.
+Copying a dump OFF wine-d to the desktop (one remote glob into a folder; the
+whole remote path in quotes; `Program*Files` and `MetaTrader*5` avoid the
+spaces; never end a PowerShell destination with `\"`):
+
+    mkdir "$HOME\Downloads\ticks_w2_8pairs" -Force | Out-Null; scp "root@216.128.158.33:/home/khalid/.mt5/drive_c/Program*Files/MetaTrader*5/MQL5/Files/ticks_53077984_*__w2.csv" "$HOME\Downloads\ticks_w2_8pairs"
+
+Check a dump has finished first: one `TICKS|<PAIR>|ticks=...|bad_px=0|time_back=0`
+line a pair, no EMPTY / FAILED / DELETED lines, then `TICKS|END`
+(`MQL5/logs/<UTC day>.log`, UTF-16LE; iconv before grep; no inner double
+quotes in an `ssh root@... '...'` command). Hash both ends: `sha256sum` on the
+box, then Get-FileHash (or Claude's staging) on the desktop. Run the dump
+script on a FRESH chart, never an EA chart, and outside 20:50-21:15Z.
+
 Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
 - Vultr, Ubuntu 24.04; `apt -y upgrade` and REBOOT
   while empty (new kernel confirmed with `uname`); i386 + `apt update`
@@ -392,4 +408,4 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
   prompt; stale RDP tunnels can wedge X (02_TRAPS 1 Oct early morning). The rest of the path (pipshed page, Railway, Cloudflare,
   `fleet-d.md`, presets, attach) is backlog C85.
 
-Line count: 395
+Line count: 411

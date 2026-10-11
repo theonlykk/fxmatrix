@@ -106,5 +106,51 @@ class Edge(unittest.TestCase):
         self.assertAlmostEqual(e["rho_open"], 0.8035714, places=6)
 
 
+class Sweep3(unittest.TestCase):
+    """sweep3: add 2.5 / 5 / 7.5 / 10 x exit 2.5 / 5 / 7.5 / 10 x layers 6 / 8 / 10 on each
+    of the nine IC pairs, one flat start, the book carried 1-8 Oct, carry pass OFF (no
+    per-pair swaps), the pair's live width and stranded = width + 1; EURUSD adds two
+    carry-ON controls (7 / 10 / 8 and 5 / 5 / 8) to measure what turning carry off does."""
+
+    def test_eurgbp_rows(self):
+        st = sw.get_set("sw3_eurgbp")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 48)
+        r = rows[0]
+        self.assertEqual((r["add_l"], r["exit_l"], r["cap"]), (2.5, 2.5, 6))
+        self.assertEqual((rows[1]["cap"], rows[3]["exit_l"], rows[12]["add_l"]), (8, 5.0, 5.0))
+        self.assertEqual((r["width_l"], r["width_s"], r["stranded"], r["carry"]), (1.0, 1.0, 2.0, 0))
+        self.assertEqual(r["ticks_file"], "ticks_53077984_EURGBP__w2.csv")
+        self.assertEqual(st["geoms"][0][0], "a2.5e2.5n6")
+        self.assertIn("ticks_53077984_EURGBP__w2.csv", sw.to_csv(rows, st["ticks"]).splitlines()[1])
+
+    def test_eurusd_has_two_carry_on_controls(self):
+        st = sw.get_set("sw3_eurusd")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 50)
+        self.assertEqual([(r["add_l"], r["exit_l"], r["cap"], r["carry"]) for r in rows[48:]],
+                         [(7.0, 10.0, 8, 1), (5.0, 5.0, 8, 1)])
+        self.assertEqual(rows[0]["carry"], 0)
+        self.assertEqual(rows[0]["ticks_file"], "ticks_53077984_EURUSD_w2.csv")
+
+    def test_commission_in_pips_per_pair(self):
+        # $0.06 per close at 0.01 lots (0.03 a fill, measured); USD per pip from scalps
+        self.assertAlmostEqual(sw.get_set("sw3_eurusd")["comm_pips"], 0.6)
+        self.assertAlmostEqual(sw.get_set("sw3_eurgbp")["comm_pips"], 0.06 / 0.134)
+        self.assertAlmostEqual(sw.get_set("sw3_audnzd")["comm_pips"], 0.06 / 0.0574)
+
+    def test_old_sets_unchanged(self):
+        st = sw.get_set("sweep1")
+        self.assertEqual((st["comm_pips"], st["ticks"]), (0.7, "ticks_53077984_EURUSD_w2.csv"))
+        self.assertEqual(sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])[0]["carry"], 1)
+
+    def test_surface_table(self):
+        geoms = [("a2.5e2.5n6", 2.5, 2.5, 6, None), ("a2.5e5n6", 2.5, 5.0, 6, None)]
+        nets = {"a2.5e2.5n6": -10.0, "a2.5e5n6": 4.0}
+        txt = sw.surface(geoms, nets)
+        self.assertIn("| layers 6 | exit 2.5 | exit 5 |", txt)
+        self.assertIn("| add 2.5 | -10 | +4 |", txt)
+
+
 if __name__ == "__main__":
     unittest.main()

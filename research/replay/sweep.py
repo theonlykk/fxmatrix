@@ -50,18 +50,54 @@ SETS = {
 }
 
 
+# sweep3: the nine IC pairs. width = the live B width (register, 9 Oct); USD per pip at 0.01
+# lots measured from scalps (HANDOFF 2026-09-20; NZDCHF "near 0.12", FULL_TRIAL_RECORD)
+PAIRS = {"EURUSD": (2.0, 0.100), "GBPUSD": (2.5, 0.100), "EURGBP": (1.0, 0.134),
+         "AUDCAD": (1.5, 0.0714), "AUDCHF": (1.5, 0.122), "CADCHF": (1.0, 0.122),
+         "NZDCHF": (1.0, 0.120), "NZDCAD": (2.0, 0.0717), "AUDNZD": (2.0, 0.0574)}
+COMM_USD = 0.06   # 0.03 a fill at 0.01 lots on ENT and EXT (measured, HANDOFF 2026-09-20)
+GRID3 = tuple(("a%ge%gn%d" % (a, e, n), a, e, n, None)
+              for a in (2.5, 5.0, 7.5, 10.0) for e in (2.5, 5.0, 7.5, 10.0) for n in (6, 8, 10))
+
+
+def get_set(tag):
+    """windows, geoms (name, add, exit, cap, carry or None), base inputs, ticks file,
+    commission in pips per close, USD per pip at 0.01 lots."""
+    if tag in SETS:
+        windows, geoms = SETS[tag]
+        return {"windows": windows, "geoms": tuple(tuple(g) + (None,) * (5 - len(g)) for g in geoms),
+                "base": dict(BASE), "ticks": TICKS_FILE, "comm_pips": COMM_PIPS, "pip_usd": 0.10}
+    if not tag.startswith("sw3_") or tag[4:].upper() not in PAIRS:
+        raise KeyError(tag)
+    pair = tag[4:].upper()
+    width, pip_usd = PAIRS[pair]
+    base = dict(BASE)
+    base.update({"width_l": width, "width_s": width, "stranded": width + 1.0, "carry": 0})
+    geoms = GRID3
+    ticks = "ticks_53077984_%s__w2.csv" % pair
+    if pair == "EURUSD":
+        ticks = TICKS_FILE
+        geoms = GRID3 + (("a7e10n8c", 7.0, 10.0, 8, 1), ("a5e5n8c", 5.0, 5.0, 8, 1))
+    return {"windows": WEEK, "geoms": geoms, "base": base, "ticks": ticks,
+            "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd}
+
+
 def server_ms(s):
     return calendar.timegm(dt.datetime.strptime(s, "%Y-%m-%d %H:%M").timetuple()) * 1000
 
 
-def build_rows(windows, geoms):
+def build_rows(windows, geoms, base=None, ticks=TICKS_FILE):
     rows = []
-    for name, add, ext, cap in geoms:
+    for g in geoms:
+        name, add, ext, cap = g[:4]
+        carry = g[4] if len(g) > 4 else None
         for _day, frm, to in windows:
-            r = dict(BASE)
+            r = dict(BASE if base is None else base)
             r.update({"seg_id": len(rows) + 1, "from_ms": server_ms(frm), "to_ms": server_ms(to),
                       "add_l": add, "add_s": add, "exit_l": ext, "exit_s": ext, "cap": cap,
-                      "seed_file": "", "ticks_file": TICKS_FILE, "orders_file": ""})
+                      "seed_file": "", "ticks_file": ticks, "orders_file": ""})
+            if carry is not None:
+                r["carry"] = carry
             rows.append(r)
     return rows
 
@@ -75,8 +111,28 @@ def labels(windows, geoms):
     return out
 
 
-def to_csv(rows):
-    return bs.to_run_csv(rows, TICKS_FILE, [""] * len(rows), first_id=rows[0]["seg_id"])
+def to_csv(rows, ticks=TICKS_FILE):
+    return bs.to_run_csv(rows, ticks, [""] * len(rows), first_id=rows[0]["seg_id"])
+
+
+def surface(geoms, nets):
+    """One table per layer count: rows add, columns exit, cells net pips."""
+    adds = sorted({g[1] for g in geoms if g[4] is None})
+    exits = sorted({g[2] for g in geoms if g[4] is None})
+    caps = sorted({g[3] for g in geoms if g[4] is None})
+    by = {(g[1], g[2], g[3]): g[0] for g in geoms if g[4] is None}
+    out = []
+    for n in caps:
+        out.append("| layers %d | %s |" % (n, " | ".join("exit %g" % e for e in exits)))
+        out.append("|---|%s" % ("---|" * len(exits)))
+        for a in adds:
+            cells = []
+            for e in exits:
+                name = by.get((a, e, n))
+                cells.append("-" if name is None or name not in nets else "%+.0f" % nets[name])
+            out.append("| add %g | %s |" % (a, " | ".join(cells)))
+        out.append("")
+    return "\n".join(out)
 
 
 def scalp_pips(direction, entry, exit_):
@@ -131,8 +187,9 @@ def _f(x, fmt="%.2f"):
     return "-" if x is None else fmt % x
 
 
-def report(tag, segs, lab, sc, geoms=None):
-    lines = ["# Sweep %s (harness 145f092, FREE, flat start at each window; pips at 0.01 lots, $0.10 a pip)" % tag,
+def report(tag, segs, lab, sc, geoms=None, comm_pips=COMM_PIPS, pip_usd=0.10):
+    lines = ["# Sweep %s (harness 145f092, FREE, flat start at each window; pips at 0.01 lots, "
+             "$%.4g a pip, commission %.2f pip a close)" % (tag, pip_usd, comm_pips),
              "",
              "| geometry | day | S | R | A | realised | commission | open (n) | total net |",
              "|---|---|---|---|---|---|---|---|---|"]
@@ -155,11 +212,16 @@ def report(tag, segs, lab, sc, geoms=None):
     if geoms:
         lines += ["", "| geometry | k* = N a / e - 1 | S/R | rho (closed only) | rho (open book as rolls) |",
                   "|---|---|---|---|---|"]
-        for name, add, ext, cap in geoms:
+        for name, add, ext, cap, *_c in geoms:
             parts = [(sc[s["seg_id"]]["S"], sc[s["seg_id"]]["R"], ext, cap * add, sc[s["seg_id"]]["open"])
                      for s in segs if lab[s["seg_id"]][0] == name]
             e = edge(parts)
             lines.append("| %s | %.2f | %s | %s | %s |" % (name, e["k"], _f(e["sr"]), _f(e["rho"]), _f(e["rho_open"])))
+    if geoms and tag.startswith("sw3_"):
+        nets = {g: t["total_net"] for g, t in tot.items()}
+        gross = {g: t["realised"] + t["open"] for g, t in tot.items()}
+        lines += ["", "## Net pips (after commission)", "", surface(geoms, nets),
+                  "## Gross pips (before commission)", "", surface(geoms, gross)]
     return "\n".join(lines) + "\n"
 
 
@@ -173,16 +235,18 @@ def main(argv=None):
     ap.add_argument("--book")
     ap.add_argument("--ticks")
     a = ap.parse_args(argv)
-    windows, geoms = SETS[a.tag]
+    st = get_set(a.tag)
+    windows, geoms = st["windows"], st["geoms"]
     if a.cmd == "build":
         os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
         with open(a.out, "w", newline="\n") as f:
-            f.write(to_csv(build_rows(windows, geoms)))
+            f.write(to_csv(build_rows(windows, geoms, st["base"], st["ticks"]), st["ticks"]))
         return 0
     segs = cmp.segments(cmp.read_csv(a.run))
-    sc = score(segs, cmp.read_events(a.events), cmp.read_csv(a.book), cmp.Ticks.load(a.ticks))
+    sc = score(segs, cmp.read_events(a.events), cmp.read_csv(a.book), cmp.Ticks.load(a.ticks),
+               comm_pips=st["comm_pips"])
     with open(a.out, "w", newline="\n") as f:
-        f.write(report(a.tag, segs, labels(windows, geoms), sc, geoms))
+        f.write(report(a.tag, segs, labels(windows, geoms), sc, geoms, st["comm_pips"], st["pip_usd"]))
     return 0
 
 

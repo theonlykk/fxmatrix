@@ -1,0 +1,5 @@
+add >= 3: best net +594 at add 5 exit 15 layers 4 (depth 20)
+add >= 7: best net +519 at add 10 exit 20 layers 2 (depth 20)
+add 7 exit 13 layers 3 (depth 21): net +178
+add 7 exit 13 layers 8 (depth 56): net -358
+add 7 exit 10 layers 8 (depth 56): net -426

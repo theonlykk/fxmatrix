@@ -1,0 +1,4 @@
+EURUSD: start 1.13332 end 1.12115 net -122 pips, high-low range 176, 10-pip swings 134, 25-pip swings 24
+GBPUSD: start 1.32686 end 1.32278 net -41 pips, high-low range 105, 10-pip swings 160, 25-pip swings 26
+EURGBP: start 0.85414 end 0.84758 net -66 pips, high-low range 100, 10-pip swings 23, 25-pip swings 4
+hourly-return correlation EURUSD vs GBPUSD: 0.87 over 139 hours

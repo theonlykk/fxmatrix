@@ -2445,4 +2445,36 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   acting.** Fable's three findings were re-run from the committed tables
   before anything was built on them.
 
-Line count: 2448
+
+## TRAPS FROM 2026-10-10 NIGHT (THE GEOMETRY SWEEPS)
+
+- **The harness runs EURUSD only:** `Rpl_CheckSafetyForRun` aborts
+  `SAFE_S2_SYMBOL` on any other chart (core 1242 at `145f092`). Other pairs'
+  ticks run ON the EURUSD chart through the run file's `ticks_file`. Pips
+  computed from the prices are valid; the events' `gross_pnl` (EURUSD tick
+  value) is not, so use per-pair pip values. The carry pass needs that pair's
+  swaps, so it was turned off.
+- **Timing 1 writes a timing.csv of ~300 bytes per tick processed** (285 MB
+  for 12 day-segments; GBs for a pair's 48 week-long settings). Use timing 0
+  for sweeps, or delete `out_*_timing.csv` after each run.
+- **Timing 0 and timing 1 give different absolute P&L:** EURUSD 7 / 10 / 8
+  netted about 240 pips a week worse at t0 (more roll closes). Compare
+  settings within ONE timing model only.
+- **Daily flat restarts bias rho LOW:** closing at market every night books
+  six open losses as if they were rolls. Carry the book to read edge.
+- **Realised pips flatter a grid:** every day ends with layers underwater.
+  Score realised + the open book marked at the end, after commission.
+- **The tick dump's name adds its own underscore:** tag `_w2` gives
+  `ticks_<login>_<SYM>__w2.csv` (EURUSD's w2 used tag `w2`).
+- **Staging many large files at once can time out:** 2 of 8 (~20 MB each)
+  timed out; stage at most about 6 large files a call and retry the rest.
+- **The chat can reach `D:\mt5-replay\MQL5\Files\replay` directly**
+  (folder access granted 10 Oct): it writes run and tick files there and
+  reads the outputs without a Downloads round trip.
+- **Commission is measured at $0.03 a fill ($0.06 a close at 0.01 lots):**
+  0.6 pip on USD pairs. sweep1 and sweep2 used 0.7 (conservative by 0.1 pip a
+  close).
+- **Write a prediction down before reading a result** (EURGBP, sweep_notes):
+  it keeps hindsight honest.
+
+Line count: 2480

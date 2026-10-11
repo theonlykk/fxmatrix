@@ -1,0 +1,19 @@
+best 12 (net pips, a, e, N, scalps, rolls, open at end):
+   +873.3 a2  e14 N10 S186  R75  open -48.0
+   +817.0 a2  e12 N10 S215  R75  open -60.0
+   +815.6 a2  e16 N10 S157  R75  open -34.0
+   +746.0 a2  e14 N11 S186  R74  open -48.0
+   +689.7 a2  e12 N11 S215  R74  open -60.0
+   +688.3 a2  e16 N11 S157  R74  open -34.0
+   +687.3 a2  e13 N10 S186  R75  open -48.0
+   +658.6 a2  e15 N10 S157  R75  open -34.0
+   +643.9 a2  e18 N10 S128  R75  open -18.0
+   +620.7 a2  e14 N12 S186  R73  open -50.0
+   +602.0 a2  e11 N10 S215  R75  open -60.0
+   +593.8 a5  e15 N4  S86   R30  open -15.0
+  check a5 e5 N8: net -619.4 S 116 R 26 open -60.0
+  check a7 e10 N8: net -426.0 S 64 R 16 open -114.0
+  check a7 e10 N10: net -591.6 S 64 R 14 open -197.0
+  check a10 e10 N3: net +99.6 S 58 R 14 open -10.0
+  check a10 e10 N8: net -346.9 S 58 R 9 open -160.0
+worst: (-2448.5, 2, 2, 20, 290, 65, -180.0)
