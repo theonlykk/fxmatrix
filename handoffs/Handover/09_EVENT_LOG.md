@@ -14,6 +14,22 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
 
 ---
 
+### 12 Oct ~19:06Z -- IC: "service not available in this jurisdiction"; web dashboard locked (B, C, D; the replay login)
+- **What:** IC phoned the operator about verifying the account with
+  government documents; he said he lives in Ontario; IC ended the call:
+  the service is not available in that jurisdiction. Since then the IC
+  web dashboard refuses his login. The MT5 terminals (wine-test, wine-c,
+  wine-d, `D:\mt5-replay`) stay logged in.
+- **Handled:** a status read after the call: all fleets live. An insurance
+  EURUSD tick dump on wine-d (9 Oct 01:30 to 12 Oct 22:00 server, tag
+  `hold_early`, 110,670 ticks, clean log; sha256 `5669094b...`, 3,793,242
+  bytes), copied to Downloads, hashes equal; holdout data, copied and
+  hashed only. Claude: do not re-verify with different details.
+- **Changed:** IC access (B, C, D, the replay's read-only login, the tick
+  dumps) may end at any time; plan 3's holdout tick window may have to end
+  at 12 Oct 22:00 server (the operator's call). Backlog C150.
+- **Evidence:** HANDOFF s80 continued 9; `docs/runbooks/plan3-holdout-export.md` X10.
+
 ### 9 Oct 04:24-04:32Z -- compass round 3 reload: four IC charts (B, C, D)
 - **What:** round 3's `_r3` presets loaded by hand on four charts: D
   EURUSD exit 9 L / 11 S; AUDCHF width 1.5 on B, C and D (C add 5 L / 3 S;
@@ -600,4 +616,4 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 603
+Line count: 619

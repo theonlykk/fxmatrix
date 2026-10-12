@@ -1,38 +1,43 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-11 ~18:00Z (SUNDAY; SWEEPS DONE; C142 ADR NEXT; PLAN 3 HOLDOUT TUE 13)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-12 ~20:50Z (MONDAY; SWEEP6 SCORED; IC ACCESS IN DOUBT; PLAN 3 HOLDOUT EXPORT TUE 13)
 
-**Prepared 11 Oct ~18:00Z (HANDOFF s79 continued 12; first written 10 Oct ~18:45Z).** The EURUSD replay
-(an MQL5 harness on the EA's own engine, branch `replay-harness`, never
-merged) has been through three pre-registrations:
-- **Plan 1** closed (M1-M3).
-- **Plan 2** (a broker timing model measured from our sends; fixes 6 and 7)
-  closed under its s8 (b): T1 passes (one decision at a time the replay
-  reproduces 95.5-97.3% of our deals), but free-running it drifts
-  deal-for-deal (read-moment timing; the 2 Oct payrolls burst, when IC
-  slowed sends to 1.2-5.8 s and refused modifies).
-- A **Fable consult** (`docs/research/replay-consult-fable.md`, its findings
-  verified) showed the free-run COUNTS match outside the burst.
+**Prepared 12 Oct ~20:50Z (HANDOFF s80 continued 9; the s80 chat ran out of
+space).** The EURUSD replay (an MQL5 harness on the EA's own engine, branch
+`replay-harness`, never merged) has been through three pre-registrations:
+- **Plans 1 and 2** closed (plan 2 under its s8 (b): T1 passes, the free run
+  drifts deal for deal).
 - **Plan 3** (`docs/research/replay-calibration-eurusd-3.md`) is RULED: the
-  replay is judged for COUNT-level use, on the free-run scalps S, roll closes
-  R and roll acceptances A per fleet and side, within tolerances from the
-  live day-to-day spread, plus bias and fleet-difference marks. The harness
-  is frozen at `145f092`. The scorer `research/replay/score_plan3.py` is
-  committed (tests first). The holdout is 9-13 Oct, unseen.
+  replay is judged for COUNT-level use (free-run scalps S, roll closes R,
+  roll acceptances A per fleet and side) within tolerances from the live
+  day-to-day spread. Harness frozen at `145f092`. The holdout is 9-13 Oct,
+  unseen: export and hash ONLY on Tue 13
+  (`docs/runbooks/plan3-holdout-export.md`).
 
-**Since then (10 Oct evening, HANDOFF s79 continued 10):** geometry sweeps on
-the frozen harness by INPUT files only (`research/replay/sweep.py`,
-`results/sweep_notes.md`). On EURUSD 1-8 Oct, every add / exit / layers setting
-is near zero before commission, and commission ranks them. The operator's
-conclusion: settings move the break-even with the scalps, so they cannot make
-an edge; the grid needs chop that beats drift. sweep3 runs all nine IC pairs
-(48 settings each), complete: GBPUSD, NZDCHF and NZDCAD show an edge on 1-8 Oct;
-five pairs show none. sweep4 (8 earlier weeks, Q1-Q3 PRE-REGISTERED) is
-scored: EURGBP persistently positive (small), AUDNZD persistently negative, no
-robust setting; the pair matters more than the setting. C148: "we don't get
-paid to do what we do" (no premium, no spread, commission). The operator's design idea (C142):
-react to INVENTORY, not regime, with the light side's add shrinking as the
-depth gap grows.
+**Since 11 Oct (HANDOFF s80, all of it):**
+- **ADR-167** (C142, the operator's "layer equaliser": the light side's add
+  shrinks as the depth gap grows; a fraction table, no pip floor) was
+  written, Gemini-reviewed, built in the REPLAY ONLY on branch
+  `replay-adr167` (`ed5d052`, suite 493 / 493, off-switch byte-equal to
+  `145f092`), and tested as **sweep6** on the eight weeks (pre-registered):
+  **NO VERDICT for all three tables, 0 of 9 pairs better, summed -540 to
+  -699 pips; scalps +10-14%, roll closes +9-15%.** Claude's lean: park.
+  Not ruled.
+- **The discussion after sweep6** (`docs/research/light-side-add-discussion.md`):
+  rolls happen only at 8/0 (roll gate 0); the equaliser helps only if a
+  bounce fails at about 6/6; a two-sided grid gives back ~550 pips of a full
+  reversion to the short leg it builds; a toy model of a SLOWER light side
+  (`research/grid_thesis/light_side_toy.py`): "pause while gap >= 1" ends a
+  rally back to 200 at -7 (today's rule -266), at a cost of 30 on a failed
+  bounce and 70 on a 200-and-back. Operator: "we might do a sweep 7 - both
+  to test the slower short add and our accessibility to IC markets".
+- **IC, 12 Oct ~19:06Z:** IC phoned the operator about verifying with
+  government documents; he said he lives in Ontario; IC: the service is not
+  available in that jurisdiction. The IC web dashboard now refuses his
+  login; the terminals stay logged in; all fleets were live after it. An
+  insurance EURUSD tick dump was taken on wine-d (9 Oct 01:30 - 12 Oct
+  22:00 server, sha256 `5669094b...`, in Downloads). **Do not advise
+  re-verifying with different details.** Backlog C150.
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps is PARKED.
 
@@ -42,24 +47,24 @@ into your sandbox and READ FROM THEM. Verify the HEADs in git first.
 
 Read, in order:
 1. `handoffs/Handover/01_BOOT.md` (s1-s5 the pipeline and conventions; s6
-   the state).
-2. `handoffs/HANDOFF_2026-09-24.md` **s79 through its last "continued"
-   block**. Follow the last NEXT SESSION list.
-3. `handoffs/Handover/02_TRAPS.md`: the sections dated **2026-10-10**.
-4. `docs/research/replay-calibration-eurusd-3.md`: ALL of it (s3 the marks
-   and tolerance table, s5 the known limits, s7 the holdout steps, s10
-   Gemini's rulings).
-5. `docs/research/replay-consult-fable.md` s5-s9;
-   `docs/research/replay-calibration-eurusd-2.md` s3 (the timing model),
-   s7 (the holdout as first written), s14-s18.
-6. `research/replay/`: `results/sweep_notes.md` (the sweeps), `score_plan3.py` + `test_score_plan3.py`,
-   `live_spread.py` + tests, `compare.py` (`--t0-price order`),
-   `results/plan3/`, `results/eurusd_20261008_145f092/`.
-7. `prompts/cursor_replay_fix7.md` s4 (how the runs are made) and s10 (what
-   went wrong in them); `tools/replay_run.ps1` on `replay-harness`.
-8. `handoffs/Handover/08_BACKLOG.md` (C135); `docs/runbooks/compass-round.md`
-   with `research/compass/round3.json`;
+   the state: its first block).
+2. `handoffs/HANDOFF_2026-09-24.md` **s80 through its last "continued"
+   block** (s79 if you need the plan 3 history). Follow the last NEXT
+   SESSION list.
+3. `handoffs/Handover/02_TRAPS.md`: the sections dated **2026-10-11** and
+   **2026-10-12**.
+4. `docs/runbooks/plan3-holdout-export.md` (Tue 13, step by step; its X10).
+5. `docs/research/replay-calibration-eurusd-3.md`: s3, s5, s7 (with its
+   notes), s10.
+6. `docs/research/light-side-add-discussion.md`; then
+   `docs/architecture/ADR-167-light-side-add-by-depth-gap.md` (status line
+   and s11); `research/replay/results/sweep_notes.md` (sweep4 and sweep6);
+   `research/replay/results/sweep6/marks.md`.
+7. `handoffs/Handover/08_BACKLOG.md`: C142, C145, C147, C148, C149, C150;
+   `docs/runbooks/compass-round.md` s4.2 with `research/compass/round3.json`;
    `handoffs/Handover/10_GEOMETRY_REGISTER.md` (LIVE NOW).
+8. `prompts/cursor_adr167_replay.md` s4 and s10-s11 (how a replay-only
+   build is specified and checked; the template for a sweep7 prompt).
 9. Then this.
 
 **YOUR FIRST REPLY, after the reading (operator's request):**
@@ -79,35 +84,30 @@ Do not start any fleet action before the answers are in.
 - **A (VPS, FTMO free trial 1514878887, $10k, since 7 Oct 22:08-22:17Z):**
   the IC strategy STATIC at B's round-2 anchor, seven `_OPT` instances, EA
   `5bb5fdb`, tag `vps-9346e42`. No input change until the trial ends (~21
-  Oct), except a defect fix.
+  Oct), except a defect fix. Not affected by the IC call (FTMO).
 - **IC B (wine-test, 53066709, anchor), C (wine-c, 53071896, add probe)
   and D (wine-d, 53077984, exit probe):** nine instances each, EA
-  `5bb5fdb`, roll gate 0, re-roll ON, breaker off. Round 3 reloaded 9 Oct
-  04:24-04:32Z on four charts (D EURUSD exit 9 / 11; AUDCHF width 1.5 on
-  B, C and D; C add 5 / 3; D exit 11 / 9). Window Mon 12 + Tue 13; **scored
-  Tue 13 ~22:35Z**; the COHORT's EQUITY decides.
-- **The carry pass runs 20:50-20:59Z nightly.** Fridays show `failed` 3-4 per
-  instance (retcode 10025, a MODIFY to an unchanged price): not news.
+  `5bb5fdb`, roll gate 0, re-roll ON, breaker off. Round 3 on four charts
+  since 9 Oct 04:24-04:32Z; **scored Tue 13 ~22:35Z**; the COHORT's EQUITY
+  decides. **IC access is in doubt (C150):** at every status read, check
+  that each IC terminal is still logged in.
+- **The carry pass runs 20:50-20:59Z nightly.** Fridays show `failed` 3-4
+  per instance (retcode 10025): not news.
 
 **Operator rulings (do not re-open):**
 - The static FTMO-IC trial runs as it is.
 - The COHORT's EQUITY decides a compass round.
 - NZDCAD is the control. IC keeps nine pairs. No twins. No broker contact.
 - No time-series analysis or price signals: work from our own trades.
-- A replay is trusted only once it reproduces our trades; it is "the
-  veteran" (ranges and stability, not optima).
-- **No synthetic init** for B and C: their holdout free runs continue from
-  their 7 Oct inits; all fleets are scored on deals after 9 Oct 04:32Z.
-- **Plan 3 (10 Oct ~17:28-17:37Z):** count-level gate as drafted on Claude's
-  proposals; holdout 9-13 Oct; score everything (no burst exclusion).
+- A replay is trusted only once it reproduces our trades.
+- The cap stays 8. Rolls only at 8/0 (roll gate 0) are accepted ("might
+  mean we fade the dead cat bounce").
+- An aside is not a rule: the "3-pip minimum add" was a passing remark
+  (removed from ADR-167).
+- Round 3's scoring does not spoil plan 3's holdout (12 Oct ~01:39Z).
 - **The 9-13 Oct EURUSD data are the holdout:** export and hash on Tue 13;
-  nothing reads them until plan 3 s7 allows it.
-
-**The replay's facts:**
-- Server time is UTC+3. The archive's `ea_time_ms` is UTC on the EA's
-  clock (leads the broker's by ~0.6 s); harness files use server ms.
-- B, C and D trade ONE feed: three geometries, one test.
-- send_logs keep 14 days: the holdout's must be exported soon after Tue 13.
+  nothing reads them until plan 3 s7 allows it. That includes the
+  insurance tick file.
 
 ---
 
@@ -115,49 +115,49 @@ Do not start any fleet action before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `5b65702` (= `41ab394` + s79n-q) + the s80 patches (HANDOFF s80). EA code `5bb5fdb`, live on A, B, C, D |
-| `replay-harness` | tip `efada62`; code **`145f092`, FROZEN for plan 3**; suite 461 / 461 at `252aae5`; the 48-run matrix `research/replay/runs/eurusd_*_145f092*/` (each run's `timing.csv` is on the desktop only) |
-| `D:\mt5-replay` | Copy BEFORE compiling (`replay_run.ps1 -Mode Copy`); the OPERATOR compiles in the MetaEditor GUI (never a CLI build); R1 (suite), then R2 (inputs), then R4 (runs), no suite between R2 and R4 (the suite rewrites `swaps.csv`) |
+| fxmatrix `main` | `ad62b51` (s80i) + this patch (s80j). EA code `5bb5fdb`, live on A, B, C, D |
+| `replay-harness` | tip `efada62`; code **`145f092`, FROZEN for plan 3**; suite 461 / 461 |
+| `replay-adr167` | tip `ed5d052` (ADR-167 in the replay only; 493 / 493; never merged) |
+| `D:\mt5-replay` | **holds the ADR-167 build now.** Before plan 3's holdout runs: `git checkout replay-harness`, `replay_run.ps1 -Mode Copy`, the operator's GUI compile, suite 461 / 461. It starts on IC 53077984's read-only login |
 | pipshed `main` | `6ea487e` (`--export-sends`) |
-| Data on the desktop (Downloads) | `archive_EURUSD_OPT{B,C,D}_2026-10-08_2240.jsonl`, `sends_EURUSD_OPT{B,C,D}_2026-10-09.jsonl`, `ticks_53077984_EURUSD_w2.csv` (sha256 `db2ea941...`). Stage them with the device tools (Downloads is granted to the chat) |
+| Data in Downloads | sweep4 / sweep6's eight weeks of ticks (h8w); `ticks_53077984_EURUSD_w2.csv` (`db2ea941...`); **`ticks_53077984_EURUSD_hold_early.csv`** (holdout insurance, sha256 `5669094b04844a6aece341a2a6bb8018b230b691dbccb9fd878ca23936b9cc90`, 3,793,242 bytes: copy and hash only) |
 | Linux boxes | believed `9425141`; NOT checked since 9 Oct |
 
 ## 2. NEXT, IN ORDER
 
-1. **C142 ADR** (the operator's "linear equalizer of layers": light-side add
-   by depth gap, a table input; C146 / C127 / C103 folded in as options), one
-   document for Gemini; code after plan 3. Then C148's carry table.
-   Daily-flat starts: ANSWERED, no edge (sweep5, pre-registered: 0 of 9 pairs
-   positive over 40 days; worse than carrying on 6 of 9).
-1b. On each box: `git -C /home/khalid/fxmatrix-repo log --oneline -1`.
-2. **Tue 13 after 22:00Z: the holdout's data exported and hashed ONLY**
-   (send_logs 9-13 Oct via pipshed `--export-sends`, the archives, one tick
-   dump on wine-d from `2026.10.09 01:30` server to `2026.10.14 01:00` or
-   later); ~22:35Z round 3 scored (cohort equity), apart.
-3. **Plan 3 s7, each step committed before the next:** the holdout inputs
-   (the existing builders; a manifest of hashes); T0 (>= 95% or STOP); the
-   runs at `145f092` (B, C, D x SYNC, FREE; `timing = 1`, base; `t0`
-   reported); `compare.py --t0-price order`; `score_plan3.py --cut-ms <9 Oct
-   04:32Z as server ms> --tol research/replay/results/plan3/live_spread_n3.txt`;
-   the verdict (PASS / FAIL / INCONCLUSIVE) to the operator.
-4. No mark, tolerance, window or code changes once any holdout file is read.
+1. Mon 12 after the carry pass (20:50-20:59Z): a status read; every IC
+   terminal still logged in? On each box: `git -C
+   /home/khalid/fxmatrix-repo log --oneline -1`.
+2. **Tue 13 from 22:10Z: `docs/runbooks/plan3-holdout-export.md`, one step
+   per message.** If wine-d has lost IC by then: STOP; the insurance file
+   is the fallback and a plan 3 note is the operator's call. ~22:35Z round
+   3 scored, apart (it needs wine-c's bid / ask dump: IC too).
+3. **Plan 3 s7, each step committed before the next** (the restore of
+   `replay-harness` first).
+4. The operator's O-A..O-C (`light-side-add-discussion.md` s8): ADR-167
+   parked or not; sweep7 (a slower light side: a parser change on
+   `replay-adr167` through the pipeline, then a pre-registration like
+   sweep6); what "accessibility to IC" in sweep7 means. Never leave
+   `D:\mt5-replay` on a sweep build when plan 3 needs it.
+5. C145; C148.
 
 ## 3. TRAPS (full list in 02_TRAPS)
 
 - Cursor leaves the desktop on its branch: every patch step starts with
   `git checkout main`. Quote `"HEAD^{tree}"` in PowerShell.
-- Gemini's premises are often wrong even when the finding is right; a
-  sign-off with no questions is the tell. Check every ruling in source.
-- Cursor may run the suite before the operator's compile and may fix a
-  failing test itself: the operator's line says "on any failure STOP and
-  report, do not fix".
-- Specify tests from a REAL output row (fill_log rows have an empty code
-  column; the type is in the json).
+- **Never reuse a patch's file name in Downloads** (the old bytes can stay);
+  read every saved patch back and hash it; give the tree hash.
+- Gemini's premises are often wrong even when the finding is right. Check
+  every ruling in source.
+- Cursor may fix a failing test itself: the operator's line says "on any
+  failure STOP and report, do not fix".
+- A test fixture's book must be a book the EA could hold (losing layers
+  under water). A toy model must follow the EA's placement rules (a limit
+  behind the market goes AT the market).
 - Count what a fix can change before selling it; compute a figure with a
   committed script before quoting it.
 - Your sandbox: `git fetch` and `git reset --hard origin/main` before every
-  patch. `.md` files check out CRLF: compare LF bytes (`git show
-  HEAD:<path>`).
+  patch. `.md` files check out CRLF: compare LF bytes.
 
 ## 4. WORKING PRACTICE
 
@@ -165,14 +165,17 @@ Do not start any fleet action before the answers are in.
   (`Select-String`); never ask for pasted logs. pipshed URLs in plain text.
 - **Docs and small fixes:** Claude commits in its sandbox, runs `git
   format-patch`, checks `git am` on a clean clone at the base, saves the
-  patch STRAIGHT to Downloads and gives the tree hash. The operator runs
-  `git am`, checks the tree and pushes. **Claude never pushes.**
-- **Harness changes** (none under plan 3): a prompt (RESTATE AND STOP,
-  exact counts, questions for Gemini inside it) in an artifact -> Gemini ->
-  Claude checks his rulings -> Cursor -> Claude reads the commits -> the
-  operator compiles -> Cursor runs -> Claude reads the outputs.
+  patch STRAIGHT to Downloads under a NEW name, reads it back, hashes it
+  and gives the tree hash. The operator runs `git am`, checks the tree and
+  pushes. **Claude never pushes.**
+- **Replay or EA changes:** a prompt (RESTATE AND STOP, exact counts,
+  questions for Gemini inside it) in an artifact -> Gemini -> Claude checks
+  his rulings -> Cursor -> Claude reads the commits -> the operator
+  compiles -> Cursor runs -> Claude reads the outputs.
 - One document at a time for Gemini. One paste per step, for agents too.
   Count every line mechanically.
+- **Explain with one small worked example in prices before any table**
+  (operator 12 Oct: "lets make it a bit simpler").
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 178
+Line count: 181

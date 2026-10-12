@@ -2553,4 +2553,26 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   compile (commit 1b). Read commit 1 for order of declarations, not only
   for logic.
 
-Line count: 2556
+## TRAPS FROM 2026-10-12 EVENING (THE TOY MODEL; IC'S CALL)
+
+- **A toy model must follow the EA's placement rules.** The first slower-
+  short toy left a sell limit BELOW the market when a rule's target
+  narrowed and filled it later at that stale price; the EA moves such a
+  limit to the market (ADR-013 clamp). Two rows of the first table were
+  wrong by 229-259 pips (`docs/research/light-side-add-discussion.md` s5).
+  Print the toy's fill log for one path and check each fill against the EA
+  before showing a table.
+- **Show the path where a rule costs, next to the path where it pays.** A
+  slower short looks free on a straight rally; its cost is on the failed
+  bounce and the round trip.
+- **Plain words and one small example in prices first.** "i am not sure i
+  follow your table": walk one book through one move (a price, an order,
+  the book after), then the table.
+- **Telling a broker where you live can end the access** (IC 12 Oct: "not
+  available in this jurisdiction"; the web dashboard locked within
+  minutes; the terminals stayed up). Never advise re-verifying with
+  different details. When access is in doubt, take an insurance copy of
+  anything that lives only on the broker's terminals (tick history) at
+  once, hash it, and keep it out of any analysis it would spoil.
+
+Line count: 2578

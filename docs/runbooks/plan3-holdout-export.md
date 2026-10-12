@@ -23,6 +23,7 @@ This message has a line count at the bottom
 | X7 | A `.set` written UTF-16LE with a BOM left `InpSymbols` and `InpTo` at their defaults (11 Oct). This list uses NO preset: four values are typed | 02_TRAPS 2026-10-11 | RECORDED |
 | X8 | wine-d has no ssh short name: `root@216.128.158.33`; the MQL5 log is UTF-16LE, named by the UTC day | 06_LINUX_WINE_BOX s10 | RECORDED |
 | X9 | Round 3's scoring the same evening reads live EURUSD deals and bid / ask of 12-13 Oct. Operator 12 Oct ~01:39Z: it does not spoil the holdout | plan 3 s7 note | RULED |
+| X10 | IC, 12 Oct ~19:06Z: "not available in this jurisdiction"; the web dashboard locked, the terminals logged in (C150). Insurance dump taken on wine-d the same evening: `ticks_53077984_EURUSD_hold_early.csv`, 9 Oct 01:30 to 12 Oct 22:00 server, 110,670 ticks, sha256 `5669094b04844a6aece341a2a6bb8018b230b691dbccb9fd878ca23936b9cc90`, 3,793,242 bytes, in Downloads and on wine-d. Copy and hash only, like the seven | HANDOFF s80 continued 9 | RECORDED |
 
 ## 1. WHAT "EXPORTED AND HASHED ONLY" MEANS HERE
 
@@ -92,7 +93,7 @@ FAILED or DELETED line, then `TICKS|END`. STOP on anything else.
 
 It must equal step 5's hash. STOP if not: copy again.
 
-**Step 8 (Claude): the record.** The seven names, sizes and hashes go into
+**Step 8 (Claude): the record.** The seven names, sizes and hashes (and X10's insurance file) go into
 `research/replay/inputs/eurusd_holdout_raw.sha256` and the handoff, as one
 docs patch. Claude does not stage or open the files for this.
 
@@ -111,5 +112,10 @@ docs patch. Claude does not stage or open the files for this.
   zero, or no `TICKS|END`.
 - The two tick hashes differ after a second copy.
 - wine-d shows a restart, a new login or an alert while you are on it.
+- **wine-d is logged out of IC, or the dump cannot reach the server (X10):**
+  do not log in again with other details. Steps 1-2 still run (pipshed,
+  not IC). The insurance file stands in for step 3; whether plan 3's
+  holdout window ends at 12 Oct 22:00 server is the operator's call, as a
+  plan 3 note BEFORE any holdout file is read.
 
-Line count: 115
+Line count: 121
