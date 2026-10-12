@@ -14,7 +14,9 @@ in full. Written by Claude 12 Oct ~03:40Z from source at `efada62`
 results if we implement the layer equalizing logic on the data we download.
 we have 8 weeks of data, let's see if it made a difference." This prompt
 builds the rule into the ENGINE and lets the REPLAY HARNESS switch it on per
-segment from the run file. It is an experiment build on its own branch:
+segment from the run file. Gemini reviewed it 12 Oct ~03:12Z (s9 questions;
+s10 his rulings, Claude's check and the one change: two call sites, not
+three). It is an experiment build on its own branch:
 - it is NOT the EA build (no EA input, no heartbeat field, no DeepSeek
   audit, no merge, no deploy: that is a later prompt, after plan 3);
 - it must NOT change the frozen harness: branch `replay-harness` and its
@@ -28,7 +30,7 @@ segment from the run file. It is an experiment build on its own branch:
 | C1 | `Grind_ComputeAddTarget(side, is_long, add_pips)`: next add = anchor -/+ add | `ea/grind_engine.mqh` 2250-2287 | VERIFIED |
 | C2 | `Grind_SendNextAddEnt` uses the add twice: the target (2327) and the near-market test (2357) | 2298-2402 | VERIFIED |
 | C3 | `Grind_EnsureAddNext` uses the add once itself (the target, 2543) and passes it on to `Grind_ApplyEntryHorizon` (2535) and `Grind_SendNextAddEnt` (2582) | 2483-2583 | VERIFIED |
-| C4 | `Grind_ApplyEntryHorizon` uses the add twice itself (`floor_price` 1858, the target 1860) and passes it on to `Grind_SendNextAddEnt` (1895, 1927) | 1833-1945 | VERIFIED |
+| C4 | `Grind_ApplyEntryHorizon` uses the add twice itself (`floor_price` 1858, the target 1860) and passes it on to `Grind_SendNextAddEnt` (1895, 1927). It returns 0 at its first line unless the entry horizon is active (1842, 1505), and the harness configures the horizon as 0.0 for every segment (core 1604): unreachable here | 1833-1945 | VERIFIED |
 | C5 | The lattice uses the add for its level and stranded mark (`Grind_LatticeTrySide` 1306, `Grind_LatticeMaybeStranded` 1185, `Grind_LatticeRollDeferredNote` 1246). NOT to be changed (ADR-167 A5: a side at the cap never has a positive gap) | 1172-1388 | VERIFIED |
 | C6 | `Grind_SideDepth(side)` = `ArraySize(side.layers)`; the sides are the globals `g_grind_long`, `g_grind_short` | 2015-2018 | VERIFIED |
 | C7 | One ENT send per tick (`g_grind_ent_sent_this_tick`, 2350, 2389): with both sides needing an add, the long side's goes first (`Grind_OnTickEngine` 3235-3238) and the short side's on the NEXT tick | 3183-3239 | VERIFIED |
@@ -89,13 +91,15 @@ harness must then be identical to `efada62`.
 - `Grind_LightAddPips`: `own = Grind_SideDepth(side)`; if `own <= 0` return
   `add_pips`; `opp = Grind_SideDepth(is_long ? g_grind_short : g_grind_long)`;
   return `add_pips * Grind_LightAddFraction(g_grind_light_add_frac, opp - own)`.
-- In EXACTLY three functions, compute once, after the early returns that
-  need no add, `const double eff_add = Grind_LightAddPips(side, is_long, add_pips);`
+- In EXACTLY two functions (s10: three before Gemini's G167-5), compute
+  once, after the early returns that need no add, `const double eff_add = Grind_LightAddPips(side, is_long, add_pips);`
   and use `eff_add` where the function ITSELF uses the add (C2-C4):
   - `Grind_SendNextAddEnt`: the target (2327) and the near-market test
     (2357);
-  - `Grind_EnsureAddNext`: the target (2543);
-  - `Grind_ApplyEntryHorizon`: `floor_price` (1858) and the target (1860).
+  - `Grind_EnsureAddNext`: the target (2543).
+- `Grind_ApplyEntryHorizon` is NOT changed (s10): the harness always runs
+  with the entry horizon at 0.0 (core 1604), so that function returns at
+  its first line (1842) and no test here could reach a change in it.
 - Every call that PASSES the add on (1895, 1927, 2423, 2426, 2454, 2458,
   2472, 2476, 2535, 2582 and all others) keeps passing `add_pips`, the
   configured value: the callee scales it once.
@@ -128,7 +132,7 @@ later build). `RPL_MIRRORS_EA` stays `"5bb5fdb"`.
    s4). Do NOT run the suite yourself before the operator says "compiled"
    (s5).
 2. P (the two pure functions).
-3. E (the globals, the two engine functions, the three call-site changes).
+3. E (the globals, the two engine functions, the two call-site changes).
 4. H (the harness column, configure, reset, print). Predicted: **493 / 493**.
 
 ## 4. TESTS (`ea/fxgrind_replay_tests.mq5`; F = fails at commit 1, G = guard, passes at both)
@@ -196,8 +200,8 @@ Totals: 32 assertions, **15 F, 17 G**. Suite: 461 + 32 = **493**.
 ## 6. NEGATIVE SPACE
 
 - Do not touch `ea/fxgrind.mq5`, the EA's test suite, any preset, the
-  lattice, the roll, the roll gate, reconciliation, the exit queue or the
-  carry pass.
+  lattice, the roll, the roll gate, `Grind_ApplyEntryHorizon`,
+  reconciliation, the exit queue or the carry pass.
 - Do not change any output file's columns or add any output row.
 - Do not commit to, rebase, merge into or force-push `replay-harness` or
   `main`. No PR. No `git stash`. No `git add .` or `-u`. No checkout of
@@ -244,4 +248,40 @@ Totals: 32 assertions, **15 F, 17 G**. Suite: 461 + 32 = **493**.
   wrong reason, or a state in which an F cannot fail?
 - **G167-5.** What fact is missing?
 
-Line count: 247
+## 10. GEMINI'S RULINGS (G167-1..5, 12 Oct ~03:12Z) AND CLAUDE'S CHECK
+
+**One change: `Grind_ApplyEntryHorizon` is left alone (s2 E, s6). No test,
+count or expected value changes.**
+
+- **G167-1: ACCEPTED** (the side branch and the restore keep plan 3's
+  freeze). Added by Claude: the suite COUNT is the detector of a stale
+  binary. This build reports 493; the frozen harness reports 461. A restore
+  that was not compiled cannot show 461 / 461.
+- **G167-2: ACCEPTED** (the effective add computed where it is used, never
+  passed down).
+- **G167-3: ACCEPTED** (R3's twelve byte-equal runs as the off-switch proof
+  for a build that is never deployed).
+- **G167-4: "REJECTED" on a wrong premise; no change.** He reads RT66 as
+  running with a short add already resting at 1.10570 (ticket 5212, "as
+  RT40"). It does not: `Rt167_Book` seeds NO short add (only `Rt167_Direct`,
+  used by RT68 and RT69, seeds 5212). In RT66 the engine PLACES the short
+  add: at commit 1 at 1.10570 (the stub), so assertion a fails on the price
+  as tagged; at commit 4 at 1.10549. His own conclusion is the same ("the
+  test fails"). The masking he warns of is what RT68 a tests directly: at
+  commit 1 the target equals the resting 1.10570, nothing is modified, and
+  the price assertion (1.10549) fails as tagged.
+- **G167-5: ADOPTED as a reduction.** His wording is off (the horizon's
+  `floor_price` is the band inside which an add is always placed, not "the
+  minimum allowed entry price"), but the point stands: the change to
+  `Grind_ApplyEntryHorizon` could not be exercised here. Checked in source:
+  the harness passes 0.0 as the horizon for every segment (core 1604) and
+  the function returns at its first line when the horizon is off (engine
+  1842, 1505). An untested change to code that cannot run is left out of
+  an experiment build; the EA build decides it with the EA's own horizon
+  tests (ADR-167 3.4 still says "kept consistent" for that build).
+- **He asked no questions and named no most-likely failure** (the covering
+  note asked for one). Claude's: an expected value in s4 that the harness
+  does not reproduce (they are hand-derived and have not been run). The
+  rule for that is s7: STOP and report, never adjust.
+
+Line count: 287
