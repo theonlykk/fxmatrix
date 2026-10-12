@@ -198,5 +198,72 @@ class Sweep5(unittest.TestCase):
         self.assertEqual(rows[0]["carry"], 0)
 
 
+class Sweep6(unittest.TestCase):
+    """sweep6 (ADR-167 in the replay, branch replay-adr167): sweep4's eight weeks, each its own
+    flat start (Mon 00:00 to Fri 23:45 server), the nine pairs, carry off, timing 0, h8w ticks.
+    Three cap-8 settings already in sweep4 (the pair's live B geometry, a7.5e7.5n8, a10e10n8),
+    each with no table (off) and with the three shapes of ADR-167 3.3 (step, linear, dead zone
+    + linear) in the run file's optional 24th column light_add."""
+
+    def test_settings_tables_and_rows(self):
+        st = sw.get_set("sw6_eurusd")
+        self.assertEqual(st["windows"], sw.get_set("sw4_eurusd")["windows"])
+        names = [g[0] for g in st["geoms"]]
+        self.assertEqual(len(names), 12)
+        self.assertEqual(names[:4], ["live_off", "live_step", "live_lin", "live_dz"])
+        self.assertEqual(names[4], "a7.5e7.5n8_off")
+        self.assertEqual(names[-1], "a10e10n8_dz")
+        self.assertEqual(st["geoms"][0], ("live_off", 7.0, 10.0, 8, None, ""))
+        self.assertEqual(st["geoms"][1][5], "1;1;1;0.5")
+        self.assertEqual(st["geoms"][2][5], "0.93;0.86;0.79;0.71;0.64;0.57;0.5")
+        self.assertEqual(st["geoms"][3][5], "1;1;0.9;0.8;0.7;0.6;0.5")
+        self.assertEqual(st["ticks"], "ticks_53077984_EURUSD__h8w.csv")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 96)
+        self.assertEqual((rows[0]["light_add"], rows[8]["light_add"]), ("", "1;1;1;0.5"))
+        self.assertEqual(rows[0]["carry"], 0)
+
+    def test_tables_are_valid(self):
+        # entries in (0, 1], 1 to 16 of them, none larger than the one before (the harness's rule)
+        for _name, table in sw.TABLES6:
+            if table == "":
+                continue
+            v = [float(x) for x in table.split(";")]
+            self.assertTrue(1 <= len(v) <= 16)
+            self.assertTrue(all(0.0 < x <= 1.0 for x in v))
+            self.assertTrue(all(v[i + 1] <= v[i] for i in range(len(v) - 1)))
+
+    def test_off_rows_equal_sweep4(self):
+        # the off rows must be sweep4's rows for the same setting (the comparison's control)
+        s6 = sw.get_set("sw6_gbpusd")
+        s4 = sw.get_set("sw4_gbpusd")
+        r6 = sw.build_rows(s6["windows"], s6["geoms"], s6["base"], s6["ticks"])
+        r4 = sw.build_rows(s4["windows"], s4["geoms"], s4["base"], s4["ticks"])
+        lab4 = sw.labels(s4["windows"], s4["geoms"])
+        lab6 = sw.labels(s6["windows"], s6["geoms"])
+        keys = ("from_ms", "to_ms", "width_l", "width_s", "add_l", "add_s", "exit_l", "exit_s", "cap",
+                "stranded", "deadband", "lattice", "reroll", "gate", "carry", "ticks_file")
+        for name4, name6 in (("live", "live_off"), ("a7.5e7.5n8", "a7.5e7.5n8_off"),
+                             ("a10e10n8", "a10e10n8_off")):
+            a = [tuple(r[k] for k in keys) for r in r4 if lab4[r["seg_id"]][0] == name4]
+            b = [tuple(r[k] for k in keys) for r in r6 if lab6[r["seg_id"]][0] == name6]
+            self.assertEqual(len(a), 8)
+            self.assertEqual(a, b)
+
+    def test_csv_has_the_light_add_column(self):
+        st = sw.get_set("sw6_eurgbp")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        lines = sw.to_csv(rows, st["ticks"]).splitlines()
+        self.assertEqual(lines[0], ",".join(sw.HEADER) + ",light_add")
+        self.assertTrue(lines[1].endswith(",ticks_53077984_EURGBP__h8w.csv,,"))       # off: empty table
+        self.assertTrue(lines[9].endswith(",ticks_53077984_EURGBP__h8w.csv,,1;1;1;0.5"))
+        self.assertEqual(len(lines[9].split(",")), 24)
+
+    def test_old_csv_has_no_light_add_column(self):
+        st = sw.get_set("sw4_eurgbp")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(sw.to_csv(rows, st["ticks"]).splitlines()[0], ",".join(sw.HEADER))
+
+
 if __name__ == "__main__":
     unittest.main()
