@@ -2434,6 +2434,8 @@ void Rt167_Book(const string table)
    }
 }
 
+int g_rt167_direct_m0 = 0;
+
 void Rt167_Direct(const string table)
 {
    Rt167_Book(table);
@@ -2445,8 +2447,6 @@ void Rt167_Direct(const string table)
    Grind_EnsureAddNext(g_grind_short, false, RPL_MAGIC_DEFAULT, RPL_SLOT_DEFAULT, 7.0, 2.0, 8, RPL_LOTS_DEFAULT);
    g_rt167_direct_m0 = m0;
 }
-
-int g_rt167_direct_m0 = 0;
 
 void Test_RT64_LightAddParseFraction()
 {
