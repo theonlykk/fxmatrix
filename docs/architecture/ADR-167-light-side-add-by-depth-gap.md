@@ -3,7 +3,10 @@ This message has a line count at the bottom
 # ADR-167 -- THE LIGHT SIDE'S ADD BY DEPTH GAP (DESIGN RULED BY GEMINI s11; NOTHING BUILT)
 
 Status: DESIGN RULED (Gemini GA-1..8, 12 Oct ~02:52Z, checked by Claude:
-section 11); O-1..4 open with the operator; no code. Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
+section 11); O-1..4 open with the operator; no code. **Operator 12 Oct
+~03:00Z: the rule is to be tried in the replay harness on the eight weeks of
+ticks now, on its own branch (`prompts/cursor_adr167_replay.md`); the EA
+build still waits for plan 3.** Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
 floor; the operator's rulings of section 9), from the operator's design
 idea (backlog C142; 8 Oct ~15:16Z, 10 Oct ~23:41Z to 11 Oct ~00:14Z, 11 Oct
 backlog review: "one inventory-control ADR"). No code exists. The EA build
@@ -413,4 +416,4 @@ options, 11 Oct; they are listed so that Gemini can say if one belongs in):
   code. Not checked by him and still open: A18 (how often books are skewed)
   and the operator's O-1..4.
 
-Line count: 416
+Line count: 419

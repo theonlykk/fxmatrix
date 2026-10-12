@@ -143,6 +143,14 @@ then it is frozen with the tolerance table of s3.
   the holdout: the harness, marks, tolerances, window and scorer are
   frozen and none may change after them. Not put to Gemini. The command
   list for Tue 13: `docs/runbooks/plan3-holdout-export.md`.
+- **Note (12 Oct ~03:40Z, s80; operator ~03:00Z):** an experiment build of
+  ADR-167 is specified on a SEPARATE branch, `replay-adr167`
+  (`prompts/cursor_adr167_replay.md`). This plan's harness is unchanged:
+  `145f092` on `replay-harness` (`efada62`). `D:\mt5-replay` holds one
+  compiled copy, so the FIRST step of the holdout's runs is the restore:
+  `git checkout replay-harness`, `replay_run.ps1 -Mode Copy`, the
+  operator's GUI compile, the suite at 461 / 461. No mark, tolerance,
+  window or code of this plan changes.
 
 ## 8. ORDER OF WORK
 
@@ -202,4 +210,4 @@ holdout's data before step 2 is committed.
 - **His sign-off has no questions for us** (BOOT s1's tell); every ruling
   above was checked against the code or the plan.
 
-Line count: 205
+Line count: 213
