@@ -722,20 +722,28 @@ bool Grind_LightAddParse(const string table, double &out[])
    StringReplace(s, ",", ";");
    string parts[];
    const int n = StringSplit(s, ';', parts);
-   if(n < 1 || n > 16)
+   if(n < 1 || n > 16) {
+      ArrayResize(out, 0);
       return false;
+   }
    double prev = 0.0;
    bool have_prev = false;
    for(int i = 0; i < n; i++) {
       StringTrimLeft(parts[i]);
       StringTrimRight(parts[i]);
-      if(StringLen(parts[i]) == 0)
+      if(StringLen(parts[i]) == 0) {
+         ArrayResize(out, 0);
          return false;
+      }
       double val = 0.0;
-      if(!Grind_LightAddTokenOk(parts[i], val))
+      if(!Grind_LightAddTokenOk(parts[i], val)) {
+         ArrayResize(out, 0);
          return false;
-      if(have_prev && val > prev)
+      }
+      if(have_prev && val > prev) {
+         ArrayResize(out, 0);
          return false;
+      }
       const int k = ArraySize(out);
       ArrayResize(out, k + 1);
       out[k] = val;
