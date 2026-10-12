@@ -1,0 +1,3 @@
+seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file
+1,GRIND_EURUSD_OPTD,22260201,1785715200000,1790379900000,2.0,2.0,8.0,8.0,10.0,10.0,8,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_NZDCAD__h8w.csv,
+2,GRIND_EURUSD_OPTD,22260201,1785715200000,1790379900000,0.2,0.2,8.0,8.0,10.0,10.0,8,1.2,2.0,1,1,0,0,1,8,,ticks_53077984_NZDCAD__h8w.csv,

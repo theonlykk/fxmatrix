@@ -77,6 +77,13 @@ TABLES6 = (("off", ""), ("step", "1;1;1;0.5"), ("lin", "0.93;0.86;0.79;0.71;0.64
 BASES6 = (("a7.5e7.5n8", 7.5, 7.5, 8), ("a10e10n8", 10.0, 10.0, 8))
 
 
+# sweep7 (operator 12 Oct ~21:57Z): ONE flat start at Mon 3 Aug 00:00 server, the book carried
+# to Fri 25 Sep 23:45 through every weekend; the live B geometry as sweep4 ran it, and the same
+# with width 0.2 (stranded = width + 1, deadband 2). A geometry's 7th field overrides the width.
+WINDOW7 = (("8w", "2026-08-03 00:00", "2026-09-25 23:45"),)
+WIDTH7 = 0.2
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -114,6 +121,12 @@ def get_set(tag):
         bases = (("live",) + LIVE_B[tag[4:].upper()] + (8,),) + BASES6
         st["geoms"] = tuple(("%s_%s" % (b[0], tn), b[1], b[2], b[3], None, table)
                             for b in bases for tn, table in TABLES6)
+        return st
+    if tag.startswith("sw7_") and tag[4:].upper() in PAIRS:
+        st = get_set("sw4_" + tag[4:])
+        live = st["geoms"][-1]
+        st["windows"] = WINDOW7
+        st["geoms"] = (live[:5] + (None, None), ("live_w%g" % WIDTH7,) + live[1:5] + (None, WIDTH7))
         return st
     if tag.startswith("sw5_") and tag[4:].upper() in PAIRS:
         st = get_set("sw4_" + tag[4:])
@@ -153,6 +166,8 @@ def build_rows(windows, geoms, base=None, ticks=TICKS_FILE):
                 r["carry"] = carry
             if len(g) > 5 and g[5] is not None:
                 r["light_add"] = g[5]
+            if len(g) > 6 and g[6] is not None:
+                r.update({"width_l": g[6], "width_s": g[6], "stranded": round(g[6] + 1.0, 6)})
             rows.append(r)
     return rows
 

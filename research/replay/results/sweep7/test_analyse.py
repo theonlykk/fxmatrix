@@ -58,6 +58,15 @@ class Rebuild(unittest.TestCase):
         self.assertAlmostEqual(realised, 10.0)          # 1.10100 - 1.10000
         self.assertEqual(n, 1)
 
+    def test_exit_removes_the_layer_at_its_index(self):
+        # three longs; the MIDDLE one (index 1, 1.09930) exits at 1.10030: +10, and 0 and 2 stay
+        fl = an.fills_by_seg([fill(3, T0, "ENT", "L", 0, 1.10000), fill(3, T0 + M, "ENT", "L", 1, 1.09930),
+                              fill(3, T0 + 2 * M, "ENT", "L", 2, 1.09860),
+                              fill(3, T0 + 3 * M, "EXT", "L", 1, 1.10030)])
+        book, realised, n = an.rebuild(fl[3])
+        self.assertEqual(book, {"L": [110000, 109860], "S": []})
+        self.assertAlmostEqual(realised, 10.0)
+
     def test_short_exit_realised(self):
         fl = an.fills_by_seg([fill(2, T0, "ENT", "S", 0, 1.20000), fill(2, T0 + M, "EXT", "S", 0, 1.19900)])
         book, realised, n = an.rebuild(fl[2])
@@ -98,14 +107,20 @@ class Path(unittest.TestCase):
         self.assertEqual(p.minute_min, {(T0 // M): 0.0, (T0 // M) + 1: -0.5, (T0 // M) + 2: -13.0,
                                         (T0 // M) + 3: 17.0})
 
+    def test_minute_keeps_its_lowest_floating(self):
+        p = an.Path([(T0, "ENT", "L", 0, 110000)], comm_pips=0.0)
+        p.on_tick(*tick(T0, 1.09950, 1.09952))          # -5.0
+        p.on_tick(*tick(T0 + 30000, 1.09980, 1.09982))  # -2.0, same minute
+        self.assertEqual(p.minute_min, {T0 // M: -5.0})
+
     def test_short_marked_at_ask(self):
         p = an.Path([(T0, "ENT", "S", 0, 120000)], comm_pips=0.0)
-        p.on_tick(T0, 1.20010, 1.20030)
+        p.on_tick(*tick(T0, 1.20010, 1.20030))
         self.assertAlmostEqual(p.last_float, -3.0)                    # 1.20000 - 1.20030
 
     def test_a_fill_after_the_tick_is_not_marked(self):
         p = an.Path([(T0 + 5, "ENT", "L", 0, 110000)], comm_pips=0.0)
-        p.on_tick(T0, 1.09000, 1.09002)
+        p.on_tick(*tick(T0, 1.09000, 1.09002))
         self.assertAlmostEqual(p.last_float, 0.0)
 
 
