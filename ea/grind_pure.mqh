@@ -689,16 +689,70 @@ int Grind_GateAddSeconds(const datetime last, const datetime now, const int cap)
 }
 
 //+------------------------------------------------------------------+
-// ADR-167 light-side add (stub until commit 2 on replay-adr167).
+bool Grind_LightAddTokenOk(const string token, double &val)
+{
+   string t = token;
+   StringTrimLeft(t);
+   StringTrimRight(t);
+   if(StringLen(t) == 0)
+      return false;
+   int dots = 0;
+   for(int i = 0; i < StringLen(t); i++) {
+      const ushort c = (ushort)StringGetCharacter(t, i);
+      if(c == '.') {
+         dots++;
+         if(dots > 1)
+            return false;
+      } else if(c < '0' || c > '9')
+         return false;
+   }
+   val = StringToDouble(t);
+   return (val > 0.0 && val <= 1.0);
+}
+
+//+------------------------------------------------------------------+
 bool Grind_LightAddParse(const string table, double &out[])
 {
    ArrayResize(out, 0);
-   return false;
+   string s = table;
+   StringTrimLeft(s);
+   StringTrimRight(s);
+   if(StringLen(s) == 0)
+      return true;
+   StringReplace(s, ",", ";");
+   string parts[];
+   const int n = StringSplit(s, ';', parts);
+   if(n < 1 || n > 16)
+      return false;
+   double prev = 0.0;
+   bool have_prev = false;
+   for(int i = 0; i < n; i++) {
+      StringTrimLeft(parts[i]);
+      StringTrimRight(parts[i]);
+      if(StringLen(parts[i]) == 0)
+         return false;
+      double val = 0.0;
+      if(!Grind_LightAddTokenOk(parts[i], val))
+         return false;
+      if(have_prev && val > prev)
+         return false;
+      const int k = ArraySize(out);
+      ArrayResize(out, k + 1);
+      out[k] = val;
+      prev = val;
+      have_prev = true;
+   }
+   return (ArraySize(out) >= 1);
 }
 
+//+------------------------------------------------------------------+
 double Grind_LightAddFraction(const double &fr[], const int gap)
 {
-   return 1.0;
+   const int n = ArraySize(fr);
+   if(n == 0 || gap <= 0)
+      return 1.0;
+   const int idx = MathMin(gap, n) - 1;
+   return fr[idx];
 }
 
 #endif // GRIND_PURE_MQH
