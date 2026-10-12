@@ -1325,6 +1325,7 @@ void Rpl_ClearSideState()
 //+------------------------------------------------------------------+
 void Rpl_ResetAll()
 {
+   Grind_LightAddConfigure("");
    Grind_MarketTestReset();
    Grind_OrderTestReset();
    Grind_CloseByTestReset();
@@ -1612,6 +1613,7 @@ void Rpl_ConfigureEngine(RplSegmentConfig &cfg)
    g_grind_carry_test_rollover_active = true;
    g_grind_carry_test_rollover_day = 3;
    Grind_Adr152ResetDueFlags();
+   Grind_LightAddConfigure(cfg.light_add);
 }
 
 //+------------------------------------------------------------------+
@@ -3545,12 +3547,23 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
       cfg.carry = (StringToInteger(fields[17]) != 0);
       cfg.fill_time_place = (StringToInteger(fields[18]) != 0);
       cfg.reserve = (int)StringToInteger(fields[19]);
+      cfg.light_add = (ArraySize(fields) > 23) ? fields[23] : "";
+      double light_add_probe[];
+      if(!Grind_LightAddParse(cfg.light_add, light_add_probe)) {
+         FileClose(rh);
+         Rpl_CloseRunOutputs(out);
+         Print("RPL|ABORT|BAD_LIGHT_ADD|seg_line=", seg_line);
+         Rpl_RunReplayClearFileState();
+         return false;
+      }
       Rpl_ResetAll();
       g_rpl_gap_count = 0;
       ArrayResize(g_rpl_gaps, 0);
       cfg.sync = sync_mode;
       g_rpl_cfg = cfg;
       Rpl_ConfigureEngine(cfg);
+      if(StringLen(cfg.light_add) > 0)
+         Print("RPL|LIGHT_ADD|seg=", cfg.seg_id, "|", cfg.light_add);
       g_rpl_seg_run_start_ms = GetTickCount();
       if(seed_file != "") {
          int sd = FileOpen("replay\\" + seed_file, FILE_READ | FILE_CSV | FILE_ANSI, ',');
