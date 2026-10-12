@@ -2559,7 +2559,7 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   short toy left a sell limit BELOW the market when a rule's target
   narrowed and filled it later at that stale price; the EA moves such a
   limit to the market (ADR-013 clamp). Two rows of the first table were
-  wrong by 229-259 pips (`docs/research/light-side-add-discussion.md` s5).
+  wrong by 229-259 pips (caught before it was reported to the operator; `docs/research/light-side-add-discussion.md` s5).
   Print the toy's fill log for one path and check each fill against the EA
   before showing a table.
 - **Show the path where a rule costs, next to the path where it pays.** A
@@ -2575,4 +2575,30 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   anything that lives only on the broker's terminals (tick history) at
   once, hash it, and keep it out of any analysis it would spoil.
 
-Line count: 2578
+## TRAPS FROM 2026-10-12 NIGHT (NEW CHAT; IC TERMINALS; INSURANCE)
+
+- **A live flag on pipshed is not a terminal check.** It is the EA's
+  heartbeat. To see whether a terminal is still logged in to the broker,
+  read its journal (`<install>/logs/<UTC day>.log`, UTF-16LE: iconv, then
+  grep `authoriz`, `connection`, `synchroniz`). A trade line the server
+  answered (even `[Market closed]` at the 21:00Z rollover) shows the
+  terminal was connected at that time.
+- **Insure every job that needs the broker, not only the one in mind.**
+  After IC's call (12 Oct) the EURUSD ticks for plan 3 were dumped; round
+  3's scoring also needs wine-c's bid / ask from IC and had no copy until
+  s81. When access is in doubt, list each pending job's broker data first.
+- **`grind_bidask_dump` writes `bidask_<login>_<PAIR>.csv` with no tag:** a
+  later dump on the same box overwrites the files. Copy them to a dated
+  Downloads folder straight after the run and hash both ends.
+- **The box repos belong to khalid.** As root, `git -C
+  /home/khalid/fxmatrix-repo ...` fails with "dubious ownership"; the
+  runbooks' form is `sudo -u khalid git -C ...`. Do not add the
+  `safe.directory` exception git suggests (it changes root's git config on
+  the box for a one-off read). The handoff's lists carried the root form
+  from s73 to s80.
+- **Monday's `--carrypass` shows no `CARRY_SNAPSHOT` rows:** expected (C79);
+  read the summaries.
+- **A paste can carry an older run from the window's scrollback** (12 Oct:
+  Friday's carry check above tonight's). Read the dates on the rows.
+
+Line count: 2604

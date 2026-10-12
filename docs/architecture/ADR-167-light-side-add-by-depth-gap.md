@@ -8,10 +8,10 @@ section 11); O-1..4 open with the operator; no code. **Operator 12 Oct
 ticks now, on its own branch (`prompts/cursor_adr167_replay.md`); the EA
 build still waits for plan 3.** **sweep6 (12 Oct ~19:10Z, replay, eight weeks, pre-registered): NO VERDICT for all three
 tables; 0 of 9 pairs better with any table, 1-2 worse; the summed effect negative (-540 to -699 pips over nine
-pairs, mostly AUDCAD); scalps +10-14%, roll closes +9-15%; a slightly steadier week on most pairs, a worse worst
+pairs, AUDCAD the largest share at 46-59%); scalps +10-14%, roll closes +9-15%; a slightly steadier week on most pairs, a worse worst
 week (`research/replay/results/sweep_notes.md`, sweep6).** **12 Oct discussion
 (`docs/research/light-side-add-discussion.md`): the equaliser helps only when a bounce fails at about 6/6; on a
-rally back to the top it sells the same shorts lower. Claude's lean: park. Operator's decision open (O-A).** Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
+rally back to the top it sells the same shorts lower. Claude's lean: park. Operator's decision open (O-A); O-1..4 (section 9) matter only if O-A keeps it.** Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
 floor; the operator's rulings of section 9), from the operator's design
 idea (backlog C142; 8 Oct ~15:16Z, 10 Oct ~23:41Z to 11 Oct ~00:14Z, 11 Oct
 backlog review: "one inventory-control ADR"). No code exists. The EA build

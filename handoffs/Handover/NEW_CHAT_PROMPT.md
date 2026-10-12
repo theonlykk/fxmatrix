@@ -121,13 +121,14 @@ Do not start any fleet action before the answers are in.
 | `D:\mt5-replay` | **holds the ADR-167 build now.** Before plan 3's holdout runs: `git checkout replay-harness`, `replay_run.ps1 -Mode Copy`, the operator's GUI compile, suite 461 / 461. It starts on IC 53077984's read-only login |
 | pipshed `main` | `6ea487e` (`--export-sends`) |
 | Data in Downloads | sweep4 / sweep6's eight weeks of ticks (h8w); `ticks_53077984_EURUSD_w2.csv` (`db2ea941...`); **`ticks_53077984_EURUSD_hold_early.csv`** (holdout insurance, sha256 `5669094b04844a6aece341a2a6bb8018b230b691dbccb9fd878ca23936b9cc90`, 3,793,242 bytes: copy and hash only) |
-| Linux boxes | believed `9425141`; NOT checked since 9 Oct |
+| Linux boxes | `9425141`, CONFIRMED 12 Oct ~21:30Z (s81) |
 
 ## 2. NEXT, IN ORDER
 
 1. Mon 12 after the carry pass (20:50-20:59Z): a status read; every IC
-   terminal still logged in? On each box: `git -C
-   /home/khalid/fxmatrix-repo log --oneline -1`.
+   terminal still logged in? On each box: `sudo -u khalid git -C
+   /home/khalid/fxmatrix-repo log --oneline -1` (as root without `sudo -u
+   khalid`, git refuses: dubious ownership).
 2. **Tue 13 from 22:10Z: `docs/runbooks/plan3-holdout-export.md`, one step
    per message.** If wine-d has lost IC by then: STOP; the insurance file
    is the fallback and a plan 3 note is the operator's call. ~22:35Z round
@@ -178,4 +179,4 @@ Do not start any fleet action before the answers are in.
   (operator 12 Oct: "lets make it a bit simpler").
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 181
+Line count: 182

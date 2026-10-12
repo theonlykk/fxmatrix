@@ -25,10 +25,15 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
   `hold_early`, 110,670 ticks, clean log; sha256 `5669094b...`, 3,793,242
   bytes), copied to Downloads, hashes equal; holdout data, copied and
   hashed only. Claude: do not re-verify with different details.
+  s81 (~21:15-21:30Z): the three IC terminals' journals show them
+  connected at the 21:00Z rollover; round 3's insurance on wine-c (bid /
+  ask, nine pairs, 12 Oct 00:00 to 13 Oct 00:20 server,
+  `Downloads\bidask_ic_1012_insurance`, hashes equal).
 - **Changed:** IC access (B, C, D, the replay's read-only login, the tick
   dumps) may end at any time; plan 3's holdout tick window may have to end
   at 12 Oct 22:00 server (the operator's call). Backlog C150.
-- **Evidence:** HANDOFF s80 continued 9; `docs/runbooks/plan3-holdout-export.md` X10.
+- **Evidence:** HANDOFF s80 continued 9 and s81; `docs/runbooks/plan3-holdout-export.md` X10;
+  `research/compass/round3_bidask_insurance.sha256`.
 
 ### 9 Oct 04:24-04:32Z -- compass round 3 reload: four IC charts (B, C, D)
 - **What:** round 3's `_r3` presets loaded by hand on four charts: D
@@ -616,4 +621,4 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 619
+Line count: 624

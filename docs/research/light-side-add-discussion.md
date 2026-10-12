@@ -114,9 +114,11 @@ Against today's rule: pause gap >= 1 is +259 on A, -30 on B, 0 on C, -70 on
 D; pause gap >= 3 is +229 / -30 / 0 / -40; inverse +136 / -20 / 0 / -20;
 equaliser -91 / +17 / +7 / -3.
 
-- **The correction.** The first version of the toy (shown to the operator
-  ~20:30Z) left a short add's sell limit BELOW the market when a rule's
-  target narrowed, and filled it there later at the stale, worse price. The
+- **The correction.** The first version of the toy (produced ~20:30Z and
+  caught before it was reported: the operator saw only the corrected
+  rows; s80's answer, 12 Oct ~21:15Z) left a short add's sell limit
+  BELOW the market when a rule's target narrowed, and filled it there later
+  at the stale, worse price. The
   EA moves such a limit to the market (ADR-013 clamp, `Grind_Adr013ClampSell`
   in `Grind_SendNextAddEnt`). Fixed: the pause rows went from -266 to -37
   (gap >= 3) on path A; the other rows did not change.
@@ -182,9 +184,10 @@ add and our accessibility to IC markets". Not pre-registered; nothing built.
 ## 8. OPEN FOR THE OPERATOR
 
 - O-A: ADR-167 on, changed or parked, given sweep6 and s2-s3 (Claude's lean:
-  park).
+  park). ADR-167's O-1..4 matter only if O-A keeps it (s80, 12 Oct ~21:15Z).
 - O-B: sweep7 (a): go ahead with the parser change and pre-registration?
   Which candidate tables?
-- O-C: sweep7 (b): is the reading in s7 (b) what was meant?
+- O-C: sweep7 (b): is the reading in s7 (b) what was meant? (The reading is
+  Claude's alone; the operator's only words are the one line in s7.)
 
-Line count: 190
+Line count: 193
