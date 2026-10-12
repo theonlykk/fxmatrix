@@ -2536,4 +2536,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   FLAT; the replay's "lam" applied to the EA). Check the reason, not only
   the verdict.
 
-Line count: 2539
+## TRAPS FROM 2026-10-12 EARLY, 2 (THE ADR-167 REPLAY BUILD)
+
+- **A test fixture's book must be a book the EA could hold.** Six longs
+  ABOVE the market are in profit: their exits sit under the price and the
+  exit queue's rank 0 (the LOWEST long entry) fills on the first uptick.
+  Put a heavy side's layers on the losing side of the market, then check
+  every resting exit and add against every test price before writing the
+  expected values.
+- **A prompt's s0 check must hold where s0 runs.** "diff against `efada62`
+  must be empty" was written for the new branch; the operator's line told
+  Cursor not to branch yet, so it ran on `main` and stopped. Write s0 for
+  the branch Cursor is actually on.
+- **MQL5 wants a global declared before the function that uses it.** Cursor
+  declared `g_rt167_direct_m0` after `Rt167_Direct`; moved before the
+  compile (commit 1b). Read commit 1 for order of declarations, not only
+  for logic.
+
+Line count: 2556

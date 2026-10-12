@@ -16,7 +16,7 @@ we have 8 weeks of data, let's see if it made a difference." This prompt
 builds the rule into the ENGINE and lets the REPLAY HARNESS switch it on per
 segment from the run file. Gemini reviewed it 12 Oct ~03:12Z (s9 questions;
 s10 his rulings, Claude's check and the one change: two call sites, not
-three). It is an experiment build on its own branch:
+three). s11 corrects s4's fixture after commit 1's suite (G167b-1). It is an experiment build on its own branch:
 - it is NOT the EA build (no EA input, no heartbeat field, no DeepSeek
   audit, no merge, no deploy: that is a later prompt, after plan 3);
 - it must NOT change the frozen harness: branch `replay-harness` and its
@@ -284,4 +284,58 @@ count or expected value changes.**
   does not reproduce (they are hand-derived and have not been run). The
   rule for that is s7: STOP and report, never adjust.
 
-Line count: 287
+## 11. CORRECTION AFTER COMMIT 1's SUITE (12 Oct ~03:50Z): THE FIXTURE
+
+**What happened.** R1 at commit 1b (`ad9ae33`, the operator's GUI compile):
+493 run, **477** pass, 16 FAIL: the 15 F of s4 AND **RT67c** (a G). Cursor
+stopped, as s7 says. Nothing was fixed.
+
+**Cause: Claude's spec error in s4's fixture.** s4 says the long exits "stay
+clear of every test price". False. `Rt167_Book` puts the six long layers at
+1.10480 down to 1.10130 with the market at 1.10500, ABOVE them: those longs
+are in profit and their exits (entry + 10 pips: 1.10580, 1.10510, 1.10440,
+1.10370, 1.10300, 1.10230) mostly sit at or below the test prices. The exit
+queue rests rank 0, the LOWEST long entry (1.10130, exit 1.10230), and the
+last rank (`grind_exitq.mqh` 43-50, 63-101; K = 1). The rank-0 exit is below
+the market, so it is clamped passive and fills on the first uptick: in RT67
+the 1.10549 tick closes it, long depth goes 6 -> 5 and RT67c fails. RT66
+passed only because its bid never moved. At commit 4 the same close would
+also change the short side's gap in RT67 (4 -> 3) and so RT67b's expected
+price. A real six-layer long book is UNDERWATER: the market is below it.
+
+**The correction (fixture and the values that follow from it; no rule,
+code, count or tag changes):**
+
+- `Rt167_Book`, the six long layers: entry `1.10900 - i * 0.00070` for
+  `i = 0..5`: 1.10900, 1.10830, 1.10760, 1.10690, 1.10620, 1.10550; same
+  tickets 5301-5306, same open time. Their exits are 1.11000 down to 1.10650:
+  every one above the highest test price (1.10549). The short layer, its exit
+  and the short side's values are unchanged.
+- The long add is now deepest entry - 7 pips = **1.10480** (a buy limit; the
+  lowest ask in any test is 1.10502, so it never fills).
+- **RT66 b:** the long add pending at **1.10480** (was 1.10060). Still G.
+- **RT65 e:** the two extra long layers at **1.10480** (5307) and **1.10410**
+  (5308) (were 1.10060, 1.10000). Still G.
+- **RT70:** the seed file's six long rows use the new entries (the same
+  formula, `DoubleToString(entry, 5)`).
+- Unchanged: RT64, RT65 a-d, RT66 a, RT67 a-c, RT68, RT69, RT70 b-c, every
+  short price (1.10549, 1.10605, 1.10563, 1.10570), the counts (32; 15 F, 17
+  G; 493) and the commit-1 prediction (**493 run, 478 pass**, the 15 F of s4).
+
+**Why this is not an expected value moved to match an output:** the cause
+was diagnosed in source before any change (above); RT67c's expected value
+(6) does not change, the FIXTURE does, so that the test's premise (no long
+fill) is true; and the only changed expected values (RT66 b, RT65 e) are
+re-derived by hand from the new entries.
+
+**For Cursor (commit 1c on `replay-adr167`):** only `Rt167_Book`'s entry
+formula, RT65 e's two entries, RT66 b's price and RT70's seed rows, as
+above. Then R0 (`-Mode Copy`), STOP for "compiled", R1: 493 / 478 and
+exactly s4's 15 F. Anything else: STOP.
+
+**For Gemini, G167b-1 (check this section only):** is the corrected fixture
+free of any other fill or trigger the tests do not intend (long exits, the
+long add, the short exit at 1.10400, the stranded and lattice paths at long
+depth 6 of cap 8)?
+
+Line count: 341
