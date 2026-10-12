@@ -3624,6 +3624,20 @@ int Grind_OwnRestingEntryCount(const ulong magic, const string slot)
    return count;
 }
 
+// ADR-167 light-side add (stub until commits 3–4 on replay-adr167).
+double g_grind_light_add_frac[];
+
+bool Grind_LightAddConfigure(const string table)
+{
+   ArrayResize(g_grind_light_add_frac, 0);
+   return false;
+}
+
+double Grind_LightAddPips(const GrindSideState &side, const bool is_long, const double add_pips)
+{
+   return add_pips;
+}
+
 #include "grind_replay.mqh"
 #include "grind_heartbeat_detail.mqh"
 

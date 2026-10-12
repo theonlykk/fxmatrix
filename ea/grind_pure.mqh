@@ -688,4 +688,17 @@ int Grind_GateAddSeconds(const datetime last, const datetime now, const int cap)
    return MathMin((int)(now - last), cap);
 }
 
+//+------------------------------------------------------------------+
+// ADR-167 light-side add (stub until commit 2 on replay-adr167).
+bool Grind_LightAddParse(const string table, double &out[])
+{
+   ArrayResize(out, 0);
+   return false;
+}
+
+double Grind_LightAddFraction(const double &fr[], const int gap)
+{
+   return 1.0;
+}
+
 #endif // GRIND_PURE_MQH

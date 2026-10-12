@@ -61,6 +61,7 @@ struct RplSegmentConfig
    int    reserve;
    bool   sync;
    bool   skip_lattice_preload;
+   string light_add;
 };
 
 struct RplDealRow
@@ -1570,6 +1571,7 @@ void Rpl_SegmentConfigDefaults(RplSegmentConfig &cfg)
    cfg.reserve = 8;
    cfg.sync = false;
    cfg.skip_lattice_preload = false;
+   cfg.light_add = "";
 }
 
 //+------------------------------------------------------------------+

@@ -2416,6 +2416,182 @@ void Test_RT63_EventsAtHandlerStart()
    Rpl_SetTiming(0, "base");
 }
 
+const string RT167_TABLE_B = "1;1;0.9;0.8;0.7;0.6;0.5";
+
+void Rt167_Book(const string table)
+{
+   Rpl_ResetAll();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.light_add = table;
+   cfg.to_ms = RplMs(RPL_T0, 10);
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedLayer("S", 0, 1.10500, RplMs(RPL_T0, -3600), 5201UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedOrder("S", 0, "EXT", 1.10400, 5211UL, ORDER_TYPE_BUY_LIMIT);
+   for(int i = 0; i < 6; i++) {
+      const double entry = 1.10480 - i * 0.00070;
+      Rpl_SeedLayer("L", i, entry, RplMs(RPL_T0, -3600), 5301UL + (ulong)i, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   }
+}
+
+void Rt167_Direct(const string table)
+{
+   Rt167_Book(table);
+   Rpl_SeedOrder("S", 1, "ENT", 1.10570, 5212UL, ORDER_TYPE_SELL_LIMIT);
+   g_grind_start_add_reprice_short = false;
+   Grind_MarketTestSeed(1.10500, 1.10502, 0);
+   const int m0 = g_grind_order_test_modify_calls;
+   Grind_EnsureAddNext(g_grind_short, false, RPL_MAGIC_DEFAULT, RPL_SLOT_DEFAULT, 7.0, 2.0, 8, RPL_LOTS_DEFAULT);
+   Grind_EnsureAddNext(g_grind_short, false, RPL_MAGIC_DEFAULT, RPL_SLOT_DEFAULT, 7.0, 2.0, 8, RPL_LOTS_DEFAULT);
+   g_rt167_direct_m0 = m0;
+}
+
+int g_rt167_direct_m0 = 0;
+
+void Test_RT64_LightAddParseFraction()
+{
+   double out[];
+   AssertTrue("RT64a parse empty", Grind_LightAddParse("", out) && ArraySize(out) == 0);
+   AssertTrue("RT64b parse B", Grind_LightAddParse(RT167_TABLE_B, out) && ArraySize(out) == 7);
+   AssertTrue("RT64c parse 0.5", Grind_LightAddParse("0.5", out) && ArraySize(out) == 1);
+   AssertTrue("RT64d parse comma", Grind_LightAddParse("1,1,1,0.5", out) && ArraySize(out) == 4);
+   AssertFalse("RT64e parse 0.5;0.6", Grind_LightAddParse("0.5;0.6", out));
+   AssertFalse("RT64f parse 0;0.5", Grind_LightAddParse("0;0.5", out));
+   AssertFalse("RT64g parse 1.1", Grind_LightAddParse("1.1", out));
+   AssertFalse("RT64h parse abc", Grind_LightAddParse("abc", out));
+   double fr[];
+   Grind_LightAddParse(RT167_TABLE_B, fr);
+   AssertNear("RT64i fraction gap0", Grind_LightAddFraction(fr, 0), 1.0, 1e-12);
+   AssertNear("RT64j fraction gap-3", Grind_LightAddFraction(fr, -3), 1.0, 1e-12);
+   AssertNear("RT64k fraction gap1", Grind_LightAddFraction(fr, 1), 1.0, 1e-12);
+   AssertNear("RT64l fraction gap5", Grind_LightAddFraction(fr, 5), 0.7, 1e-12);
+   AssertNear("RT64m fraction gap7", Grind_LightAddFraction(fr, 7), 0.5, 1e-12);
+   AssertNear("RT64n fraction gap12", Grind_LightAddFraction(fr, 12), 0.5, 1e-12);
+   double empty[];
+   AssertNear("RT64o fraction empty", Grind_LightAddFraction(empty, 5), 1.0, 1e-12);
+}
+
+void Test_RT65_LightAddPips()
+{
+   Rt167_Book(RT167_TABLE_B);
+   AssertNear("RT65a short pips", Grind_LightAddPips(g_grind_short, false, 7.0), 4.9, 1e-9);
+   AssertNear("RT65b long pips", Grind_LightAddPips(g_grind_long, true, 7.0), 7.0, 1e-9);
+   Rt167_Book("");
+   AssertNear("RT65c short off", Grind_LightAddPips(g_grind_short, false, 7.0), 7.0, 1e-9);
+   Rt167_Book(RT167_TABLE_B);
+   ArrayResize(g_grind_short.layers, 0);
+   AssertNear("RT65d empty short", Grind_LightAddPips(g_grind_short, false, 7.0), 7.0, 1e-9);
+   Rt167_Book(RT167_TABLE_B);
+   Rpl_SeedLayer("L", 6, 1.10060, RplMs(RPL_T0, -3600), 5307UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 7, 1.10000, RplMs(RPL_T0, -3600), 5308UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   AssertNear("RT65e long cap8", Grind_LightAddPips(g_grind_long, true, 7.0), 7.0, 1e-9);
+}
+
+void Test_RT66_PlacedAdd()
+{
+   RplSegmentConfig cfg;
+   Rt167_Book(RT167_TABLE_B);
+   Rpl_DefaultConfig(cfg);
+   cfg.light_add = RT167_TABLE_B;
+   cfg.to_ms = RplMs(RPL_T0, 10);
+   RplTick ticks[3];
+   for(int i = 0; i < 3; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = 1.10500;
+      ticks[i].ask = 1.10500 + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 3, cfg);
+   AssertTrue("RT66a short add placed",
+              g_grind_short.add_pending_ticket != 0
+              && MathAbs(Grind_OrderGetPriceOpen(g_grind_short.add_pending_ticket) - 1.10549) < 1e-9);
+   AssertTrue("RT66b long add placed",
+              g_grind_long.add_pending_ticket != 0
+              && MathAbs(Grind_OrderGetPriceOpen(g_grind_long.add_pending_ticket) - 1.10060) < 1e-9);
+}
+
+void Test_RT67_FillAndNextAdd()
+{
+   RplSegmentConfig cfg;
+   Rt167_Book(RT167_TABLE_B);
+   Rpl_DefaultConfig(cfg);
+   cfg.light_add = RT167_TABLE_B;
+   cfg.to_ms = RplMs(RPL_T0, 10);
+   RplTick ticks[4];
+   const double bids[4] = {1.10500, 1.10500, 1.10549, 1.10545};
+   for(int i = 0; i < 4; i++) {
+      ticks[i].time_msc = RplMs(RPL_T0, i);
+      ticks[i].bid = bids[i];
+      ticks[i].ask = bids[i] + RPL_SPREAD;
+   }
+   Rpl_RunTicks(ticks, 4, cfg);
+   AssertTrue("RT67a short L1 fill",
+              Grind_SideDepth(g_grind_short) == 2
+              && MathAbs(g_grind_short.layers[1].entry_price - 1.10549) < 1e-9);
+   AssertTrue("RT67b short next add",
+              g_grind_short.add_pending_ticket != 0
+              && MathAbs(Grind_OrderGetPriceOpen(g_grind_short.add_pending_ticket) - 1.10605) < 1e-9);
+   AssertTrue("RT67c long depth", Grind_SideDepth(g_grind_long) == 6);
+}
+
+void Test_RT68_DeadbandRequote()
+{
+   Rt167_Direct(RT167_TABLE_B);
+   AssertNear("RT68a requote price", Grind_OrderGetPriceOpen(5212UL), 1.10549, 1e-9);
+   AssertTrue("RT68b one modify", g_grind_order_test_modify_calls == g_rt167_direct_m0 + 1);
+}
+
+void Test_RT69_DeadbandHold()
+{
+   Rt167_Direct("1;1;1;1;0.9");
+   AssertNear("RT69a hold price", Grind_OrderGetPriceOpen(5212UL), 1.10570, 1e-9);
+   AssertTrue("RT69b no modify", g_grind_order_test_modify_calls == g_rt167_direct_m0);
+}
+
+void Test_RT70_RunLightAddColumn()
+{
+   const string dir = "replay\\";
+   int w = FileOpen(dir + "ticks_rt70.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "time_msc_server", "bid", "ask", "flags");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 0)), "1.10500", "1.10502", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 1)), "1.10500", "1.10502", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 2)), "1.10549", "1.10551", "0");
+   FileWrite(w, IntegerToString(RplMs(RPL_T0, 3)), "1.10545", "1.10547", "0");
+   FileClose(w);
+   w = FileOpen(dir + "seed_rt70.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "side,layer_index,entry,open_ms,ticket,vl,swap,volume,accrued");
+   const string open_ms = IntegerToString(RplMs(RPL_T0, -3600));
+   FileWrite(w, "S,0,1.10500," + open_ms + ",5201,0,0,0.01,0");
+   for(int i = 0; i < 6; i++) {
+      const double entry = 1.10480 - i * 0.00070;
+      FileWrite(w, "L," + IntegerToString(i) + "," + DoubleToString(entry, 5) + "," + open_ms + ","
+                + IntegerToString(5301 + i) + ",0,0,0.01,0");
+   }
+   FileClose(w);
+   w = FileOpen(dir + "swaps.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "server_date,points_long,points_short,mult");
+   FileWrite(w, "2026.10.06,-8.111,1.409,1");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt70.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   w = FileOpen(dir + "run_rt70.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file,light_add");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 5)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt70.csv,ticks_rt70.csv,," + RT167_TABLE_B);
+   FileClose(w);
+   AssertTrue("RT70a run", Rpl_RunReplayFiles("rt70", false));
+   AssertContains("RT70b deals ent", Rpl_ReadWholeFile(dir + "out_rt70_deals.csv"), ",ENT,S,1,1.10549");
+   w = FileOpen(dir + "run_rt70b.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file,light_add");
+   FileWrite(w, "1,GRIND_TEST,22260201," + IntegerToString(RplMs(RPL_T0, 0)) + "," +
+             IntegerToString(RplMs(RPL_T0, 5)) + ",2,15,7,7,10,10,8,50,2,1,0,-1,0,1,8,seed_rt70.csv,ticks_rt70.csv,,0.5;0.9");
+   FileClose(w);
+   w = FileOpen(dir + "intervals_rt70b.csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(w, "kind,from_ms,to_ms");
+   FileClose(w);
+   AssertFalse("RT70c bad table", Rpl_RunReplayFiles("rt70b", false));
+}
+
 void Test_RT52_ExactTouchSellLimit()
 {
    const string dir = "replay\\";
@@ -2562,5 +2738,12 @@ void OnStart()
    Test_RT61_BkTwoModifies();
    Test_RT62_WeekendTimerFridayTick();
    Test_RT63_EventsAtHandlerStart();
+   Test_RT64_LightAddParseFraction();
+   Test_RT65_LightAddPips();
+   Test_RT66_PlacedAdd();
+   Test_RT67_FillAndNextAdd();
+   Test_RT68_DeadbandRequote();
+   Test_RT69_DeadbandHold();
+   Test_RT70_RunLightAddColumn();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }
