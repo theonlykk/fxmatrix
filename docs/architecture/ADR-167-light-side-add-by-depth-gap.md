@@ -6,7 +6,10 @@ Status: DESIGN RULED (Gemini GA-1..8, 12 Oct ~02:52Z, checked by Claude:
 section 11); O-1..4 open with the operator; no code. **Operator 12 Oct
 ~03:00Z: the rule is to be tried in the replay harness on the eight weeks of
 ticks now, on its own branch (`prompts/cursor_adr167_replay.md`); the EA
-build still waits for plan 3.** Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
+build still waits for plan 3.** **sweep6 (12 Oct ~19:10Z, replay, eight weeks, pre-registered): NO VERDICT for all three
+tables; 0 of 9 pairs better with any table, 1-2 worse; the summed effect negative (-540 to -699 pips over nine
+pairs, mostly AUDCAD); scalps +10-14%, roll closes +9-15%; a slightly steadier week on most pairs, a worse worst
+week (`research/replay/results/sweep_notes.md`, sweep6).** Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
 floor; the operator's rulings of section 9), from the operator's design
 idea (backlog C142; 8 Oct ~15:16Z, 10 Oct ~23:41Z to 11 Oct ~00:14Z, 11 Oct
 backlog review: "one inventory-control ADR"). No code exists. The EA build
@@ -416,4 +419,4 @@ options, 11 Oct; they are listed so that Gemini can say if one belongs in):
   code. Not checked by him and still open: A18 (how often books are skewed)
   and the operator's O-1..4.
 
-Line count: 419
+Line count: 422

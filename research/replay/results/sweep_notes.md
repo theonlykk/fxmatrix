@@ -320,3 +320,33 @@ either way; EURGBP and NZDCHF (add 3) the smallest differences.
 **Limits:** one flat start a week (the book is never deeper than a week's moves); timing
 0; carry off; geometries other than the live ones are indicative (plan 3 s5); the harness
 runs every pair on the EURUSD chart (prices valid, dollars from the pip value).
+
+**sweep6 RESULT (12 Oct ~19:10Z; `sweep6/marks.md` from `sweep6/analyse.py`; the weekly
+nets in `sweep6/weekly_<pair>.csv`):**
+- **Runs:** the operator's loop on `replay-adr167` (`ed5d052`), 12 Oct, nine pairs, 435-1,057
+  s each, every `DONE` exit 0. AUDNZD's ticks came across zipped (159 MB timed out three
+  times); sha256 starts `414dcaf1`, as recorded at the dump.
+- **C0 PASSED:** all 216 off rows equal sweep4's weekly nets on all nine pairs. The
+  comparison is valid.
+- **E1:**
+  - step: 7 NO DIFFERENCE, 2 WORSE (AUDCAD, NZDCAD), 0 BETTER;
+  - linear: 7 NO DIFFERENCE, 2 WORSE (AUDCAD, CADCHF), 0 BETTER;
+  - dead zone + linear: 8 NO DIFFERENCE, 1 WORSE (AUDCAD), 0 BETTER.
+- **E2: NO VERDICT for all three tables.** No pair is better in 6 of 8 weeks with any table.
+- **Reported:**
+  - The 8-week sums of the median difference, summed over the nine pairs (pips, mixed
+    pip values): step -679, linear -699, dead zone -540. AUDCAD carries the most (-248 to
+    -411). EURUSD is the only pair positive in all three (+37 / +85 / +68), in 4 of 8 weeks
+    each.
+  - Scalps up 10-14% with a table, roll closes up 9-15%: the light side builds faster and
+    rolls more; the extra scalps do not pay for the extra rolls.
+  - The weekly standard deviation is lower with a table on 6 (step), 5 (linear) and 7
+    (dead zone) of 9 pairs; the worst week is worse with a table on most pairs.
+- **Claude's prediction against the result:** NO VERDICT for all three: RIGHT. A lower weekly
+  sd on most pairs: RIGHT (5-7 of 9). A less bad worst week: WRONG (worse on most pairs).
+  The step table the largest effect: WRONG (linear on AUDCAD). EURGBP and NZDCHF the smallest
+  differences: HALF (EURGBP yes, NZDCHF no).
+- **Reading:** in the replay, on these eight weeks, the equaliser does not make money and
+  leans slightly against, mostly on AUDCAD. It steadies the weekly result a little on most
+  pairs but does not soften the worst week. Limits as above (timing 0, carry off, weekly flat
+  starts); not a plan 3 result.

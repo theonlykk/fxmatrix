@@ -114,7 +114,7 @@ def main(d):
         lines += ["## Table %s" % t, "",
                   "| pair | " + " | ".join(w[5:] for w in weeks) + " | weeks > 0 | 8-week sum | E1 | "
                   "sd weekly off / %s | worst week off / %s | S off / %s | R off / %s |" % (t, t, t, t),
-                  "|---|" + "---|" * (len(weeks) + 8)]
+                  "|---|" + "---|" * (len(weeks) + 7)]
         classes = []
         for p in PAIRS:
             md = median_diffs(net[p], BASES, t, weeks)
