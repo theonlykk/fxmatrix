@@ -265,5 +265,67 @@ class Sweep6(unittest.TestCase):
         self.assertEqual(sw.to_csv(rows, st["ticks"]).splitlines()[0], ",".join(sw.HEADER))
 
 
+class Sweep7(unittest.TestCase):
+    """sweep7 (operator 12 Oct ~21:57Z: "run uninterrupted over the 8 weeks"): ONE flat start a
+    pair at Mon 3 Aug 00:00 server, the book carried to Fri 25 Sep 23:45 server through every
+    weekend; two settings: the pair's live B geometry as sweep4 ran it, and the same with the
+    width 0.2 (stranded 1.2 = width + 1, deadband 2 unchanged). No light_add column: the
+    replay-adr167 build with no table runs as 145f092 (R3; sweep6 C0)."""
+
+    def test_window_and_settings(self):
+        st = sw.get_set("sw7_eurusd")
+        self.assertEqual(st["windows"], (("8w", "2026-08-03 00:00", "2026-09-25 23:45"),))
+        self.assertEqual(st["ticks"], "ticks_53077984_EURUSD__h8w.csv")
+        self.assertEqual([g[0] for g in st["geoms"]], ["live", "live_w0.2"])
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 2)
+        # 2026-08-03 00:00 and 2026-09-25 23:45, read as UTC
+        self.assertEqual((rows[0]["from_ms"], rows[0]["to_ms"]), (1785715200000, 1790379900000))
+        self.assertEqual((rows[0]["width_l"], rows[0]["width_s"], rows[0]["stranded"]), (2.0, 2.0, 3.0))
+        self.assertEqual((rows[1]["width_l"], rows[1]["width_s"], rows[1]["stranded"]), (0.2, 0.2, 1.2))
+        for r in rows:
+            self.assertEqual((r["add_l"], r["add_s"], r["exit_l"], r["exit_s"], r["cap"]),
+                             (7.0, 7.0, 10.0, 10.0, 8))
+            self.assertEqual((r["deadband"], r["lattice"], r["reroll"], r["gate"], r["carry"]),
+                             (2.0, 1, 1, 0, 0))
+            self.assertEqual((r["seed_file"], r["orders_file"]), ("", ""))
+            self.assertNotIn("light_add", r)
+
+    def test_live_row_is_sweep4s_live_but_for_the_window(self):
+        for pair in ("gbpusd", "audchf", "eurgbp"):
+            s7 = sw.get_set("sw7_" + pair)
+            s4 = sw.get_set("sw4_" + pair)
+            r7 = sw.build_rows(s7["windows"], s7["geoms"], s7["base"], s7["ticks"])[0]
+            r4 = [r for r in sw.build_rows(s4["windows"], s4["geoms"], s4["base"], s4["ticks"])
+                  if sw.labels(s4["windows"], s4["geoms"])[r["seg_id"]][0] == "live"][0]
+            for k in ("width_l", "width_s", "add_l", "add_s", "exit_l", "exit_s", "cap", "stranded",
+                      "deadband", "lattice", "reroll", "gate", "carry", "fill_time_place", "reserve",
+                      "instance", "magic", "ticks_file"):
+                self.assertEqual(r7[k], r4[k], (pair, k))
+            self.assertEqual(r7["from_ms"], r4["from_ms"])     # Mon 3 Aug 00:00, sweep4's first week
+
+    def test_width_rows_per_pair(self):
+        st = sw.get_set("sw7_gbpusd")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual((rows[0]["width_l"], rows[0]["stranded"]), (2.5, 3.5))
+        self.assertEqual((rows[1]["width_l"], rows[1]["stranded"]), (0.2, 1.2))
+        self.assertEqual((rows[1]["add_l"], rows[1]["exit_l"]), (9.0, 10.0))
+
+    def test_csv_has_23_columns(self):
+        st = sw.get_set("sw7_nzdcad")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        lines = sw.to_csv(rows, st["ticks"]).splitlines()
+        self.assertEqual(lines[0], ",".join(sw.HEADER))
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(lines[2].split(",")[5:7], ["0.2", "0.2"])
+        self.assertEqual(lines[2].split(",")[12], "1.2")
+        self.assertEqual(len(lines[2].split(",")), 23)
+
+    def test_old_sets_unchanged_by_the_width_field(self):
+        st = sw.get_set("sw6_eurusd")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual({(r["width_l"], r["stranded"]) for r in rows}, {(2.0, 3.0)})
+
+
 if __name__ == "__main__":
     unittest.main()
