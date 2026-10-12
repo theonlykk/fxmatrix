@@ -24,6 +24,7 @@ long   g_grind_market_test_time_msc = 0;
 bool   g_grind_fill_time_place = false;
 double g_grind_engine_add_pips = 0.0;
 double g_grind_engine_add_pips_short = 0.0;
+double g_grind_light_add_frac[];
 bool   g_grind_start_add_reprice_long = false;
 bool   g_grind_start_add_reprice_short = false;
 double g_grind_engine_entry_horizon_pips = 0.0;
@@ -2018,6 +2019,31 @@ int Grind_SideDepth(const GrindSideState &side)
 }
 
 //+------------------------------------------------------------------+
+bool Grind_LightAddConfigure(const string table)
+{
+   double parsed[];
+   if(!Grind_LightAddParse(table, parsed)) {
+      ArrayResize(g_grind_light_add_frac, 0);
+      return false;
+   }
+   const int n = ArraySize(parsed);
+   ArrayResize(g_grind_light_add_frac, n);
+   for(int i = 0; i < n; i++)
+      g_grind_light_add_frac[i] = parsed[i];
+   return true;
+}
+
+//+------------------------------------------------------------------+
+double Grind_LightAddPips(const GrindSideState &side, const bool is_long, const double add_pips)
+{
+   const int own = Grind_SideDepth(side);
+   if(own <= 0)
+      return add_pips;
+   const int opp = Grind_SideDepth(is_long ? g_grind_short : g_grind_long);
+   return add_pips * Grind_LightAddFraction(g_grind_light_add_frac, opp - own);
+}
+
+//+------------------------------------------------------------------+
 int Grind_SideNextIndex(const GrindSideState &side)
 {
    const int n = Grind_SideDepth(side);
@@ -2324,7 +2350,8 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
    const int required_index = Grind_SideNextIndex(side);
    const int next_layer = required_index;
 
-   double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
+   const double eff_add = Grind_LightAddPips(side, is_long, add_pips);
+   double add_target = Grind_ComputeAddTarget(side, is_long, eff_add);
    if(add_target <= 0.0)
       return false;
 
@@ -2354,7 +2381,7 @@ bool Grind_SendNextAddEnt(GrindSideState &side,
    }
 
    const double mid = Grind_MidPrice(bid, ask);
-   const bool near_market = Grind_AddTargetNearMarket(clamped, mid, add_pips);
+   const bool near_market = Grind_AddTargetNearMarket(clamped, mid, eff_add);
 
    double slot_token = 0.0;
    if(use_try_lock) {
@@ -2540,7 +2567,8 @@ void Grind_EnsureAddNext(GrindSideState &side,
 
    const int next_layer = required_index;
 
-   double add_target = Grind_ComputeAddTarget(side, is_long, add_pips);
+   const double eff_add = Grind_LightAddPips(side, is_long, add_pips);
+   double add_target = Grind_ComputeAddTarget(side, is_long, eff_add);
    if(add_target <= 0.0)
       return;
 
@@ -3622,20 +3650,6 @@ int Grind_OwnRestingEntryCount(const ulong magic, const string slot)
       count++;
    }
    return count;
-}
-
-// ADR-167 light-side add (stub until commits 3–4 on replay-adr167).
-double g_grind_light_add_frac[];
-
-bool Grind_LightAddConfigure(const string table)
-{
-   ArrayResize(g_grind_light_add_frac, 0);
-   return false;
-}
-
-double Grind_LightAddPips(const GrindSideState &side, const bool is_long, const double add_pips)
-{
-   return add_pips;
 }
 
 #include "grind_replay.mqh"
