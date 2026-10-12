@@ -350,3 +350,57 @@ nets in `sweep6/weekly_<pair>.csv`):**
   leans slightly against, mostly on AUDCAD. It steadies the weekly result a little on most
   pairs but does not soften the worst week. Limits as above (timing 0, carry off, weekly flat
   starts); not a plan 3 result.
+
+## sweep7: ONE flat start, the book carried for eight weeks; live width and width 0.2 (pre-registered 12 Oct ~22:30Z, before any run)
+
+The operator (12 Oct ~21:57Z): "i wouldn't mind seeing the results if we ran uniterrupted over
+the 8 weeks - ie did not return to flat at the end of the week. can we do that with the current
+ftmo build - and maybe your 0.2 width?" (The name sweep7 is reused: the earlier sweep7 idea, a
+slower light side, was dropped by the operator ~21:55Z.)
+
+**Build:** the replay build already compiled on `D:\mt5-replay` (`replay-adr167` `ed5d052`) with
+NO table: it runs as `145f092` (R3's twelve byte-equal runs; sweep6 C0, 216 rows = sweep4). The
+engine is the live EA's code (`5bb5fdb`). Input files only; no code change.
+
+**Data and runs:** the h8w ticks (sweep4). Per pair ONE segment from **Mon 3 Aug 00:00 to Fri 25 Sep
+23:45 server**, starting flat, the book carried through every weekend. Two settings:
+- `live`: the pair's live B geometry exactly as sweep4's `live` row (add, exit, width; stranded =
+  width + 1; cap 8; lattice, re-roll, gate 0, deadband 2; carry off; timing 0);
+- `live_w0.2`: the same with width 0.2 on both sides, stranded 1.2, deadband 2 unchanged.
+`sweep.py` `sw7_<pair>` (tests first, in their own commit: 4 failing, then the code; four mutants caught);
+`inputs/sweep7/` (two rows a pair), manifest `inputs/sweep7.sha256`.
+
+**Reported (never deciding; `results/sweep7/analyse.py`, tests first in their own commit, written before any run):**
+- per pair and setting: S, R, A, realised, commission, the open book at the end, total net;
+  requests (non-SEED place / modify / remove in the orders log, plus one close-by a close), per day
+  over 40 days; the worst floating loss and the worst equity over the eight weeks, with the time;
+- **Q1:** `live` carried eight weeks against the sum of sweep4's eight weekly `live` nets (flat every
+  Monday);
+- **Q2:** `live_w0.2` against `live`;
+- the floating summed in dollars minute by minute (nine pairs, and A's seven), worst and minutes
+  below -$250 / -$400.
+- **Self-checks first (any failure: STOP, nothing reported):** each book rebuilt from the fill log
+  equals the harness's end book; closes and realised equal SCALP_CLOSED (0.1 pip a close).
+
+**Claude's predictions, written before any run:**
+- Q1: no consistent sign: carried better on 4-5 pairs, worse on 4-5; the carried book's worst
+  floating far deeper than any single week's (AUDNZD below -800 pips).
+- Q2: S up and roll acceptances A down by a third or more on at least 7 of 9 pairs (the first
+  order fills almost at once, so the book seldom sits at 8/0 under gate 0); R down; requests a day
+  within +/-25% of `live` (more fills, the same re-quote rule); net with no consistent sign; the
+  worst floating deeper on most pairs.
+- Nine pairs summed: below -$250 for more than 10% of the minutes in `live`.
+
+**Limits:** carry off (no swap history for Aug-Sep; a book held for weeks pays or earns swap that
+is not counted); timing 0; A's float gate ($250) and breaker ($400) are NOT in the harness (the
+summed path only shows where they would have cut in; the breaker works on a day's equity, not
+floating); the width is SHARED with the flat start's two orders, so 0.2 also starts each flat book
+tighter (C103's design narrows only the empty side's first order while the other side holds
+layers); AUDCHF at B's width 1.5 (A's 1.0), as sweep4; every pair on the EURUSD chart (prices
+valid, dollars from the pip value); one path.
+
+**Runs (the operator, from `D:\fxmatrix`; about 3 s per day of ticks per setting: ~4-8 min a pair):**
+
+    git checkout replay-adr167
+    foreach ($p in 'eurusd','gbpusd','eurgbp','audcad','audchf','cadchf','nzdchf','nzdcad','audnzd') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw7_$p" -Label "sw7_${p}_free" -Timing 0 -Sens base -SwapsSha dc7da509b35e6846f12f03692bf973632847ab3f2ad7dc865a93d91309f95b6c }
+    git checkout main

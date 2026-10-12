@@ -2601,4 +2601,17 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A paste can carry an older run from the window's scrollback** (12 Oct:
   Friday's carry check above tonight's). Read the dates on the rows.
 
-Line count: 2604
+## TRAPS FROM 2026-10-12 NIGHT, 2 (THE REPLAY LOGIN; sweep7's TESTS)
+
+- **An MT5 journal FILE can lag its window by a minute.** A grep at 21:48Z found the 21:47:49
+  `authorized` line but not the `synchronized` line logged in the same second; the window
+  showed both. Before reading a missing line as a fault, look at the Journal tab or grep again a
+  minute later.
+- **A test's inputs must be in the units the code takes.** Two sweep7 path tests passed prices
+  as decimals where `on_tick` takes integer points; one failed for that reason, the other passed
+  for the wrong one. Build every input through the same helper.
+- **A survivor mutant names a weak test, not a good one.** `pop(0)` for `pop(layer)` survived
+  because every test exited layer 0; a minute's LAST value for its lowest survived with one tick
+  a minute. Exit a middle layer; put two ticks in one minute.
+
+Line count: 2617

@@ -2,7 +2,11 @@ This message has a line count at the bottom
 
 # ADR-167 -- THE LIGHT SIDE'S ADD BY DEPTH GAP (DESIGN RULED BY GEMINI s11; NOTHING BUILT)
 
-Status: DESIGN RULED (Gemini GA-1..8, 12 Oct ~02:52Z, checked by Claude:
+Status: **PARKED (operator 12 Oct ~21:52Z-21:55Z: "we decided that boring was best on the entry
+... now we are developing some elaborate adding model for the opposite leg - it isnt
+consistent"; "trying to guess the type of bounce back we see is not a useful direction").
+Not built in the EA; the replay build stays on `replay-adr167`, unmerged. O-1..4 lapse.**
+Before: DESIGN RULED (Gemini GA-1..8, 12 Oct ~02:52Z, checked by Claude:
 section 11); O-1..4 open with the operator; no code. **Operator 12 Oct
 ~03:00Z: the rule is to be tried in the replay harness on the eight weeks of
 ticks now, on its own branch (`prompts/cursor_adr167_replay.md`); the EA
@@ -421,4 +425,4 @@ options, 11 Oct; they are listed so that Gemini can say if one belongs in):
   code. Not checked by him and still open: A18 (how often books are skewed)
   and the operator's O-1..4.
 
-Line count: 424
+Line count: 428

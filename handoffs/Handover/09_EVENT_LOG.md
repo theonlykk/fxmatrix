@@ -28,7 +28,8 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
   s81 (~21:15-21:30Z): the three IC terminals' journals show them
   connected at the 21:00Z rollover; round 3's insurance on wine-c (bid /
   ask, nine pairs, 12 Oct 00:00 to 13 Oct 00:20 server,
-  `Downloads\bidask_ic_1012_insurance`, hashes equal).
+  `Downloads\bidask_ic_1012_insurance`, hashes equal); 21:47Z the replay
+  terminal logged in and synchronized on 53077984 (all four IC logins work).
 - **Changed:** IC access (B, C, D, the replay's read-only login, the tick
   dumps) may end at any time; plan 3's holdout tick window may have to end
   at 12 Oct 22:00 server (the operator's call). Backlog C150.
@@ -621,4 +622,4 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 624
+Line count: 625

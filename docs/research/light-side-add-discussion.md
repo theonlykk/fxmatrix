@@ -190,4 +190,15 @@ add and our accessibility to IC markets". Not pre-registered; nothing built.
 - O-C: sweep7 (b): is the reading in s7 (b) what was meant? (The reading is
   Claude's alone; the operator's only words are the one line in s7.)
 
-Line count: 193
+**ANSWERED (operator 12 Oct ~21:52Z-21:55Z):** O-A PARKED, O-B DROPPED: "we decided
+that boring was best on the entry - on the initial path that gives us 8/0 - now we
+are developing some elaborate adding model for the opposite leg - it isnt
+consistent"; "trying to guess the type of bounce back we see is not a useful
+direction". Every rule in s5 is a bet on the path (the equaliser that a bounce
+fails, a slower short that it carries on); symmetric adds are the simplest bet, not
+a neutral one (s3). O-C: the replay terminal's IC login was tested 21:47Z and
+works (HANDOFF s81 continued). Kept: symmetric adds, cap 8, rolls only at 8/0, the
+8/0 -> 8/1 first short. The name sweep7 now belongs to the operator's eight-week
+carried run (`research/replay/results/sweep_notes.md`, sweep7).
+
+Line count: 204
