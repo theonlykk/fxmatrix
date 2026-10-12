@@ -277,3 +277,46 @@ tests first; the daily nets in `sweep5/daily_<pair>.csv`):**
   - "The first day of an EA is always great" holds on most days, but not on
     the total. sweep1's EURUSD verdict holds across all nine pairs and eight
     weeks.
+
+## sweep6: ADR-167's light-side add on the eight weeks (pre-registered 12 Oct ~05:15Z, before any run)
+
+The operator (12 Oct ~03:00Z): "I want to see the harness results if we implement the layer
+equalizing logic on the data we download. we have 8 weeks of data, let's see if it made a
+difference."
+
+**Build:** the replay experiment build of ADR-167 (branch `replay-adr167`, tip `ed5d052`;
+`prompts/cursor_adr167_replay.md`): suite 493 / 493 (the operator's GUI compile); with no
+table the twelve calibration runs equal `145f092`'s byte for byte (deals, orders, book;
+events and summaries with `ea_time_ms` and `run_ms` masked; Claude's check). The table goes
+in the run file's optional 24th column `light_add`. NOT plan 3's harness.
+
+**Data and runs (as sweep4):** the h8w ticks, 8 weeks (Mon 3 Aug ... Mon 21 Sep), each week
+its own flat start (Mon 00:00 to Fri 23:45 server); timing 0, carry off; each pair's live B
+width, stranded = width + 1; commission $0.06 a close / the pair's pip value.
+- **Settings (cap 8 only; the operator, 12 Oct: the cap stays 8):** the pair's live B
+  geometry, a7.5e7.5n8 and a10e10n8 (all three in sweep4's grid).
+- **Tables (ADR-167 3.3):** off; step `1;1;1;0.5`; linear
+  `0.93;0.86;0.79;0.71;0.64;0.57;0.5`; dead zone + linear `1;1;0.9;0.8;0.7;0.6;0.5`.
+- 3 settings x 4 tables x 8 weeks = 96 segments a pair (`inputs/sweep6/`, manifest
+  `inputs/sweep6.sha256`; `sweep.py` `sw6_<pair>`, tests first).
+
+**Marks (fixed now; `results/sweep6/analyse.py`, tests first, written before any run):**
+- **C0, the control:** every off row must equal sweep4's weekly net for the same setting
+  and week (`results/sweep4/weekly_<pair>.csv`). Any mismatch: STOP, no mark is read.
+- **E1, per pair and table:** the weekly MEDIAN over the 3 settings of the paired
+  difference net(table) - net(off). BETTER if > 0 in >= 6 of 8 weeks, WORSE if < 0 in
+  >= 6 of 8, otherwise NO DIFFERENCE.
+- **E2, per table:** HELPS if >= 5 of 9 pairs are BETTER and <= 1 WORSE; HURTS if >= 5
+  WORSE and <= 1 BETTER; otherwise NO VERDICT.
+- **Reported, never deciding:** the 8-week sum of the median difference; the standard
+  deviation of weekly nets and the worst week, table against off; S and R totals.
+- NO VERDICT is an expected and acceptable outcome.
+
+**Claude's prediction, written before any run:** NO VERDICT for all three tables; the
+weekly standard deviation lower with a table on most pairs and the worst week less bad
+(the rule shrinks the net position: insurance, not edge); the step table the largest effect
+either way; EURGBP and NZDCHF (add 3) the smallest differences.
+
+**Limits:** one flat start a week (the book is never deeper than a week's moves); timing
+0; carry off; geometries other than the live ones are indicative (plan 3 s5); the harness
+runs every pair on the EURUSD chart (prices valid, dollars from the pip value).

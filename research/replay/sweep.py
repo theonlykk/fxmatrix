@@ -70,6 +70,13 @@ GRID4 = tuple(("a%ge%gn10" % (a, e), a, e, 10, None) for a in (5.0, 7.5, 10.0) f
     tuple(("a%ge%gn%d" % (a, a, n), a, a, n, None) for a in (7.5, 10.0) for n in (6, 8))
 
 
+# sweep6: ADR-167's light-side add tables (ADR 3.3) in the run file's optional 24th column
+# (branch replay-adr167; "" = off). Three cap-8 settings that sweep4 already ran.
+TABLES6 = (("off", ""), ("step", "1;1;1;0.5"), ("lin", "0.93;0.86;0.79;0.71;0.64;0.57;0.5"),
+           ("dz", "1;1;0.9;0.8;0.7;0.6;0.5"))
+BASES6 = (("a7.5e7.5n8", 7.5, 7.5, 8), ("a10e10n8", 10.0, 10.0, 8))
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -102,6 +109,12 @@ def get_set(tag):
         return {"windows": windows, "geoms": geoms, "base": base,
                 "ticks": "ticks_53077984_%s__h8w.csv" % pair,
                 "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd}
+    if tag.startswith("sw6_") and tag[4:].upper() in PAIRS:
+        st = get_set("sw4_" + tag[4:])
+        bases = (("live",) + LIVE_B[tag[4:].upper()] + (8,),) + BASES6
+        st["geoms"] = tuple(("%s_%s" % (b[0], tn), b[1], b[2], b[3], None, table)
+                            for b in bases for tn, table in TABLES6)
+        return st
     if tag.startswith("sw5_") and tag[4:].upper() in PAIRS:
         st = get_set("sw4_" + tag[4:])
         st["windows"] = tuple((d, d + " 01:00", d + " 23:45") for m in WEEKS4 for d in _days(m))
@@ -138,6 +151,8 @@ def build_rows(windows, geoms, base=None, ticks=TICKS_FILE):
                       "seed_file": "", "ticks_file": ticks, "orders_file": ""})
             if carry is not None:
                 r["carry"] = carry
+            if len(g) > 5 and g[5] is not None:
+                r["light_add"] = g[5]
             rows.append(r)
     return rows
 
@@ -152,7 +167,16 @@ def labels(windows, geoms):
 
 
 def to_csv(rows, ticks=TICKS_FILE):
-    return bs.to_run_csv(rows, ticks, [""] * len(rows), first_id=rows[0]["seg_id"])
+    """The harness run file. Rows that carry "light_add" (sweep6) add the optional 24th column
+    (ADR-167 replay build); every other set is written exactly as before."""
+    text = bs.to_run_csv(rows, ticks, [""] * len(rows), first_id=rows[0]["seg_id"])
+    if not any("light_add" in r for r in rows):
+        return text
+    lines = text.rstrip("\n").split("\n")
+    out = [lines[0] + ",light_add"]
+    for r, line in zip(rows, lines[1:]):
+        out.append(line + "," + r.get("light_add", ""))
+    return "\n".join(out) + "\n"
 
 
 def surface(geoms, nets):
