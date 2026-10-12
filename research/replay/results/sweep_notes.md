@@ -1,9 +1,10 @@
-# Geometry sweeps on the frozen harness (C147), 10 Oct
+# Geometry sweeps on the frozen harness (C147), 10-11 Oct
 
 **Status: EXPLORATORY.** Not a plan 3 mark; nothing here changes plan 3. Plan 3
 fits the replay at the LIVE geometries only (add 6-7, exit 9-11, cap 8); every
-other geometry here is indicative (plan 3 s5). One week, one EURUSD path,
-pre-holdout ticks only (`w2`, sha256 `db2ea941...`).
+other geometry here is indicative (plan 3 s5). sweep1 and sweep2: one week,
+one EURUSD path (`w2`, sha256 `db2ea941...`); sweeps 3-5 state their own data
+below. Pre-holdout ticks only, in every sweep (nothing after 9 Oct 01:30 server).
 
 **How it works:** no harness code changes. `sweep.py build` writes a
 `run_<tag>.csv` (one row per geometry and window; empty seed and orders files

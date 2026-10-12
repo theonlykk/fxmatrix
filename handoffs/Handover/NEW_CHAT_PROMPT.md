@@ -115,7 +115,7 @@ Do not start any fleet action before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `41ab394` + patches s79n and s79o (s79 continued 11-12). EA code `5bb5fdb`, live on A, B, C, D |
+| fxmatrix `main` | `5b65702` (= `41ab394` + s79n-q) + the s80 patches (HANDOFF s80). EA code `5bb5fdb`, live on A, B, C, D |
 | `replay-harness` | tip `efada62`; code **`145f092`, FROZEN for plan 3**; suite 461 / 461 at `252aae5`; the 48-run matrix `research/replay/runs/eurusd_*_145f092*/` (each run's `timing.csv` is on the desktop only) |
 | `D:\mt5-replay` | Copy BEFORE compiling (`replay_run.ps1 -Mode Copy`); the OPERATOR compiles in the MetaEditor GUI (never a CLI build); R1 (suite), then R2 (inputs), then R4 (runs), no suite between R2 and R4 (the suite rewrites `swaps.csv`) |
 | pipshed `main` | `6ea487e` (`--export-sends`) |

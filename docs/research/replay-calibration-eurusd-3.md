@@ -14,7 +14,7 @@ This message has a line count at the bottom
 
 | # | Fact | Where | Status |
 |---|---|---|---|
-| P1 | At `145f092` T1 passes on B, C, D (96.0 / 95.5 / 97.3%; replay-only 2.8 / 3.6 / 2.4%) | `results/eurusd_20261008_145f092/report.md` | MEASURED |
+| P1 | At `145f092` T1 passes on B, C, D (96.0 / 95.5 / 97.3%; replay-only 2.8 / 3.6 / 2.4%). **Corrected 12 Oct (s80; a slip, no mark touched): C's replay-only is 12 of 359 = 3.3% at `145f092` (`report.md`, `results/plan3/score_calibration_145f092.md`, plan 2 s18); 3.6% was `868bcc3`'s figure** | `results/eurusd_20261008_145f092/report.md` | MEASURED |
 | P2 | Free-run totals over ALL 29 segments: S real 384, replay 401 (+4.4%); R 108 / 107; roll acceptances A 124 / 123. The 2 Oct payrolls segments (B 3, C 13, D 23) carry +20 of S; the other 26 net -3 | `report.md` (T2 per segment and side); consult s9 | MEASURED |
 | P3 | The payrolls minute (2 Oct 15:30:00-15:30:19 server): live sends took 1.2-5.8 s (normally ~0.29) and modifies were REFUSED (10029 frozen on C and D; 10013 on B, C, D; 10015 on D). The replay models neither (plan 2 s3 "not modelled") | `results/plan3/burst_sends.py` / `.txt` (send logs, 9 Oct export) | MEASURED |
 | P4 | The live day-to-day spread of S, R and A per fleet and side over 1, 2, 5, 6, 7, 8 Oct, and the tolerances of s3 | `research/replay/live_spread.py` (+ tests); `results/plan3/live_spread_n3.txt`, `_n6.txt` | MEASURED |

@@ -2494,4 +2494,24 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   file once per run and skips ticks outside each segment's window, so there
   is no need to split it.
 
-Line count: 2497
+## TRAPS FROM 2026-10-11 NIGHT (NEW CHAT; BOOT)
+
+- **Re-read the handover's HEAD row after the LAST patch.** The prompt named
+  `41ab394` + two patches; git had four (s79n-q). Its stamp (~18:00Z) and
+  "continued 12" (to ~18:00Z) carried sweep5's result (~21:55Z). Take the
+  HEAD from `git log -1` and the time from the operator's message.
+- **A patch that only touches the handoff does not update BOOT s6.** It sat
+  at "continued 9" for three sessions while the prompt sent a new chat there
+  for state. Before a handover: `git log -1 --format=%h -- handoffs/Handover/01_BOOT.md`.
+- **A status CELL goes stale while its row's text is current** (backlog C135
+  read "fix 3" under a row ending in plan 3). Update the cell with the text.
+- **A new chat starts with NO folder on the desktop and no pipshed read.**
+  Folder grants (Downloads, `D:\mt5-replay\MQL5\Files\replay`) belong to a
+  chat: ask once, when the first file is ready. A pipshed URL is fetched only
+  after the operator has pasted it in THAT chat.
+- **A scorer's input file can carry a stale sentence beside a right field:**
+  `round3.json`'s "decides" text names round 2's end mark (8 Oct 22:30Z); the
+  `equity_end` field (13 Oct 22:30Z) is what `equity_score.py` reads (line
+  120). Not edited mid-round; fix it when round 4's file is written.
+
+Line count: 2517
