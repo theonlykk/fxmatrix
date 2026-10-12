@@ -2429,7 +2429,7 @@ void Rt167_Book(const string table)
    Rpl_SeedLayer("S", 0, 1.10500, RplMs(RPL_T0, -3600), 5201UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
    Rpl_SeedOrder("S", 0, "EXT", 1.10400, 5211UL, ORDER_TYPE_BUY_LIMIT);
    for(int i = 0; i < 6; i++) {
-      const double entry = 1.10480 - i * 0.00070;
+      const double entry = 1.10900 - i * 0.00070;
       Rpl_SeedLayer("L", i, entry, RplMs(RPL_T0, -3600), 5301UL + (ulong)i, 0.0, 0.0, RPL_LOTS_DEFAULT);
    }
 }
@@ -2482,8 +2482,8 @@ void Test_RT65_LightAddPips()
    ArrayResize(g_grind_short.layers, 0);
    AssertNear("RT65d empty short", Grind_LightAddPips(g_grind_short, false, 7.0), 7.0, 1e-9);
    Rt167_Book(RT167_TABLE_B);
-   Rpl_SeedLayer("L", 6, 1.10060, RplMs(RPL_T0, -3600), 5307UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
-   Rpl_SeedLayer("L", 7, 1.10000, RplMs(RPL_T0, -3600), 5308UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 6, 1.10480, RplMs(RPL_T0, -3600), 5307UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedLayer("L", 7, 1.10410, RplMs(RPL_T0, -3600), 5308UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
    AssertNear("RT65e long cap8", Grind_LightAddPips(g_grind_long, true, 7.0), 7.0, 1e-9);
 }
 
@@ -2506,7 +2506,7 @@ void Test_RT66_PlacedAdd()
               && MathAbs(Grind_OrderGetPriceOpen(g_grind_short.add_pending_ticket) - 1.10549) < 1e-9);
    AssertTrue("RT66b long add placed",
               g_grind_long.add_pending_ticket != 0
-              && MathAbs(Grind_OrderGetPriceOpen(g_grind_long.add_pending_ticket) - 1.10060) < 1e-9);
+              && MathAbs(Grind_OrderGetPriceOpen(g_grind_long.add_pending_ticket) - 1.10480) < 1e-9);
 }
 
 void Test_RT67_FillAndNextAdd()
@@ -2562,7 +2562,7 @@ void Test_RT70_RunLightAddColumn()
    const string open_ms = IntegerToString(RplMs(RPL_T0, -3600));
    FileWrite(w, "S,0,1.10500," + open_ms + ",5201,0,0,0.01,0");
    for(int i = 0; i < 6; i++) {
-      const double entry = 1.10480 - i * 0.00070;
+      const double entry = 1.10900 - i * 0.00070;
       FileWrite(w, "L," + IntegerToString(i) + "," + DoubleToString(entry, 5) + "," + open_ms + ","
                 + IntegerToString(5301 + i) + ",0,0,0.01,0");
    }
