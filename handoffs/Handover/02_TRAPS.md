@@ -2514,4 +2514,26 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   `equity_end` field (13 Oct 22:30Z) is what `equity_score.py` reads (line
   120). Not edited mid-round; fix it when round 4's file is written.
 
-Line count: 2517
+## TRAPS FROM 2026-10-12 EARLY (ADR-167; A PATCH THAT DID NOT OVERWRITE)
+
+- **Saving a file to Downloads under a name already used can leave the OLD
+  bytes there** while the save reports success and the file's time changes
+  (s80c: the operator applied the first draft twice; the tree hash caught
+  it). Never reuse a patch's file name: a revised patch gets a new name, and
+  every saved patch is READ BACK from the desktop and hashed before the
+  operator is told to apply it.
+- **The tree hash is the check that worked.** Give it with every patch and
+  compare it before the push, every time.
+- **A remark made in passing is not a ruling.** "A practical minimum add is
+  3" became an input with a default and made the rule inert on two pairs.
+  Put an operator's aside in the document as a question, not as a default.
+- **A deadband is strict:** `Grind_PriceWithinDeadband` is `<`, so a shift of
+  exactly the deadband DOES modify. Compute the largest shift a rule can
+  make before claiming it re-quotes at all (half an add of 3 never reaches
+  a 2-pip deadband).
+- **Gemini on ADR-167: five wrong premises under eight sound rulings**
+  (slots called API quotas; "lock until balance" at a gate that waits for
+  FLAT; the replay's "lam" applied to the EA). Check the reason, not only
+  the verdict.
+
+Line count: 2539

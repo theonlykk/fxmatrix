@@ -1,8 +1,9 @@
 This message has a line count at the bottom
 
-# ADR-167 -- THE LIGHT SIDE'S ADD BY DEPTH GAP (DRAFT FOR GEMINI; NOTHING BUILT)
+# ADR-167 -- THE LIGHT SIDE'S ADD BY DEPTH GAP (DESIGN RULED BY GEMINI s11; NOTHING BUILT)
 
-Status: DRAFT. Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
+Status: DESIGN RULED (Gemini GA-1..8, 12 Oct ~02:52Z, checked by Claude:
+section 11); O-1..4 open with the operator; no code. Written by Claude 12 Oct ~02:15Z, revised ~02:45Z (no pip
 floor; the operator's rulings of section 9), from the operator's design
 idea (backlog C142; 8 Oct ~15:16Z, 10 Oct ~23:41Z to 11 Oct ~00:14Z, 11 Oct
 backlog review: "one inventory-control ADR"). No code exists. The EA build
@@ -281,8 +282,9 @@ options, 11 Oct; they are listed so that Gemini can say if one belongs in):
   unchanged (the whole existing suite must pass untouched).
 - A light side at depth 1 with the other side at 6: the placed add's price
   (the worked case of 3.3).
-- A gap change with a resting add: within the deadband no modify; beyond
-  it one modify to the new target (3.5 (a)), or none (3.5 (b)).
+- A gap change with a resting add: under the deadband no modify; at or
+  beyond it exactly ONE modify to the new target, and none on the ticks
+  that follow (GA-8, section 11).
 - A side at the cap: the lattice level and the stranded mark use the
   configured add (A5).
 - Both sides at once (long light, then short light after a flip).
@@ -342,4 +344,73 @@ options, 11 Oct; they are listed so that Gemini can say if one belongs in):
   the same build, or stay a second step?
 - **GA-8.** Which fact is missing, and which premise of ours is wrong?
 
-Line count: 345
+## 11. GEMINI'S RULINGS (GA-1..8, 12 Oct ~02:52Z) AND CLAUDE'S CHECK
+
+**No design change. One test sharpened (section 7). Five premises corrected.**
+
+- **GA-1: ACCEPTED** (fractions, no floor; no spread bound). His reason
+  holds: a resting limit is passive, the spread delays a fill and does not
+  move the target. Premise corrected: the add / width guard is ADR-153's
+  typo catcher, not an "engineered geometric limit"; it is simply the only
+  lower bound left.
+- **GA-2: ACCEPTED (the live target), two premises corrected.**
+  - He says a latched add "creates state desynchronization (the EA wants X,
+    the broker holds Y)". Not so: latched, the EA would want what rests. The
+    ruling does not depend on it.
+  - He says the cost is "safely bounded by the 2-pip deadband". The deadband
+    bounds WHEN a modify happens, not HOW MANY: a step table crosses it at
+    every threshold crossing (3.5).
+  - **Found in the check (source):** `Grind_PriceWithinDeadband` is a strict
+    `<` (`grind_pure.mqh` 164-171), so a resting add moves only when its
+    target has shifted by 2.0 pips or more. The LARGEST shift a 0.5 table
+    can make is half the add: 1.5 pips on EURGBP and NZDCHF (never
+    re-quoted: the gap acts only when the next add is placed), 2.0 on
+    AUDCHF and CADCHF (at the limit), 3 to 4.5 on the other five. On
+    EURUSD a re-quote needs the fraction to change by 0.29 or more. So the
+    "live" target is mostly a placement-time rule with an occasional
+    re-quote on the wide pairs. Accepted as is; recorded for the probe.
+- **GA-3: ACCEPTED** (A5 stands; his arithmetic is the document's).
+- **GA-4: ACCEPTED (no unseen failure), premise corrected.** He writes "full
+  lock until balance returns". 8/8 IS balance: the lock on a capped side
+  ends when the OTHER side is flat (A10), and meanwhile the nearest layers
+  still scalp. "rank-7 exits" is not a thing here (the exit queue rests the
+  nearest exit per side).
+- **GA-5: ACCEPTED.**
+- **GA-6: "AMENDED", but no change: the effective add stays in the
+  near-market test. Two premises corrected.**
+  - `InpSlotNearReserve` does not "protect API quotas". It keeps 8 of the
+    account's 200 position-and-order slots free for near-market entries
+    (`grind_exitq.mqh` 173-183: a far add needs used + resting <= 186, a
+    near add 194).
+  - The direction is the opposite of his worry: a smaller add makes the
+    near-market band NARROWER (target within one effective add of mid), so
+    the test gets stricter, not looser. At a fill the next add sits one
+    effective add from the anchor, inside the band either way, so behaviour
+    at fill time is unchanged.
+  - His "monitor slot consumption" is already in the probe's report
+    (section 6 step 4: the guard).
+- **GA-7: v1's scope stands** (C103 stays out). His reason overstates the
+  work ("completely rewriting" the re-centre) and calls the L0 "entry-horizon
+  compression" (the entry horizon is ADR-152's held adds, off live). The
+  ruling itself is the document's lean: one variable in the probe.
+- **GA-8: ANSWERED in source; a test sharpened.** His attack: a heavy-side
+  fill in flight changes the gap just after the light side placed a tight
+  add, and "API settlement latency" could make the gap oscillate and
+  hyper-trigger modifies.
+  - Depth changes ONCE per fill, when the EA processes the deal:
+    `Grind_AppendLayer` (engine 2972) and, on a close, `Grind_RemoveLayerAt`
+    (2940). There is no state in which it flickers back; "touch + lam" is
+    the replay's timing model, not the EA.
+  - The layer is appended BEFORE the fill-time add is placed (2972, then
+    2978), so a side's own new add already sees its new depth.
+  - After a modify the resting price equals the target, so the following
+    ticks do nothing (2568-2573).
+  - So each gap change costs at most one modify, and only when the shift
+    is 2.0 pips or more. Section 7 now asks for exactly one modify and none
+    on the following ticks.
+- **His sign-off has no questions for us**, though the covering note asked
+  for them (BOOT s1's tell); every ruling above was checked against the
+  code. Not checked by him and still open: A18 (how often books are skewed)
+  and the operator's O-1..4.
+
+Line count: 416
