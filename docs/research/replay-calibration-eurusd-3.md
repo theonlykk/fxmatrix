@@ -135,6 +135,14 @@ then it is frozen with the tolerance table of s3.
   the `timing = 0` runs reported, never deciding); `compare.py
   --t0-price order`; `score_plan3.py`; the verdict.
 - No code change once the first holdout run starts.
+- **Note (12 Oct, s80; operator ~01:39Z):** "read by nothing" means nothing
+  of the REPLAY: no replay run, `compare.py`, T0, scorer or script on the
+  holdout's ticks, sends or archives. Round 3's scoring (Tue 13 ~22:35Z,
+  `equity_score.py` on live EURUSD deals and bid / ask of 12-13 Oct) and
+  the daily fleet status reads look at LIVE results only and do not spoil
+  the holdout: the harness, marks, tolerances, window and scorer are
+  frozen and none may change after them. Not put to Gemini. The command
+  list for Tue 13: `docs/runbooks/plan3-holdout-export.md`.
 
 ## 8. ORDER OF WORK
 
@@ -194,4 +202,4 @@ holdout's data before step 2 is committed.
 - **His sign-off has no questions for us** (BOOT s1's tell); every ruling
   above was checked against the code or the plan.
 
-Line count: 197
+Line count: 205
