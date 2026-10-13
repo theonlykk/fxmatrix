@@ -2634,4 +2634,16 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Read the source before naming a suspect to the operator.** The roll gate was named as the
   likely cause of costly rolls; `Grind_LatticeTrySide` books deferred rolls at their own levels.
 
-Line count: 2637
+## TRAPS FROM 2026-10-13 EVENING (THE HOLDOUT EXPORT; ROUND 3)
+
+- **Give a time-gated step only when its time has come.** The export command was given at 21:42Z
+  with "run at 22:10Z"; it ran at 21:43Z. Harmless here (re-run under new names, the early set
+  recorded as superseded), but a step that cannot be re-run would not be. Say the time in the
+  operator's clock (ET) and hold the command until then.
+- **A script dialog held open does not run the script:** the journal's "loaded" line is the
+  dialog opening (22:16Z); the run is the `TICKS|BEGIN` line (22:32Z). Read the run's own lines.
+- **"fills end before the round ends" is not always a gap:** check the newest `fill_logs` row
+  (`archive_counts.py --table fill_logs --limit 5`) against each box's last `deal #` journal line
+  before calling the archive behind.
+
+Line count: 2649

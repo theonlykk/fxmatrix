@@ -1,0 +1,29 @@
+== compass round 3 (cap 8, tight widths, deadband 2, re-roll on, roll gate 0; FTMO days Mon 12 + Tue 13 Oct after the Fri 9 reload of four charts): COHORT EQUITY (layers opened in the round: costs + closes + mid mark at the end), per day; plain equity and realised margins in brackets; windows 2026-10-11T22:00Z->2026-10-12T22:00Z, 2026-10-12T22:00Z->2026-10-13T22:00Z ==
+cohort span 2026-10-11 22:00Z -> 2026-10-13 22:30Z (end mark)
+!! fills end 2026-10-13 18:55Z, before the round ends (2026-10-13 22:00Z): on a Friday this is the close; otherwise provisional
+threshold GC-1 1.19 = max(1.19, median 0.18 of 6 NZDCAD cohort gaps; void [])
+   control L B-C: +0.19 vs +0.08 -> gap 0.11
+   control L B-D: +0.19 vs +0.32 -> gap 0.13
+   control L C-D: +0.08 vs +0.32 -> gap 0.24
+   control S B-C: +0.93 vs +0.63 -> gap 0.31
+   control S B-D: +0.93 vs +0.93 -> gap 0.00
+   control S C-D: +0.63 vs +0.93 -> gap 0.31
+pair   side anchor | C cohort margin verdict (plain equity, realised margins) | D likewise | promote
+GBPUSD L      +3.74 |   +4.20   +0.46 REPEAT   (eq -1.25, real +0.43) |   +3.30   -0.44 REPEAT   (eq -0.56, real -0.56) | -
+GBPUSD S      -3.34 |   -4.61   -1.27 LOSE     (eq -0.32, real -5.21) |   -1.61   +1.73 WIN      (eq +1.09, real +0.91) | D
+EURUSD L      +1.88 |   +1.57   -0.30 REPEAT   (eq +0.19, real +1.42) |   +1.43   -0.45 REPEAT   (eq -0.11, real +0.88) | -
+EURUSD S      -2.25 |   -2.58   -0.33 REPEAT   (eq -0.42, real +0.45) |   -2.32   -0.07 REPEAT   (eq +0.07, real +0.03) | -
+EURGBP L      +0.36 |   +0.67   +0.31 REPEAT   (eq +0.30, real +0.89) |   +0.71   +0.35 REPEAT   (eq -0.08, real +0.23) | -
+EURGBP S      +3.20 |   +1.87   -1.33 LOSE     (eq +0.10, real -0.90) |   +2.53   -0.67 REPEAT   (eq -0.92, real -0.58) | -
+AUDCAD L      -1.80 |   -3.46   -1.65 LOSE     (eq -0.65, real -3.63) |   -2.17   -0.36 REPEAT   (eq -0.36, real -0.07) | -
+AUDCAD S      +0.95 |   +1.46   +0.51 REPEAT   (eq -0.65, real -0.67) |   +1.30   +0.35 REPEAT   (eq +0.40, real +0.31) | -
+AUDCHF L      +1.07 |   +0.56   -0.51 REPEAT   (eq +1.89, real -0.61) |   +1.23   +0.16 REPEAT   (eq +1.70, real +0.47) | -
+AUDCHF S      -0.63 |   -0.58   +0.05 REPEAT   (eq +1.91, real +0.57) |   -0.69   -0.05 REPEAT   (eq -0.05, real -0.05) | -
+CADCHF L      +0.16 |   +1.81   +1.65 WIN      (eq -1.26, real -4.98) |   -0.06   -0.22 REPEAT   (eq +1.20, real +0.55) | C
+CADCHF S      -6.58 |   -6.13   +0.45 REPEAT   (eq -1.84, real +0.00) |   -7.99   -1.41 LOSE     (eq +0.88, real +0.00) | -
+NZDCHF L      +0.55 |   +0.56   +0.01 REPEAT   (eq -0.89, real -0.56) |   +0.00   -0.55 REPEAT   (eq -0.49, real -1.37) | -
+NZDCHF S      -0.62 |   -0.40   +0.22 REPEAT   (eq -0.75, real +0.00) |   -0.68   -0.06 REPEAT   (eq -0.18, real -0.59) | -
+NZDCAD L      +0.19 |       -                                            |       -                                            | -
+NZDCAD S      +0.93 |       -                                            |       -                                            | -
+AUDNZD L      +0.71 |   +0.82   +0.11 REPEAT   (eq +0.16, real +0.06) |   +0.78   +0.07 REPEAT   (eq +0.04, real -0.20) | -
+AUDNZD S      +1.18 |   +1.47   +0.29 REPEAT   (eq +0.21, real +0.28) |   +1.43   +0.25 REPEAT   (eq +0.53, real +0.53) | -

@@ -1,0 +1,15 @@
+# Compass round 3 scored Tue 13 Oct ~22:45Z (HANDOFF s81 continued 4): equity_score.py --export
+# study_2026-10-13_2238.jsonl --round research/compass/round3.json --bidask bidask_ic_1013 (output:
+# round3_equity_score_2026-10-13_2238.txt). The holdout files (eurusd_holdout_raw.sha256) were NOT used.
+2b217f2d8fb1a5e47a3017c9537d0f63f15d39e901f5054eb66c4cf840822218  study_2026-10-13_2238.jsonl  20200587
+# wine-c grind_bidask_dump 22:37Z: InpFrom 2026.10.11 22:00 server, InpTo empty (to 2026.10.14 01:37 server);
+# nine pairs, 2976 minutes each, bad_px 0, BIDASK|END. Folder Downloads\bidask_ic_1013.
+cd6413e6701b9adf66182ea31d245bfe03441f2102efabf6d470a3fcf2ad51e9  bidask_53071896_AUDCAD.csv
+07f53f425cb4e4e1e0d2b216d4e09679f702d7c7a7accc61f565a5d607f20d55  bidask_53071896_AUDCHF.csv
+e81f7e868ed8a5304573a2955a72ece84a3f6095a7e2934ecaeb80d67657e25a  bidask_53071896_AUDNZD.csv
+616e661a31cf544c69d8359374c6413403edfd2dd34f6661d8f8eb8da22a954b  bidask_53071896_CADCHF.csv
+071eaff0e6f62db2c08172e1585f39ccd54357bd49aeed219e69700cb25bd226  bidask_53071896_EURGBP.csv
+b1e811001ba144a265b7c23b364f3ad51dbe6227d90f341ae0d146ac8f8cb55e  bidask_53071896_EURUSD.csv
+11c3eabe7509c1f64ac5474cd69f66d5dc0813e823d30f453079085647ac3824  bidask_53071896_GBPUSD.csv
+41174e31de0465fdd5d19bc75ce80d3614cdfc0a0ac1473e135aa7052277d4d3  bidask_53071896_NZDCAD.csv
+d072b33dbe05da7668311ad716e77e5c069ad1c1d821c4f9089895642a34b678  bidask_53071896_NZDCHF.csv

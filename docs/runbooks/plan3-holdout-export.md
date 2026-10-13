@@ -8,7 +8,7 @@ This message has a line count at the bottom
 | When | Tue 13 Oct 2026. Steps 1-2 from **22:10Z** (18:10 Toronto); step 3 from **22:30Z** (18:30 Toronto) |
 | Who | The operator runs every command. Claude gives ONE step per message and waits for its output |
 | Writes | Seven files in `Downloads` (3 sends, 3 archives, 1 tick file) and their sha256 in git. Nothing else |
-| Status | Written 12 Oct (HANDOFF s80 continued); not yet run |
+| Status | **RUN Tue 13 Oct** (HANDOFF s81 continued 4): steps 1-2 first run EARLY by mistake (~21:43Z / ~21:45Z), recorded as superseded, and re-run 22:13Z under `_2026-10-13_2210` names; steps 3-7 at 22:32-22:35Z, clean, equal hashes. Step 8's record: `research/replay/inputs/eurusd_holdout_raw.sha256`. Written 12 Oct (HANDOFF s80 continued) |
 
 ## 0. AUDIT TRAIL
 

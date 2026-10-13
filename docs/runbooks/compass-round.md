@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **ACCEPTED 3 Oct ~05:30Z**: Claude's draft, Gemini's rulings GC-1..GC-7 (s10), the operator's decisions on GC-4, GC-6 and the control pair |
+| Status | **STOPPED after round 3 (operator 13 Oct ~23:02Z; HANDOFF s81 continued 4): no promotion, no round 4; B, C, D frozen on their current geometry. The compass tested on itself: 4 of 10 winners kept their sign in the next round.** Before: **ACCEPTED 3 Oct ~05:30Z**: Claude's draft, Gemini's rulings GC-1..GC-7 (s10), the operator's decisions on GC-4, GC-6 and the control pair |
 | Backlog | C104 (the routine), C96 (pairs), C99 (cap 10 + width), C91 (scoring code) |
 | Sources | cycle-4 note s8.1-s8.15; `docs/architecture/fleet-d.md` s6.5, s6.8, s7; `research/compass/compass_score.py` + `round1.json`; HANDOFF s37-s39 |
 | Replaces | the "ring note" planned for C96 |
@@ -316,4 +316,17 @@ check (ROLL_STRANDED .. QUARANTINE_HALT, 1 h) none. `research/compass/
 round3.json` (windows Sun 11 22:00Z - Tue 13 22:00Z, end mark Tue 13
 22:30Z; reloads = each probe's open register row).
 
-Line count: 319
+**Round 3 SCORED Tue 13 Oct ~22:45Z** (cohort equity, `equity_score.py`;
+`research/compass/round3_equity_score_2026-10-13_2238.txt`, inputs
+`round3_scoring_inputs.sha256`): GC-1 $1.19 (NZDCAD's six gaps, median
+0.18). WIN GBPUSD S D +1.73, CADCHF L C +1.65; LOSE GBPUSD S C -1.27, EURGBP
+S C -1.33, AUDCAD L C -1.65, CADCHF S D -1.41; 26 REPEAT. "Provisional" =
+the last fill 18:55:42Z, matched by the three IC journals' last deals: a
+quiet evening, read as final. Round 2's seven WINs in round 3: GBPUSD S D WIN
+again; EURGBP L C, AUDCAD S C, AUDCHF S C (changed probe) kept their sign
+under the threshold; GBPUSD S C LOSE, EURGBP S C LOSE, EURGBP S D flipped.
+With round 1's 0 of 3: 4 of 10 kept their sign. **Operator ~23:02Z: "in
+hindight the compass probe idea looks quite silly now": the rounds STOP; no
+promotion.**
+
+Line count: 332

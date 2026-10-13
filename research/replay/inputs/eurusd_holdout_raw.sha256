@@ -1,0 +1,28 @@
+# Plan 3's holdout (docs/research/replay-calibration-eurusd-3.md s7; docs/runbooks/plan3-holdout-export.md).
+# Exported and hashed ONLY, Tue 13 Oct 2026 (HANDOFF s81 continued 4). Copy, size, sha256 and the first line of
+# each jsonl (its _meta line) were read; nothing else. Sizes in bytes. Hashes on the desktop (Get-FileHash).
+#
+# THE HOLDOUT SET: the sends and archives exported 22:13Z; the tick dump 22:32Z on wine-d.
+01cc483f7eb59958ec396ebe900854348a171f3aa4cc0cd563ea0e65bbee82b5  archive_EURUSD_OPTB_2026-10-13_2210.jsonl  1346760
+d74edad154442da6eccbddd4150bcd72449220aef6bbb9aa1854189b4e621a4f  archive_EURUSD_OPTC_2026-10-13_2210.jsonl  1336730
+fd2275fbf82e57eeb69f3526ba7d2029114b9305a171e4815afc3a6098158c67  archive_EURUSD_OPTD_2026-10-13_2210.jsonl  1107000
+3dd8cd53bb3d139cf52ca32574f19e534fdbee3bd27bc27bc7a988c5ed7e00d5  sends_EURUSD_OPTB_2026-10-13_2210.jsonl  959335
+55983207a37d977823af7e536c507a33ab09c0559f79bfeeb112939ad8ae5b94  sends_EURUSD_OPTC_2026-10-13_2210.jsonl  1062719
+9aac9caa845147ebb4d1d1d766b7d2427b12d31b5f73e31884f7c6ddb0d915d9  sends_EURUSD_OPTD_2026-10-13_2210.jsonl  952751
+da4776f45106947270efdac814749a1af150774382e257f70371b1b51debe812  ticks_53077984_EURUSD_hold.csv  5967213
+#   ticks: TICKS|BEGIN 22:32:43Z, from 2026.10.09 01:30 to 2026.10.14 01:30 server; TICKS|EURUSD ticks=174299
+#   bad_px=0 time_back=0 chunks=120 empty_weekday_chunks=0 first 2026.10.09 01:30:00.171 last 2026.10.14 01:29:41.414;
+#   TICKS|END. Equal hash on wine-d (sha256sum) and on the desktop.
+#
+# SUPERSEDED: the same six exports run early by mistake (~21:43Z, then again ~21:45Z), before the runbook's 22:10Z;
+# hashes of the ~21:45Z run. Five equal the 2210 set byte for byte (no EURUSD send on B, C, D and no new archive row
+# on C, D between ~21:45Z and 22:13Z); archive B grew by 849 bytes.
+1dc8e51e163fe40328a395a126009c835ce139aba37a298bef8132ce1559be4d  archive_EURUSD_OPTB_2026-10-13.jsonl  1345911
+d74edad154442da6eccbddd4150bcd72449220aef6bbb9aa1854189b4e621a4f  archive_EURUSD_OPTC_2026-10-13.jsonl  1336730
+fd2275fbf82e57eeb69f3526ba7d2029114b9305a171e4815afc3a6098158c67  archive_EURUSD_OPTD_2026-10-13.jsonl  1107000
+3dd8cd53bb3d139cf52ca32574f19e534fdbee3bd27bc27bc7a988c5ed7e00d5  sends_EURUSD_OPTB_2026-10-13.jsonl  959335
+55983207a37d977823af7e536c507a33ab09c0559f79bfeeb112939ad8ae5b94  sends_EURUSD_OPTC_2026-10-13.jsonl  1062719
+9aac9caa845147ebb4d1d1d766b7d2427b12d31b5f73e31884f7c6ddb0d915d9  sends_EURUSD_OPTD_2026-10-13.jsonl  952751
+#
+# INSURANCE (12 Oct, IC's call; runbook X10): wine-d, 9 Oct 01:30 to 12 Oct 22:00 server, 110,670 ticks.
+5669094b04844a6aece341a2a6bb8018b230b691dbccb9fd878ca23936b9cc90  ticks_53077984_EURUSD_hold_early.csv  3793242

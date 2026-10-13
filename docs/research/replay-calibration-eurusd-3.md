@@ -151,6 +151,13 @@ then it is frozen with the tolerance table of s3.
   `git checkout replay-harness`, `replay_run.ps1 -Mode Copy`, the
   operator's GUI compile, the suite at 461 / 461. No mark, tolerance,
   window or code of this plan changes.
+- **Note (13 Oct ~23:10Z, s81): the holdout EXPORTED AND HASHED ONLY**
+  (`research/replay/inputs/eurusd_holdout_raw.sha256`): sends and archives
+  for B, C, D (`_2026-10-13_2210`, exported 22:13Z) and the EURUSD ticks
+  (`ticks_53077984_EURUSD_hold.csv`, 9 Oct 01:30 to 14 Oct 01:30 server,
+  174,299 ticks, clean). An earlier export of the same six (~21:45Z) is
+  recorded as superseded. Nothing has read them. Round 3's scoring used a
+  separate study export and wine-c's bid / ask, not these files.
 
 ## 8. ORDER OF WORK
 
@@ -210,4 +217,4 @@ holdout's data before step 2 is committed.
 - **His sign-off has no questions for us** (BOOT s1's tell); every ruling
   above was checked against the code or the plan.
 
-Line count: 213
+Line count: 220
