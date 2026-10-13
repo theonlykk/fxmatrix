@@ -404,3 +404,42 @@ valid, dollars from the pip value); one path.
     git checkout replay-adr167
     foreach ($p in 'eurusd','gbpusd','eurgbp','audcad','audchf','cadchf','nzdchf','nzdcad','audnzd') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw7_$p" -Label "sw7_${p}_free" -Timing 0 -Sens base -SwapsSha dc7da509b35e6846f12f03692bf973632847ab3f2ad7dc865a93d91309f95b6c }
     git checkout main
+
+**sweep7 RESULT (13 Oct ~01:40Z; `sweep7/marks.md` and `sweep7/summary.csv` from `sweep7/analyse.py`):**
+- **Runs:** the operator's loop on `replay-adr167` (`ed5d052`, no table), 13 Oct ~00:24-01:02Z,
+  nine pairs, 158-339 s each, every `DONE` exit 0. Ticks staged one file a call (all nine at full
+  size; AUDNZD's sha256 starts `414dcaf1`, as at the dump).
+- **A change to `analyse.py` AFTER the run, BEFORE any reported measure was computed:** the
+  pre-registered self-check STOPPED on all 18 segments (`pop index out of range`). Cause, read in
+  source: a fill's `layer_index` is the layer's NUMBER (a new layer is numbered max + 1 on its side,
+  `Grind_SideNextIndex`, engine 2021-2032), not its position; the rebuild now keys each side's book
+  by number (two tests first, both failing on the old rule; three new mutants caught). No measure,
+  window or setting changed. Seen before the fix: the harness's own summary lines (S, R, A per
+  segment). With the fix all 18 self-checks pass.
+- **Q1, carried eight weeks against flat every Monday (live geometry):** carried is WORSE on 7 of 9
+  pairs (GBPUSD -792 pips, NZDCAD -379, EURUSD -262, EURGBP -130, AUDCAD -94, AUDCHF -57, NZDCHF -8)
+  and better on 2 (AUDNZD +188, CADCHF +136). In dollars at 0.01 lots, nine pairs: carried -$309,
+  flat every Monday -$172. Carried, every pair has about twice the roll closes (R 49-90 against
+  25-65) and fewer scalps on 8 of 9: a deep book keeps rolling, where a Monday start has runway on
+  both sides. The carried books end with 9-15 layers open (-72 to -780 pips at the last mark).
+- **Q2, width 0.2 against the live width (both carried):** nine pairs -$261 against -$309 (0.2
+  better on 6 pairs, worse on 3: AUDCHF, NZDCHF, NZDCAD); requests a day within 10% on every pair;
+  roll acceptances A almost unchanged (-1 to -11); R lower on 7. Worst floating deeper on 4, shallower
+  on 5.
+- **The nine pairs' floating summed, minute by minute:** worst -$497 (2 Sep 16:08 server) live,
+  -$509 at 0.2; below -$250 for 71% of the 57,520 trading minutes (live; 73% at 0.2), below -$400 for
+  4% (7%). A's seven: worst -$445, below -$250 for 44% of the minutes (53% at 0.2). A's float gate
+  ($250 floating) would have held entries for much of that time: live A would not have traded these
+  paths as the replay did.
+- **Claude's predictions against the result:** Q1 "no consistent sign": WRONG (carried worse on 7 of
+  9). AUDNZD the deepest floating, below -800: RIGHT (-1,430). Q2 "A down by a third or more on 7 of
+  9": WRONG (A almost unchanged on all nine). R down: RIGHT (7 of 9). Requests within 25%: RIGHT.
+  Net with no consistent sign: HALF (0.2 better on 6 of 9, small amounts). Worst floating deeper on
+  most: WRONG (4 of 9). Nine pairs below -$250 more than 10% of the time: RIGHT (71%).
+- **Reading (inferred, not measured):** with gate 0 the near-zero first short does not stop the
+  rolls: in a fall it fills, scalps 10 pips lower and leaves, the book is back at 8/0 and the roll
+  comes; the moderator still works. Width 0.2 changes little on this path, and costs no requests.
+- **Limits:** one path; carry off (books held for weeks pay swap not counted here); timing 0; A's
+  gate and breaker not modelled; the weekly-flat side's Friday marks pay no closing commission
+  (about 0.7 pip a layer, roughly 50 pips a pair over eight weeks: small next to GBPUSD's -792);
+  the carried result depends on where the run stops (a mark at 25 Sep 23:45, not a close).

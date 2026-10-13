@@ -2614,4 +2614,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   because every test exited layer 0; a minute's LAST value for its lowest survived with one tick
   a minute. Exit a middle layer; put two ticks in one minute.
 
-Line count: 2617
+## TRAPS FROM 2026-10-13 EARLY (sweep7 SCORED)
+
+- **A fill log's `layer_index` is the layer's NUMBER, not its place in the list.** A new layer is
+  numbered max + 1 on its side (`Grind_SideNextIndex`); once a middle layer exits, numbers and
+  positions part. Key any book rebuild by number. The pre-registered self-check (rebuilt book =
+  the harness's end book) caught it on the first run: write that check before any measure.
+- **A comparison against "flat every Monday" gives that side free closes:** sweep4's Friday marks
+  pay no closing commission. Say so beside the result, with its size.
+
+Line count: 2626
