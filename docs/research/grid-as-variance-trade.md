@@ -279,6 +279,11 @@ not V(s) alone. Still zero on a random walk (optional stopping).
 
     rho = (S + R) * e / (R * D)        (closes per roll / (D/e))
 
+**Corrected 13 Oct (`grid-edge-assessment-2026-10-12.md` s7): with re-roll on, count roll
+STEPS A (ROLL_ACCEPTED), not roll closes R: rho = (S + R) e / (A D). A re-rolled ticket closes
+once with several steps of loss, so the form above reads too high. The figures below predate
+re-roll on most fleets or count closes; read them with that in mind.**
+
 - **rho = 1 on a random walk at any geometry** (s2); rho > 1: the pair
   turned inside the stack more often than a random walk would.
 - **The cost hurdle is e / (e - c)**: S/R > k* (with costs) is exactly
@@ -522,4 +527,4 @@ Added 8 Oct (s9): Glattfelder, Dupuis, Olsen (2011) https://arxiv.org/pdf/0809.1
   IMFI 17(3):
   https://businessperspectives.org/publishing-policies2/gambler-s-ruin-problem-and-bi-directional-grid-constrained-trading-and-investment-strategies
 
-Line count: 525
+Line count: 530

@@ -1,0 +1,4 @@
+a=7 e=10 N=8: a roll step costs D = 56; break-even scalps per roll 5.60 (no costs), 6.10 (0.7 a close)
+no drift, 2000 days: S/R 5.60; before costs +0.18 a day (sd 316, se 7.1); after costs -21.12 a day; days up 58%; worst day -1390, best +576
+drift -18 pips a day against the stack: S/R 3.70, before costs -125.6 a day, after costs -147.3 a day
+drift -36 pips a day against the stack: S/R 2.82, before costs -229.4 a day, after costs -251.5 a day

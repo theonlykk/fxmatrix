@@ -443,3 +443,8 @@ valid, dollars from the pip value); one path.
   gate and breaker not modelled; the weekly-flat side's Friday marks pay no closing commission
   (about 0.7 pip a layer, roughly 50 pips a pair over eight weeks: small next to GBPUSD's -792);
   the carried result depends on where the run stops (a mark at 25 Sep 23:45, not a close).
+
+**Correction (13 Oct ~02:40Z):** the rho tables in the sweep reports (`sweep.report`, from
+`compare.rho`) count roll CLOSES; every sweep here ran with re-roll on, so they read too high.
+Count roll STEPS: `docs/research/grid-edge-assessment-2026-10-12.md` s7; sweep7's by steps in
+`sweep7/extras.md` (3). Backlog C151.

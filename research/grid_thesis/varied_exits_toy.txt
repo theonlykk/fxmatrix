@@ -1,0 +1,7 @@
+8/8 book, rally 56: longs +307 (6 closed at their exit), shorts -448, equity -141
+
+path                                 exits all 10: real/mtm/eq (S) exits 10..45: real/mtm/eq (S)
+A full reversion 200->121->200         70 /     0 /    70 (7)      195 /    10 /   205 (6)
+B chop at the low 121<->141 x3         30 /  -352 /  -322 (3)        0 /  -352 /  -352 (0)
+C bounce fails 200->121->160->121      30 /  -352 /  -322 (3)        0 /  -352 /  -352 (0)
+D adverse 200->121->100                 0 /  -520 /  -520 (0)        0 /  -520 /  -520 (0)

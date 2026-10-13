@@ -2623,4 +2623,15 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A comparison against "flat every Monday" gives that side free closes:** sweep4's Friday marks
   pay no closing commission. Say so beside the result, with its size.
 
-Line count: 2626
+## TRAPS FROM 2026-10-13 NIGHT (THE DISCUSSION AFTER sweep7)
+
+- **A pipshed link serves the read of the moment it was made.** Fetched again four hours later,
+  fleets/q17 returned the same 21:27Z figures (A equity -4.51; live was +34.31). For a live
+  figure, ask for a fresh link; never quote an old one as now.
+- **Count roll STEPS, not roll closes, once re-roll is on.** A re-rolled ticket closes once with
+  several steps of loss (sweep7: closes at 2x-5x the step, as many as the re-rolls). rho by
+  closes reads too high; a table built on "expensive rolls" was withdrawn the same hour.
+- **Read the source before naming a suspect to the operator.** The roll gate was named as the
+  likely cause of costly rolls; `Grind_LatticeTrySide` books deferred rolls at their own levels.
+
+Line count: 2637
