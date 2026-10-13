@@ -57,22 +57,28 @@ def fills_by_seg(events):
 
 
 def _apply(book, f):
-    """One fill on the book; returns the realised pips of an EXT (0.0 for an ENT)."""
+    """One fill on the book ({side: {layer number: entry pts}}); returns the realised pips of an
+    EXT (0.0 for an ENT). layer_index is the layer's NUMBER: a new layer is numbered max + 1 on its
+    side (Grind_SideNextIndex, engine 2021-2032) and an EXT carries the number it closes."""
     _t, role, side, layer, px = f
     if role == "ENT":
-        book[side].append(px)
+        if layer in book[side]:
+            raise ValueError("ENT %s number %d already open" % (side, layer))
+        book[side][layer] = px
         return 0.0
+    if layer not in book[side]:
+        raise ValueError("EXT %s number %d not open" % (side, layer))
     entry = book[side].pop(layer)
     return ((px - entry) if side == "L" else (entry - px)) / PTS_PER_PIP
 
 
 def rebuild(fills):
-    book = {"L": [], "S": []}
+    book = {"L": {}, "S": {}}
     realised, n = 0.0, 0
     for f in fills:
         realised += _apply(book, f)
         n += f[1] == "EXT"
-    return book, realised, n
+    return {s: list(book[s].values()) for s in ("L", "S")}, realised, n
 
 
 def check(seg, book, realised, n, harness_book, scalps):
@@ -99,7 +105,7 @@ class Path:
 
     def __init__(self, fills, comm_pips):
         self.fills, self.i, self.comm_pips = list(fills), 0, comm_pips
-        self.book = {"L": [], "S": []}
+        self.book = {"L": {}, "S": {}}
         self.sum = {"L": 0, "S": 0}
         self.realised = self.comm = 0.0
         self.worst_float = self.worst_equity = 0.0
@@ -112,7 +118,7 @@ class Path:
         while self.i < len(self.fills) and self.fills[self.i][0] <= t:
             f = self.fills[self.i]
             r = _apply(self.book, f)
-            self.sum = {s: sum(self.book[s]) for s in ("L", "S")}
+            self.sum = {s: sum(self.book[s].values()) for s in ("L", "S")}
             if f[1] == "EXT":
                 self.realised += r
                 self.comm += self.comm_pips
