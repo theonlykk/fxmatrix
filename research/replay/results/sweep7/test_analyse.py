@@ -67,6 +67,26 @@ class Rebuild(unittest.TestCase):
         self.assertEqual(book, {"L": [110000, 109860], "S": []})
         self.assertAlmostEqual(realised, 10.0)
 
+    def test_layer_index_is_the_layer_number_not_its_position(self):
+        # the engine numbers a new layer max(numbers on the side) + 1 (Grind_SideNextIndex) and an
+        # EXT carries the number of the layer it closes: L0 1.10000 and L1 1.09930 open; number 0
+        # exits at 1.10100 (+10); the next long is number 2 (max 1 + 1) at 1.09860; then number 2
+        # exits at 1.09960 (+10). Left: number 1 at 1.09930. (By position, "2" is out of range.)
+        fl = an.fills_by_seg([fill(4, T0, "ENT", "L", 0, 1.10000), fill(4, T0 + M, "ENT", "L", 1, 1.09930),
+                              fill(4, T0 + 2 * M, "EXT", "L", 0, 1.10100),
+                              fill(4, T0 + 3 * M, "ENT", "L", 2, 1.09860),
+                              fill(4, T0 + 4 * M, "EXT", "L", 2, 1.09960)])
+        book, realised, n = an.rebuild(fl[4])
+        self.assertEqual(book, {"L": [109930], "S": []})
+        self.assertAlmostEqual(realised, 20.0)
+        self.assertEqual(n, 2)
+
+    def test_a_number_used_twice_or_missing_stops(self):
+        with self.assertRaises(ValueError):
+            an.rebuild(an.fills_by_seg([fill(5, T0, "ENT", "L", 0, 1.1), fill(5, T0 + M, "ENT", "L", 0, 1.1)])[5])
+        with self.assertRaises(ValueError):
+            an.rebuild(an.fills_by_seg([fill(6, T0, "ENT", "L", 0, 1.1), fill(6, T0 + M, "EXT", "L", 3, 1.1)])[6])
+
     def test_short_exit_realised(self):
         fl = an.fills_by_seg([fill(2, T0, "ENT", "S", 0, 1.20000), fill(2, T0 + M, "EXT", "S", 0, 1.19900)])
         book, realised, n = an.rebuild(fl[2])
