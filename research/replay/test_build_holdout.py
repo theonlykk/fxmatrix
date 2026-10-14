@@ -141,5 +141,124 @@ class TestGateCodes(unittest.TestCase):
         self.assertEqual(bh.gate_codes(rows, 5000 + off, 99000 + off), [])
 
 
+class TestPlan4Holdout(unittest.TestCase):
+    def test_join_sends_dedup_sort_and_drop_meta(self):
+        r1 = {"table": "send_logs", "id": 12, "ea_time_ms": 2000, "seq": 5, "action": "MODIFY", "ok": True}
+        r2 = {"table": "send_logs", "id": 10, "ea_time_ms": 1000, "seq": 3, "action": "PENDING", "ok": True}
+        r3 = {"table": "send_logs", "id": 11, "ea_time_ms": 2000, "seq": 4, "action": "PENDING", "ok": True}
+        meta = {"_meta": {"exported_at": "2026-10-13"}}
+        got = bh.join_sends([meta, r1, r2], [dict(r2), r3, meta])
+        self.assertEqual(got, [r2, r3, r1])
+
+    def test_join_sends_conflicting_duplicate_raises(self):
+        r1 = {"table": "send_logs", "id": 10, "ea_time_ms": 1000, "seq": 3, "action": "PENDING",
+              "requested_price": 1.10000, "ok": True}
+        r2 = dict(r1, requested_price=1.10010)
+        with self.assertRaises(ValueError):
+            bh.join_sends([r1], [r2])
+
+    def test_build_defaults_byte_identical_and_plan4_flags(self):
+        import json
+        import shutil
+        import tempfile
+        from test_build_segments import init, lat
+        off = bh.SERVER_OFFSET_MS
+        # Fleet start times matching bh.FLEETS:
+        # B: 2026-10-07T02:21:20Z = 1791339680000 UTC
+        # C: 2026-10-07T02:12:36Z = 1791339156000 UTC
+        # D: 2026-10-09T04:24:14Z = 1791519854000 UTC
+        starts = {"b": 1791339680100, "c": 1791339156200, "d": 1791519854300}
+        tmp = tempfile.mkdtemp()
+        try:
+            ticks_path = os.path.join(tmp, "ticks_hold.csv")
+            with open(ticks_path, "w", encoding="ascii", newline="") as f:
+                f.write(tick_text("2026.10.01 04:00:00.000", "2026.10.14 01:30:00.000",
+                                  [starts["c"] + off - 1000]))
+            arch = {}
+            sends = {}
+            extra_b = os.path.join(tmp, "sends_extra_b.jsonl")
+            for k, u in starts.items():
+                arch[k] = os.path.join(tmp, "arch_%s.jsonl" % k)
+                sends[k] = os.path.join(tmp, "sends_%s.jsonl" % k)
+                rows = [init(u), lat(u, {"enable": True, "reroll": True, "roll_gate": 0})]
+                if k == "b":
+                    u2 = u + 60000
+                    rows += [init(u2), lat(u2, {"enable": True, "reroll": True, "roll_gate": 0})]
+                with open(arch[k], "w", encoding="utf-8", newline="\n") as f:
+                    for r in rows:
+                        f.write(json.dumps(r) + "\n")
+                s_rows = [{"_meta": {"fleet": k}},
+                          {"table": "send_logs", "id": 1, "ea_time_ms": u + 10, "seq": 1,
+                           "action": "PENDING", "ok": True, "result_order": 501,
+                           "order_ticket": None, "side": "L", "layer_index": 0,
+                           "role": "ENT", "requested_price": 1.10000,
+                           "order_type": "ORDER_TYPE_BUY_LIMIT"}]
+                with open(sends[k], "w", encoding="utf-8", newline="\n") as f:
+                    for r in s_rows:
+                        f.write(json.dumps(r) + "\n")
+            with open(extra_b, "w", encoding="utf-8", newline="\n") as f:
+                f.write(json.dumps({"_meta": {"extra": True}}) + "\n")
+                f.write(json.dumps({"table": "send_logs", "id": 1, "ea_time_ms": starts["b"] + 10,
+                                    "seq": 1, "action": "PENDING", "ok": True, "result_order": 501,
+                                    "order_ticket": None, "side": "L", "layer_index": 0,
+                                    "role": "ENT", "requested_price": 1.10000,
+                                    "order_type": "ORDER_TYPE_BUY_LIMIT"}) + "\n")
+                f.write(json.dumps({"table": "send_logs", "id": 2, "ea_time_ms": starts["b"] + 20,
+                                    "seq": 2, "action": "PENDING", "ok": True, "result_order": 502,
+                                    "order_ticket": None, "side": "S", "layer_index": 0,
+                                    "role": "ENT", "requested_price": 1.10500,
+                                    "order_type": "ORDER_TYPE_SELL_LIMIT"}) + "\n")
+            sess_src = os.path.join(tmp, "sessions_eurusd_ic.csv")
+            with open(sess_src, "w", encoding="ascii", newline="\n") as f:
+                f.write("day_of_week,trade_from,trade_to\n1,00:01,23:59\n")
+
+            out_def = os.path.join(tmp, "out_def")
+            bh.main(["build", "--out", out_def, "--ticks", ticks_path,
+                     "--b", arch["b"], "--c", arch["c"], "--d", arch["d"],
+                     "--sends-b", sends["b"], "--sends-c", sends["c"], "--sends-d", sends["d"]])
+            with open(os.path.join(out_def, "run_eurusd_b.csv"), "rb") as f:
+                run_b_def = f.read().decode("ascii")
+            self.assertEqual(len(run_b_def.splitlines()[0].split(",")), 23)
+            self.assertTrue(run_b_def.splitlines()[1].startswith("31,"))
+            self.assertIn(",%d," % bh.WINDOW_END_SERVER_MS, run_b_def.splitlines()[2])
+
+            out_p4 = os.path.join(tmp, "out_p4")
+            new_end = bh.WINDOW_END_SERVER_MS - 3600000
+            bh.main(["build", "--out", out_p4, "--ticks", ticks_path,
+                     "--b", arch["b"], "--c", arch["c"], "--d", arch["d"],
+                     "--sends-b", sends["b"], "--sends-c", sends["c"], "--sends-d", sends["d"],
+                     "--sends-extra-b", extra_b, "--window-end-ms", str(new_end),
+                     "--first-ids", "61,71,81", "--sessions", sess_src])
+            with open(os.path.join(out_p4, "run_eurusd_b.csv"), "rb") as f:
+                run_b_p4 = f.read().decode("ascii")
+            self.assertEqual(len(run_b_p4.splitlines()[0].split(",")), 24)
+            self.assertTrue(run_b_p4.splitlines()[0].endswith(",orders_file,sessions_file"))
+            self.assertTrue(run_b_p4.splitlines()[1].startswith("61,"))
+            self.assertTrue(run_b_p4.splitlines()[2].endswith(",orders_62.csv,sessions_eurusd_ic.csv"))
+            self.assertIn(",%d," % new_end, run_b_p4.splitlines()[2])
+            self.assertTrue(os.path.isfile(os.path.join(out_p4, "sessions_eurusd_ic.csv")))
+            with open(os.path.join(out_p4, "orders_62.csv"), "rb") as f:
+                orders_62 = f.read().decode("ascii")
+            self.assertIn("S,0,ENT,1.10500,502,SELL_LIMIT", orders_62)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_sessions_eurusd_ic_csv_file(self):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "inputs", "sessions_eurusd_ic.csv")
+        with open(path, "rb") as f:
+            raw = f.read()
+        self.assertNotIn(b"\r", raw)
+        text = raw.decode("ascii")
+        self.assertEqual(text, (
+            "day_of_week,trade_from,trade_to\n"
+            "1,00:01,23:59\n"
+            "2,00:01,23:59\n"
+            "3,00:01,23:59\n"
+            "4,00:01,23:59\n"
+            "5,00:01,23:57\n"
+        ))
+
+
 if __name__ == "__main__":
     unittest.main()

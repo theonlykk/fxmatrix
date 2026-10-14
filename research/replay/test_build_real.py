@@ -19,16 +19,26 @@ OFF = 10_800_000
 T = 1791400000000   # a server ms
 
 
-def fill(pos, deal, et, role, side, layer, price, t_ms):
-    return {"table": "fill_logs", "position_id": pos, "deal_ticket": deal, "entry_type": et,
-            "role": role, "side": side, "layer_index": layer, "deal_price": price,
-            "volume": 0.01, "deal_time_broker_msc": t_ms}
+def fill(pos, deal, et, role, side, layer, price, t_ms, session_id=None, seq=None):
+    r = {"table": "fill_logs", "position_id": pos, "deal_ticket": deal, "entry_type": et,
+         "role": role, "side": side, "layer_index": layer, "deal_price": price,
+         "volume": 0.01, "deal_time_broker_msc": t_ms}
+    if session_id is not None:
+        r["session_id"] = session_id
+    if seq is not None:
+        r["seq"] = seq
+    return r
 
 
-def roll(ticket, side, layer, level, srv_ms):
-    return {"table": "ea_events", "code": "ROLL_ACCEPTED", "level": "INFO", "ticket": ticket,
-            "ea_time_ms": srv_ms - OFF,
-            "detail": {"ticket": ticket, "side": side, "layer_index": layer, "level": level}}
+def roll(ticket, side, layer, level, srv_ms, session_id=None, seq=None):
+    r = {"table": "ea_events", "code": "ROLL_ACCEPTED", "level": "INFO", "ticket": ticket,
+         "ea_time_ms": srv_ms - OFF,
+         "detail": {"ticket": ticket, "side": side, "layer_index": layer, "level": level}}
+    if session_id is not None:
+        r["session_id"] = session_id
+    if seq is not None:
+        r["seq"] = seq
+    return r
 
 
 class TestRealRows(unittest.TestCase):
@@ -86,6 +96,60 @@ class TestRealRows(unittest.TestCase):
         d = roll(61, "S", 1, 1.2, T)
         d["code"] = "ROLL_DEFERRED"
         self.assertEqual(br.real_rows([r, d], T, T + 1), [(T, "ROLL", "S", 1, 0.0, 61, 1.105)])
+
+    def test_roll_clock_after_out_by_moves_to_out_by_time(self):
+        # A11 / A-1: ROLL in session "s1" with seq=15 timed 485 ms before two OUT_BY fills
+        # at T + 5300 (seq=13, 14) moves to max(T + 4815, T + 5300) = T + 5300 and sorts after them.
+        rows = [
+            fill(13, 100, "IN", "ENT", "L", 1, 1.09930, T + 500, session_id="s1", seq=9),
+            fill(11, 101, "IN", "ENT", "L", 2, 1.10000, T + 1000, session_id="s1", seq=10),
+            fill(12, 102, "IN", "EXT", "L", 2, 1.10100, T + 5000, session_id="s1", seq=12),
+            fill(11, 103, "OUT_BY", None, None, None, 1.10100, T + 5300, session_id="s1", seq=13),
+            fill(12, 104, "OUT_BY", None, None, None, 1.10000, T + 5300, session_id="s1", seq=14),
+            roll(13, "L", 1, 1.10010, T + 4815, session_id="s1", seq=15),
+        ]
+        self.assertEqual(br.real_rows(rows, T, T + 10000), [
+            (T + 500, "ENT", "L", 1, 1.09930, 13, 0.0),
+            (T + 1000, "ENT", "L", 2, 1.10000, 11, 0.0),
+            (T + 5000, "EXT", "L", 2, 1.10100, 12, 0.0),
+            (T + 5300, "OUT_BY", "L", 2, 1.10100, 11, 0.0),
+            (T + 5300, "OUT_BY", "L", 2, 1.10000, 12, 0.0),
+            (T + 5300, "ROLL", "L", 1, 0.0, 13, 1.10010),
+        ])
+
+    def test_roll_before_fill_keeps_its_time(self):
+        # Roll with seq=5 before fill with seq=6 keeps T + 3000 even though the fill is at T + 5000.
+        rows = [
+            roll(13, "S", 4, 1.10560, T + 3000, session_id="s1", seq=5),
+            fill(11, 101, "IN", "ENT", "L", 0, 1.10000, T + 5000, session_id="s1", seq=6),
+        ]
+        self.assertEqual(br.real_rows(rows, T, T + 10000), [
+            (T + 3000, "ROLL", "S", 4, 0.0, 13, 1.10560),
+            (T + 5000, "ENT", "L", 0, 1.10000, 11, 0.0),
+        ])
+
+    def test_roll_ignores_other_session_fills(self):
+        # Roll in session "s1" (seq=10, T + 3000) ignores a fill in session "s2" (seq=5, T + 8000).
+        rows = [
+            fill(11, 101, "IN", "ENT", "L", 0, 1.10000, T + 8000, session_id="s2", seq=5),
+            roll(13, "S", 4, 1.10560, T + 3000, session_id="s1", seq=10),
+        ]
+        self.assertEqual(br.real_rows(rows, T, T + 10000), [
+            (T + 3000, "ROLL", "S", 4, 0.0, 13, 1.10560),
+            (T + 8000, "ENT", "L", 0, 1.10000, 11, 0.0),
+        ])
+
+    def test_roll_before_from_ms_moved_into_window_is_kept(self):
+        # Roll timed at T - 200 (before from_ms = T) with seq=10 after a fill at T + 100 (seq=9)
+        # moves to T + 100 before the [from_ms, to_ms) filter and is kept.
+        rows = [
+            fill(11, 101, "IN", "ENT", "L", 0, 1.10000, T + 100, session_id="s1", seq=9),
+            roll(11, "L", 0, 1.10050, T - 200, session_id="s1", seq=10),
+        ]
+        self.assertEqual(br.real_rows(rows, T, T + 1000), [
+            (T + 100, "ENT", "L", 0, 1.10000, 11, 0.0),
+            (T + 100, "ROLL", "L", 0, 0.0, 11, 1.10050),
+        ])
 
 
 class TestCsv(unittest.TestCase):

@@ -133,6 +133,25 @@ class TestSegments(unittest.TestCase):
         with self.assertRaises(ValueError):
             bseg.to_run_csv(segs, "ticks_w.csv", seed_names=[""])
 
+    def test_run_csv_sessions_file_optional(self):
+        segs = bseg.segments(self.rows, T1, END)
+        base = bseg.to_run_csv(segs, "ticks_w.csv", seed_names=["", "seed_2.csv"], first_id=7,
+                               order_names=["orders_7.csv", ""])
+        self.assertEqual(
+            bseg.to_run_csv(segs, "ticks_w.csv", seed_names=["", "seed_2.csv"], first_id=7,
+                            order_names=["orders_7.csv", ""], sessions_file=None),
+            base)
+        with_sess = bseg.to_run_csv(segs, "ticks_w.csv", seed_names=["", "seed_2.csv"], first_id=7,
+                                    order_names=["orders_7.csv", ""],
+                                    sessions_file="sessions_eurusd_ic.csv")
+        lines = with_sess.splitlines()
+        self.assertEqual(lines[0], bseg.RUN_HEADER + ",sessions_file")
+        self.assertEqual(len(lines[0].split(",")), 24)
+        self.assertTrue(lines[1].endswith(",,ticks_w.csv,orders_7.csv,sessions_eurusd_ic.csv"))
+        self.assertTrue(lines[2].endswith(",seed_2.csv,ticks_w.csv,,sessions_eurusd_ic.csv"))
+        self.assertEqual(len(lines[1].split(",")), 24)
+        self.assertEqual(len(lines[2].split(",")), 24)
+
 
 if __name__ == "__main__":
     unittest.main()

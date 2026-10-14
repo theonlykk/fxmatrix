@@ -106,6 +106,20 @@ class TestFleetFiles(unittest.TestCase):
             text.encode("ascii")
             self.assertTrue(text.endswith("\n"), name)
 
+    def test_fleet_files_sessions_file_optional(self):
+        base = bi.fleet_files(self.rows, "eurusd_b", T1, END, 1, "ticks_w2.csv", [], [])
+        self.assertEqual(
+            bi.fleet_files(self.rows, "eurusd_b", T1, END, 1, "ticks_w2.csv", [], [],
+                           sessions_file=None),
+            base)
+        with_sess = bi.fleet_files(self.rows, "eurusd_b", T1, END, 1, "ticks_w2.csv", [], [],
+                                   sessions_file="sessions_eurusd_ic.csv")
+        run = with_sess["run_eurusd_b.csv"].splitlines()
+        self.assertTrue(run[0].endswith(",seed_file,ticks_file,orders_file,sessions_file"))
+        self.assertEqual(len(run[0].split(",")), 24)
+        self.assertTrue(run[1].endswith(",,ticks_w2.csv,,sessions_eurusd_ic.csv"))
+        self.assertTrue(run[2].endswith(",seed_2.csv,ticks_w2.csv,,sessions_eurusd_ic.csv"))
+
 
 if __name__ == "__main__":
     unittest.main()
