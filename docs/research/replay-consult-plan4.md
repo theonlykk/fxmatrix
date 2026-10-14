@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Written | 14 Oct 2026 ~03:35Z (HANDOFF s82), by Claude (Lead Engineer), at the operator's request |
+| Written | 14 Oct 2026 ~03:35Z (HANDOFF s82), by Claude (Lead Engineer), at the operator's request. s8-s9 added ~04:10Z: Claude's check of round 1 and the session read; round 2 |
 | What it is | A consult BEFORE any spec or prompt. Nothing here is ruled. No code changes until you rule and the operator agrees |
 | Repos | `theonlykk/fxmatrix`: `main` `83689e9` (plan 3's record); `replay-harness` `efada62` (harness code `145f092`, frozen for plan 3) |
 | Read with it | `docs/research/replay-calibration-eurusd-3.md` (plan 3: s3 the marks, s4 what a result means, s7 the verdict note of 14 Oct ~03:10Z); `ea/fxgrind_replay_core.mqh` at `efada62`; `research/replay/results/plan3/holdout_score_145f092.md`, `holdout_compare_145f092/misses.csv`; backlog C152 |
@@ -127,4 +127,86 @@ checked (A12).
   window opens.
 - **G4-7.** What fact is missing?
 
-Line count: 130
+## 8. CLAUDE'S CHECK OF ROUND 1 (Argon, ~03:40Z 14 Oct) AND THE SESSION READ
+
+**The session (operator, ~03:52Z, IC EURUSD Specification window):** Quotes Mon-Thu 00:00-23:59,
+Fri 00:00-23:57; **Trade Mon-Thu 00:01-23:59, Fri 00:01-23:57.** A5 is now MEASURED, and it holds
+EVERY weekday, not Monday only. It agrees with the IC terminals' journals of 12 Oct: a modify
+refused `[Market closed]` at 00:00:01 server (21:00:01Z; HANDOFF s81). Trade mode in the same
+window: "Full access" (a symbol property; it does not change with the session).
+
+**Confirmed (read by Claude):**
+
+- **C1.** The access check: both quotes exact.
+- **C2. Claude's A4 and A7 were WRONG.** At timing 1 the replay fills at the quote, not the order
+  price (`Rpl_TmRunDealHandler`, core 966-973, `g_rpl_tm_limit_price` false for `base`, core 345):
+  the five open deals in `out_*_deals.csv` are at 1.11903, as live. `misses.csv` shows the ORDER
+  price for replay rows (`compare.py`'s own choice). The five failed on time alone (60.2 s).
+  F1's "fill at the quote" is withdrawn for timing 1.
+- **C3. A third mechanism (D 13 Oct 16:57).** `Rpl_SyncResetToTrueBook` sets
+  `g_grind_start_add_reprice_long / _short = true` on every sync reset (core 2534-2535);
+  `Grind_EnsureAddNext` then uses a 0.05-pip deadband once (engine 2561-2566). Live sets the flags
+  at start-up only (`fxgrind.mq5` 291-292). At 16:57:05.332 (bid 1.11895) the replay moved D's L7
+  buy limit 1.11895 -> 1.11894 (the clamp); live never moved it. Fix **F3**.
+- **C4. At the open the replay's EA acted on the 00:00 quote; live's did not.** Replay sync orders:
+  00:00:00.188 ENGINE MODIFY of B L7, C L8, D L7 to 1.11846. Live sends: the first ones at about
+  00:01 (B, C refused 10029 frozen, D accepted). Argon named the trade-mode check
+  (`Grind_GuardsAllowTrading`, engine 2001-2003). Claude's reading: the trade mode is "Full access"
+  all day; the cause is the stale-feed guard. `Grind_FeedStaleAfterTick` (`grind_pure.mqh`
+  255-265, `GRIND_FEED_STALE_MS` 5000) refuses the first tick after a gap over 5 s (00:00:00.188
+  after the weekend, and 00:01:00.170 after a 60 s gap, so live could act from 00:01:00.372 at the
+  earliest). The
+  harness sets `g_grind_last_feed_tick_msc` to the current tick before the EA step (core 2672,
+  2770), so the guard never fires in the replay. Gaps over 5 s after plan 3's cut: 8,785 (w2h
+  ticks). It affects the FREE run too. Fix **F4**.
+- **C5.** In sync, the replay's own close-by completion (`CB_DONE`) must not take a layer out
+  before the real `OUT_BY` row: accepted as a design rule for F2.
+- **C6.** The archive's order for C 12 Oct 17:16 (fill_logs seq 1245 IN, 1247-1248 OUT_BY;
+  ea_events 1250, 1254 ROLL_ACCEPTED): correct.
+
+**Not in the files (round 1):**
+
+- **N1.** The rows quoted from `real_eurusd_c.csv` (1791810016108 EXT, 1791810016550 ROLL,
+  1791810017150 OUT_BY; 1791825374027, ...374494, ...375101, ...376123) are not in it. The file
+  has: 1791810016119 EXT, 1791810016821 OUT_BY (x2), 1791810019104 ROLL; 1791825374040 EXT,
+  1791825375053 OUT_BY (x2), 1791825376647 ROLL, 1791825377256 ROLL: the rolls come AFTER the
+  close-by in both cases. `real_*.csv` were built by `build_holdout.py` from the `_2210`
+  archives (s7 note of 14 Oct ~02:20Z); there is no `score_holdout.py`.
+- **N2.** Plan 3's figures are not "C 91.30%", "B 59, C 69, D 73", "192 / 201": they are B 67 / 69,
+  C 68 / 72, D 56 / 59 (`holdout_score_145f092.md`).
+- **N3.** "T2 tolerances +/- 3n deals, +/- $0.50n PnL, +/- 10n pips VL" are not plan 3's: its
+  tolerances are s3's table, tol = max(2, sd x sqrt(n) / 3) per fleet, side and count.
+- **N4.** G4-5 ended the window at Mon 19 Oct 05:00 server with no reason given; the consult
+  proposed Tue 20 Oct 22:00Z.
+- **But the concern behind N1 is real.** `build_real.py` times ROLL rows by `ea_time_ms` + 3 h
+  (67-69), deals by broker time. Counted by Claude in the holdout's `real_*.csv`: 12 ROLL rows
+  fall between an exit and its next close-by (B 9, C 2, D 1; 18-1441 ms before the close-by), e.g.
+  B 7 Oct 10:21:17.214 EXT, 17.280 and 17.624 ROLL, 17.642 OUT_BY. F2 must handle them.
+
+**The fixes after round 1 (none ruled):**
+
+- **F1.** No broker fill and no accepted send outside the trade session (an input from the
+  specification: 00:01-23:59, Fri 00:01-23:57); a send in the closed minute is refused as IC's
+  `[Market closed]`. Free and sync.
+- **F2.** Sync: a layer leaves the book at its real `OUT_BY`; the replay's own `CB_DONE` does not
+  remove it earlier (C5); ROLL rows between an exit and its close-by handled (above).
+- **F3.** Sync resets do not set the start-up reprice flags (C3).
+- **F4.** The stale-feed guard works in the replay as live (C4). Free and sync.
+
+## 9. ROUND 2 (FOR ARGON): SHORT, FROM THE FILES ONLY
+
+Answer in at most about 120 lines. Give file and line (or row) for every number; if you have not
+read it, write "not read". Do not restate the consult.
+
+- **R2-1.** Where did N1's rows and N2's figures come from? Re-read the files and say.
+- **R2-2.** F4: is the stale-feed guard, not the trade-mode check, why live's EA sent nothing on the
+  00:00:00.188 quote? Read the live sends 00:00-00:02 server on 12 Oct and the guard. What could F4
+  change in a free run, given 8,785 gaps over 5 s?
+- **R2-3.** F2: design it against the 12 ROLL rows timed between an exit and its close-by (find them
+  in `real_*.csv`). Real rolls or the clock (A11)? What must sync do with each?
+- **R2-4.** F1: anything in the EA that runs in the closed minute and would differ if refused (the
+  nightly carry pass runs 23:50-23:59; the timer)?
+- **R2-5.** Redo G4-5 and G4-6 with plan 3's real figures (N2) and tolerance rule (N3).
+- **R2-6.** What fact is still missing?
+
+Line count: 212
