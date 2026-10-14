@@ -2696,4 +2696,18 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Check the calendar for the whole window before proposing it.** Thu 15 Oct's 08:30 ET retail
   sales, PPI and claims would have sat inside plan 4's first window.
 
-Line count: 2699
+## TRAPS FROM 2026-10-14 AFTERNOON (A RESTATE THAT LOOKS RIGHT; REVIEW BRANCHES)
+
+- **A test can pass for the wrong reason.** Cursor's first RT65 stepped the price DOWN, so the
+  resting BUY_LIMIT filled and the "stale tick skipped" claim was never really tested. For every
+  timing or skip test, check that nothing else (a fill, a recenter, another send that sets
+  `g_grind_ent_sent_this_tick`) can produce the same rows.
+- **Check every constant against `Rpl_TmApplySens` (core 346-352):** base is place 287, modify
+  288, closeby 294, remove 43, lam 261. The restate used 294 for a modify.
+- **Timed order rows are stamped at send_start** (core 747 via 770 / 877); the broker book's
+  live time is send_end (772 / 780). A test that expects rows at send_end is wrong.
+- **Argon and Cursor commit their replies** to a `review/...` branch and push; Claude fetches the
+  branch. Their prompts end with "switch back to main": an agent left `D:\fxmatrix` on its review
+  branch once, and the next `git am` needs main.
+
+Line count: 2713
