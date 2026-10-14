@@ -68,19 +68,22 @@ def segments(rows, window_from_ms, window_to_ms):
     return out
 
 
-def to_run_csv(segs, ticks_file, seed_names, first_id=1, order_names=None):
+def to_run_csv(segs, ticks_file, seed_names, first_id=1, order_names=None, sessions_file=None):
     if len(seed_names) != len(segs):
         raise ValueError("one seed name per segment")
     if order_names is None:
         order_names = [""] * len(segs)
     if len(order_names) != len(segs):
         raise ValueError("one orders name per segment")
-    lines = [RUN_HEADER]
+    lines = [RUN_HEADER + ",sessions_file" if sessions_file is not None else RUN_HEADER]
     for k, s in enumerate(segs):
-        lines.append(",".join(str(v) for v in (
+        vals = (
             first_id + k, s["instance"], s["magic"], s["from_ms"], s["to_ms"],
             s["width_l"], s["width_s"], s["add_l"], s["add_s"], s["exit_l"], s["exit_s"],
             s["cap"], s["stranded"], s["deadband"], s["lattice"], s["reroll"], s["gate"],
             s["carry"], s["fill_time_place"], s["reserve"], seed_names[k], ticks_file,
-            order_names[k])))
+            order_names[k])
+        if sessions_file is not None:
+            vals = vals + (sessions_file,)
+        lines.append(",".join(str(v) for v in vals))
     return "\n".join(lines) + "\n"

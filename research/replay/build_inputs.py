@@ -43,7 +43,7 @@ INTERVALS = {"eurusd_b": [("BREAKER_GATED", 1790877066227, 1790900826000)],
 
 
 def fleet_files(rows, tag, window_from_ms, window_to_ms, first_id, ticks_file, snaps, intervals,
-                sends=None):
+                sends=None, sessions_file=None):
     segs = build_segments.segments(rows, window_from_ms, window_to_ms)
     files = {}
     names = []
@@ -66,8 +66,8 @@ def fleet_files(rows, tag, window_from_ms, window_to_ms, first_id, ticks_file, s
             order_names.append(name)
         else:
             order_names.append("")
-    files["run_%s.csv" % tag] = build_segments.to_run_csv(segs, ticks_file, names, first_id,
-                                                         order_names)
+    files["run_%s.csv" % tag] = build_segments.to_run_csv(
+        segs, ticks_file, names, first_id, order_names, sessions_file=sessions_file)
     files["real_%s.csv" % tag] = build_real.to_real_csv(
         build_real.real_rows(rows, window_from_ms, window_to_ms))
     files["intervals_%s.csv" % tag] = build_real.to_intervals_csv(intervals)

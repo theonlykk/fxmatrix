@@ -67,11 +67,21 @@ def real_rows(rows, from_ms, to_ms):
         if r.get("table") != "ea_events" or r.get("code") != "ROLL_ACCEPTED":
             continue
         t = int(r["ea_time_ms"]) + SERVER_OFFSET_MS
+        sid = r.get("session_id")
+        rseq = r.get("seq")
+        if sid is not None and rseq is not None:
+            rseq_i = int(rseq)
+            prev = [int(f["deal_time_broker_msc"]) for f in fills
+                    if f.get("session_id") == sid and f.get("seq") is not None
+                    and int(f["seq"]) < rseq_i]
+            if prev:
+                t = max(t, max(prev))
         if not (from_ms <= t < to_ms):
             continue
         d = _detail(r)
-        keyed.append(((t, 1, 0), (t, "ROLL", d["side"], int(d["layer_index"]), 0.0,
-                                  int(d["ticket"]), float(d["level"]))))
+        keyed.append(((t, 1, int(rseq) if rseq is not None else 0),
+                      (t, "ROLL", d["side"], int(d["layer_index"]), 0.0,
+                       int(d["ticket"]), float(d["level"]))))
     keyed.sort(key=lambda kv: kv[0])
     return [row for _k, row in keyed]
 

@@ -101,6 +101,26 @@ def _load(path):
         return [json.loads(line) for line in f if line.strip()]
 
 
+def join_sends(first, second=None):
+    """Every send_logs row of both lists, deduplicated by id, sorted by (ea_time_ms, seq, id)."""
+    by_id = {}
+    kept = []
+    for r in list(first) + list(second or ()):
+        if "_meta" in r or r.get("table") != "send_logs":
+            continue
+        rid = r.get("id")
+        if rid is not None:
+            rid = int(rid)
+            if rid in by_id:
+                if by_id[rid] != r:
+                    raise ValueError("conflicting send_logs row for id %d" % rid)
+                continue
+            by_id[rid] = r
+        kept.append(r)
+    return sorted(kept, key=lambda r: (int(r["ea_time_ms"]), int(r.get("seq") or 0),
+                                       int(r.get("id") or 0)))
+
+
 def _first_tick_ms(path):
     with open(path, encoding="ascii", newline="") as f:
         for line in f:
@@ -122,23 +142,43 @@ def cmd_join(a):
 
 
 def cmd_build(a):
+    window_end_ms = int(getattr(a, "window_end_ms", WINDOW_END_SERVER_MS))
+    first_ids_raw = getattr(a, "first_ids", None)
+    if first_ids_raw is None:
+        first_ids = [f[3] for f in FLEETS]
+    else:
+        first_ids = [int(x) for x in str(first_ids_raw).split(",") if x.strip()]
+    if len(first_ids) != len(FLEETS):
+        raise ValueError("--first-ids needs %d comma-separated integers" % len(FLEETS))
     data = {k: _load(getattr(a, k)) for k, _t, _w, _f in FLEETS}
-    sends = {k: _load(getattr(a, "sends_" + k)) for k, _t, _w, _f in FLEETS}
+    sends = {}
+    for k, _t, _w, _f in FLEETS:
+        extra = getattr(a, "sends_extra_" + k, None)
+        sends[k] = join_sends(_load(getattr(a, "sends_" + k)),
+                              _load(extra) if extra else None)
     snaps = build_inputs.build_swaps.snapshots_server([r for k in data for r in data[k]])
     tick_start = _first_tick_ms(a.ticks)
     ticks_name = os.path.basename(a.ticks)
     os.makedirs(a.out, exist_ok=True)
-    for k, tag, w, first in FLEETS:
+    sessions_path = getattr(a, "sessions", None)
+    sessions_name = None
+    if sessions_path:
+        sessions_name = os.path.basename(sessions_path)
+        with open(sessions_path, encoding="ascii") as src:
+            sess_text = src.read()
+        with open(os.path.join(a.out, sessions_name), "w", encoding="ascii", newline="\n") as dst:
+            dst.write(sess_text)
+    for (k, tag, w, _default_first), first in zip(FLEETS, first_ids):
         rows = data[k]
         start = build_inputs._init_server_ms(rows, w)
-        gates = gate_codes(rows, start, WINDOW_END_SERVER_MS)
+        gates = gate_codes(rows, start, window_end_ms)
         if gates:
             raise ValueError("%s: gate codes in the window: %s" % (tag, gates))
-        segs = build_segments.segments(rows, start, WINDOW_END_SERVER_MS)
-        print("WINDOW", tag, start, WINDOW_END_SERVER_MS, "segments", len(segs),
+        segs = build_segments.segments(rows, start, window_end_ms)
+        print("WINDOW", tag, start, window_end_ms, "segments", len(segs),
               [(first + i, s["from_ms"], s["to_ms"]) for i, s in enumerate(segs)])
-        files = build_inputs.fleet_files(rows, tag, start, WINDOW_END_SERVER_MS, first, ticks_name,
-                                         snaps, [], sends=sends[k])
+        files = build_inputs.fleet_files(rows, tag, start, window_end_ms, first, ticks_name,
+                                         snaps, [], sends=sends[k], sessions_file=sessions_name)
         for s in segs:
             warn = build_seeds.cap_warnings(build_seeds.seed_rows(rows, snaps, s["from_ms"]),
                                             s["cap"], s["from_ms"], tick_start)
@@ -160,9 +200,13 @@ def main(argv=None):
     b = sub.add_parser("build")
     b.add_argument("--out", required=True)
     b.add_argument("--ticks", required=True)
+    b.add_argument("--window-end-ms", type=int, default=WINDOW_END_SERVER_MS)
+    b.add_argument("--first-ids", default=",".join(str(f[3]) for f in FLEETS))
+    b.add_argument("--sessions", default=None)
     for k, _t, _w, _f in FLEETS:
         b.add_argument("--" + k, required=True)
         b.add_argument("--sends-" + k, required=True)
+        b.add_argument("--sends-extra-" + k, default=None)
     a = ap.parse_args(argv)
     return cmd_join(a) if a.cmd == "join" else cmd_build(a)
 
