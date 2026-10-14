@@ -239,4 +239,26 @@ read it, write "not read". Do not restate the consult.
 - **Reading of Argon:** reliable when pointed at named code and data files; not reliable when it
   summarises a document. Every claim it makes about a document is checked.
 
-Line count: 242
+## 11. CLAUDE'S CHECK OF ROUND 4 (Argon on the F1-F4 prompt `8b65360`, ~18:00Z 14 Oct)
+
+Every line Argon cited in the core (1123, 2301-2302, 2450-2451, 2466-2467, 2493, 2505, 2520, 2593,
+1753), the engine (2891, 2909, 2934, 2940, 2941) and `grind_closeby.mqh` 251 at `efada62` was read:
+all as quoted (its `_rpl_` log citation names a file that is local, not in git; the figure is right).
+Four defects in the prompt, all accepted and fixed in its next revision:
+
+- **The OUT_BY-first case (RT71).** When the real `OUT_BY` row comes before the replay's `CB_DONE`,
+  the reset purges the layer, its position meta and its queue entry, so the later completion finds
+  nothing (core 2301-2302): "as today" was no behaviour. Fixed: one rule, the pair completes at its
+  ENT's real `OUT_BY` row, before that row's reset, whatever the replay's close-by state.
+- **A fill in flight (F2 b).** The broker marks a touched order executing (core 1123) before its
+  deal event (touch + 261 ms); cancelling it would destroy a real replay fill. Fixed: F2 b applies
+  only to an exit the replay has not touched; RT72 added.
+- **Storage.** The EA's queue entry is gone at `CB_DONE` (`grind_closeby.mqh` 251), so deferred pairs
+  must be kept by the harness; a re-seed zeroes `exit_position_ticket` (core 1753) unless the true
+  book carries it. Fixed.
+- **A-1's example was backwards** (Claude's slip): a roll that moves is one logged AFTER the
+  close-by (a higher `seq`); and the clock fix applies before the window filter. Fixed.
+- Q1-Q4 answered in line with the fixes; Q3 (the stale rule keyed on the engine's previous attempt)
+  and Q4 (no stage straddles 00:01: refused sends advance no clock) accepted.
+
+Line count: 264

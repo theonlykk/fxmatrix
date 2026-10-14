@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Written | 14 Oct 2026 (HANDOFF s82 continued), Claude (Lead Engineer) |
 | Why | Plan 3 FAILED on T1 (C 94.4%, D 94.9%). Its nine misses have four mechanical causes in the harness and one in the input builder (`docs/research/replay-consult-plan4.md` s2-s3, s8, s10). Plan 4 (`docs/research/replay-calibration-eurusd-4.md` s2-s4, REVIEWED and agreed) allows exactly these fixes, F1-F4, and nothing else |
 | Branches | **Part A (Python):** `plan4-tools` from `main` (`ebeaee7` or later). **Part B (MQL5):** `replay-plan4` from `replay-harness` `efada62`. Never commit to `main` or `replay-harness` |
-| Review | This prompt is committed; the reviewer reads it at its commit; Cursor reads the same bytes |
+| Review | Argon round 4 (on `8b65360`; every line it cited checked by Claude; `docs/research/replay-consult-plan4.md` s11): four defects fixed in this revision (F2 b in-flight fills, F2 c-d one close-by rule, stored deferred pairs and exit positions, A-1's order). Cursor reads THIS commit |
 
 ## 0. RESTATE AND STOP (do this first; write nothing else)
 
@@ -44,11 +44,13 @@ the code, in its own commit. Report the new tests failing before the code and pa
 - **A-1. `build_real.py`: the ROLL clock (A11).** A ROLL row's time becomes
   `max(ea_time_ms + SERVER_OFFSET_MS, T)`, where `T` is the largest `deal_time_broker_msc` of the
   `fill_logs` rows of the SAME `session_id` whose `seq` is LOWER than the roll's `seq` (no such row:
-  unchanged). Ties keep the existing order (a roll after the fills of its ms). Rows without `seq` or
-  `session_id` (old test fixtures): unchanged. Tests (hand values): a roll at fill-time minus 485 ms
-  with a lower `seq` than both OUT_BY rows moves to the OUT_BY time and sorts after them; a roll
-  with a lower `seq` than a fill keeps its time; another session's fills are ignored; the existing
-  tests unchanged.
+  unchanged). The new time is applied BEFORE the `[from_ms, to_ms)` filter (build_real.py 69-70).
+  Ties keep the existing order (a roll after the fills of its ms). Rows without `seq` or
+  `session_id` (old test fixtures): unchanged. Tests (hand values): a roll logged AFTER both OUT_BY
+  rows (a HIGHER `seq`) but timed 485 ms before them moves to the OUT_BY time and sorts after them;
+  a roll logged BEFORE a fill (a lower `seq`) keeps its time even when that fill's time is later; another
+  session's fills are ignored; a roll timed just before `from_ms` that moves inside the window is
+  kept; the existing tests unchanged.
 - **A-2. `build_segments.py` / `build_inputs.py`: an optional `sessions_file` column.** When a
   sessions file name is given, the run header gains `,sessions_file` after `orders_file` and every
   row carries the name; when not given, the output is byte-identical to today's (test it).
@@ -97,17 +99,27 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
   - Tests may set the table directly (a test helper); `Rpl_ResetAll` clears it.
 - **F2 (sync only; A9, A10).** A layer leaves the book at its real close-by, never earlier:
   - **a.** A real `EXT` row no longer removes the layer from the true book; it marks it closing
-    (its exit position = the row's `position_id`), using the same layer selection as today.
-  - **b.** If the engine's layer still has a resting exit order at that row (the replay did not fill
-    it): remove that order from the replay's book, cancel its pending deal events, and set the
-    layer's `exit_position_ticket` to the row's `position_id`. **Write no deal row** (as sync ENT
-    rows write none): the replay must not be credited with a deal it did not make.
-  - **c.** The real `OUT_BY` row removes the layer from the true book (as today); the reset then
-    removes it from the engine.
-  - **d.** The replay's own close-by completion (`Rpl_ProcessCloseByDone`) does not complete a pair
-    whose ENT position is still in the true book: it is deferred, and completed when that ENT's real
-    `OUT_BY` row is applied, at that row's time, BEFORE the reset of that row. If the real `OUT_BY`
-    was applied first, the completion runs at its own time, as today.
+    (its exit position = the row's `position_id`, stored in the true book), using the same layer
+    selection as today. A re-seed of a closing layer (`Rpl_SyncResetToTrueBook`, core 2520;
+    `Rpl_AppendLayerManual` sets `exit_position_ticket = 0`, core 1753) carries that exit position.
+  - **b.** If the engine's layer still has a resting exit order at that row that the replay has
+    NOT touched (no deal in flight: not executing in the broker book, core 1123): remove that order
+    from the replay's book and set the layer's `exit_position_ticket` to the row's `position_id`.
+    **Write no deal row** (as sync ENT rows write none): the replay must not be credited with a deal
+    it did not make. If the replay HAS touched it (its deal event pending, timed: touch + latency),
+    change nothing: the replay's own fill completes as today.
+  - **c, d. One rule for the close-by in sync: a pair completes when its ENT's real `OUT_BY` row is
+    applied, at that row's time, BEFORE that row's reset**, whatever the state of the replay's own
+    close-by: queued, sent and awaiting `CB_DONE`, or already reached `CB_DONE`. So:
+    - a `CB_DONE` (or timing 0's end-of-tick completion) for a pair whose ENT is still in the true
+      book does not complete it: the harness keeps that pair (the EA's queue entry is already gone,
+      `grind_closeby.mqh` 251) and completes it at the `OUT_BY` row;
+    - at the `OUT_BY` row, a pair still queued or in flight is completed there and then, and its
+      later `CB_DONE` does nothing;
+    - completing writes the OUT_BY deal rows at the row's time and runs `Grind_ProcessDeal` as today
+      (it needs the layer still in the engine: engine 2891);
+    - if the replay never had a close-by for that layer (case b), the reset removes the layer, as
+      today.
   - **e.** No exit order is re-placed for a closing layer between its `EXT` and `OUT_BY` rows.
 - **Tests (B-0), hand-derived, each asserting the NEW behaviour, at least:**
   - **RT64 (F3).** Sync; a long add order resting at X; a sync row triggers a reset; the next tick
@@ -137,8 +149,12 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
   - **RT70 (F2 b, e).** Sync; the replay does NOT fill the exit; the real `EXT` arrives. Expected:
     the resting exit is gone, no deal row for it, no new exit order, depth 1 until the `OUT_BY`
     row, 0 after.
-  - **RT71 (F2 d, CB_DONE late).** As RT69 but the real `OUT_BY` before the replay's `CB_DONE`.
-    Expected: the completion at `CB_DONE`'s time, as today.
+  - **RT71 (F2 c-d, OUT_BY first).** As RT69 but the real `OUT_BY` row before the replay's
+    `CB_DONE`. Expected: the OUT_BY deal rows and one `SCALP_CLOSED` at the real OUT_BY time; the
+    later `CB_DONE` writes nothing; depth 0 from that row.
+  - **RT72 (F2 b, a fill in flight).** Timed; the replay touches the exit at t; the real `EXT` row
+    at t + 100 ms (before t + 261). Expected: one replay EXT deal at t + 261 (the replay's own); no
+    deal removed or added by the row.
   - **RT41 must still pass unchanged** (one exit, at T1).
 - **The record (last commit).** The suite is NOT run by you (it needs a compiled `.ex5`): write
   `PENDING: operator compile and suite` where the figure would go.
@@ -178,4 +194,4 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
 - **Q4.** F1 refuses sends by the stage's start time. Any stage whose sends could straddle 00:01?
 - **Q5.** What fact is missing?
 
-Line count: 181
+Line count: 197
