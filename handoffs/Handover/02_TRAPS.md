@@ -2646,4 +2646,18 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   (`archive_counts.py --table fill_logs --limit 5`) against each box's last `deal #` journal line
   before calling the archive behind.
 
-Line count: 2649
+
+## TRAPS FROM 2026-10-14 EARLY (PLAN 3 s7: INPUTS, T0)
+
+- **PowerShell eats unquoted braces:** `git rev-parse HEAD^{tree}` printed the PARENT commit and an
+  `-encodedCommand` error. Always `git rev-parse "HEAD^{tree}"`.
+- **The replay's outputs are named by tag and mode only** (`out_eurusd_b_free_*.csv`): a second run
+  of the same tag and mode overwrites the first. Stage each run's five files before the next run of
+  that tag and mode; the holdout keeps the tags `eurusd_b / c / d` because `compare.py` and
+  `score_plan3.py` read them.
+- **The suite rewrites `Files\replay\swaps.csv`** (a 70-byte test file): after `-Mode Inputs`, no
+  suite before the runs, or `-SwapsSha` fails (that check is the guard).
+- **A joined tick file's byte count:** measure the file the tool wrote, not a trial build; s81f
+  carried a count from an earlier join with another header (void).
+
+Line count: 2663
