@@ -50,7 +50,11 @@ Constants used across `RT64`--`RT74`:
 - `RPL_T0 = D'2026.10.06 10:00:00'` = `1791280800` s = `1791280800000` ms (Tuesday, `day_of_week = 2`).
 - `_Point = 0.00001`, `1 pip = 0.00010`, `stops_level = 0` in `Grind_MarketTestSeed(..., 0, 0)` so ADR-013 step is `max(0, 1) * _Point = 0.00001` (`0.1` pip).
 - Default `Rpl_DefaultConfig(cfg)`: `width_l = 2.0`, `width_s = 15.0`, `add_l = 7.0`, `add_s = 7.0`, `exit_l = 10.0`, `exit_s = 10.0`, `cap = 8`, `stranded = 50.0`, `deadband = 2.0`, `lattice = true`.
-- Timed `"base"` profile (`Rpl_TmMakeProfile("base")`): `d_place = 287` ms, `d_modify = 294` ms, `d_closeby = 294` ms, `lam = 261` ms, `fixed_delay = true`, `price_rule = 0` (tick quote), `touch_rule = 0` (`<=` / `>=`).
+- Timed `"base"` profile (`Rpl_TmApplySens("base")`, `ea/fxgrind_replay_core.mqh:346-352`): `d_place = 287` ms, `d_modify = 288` ms, `d_closeby = 294` ms, `d_remove = 43` ms, `lam = 261` ms, `thru_pts = 0`, `limit_price = false`.
+- Order-row timestamping in `ea/fxgrind_replay_core.mqh`:
+  - `Rpl_OrderLogAppendRowAt` stamps `g_rpl_orders[n].time_ms = t` at **line 747** of `ea/fxgrind_replay_core.mqh`.
+  - In timed mode (`timing = 1`), `Rpl_TmDiffStageSends` computes `const long send_start = cursor; cursor += dur;` (**lines 877--878**) and calls `Rpl_TmApplySendRow(stage, send_start, cursor, ...)` (**line 880**), which calls `Rpl_OrderLogAppendRowAt(send_start, ...)` at **line 770** --- so `g_rpl_orders[n].time_ms` is `send_start` (not `send_end`), while `Rpl_BkPlace(ticket, otype, price, send_end)` (**line 772**) and `Rpl_BkModify(ticket, price, send_end)` (**line 780**) set the broker book's `live_ms` / `from_ms` to `send_end = cursor`, and `Rpl_TmWriteTimingRow` (**lines 936, 1077**) writes `end_ms = cursor`.
+  - In timing `0`, `Rpl_OrderLogDiff` calls `Rpl_OrderLogAppendRowAt(t, ...)` at **lines 2266, 2270, 2283** with the tick/sync timestamp `t`.
 
 ---
 
@@ -77,24 +81,57 @@ Constants used across `RT64`--`RT74`:
 ---
 
 #### `RT65` --- `Test_RT65_StaleFeedEngineSkip` (F4)
-- **One-line summary:** In both timing 0 and timed `"base"`, `Grind_OnTickEngine` is skipped on a tick whose gap from the previous engine attempt is `6000 ms > 5000 ms`, runs on the tick `1000 ms` later, and runs on a tick whose gap is `5000 ms` (strict `>`).
+- **One-line summary:** In both timing `0` and timed `"base"` (`d_place = 287`, `d_modify = 288`), `Grind_OnTickEngine` is skipped on a tick whose gap from the previous engine attempt is `6000 ms > 5000 ms`, runs on the tick `1000 ms` later, and runs on a tick whose gap is `5000 ms` (strict `>`), stepping `bid` UP (`1.11800, 1.11830, 1.11860, 1.11890, 1.11920; ask = bid + 0.00002`) so the resting `BUY_LIMIT` add order is never touched.
 - **Setup & Arithmetic:**
-  - Run sub-case A (timing `0`) and sub-case B (timed `"base"`).
-  - `from_ms = T0 = 1791280800000`, `to_ms = T0 + 15000 = 1791280815000`, `add_l = 7.0` pips (`0.00070`), `deadband = 2.0` pips (`0.00020`), `width_s = 500.0` pips.
-  - Seed long L0 (`ticket = 6501`, `entry = 1.12000`, `open_ms = T0 - 3600000`), so L1 formula target is `1.12000 - 0.00070 = 1.11930`.
-  - Five ticks with `bid < 1.11930` stepping down by `3.0` pips (`0.00030 > deadband 0.00020`) per tick and `ask = bid + 0.00020` (so `ask` stays above the clamped `BUY_LIMIT` at `bid - 0.00001` and nothing fills):
-    1. `t0 = T0 + 0` (`1791280800000`, 1st attempt of segment, never stale): `bid = 1.11800, ask = 1.11820` -> `clamped = 1.11800 - 0.00001 = 1.11799` -> `PLACE` `L` L1 `ENT` at `1.11799`. Last attempt = `T0 + 0`.
-    2. `t1 = T0 + 1000` (`1791280801000`, gap `1000 - 0 = 1000 ms <= 5000`): `bid = 1.11770, ask = 1.11790` -> `clamped = 1.11769` (`|1.11769 - 1.11799| = 0.00030 >= 0.00020`) -> `MODIFY` `L` L1 `ENT` to `1.11769`. Last attempt = `T0 + 1000`.
-    3. `t2 = T0 + 7000` (`1791280807000`, gap `7000 - 1000 = 6000 ms > 5000`, **STALE**): `bid = 1.11740, ask = 1.11760` -> `Grind_OnTickEngine` **skipped**, `0` sends on `t2`, order stays at `1.11769`. Last attempt recorded as `T0 + 7000`.
-    4. `t3 = T0 + 8000` (`1791280808000`, gap from `t2`: `8000 - 7000 = 1000 ms <= 5000`): `bid = 1.11710, ask = 1.11730` -> `clamped = 1.11709` (`|1.11709 - 1.11769| = 0.00060 >= 0.00020`) -> `MODIFY` `L` L1 `ENT` to `1.11709`. Last attempt = `T0 + 8000`.
-    5. `t4 = T0 + 13000` (`1791280813000`, gap from `t3`: `13000 - 8000 = 5000 ms <= 5000`, boundary is NOT stale): `bid = 1.11680, ask = 1.11700` -> `clamped = 1.11679` (`|1.11679 - 1.11709| = 0.00030 >= 0.00020`) -> `MODIFY` `L` L1 `ENT` to `1.11679`. Last attempt = `T0 + 13000`.
+  - Run sub-case A (timing `0`) and sub-case B (timed `"base"`: `d_place = 287`, `d_modify = 288`, `d_closeby = 294`, `d_remove = 43`, `lam = 261` from `Rpl_TmApplySens("base")`, `ea/fxgrind_replay_core.mqh:346-352`).
+  - `from_ms = T0 = 1791280800000`, `to_ms = T0 + 15000 = 1791280815000`, `width_l = 2.0` pips (`0.00020`), `width_s = 15.0` pips (`0.00150`), `add_l = 7.0` pips (`0.00070`), `exit_l = 10.0` pips (`0.00100`), `deadband = 2.0` pips (`0.00020`), `stranded = 1000.0` pips.
+  - Seed long L0 position (`ticket = 6501`, `entry = 1.12000`, `open_ms = T0 - 3600000`), so L1 formula target is `1.12000 - 0.00070 = 1.11930`.
+  - Keep the short side and L0 exit quiet: with `width_s = 15.0` (`0.00150`) and `stranded = 1000.0`, `S` L0 `ENT` (`SELL_LIMIT` at `mid(t0) + 0.00150 = 1.11801 + 0.00150 = 1.11951`) is above the highest `bid` (`1.11920`) so it is never touched, and its distance from `mid` (`<= 15.0` pips `< stranded = 1000.0` pips) never triggers `Grind_TryRecenterOppositeL0`.
+    - Note on `t0` sends: if `L` L0 `EXT` (`SELL_LIMIT` at `1.12100`, `ticket = 6511`) and `S` L0 `ENT` (`SELL_LIMIT` at `1.11951`, `ticket = 6512`) are seeded at segment start, `Grind_RetryMissingExits` and `Grind_TryPlaceL0` send nothing on `t0` (avoiding `g_grind_ent_sent_this_tick = true` at `ea/grind_engine.mqh:2099` blocking `Grind_EnsureAddNext` at `ea/grind_engine.mqh:2579`), so `L` L1 `ENT` is the sole send on every non-stale tick (`t0, t1, t3, t4`). (If instead `L` L0 `EXT` and `S` L0 `ENT` are not seeded, `t0` places `L` L0 `EXT` at `1.12100` (`send_start = 1791280800000, send_end = 1791280800287`) and `S` L0 `ENT` at `1.11951` (`send_start = 1791280800287, send_end = 1791280800574`), `t1` places `L` L1 `ENT` at `1.11829` (`send_start = 1791280801000, send_end = 1791280801287`), `t2` is skipped, `t3` modifies `L` L1 `ENT` to `1.11889` (`send_start = 1791280808000, send_end = 1791280808288`), and `t4` modifies `L` L1 `ENT` to `1.11919` (`send_start = 1791280813000, send_end = 1791280813288`); in `RT65` we seed `6511` and `6512` so `L` L1 `ENT` is placed on `t0` and modified on `t1, t3, t4`.)
+  - Five ticks stepping `bid` **UP** by `3.0` pips (`0.00030 > deadband 0.00020`) per tick with `ask = bid + 0.00002` (so each tick's `ask` is strictly above the resting `BUY_LIMIT` from the prior tick and the resting add is never touched):
+    1. `t0 = T0 + 0 = 1791280800000` (1st attempt of segment, never stale): `bid = 1.11800, ask = 1.11802` (`mid = 1.11801`).
+       - ADR-013 buy clamp on `1.11930`: `clamped = bid - 0.00001 = 1.11799` -> `PLACE` `L` L1 `ENT` (`BUY_LIMIT`) at `1.11799`.
+       - Last engine attempt recorded as `1791280800000` (`T0 + 0`).
+       - Timed `"base"`: `stage_start = 1791280800000`, `send_start = 1791280800000`, `send_end = 1791280800000 + d_place(287) = 1791280800287`.
+         - Order row `g_rpl_orders[0].time_ms = send_start = 1791280800000` (stamped at `ea/fxgrind_replay_core.mqh:747` inside `Rpl_OrderLogAppendRowAt`, called from `Rpl_TmApplySendRow` at `line 770` with `send_start` from `Rpl_TmDiffStageSends` at `line 877`);
+         - Broker book `live_ms = send_end = 1791280800287` (`Rpl_BkPlace`, `line 772`);
+         - `STAGE:ENGINE` / `ONTICK` `end_ms = g_rpl_tm_free_ms = 1791280800287` (`lines 936, 1076--1077`).
+    2. `t1 = T0 + 1000 = 1791280801000` (gap `1000 - 0 = 1000 ms <= 5000`, not stale): `bid = 1.11830, ask = 1.11832` (`mid = 1.11831`).
+       - Broker check: `ask = 1.11832 > 1.11799` (resting `BUY_LIMIT` at `1.11799` is not touched).
+       - ADR-013 buy clamp: `clamped = 1.11830 - 0.00001 = 1.11829` (`|1.11829 - 1.11799| = 0.00030 >= 0.00020`) -> `MODIFY` `L` L1 `ENT` from `1.11799` to `1.11829`.
+       - Last engine attempt recorded as `1791280801000` (`T0 + 1000`).
+       - Timed `"base"`: `start = MathMax(1791280801000, 1791280800287) = 1791280801000`, `send_start = 1791280801000`, `send_end = 1791280801000 + d_modify(288) = 1791280801288`.
+         - Order row `g_rpl_orders[1].time_ms = send_start = 1791280801000` (`line 747` via `line 770` / `line 877`);
+         - Broker modification `from_ms = send_end = 1791280801288` (`Rpl_BkModify`, `line 780`);
+         - `STAGE:ENGINE` / `ONTICK` `end_ms = g_rpl_tm_free_ms = 1791280801288` (`lines 936, 1076--1077`).
+    3. `t2 = T0 + 7000 = 1791280807000` (gap `7000 - 1000 = 6000 ms > 5000`, **STALE**): `bid = 1.11860, ask = 1.11862` (`mid = 1.11861`).
+       - Broker check: `ask = 1.11862 > 1.11829` (not touched).
+       - `Grind_OnTickEngine` **skipped** by F4 (`6000 > 5000`); `0` sends on `t2`; order stays at `1.11829`.
+       - Last engine attempt recorded as `1791280807000` (`T0 + 7000`).
+       - Timed `"base"`: `start = MathMax(1791280807000, 1791280801288) = 1791280807000`, `sends = 0`, `end_ms = g_rpl_tm_free_ms = 1791280807000`.
+    4. `t3 = T0 + 8000 = 1791280808000` (gap from `t2`: `8000 - 7000 = 1000 ms <= 5000`, not stale): `bid = 1.11890, ask = 1.11892` (`mid = 1.11891`).
+       - Broker check: `ask = 1.11892 > 1.11829` (not touched).
+       - ADR-013 buy clamp: `clamped = 1.11890 - 0.00001 = 1.11889` (`|1.11889 - 1.11829| = 0.00060 >= 0.00020`) -> `MODIFY` `L` L1 `ENT` from `1.11829` to `1.11889`.
+       - Last engine attempt recorded as `1791280808000` (`T0 + 8000`).
+       - Timed `"base"`: `start = MathMax(1791280808000, 1791280807000) = 1791280808000`, `send_start = 1791280808000`, `send_end = 1791280808000 + d_modify(288) = 1791280808288`.
+         - Order row `g_rpl_orders[2].time_ms = send_start = 1791280808000` (`line 747` via `line 770` / `line 877`);
+         - Broker modification `from_ms = send_end = 1791280808288` (`Rpl_BkModify`, `line 780`);
+         - `STAGE:ENGINE` / `ONTICK` `end_ms = g_rpl_tm_free_ms = 1791280808288`.
+    5. `t4 = T0 + 13000 = 1791280813000` (gap from `t3`: `13000 - 8000 = 5000 ms <= 5000`, boundary is NOT stale): `bid = 1.11920, ask = 1.11922` (`mid = 1.11921`).
+       - Broker check: `ask = 1.11922 > 1.11889` (not touched); `bid = 1.11920 < 1.11951` (short L0 `ENT` not touched).
+       - ADR-013 buy clamp: `clamped = 1.11920 - 0.00001 = 1.11919` (`|1.11919 - 1.11889| = 0.00030 >= 0.00020`) -> `MODIFY` `L` L1 `ENT` from `1.11889` to `1.11919`.
+       - Last engine attempt recorded as `1791280813000` (`T0 + 13000`).
+       - Timed `"base"`: `start = MathMax(1791280813000, 1791280808288) = 1791280813000`, `send_start = 1791280813000`, `send_end = 1791280813000 + d_modify(288) = 1791280813288`.
+         - Order row `g_rpl_orders[3].time_ms = send_start = 1791280813000` (`line 747` via `line 770` / `line 877`);
+         - Broker modification `from_ms = send_end = 1791280813288` (`Rpl_BkModify`, `line 780`);
+         - `STAGE:ENGINE` / `ONTICK` `end_ms = g_rpl_tm_free_ms = 1791280813288`.
 - **Hand-derived expected values asserted (both timing 0 and timed `"base"`):**
-  - Total `L` L1 `ENT` rows in `g_rpl_orders` == `4` (`1` `PLACE` at `1.11799`, `3` `MODIFY` at `1.11769`, `1.11709`, `1.11679`);
-  - Order-log timestamps for those 4 sends:
-    - Timing `0`: `t0 = 1791280800000`, `t1 = 1791280801000`, `t3 = 1791280808000`, `t4 = 1791280813000`;
-    - Timed `"base"` (send timestamp = `send_end_ms = tick_ms + d_place(287)` or `tick_ms + d_modify(294)`): `1791280800287`, `1791280801294`, `1791280808294`, `1791280813294`;
+  - Total `L` L1 `ENT` rows in `g_rpl_orders` == `4` (`1` `PLACE` at `1.11799`, `3` `MODIFY` at `1.11829`, `1.11889`, `1.11919`), and `Rpl_DealsCount() == 0` (resting add never touched);
+  - Order-log row timestamps `g_rpl_orders[i].time_ms` (stamped at `ea/fxgrind_replay_core.mqh:747` in `Rpl_OrderLogAppendRowAt`, called with `t` at `lines 2266/2270` in timing `0` and with `send_start` at `line 770` / `line 877` in timed mode):
+    - Timing `0`: `1791280800000`, `1791280801000`, `1791280808000`, `1791280813000`;
+    - Timed `"base"`: `send_start = 1791280800000`, `1791280801000`, `1791280808000`, `1791280813000` (with corresponding `send_end` / broker `live_ms`/`from_ms` / `STAGE:ENGINE` `end_ms` = `1791280800287` (`+287`), `1791280801288` (`+288`), `1791280808288` (`+288`), `1791280813288` (`+288`));
   - Count of sends from `t2 = 1791280807000` (`[T0 + 7000, T0 + 7999]`) == `0`.
-- **Expected at `B-0` (`efada62`):** **FAILS** --- `efada62` sets `g_grind_last_feed_tick_msc = live.time_msc` before `Grind_OnTickEngine`, so `t2` is never skipped and sends a 5th order row (`MODIFY` to `1.11739` at `T0 + 7000` / `T0 + 7294`).
+- **Expected at `B-0` (`efada62`):** **FAILS** --- `efada62` sets `g_grind_last_feed_tick_msc = live.time_msc` before `Grind_OnTickEngine`, so `t2` is never skipped and sends a 5th order row (`MODIFY` to `1.11859` with `g_rpl_orders` `time_ms = send_start = 1791280807000`, `send_end = 1791280807000 + d_modify(288) = 1791280807288`).
 
 ---
 
@@ -309,16 +346,16 @@ Constants used across `RT64`--`RT74`:
     3. **Tick 2** at `T0 + 1000`: `bid = 1.12650, ask = 1.12652`.
        - `CB_DONE` at `T0 + 694` sees `7403` still in `g_rpl_true_book`, so it **defers** `(7403, 900000001)` (`Rpl_ShortDepth() == 3`, S1 still held bare).
     4. **Tick 3** at `T0 + 1500`: `bid = 1.12650, ask = 1.12652`.
-       - Real `OUT_BY` for `7403` at `T0 + 1500` runs the deferred `CB_DONE` completion at `T0 + 1500`: removes S2 (`7403`, depth `3 -> 2`), and `Grind_ExitQManageSide` inside `Grind_ProcessDeal` promotes S1 (`7402`) by placing `S` L1 `EXT` `BUY_LIMIT` at `1.12575` (`send_start = T0 + 1500`, `send_end = T0 + 1500 + 287 = T0 + 1787`), registered in `g_rpl_bk` via `Rpl_BkPlace` with `live_ms = T0 + 1787`.
+       - Real `OUT_BY` for `7403` at `T0 + 1500` runs the deferred `CB_DONE` completion at `T0 + 1500`: removes S2 (`7403`, depth `3 -> 2`), and `Grind_ExitQManageSide` inside `Grind_ProcessDeal` promotes S1 (`7402`) by placing `S` L1 `EXT` `BUY_LIMIT` at `1.12575` (`send_start = T0 + 1500 = 1791280801500` stamped into `g_rpl_orders[n].time_ms` at `ea/fxgrind_replay_core.mqh:747` via `line 770`, `send_end = T0 + 1500 + 287 = T0 + 1787 = 1791280801787`), registered in `g_rpl_bk` via `Rpl_BkPlace` (`line 772`) with `live_ms = T0 + 1787`.
        - Note: because `Grind_ExitQManageSide` already set `g_grind_short.layers[1].exit_order_ticket != 0` during the `OUT_BY` completion, `Grind_OnTickEngine` at `T0 + 1500` does NOT re-place it; therefore the order is in `g_rpl_bk` ONLY if the `OUT_BY` completion registered it via `Rpl_BkPlace`.
     5. **Tick 4** at `T0 + 2000` (after `live_ms = T0 + 1787`): `bid = 1.12573, ask = 1.12575` -> `Rpl_TmBrokerStep` touches S1's promoted exit (`1.12575`) at `T0 + 2000` and schedules `RPL_TM_EV_DEAL` at `T0 + 2000 + 261 = T0 + 2261`.
     6. **Tick 5** at `T0 + 2500`: `bid = 1.12590, ask = 1.12592` -> `Rpl_TmRunEventsUpTo(T0 + 2500)` executes `RPL_TM_EV_DEAL` at `T0 + 2261` (`1791280802261`).
 - **Hand-derived expected values asserted:**
   - At `T0 + 1000` (after `CB_DONE` at `T0 + 694`, before `OUT_BY` at `T0 + 1500`): `Rpl_ShortDepth() == 3` and `Rpl_OrderExistsForLayer("S", 1, "EXT") == false`;
   - `DEAL_ENTRY_OUT_BY` deals for S2 (`7403`) == `2`, at `time_ms == 1791280801500` (`T0 + 1500`);
-  - `S` L1 `EXT` `PLACE` in `g_rpl_orders` has `time_ms == 1791280801787` (`T0 + 1500 + 287`) and `price == 1.12575`;
+  - `S` L1 `EXT` `PLACE` in `g_rpl_orders` has `time_ms == 1791280801500` (`send_start = T0 + 1500`, stamped at `ea/fxgrind_replay_core.mqh:747` via `line 770`), `price == 1.12575`, and broker book `live_ms == 1791280801787` (`send_end = T0 + 1500 + 287`, `Rpl_BkPlace` at `line 772`);
   - `S` L1 `EXT` `DEAL_ENTRY_IN` deal count == `1`, with `time_ms == 1791280802261` (`T0 + 2000 + 261`) and `price == 1.12575`.
-- **Expected at `B-0` (`efada62`):** **FAILS** --- at `efada62`, the `EXT` row at `T0 + 300` removes `7403` at `T0 + 400` (`Rpl_ShortDepth() == 2` at `T0 + 1000` instead of `3`, `0` `OUT_BY` deals at `T0 + 1500`, and S1's exit is placed at `T0 + 400 + 287 = T0 + 687` instead of `T0 + 1787`).
+- **Expected at `B-0` (`efada62`):** **FAILS** --- at `efada62`, the `EXT` row at `T0 + 300` removes `7403` at `T0 + 400` (`Rpl_ShortDepth() == 2` at `T0 + 1000` instead of `3`, `0` `OUT_BY` deals at `T0 + 1500`, and S1's exit is placed at `send_start = T0 + 400 = 1791280800400` (`live_ms = send_end = T0 + 400 + 287 = 1791280800687`) instead of `send_start = 1791280801500` (`live_ms = 1791280801787`)).
 
 ---
 
