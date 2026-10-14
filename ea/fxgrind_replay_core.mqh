@@ -191,6 +191,7 @@ long             g_rpl_retained_from_ms = 0;
 long             g_rpl_segment_day_key = 0;
 bool             g_rpl_segment_first_tick = true;
 long             g_rpl_last_processed_tick_ms = 0;
+long             g_rpl_last_engine_attempt_tick_ms = 0;
 RplSyncRealRow   g_rpl_sync_real[];
 int              g_rpl_sync_real_count = 0;
 int              g_rpl_sync_real_applied = 0;
@@ -921,9 +922,14 @@ void Rpl_TmRunStage(const string stage_name,
                           g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, (datetime)(cursor / 1000),
                           g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
    } else if(stage_name == "ENGINE") {
-      Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
-                         g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
-                         g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+      const bool stale_skip = (g_rpl_last_engine_attempt_tick_ms > 0
+                               && (stage_market_ms - g_rpl_last_engine_attempt_tick_ms) > 5000);
+      g_rpl_last_engine_attempt_tick_ms = stage_market_ms;
+      if(!stale_skip) {
+         Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
+                            g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
+                            g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+      }
    } else if(stage_name == "TIMER") {
       g_grind_carry_test_server_time = (datetime)(cursor / 1000);
       Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, (datetime)(cursor / 1000),
@@ -1376,6 +1382,7 @@ void Rpl_ResetAll()
    g_rpl_segment_day_key = 0;
    g_rpl_segment_first_tick = true;
    g_rpl_last_processed_tick_ms = 0;
+   g_rpl_last_engine_attempt_tick_ms = 0;
    ArrayResize(g_rpl_sync_real, 0);
    g_rpl_sync_real_count = 0;
    g_rpl_sync_real_applied = 0;
@@ -2709,9 +2716,14 @@ void Rpl_ProcessOneTickInstant(const RplTick &tick)
    Rpl_OrderLogDiff(t, "LATTICE");
    if(!Rpl_EngineSeamsOrAbort())
       return;
-   Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
-                      g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
-                      g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+   const bool stale_skip = (g_rpl_last_engine_attempt_tick_ms > 0
+                            && (t - g_rpl_last_engine_attempt_tick_ms) > 5000);
+   g_rpl_last_engine_attempt_tick_ms = t;
+   if(!stale_skip) {
+      Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
+                         g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
+                         g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+   }
    Rpl_OrderLogDiff(t, "ENGINE");
 
    if(!trkL0 && g_grind_vl_tracking_long)
@@ -2800,6 +2812,7 @@ bool Rpl_RunTicks(const RplTick &ticks[], const int tick_count, RplSegmentConfig
    g_rpl_cfg = cfg;
    g_rpl_segment_first_tick = true;
    g_rpl_last_processed_tick_ms = 0;
+   g_rpl_last_engine_attempt_tick_ms = 0;
    ArrayResize(g_rpl_all_ticks, tick_count);
    for(int i = 0; i < tick_count; i++)
       g_rpl_all_ticks[i] = ticks[i];
