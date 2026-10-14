@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **RULED** (Gemini G3-1..6, 10 Oct ~17:53Z; checked by Claude, s10). The scorer (`score_plan3.py`, s6) is built and committed; nothing reads the holdout before Tue 13's export and hash |
+| Status | **CLOSED: FAIL** (14 Oct ~03:10Z, s82): T1 fails on C (94.4%) and D (94.9%); the count, bias and difference marks pass (s7, note of 14 Oct ~03:10Z). Before: **RULED** (Gemini G3-1..6, 10 Oct ~17:53Z; checked by Claude, s10). The scorer (`score_plan3.py`, s6) is built and committed; nothing reads the holdout before Tue 13's export and hash |
 | Origin | Plan 2 closed under its s8 (b) (`replay-calibration-eurusd-2.md` s18). Fable's consult (`replay-consult-fable.md` s9, its findings verified). Operator 10 Oct ~17:28Z: a plan 3 on Claude's proposals, holdout 9-13 Oct; ~17:37Z "proceed" on option 1 (score everything) |
 | Rules it keeps | Plan 1 and plan 2 where this file does not change them: the window and segments, seeding at an init, the data, the engine, T0, the miss categories, the replay's purpose (plan 1 s8: ranges and stability, never optima), no price signal, the EA pinned |
 | Supersedes | Plan 2's T2 (the per-segment UNPRICED rule and rho within 0.1) as the gate for the replay's purpose. T1 stays |
@@ -179,6 +179,43 @@ then it is frozen with the tolerance table of s3.
   touching tick on the order price for every real deal after the cut, B 69 / 69, C 72 / 72,
   D 59 / 59 (whole windows 172 / 172, 188 / 188, 59 / 59). Next: the runs (B, C, D x SYNC,
   FREE, timing 1 base, then timing 0; harness `145f092`).
+- **Note (14 Oct ~03:10Z, s82): s7's RUNS, COMPARE AND SCORE. THE VERDICT: FAIL (s4).**
+  Twelve runs on `D:\mt5-replay` (harness `145f092`, `replay-harness` `efada62`; inputs set
+  `eurusd_holdout` from `6734ee5`, `-Mode Inputs` 16 / 16; ticks w2h `fe37e42a...0392`; swaps
+  `dbd8ee4a...`): B, C, D x SYNC, FREE at timing 1 (base, deciding) and timing 0 (reported);
+  all exit 0, gaps 0, aborted 0; outputs and logs in `research/replay/runs_holdout/` (manifest).
+  `compare.py --t0-price order` (`results/plan3/holdout_compare_145f092`, `_t0`; its T1 / T2
+  columns are plan 1-2's whole-window marks, reported only). `score_plan3.py --cut-ms
+  1791531120000 --tol results/plan3/live_spread_n3.txt` (`results/plan3/holdout_score_145f092.md`,
+  `_t0.md`). Nothing changed in any code, mark, tolerance or window.
+  - **T0:** B 69 / 69, C 72 / 72, D 59 / 59: pass.
+  - **T1 (sync, after the cut):** B 67 / 69 = 97.1% PASS; **C 68 / 72 = 94.4% FAIL; D 56 / 59 =
+    94.9% FAIL** (replay-only 2.9 / 4.2 / 3.4%).
+  - **C (counts, free):** four sides scoreable (B L, B S, C S, D S; C L and D L have under 10 real
+    S); S real / replay 10 / 10, 15 / 14, 16 / 17, 14 / 14; R and A equal on every side; no side
+    OUT, no count beyond 2 x tol. **B (bias):** S errors 0, -1, +1, 0, sum 0 of 55: pass. **D
+    (difference):** C - B and D - B reproduced: pass.
+  - **Timing 0 (reported only):** the same T1 figures; every count within 1.
+  - **The verdict is FAIL.** The reading used (s81 and s82, not put to Gemini; the operator's call
+    if raised): the INCONCLUSIVE rule concerns the count marks only; a T1 fail is FAIL whatever
+    the scoreable count. It did not bind here: four sides were scoreable.
+  - **The cause, read (s4).** Nine real deals missed after the cut.
+    - **Five are one moment, the Monday 12 Oct open.** Friday's last ask 1.12019; Monday's first
+      quote 00:00:00.188 server, ask 1.11903 (11.6 pips lower). The replay fills the buy-side
+      orders resting above it (B long L7 1.11909, B short exit L5 1.11917, C long L8 1.11911, C
+      short exit L2 1.11921, D short exit L5 1.11907) on that first quote, at 00:00:00.449, at the
+      order price. IC filled them at 00:01:00.640-00:01:00.700, at 1.11903, after the 00:01:00
+      quotes: 60.2 s apart, outside the 60 s window, so each is a MISS and a replay-only deal.
+      Inferred, not checked: IC does not trigger pending orders on the 00:00 quote. The
+      calibration window had no fill at the 5 Oct open, so it never met the case.
+    - **Three are the first short (L0)** filled at another time or price than live: C 13:02
+      server (no replay L0 within hours; 10.3 pips away), C 17:23 (replay 17:20, 1.8 pips), D 14:18
+      (replay 14:15, 0.3 pip).
+    - **One is not read:** D long L7 entry, Tue 13 16:57 server at 1.11895; no replay deal near it.
+    - Without the open, C would be 70 / 72 and D 57 / 59 (both pass): hindsight, recorded; it
+      changes nothing.
+  - Per s4: the replay is not shown fit for count-level use by this plan. Any next step is a new
+    plan (backlog C152); the operator's call.
 
 ## 8. ORDER OF WORK
 
@@ -238,4 +275,4 @@ holdout's data before step 2 is committed.
 - **His sign-off has no questions for us** (BOOT s1's tell); every ruling
   above was checked against the code or the plan.
 
-Line count: 220
+Line count: 278

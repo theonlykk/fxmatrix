@@ -2660,4 +2660,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A joined tick file's byte count:** measure the file the tool wrote, not a trial build; s81f
   carried a count from an earlier join with another header (void).
 
-Line count: 2663
+## TRAPS FROM 2026-10-14 EARLY, 2 (PLAN 3's RUNS AND VERDICT)
+
+- **A calibration window can miss a whole class of event.** No order filled at the 5 Oct open,
+  so the calibration never met a weekly gap; the holdout's 12 Oct open gapped 11.6 pips through
+  resting orders, IC filled them a minute after the first quote at the gap price, and five of
+  plan 3's nine misses came from that one moment. Before a window is pre-registered, list the
+  event classes in it (a weekly open with orders resting, a gap, a release) and say which are
+  absent.
+- **`replay_run.ps1 -Timing` defaults to 0.** Name `-Timing 1` on every base run.
+- **The bridge's folders belong to one session.** A new chat starts with none: request
+  `Downloads` and `D:\mt5-replay\MQL5\Files\replay` (and `D:\fxmatrix\research\replay\runs`
+  for the `_rpl_` logs) before the first staging step.
+- **The harness writes CRLF; git stores LF** (`* text=auto`). Hash run files as committed, not
+  as staged, in any manifest.
+- **A sync run's `scalps=` in its summary depends on timing** (B: 3 at timing 1, 69 at timing 0;
+  the calibration's last B segment: 2 and 43). It is not a scored number: counts come from the
+  FREE run's events.
+
+Line count: 2681
