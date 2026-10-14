@@ -1,5 +1,6 @@
 //+------------------------------------------------------------------+
 //| fxgrind_replay_tests.mq5 - replay harness RT1-RT74 (plan4 F1-F4)  |
+//| Suite: PENDING: operator compile and suite                        |
 //+------------------------------------------------------------------+
 #property copyright "fxmatrix"
 #property version   "1.01"
