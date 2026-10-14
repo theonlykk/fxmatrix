@@ -1200,6 +1200,17 @@ void Rpl_SetOutputSuffix(const string s)
 }
 
 //+------------------------------------------------------------------+
+void Rpl_AddTestSession(const int day_of_week, const string trade_from, const string trade_to)
+{
+}
+
+//+------------------------------------------------------------------+
+int Rpl_SessionsCount()
+{
+   return 0;
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_WaitSymbolReady(const int timeout_ms)
 {
    SymbolSelect(_Symbol, true);
