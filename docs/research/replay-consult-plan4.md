@@ -261,4 +261,23 @@ Four defects in the prompt, all accepted and fixed in its next revision:
 - Q1-Q4 answered in line with the fixes; Q3 (the stale rule keyed on the engine's previous attempt)
   and Q4 (no stage straddles 00:01: refused sends advance no clock) accepted.
 
-Line count: 264
+## 12. CLAUDE'S CHECK OF ROUND 5 (Argon on `702ca00`; its reply committed by Argon on `review/argon-r5` `417a2bb`)
+
+Argon wrote and pushed its own reply (one file, `reviews/argon_r5_f1f4.md`, on `702ca00`); no copying.
+Its 26 line citations at `efada62` were read: 24 exact, two off by one line (core 2676, 2712: the
+calls are on the next line); the content of both right.
+
+- **Round 4's four points: resolved** in `702ca00` (its own reading, checked).
+- **Four more, all accepted, fixed in the prompt's next revision:**
+  - the completion at a real `OUT_BY` cannot run inside the sync step as it stands: the market is
+    not yet seeded there (core 2660 / 2665, 2762), and an exit the EA promotes in it (engine
+    3500-3503) is never registered with the broker book (`Rpl_TmProcessSyncRemovals` handles only
+    `REMOVE`, core 1109), so it could never fill: the completion runs as a `CB_DONE` does, at the
+    row's time, and the row's removal waits for it;
+  - `SCALP_CLOSED` takes its time from `Rpl_DrainOutputs` (core 2256): drained at the row's time;
+  - a pair still in the EA's queue is skipped by `Rpl_ProcessCloseByDone` (core 2297-2298): taken
+    off the queue first;
+  - a held exit (no exit order, engine 3480) at a real `EXT`: F2 b now covers it (else the exit
+    queue would place an exit for a closing layer, engine 3482). RT73 and RT74 added.
+
+Line count: 283

@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Written | 14 Oct 2026 (HANDOFF s82 continued), Claude (Lead Engineer) |
 | Why | Plan 3 FAILED on T1 (C 94.4%, D 94.9%). Its nine misses have four mechanical causes in the harness and one in the input builder (`docs/research/replay-consult-plan4.md` s2-s3, s8, s10). Plan 4 (`docs/research/replay-calibration-eurusd-4.md` s2-s4, REVIEWED and agreed) allows exactly these fixes, F1-F4, and nothing else |
 | Branches | **Part A (Python):** `plan4-tools` from `main` (`ebeaee7` or later). **Part B (MQL5):** `replay-plan4` from `replay-harness` `efada62`. Never commit to `main` or `replay-harness` |
-| Review | Argon round 4 (on `8b65360`; every line it cited checked by Claude; `docs/research/replay-consult-plan4.md` s11): four defects fixed in this revision (F2 b in-flight fills, F2 c-d one close-by rule, stored deferred pairs and exit positions, A-1's order). Cursor reads THIS commit |
+| Review | Argon round 4 (on `8b65360`; every line it cited checked by Claude; `docs/research/replay-consult-plan4.md` s11): four defects fixed (F2 b in-flight fills, F2 c-d one close-by rule, stored deferred pairs and exit positions, A-1's order). Argon round 5 (`review/argon-r5` `417a2bb`; consult s12): those resolved; four more fixed in this revision (the completion's execution, a held exit at F2 b, RT73, RT74). Cursor reads THIS commit |
 
 ## 0. RESTATE AND STOP (do this first; write nothing else)
 
@@ -102,9 +102,10 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
     (its exit position = the row's `position_id`, stored in the true book), using the same layer
     selection as today. A re-seed of a closing layer (`Rpl_SyncResetToTrueBook`, core 2520;
     `Rpl_AppendLayerManual` sets `exit_position_ticket = 0`, core 1753) carries that exit position.
-  - **b.** If the engine's layer still has a resting exit order at that row that the replay has
-    NOT touched (no deal in flight: not executing in the broker book, core 1123): remove that order
-    from the replay's book and set the layer's `exit_position_ticket` to the row's `position_id`.
+  - **b.** If the replay has NOT touched the layer's exit at that row (an exit order not executing
+    in the broker book, core 1123 / `Rpl_BkIsExec` 702, OR no exit order at all, e.g. a held exit
+    under the exit queue, engine 3480): remove any such order from the replay's book, clear the
+    layer's `exit_order_ticket`, and set its `exit_position_ticket` to the row's `position_id`.
     **Write no deal row** (as sync ENT rows write none): the replay must not be credited with a deal
     it did not make. If the replay HAS touched it (its deal event pending, timed: touch + latency),
     change nothing: the replay's own fill completes as today.
@@ -120,6 +121,17 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
       (it needs the layer still in the engine: engine 2891);
     - if the replay never had a close-by for that layer (case b), the reset removes the layer, as
       today.
+  - **How the completion runs (all of these hold):** it runs as a close-by completion does today
+    (the `CB_DONE` path, core 1005-1024; timing 0, core 2716), at the `OUT_BY` row's time: the
+    market seeded at that time; any order the EA places in it (an exit promoted by the exit queue,
+    engine 3500-3503) registered in the broker book (timed, `Rpl_BkPlace` 469) and the order scan
+    (timing 0) exactly as after a `CB_DONE`, so it can fill; its outputs (the OUT_BY deal rows,
+    `SCALP_CLOSED`) drained with that time (`Rpl_DrainOutputs`, 2239). A pair still in the EA's
+    close-by queue is removed from it first (`Rpl_RemoveCloseByQueueTicket`, 2425). Only pairs from
+    the queue, a pending `CB_DONE` or the harness's deferred list are completed (never case b). The
+    row's true-book removal and reset must not take the layer out before its completion has run: if
+    the completion cannot run inside the sync step (it runs before the market is seeded: core
+    2660 / 2665 and 2762), hold that ENT's removal until it has.
   - **e.** No exit order is re-placed for a closing layer between its `EXT` and `OUT_BY` rows.
 - **Tests (B-0), hand-derived, each asserting the NEW behaviour, at least:**
   - **RT64 (F3).** Sync; a long add order resting at X; a sync row triggers a reset; the next tick
@@ -152,6 +164,12 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
   - **RT71 (F2 c-d, OUT_BY first).** As RT69 but the real `OUT_BY` row before the replay's
     `CB_DONE`. Expected: the OUT_BY deal rows and one `SCALP_CLOSED` at the real OUT_BY time; the
     later `CB_DONE` writes nothing; depth 0 from that row.
+  - **RT73 (F2 b, a held exit).** Sync; a layer with NO exit order (held by the exit queue); its
+    real `EXT` row arrives. Expected: no exit order placed for it until its `OUT_BY` row; depth
+    unchanged until then.
+  - **RT74 (F2, a promotion at the completion).** Sync, timed; the completion at an `OUT_BY` row
+    promotes another layer's held exit (the exit queue). Expected: that exit order is in the broker
+    book and fills when the next tick touches it.
   - **RT72 (F2 b, a fill in flight).** Timed; the replay touches the exit at t; the real `EXT` row
     at t + 100 ms (before t + 261). Expected: one replay EXT deal at t + 261 (the replay's own); no
     deal removed or added by the row.
@@ -194,4 +212,4 @@ F3, F4, F1, F2, in that order; then the record. The operator compiles and runs t
 - **Q4.** F1 refuses sends by the stage's start time. Any stage whose sends could straddle 00:01?
 - **Q5.** What fact is missing?
 
-Line count: 197
+Line count: 215
