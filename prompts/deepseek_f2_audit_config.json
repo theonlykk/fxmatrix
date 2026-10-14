@@ -1,0 +1,16 @@
+{
+  "files_to_audit": {
+    "fxgrind_replay_core.mqh":      "d:/fxmatrix/temp/deepseek_f2/fxgrind_replay_core.mqh",
+    "replay_core_F1F4.diff":        "d:/fxmatrix/temp/deepseek_f2/replay_core_F1F4.diff",
+    "replay_tests_RT64_RT74.mq5":   "d:/fxmatrix/temp/deepseek_f2/replay_tests_RT64_RT74.mq5",
+    "grind_engine_deals_exitq.mqh": "d:/fxmatrix/temp/deepseek_f2/grind_engine_deals_exitq.mqh",
+    "grind_closeby.mqh":            "d:/fxmatrix/temp/deepseek_f2/grind_closeby.mqh"
+  },
+  "docs_to_include": {
+    "cursor_plan4_f1f4.md": "d:/fxmatrix/prompts/cursor_plan4_f1f4.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_f2_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_f2_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_f2_preview.md"
+}

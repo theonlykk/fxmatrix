@@ -2722,4 +2722,19 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A "~" time in a hand-over is an estimate:** the commits' own timestamps outrank it ("go
   ~19:50Z" was before 19:46Z, the first commit's time).
 
-Line count: 2725
+
+## TRAPS FROM 2026-10-14 NIGHT (ARGON ON A LARGE REVIEW)
+
+- **The quote-every-line rule did not hold on a large review.** Asked to read about 30 files
+  (the 4,000-line core among them) and answer 5 findings and 8 questions, Argon ran past 100
+  commands, its context filled, and the draft it wrote cited 111 lines of which 96 do not
+  exist. Keep a request to Argon to one change and its tests; split the rest.
+- **Check a reply's quotes mechanically before reading its argument:** a script that runs
+  `git show <commit>:<path>` and compares each quoted line takes a minute and settles it.
+- **An agent working in `D:\fxmatrix` owns the checkout until it reports.** The B-0 suite, a
+  DeepSeek run and a `git am` all need that folder: one at a time, each after the last agent has
+  switched back to `main`.
+- **PowerShell's `>` writes UTF-16:** extract files from git with `cmd /c "git show ... > f"`
+  (as `tools/replay_run.ps1` does) or with a Python script, never a bare `>`.
+
+Line count: 2740
