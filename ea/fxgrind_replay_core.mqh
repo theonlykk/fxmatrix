@@ -153,6 +153,7 @@ struct RplTrueLayer
    long   open_ms;
    double vl;
    double accrued;
+   ulong  exit_pos;
 };
 
 struct RplCbTask
@@ -195,6 +196,9 @@ long             g_rpl_last_engine_attempt_tick_ms = 0;
 RplSyncRealRow   g_rpl_sync_real[];
 int              g_rpl_sync_real_count = 0;
 int              g_rpl_sync_real_applied = 0;
+RplCbTask        g_rpl_sync_deferred_cb[];
+int              g_rpl_sync_deferred_cb_count = 0;
+bool             g_rpl_sync_completing_out_by = false;
 RplGapRow        g_rpl_gaps[];
 int              g_rpl_gap_count = 0;
 bool             g_rpl_skip_true_book_add = false;
@@ -1490,6 +1494,9 @@ void Rpl_ResetAll()
    ArrayResize(g_rpl_sync_real, 0);
    g_rpl_sync_real_count = 0;
    g_rpl_sync_real_applied = 0;
+   ArrayResize(g_rpl_sync_deferred_cb, 0);
+   g_rpl_sync_deferred_cb_count = 0;
+   g_rpl_sync_completing_out_by = false;
    ArrayResize(g_rpl_gaps, 0);
    g_rpl_gap_count = 0;
    ArrayResize(g_rpl_all_ticks, 0);
@@ -1892,6 +1899,7 @@ void Rpl_TrueBookAdd(const string side, const int layer, const double entry, con
    g_rpl_true_book[g_rpl_true_book_count].open_ms = open_ms;
    g_rpl_true_book[g_rpl_true_book_count].vl = vl;
    g_rpl_true_book[g_rpl_true_book_count].accrued = 0.0;
+   g_rpl_true_book[g_rpl_true_book_count].exit_pos = 0;
    g_rpl_true_book_count++;
 }
 
@@ -2412,6 +2420,31 @@ bool Rpl_QueueHasTask(const RplCbTask &tasks[], const int count, const ulong t1,
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_TrueBookHasEntTicket(const ulong ticket)
+{
+   if(ticket == 0)
+      return false;
+   for(int i = 0; i < g_rpl_true_book_count; i++) {
+      if(g_rpl_true_book[i].ticket == ticket)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_SyncAddDeferredCloseBy(const ulong t1, const ulong t2)
+{
+   for(int i = 0; i < g_rpl_sync_deferred_cb_count; i++) {
+      if(g_rpl_sync_deferred_cb[i].t1 == t1 && g_rpl_sync_deferred_cb[i].t2 == t2)
+         return;
+   }
+   ArrayResize(g_rpl_sync_deferred_cb, g_rpl_sync_deferred_cb_count + 1);
+   g_rpl_sync_deferred_cb[g_rpl_sync_deferred_cb_count].t1 = t1;
+   g_rpl_sync_deferred_cb[g_rpl_sync_deferred_cb_count].t2 = t2;
+   g_rpl_sync_deferred_cb_count++;
+}
+
+//+------------------------------------------------------------------+
 void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const int before_n)
 {
    RplCbTask after[];
@@ -2420,6 +2453,10 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
    for(int i = 0; i < before_n; i++) {
       if(Rpl_QueueHasTask(after, after_n, before[i].t1, before[i].t2))
          continue;
+      if(g_rpl_cfg.sync && !g_rpl_sync_completing_out_by && Rpl_TrueBookHasEntTicket(before[i].t1)) {
+         Rpl_SyncAddDeferredCloseBy(before[i].t1, before[i].t2);
+         continue;
+      }
       RplPosMeta ent, ext;
       ext.ticket = 0;
       if(!Rpl_FindPosMeta(before[i].t1, ent))
@@ -2601,6 +2638,99 @@ void Rpl_RemoveLayerByTicket(GrindSideState &side, const ulong pos_ticket)
 }
 
 //+------------------------------------------------------------------+
+void Rpl_SyncApplyRealExtToSide(GrindSideState &side, const ulong ent_ticket, const ulong real_exit_pos)
+{
+   for(int i = 0; i < ArraySize(side.layers); i++) {
+      if(side.layers[i].position_ticket != ent_ticket)
+         continue;
+      const ulong ord_tk = side.layers[i].exit_order_ticket;
+      const bool touched = (side.layers[i].exit_position_ticket != 0)
+                           || (g_rpl_tm_on && ord_tk != 0 && Rpl_BkIsExec(ord_tk));
+      if(!touched) {
+         if(ord_tk != 0) {
+            Grind_OrderTestRemove(ord_tk);
+            side.layers[i].exit_order_ticket = 0;
+         }
+         side.layers[i].exit_position_ticket = real_exit_pos;
+      }
+      return;
+   }
+}
+
+//+------------------------------------------------------------------+
+bool Rpl_SyncPopCloseByForEntTicket(const ulong ent_ticket, RplCbTask &out_task)
+{
+   for(int i = 0; i < g_rpl_sync_deferred_cb_count; i++) {
+      if(g_rpl_sync_deferred_cb[i].t1 == ent_ticket || g_rpl_sync_deferred_cb[i].t2 == ent_ticket) {
+         out_task = g_rpl_sync_deferred_cb[i];
+         for(int j = i; j < g_rpl_sync_deferred_cb_count - 1; j++)
+            g_rpl_sync_deferred_cb[j] = g_rpl_sync_deferred_cb[j + 1];
+         g_rpl_sync_deferred_cb_count--;
+         ArrayResize(g_rpl_sync_deferred_cb, g_rpl_sync_deferred_cb_count);
+         return true;
+      }
+   }
+   for(int i = 0; i < g_rpl_tm_pend_count; i++) {
+      if(g_rpl_tm_pend[i].kind == RPL_TM_EV_CLOSEBY_DONE
+         && (g_rpl_tm_pend[i].cb.t1 == ent_ticket || g_rpl_tm_pend[i].cb.t2 == ent_ticket)) {
+         out_task = g_rpl_tm_pend[i].cb;
+         for(int j = i; j < g_rpl_tm_pend_count - 1; j++)
+            g_rpl_tm_pend[j] = g_rpl_tm_pend[j + 1];
+         g_rpl_tm_pend_count--;
+         ArrayResize(g_rpl_tm_pend, g_rpl_tm_pend_count);
+         return true;
+      }
+   }
+   for(int i = 0; i < ArraySize(g_grind_long_closeby_queue); i++) {
+      if(g_grind_long_closeby_queue[i].ticket1 == ent_ticket
+         || g_grind_long_closeby_queue[i].ticket2 == ent_ticket) {
+         out_task.t1 = g_grind_long_closeby_queue[i].ticket1;
+         out_task.t2 = g_grind_long_closeby_queue[i].ticket2;
+         Rpl_RemoveCloseByQueueTicket(ent_ticket);
+         return true;
+      }
+   }
+   for(int i = 0; i < ArraySize(g_grind_short_closeby_queue); i++) {
+      if(g_grind_short_closeby_queue[i].ticket1 == ent_ticket
+         || g_grind_short_closeby_queue[i].ticket2 == ent_ticket) {
+         out_task.t1 = g_grind_short_closeby_queue[i].ticket1;
+         out_task.t2 = g_grind_short_closeby_queue[i].ticket2;
+         Rpl_RemoveCloseByQueueTicket(ent_ticket);
+         return true;
+      }
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void Rpl_SyncCompleteCloseByAt(const long out_by_ms, const long sync_tick_ms, const RplCbTask &task)
+{
+   if(g_rpl_tm_on)
+      Rpl_TmProcessSyncRemovals(sync_tick_ms);
+   else
+      Rpl_OrderLogDiff(sync_tick_ms, "SYNC");
+   const long mkt_ms = Rpl_TmMarketMsAt(out_by_ms);
+   Rpl_TmSeedMarketAt(mkt_ms);
+   RplCbTask one[];
+   ArrayResize(one, 1);
+   one[0] = task;
+   g_rpl_sync_completing_out_by = true;
+   Rpl_ProcessCloseByDone(out_by_ms, one, 1);
+   g_rpl_sync_completing_out_by = false;
+   if(g_rpl_tm_on) {
+      long cb_cursor = MathMax(out_by_ms, g_rpl_tm_free_ms);
+      int cb_sends = 0;
+      RplCbTask cb_empty[];
+      Rpl_TmDiffStageSends("CB_DONE", cb_cursor, cb_sends, false, cb_empty, 0, cb_empty, 0);
+      g_rpl_tm_free_ms = cb_cursor;
+   } else {
+      Rpl_ScanNewOrders(out_by_ms);
+      Rpl_OrderLogDiff(out_by_ms, "CB_DONE");
+   }
+   Rpl_DrainOutputs(out_by_ms);
+}
+
+//+------------------------------------------------------------------+
 void Rpl_SyncResetToTrueBook()
 {
    for(int t = 0; t < g_rpl_true_book_count; t++) {
@@ -2657,6 +2787,12 @@ void Rpl_SyncResetToTrueBook()
          if(g_rpl_true_book[t].accrued != 0.0)
             Grind_CarryAccruedSet(g_rpl_true_book[t].ticket, g_rpl_true_book[t].accrued);
       }
+      if(g_rpl_true_book[t].exit_pos != 0) {
+         if(tb_long)
+            Rpl_SyncApplyRealExtToSide(g_grind_long, g_rpl_true_book[t].ticket, g_rpl_true_book[t].exit_pos);
+         else
+            Rpl_SyncApplyRealExtToSide(g_grind_short, g_rpl_true_book[t].ticket, g_rpl_true_book[t].exit_pos);
+      }
    }
    g_grind_long.l0_pending_ticket = keep_l0;
    g_grind_long.add_pending_ticket = keep_add;
@@ -2673,6 +2809,7 @@ void Rpl_ApplySyncDealsUpTo(const long tick_ms)
    while(g_rpl_sync_real_applied < g_rpl_sync_real_count
          && g_rpl_sync_real[g_rpl_sync_real_applied].time_ms <= tick_ms) {
       const RplSyncRealRow rd = g_rpl_sync_real[g_rpl_sync_real_applied];
+      g_rpl_sync_idx = g_rpl_sync_real_applied;
       if(rd.kind == "ENT") {
          Rpl_TrueBookAdd(rd.side, rd.layer, rd.price, rd.position_id, 0.0, RPL_LOTS_DEFAULT, rd.time_ms, 0.0);
          for(int i = g_rpl_true_book_count - 1; i >= 0; i--) {
@@ -2682,22 +2819,31 @@ void Rpl_ApplySyncDealsUpTo(const long tick_ms)
             }
          }
       } else if(rd.kind == "EXT") {
-         int remove_i = -1;
+         int match_i = -1;
          long newest_ms = 0;
          for(int i = 0; i < g_rpl_true_book_count; i++) {
             if(g_rpl_true_book[i].side != rd.side || g_rpl_true_book[i].layer != rd.layer)
                continue;
-            if(remove_i < 0 || g_rpl_true_book[i].open_ms >= newest_ms) {
+            if(g_rpl_true_book[i].exit_pos != 0)
+               continue;
+            if(match_i < 0 || g_rpl_true_book[i].open_ms >= newest_ms) {
                newest_ms = g_rpl_true_book[i].open_ms;
-               remove_i = i;
+               match_i = i;
             }
          }
-         if(remove_i >= 0) {
-            for(int j = remove_i; j < g_rpl_true_book_count - 1; j++)
-               g_rpl_true_book[j] = g_rpl_true_book[j + 1];
-            g_rpl_true_book_count--;
+         if(match_i >= 0) {
+            g_rpl_true_book[match_i].exit_pos = rd.position_id;
+            if(rd.side == "L")
+               Rpl_SyncApplyRealExtToSide(g_grind_long, g_rpl_true_book[match_i].ticket, rd.position_id);
+            else
+               Rpl_SyncApplyRealExtToSide(g_grind_short, g_rpl_true_book[match_i].ticket, rd.position_id);
          }
       } else if(rd.kind == "OUT_BY") {
+         if(Rpl_TrueBookHasEntTicket(rd.position_id)) {
+            RplCbTask cb_task;
+            if(Rpl_SyncPopCloseByForEntTicket(rd.position_id, cb_task))
+               Rpl_SyncCompleteCloseByAt(rd.time_ms, tick_ms, cb_task);
+         }
          for(int i = g_rpl_true_book_count - 1; i >= 0; i--) {
             if(g_rpl_true_book[i].ticket == rd.position_id) {
                for(int j = i; j < g_rpl_true_book_count - 1; j++)
@@ -2714,7 +2860,6 @@ void Rpl_ApplySyncDealsUpTo(const long tick_ms)
             }
          }
       }
-      g_rpl_sync_idx = g_rpl_sync_real_applied;
       g_rpl_sync_real_applied++;
       changed = true;
    }
