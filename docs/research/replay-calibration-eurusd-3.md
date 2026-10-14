@@ -158,6 +158,22 @@ then it is frozen with the tolerance table of s3.
   174,299 ticks, clean). An earlier export of the same six (~21:45Z) is
   recorded as superseded. Nothing has read them. Round 3's scoring used a
   separate study export and wine-c's bid / ask, not these files.
+- **Note (14 Oct ~02:20Z, s81): s7's first step, THE HOLDOUT INPUTS**
+  (`research/replay/build_holdout.py`, tests first; manifest
+  `research/replay/inputs/eurusd_holdout.sha256`, set `eurusd_holdout`).
+  The seven raw files hash equal to their manifest. One segment a fleet
+  (no init in the window): B 31 from its 7 Oct 02:21:20Z init, C 41 from
+  02:12:36Z, D 51 from 9 Oct 04:24:14.290Z, all to 14 Oct 01:00 server;
+  tags eurusd_b / c / d as before. No breaker or API-limit code in any
+  window: intervals empty. No cap warning. Checks: seed_31 / orders_31 and
+  seed_41 / orders_41 equal the calibration's seed_9 / orders_9 and
+  seed_19 / orders_19 byte for byte; B's and C's real deals up to 9 Oct
+  01:00 server equal the calibration's (214 and 239 rows); swaps.csv's
+  1-9 Oct rows equal the calibration's. Ticks: w2 and hold joined at
+  9 Oct 01:30 server (`build_holdout.py join`: headers meet, no tick on
+  the wrong side, 44.9 s from the last w2 tick to the first hold tick),
+  `ticks_53077984_EURUSD_w2h.csv`, 651,120 ticks, sha256 `fe37e42a...0392`, 22,397,330 bytes
+  (in the manifest's comments; not in git). Next: T0.
 
 ## 8. ORDER OF WORK
 

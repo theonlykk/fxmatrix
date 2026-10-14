@@ -1,0 +1,19 @@
+# Plan 3 s7 holdout inputs (build_holdout.py build; build_swaps.py --from 2026-10-01 --to 2026-10-14), from the _2026-10-13_2210 set
+# (eurusd_holdout_raw.sha256). Ticks NOT in git: ticks_53077984_EURUSD_w2h.csv = build_holdout.py join of w2 (db2ea941...) and hold (da4776f4...),
+# 651120 ticks, seam 2026.10.09 01:30 server (gap 44.9 s), 22397330 bytes, sha256 fe37e42aa569689248296c3a06c3f1953abd413670bde9cd4e6530b7fb550392
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_b.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_c.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_d.csv
+bddf34a0aa3e24613c81af49996c25542f4dbca5126802ac3797e67900ddbc08  orders_31.csv
+8f12692da9f8121ff30cb843b0ea9d73da0ec88ed5f49c40d9020c0eb8fb6457  orders_41.csv
+29926144287975a95bf7ca5cceefd38c1f14bc0645fd4dc37b040dfb5369fe06  orders_51.csv
+25b50ed47da838b34a42a8bd2627ad5e03b9a263caea62866f5a41f5f4c93de5  real_eurusd_b.csv
+85ca66183e6eb841671221d86f93e30a635a12455069e57a8bb0950216d6ae14  real_eurusd_c.csv
+7bc92eb414a2343fae1534f5b85f61310226c4925f895f792befc5025dbb90e9  real_eurusd_d.csv
+2f72893b59175490ecc2cb29eeee9acb8ba133b293b0cf9dc6ee2744eb5d4340  run_eurusd_b.csv
+61691c8f9275c37eba12490e3ec85ac1f2058878a93b3f933dce9a5174ef0de5  run_eurusd_c.csv
+bb0839b64264820ba3e056dd945f36297c7de8b9b20e5f261872b95cfa334076  run_eurusd_d.csv
+c6ef9e26a0f16769273d81789256ae15b5d32d41ec2bdf9186d24341c2e16a3f  seed_31.csv
+af91d8c432bad4310681d60f58fefde05ef13af6744bae6c713852723efb623c  seed_41.csv
+08a110b567fde69bf92467331f3a2e662589e04c5fd61b2acf3747567a6b96a7  seed_51.csv
+dbd8ee4a19876108868a370475574284e155499ac7bb9b335636caa5534e01d0  swaps.csv
