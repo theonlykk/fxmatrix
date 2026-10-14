@@ -174,6 +174,11 @@ then it is frozen with the tolerance table of s3.
   the wrong side, 44.9 s from the last w2 tick to the first hold tick),
   `ticks_53077984_EURUSD_w2h.csv`, 651,120 ticks, sha256 `fe37e42a...0392`, 22,397,330 bytes
   (in the manifest's comments; not in git). Next: T0.
+- **Note (14 Oct ~02:35Z, s81): s7's T0 PASSES** (`research/replay/results/plan3/holdout_t0.py`,
+  output `holdout_t0.txt`; the same lines as `score_plan3.fleet`'s T0, no run read): a
+  touching tick on the order price for every real deal after the cut, B 69 / 69, C 72 / 72,
+  D 59 / 59 (whole windows 172 / 172, 188 / 188, 59 / 59). Next: the runs (B, C, D x SYNC,
+  FREE, timing 1 base, then timing 0; harness `145f092`).
 
 ## 8. ORDER OF WORK
 

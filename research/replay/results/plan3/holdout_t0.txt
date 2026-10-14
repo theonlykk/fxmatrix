@@ -1,0 +1,5 @@
+T0 on the ORDER price; scored window from the cut 1791531120000 (9 Oct 04:32Z); mark >= 95%
+T0|B|scored 69 / 69 = 100.0%|pass|whole window 172 / 172
+T0|C|scored 72 / 72 = 100.0%|pass|whole window 188 / 188
+T0|D|scored 59 / 59 = 100.0%|pass|whole window 59 / 59
+T0|ALL|pass
