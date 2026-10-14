@@ -2678,4 +2678,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   the calibration's last B segment: 2 and 43). It is not a scored number: counts come from the
   FREE run's events.
 
-Line count: 2681
+## TRAPS FROM 2026-10-14 EARLY, 3 (ARGON; A REUSED NAME AGAIN; THE SANDBOX BASE)
+
+- **Argon (Gemini 4) reads code and data well and invents when it summarises.** Round 1 quoted rows of
+  `real_eurusd_c.csv` that do not exist, plan 3 figures that are not plan 3's and a tolerance formula
+  of its own; round 2 again invented plan 3's marks. Round 3, told to quote every file it cites with
+  its line number or write "not read", was exact. Put that line in every request to it, and check
+  every quote before a ruling is recorded.
+- **`compare.py`'s `misses.csv` shows the ORDER price for replay rows**, not the replay's fill price.
+  The replay at timing 1 fills at the quote (`Rpl_TmRunDealHandler`); read `out_*_deals.csv` for it.
+  The consult's A4 / A7 said otherwise and were wrong.
+- **A reused Downloads name bit again** (`s82d`): the read-back hash was the earlier bytes. The
+  read-back caught it; the patch went out as `s82e`. Never reuse a name, even within the hour.
+- **After the operator's `git am`, his commit hashes differ from the sandbox's.** Build every patch on
+  `git checkout -B main origin/main`, never on the sandbox's own earlier commit: `s82d` was first
+  built on the sandbox's `445779a` (equal tree to his `eebd8a7`) and would not have applied.
+- **Check the calendar for the whole window before proposing it.** Thu 15 Oct's 08:30 ET retail
+  sales, PPI and claims would have sat inside plan 4's first window.
+
+Line count: 2699

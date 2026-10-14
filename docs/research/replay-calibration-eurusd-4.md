@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED** (Argon G5-1..6, 14 Oct ~04:20Z; every quote checked by Claude, s9); amended 14 Oct ~04:35Z (s82). Committed before **Thu 15 Oct 21:00Z (17:00 ET)**, when the window opens; the operator's agreement to record. Before: DRAFT (14 Oct ~04:10Z) |
+| Status | **REVIEWED** (Argon G5-1..6, 14 Oct ~04:20Z; every quote checked by Claude, s9); amended 14 Oct ~04:35Z (s82). Committed before **Thu 15 Oct 21:00Z (17:00 ET)**, when the window opens. **The operator agreed, blinding included, 14 Oct ~13:57Z** ("yes blinding side is fine"). Before: DRAFT (14 Oct ~04:10Z) |
 | Origin | Plan 3 CLOSED, FAIL on T1 (`replay-calibration-eurusd-3.md` s7, note of 14 Oct ~03:10Z). Its misses were read (C152) and the fixes F1-F4 found (`replay-consult-plan4.md` s3, s8, s10). Operator 14 Oct ~03:12Z: "why not work a bit more on that?"; ~04:10Z "lets do a bit more work tonight" |
 | Rules it keeps | Plan 3 entire, except where this file says otherwise: the question (s1), the marks, match rule and tolerances (plan 3 s3), what a result means (plan 3 s4), its known limits (plan 3 s5), seeding at an init, T0 on the order price, the scorer `score_plan3.py` unchanged |
 | Changes from plan 3 | The harness (s2: `145f092` + F1-F4); the window (s3); the development check (s4) |
