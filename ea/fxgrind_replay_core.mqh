@@ -213,6 +213,89 @@ struct RplTestInterval
 
 RplTestInterval  g_rpl_test_intervals[];
 int              g_rpl_test_interval_count = 0;
+
+struct RplSessionWindow
+{
+   int day_of_week;
+   int from_min;
+   int to_min;
+};
+
+RplSessionWindow g_rpl_sessions[];
+int              g_rpl_sessions_count = 0;
+
+struct RplSendGateSnap
+{
+   bool gated;
+   bool prev_ord_ok;
+   uint prev_ord_rc;
+   bool prev_cb_ok;
+   uint prev_cb_rc;
+};
+
+bool Rpl_ParseHHMM(const string s, int &out_min)
+{
+   if(StringLen(s) != 5 || StringGetCharacter(s, 2) != ':')
+      return false;
+   for(int i = 0; i < 5; i++) {
+      if(i == 2)
+         continue;
+      const ushort ch = StringGetCharacter(s, i);
+      if(ch < '0' || ch > '9')
+         return false;
+   }
+   const int hh = (int)StringToInteger(StringSubstr(s, 0, 2));
+   const int mm = (int)StringToInteger(StringSubstr(s, 3, 2));
+   if(hh == 24 && mm == 0) {
+      out_min = 1440;
+      return true;
+   }
+   if(hh < 0 || hh > 23 || mm < 0 || mm > 59)
+      return false;
+   out_min = hh * 60 + mm;
+   return true;
+}
+
+bool Rpl_SessionIsOpen(const long time_ms)
+{
+   if(g_rpl_sessions_count == 0)
+      return true;
+   MqlDateTime dt;
+   TimeToStruct((datetime)(time_ms / 1000), dt);
+   const int m = dt.hour * 60 + dt.min;
+   for(int i = 0; i < g_rpl_sessions_count; i++) {
+      if(g_rpl_sessions[i].day_of_week == dt.day_of_week
+         && m >= g_rpl_sessions[i].from_min
+         && m < g_rpl_sessions[i].to_min)
+         return true;
+   }
+   return false;
+}
+
+void Rpl_SessionSendGateBegin(const long time_ms, RplSendGateSnap &snap)
+{
+   snap.gated = !Rpl_SessionIsOpen(time_ms);
+   if(!snap.gated)
+      return;
+   snap.prev_ord_ok = g_grind_order_test_send_ok;
+   snap.prev_ord_rc = g_grind_order_test_send_retcode;
+   snap.prev_cb_ok = g_grind_closeby_test_send_ok;
+   snap.prev_cb_rc = g_grind_closeby_test_send_retcode;
+   g_grind_order_test_send_ok = false;
+   g_grind_order_test_send_retcode = 10018;
+   g_grind_closeby_test_send_ok = false;
+   g_grind_closeby_test_send_retcode = 10018;
+}
+
+void Rpl_SessionSendGateEnd(const RplSendGateSnap &snap)
+{
+   if(!snap.gated)
+      return;
+   g_grind_order_test_send_ok = snap.prev_ord_ok;
+   g_grind_order_test_send_retcode = snap.prev_ord_rc;
+   g_grind_closeby_test_send_ok = snap.prev_cb_ok;
+   g_grind_closeby_test_send_retcode = snap.prev_cb_rc;
+}
 RplTestInterval  g_rpl_file_intervals[];
 int              g_rpl_file_interval_count = 0;
 RplSyncRealRow   g_rpl_real_file_rows[];
@@ -905,6 +988,8 @@ void Rpl_TmRunStage(const string stage_name,
    int stage_sends = 0;
    RplCbTask cb_done[];
    int cb_done_n = 0;
+   RplSendGateSnap gate_snap;
+   Rpl_SessionSendGateBegin(stage_start, gate_snap);
    if(run_closeby) {
       Grind_ProcessCloseByQueues(g_rpl_cfg.magic, false);
       RplCbTask cb_after[];
@@ -935,6 +1020,7 @@ void Rpl_TmRunStage(const string stage_name,
       Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, (datetime)(cursor / 1000),
                              g_rpl_cfg.exit_s);
    }
+   Rpl_SessionSendGateEnd(gate_snap);
    if(!Rpl_EngineSeamsOrAbort())
       return;
    Rpl_TmDiffStageSends(stage_name, cursor, stage_sends, run_closeby, cb_before, cb_before_n, cb_done, cb_done_n);
@@ -997,9 +1083,13 @@ void Rpl_TmRunDealHandler(const RplTmPendingEv &ev)
    Rpl_WriteDealOutput(deal_time, deal_id, ticket, pos_id, DEAL_ENTRY_IN, deal_type, role, side, layer, fill_price);
    Grind_OrderTestRemove(ticket);
    Rpl_BkDrop(ticket);
-   if(Rpl_EngineSeamsOrAbort())
+   if(Rpl_EngineSeamsOrAbort()) {
+      RplSendGateSnap gate_snap;
+      Rpl_SessionSendGateBegin(start, gate_snap);
       Grind_ProcessDeal(deal_id, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
+      Rpl_SessionSendGateEnd(gate_snap);
+   }
    RplCbTask cb_empty[];
    Rpl_TmDiffStageSends("DEAL", cursor, sends, false, cb_empty, 0, cb_empty, 0);
    g_rpl_tm_free_ms = cursor;
@@ -1122,6 +1212,8 @@ void Rpl_TmProcessSyncRemovals(const long t)
 //+------------------------------------------------------------------+
 void Rpl_TmBrokerStep(const long t, const double bid, const double ask)
 {
+   if(!Rpl_SessionIsOpen(t))
+      return;
    for(int i = 0; i < g_rpl_bk_count; i++) {
       const ulong ticket = g_rpl_bk[i].ticket;
       if(!Rpl_BkTouched(ticket, t, bid, ask, g_rpl_tm_thru_pts))
@@ -1208,12 +1300,24 @@ void Rpl_SetOutputSuffix(const string s)
 //+------------------------------------------------------------------+
 void Rpl_AddTestSession(const int day_of_week, const string trade_from, const string trade_to)
 {
+   int fmin = 0, tmin = 0;
+   if(day_of_week < 0 || day_of_week > 6)
+      return;
+   if(!Rpl_ParseHHMM(trade_from, fmin) || !Rpl_ParseHHMM(trade_to, tmin))
+      return;
+   if(fmin >= tmin)
+      return;
+   ArrayResize(g_rpl_sessions, g_rpl_sessions_count + 1);
+   g_rpl_sessions[g_rpl_sessions_count].day_of_week = day_of_week;
+   g_rpl_sessions[g_rpl_sessions_count].from_min = fmin;
+   g_rpl_sessions[g_rpl_sessions_count].to_min = tmin;
+   g_rpl_sessions_count++;
 }
 
 //+------------------------------------------------------------------+
 int Rpl_SessionsCount()
 {
-   return 0;
+   return g_rpl_sessions_count;
 }
 
 //+------------------------------------------------------------------+
@@ -1396,6 +1500,8 @@ void Rpl_ResetAll()
    g_rpl_skip_true_book_add = false;
    ArrayResize(g_rpl_test_intervals, 0);
    g_rpl_test_interval_count = 0;
+   ArrayResize(g_rpl_sessions, 0);
+   g_rpl_sessions_count = 0;
    g_rpl_seg_ticks_processed = 0;
    g_grind_order_test_active = true;
    g_grind_closeby_test_active = true;
@@ -2370,12 +2476,17 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
                           ext.layer >= 0 ? ext.layer : 0, ent.entry);
       if(!Rpl_EngineSeamsOrAbort())
          return;
+      RplSendGateSnap gate_snap;
+      Rpl_SessionSendGateBegin(tick_ms, gate_snap);
       Grind_ProcessDeal(d1, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
-      if(!Rpl_EngineSeamsOrAbort())
+      if(!Rpl_EngineSeamsOrAbort()) {
+         Rpl_SessionSendGateEnd(gate_snap);
          return;
+      }
       Grind_ProcessDeal(d2, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
+      Rpl_SessionSendGateEnd(gate_snap);
       Rpl_RemoveCloseByPos(before[i].t1);
       Rpl_RemoveCloseByPos(before[i].t2);
       Rpl_RemovePositionTicket(before[i].t1);
@@ -2388,6 +2499,8 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
 //+------------------------------------------------------------------+
 void Rpl_FillsOnTick(const long tick_ms, const double bid, const double ask)
 {
+   if(!Rpl_SessionIsOpen(tick_ms))
+      return;
    ulong fill_tickets[];
    int fill_n = 0;
    for(int i = 0; i < g_grind_order_test_count; i++) {
@@ -2705,14 +2818,19 @@ void Rpl_ProcessOneTickInstant(const RplTick &tick)
    const bool trkL0 = g_grind_vl_tracking_long;
    const bool trkS0 = g_grind_vl_tracking_short;
 
+   RplSendGateSnap gate_snap;
+   Rpl_SessionSendGateBegin(t, gate_snap);
    Grind_ProcessCloseByQueues(g_rpl_cfg.magic, false);
+   Rpl_SessionSendGateEnd(gate_snap);
    Rpl_OrderLogDiff(t, "CLOSEBY");
    if(!Rpl_EngineSeamsOrAbort())
       return;
    Rpl_EnsureLatticeHistory(t);
+   Rpl_SessionSendGateBegin(t, gate_snap);
    Grind_LatticeOnTick(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, RPL_LOTS_DEFAULT, g_rpl_cfg.lattice,
                        g_rpl_cfg.exit_l, g_rpl_cfg.add_l, g_rpl_cfg.cap, false, (datetime)(t / 1000),
                        g_rpl_cfg.exit_s, g_rpl_cfg.add_s, g_rpl_cfg.reroll, g_rpl_cfg.gate);
+   Rpl_SessionSendGateEnd(gate_snap);
    Rpl_OrderLogDiff(t, "LATTICE");
    if(!Rpl_EngineSeamsOrAbort())
       return;
@@ -2720,9 +2838,11 @@ void Rpl_ProcessOneTickInstant(const RplTick &tick)
                             && (t - g_rpl_last_engine_attempt_tick_ms) > 5000);
    g_rpl_last_engine_attempt_tick_ms = t;
    if(!stale_skip) {
+      Rpl_SessionSendGateBegin(t, gate_snap);
       Grind_OnTickEngine(g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.width_l, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                          g_rpl_cfg.stranded, g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT,
                          g_rpl_cfg.width_s, g_rpl_cfg.add_s);
+      Rpl_SessionSendGateEnd(gate_snap);
    }
    Rpl_OrderLogDiff(t, "ENGINE");
 
@@ -2741,8 +2861,10 @@ void Rpl_ProcessOneTickInstant(const RplTick &tick)
    if(g_rpl_last_timer_ms == 0 || t - g_rpl_last_timer_ms >= 60000) {
       if(!Rpl_EngineSeamsOrAbort())
          return;
+      Rpl_SessionSendGateBegin(t, gate_snap);
       Grind_CarryOnTimerStep(_Symbol, g_rpl_cfg.magic, g_rpl_cfg.exit_l, g_rpl_cfg.carry, (datetime)(t / 1000),
                              g_rpl_cfg.exit_s);
+      Rpl_SessionSendGateEnd(gate_snap);
       g_rpl_last_timer_ms = t;
    }
    Rpl_ScanNewOrders(t);
@@ -3433,6 +3555,64 @@ void Rpl_AppendSegmentOutputs(RplRunOutputHandles &handles)
 }
 
 //+------------------------------------------------------------------+
+bool Rpl_LoadSessionsFile(const string fname, const bool log_once)
+{
+   ArrayResize(g_rpl_sessions, 0);
+   g_rpl_sessions_count = 0;
+   const int sh = FileOpen("replay\\" + fname, FILE_READ | FILE_CSV | FILE_ANSI, ',');
+   if(sh == INVALID_HANDLE) {
+      Print("RPL|ABORT|MISSING_SESSIONS|file=", fname);
+      return false;
+   }
+   bool header_done = false;
+   string fields[];
+   while(Rpl_CsvReadLineFields(sh, fields)) {
+      if(Rpl_CsvFieldsAllEmpty(fields))
+         continue;
+      if(StringFind(fields[0], "#") == 0)
+         continue;
+      if(!header_done) {
+         if(!Rpl_CsvHeaderOk(fields, "day_of_week", fname)) {
+            FileClose(sh);
+            Print("RPL|ABORT|BAD_SESSIONS|file=", fname);
+            return false;
+         }
+         header_done = true;
+         continue;
+      }
+      if(ArraySize(fields) < 3 || StringLen(fields[0]) == 0) {
+         FileClose(sh);
+         Print("RPL|ABORT|BAD_SESSIONS_ROW|file=", fname);
+         return false;
+      }
+      for(int k = 0; k < StringLen(fields[0]); k++) {
+         const ushort ch = StringGetCharacter(fields[0], k);
+         if(ch < '0' || ch > '9') {
+            FileClose(sh);
+            Print("RPL|ABORT|BAD_SESSIONS_DOW|file=", fname);
+            return false;
+         }
+      }
+      const int dow = (int)StringToInteger(fields[0]);
+      int fmin = 0, tmin = 0;
+      if(dow < 0 || dow > 6 || !Rpl_ParseHHMM(fields[1], fmin) || !Rpl_ParseHHMM(fields[2], tmin) || fmin >= tmin) {
+         FileClose(sh);
+         Print("RPL|ABORT|BAD_SESSIONS_VAL|file=", fname);
+         return false;
+      }
+      ArrayResize(g_rpl_sessions, g_rpl_sessions_count + 1);
+      g_rpl_sessions[g_rpl_sessions_count].day_of_week = dow;
+      g_rpl_sessions[g_rpl_sessions_count].from_min = fmin;
+      g_rpl_sessions[g_rpl_sessions_count].to_min = tmin;
+      g_rpl_sessions_count++;
+   }
+   FileClose(sh);
+   if(log_once)
+      Print("RPL|SESSIONS|", fname, "|", g_rpl_sessions_count);
+   return true;
+}
+
+//+------------------------------------------------------------------+
 bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
 {
    g_rpl_swap_count = 0;
@@ -3568,6 +3748,17 @@ bool Rpl_RunReplayFiles(const string tag, const bool sync_mode)
       Rpl_ResetAll();
       g_rpl_gap_count = 0;
       ArrayResize(g_rpl_gaps, 0);
+      const string sessions_file = (ArraySize(fields) > 23) ? fields[23] : "";
+      if(StringLen(sessions_file) > 0) {
+         if(!Rpl_LoadSessionsFile(sessions_file, seg_line == 1)) {
+            FileClose(rh);
+            Rpl_CloseRunOutputs(out);
+            Rpl_RunReplayClearFileState();
+            return false;
+         }
+      } else if(seg_line == 1) {
+         Print("RPL|SESSIONS|none");
+      }
       cfg.sync = sync_mode;
       g_rpl_cfg = cfg;
       Rpl_ConfigureEngine(cfg);
