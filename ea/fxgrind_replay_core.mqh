@@ -2542,8 +2542,6 @@ void Rpl_SyncResetToTrueBook()
    g_grind_long.add_pending_ticket = keep_add;
    g_grind_short.l0_pending_ticket = keep_l0s;
    g_grind_short.add_pending_ticket = keep_adds;
-   g_grind_start_add_reprice_long = true;
-   g_grind_start_add_reprice_short = true;
 }
 
 //+------------------------------------------------------------------+
