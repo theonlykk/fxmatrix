@@ -2710,4 +2710,16 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   branch. Their prompts end with "switch back to main": an agent left `D:\fxmatrix` on its review
   branch once, and the next `git am` needs main.
 
-Line count: 2713
+
+## TRAPS FROM 2026-10-14 EVENING (THE COMMIT REVIEW)
+
+- **A function parameter is not a CLI flag.** The F1-F4 prompt gave `fleet_files` a
+  `sessions_file` and asked for "an optional column", but named no `--sessions` flag on
+  `build_inputs.py`'s CLI, so the tool that rebuilds the calibration window cannot use it. When a
+  prompt adds an input for a later step, name every entry point that step will call.
+- **A "byte-identical" test that compares a function's default with itself proves nothing.** Pin
+  the bytes, or check by hash on real data (a rebuilt set against its committed manifest).
+- **A "~" time in a hand-over is an estimate:** the commits' own timestamps outrank it ("go
+  ~19:50Z" was before 19:46Z, the first commit's time).
+
+Line count: 2725

@@ -260,6 +260,10 @@ Four defects in the prompt, all accepted and fixed in its next revision:
   close-by (a higher `seq`); and the clock fix applies before the window filter. Fixed.
 - Q1-Q4 answered in line with the fixes; Q3 (the stale rule keyed on the engine's previous attempt)
   and Q4 (no stage straddles 00:01: refused sends advance no clock) accepted.
+- **R2-2's wording (s10) is met by F4's design (noted 14 Oct ~21:45Z, s83):** R2-2 asked that the
+  EA's guard stop reading the terminal's own tick; the prompt instead leaves the guard inert (A7)
+  and has the harness apply the same 5 s rule on the engine's previous attempt: one rule, no
+  double count (prompt F4; Q3 above). Deliberate, not an omission.
 
 ## 12. CLAUDE'S CHECK OF ROUND 5 (Argon on `702ca00`; its reply committed by Argon on `review/argon-r5` `417a2bb`)
 
@@ -280,4 +284,4 @@ calls are on the next line); the content of both right.
   - a held exit (no exit order, engine 3480) at a real `EXT`: F2 b now covers it (else the exit
     queue would place an exit for a closing layer, engine 3482). RT73 and RT74 added.
 
-Line count: 283
+Line count: 287
