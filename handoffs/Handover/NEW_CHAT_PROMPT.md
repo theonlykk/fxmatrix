@@ -1,6 +1,6 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-14 ~20:00Z (WEDNESDAY; PLAN 4: CURSOR IMPLEMENTING F1-F4, THE COMMIT REVIEW NEXT)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-14 ~20:00Z (WEDNESDAY; PLAN 4: F1-F4 IMPLEMENTED BY CURSOR, THE COMMIT REVIEW NEXT)
 
 **Prepared 14 Oct ~20:00Z (HANDOFF s82 continued 2; the s82 chat ran out of
 space).** The EURUSD replay (an MQL5 harness on the EA's own engine, branch
@@ -23,8 +23,9 @@ amendment before the export.
   branch `replay-plan4` from `replay-harness` `efada62`), tests first. Through
   Argon rounds 4-5, every point accepted.
 - **Cursor's restate** (`review/cursor-restate`, `reviews/cursor_restate_f1f4.md`):
-  RT65 corrected (`e4d96f4`) and checked. **"go" given ~19:50Z.** At
-  hand-over `plan4-tools` had `2193b6b` (A tests) and `bcfc305` (A code).
+  RT65 corrected (`e4d96f4`) and checked. **"go" given ~19:50Z.** Cursor
+  finished ~20:00Z and pushed both branches (s1 has the SHAs). **Nothing
+  of it has been read yet.**
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps is PARKED.
 
@@ -100,10 +101,10 @@ answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `3738152` (s82j) + this patch (s82k). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
+| fxmatrix `main` | `fb52762` (s82k) + this patch (s82l). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
 | `replay-harness` | tip `efada62`; code `145f092` (plan 3's frozen harness); suite 461 / 461 |
-| `plan4-tools` | Cursor, Part A (A-1 to A-4), from main; `bcfc305` at hand-over |
-| `replay-plan4` | Cursor, Part B (B-0 tests RT64-RT74, F3, F4, F1, F2, record), from `efada62`; not pushed at hand-over |
+| `plan4-tools` | Cursor, Part A (A-1 to A-4), from main: `2193b6b` tests, `bcfc305` code |
+| `replay-plan4` | Cursor, Part B from `efada62`: `19d8db6` B-0 (RT64-RT74), `538b15e` F3, `68fe443` F4, `acc93fd` F1, `9748480` F2, `7d8fa13` record; only `ea/fxgrind_replay_core.mqh` and `ea/fxgrind_replay_tests.mq5` changed |
 | `review/cursor-restate` | `e4d96f4` (the agreed test arithmetic) |
 | `review/argon-r5` | `417a2bb` (Argon's round 5 on `702ca00`) |
 | `replay-adr167` | tip `ed5d052` (parked) |
@@ -115,8 +116,8 @@ answers are in.
 
 ## 2. NEXT, IN ORDER
 
-1. The operator applies s82k; tree checked; pushed.
-2. **When Cursor stops:** read every commit on both branches against the
+1. The operator applies s82l; tree checked; pushed.
+2. **Cursor has stopped:** read every commit on both branches against the
    prompt and the restate: tests before code, commit order, harness files
    only, RT41 and the old tests untouched, each F against its prompt
    section. Argon reviews the commits too (one prompt, in an artifact).
@@ -173,4 +174,4 @@ answers are in.
 - **Explain with one small worked example in prices before any table.**
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 176
+Line count: 177
