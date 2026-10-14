@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Written | 14 Oct 2026 ~03:35Z (HANDOFF s82), by Claude (Lead Engineer), at the operator's request. s8-s9 added ~04:10Z: Claude's check of round 1 and the session read; round 2 |
+| Written | 14 Oct 2026 ~03:35Z (HANDOFF s82), by Claude (Lead Engineer), at the operator's request. s8-s9 added ~04:10Z: Claude's check of round 1 and the session read; round 2. s10 ~04:40Z: the check of round 2 |
 | What it is | A consult BEFORE any spec or prompt. Nothing here is ruled. No code changes until you rule and the operator agrees |
 | Repos | `theonlykk/fxmatrix`: `main` `83689e9` (plan 3's record); `replay-harness` `efada62` (harness code `145f092`, frozen for plan 3) |
 | Read with it | `docs/research/replay-calibration-eurusd-3.md` (plan 3: s3 the marks, s4 what a result means, s7 the verdict note of 14 Oct ~03:10Z); `ea/fxgrind_replay_core.mqh` at `efada62`; `research/replay/results/plan3/holdout_score_145f092.md`, `holdout_compare_145f092/misses.csv`; backlog C152 |
@@ -209,4 +209,34 @@ read it, write "not read". Do not restate the consult.
 - **R2-5.** Redo G4-5 and G4-6 with plan 3's real figures (N2) and tolerance rule (N3).
 - **R2-6.** What fact is still missing?
 
-Line count: 212
+## 10. CLAUDE'S CHECK OF ROUND 2 (Argon, ~04:05Z 14 Oct)
+
+- **R2-1, confirmed:** the rows of `real_eurusd_c.csv` (lines 329-338) and plan 3's figures
+  (`holdout_score_145f092.md` lines 5-7) quoted exactly. Its account of round 1's N1-N4: its own
+  summary of earlier reads, corrupted and not re-read (its word; not checkable here).
+- **R2-2, confirmed (ticks read):** the stale-feed guard explains every live send at the 12 Oct
+  open. Refused: 00:00:00.188 (gap from Friday 23:56:59.456) and 00:01:00.170 (60 s); the EA acts
+  from 00:01:00.372. At 00:02:00.174 the close-by goes (that step is not guarded); the engine is
+  blocked again at 00:02:00.567 (60.2 s) and 00:02:17.124 (16.6 s) and runs at 00:02:19.558: live
+  removed its short add orders at about 00:02:19. Only the engine step is guarded (fills, close-by,
+  lattice and timer are not). F4 must also stop `Grind_GuardsAllowTrading` reading the terminal's
+  own tick.
+- **R2-3, confirmed (archives read):** all 12 ROLL rows timed between an exit and its close-by come
+  AFTER the close-by in the archive's sequence (12 of 12); the EA host's clock ran 485-2,515 ms
+  behind IC's (B 485-2,515, C 578-615, D 1,830). F2 includes: each ROLL row placed after the
+  `OUT_BY` it follows in sequence (`build_real.py`).
+- **R2-4, confirmed (sends read):** no live send 23:56-00:00:59 server on any night except three
+  at 7 Oct 00:00:00-00:00:01 (ea clock), all 10018 `[Market closed]` (the Mon 12 sends at ea
+  00:00:58-59 are about 00:01 server, given the host clock's lag); the carry pass's sends at
+  23:50-23:55 succeed. The closed span is the trade session's (Q3), not the harness's 23:50-00:15
+  gap filter (`Rpl_InNightlyGapExclude`, a report filter only). Argon's "F5" is F1's second half.
+- **R2-5, NOT ACCEPTED:** its "current" plan 3 marks are not plan 3's (no "<= 2% pooled", no
+  ">= 3 of 6" scoreable rule, no 15% bias: plan 3 s3 has replay-only <= 5% a fleet, fewer than
+  four scoreable sides INCONCLUSIVE, bias 5% with one sign); C L and D L were not scoreable for
+  under 10 real S, not for the open; rebuilding the tolerances with the holdout's days would
+  change a mark after a failure. No mark changes (plan 4 s3).
+- **R2-6, not answered** (it gave swap-night dates and two window variants instead).
+- **Reading of Argon:** reliable when pointed at named code and data files; not reliable when it
+  summarises a document. Every claim it makes about a document is checked.
+
+Line count: 242
