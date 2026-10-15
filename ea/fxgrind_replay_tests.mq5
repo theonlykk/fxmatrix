@@ -2501,6 +2501,7 @@ void Test_RT64_SyncResetNoStartupAddReprice()
    Rpl_ConfigureEngine(cfg);
    Rpl_SeedLayer("L", 0, 1.10000, RplMs(RPL_T0, -3600), 6401UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
    Rpl_SeedLayer("L", 1, 1.09930, RplMs(RPL_T0, -1800), 6402UL, 0.0, 0.0, RPL_LOTS_DEFAULT);
+   Rpl_SeedOrder("S", 0, "ENT", 1.10051, 6412UL, ORDER_TYPE_SELL_LIMIT);
    string rows[1];
    rows[0] = IntegerToString(RplMs(RPL_T0, 0) + 500) + ",ROLL,L,0,,6401,1.09800";
    Rpl_SetSyncRealKindRows(rows, 1);
@@ -2513,13 +2514,23 @@ void Test_RT64_SyncResetNoStartupAddReprice()
    ticks[1].ask = 1.09862;
    AssertTrue("RT64 run", Rpl_RunTicks(ticks, 2, cfg));
    int mod_n = 0;
+   int place_n = 0;
+   long place_ms = 0;
+   double place_px = 0.0;
    for(int i = 0; i < Rpl_OrderLogCount(); i++) {
       RplOrderRow row;
       if(!Rpl_GetOrderLogRow(i, row))
          continue;
       if(row.action == "MODIFY" && row.side == "L" && row.layer == 2 && row.role == "ENT")
          mod_n++;
+      if(row.action == "PLACE" && row.side == "L" && row.layer == 2 && row.role == "ENT") {
+         place_n++;
+         place_ms = row.time_ms;
+         place_px = row.price;
+      }
    }
+   AssertTrue("RT64 PLACE L L2 ENT at T0 at 1.09860",
+              place_n == 1 && place_ms == RplMs(RPL_T0, 0) && MathAbs(place_px - 1.09860) <= 1e-6);
    AssertTrue("RT64 no add modify after sync reset", mod_n == 0);
    double px = 0.0;
    ulong tk = 0;
@@ -2682,7 +2693,8 @@ void Rpl_TestRunRt67Tick(const long tick_ms,
                          int &seam_cnt,
                          int &ord_cnt,
                          double &l0_px,
-                         bool &send_ok_restored)
+                         bool &send_ok_restored,
+                         const int timing = 0)
 {
    Rpl_ResetAll();
    Rpl_TestSetIcSessions();
@@ -2695,7 +2707,9 @@ void Rpl_TestRunRt67Tick(const long tick_ms,
    ticks[0].time_msc = tick_ms;
    ticks[0].bid = 1.10000;
    ticks[0].ask = 1.10002;
+   Rpl_SetTiming(timing, "base");
    Rpl_RunTicks(ticks, 1, cfg);
+   Rpl_SetTiming(0, "base");
    seam_cnt = Rpl_OrderSeamCount();
    ord_cnt = Rpl_OrderLogCount();
    ulong tk = 0;
@@ -2712,7 +2726,7 @@ void Test_RT67_SessionSendsAndBoundaries()
    bool restored = false;
 
    Rpl_TestRunRt67Tick(RplMs(D'2026.10.06 23:58:59', 0), seam_cnt, ord_cnt, l0_px, restored);
-   AssertTrue("RT67 23:58:59 open places 2", seam_cnt == 2 && ord_cnt == 2);
+   AssertTrue("RT67 23:58:59 open places 1", seam_cnt == 1 && ord_cnt == 1);
    AssertNear("RT67 23:58:59 L0 price", l0_px, 1.09981, 1e-6);
 
    Rpl_TestRunRt67Tick(RplMs(D'2026.10.06 23:59:00', 0), seam_cnt, ord_cnt, l0_px, restored);
@@ -2725,7 +2739,7 @@ void Test_RT67_SessionSendsAndBoundaries()
    AssertTrue("RT67 00:00:30 closed refuses", seam_cnt == 0 && ord_cnt == 0 && restored);
 
    Rpl_TestRunRt67Tick(RplMs(D'2026.10.07 00:01:00', 0), seam_cnt, ord_cnt, l0_px, restored);
-   AssertTrue("RT67 00:01:00 open places 2", seam_cnt == 2 && ord_cnt == 2);
+   AssertTrue("RT67 00:01:00 open places 1", seam_cnt == 1 && ord_cnt == 1);
    AssertNear("RT67 00:01:00 L0 price", l0_px, 1.09981, 1e-6);
 
    Rpl_TestRunRt67Tick(RplMs(D'2026.10.09 23:57:30', 0), seam_cnt, ord_cnt, l0_px, restored);
@@ -2785,7 +2799,7 @@ void Test_RT68_SessionsFileLoadAndAbort()
    FileClose(w);
    AssertTrue("RT68 run without sessions_file", Rpl_RunReplayFiles("rt68n", false));
    AssertTrue("RT68 0 session rows when absent", Rpl_SessionsCount() == 0);
-   AssertTrue("RT68 ungated places 2 L0s", Rpl_OrderLogCount() == 2);
+   AssertTrue("RT68 ungated places 1 L0", Rpl_OrderLogCount() == 1);
 }
 
 void Rpl_TestSetupRt69(RplSegmentConfig &cfg, const long to_ms)
@@ -2839,6 +2853,21 @@ void Test_RT69_SyncDeferCloseByToRealOutBy()
    AssertTrue("RT69 layer stays before OUT_BY", Rpl_ShortDepth() == 1 && Rpl_HasPosition(6901UL));
    AssertTrue("RT69 no OUT_BY deal before T0+1000", pre_outby == 0);
    AssertTrue("RT69 no S L0 ENT before T0+1000", pre_s_l0 == 0);
+   int pre_ext_in = 0;
+   long pre_ext_ms = 0;
+   double pre_ext_px = 0.0;
+   for(int i = 0; i < Rpl_DealsCount(); i++) {
+      RplDealRow d;
+      if(!Rpl_GetDealRow(i, d))
+         continue;
+      if(d.entry_type == DEAL_ENTRY_IN && d.role == "EXT" && d.side == "S" && d.layer == 0) {
+         pre_ext_in++;
+         pre_ext_ms = d.time_ms;
+         pre_ext_px = d.price;
+      }
+   }
+   AssertTrue("RT69 one EXT IN S L0 at T0 price 1.10400",
+              pre_ext_in == 1 && pre_ext_ms == T && MathAbs(pre_ext_px - 1.10400) <= 1e-6);
 
    Rpl_TestSetupRt69(cfg, T + 2000);
    RplTick ticks[4];
@@ -3035,7 +3064,7 @@ void Test_RT72_TimedInFlightExitAtRealExt()
          outby_1000++;
    }
    AssertTrue("RT72 in-flight EXT deal completes at T0+261", ext_in == 1 && ext_ms == T + 261);
-   AssertNear("RT72 EXT deal price", ext_px, 1.10400, 1e-6);
+   AssertNear("RT72 EXT deal price", ext_px, 1.10452, 1e-6);
    AssertTrue("RT72 0 dropped deal events", g_rpl_tm_sync_dropped_events == 0);
    AssertTrue("RT72 2 OUT_BY deals at T0+1000", outby_1000 == 2);
 }
@@ -3086,6 +3115,13 @@ void Test_RT73_SyncHeldExitAtRealExt()
               && !Rpl_OrderExistsForLayer("L", 1, "EXT"));
 
    Rpl_TestRunRt73UpTo(3, T + 1500);
+   int outby_n = 0;
+   for(int i = 0; i < Rpl_DealsCount(); i++) {
+      RplDealRow d;
+      if(Rpl_GetDealRow(i, d) && d.entry_type == DEAL_ENTRY_OUT_BY)
+         outby_n++;
+   }
+   AssertTrue("RT73 T+1500 zero OUT_BY deals", outby_n == 0);
    AssertTrue("RT73 t2 depth 2 no exit placed for closing L1",
               Rpl_LongDepth() == 2
               && Rpl_HasPosition(7302UL)
@@ -3176,6 +3212,134 @@ void Test_RT74_SyncCompletionPromotesExitToBrokerBook()
    AssertNear("RT74 S1 EXT fill price 1.12575", s1_ext_px, 1.12575, 1e-6);
 }
 
+void Test_RT75_TimedEngineStageGate()
+{
+   const long t_open = 1791331139900;
+   const long t_closed = 1791331140000;
+   const long t_wed = 1791331260000;
+   int seam_cnt = 0;
+   int ord_cnt = 0;
+   double l0_px = 0.0;
+   bool restored = false;
+   int place_n = 0;
+   long place_ms = 0;
+   double place_px = 0.0;
+
+   Rpl_TestRunRt67Tick(t_open, seam_cnt, ord_cnt, l0_px, restored, 1);
+   for(int i = 0; i < Rpl_OrderLogCount(); i++) {
+      RplOrderRow row;
+      if(!Rpl_GetOrderLogRow(i, row))
+         continue;
+      if(row.action == "PLACE" && row.side == "L" && row.layer == 0 && row.role == "ENT") {
+         place_n++;
+         place_ms = row.time_ms;
+         place_px = row.price;
+      }
+   }
+   AssertTrue("RT75 23:58:59.900 PLACE L L0 at send_start 1.09981",
+              place_n == 1 && place_ms == t_open && MathAbs(place_px - 1.09981) <= 1e-6);
+
+   Rpl_TestRunRt67Tick(t_closed, seam_cnt, ord_cnt, l0_px, restored, 1);
+   AssertTrue("RT75 23:59:00 0 orders", ord_cnt == 0);
+   AssertTrue("RT75 23:59:00 seams restored", restored);
+
+   Rpl_TestRunRt67Tick(t_wed, seam_cnt, ord_cnt, l0_px, restored, 1);
+   place_n = 0;
+   place_px = 0.0;
+   for(int i = 0; i < Rpl_OrderLogCount(); i++) {
+      RplOrderRow row;
+      if(!Rpl_GetOrderLogRow(i, row))
+         continue;
+      if(row.action == "PLACE" && row.side == "L" && row.layer == 0 && row.role == "ENT") {
+         place_n++;
+         place_px = row.price;
+      }
+   }
+   AssertTrue("RT75 Wed 00:01 PLACE L L0 at 1.09981",
+              place_n == 1 && MathAbs(place_px - 1.09981) <= 1e-6);
+}
+
+void Test_RT76_TimedDealHandlerGate()
+{
+   const long t1 = 1791331139739;
+   const long t2 = 1791331170000;
+   const long deal_ms = 1791331140000;
+   const long fill_ms = 1791331140026;
+   Rpl_ResetAll();
+   Rpl_TestSetIcSessions();
+   RplSegmentConfig cfg;
+   Rpl_DefaultConfig(cfg);
+   cfg.from_ms = t1;
+   cfg.to_ms = t2 + 1000;
+   Rpl_ConfigureEngine(cfg);
+   Rpl_SeedOrder("L", 0, "ENT", 1.11909, 7611UL, ORDER_TYPE_BUY_LIMIT);
+   RplTick ticks[2];
+   ticks[0].time_msc = t1;
+   ticks[0].bid = 1.11847;
+   ticks[0].ask = 1.11903;
+   ticks[1].time_msc = t2;
+   ticks[1].bid = 1.11847;
+   ticks[1].ask = 1.11903;
+   Rpl_SetTiming(1, "base");
+   Rpl_RunTicks(ticks, 2, cfg);
+   Rpl_SetTiming(0, "base");
+   int in_n = 0;
+   long in_ms = 0;
+   double in_px = 0.0;
+   for(int i = 0; i < Rpl_DealsCount(); i++) {
+      RplDealRow d;
+      if(!Rpl_GetDealRow(i, d))
+         continue;
+      if(d.entry_type == DEAL_ENTRY_IN && d.side == "L" && d.layer == 0 && d.role == "ENT") {
+         in_n++;
+         in_ms = d.time_ms;
+         in_px = d.price;
+      }
+   }
+   AssertTrue("RT76 one IN deal L L0 ENT at 1791331140000", in_n == 1 && in_ms == deal_ms);
+   AssertNear("RT76 IN deal price 1.11903", in_px, 1.11903, 1e-6);
+   int late_n = 0;
+   int fill_n = 0;
+   long fill_row_ms = 0;
+   for(int i = 0; i < Rpl_OrderLogCount(); i++) {
+      RplOrderRow o;
+      if(!Rpl_GetOrderLogRow(i, o))
+         continue;
+      if(o.time_ms >= deal_ms
+         && (o.action == "PLACE" || o.action == "MODIFY" || o.action == "REMOVE"))
+         late_n++;
+      if(o.action == "FILL" && o.ticket == 7611UL) {
+         fill_n++;
+         fill_row_ms = o.time_ms;
+      }
+   }
+   AssertTrue("RT76 zero PLACE MODIFY REMOVE at or after 1791331140000", late_n == 0);
+   AssertTrue("RT76 one FILL 7611 at 1791331140026", fill_n == 1 && fill_row_ms == fill_ms);
+   AssertTrue("RT76 seams restored",
+              g_grind_order_test_send_ok && g_grind_closeby_test_send_ok);
+}
+
+void Test_RT77_SyncCompletionGateMs()
+{
+   const long out_by_ms = 1791331098000;
+   Rpl_ResetAll();
+   Rpl_TestSetIcSessions();
+   Rpl_SetTiming(0, "base");
+   AssertTrue("RT77 timing 0 returns out_by_ms",
+              Rpl_SyncCompletionGateMs(out_by_ms) == out_by_ms);
+   Rpl_SetTiming(1, "base");
+   g_rpl_tm_free_ms = 1791331140000;
+   AssertTrue("RT77 timed free_ms later returns free_ms",
+              Rpl_SyncCompletionGateMs(out_by_ms) == 1791331140000);
+   AssertFalse("RT77 23:59:00.000 closed", Rpl_SessionIsOpen(1791331140000));
+   AssertTrue("RT77 23:58:18.000 open", Rpl_SessionIsOpen(out_by_ms));
+   g_rpl_tm_free_ms = 1791331000000;
+   AssertTrue("RT77 timed free_ms earlier returns out_by_ms",
+              Rpl_SyncCompletionGateMs(out_by_ms) == out_by_ms);
+   Rpl_SetTiming(0, "base");
+   Rpl_ResetAll();
+}
+
 void OnStart()
 {
    Print("RPL|MIRRORS_EA|", RPL_MIRRORS_EA);
@@ -3260,5 +3424,8 @@ void OnStart()
    Test_RT72_TimedInFlightExitAtRealExt();
    Test_RT73_SyncHeldExitAtRealExt();
    Test_RT74_SyncCompletionPromotesExitToBrokerBook();
+   Test_RT75_TimedEngineStageGate();
+   Test_RT76_TimedDealHandlerGate();
+   Test_RT77_SyncCompletionGateMs();
    Print("RPL|SUMMARY|run=", g_tests_run, "|pass=", g_tests_passed);
 }

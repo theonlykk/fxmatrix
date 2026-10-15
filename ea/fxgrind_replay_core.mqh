@@ -2703,6 +2703,12 @@ bool Rpl_SyncPopCloseByForEntTicket(const ulong ent_ticket, RplCbTask &out_task)
 }
 
 //+------------------------------------------------------------------+
+long Rpl_SyncCompletionGateMs(const long out_by_ms)
+{
+   return out_by_ms;
+}
+
+//+------------------------------------------------------------------+
 void Rpl_SyncCompleteCloseByAt(const long out_by_ms, const long sync_tick_ms, const RplCbTask &task)
 {
    if(g_rpl_tm_on)
