@@ -2725,7 +2725,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 
 ## TRAPS FROM 2026-10-14 NIGHT (ARGON ON A LARGE REVIEW)
 
-- **The quote-every-line rule did not hold on a large review.** Asked to read about 30 files
+- **The quote-every-line rule did not hold on a large review** (the model is NOT CONFIRMED:
+  Argon or Grok 4.6, picked by mistake in Cursor; check the model picker before every request).
+  Asked to read about 30 files
   (the 4,000-line core among them) and answer 5 findings and 8 questions, Argon ran past 100
   commands, its context filled, and the draft it wrote cited 111 lines of which 96 do not
   exist. Keep a request to Argon to one change and its tests; split the rest.
@@ -2750,4 +2752,4 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A restate's arithmetic is checked against the engine's rules, not only the harness's
   constants:** the s82 check verified latencies and stamps and missed both rules above.
 
-Line count: 2753
+Line count: 2755

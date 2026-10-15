@@ -8,6 +8,7 @@ This message has a line count at the bottom
 | Why | The suite at `7d8fa13`: 556 run, 551 pass. The five FAILs are WRONG EXPECTED VALUES in the tests (s1 A1-A3), not code defects. The reviews of the commits found two gaps and one defect (Argon `review/argon-commits-f1f4` `35fa3d3`, C-1, C-2, Q4, Q8; DeepSeek `review/deepseek-f2` `da2dcb0`, T-8) |
 | Base | Part A on `plan4-tools` at `bcfc305`; Part B on `replay-plan4` at `7d8fa13`. Add commits on top; never rewrite them |
 | Prompt it amends | `prompts/cursor_plan4_f1f4.md` at `3738152` (F1-F4, A-1..A-4); everything there still holds unless this file says otherwise |
+| Review | Grok 4.6 (in Cursor) on `a360c28`, `review/argon-fix1` `ce6f6ef`: every quote checked by Claude, exact; two defects in this prompt fixed here (RT76's FILL row; RT77's `out_by_ms` and timing reset); B-8..B-11, RT75 confirmed |
 
 ## 0. RESTATE AND STOP (do this first; write nothing else)
 
@@ -93,13 +94,17 @@ tests, with the one stub of s3 B-12 so they compile; (2) the code (B-12, B-13); 
   CLOSED); the t1 ONTICK places the short L0 (mid 1.11875 + 15 pips = 1.12025, send_start t1,
   ends `1791331140026`). At t2 the deal runs: handler start = max(`1791331140000`,
   `1791331140026`) = `1791331140026`, CLOSED. Expected: ONE IN deal L L0 ENT at `1791331140000`,
-  price 1.11903 (t1's ask, A3); ZERO order rows at or after `1791331140000` (the exit at
-  1.12003, any add or recenter: all refused); both seams' `send_ok` true afterwards.
-- **RT77 (B-12, the completion's gate time).** Unit test of `Rpl_SyncCompletionGateMs`, with the IC
-  table: `g_rpl_tm_on = false`: returns `1791331098000` (23:58:18.000) for that out_by. `g_rpl_tm_on =
-  true` and `g_rpl_tm_free_ms = 1791331140000`: returns `1791331140000`, and
-  `Rpl_SessionIsOpen(1791331140000)` is false while `Rpl_SessionIsOpen(1791331098000)` is true.
-  `g_rpl_tm_free_ms = 1791331000000`: returns `1791331098000`. `Rpl_ResetAll()` after.
+  price 1.11903 (t1's ask, A3); ZERO `PLACE`, `MODIFY` or `REMOVE` rows at or after
+  `1791331140000` (the exit at 1.12003, any add or recenter: all refused); ONE `FILL` row for
+  7611 at `1791331140026` (the DEAL handler logs the filled order at its cursor, core
+  `7d8fa13` 947-961: a log row, not a send); both seams' `send_ok` true afterwards.
+- **RT77 (B-12, the completion's gate time).** Unit test of `Rpl_SyncCompletionGateMs`, the IC
+  table loaded, every call with `out_by_ms = 1791331098000` (Tue 23:58:18.000). Timing 0
+  (`Rpl_SetTiming(0, "base")`): returns `1791331098000`. Then `Rpl_SetTiming(1, "base")` and
+  `g_rpl_tm_free_ms = 1791331140000`: returns `1791331140000`, and `Rpl_SessionIsOpen(1791331140000)`
+  is false while `Rpl_SessionIsOpen(1791331098000)` is true. `g_rpl_tm_free_ms = 1791331000000`:
+  returns `1791331098000`. After: `Rpl_SetTiming(0, "base")` then `Rpl_ResetAll()`
+  (`Rpl_ResetAll` does not clear `g_rpl_tm_on`, core `7d8fa13` 338, 498-509, 1450-1537).
 
 **Code:**
 
@@ -113,7 +118,7 @@ tests, with the one stub of s3 B-12 so they compile; (2) the code (B-12, B-13); 
 - **The record (last commit):** the header comment's range to RT77; `PENDING: operator compile
   and suite` where the figure goes.
 
-**Expected at the end:** 572 assertions (556 + RT64 1 + RT69 1 + RT73 1 + RT75 4 + RT76 4 + RT77 5;
+**Expected at the end:** 573 assertions (556 + RT64 1 + RT69 1 + RT73 1 + RT75 4 + RT76 5 + RT77 5;
 restate your own count and say if it differs), all passing; at the tests commit only RT77's
 timed `free_ms` later case fails. RT64, RT75, RT76 and B-14 test code already at `7d8fa13`, so
 they pass at both commits of this fix: say so in the restate (expected, not a finding).
@@ -149,4 +154,4 @@ Quote every line you cite as `<commit>:<path>:<line>` and its text, or write "no
   is every order row the EA tries after `1791331140000` refused?
 - **Q4.** What fact is missing?
 
-Line count: 152
+Line count: 157
