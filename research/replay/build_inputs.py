@@ -9,7 +9,7 @@ intervals_<tag>.csv (header only when none). swaps.csv comes from build_swaps.py
 
     python -B research/replay/build_inputs.py --out DIR --ticks ticks_53077984_EURUSD_w2.csv \
         --tick-start-ms MS --b ARCHIVE_B --c ARCHIVE_C --d ARCHIVE_D \
-        --sends-b SENDS_B --sends-c SENDS_C --sends-d SENDS_D
+        --sends-b SENDS_B --sends-c SENDS_C --sends-d SENDS_D [--sessions FILE]
 
 Standard library only; ascii, LF, no BOM.
 """
@@ -98,16 +98,25 @@ def main(argv=None):
     for k, _t, _w, _f in FLEETS:
         ap.add_argument("--" + k, required=True)
         ap.add_argument("--sends-" + k, required=True)
+    ap.add_argument("--sessions", default=None)
     a = ap.parse_args(argv)
     data = {k: _load(getattr(a, k)) for k, _t, _w, _f in FLEETS}
     sends = {k: _load(getattr(a, "sends_" + k)) for k, _t, _w, _f in FLEETS}
     snaps = build_swaps.snapshots_server([r for k in data for r in data[k]])
     os.makedirs(a.out, exist_ok=True)
+    sessions_path = a.sessions
+    sessions_name = None
+    if sessions_path:
+        sessions_name = os.path.basename(sessions_path)
+        with open(sessions_path, encoding="ascii") as src:
+            sess_text = src.read()
+        with open(os.path.join(a.out, sessions_name), "w", encoding="ascii", newline="\n") as dst:
+            dst.write(sess_text)
     for k, tag, w, first in FLEETS:
         rows = data[k]
         start = _init_server_ms(rows, w)
         files = fleet_files(rows, tag, start, a.end_ms, first, a.ticks, snaps, INTERVALS.get(tag, []),
-                            sends=sends[k])
+                            sends=sends[k], sessions_file=sessions_name)
         for s in build_segments.segments(rows, start, a.end_ms):
             warn = build_seeds.cap_warnings(build_seeds.seed_rows(rows, snaps, s["from_ms"]),
                                             s["cap"], s["from_ms"], a.tick_start_ms)
