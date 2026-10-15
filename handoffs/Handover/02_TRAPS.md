@@ -2737,4 +2737,17 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **PowerShell's `>` writes UTF-16:** extract files from git with `cmd /c "git show ... > f"`
   (as `tools/replay_run.ps1` does) or with a Python script, never a bare `>`.
 
-Line count: 2740
+
+## TRAPS FROM 2026-10-15 EARLY (HAND VALUES THAT MISSED THE ENGINE'S RULES)
+
+- **The EA sends at most ONE entry order per engine call** (`g_grind_ent_sent_this_tick`): on a
+  fresh tick with both sides empty only the long L0 goes; an empty side's L0 takes the one
+  entry before any add. A test that needs an add to rest must seed the other side's L0.
+- **The timed replay fills a touched limit at the quote of the newest tick at or before the deal
+  time** (touch + 261 ms), not at the limit price: a buy limit can fill above its price.
+- **A test can fail at both commits for its own reason.** At B-0 an assertion failing where the
+  path is unchanged by the fix (RT67's open ticks) is a signal: trace it then, not after.
+- **A restate's arithmetic is checked against the engine's rules, not only the harness's
+  constants:** the s82 check verified latencies and stamps and missed both rules above.
+
+Line count: 2753
