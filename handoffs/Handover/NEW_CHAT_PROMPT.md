@@ -2,7 +2,7 @@ This message has a line count at the bottom
 
 # NEW CHAT PROMPT -- FXMATRIX, 2026-10-15 ~17:00Z (THURSDAY; PLAN 4: GATE PASSED ON BOTH WINDOWS; FROZEN AT 8044284 + a335ef0; THE EXPORT NEXT)
 
-**Prepared 15 Oct ~17:00Z (HANDOFF s84 continued; refreshed in the patches s84a and s84b).** The EURUSD replay (an MQL5
+**Prepared 15 Oct ~17:00Z (HANDOFF s84 continued; refreshed in s84a and s84b; s84c adds the evening reads).** The EURUSD replay (an MQL5
 harness on the EA's own engine) FAILED plan 3 on T1 (C 94.4%, D 94.9%). **Plan 4**
 (`docs/research/replay-calibration-eurusd-4.md`, REVIEWED and AGREED) asks the same question on a NEW
 window, Fri 16 Oct 00:00 to Wed 21 Oct 01:00 server, with the harness `145f092` + fixes F1-F4, frozen by
@@ -28,7 +28,7 @@ ONE amendment to its s2 before the export.
 You are picking up as Lead Engineer. Clone `https://github.com/theonlykk/fxmatrix` and
 `https://github.com/theonlykk/pipshed` into your sandbox and READ FROM THEM. Verify the HEADs in git
 first, including `plan4-tools`, `replay-plan4` and the `review/*` branches. **If `main` has moved past
-s84b, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
+s84c, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
 
 Read, in order:
 1. `handoffs/Handover/01_BOOT.md` (s1-s5 the pipeline and conventions; s6 the state: its first block).
@@ -86,7 +86,7 @@ Do not start any fleet action, run or export before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `8b3e3d3` (s84a) + s84b (the freeze, then docs). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
+| fxmatrix `main` | `159e388` (s84b: the freeze, then docs) + s84c (the evening reads). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
 | `replay-plan4` | `8044284` (the harness that passed the gate; suite 573 / 573); never merged |
 | `plan4-tools` | `a335ef0` (the builders; `build_inputs.py --sessions`, `build_holdout.py --sends-extra-*`, `--window-end-ms`); never merged |
 | `replay-harness` | `efada62` (plan 3's `145f092`) |
@@ -102,7 +102,7 @@ Do not start any fleet action, run or export before the answers are in.
 
 ## 2. NEXT, IN ORDER
 
-1. The operator applies s84b (two commits); tree checked; pushed.
+1. The operator applies s84c; tree checked; pushed.
 2. The freeze is in: no code change to `8044284` or `a335ef0`.
 3. **Thu 15 Oct 21:00Z: the window opens.** Nobody reads its EURUSD B / C / D data before the export
    is hashed (plan 4 s2). Carry check 20:50-20:59Z; C150.
@@ -129,6 +129,7 @@ Do not start any fleet action, run or export before the answers are in.
   read"; check every quote before a ruling. Cursor's Other Models quota may switch it to Grok: check
   the model picker.
 - A bridge request for several folders at once can be refused outright: ask for `~/Downloads` alone.
+- PowerShell: quote comma lists (`--codes "A,B"`); C150 in a blind reads login lines and non-EURUSD trades only.
 - Give a time-gated step only when its time has come.
 - Your sandbox: `.md` files check out CRLF: compare LF bytes.
 
@@ -150,4 +151,4 @@ Do not start any fleet action, run or export before the answers are in.
 - **Explain with one small worked example in prices before any table.**
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 153
+Line count: 154

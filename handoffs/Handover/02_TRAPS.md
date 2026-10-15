@@ -2767,4 +2767,16 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`-Mode Inputs` copies w2 from Downloads only if it is there;** otherwise it keeps `Files\replay`'s
   copy and still checks its sha256. "INPUTS n/n ok" with no w2 in Downloads is normal.
 
-Line count: 2770
+
+## TRAPS FROM 2026-10-15 EVENING (POWERSHELL LISTS; C150 IN A BLIND)
+
+- **PowerShell turns an unquoted `a,b,c` into a list** and passes it on as ONE string joined by spaces:
+  `archive_counts.py --codes QUARANTINE_ENTER,QUARANTINE_RELEASE` searched for one code with spaces in it
+  and printed "none." (the header showed spaces, not commas). Quote every comma list:
+  `--codes "A,B,C"`. Read the header line back before trusting "none".
+- **C150 during a blind:** read only the login lines and the newest NON-EURUSD trade line:
+  `iconv ... | grep -a -i 'authoriz\|connection\|synchroniz' | tail -n 5; iconv ... | grep -a 'Trades' | grep -a -v 'EURUSD' | tail -n 1`.
+  A failure-reason count over the whole day's journal reads EURUSD lines after the cut: not in a blind.
+- **The carry check lists `QUARANTINE_ENTER` but not `QUARANTINE_RELEASE`:** confirm a release with
+  `--codes "QUARANTINE_ENTER,QUARANTINE_RELEASE,QUARANTINE_HALT" --instance <id>`.
+Line count: 2782
