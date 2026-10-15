@@ -1,8 +1,8 @@
 This message has a line count at the bottom
 
-# NEW CHAT PROMPT -- FXMATRIX, 2026-10-15 ~16:50Z (THURSDAY; PLAN 4: THE DEVELOPMENT GATE PASSED ON BOTH WINDOWS; THE FREEZE AMENDMENT NEXT)
+# NEW CHAT PROMPT -- FXMATRIX, 2026-10-15 ~17:00Z (THURSDAY; PLAN 4: GATE PASSED ON BOTH WINDOWS; FROZEN AT 8044284 + a335ef0; THE EXPORT NEXT)
 
-**Prepared 15 Oct ~16:50Z (HANDOFF s84; refreshed in the patch s84a).** The EURUSD replay (an MQL5
+**Prepared 15 Oct ~17:00Z (HANDOFF s84 continued; refreshed in the patches s84a and s84b).** The EURUSD replay (an MQL5
 harness on the EA's own engine) FAILED plan 3 on T1 (C 94.4%, D 94.9%). **Plan 4**
 (`docs/research/replay-calibration-eurusd-4.md`, REVIEWED and AGREED) asks the same question on a NEW
 window, Fri 16 Oct 00:00 to Wed 21 Oct 01:00 server, with the harness `145f092` + fixes F1-F4, frozen by
@@ -20,15 +20,15 @@ ONE amendment to its s2 before the export.
     1.9 / 1.7 / 1.9%; one OUT side (D long S), as plan 3's calibration.
   - Timing 0 (reported, never deciding): FAIL on both windows (C154). FREE counts equal `145f092` at
     both timings on both windows.
-- **Not yet done: the freeze amendment.** The operator rules whether its one line names the harness
-  `8044284` only (plan 4 s2's wording, the default) or also the builders `a335ef0`.
+- **FROZEN (s84b, plan 4 s2's one amendment): harness `8044284`, builders `a335ef0`** (the operator
+  agreed both: F2's clock fix lives in the builders, and they build the window's inputs).
 
 **PRIORITY: FXMatrix ONLY.** MyFundedPerps is PARKED.
 
 You are picking up as Lead Engineer. Clone `https://github.com/theonlykk/fxmatrix` and
 `https://github.com/theonlykk/pipshed` into your sandbox and READ FROM THEM. Verify the HEADs in git
 first, including `plan4-tools`, `replay-plan4` and the `review/*` branches. **If `main` has moved past
-s84a, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
+s84b, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
 
 Read, in order:
 1. `handoffs/Handover/01_BOOT.md` (s1-s5 the pipeline and conventions; s6 the state: its first block).
@@ -44,7 +44,7 @@ Read, in order:
 8. Then this.
 
 **YOUR FIRST REPLY, after the reading (operator's request):**
-1. A short restate of the state as you found it in git: the HEADs, whether the freeze amendment is in,
+1. A short restate of the state as you found it in git: the HEADs, the freeze amendment as found in plan 4 s2,
    the fleets, the time to the next time-gated step, and anything in the docs that disagrees with
    itself.
 2. **A numbered list of questions for the PREVIOUS chat**, ready for the operator to copy and paste
@@ -86,7 +86,7 @@ Do not start any fleet action, run or export before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `dce61cc` (s83i) + s84a (this patch). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
+| fxmatrix `main` | `8b3e3d3` (s84a) + s84b (the freeze, then docs). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
 | `replay-plan4` | `8044284` (the harness that passed the gate; suite 573 / 573); never merged |
 | `plan4-tools` | `a335ef0` (the builders; `build_inputs.py --sessions`, `build_holdout.py --sends-extra-*`, `--window-end-ms`); never merged |
 | `replay-harness` | `efada62` (plan 3's `145f092`) |
@@ -95,18 +95,17 @@ Do not start any fleet action, run or export before the answers are in.
 | Gate inputs | `research/replay/inputs/eurusd_20261008_p4` (67), `eurusd_holdout_p4` (17), manifests `*_p4.sha256` |
 | Gate runs | `research/replay/runs_gate_hold/`, `runs_gate_cal/` (12 runs each, `manifest.sha256`) |
 | `D:\mt5-replay` | the `8044284` build; `Files\replay` holds the calibration set and its timing-0 outputs (last run D free t0, 16:44Z) |
-| `D:\fxmatrix` | detached at `8044284` for the runs; back on `main` to apply s84a |
+| `D:\fxmatrix` | on `main` (s84a applied there) |
 | Bridge | granted in s84: `Downloads`, `D:\mt5-replay\MQL5\Files\replay`, `D:\fxmatrix\research\replay\runs` (a new chat must ask again) |
 | pipshed `main` | `6ea487e` |
 | Linux boxes | `9425141`; git there: `sudo -u khalid git -C /home/khalid/fxmatrix-repo ...` |
 
 ## 2. NEXT, IN ORDER
 
-1. The operator applies s84a; tree checked; pushed.
-2. **The operator's ruling on the freeze line** (harness `8044284` only, or with builders `a335ef0`);
-   then the freeze amendment to plan 4 s2, its own patch, pushed BEFORE the export is opened. A
-   consult note on DeepSeek's T-3 / T-5 only if the operator wants it.
-3. **Thu 15 Oct 21:00Z: BLIND begins** (until the freeze is pushed). Carry check 20:50-20:59Z; C150.
+1. The operator applies s84b (two commits); tree checked; pushed.
+2. The freeze is in: no code change to `8044284` or `a335ef0`.
+3. **Thu 15 Oct 21:00Z: the window opens.** Nobody reads its EURUSD B / C / D data before the export
+   is hashed (plan 4 s2). Carry check 20:50-20:59Z; C150.
 4. **Sat 17 Oct:** the insurance copies (tick dump, `send_logs`), hashed only. **Tue 20 Oct from
    22:10Z:** the export, hashed only (`docs/runbooks/plan3-holdout-export.md` with new names).
 5. Plan 4 s7 step 4: the window's inputs with `build_holdout.py` at `a335ef0` (sends joined, end
@@ -151,4 +150,4 @@ Do not start any fleet action, run or export before the answers are in.
 - **Explain with one small worked example in prices before any table.**
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 154
+Line count: 153
