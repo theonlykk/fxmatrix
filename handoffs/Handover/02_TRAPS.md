@@ -2757,4 +2757,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   `Files\replay` stay the OLD ones. Before staging, check the log's `RPL|RUN|<tag>|sync=<0|1>` and the
   outputs' mtime against the run's.
 
-Line count: 2760
+## TRAPS FROM 2026-10-15 AFTERNOON (THE BRIDGE; A KNOWN GUARD LINE)
+
+- **A folder request for several folders at once can be refused outright** ("can't be granted"), with
+  no prompt and no name of the folder at fault. Ask for the replay folders together and `~/Downloads`
+  on its own (the `~` form was granted when the full path in a group was not).
+- **`RPL|ORDERS_KEPT|16|3/4` on every C run is expected** (since fix 2: the 6 Oct re-roll reload; every
+  harness since logs it). Any OTHER shortfall in `ORDERS_KEPT` is a stop.
+- **`-Mode Inputs` copies w2 from Downloads only if it is there;** otherwise it keeps `Files\replay`'s
+  copy and still checks its sha256. "INPUTS n/n ok" with no w2 in Downloads is normal.
+
+Line count: 2770
