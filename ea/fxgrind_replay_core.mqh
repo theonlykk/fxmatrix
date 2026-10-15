@@ -234,7 +234,7 @@ struct RplSendGateSnap
    bool prev_ord_ok;
    uint prev_ord_rc;
    bool prev_cb_ok;
-   uint prev_cb_rc;
+   int  prev_cb_rc;
 };
 
 bool Rpl_ParseHHMM(const string s, int &out_min)
@@ -2445,7 +2445,8 @@ void Rpl_SyncAddDeferredCloseBy(const ulong t1, const ulong t2)
 }
 
 //+------------------------------------------------------------------+
-void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const int before_n)
+void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const int before_n,
+                            const long gate_ms = -1)
 {
    RplCbTask after[];
    int after_n = 0;
@@ -2514,7 +2515,7 @@ void Rpl_ProcessCloseByDone(const long tick_ms, const RplCbTask &before[], const
       if(!Rpl_EngineSeamsOrAbort())
          return;
       RplSendGateSnap gate_snap;
-      Rpl_SessionSendGateBegin(tick_ms, gate_snap);
+      Rpl_SessionSendGateBegin(gate_ms >= 0 ? gate_ms : tick_ms, gate_snap);
       Grind_ProcessDeal(d1, g_rpl_cfg.magic, RPL_SLOT_DEFAULT, g_rpl_cfg.exit_l, g_rpl_cfg.add_l,
                         g_rpl_cfg.deadband, g_rpl_cfg.cap, RPL_LOTS_DEFAULT, g_rpl_cfg.exit_s, g_rpl_cfg.add_s);
       if(!Rpl_EngineSeamsOrAbort()) {
@@ -2705,6 +2706,8 @@ bool Rpl_SyncPopCloseByForEntTicket(const ulong ent_ticket, RplCbTask &out_task)
 //+------------------------------------------------------------------+
 long Rpl_SyncCompletionGateMs(const long out_by_ms)
 {
+   if(g_rpl_tm_on)
+      return MathMax(out_by_ms, g_rpl_tm_free_ms);
    return out_by_ms;
 }
 
@@ -2721,7 +2724,7 @@ void Rpl_SyncCompleteCloseByAt(const long out_by_ms, const long sync_tick_ms, co
    ArrayResize(one, 1);
    one[0] = task;
    g_rpl_sync_completing_out_by = true;
-   Rpl_ProcessCloseByDone(out_by_ms, one, 1);
+   Rpl_ProcessCloseByDone(out_by_ms, one, 1, Rpl_SyncCompletionGateMs(out_by_ms));
    g_rpl_sync_completing_out_by = false;
    if(g_rpl_tm_on) {
       long cb_cursor = MathMax(out_by_ms, g_rpl_tm_free_ms);
