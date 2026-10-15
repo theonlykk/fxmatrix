@@ -43,6 +43,14 @@ scheduled-release burst, on EURUSD?
 - **Frozen before any window file is read.** Its commit is recorded here by the ONE amendment this
   plan allows: "s2: harness = `<sha>`", committed before the window's export is opened. If the
   harness is not ready by the export, the export is taken and hashed only, and waits.
+- **AMENDMENT (the freeze; 15 Oct ~17:00Z, the operator agreed): s2: harness = `8044284`
+  (`replay-plan4`: `145f092` + F1-F4 + fix 1; suite 573 / 573, GUI compile 0 errors 0 warnings);
+  builders = `a335ef0` (`plan4-tools`: F2's clock fix in `build_real.py`, `--sessions`, and
+  `build_holdout.py`'s sends join and `--window-end-ms`, s3).** The builders are named because F2 is
+  partly theirs (this section) and the window's inputs are built by them (s3). The pair passed s4's gate
+  at timing 1 on both seen windows: holdout T1 100.0% x 3 (`results/plan4/holdout_score_8044284.md`),
+  calibration T1 98.8 / 98.3 / 97.3% (`results/plan4/cal_score_8044284.md`). Nothing else in this file
+  changes; no mark, tolerance, match rule or window.
 - No code change once the first window run starts.
 - **Blind until the freeze (G5-2).** From the window's open (Fri 16 Oct 00:00 server) until s2's
   amendment is committed, nobody looks at any EURUSD fill, send, scalp, roll or journal line of B, C
@@ -149,4 +157,4 @@ Every quote and line number in the review was checked against the files at `0a17
   closed-span boundaries (s2).
 - No question from the reviewer to us; none of its points was a premise we supplied wrongly.
 
-Line count: 152
+Line count: 160
