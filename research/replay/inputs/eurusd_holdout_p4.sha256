@@ -1,0 +1,25 @@
+# Plan 4 s4 development gate: plan 3's HOLDOUT window (9-14 Oct; cut 1791531120000), rebuilt with the fixed builders
+# (plan4-tools a335ef0) from the _2026-10-13_2210 set (eurusd_holdout_raw.sha256; all seven raw files hash equal), by Claude
+# 15 Oct ~15:20Z: build_holdout.py build --out DIR --ticks ticks_53077984_EURUSD_w2h.csv --sessions inputs/sessions_eurusd_ic.csv
+#   --b/--c/--d archive_*_2210.jsonl --sends-b/c/d sends_*_2210.jsonl (window end and first ids at plan 3's defaults).
+# Check first (no --sessions): 12 of 12 seed / orders / run / intervals files equal eurusd_holdout.sha256; real_*.csv differ
+# only by 14 ROLL rows moved onto their session's OUT_BY time (B 10, C 3, D 1; 18-1,959 ms: A11's 12 plus two rolls the EA
+# host's clock stamped before both the EXT and the close-by). swaps.csv copied from eurusd_holdout. Ticks NOT in git:
+# ticks_53077984_EURUSD_w2h.csv (fe37e42a...0392). New: sessions_eurusd_ic.csv; the run files' 24th column.
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_b.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_c.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_d.csv
+bddf34a0aa3e24613c81af49996c25542f4dbca5126802ac3797e67900ddbc08  orders_31.csv
+8f12692da9f8121ff30cb843b0ea9d73da0ec88ed5f49c40d9020c0eb8fb6457  orders_41.csv
+29926144287975a95bf7ca5cceefd38c1f14bc0645fd4dc37b040dfb5369fe06  orders_51.csv
+a384908ae2601ab8861439329ed9477beb0c4702b58e17fe4ba90845c8c5dbb8  real_eurusd_b.csv
+549e3c580ae72ae373fac5053f756e2c8a8974838f22a3a36432de9171cd4e0a  real_eurusd_c.csv
+f2b5c838597734f68f6cd19791e688af2b3692d19b7b7656e82b2570b0da5b22  real_eurusd_d.csv
+80ad8a5cf3397c765867639c56a675ca6ac70a1758caf3c5f3278ca932a27a41  run_eurusd_b.csv
+43109d4cfef2faee7959c14b491f170e891f5de1991493c6fa50cf853f218752  run_eurusd_c.csv
+b382f450e267aee179548dfef814b8d31e0e9311c43c814d6f94ef557ea64711  run_eurusd_d.csv
+c6ef9e26a0f16769273d81789256ae15b5d32d41ec2bdf9186d24341c2e16a3f  seed_31.csv
+af91d8c432bad4310681d60f58fefde05ef13af6744bae6c713852723efb623c  seed_41.csv
+08a110b567fde69bf92467331f3a2e662589e04c5fd61b2acf3747567a6b96a7  seed_51.csv
+cea175f0c26177b4762b4445be295282fc9e8e9143cd65825d843166fcb08640  sessions_eurusd_ic.csv
+dbd8ee4a19876108868a370475574284e155499ac7bb9b335636caa5534e01d0  swaps.csv
