@@ -1,0 +1,14 @@
+DN	0	11:23:08.205	fxgrind_replay (EURUSD,M1)	RPL|MIRRORS_EA|5bb5fdb
+NE	0	11:23:08.205	fxgrind_replay (EURUSD,M1)	RPL|SYMBOL_WAIT|tick_value=0.0|tick_size=0.00001|tick_ok=1|waited_ms=0
+PH	0	11:23:09.242	fxgrind_replay (EURUSD,M1)	RPL|SYMBOL_READY|tick_value=1.0|tick_size=0.00001|waited_ms=1000
+KS	0	11:23:09.242	fxgrind_replay (EURUSD,M1)	RPL|TIMING|1|base|287|288|294|43|261|thru=0
+FL	0	11:23:09.242	fxgrind_replay (EURUSD,M1)	RPL|RUN|eurusd_d|sync=0|out=eurusd_d_free
+RJ	0	11:23:09.242	fxgrind_replay (EURUSD,M1)	RPL|GV_DELETE|0
+DR	0	11:23:10.382	fxgrind_replay (EURUSD,M1)	RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2h.csv|count=651120|load_ms=1140
+OS	0	11:23:10.382	fxgrind_replay (EURUSD,M1)	RPL|SESSIONS|sessions_eurusd_ic.csv|5
+DE	0	11:23:10.383	fxgrind_replay (EURUSD,M1)	RPL|ORDERS|51|count=4
+FN	0	11:23:10.383	fxgrind_replay (EURUSD,M1)	RPL|SEG|51|from=1791530654290|to=1791939600000|seed=seed_51.csv
+MR	0	11:23:11.031	fxgrind_replay (EURUSD,M1)	RPL|ORDERS_KEPT|51|4/4
+EG	0	11:23:14.980	fxgrind_replay (EURUSD,M1)	RPL|SEG_DONE|seg_id=51,ticks=162836,fills=59,scalps=22,roll_closes=7,roll_accepted=7,gaps=0,aborted=0,run_ms=4610
+LK	0	11:23:15.022	fxgrind_replay (EURUSD,M1)	RPL|GV_DELETE|18
+QM	0	11:23:15.022	fxgrind_replay (EURUSD,M1)	RPL|DONE|eurusd_d

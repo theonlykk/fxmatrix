@@ -1,0 +1,1 @@
+seg_id=41,ticks=316926,fills=188,scalps=73,roll_closes=21,roll_accepted=21,gaps=0,aborted=0,run_ms=11750

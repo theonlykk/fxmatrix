@@ -2752,4 +2752,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A restate's arithmetic is checked against the engine's rules, not only the harness's
   constants:** the s82 check verified latencies and stamps and missed both rules above.
 
-Line count: 2755
+- **A sync run needs `-Sync` (15 Oct):** `replay_run.ps1` without it runs FREE but files the log under
+  whatever `-Label` it was given; the outputs go to `out_<tag>_free_*`, and the `_sync_` files in
+  `Files\replay` stay the OLD ones. Before staging, check the log's `RPL|RUN|<tag>|sync=<0|1>` and the
+  outputs' mtime against the run's.
+
+Line count: 2760
