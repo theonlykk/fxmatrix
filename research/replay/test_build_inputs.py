@@ -120,6 +120,81 @@ class TestFleetFiles(unittest.TestCase):
         self.assertTrue(run[1].endswith(",,ticks_w2.csv,,sessions_eurusd_ic.csv"))
         self.assertTrue(run[2].endswith(",seed_2.csv,ticks_w2.csv,,sessions_eurusd_ic.csv"))
 
+    def test_sessions_cli_crlf_copy_and_column(self):
+        import json
+        import shutil
+        import tempfile
+        from test_build_segments import init, lat
+        ic = (
+            "day_of_week,trade_from,trade_to\n"
+            "1,00:01,23:59\n"
+            "2,00:01,23:59\n"
+            "3,00:01,23:59\n"
+            "4,00:01,23:59\n"
+            "5,00:01,23:57\n"
+        )
+        # Same archive shape as test_build_holdout.TestPlan4Holdout.test_build_defaults_byte_identical_and_plan4_flags:
+        # one INIT+LATTICE per fleet, B a second INIT 60s later, one PENDING send 10ms after the first INIT.
+        # Times are build_inputs.FLEETS' window-start seconds plus 100ms, so each INIT is inside [t0, t0+1000).
+        # b 2026-10-01T03:58:52 = 1790827132000; c 04:14:28 = 1790828068000; d 05:12:58 = 1790831578000.
+        starts = {"b": 1790827132100, "c": 1790828068100, "d": 1790831578100}
+        tmp = tempfile.mkdtemp()
+        try:
+            ticks_path = os.path.join(tmp, "ticks.csv")
+            with open(ticks_path, "w", encoding="ascii", newline="\n") as f:
+                f.write("time_msc_server,bid,ask,flags\n%d,1.10000,1.10002,0\n" % starts["b"])
+            arch = {}
+            sends = {}
+            for k, u in starts.items():
+                arch[k] = os.path.join(tmp, "arch_%s.jsonl" % k)
+                sends[k] = os.path.join(tmp, "sends_%s.jsonl" % k)
+                rows = [init(u), lat(u, {"enable": True, "reroll": True, "roll_gate": 0})]
+                if k == "b":
+                    u2 = u + 60000
+                    rows += [init(u2), lat(u2, {"enable": True, "reroll": True, "roll_gate": 0})]
+                with open(arch[k], "w", encoding="utf-8", newline="\n") as f:
+                    for r in rows:
+                        f.write(json.dumps(r) + "\n")
+                s_rows = [{"_meta": {"fleet": k}},
+                          {"table": "send_logs", "id": 1, "ea_time_ms": u + 10, "seq": 1,
+                           "action": "PENDING", "ok": True, "result_order": 501,
+                           "order_ticket": None, "side": "L", "layer_index": 0,
+                           "role": "ENT", "requested_price": 1.10000,
+                           "order_type": "ORDER_TYPE_BUY_LIMIT"}]
+                with open(sends[k], "w", encoding="utf-8", newline="\n") as f:
+                    for r in s_rows:
+                        f.write(json.dumps(r) + "\n")
+            sess_src = os.path.join(tmp, "sessions_eurusd_ic.csv")
+            with open(sess_src, "wb") as f:
+                f.write(ic.replace("\n", "\r\n").encode("ascii"))
+
+            out_plain = os.path.join(tmp, "out_plain")
+            bi.main(["--out", out_plain, "--ticks", ticks_path, "--tick-start-ms", "0",
+                     "--b", arch["b"], "--c", arch["c"], "--d", arch["d"],
+                     "--sends-b", sends["b"], "--sends-c", sends["c"], "--sends-d", sends["d"]])
+            with open(os.path.join(out_plain, "run_eurusd_b.csv"), "rb") as f:
+                plain = f.read().decode("ascii")
+            self.assertEqual(len(plain.splitlines()[0].split(",")), 23)
+
+            out_sess = os.path.join(tmp, "out_sess")
+            bi.main(["--out", out_sess, "--ticks", ticks_path, "--tick-start-ms", "0",
+                     "--b", arch["b"], "--c", arch["c"], "--d", arch["d"],
+                     "--sends-b", sends["b"], "--sends-c", sends["c"], "--sends-d", sends["d"],
+                     "--sessions", sess_src])
+            with open(os.path.join(out_sess, "run_eurusd_b.csv"), "rb") as f:
+                run_b = f.read().decode("ascii")
+            lines = run_b.splitlines()
+            self.assertTrue(lines[0].endswith(",orders_file,sessions_file"))
+            self.assertEqual(len(lines[0].split(",")), 24)
+            for row in lines[1:]:
+                self.assertTrue(row.endswith(",sessions_eurusd_ic.csv"), row)
+            with open(os.path.join(out_sess, "sessions_eurusd_ic.csv"), "rb") as f:
+                copied = f.read()
+            self.assertNotIn(b"\r", copied)
+            self.assertEqual(copied.decode("ascii"), ic)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -248,6 +248,7 @@ class TestPlan4Holdout(unittest.TestCase):
                             "inputs", "sessions_eurusd_ic.csv")
         with open(path, "rb") as f:
             raw = f.read()
+        raw = raw.replace(b"\r\n", b"\n")
         self.assertNotIn(b"\r", raw)
         text = raw.decode("ascii")
         self.assertEqual(text, (
