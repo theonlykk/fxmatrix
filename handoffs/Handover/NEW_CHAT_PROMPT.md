@@ -28,7 +28,7 @@ ONE amendment to its s2 before the export.
 You are picking up as Lead Engineer. Clone `https://github.com/theonlykk/fxmatrix` and
 `https://github.com/theonlykk/pipshed` into your sandbox and READ FROM THEM. Verify the HEADs in git
 first, including `plan4-tools`, `replay-plan4` and the `review/*` branches. **If `main` has moved past
-s84d, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
+s84e, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
 
 Read, in order:
 1. `handoffs/Handover/01_BOOT.md` (s1-s5 the pipeline and conventions; s6 the state: its first block).
@@ -58,8 +58,8 @@ Do not start any fleet action, run or export before the answers are in.
 
 **Four fleets live. Call the boxes by HOSTNAME.**
 - **A (VPS, FTMO free trial 1514878887, $10k, since 7 Oct 22:08-22:17Z):** the IC strategy STATIC,
-  seven `_OPT` instances, EA `5bb5fdb`. No input change until the trial ends (~21 Oct), except a defect
-  fix. Follow its EQUITY, not realised. Last read q18 (15 Oct 03:53Z): about 211 left of FTMO's daily
+  seven `_OPT` instances, EA `5bb5fdb`. **Breaker OFF since 16 Oct ~13:45Z** (operator, F7 on all seven;
+  the repo presets still say true: DO NOT load them); otherwise no input change. Follow its EQUITY, not realised. Last read q18 (15 Oct 03:53Z): about 211 left of FTMO's daily
   limit that day; the operator: "we have to run this to the bitter end" (C153).
 - **IC B (wine-test, 53066709), C (wine-c, 53071896), D (wine-d, 53077984):** nine instances each, EA
   `5bb5fdb`, roll gate 0, re-roll ON, breaker off; round 3 geometry, FROZEN. **IC access (C150):** the
@@ -69,14 +69,16 @@ Do not start any fleet action, run or export before the answers are in.
   10025): not news. `mult_tomorrow` 3 on a Tuesday is C144, known.
 
 **Operator rulings (do not re-open):**
-- The static FTMO-IC trial runs as it is, to its end.
+- The FTMO-IC trial runs to its end; its breaker is OFF (operator 16 Oct: "keeping a trial clean that we
+  dont want makes no sense").
 - Compass rounds stopped; ADR-167 parked; the slower light side dropped.
 - No time-series analysis or price signals: work from our own trades.
 - A replay is trusted only once it reproduces our trades. Plan 3 is CLOSED: FAIL. Plan 4 decides, on
   its own window; timing 1 decides, timing 0 is reported.
 - **BLIND from Thu 15 Oct 21:00Z (Fri 16 Oct 00:00 server) until plan 4's freeze amendment is pushed:**
   no EURUSD fill, send, scalp, roll or journal line of B, C or D after the cut, on pipshed or a box
-  (plan 4 s2 lists what is allowed).
+  (plan 4 s2 lists what is allowed). **The freeze was pushed before the window opened, so the blind period is
+  empty** (s84 continued 4).
 - No mark, tolerance, match rule or window changes; plan 4's ONE allowed edit is s2's freeze line.
 - The cap stays 8. Rolls only at 8/0 (roll gate 0).
 
@@ -86,7 +88,7 @@ Do not start any fleet action, run or export before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `6ddf9ec` (s84c) + s84d (the evening's discussion documented). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
+| fxmatrix `main` | `7a33c35` (s84d) + s84e (A's breaker off; the blind correction). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
 | `replay-plan4` | `8044284` (the harness that passed the gate; suite 573 / 573); never merged |
 | `plan4-tools` | `a335ef0` (the builders; `build_inputs.py --sessions`, `build_holdout.py --sends-extra-*`, `--window-end-ms`); never merged |
 | `replay-harness` | `efada62` (plan 3's `145f092`) |
@@ -102,10 +104,10 @@ Do not start any fleet action, run or export before the answers are in.
 
 ## 2. NEXT, IN ORDER
 
-1. The operator applies s84d; tree checked; pushed.
+1. The operator applies s84e; tree checked; pushed.
 2. The freeze is in: no code change to `8044284` or `a335ef0`.
-3. **Thu 15 Oct 21:00Z: the window opens.** Nobody reads its EURUSD B / C / D data before the export
-   is hashed (plan 4 s2). Carry check 20:50-20:59Z; C150.
+3. The window has been open since Thu 15 Oct 21:00Z; no blind (the freeze came first). Carry check
+   20:50-20:59Z nightly; C150.
 4. **Sat 17 Oct:** the insurance copies (tick dump, `send_logs`), hashed only. **Tue 20 Oct from
    22:10Z:** the export, hashed only (`docs/runbooks/plan3-holdout-export.md` with new names).
 5. Plan 4 s7 step 4: the window's inputs with `build_holdout.py` at `a335ef0` (sends joined, end
@@ -151,4 +153,4 @@ Do not start any fleet action, run or export before the answers are in.
 - **Explain with one small worked example in prices before any table.**
 - Long chats: keep the docs current; propose a handoff only near the limit.
 
-Line count: 154
+Line count: 156

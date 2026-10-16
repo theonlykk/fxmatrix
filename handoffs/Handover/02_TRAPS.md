@@ -2779,4 +2779,16 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   A failure-reason count over the whole day's journal reads EURUSD lines after the cut: not in a blind.
 - **The carry check lists `QUARANTINE_ENTER` but not `QUARANTINE_RELEASE`:** confirm a release with
   `--codes "QUARANTINE_ENTER,QUARANTINE_RELEASE,QUARANTINE_HALT" --instance <id>`.
-Line count: 2782
+
+## TRAPS FROM 2026-10-16 (A'S BREAKER OFF BY F7; THE PRESETS STILL SAY ON)
+
+- **A's live charts run `InpBreakerEnable=false` (F7, 16 Oct ~13:44-13:45Z); `ea/presets/*_opt_a_r2.set`
+  and `scripts/ic_presets.py` (stage ftmo, with its tests) still say true.** A preset LOAD on A turns the
+  breaker and the float gate back on. Change the generator and its tests first if A is ever reloaded.
+- **No entries on an A pair with no halt: read the float gate first** (`--codes "BREAKER_GATE_ON,BREAKER_GATE_OFF"`;
+  engage at floating $250, clear at $200; nothing is cancelled, but re-quoted entries are not replaced,
+  so the book drains to exits). Only relevant while a chart runs the breaker on.
+- **A blind is the plan's, word for word:** plan 4 s2 blinds "until s2's amendment is committed"; with
+  the freeze in first, there is no blind. Do not carry a stricter rule into NEXT lists (s84b, s84c did).
+
+Line count: 2794
