@@ -1,0 +1,23 @@
+# Plan 4's window (docs/research/replay-calibration-eurusd-4.md s3; docs/runbooks/plan3-holdout-export.md with new names).
+# Exported and hashed ONLY. Copy, size, sha256 and the first line of each jsonl (its _meta line) were read; nothing else.
+# Sizes in bytes. Hashes on the desktop (Get-FileHash).
+#
+# INSURANCE (plan 4 s3; C150), Fri 16 Oct after IC's close (the server already Sat 17 Oct), HANDOFF s85.
+# send_logs for B, C, D exported ~22:34Z (desktop, D:\pipshed, archive_counts.py --export-sends --instance
+# GRIND_EURUSD_OPT<f>); each first line {"table": "_meta", "sends": true, "instance": "GRIND_EURUSD_OPT<f>"}.
+e7b2ce3cf8b48baf97c4c2069b65737c17a4bab8f810d34c04431d30f464f82f  sends_EURUSD_OPTB_2026-10-17_ins.jsonl  983030
+8763ec262d1d6a2edb4c42a31c3bfd3856d3cfcaee191cf32fba0410c8aec259  sends_EURUSD_OPTC_2026-10-17_ins.jsonl  1105560
+47b3fc9aeca60846807738583cfbd6325108f60f545f1ee3cbbc05845888a8af  sends_EURUSD_OPTD_2026-10-17_ins.jsonl  1023775
+# The tick dump on wine-d (a fresh EURUSD chart; inputs typed and read back; no preset).
+adba7ab82df92bcc58cb484ff3f63e689c85b08af92eab9b4e64af8fc1778fa2  ticks_53077984_EURUSD_win_ins.csv  8205995
+#   TICKS|BEGIN 22:39:59Z, probe_only=false, from 2026.10.14 01:30 to 2026.10.17 00:00 server, account 53077984,
+#   ICMarketsSC-Demo, server_minus_gmt_s=10800; TICKS|EURUSD ticks=239495 bad_px=1 time_back=0 chunks=71
+#   empty_weekday_chunks=0 first 2026.10.14 01:30:00.144 last 2026.10.16 23:56:59.965; TICKS|END.
+#   Equal hash on wine-d (sha256sum; 8205995 bytes by stat) and on the desktop.
+#   bad_px=1: one tick with bid or ask <= 0, or ask < bid, counted and NOT written (grind_tick_dump.mq5 lines 129-133).
+#
+# For the join at 14 Oct 01:30 server (plan 4 s3): w2h, not in git (D:\mt5-replay\MQL5\Files\replay), as in
+# eurusd_holdout.sha256's comments:
+#   fe37e42aa569689248296c3a06c3f1953abd413670bde9cd4e6530b7fb550392  ticks_53077984_EURUSD_w2h.csv  22397330
+#
+# THE WINDOW SET (Tue 20 Oct from 22:10Z): to be added below.

@@ -6,7 +6,7 @@ This message has a line count at the bottom
 |---|---|
 | Status | NOTES. Ideas and arithmetic from the operator's discussion with Claude, 15 Oct ~21:08Z to 16 Oct ~03:30Z (17:08-23:30 ET); the operator's words quoted with spelling corrected. **s7-s8 added 16 Oct ~16:50Z** (the rolled exit as a trailing stop, measured on B's GBPUSD and EURGBP; ALT or one geometry per fleet). **Nothing here is ruled.** No geometry change during the FTMO trial (to ~21 Oct) or plan 4's window; the work below is for the autopsy after them |
 | Prompted by | The operator, 15 Oct ~21:08Z (17:08 ET): "pnl was brutal today in line with the last few days - but the fact is - we are still making 2 ways around the current market - so there is scope to trade more. the conflict is that rolls are awful - but we can't just hold underwater positions and we can't keep increasing them to an unlimited level. rolling is the only option - but clearly we are not doing it in a profitable way" |
-| Standing rulings it respects | Work from our own trades, no price signals; the static trial runs to its end; the plan 4 window stays blind until its export is hashed |
+| Standing rulings it respects | Work from our own trades, no price signals; the static trial runs to its end (A's breaker excepted: OFF from 16 Oct ~13:45Z); plan 4's blind period was empty (the freeze preceded the window; s6's correction, 16 Oct) |
 | Links | backlog C153 (the autopsy), C151 (count roll STEPS), C32 (the currency cap), C49 (the add delay); `docs/research/grid-edge-assessment-2026-10-12.md` s7 (rho); `docs/research/replay-calibration-eurusd.md` s8 (what the replay is for); ADR-091, ADR-097, ADR-105 (the fxmatrix_v2 backtests) |
 
 ## 0. SOURCES

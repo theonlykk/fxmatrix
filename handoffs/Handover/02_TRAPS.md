@@ -2791,4 +2791,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A blind is the plan's, word for word:** plan 4 s2 blinds "until s2's amendment is committed"; with
   the freeze in first, there is no blind. Do not carry a stricter rule into NEXT lists (s84b, s84c did).
 
-Line count: 2794
+## TRAPS FROM 2026-10-16 NIGHT (A DUMP WITH bad_px=1; AN OLD INPUT LABEL)
+
+- **`bad_px` counts ticks the dump DROPPED** (bid or ask <= 0, or ask < bid; `scripts/grind_tick_dump.mq5`
+  lines 129-133); every other tick is in the file. Plan 4's insurance dump (14 Oct 01:30 to 17 Oct 00:00
+  server) read `bad_px=1`, the first ever. Tuesday's window dump covers the same span: expect 1; more is a
+  stop to report. Whatever the count, do not open the file to find the tick before the export is hashed.
+- **wine-d's script dialog labels `InpChunkMinutes` "ticks read per CopyTicksRange call"**: the comment
+  from before `dc74051`; the input is minutes and the code is the same. Read the dialog's rows back by
+  order and value.
+
+Line count: 2804
