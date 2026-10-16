@@ -1,0 +1,24 @@
+# research/pair_choice/spread_rank.py on bidask_ftmo_2026-10-02 (FTMO minute bars, 21 pairs, 20 Sep - 3 Oct 07:30 server; spread = ask_close - bid_close, server hours 02-22; hourly range from mid high / low, hours with >= 30 bars; daily path = sum |minute mid change|, days with >= 600 bars). Raw spread, before commission.
+
+pair     spread  hourly_rng  daily_rng  spread/hourly  path/range(1-min, daily)
+EURUSD     0.10        9.3       53.5        0.011         17.5
+GBPUSD     0.30       11.5       61.2        0.026         19.1
+AUDUSD     0.30        7.8       47.1        0.038         18.1
+USDCHF     0.50        9.1       44.7        0.055         19.6
+USDCAD     0.50        8.5       53.0        0.059         17.4
+NZDUSD     0.50        8.4       44.4        0.059         18.7
+EURAUD     1.00       13.6       96.9        0.074         15.1
+GBPNZD     2.20       25.0      116.8        0.088         20.5
+EURNZD     2.00       20.9      113.4        0.095         18.3
+GBPAUD     1.60       16.3       89.3        0.098         17.7
+AUDNZD     1.20       11.5       62.2        0.104         18.0
+GBPCAD     1.50       13.6       87.6        0.110         16.2
+EURGBP     0.50        4.4       21.3        0.113         21.0
+EURCHF     0.80        6.7       40.8        0.119         15.3
+NZDCAD     1.30        9.9       58.2        0.132         16.7
+AUDCAD     1.20        9.1       59.1        0.132         17.0
+AUDCHF     0.80        6.0       39.4        0.134         16.9
+GBPCHF     1.30        9.6       63.5        0.135         15.7
+EURCAD     1.50       11.1       59.6        0.135         17.9
+CADCHF     0.90        5.5       27.4        0.162         18.4
+NZDCHF     1.10        5.2       30.3        0.212         17.8
