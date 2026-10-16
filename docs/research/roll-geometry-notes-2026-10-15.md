@@ -209,13 +209,27 @@ price is the other position's entry) later come back through the layer's ORIGINA
   MTM about a day typically and far longer in the tail, and the third to half that never recover keep
   growing. Two pairs, one fleet. The replay (if plan 4 passes) scores the alternatives over the same weeks.
 
-**The lever this points to: the ROLLED EXIT's distance** (today the same as the scalp exit). Candidates:
-a retracement of k x exit (say 30-40 pips on GBPUSD), or the layer's original target. **It changes
-nothing in quiet weeks (nothing rolls there)**, which answers the operator's objection to wider adds
-("the moment we do that we are basically pricing off past data - there is no reason to assume next week
-the ranges dont revert to 40 pips and we miss lots of profits"). Its cost is the full stack held through
-the turn (no near-market rebuild). **Ranked first for the autopsy**, before the add (s5) and the
-currency cap (s2).
+**A lever considered and REJECTED: a "lazier" rolled exit** (Claude, 16 Oct ~16:47-17:01Z). The idea:
+put a rolled layer's exit further away, by k x exit (say 30 pips), at the layer's original target, or the
+target with a time / distance backstop, so the loss is not realised on the first one-exit retracement.
+Worked on the 16 Oct short (entry 1.31631): today's rule closed it on a 10-pip dip at 1.33324 (-169); a
+30-pip trail would have held through that dip and closed ~30 below the later high (~1.3341, about -178:
+WORSE); the original target (~1.3153) waits for ~180 pips more. **The operator, 16 Oct ~18:45Z: "lazy roll
+does not sound great. it seems like you are placing exit orders where we likely already are working
+exits, the 3* exit seems like to are trying to predict the size of the bounce. it introduces an
+inconsistency in the way we treat some potential scalps and it delays the execution of the decision we
+took to roll and hence commence new scalps."** RULED: dropped. Recorded reasons: (1) a held-to-target
+rolled exit rests at nearly the same price as the deeper layers' exits (duplicate exits); (2) k x exit is
+a forecast of the bounce; (3) rolled layers would close on terms unlike every other potential scalp;
+(4) rolling is a decision to realise, free the slot and restart scalping near the market; a lazy exit
+defers it. Also: carried losses count against FTMO's next day from its first second (ADR-160 s1).
+
+**What stands is the diagnosis, and the question it leaves:** in a range wider than the stack, rolls
+realise at the turns; within the operator's framework (roll promptly, every exit alike), the test is
+whether the scalps restarted after a roll repay it: scalps per roll step against the hurdle
+(cap - 1) x add / exit (s5). The levers left: **ALT with wider adds** (s8; a live experiment on one IC
+fleet after the trial), the stack (add x cap, s5, with the operator's caution against pricing off recent
+weeks), the currency cap (s2).
 
 ## 8. ALT BACK, OR ONE GEOMETRY PER FLEET? (16 OCT)
 
@@ -235,4 +249,4 @@ current markets and ALT in the previous week's markets."
   13 Oct: his call whether that reopens them. After the trial and plan 4's window; the replay (if plan 4
   passes) scores narrow against wide on the same weeks.
 
-Line count: 238
+Line count: 252

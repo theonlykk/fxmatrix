@@ -28,7 +28,7 @@ ONE amendment to its s2 before the export.
 You are picking up as Lead Engineer. Clone `https://github.com/theonlykk/fxmatrix` and
 `https://github.com/theonlykk/pipshed` into your sandbox and READ FROM THEM. Verify the HEADs in git
 first, including `plan4-tools`, `replay-plan4` and the `review/*` branches. **If `main` has moved past
-s84f, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
+s84g, this file is stale: say so and boot from the LAST NEXT SESSION in the HANDOFF.**
 
 Read, in order:
 1. `handoffs/Handover/01_BOOT.md` (s1-s5 the pipeline and conventions; s6 the state: its first block).
@@ -40,7 +40,7 @@ Read, in order:
    `cal_score_8044284[_t0].md`).
 6. `prompts/cursor_plan4_f1f4.md` and `prompts/cursor_plan4_f1f4_fix1.md` (the changes, not the line
    detail); `review/deepseek-f2` `da2dcb0` (T-3, T-5: recorded limits, HANDOFF s83 continued 2).
-7. `handoffs/Handover/08_BACKLOG.md`: C150, C151, C152, C153, C154; and `docs/research/roll-geometry-notes-2026-10-15.md` (for C153; s7 the rolled exit, ranked first).
+7. `handoffs/Handover/08_BACKLOG.md`: C150, C151, C152, C153, C154; and `docs/research/roll-geometry-notes-2026-10-15.md` (for C153; s7 the rolled exit measured, the lazy exit rejected; s8 ALT).
 8. Then this.
 
 **YOUR FIRST REPLY, after the reading (operator's request):**
@@ -88,7 +88,7 @@ Do not start any fleet action, run or export before the answers are in.
 
 | | |
 |---|---|
-| fxmatrix `main` | `e732eed` (s84e) + s84f (the rolled exit measured; `research/roll_recovery/`). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
+| fxmatrix `main` | `b076136` (s84f) + s84g (the lazy rolled exit rejected). EA code `5bb5fdb`, live on A, B, C, D; presets `_r3` (`fb92da8`) |
 | `replay-plan4` | `8044284` (the harness that passed the gate; suite 573 / 573); never merged |
 | `plan4-tools` | `a335ef0` (the builders; `build_inputs.py --sessions`, `build_holdout.py --sends-extra-*`, `--window-end-ms`); never merged |
 | `replay-harness` | `efada62` (plan 3's `145f092`) |
@@ -104,7 +104,7 @@ Do not start any fleet action, run or export before the answers are in.
 
 ## 2. NEXT, IN ORDER
 
-1. The operator applies s84f; tree checked; pushed.
+1. The operator applies s84g; tree checked; pushed.
 2. The freeze is in: no code change to `8044284` or `a335ef0`.
 3. The window has been open since Thu 15 Oct 21:00Z; no blind (the freeze came first). Carry check
    20:50-20:59Z nightly; C150.
