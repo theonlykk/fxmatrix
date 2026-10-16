@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | NOTES. Ideas and arithmetic from the operator's discussion with Claude, 15 Oct ~21:08Z to 16 Oct ~03:30Z (17:08-23:30 ET); the operator's words quoted with spelling corrected. **Nothing here is ruled.** No geometry change during the FTMO trial (to ~21 Oct) or plan 4's window; the work below is for the autopsy after them |
+| Status | NOTES. Ideas and arithmetic from the operator's discussion with Claude, 15 Oct ~21:08Z to 16 Oct ~03:30Z (17:08-23:30 ET); the operator's words quoted with spelling corrected. **s7-s8 added 16 Oct ~16:50Z** (the rolled exit as a trailing stop, measured on B's GBPUSD and EURGBP; ALT or one geometry per fleet). **Nothing here is ruled.** No geometry change during the FTMO trial (to ~21 Oct) or plan 4's window; the work below is for the autopsy after them |
 | Prompted by | The operator, 15 Oct ~21:08Z (17:08 ET): "pnl was brutal today in line with the last few days - but the fact is - we are still making 2 ways around the current market - so there is scope to trade more. the conflict is that rolls are awful - but we can't just hold underwater positions and we can't keep increasing them to an unlimited level. rolling is the only option - but clearly we are not doing it in a profitable way" |
 | Standing rulings it respects | Work from our own trades, no price signals; the static trial runs to its end; the plan 4 window stays blind until its export is hashed |
 | Links | backlog C153 (the autopsy), C151 (count roll STEPS), C32 (the currency cap), C49 (the add delay); `docs/research/grid-edge-assessment-2026-10-12.md` s7 (rho); `docs/research/replay-calibration-eurusd.md` s8 (what the replay is for); ADR-091, ADR-097, ADR-105 (the fxmatrix_v2 backtests) |
@@ -162,5 +162,77 @@ From our own archives, per fleet, pair and side, over the cycle and per week:
 
 Timing: the non-EURUSD pairs any time (they are not blind); EURUSD of B, C, D only after plan 4's export
 is hashed (Tue 20 Oct from 22:10Z). Geometry stays frozen until the trial and the plan 4 window end.
+(Correction, 16 Oct: plan 4's blind period was empty, the freeze having come first; EURUSD can be read any time.)
 
-Line count: 166
+## 7. THE ROLLED EXIT IS A TRAILING STOP: MEASURED ON B'S GBPUSD AND EURGBP (16 OCT)
+
+The operator, 16 Oct ~16:32Z: "i still am struggling to comprehend why we are just taking loss after
+loss - the market had a big move down then up - it is not repriced miles away - one might even say it
+is still range trading and that mean reversion would be ideal - but the fleets are bleeding money ...
+it was working for a few days - why does it feel so hopeless?"
+
+**The mechanism (ADR-162 / ADR-165).** A roll never closes the position: it moves the layer's exit to
+`level +/- exit` at each new lattice level, following the market. The loss is realised on the first
+retracement of ONE EXIT (10 pips; 5 on EURGBP) from the extreme. **So a rolled layer's exit is a trailing
+stop one exit behind the extreme.** In a range whose swings exceed the stack (7 x add), it fires at every
+turn, just before the move pays back. Worked example from the archive: B's short opened 1.31631 was
+re-rolled up the 16 Oct rally and closed on a 10-pip dip during it, at **1.33324: -169.3 pips** (12:45Z);
+after the high (near 1.3371, ~14:30Z) three more closed at -143 to -169 between 15:00Z and 16:36Z as price
+came off it.
+
+**Holding versus rolling in a V (EURUSD, add 7, exit 10, cap 8; down 100 pips and back 100):** 8 layers
+to -49; ~7 roll steps to -100, each layer ~45 under water; the first 10-pip bounce realises ~7 x -45 =
+-315 near the bottom; the climb back scalps ~10-14 x 10 = +100-140; **price back where it began, about
+-200 pips.** Holding (a stack deep enough not to roll) ends near flat plus the scalps. In a one-way move
+rolling and holding cost about the same; **in a range wider than the stack, rolling is strictly worse.**
+
+**Measured** (`research/roll_recovery/rolled_recovery.py`, tests `test_rolled_recovery.py`; output
+`results_2026-10-16.md`; inputs `inputs.sha256`, the two exports of 16 Oct ~16:40Z / ~16:50Z): for each
+rolled close (`scalp_history.rolled`), did the instance's own MARKET fills (IN / OUT; never OUT_BY, whose
+price is the other position's entry) later come back through the layer's ORIGINAL entry?
+
+| B fleet | Stack (7 x add) | Rolled closes | Back through the entry | Hours (median / 25% / 75% / max) | Within 24 h | Never back, older than 48 h |
+|---|---|---|---|---|---|---|
+| GBPUSD (add 9, exit 10) | 63 pips | 26, -1,970 pips | 18 | 18.4 / 8.2 / 124.5 / 358.5 | 10 | 0 (8 younger than 48 h) |
+| EURGBP (add 3, exit 5) | 21 pips | 45, -1,046 pips | 24 | 20.8 / 14.5 / 25.1 / 93.9 | 17 | 18 |
+
+- **Most rolled losses were on positions the market later repaid, typically within a day** (about two
+  thirds on GBPUSD, about half on EURGBP).
+- **Not all:** 18 of EURGBP's 45 never came back (mostly early-October longs in a real down leg): there the
+  roll stopped a trend. Rolling is not wrong in itself; **its trigger is too eager** for how these pairs
+  range.
+- **Quiet days were steady; roll days wipe them out.** GBPUSD 9-13 Oct: no rolls, +20 to +96 pips a day;
+  14 Oct +278 scalps / -455 rolled; 16 Oct (to 16:40Z) +111 / -650. EURGBP's 21-pip stack is smaller than
+  an ordinary EURGBP day: it rolls even on quiet days (one rolled close on each of 9, 12, 13 Oct).
+- **Caveats:** hindsight. "Back through the entry" says the realised loss was avoidable, not that a hold
+  policy makes money: holding keeps the stack full (no new near-market scalps on that side), carries the
+  MTM about a day typically and far longer in the tail, and the third to half that never recover keep
+  growing. Two pairs, one fleet. The replay (if plan 4 passes) scores the alternatives over the same weeks.
+
+**The lever this points to: the ROLLED EXIT's distance** (today the same as the scalp exit). Candidates:
+a retracement of k x exit (say 30-40 pips on GBPUSD), or the layer's original target. **It changes
+nothing in quiet weeks (nothing rolls there)**, which answers the operator's objection to wider adds
+("the moment we do that we are basically pricing off past data - there is no reason to assume next week
+the ranges dont revert to 40 pips and we miss lots of profits"). Its cost is the full stack held through
+the turn (no near-market rebuild). **Ranked first for the autopsy**, before the add (s5) and the
+currency cap (s2).
+
+## 8. ALT BACK, OR ONE GEOMETRY PER FLEET? (16 OCT)
+
+The operator, 16 Oct ~16:38Z: "perhaps we need ALT back? OPT has wide ranges that would work in these
+current markets and ALT in the previous week's markets."
+
+- The instinct is sound: hold a geometry for each regime instead of forecasting one.
+- **Two arms on one pair diversify the regime bet, not the inventory:** in a big move both arms load (the
+  wide one more slowly), so combined exposure exceeds one arm, and lots cannot go below 0.01. ADR-160 s4
+  recorded cycle 3's OPT and ALT "held near-identical stacks, so every move was paid twice" (closer
+  geometries than a narrow / wide pair would be).
+- **Two arms average the edge; they do not create it:** it pays only if each arm wins clearly in its
+  regime and loses little in the other: measurable, but it is the bet. FTMO's request budget and $500
+  limit make a second arm on A expensive; the IC fleets have slot room (~140 / 194).
+- **A cheaper form: one geometry per IC fleet** (B narrow as last week, C as now, D wide): one arm per
+  pair per account, compared side by side on pipshed. Close to the compass rounds the operator stopped on
+  13 Oct: his call whether that reopens them. After the trial and plan 4's window; the replay (if plan 4
+  passes) scores narrow against wide on the same weeks.
+
+Line count: 238
