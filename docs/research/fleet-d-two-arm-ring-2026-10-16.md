@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | what "running 0.04 lots" refers to (s1); ALT's adds and exits per pair (s5); the retirement of five pairs (s4) |
+| Open | **the pair set (s7: the six-pair ring, or three pairs with each currency once; operator 16 Oct ~23:21Z: "we will have to see")**; ALT's adds and exits per pair (s5); the retirement of D's pairs (s4). Answered: "0.04 lots" (s1) |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -15,8 +15,10 @@ This message has a line count at the bottom
   worked these last few days as a starting point. my view is that in the quiet periods - alt does very
   little. in the periods like the last few days - it makes money. obviously the opt arm will lose money -
   but i am hoping that the net result is broadly neutral and offsets the fact that we will be running 0.04
-  lots." (Asked, not yet answered: is 0.04 lots per layer, per arm, or the net per pair? Lots do not change
-  the slot budget below; they scale P&L and margin.)
+  lots." **Answered ~23:21Z (s85): 0.04 is exposure PER CURRENCY, not a lot size** ("in theory 4 lots of
+  0.01 per ccy. currently we have 0.01 * 2 lots of EUR via EURUSD and EURGBP ... so a wild move in EUR would
+  cause a lot of MTM. I think there is a good chance we hit our drawdown - but we can and should test. I
+  think it is more important to have OPT and ALT"). Each instance stays 0.01 a layer.
 - ~19:10Z: "i think it is better to have more fx pairs. i think 7 layers is fine - obv we can test when the
   replay works. lets do USDCAD EURUSD EURGBP GBPCHF AUDCHF AUDCAD. I know this is new pairs but i think the
   EURUSD GBPUSD EURGBP mini ring is not consistent."
@@ -99,4 +101,26 @@ room there; expect it to do little.
   the sum about neutral in wide weeks. The replay, if plan 4 passes, scores the same weeks with and
   without ALT on EURUSD before anything moves to an FTMO account.
 
-Line count: 102
+## 7. EXPOSURE PER CURRENCY, AND A THREE-PAIR OPTION (16 OCT ~23:21Z)
+
+**One worked example (EUR down 100 pips against USD and GBP; EURUSD 1.1600 -> 1.1500; adds illustrative:
+OPT 7, ALT 14, cap 7):** OPT is full after 6 x 7 = 42 pips, ALT after 6 x 14 = 84. At 100 pips all four EUR
+stacks of the six-pair ring (EURUSD and EURGBP, OPT and ALT) are full and all long EUR: **28 layers, 0.28
+lots, about $3 a further pip.** D today in the same move: EURUSD and EURGBP at cap 8, 16 layers, 0.16 lots,
+about $1.70 a pip. (Pip values per 0.01: EURUSD $0.10, EURGBP a little more.)
+
+**The operator's alternative ("we might end up with broken rings like just EURUSD GBPCHF AUDCAD - we will
+have to see"):** the six currencies each appear ONCE, so with OPT + ALT every currency sits in two
+instances: 14 layers, 0.14 lots at full, today's exposure rather than double. Slots: 6 instances x about
+15-16 = about 90-96 of 194 (room for cap 8). Cost: EURGBP, USDCAD and AUDCHF dropped, so fewer pairs and
+less data (against "more pairs", s1).
+
+| Set | Instances | Currency's instances | At full, one currency | Guard, stressed day |
+|---|---|---|---|---|
+| Six-pair ring | 12 | 4 | 28 layers, 0.28 lots | about 180-192 / 194 |
+| EURUSD, GBPCHF, AUDCAD | 6 | 2 | 14 layers, 0.14 lots | about 90-96 / 194 |
+| D today (9 pairs, OPT, cap 8) | 9 | 2-3 | 16-24 layers | 149-155 / 194 |
+
+Not chosen: the operator decides with ALT's adds (s5) in hand.
+
+Line count: 126
