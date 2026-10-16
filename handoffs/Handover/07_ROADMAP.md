@@ -116,6 +116,13 @@ account running two triangles is only flat in a currency if both are
 complete. AUD currently sits in two rings. Harmless at 0.01 lots;
 deliberate choice needed when there are several accounts.
 
+**The fleets today (operator, 15 Oct):** "ftmo is always a perfect ring": A runs each currency
+exactly twice (the EUR / GBP / USD triangle and the AUD / CHF / CAD / NZD square). "the ic fleets are
+not true rings, we have them as we want to collect more data on the fx pairs": B, C, D add AUDCAD and
+NZDCHF, so AUD, CAD, CHF and NZD appear three times each. Read IC results as data, not as a ring. A
+ring limits how many legs share a currency; it does not stop one currency's move hitting both legs (15
+Oct: A's AUDCHF L and AUDNZD L, -640 and -633 pips). `docs/research/roll-geometry-notes-2026-10-15.md` s2.
+
 ---
 
 ## 4. MONITORING -- WHAT HAS TO EXIST BEFORE N > 2
@@ -190,4 +197,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 193
+Line count: 200
