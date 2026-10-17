@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | **the pair set (s7: the six-pair ring, or three pairs with each currency once; operator 16 Oct ~23:21Z: "we will have to see")**; ALT's adds and exits per pair (s5); the retirement of D's pairs (s4). Answered: "0.04 lots" (s1) |
+| Open | ALT's adds (first guess s8, from our own fills next) and exits per pair (s5); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -123,4 +123,38 @@ less data (against "more pairs", s1).
 
 Not chosen: the operator decides with ALT's adds (s5) in hand.
 
-Line count: 126
+## 8. THE FIRST SET: TWO TRIANGLES FROM D's OWN PAIRS (17 OCT ~00:17Z)
+
+The operator, 16 Oct ~23:40Z: "is there a way to do 6 ring and not have to build new pairs? I feel like 6
+ring will blow up the demo - but i can live with that. we will have just 7 layers." Among the pairs we run,
+EUR, GBP and USD pair only with each other, so a six-pair set with each currency twice must hold the
+EURUSD / GBPUSD / EURGBP triangle (three candidates were tabled: two triangles, the six-pair ring of s3, A's
+square). **17 Oct ~00:17Z: "longer term i think we want my ring - but it seems sensible to use yours EURUSD,
+GBPUSD, EURGBP + AUDCAD, AUDCHF, CADCHF first as we have the actual data." RULED for D's first build.**
+
+- **D: EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF, OPT + ALT each, cap 7: 12 instances.** All six are on
+  D now (their `_OPTD` charts keep running and gain an ALT arm); **NZDCHF, NZDCAD, AUDNZD retire** (their
+  books wound down, C119 the precedent). The ring of s3 (USDCAD, GBPCHF) stays the longer-term set.
+- Exposure as s7: each currency in two pairs, so four instances; 28 layers at full. Slots as s2.
+- **Every kept OPT chart moves cap 8 -> 7:** a side holding 8 at the change trips I7 (s4): the runbook
+  checks each side from the heartbeat and changes a chart only when both sides hold 7 or fewer.
+- **ALT for a pair with no fills of ours (operator, 16 Oct ~23:26Z): "the new pairs ALT can be from price
+  ranges - basically any sensible guess is fine."** (For the ring later; the first set has fills.)
+
+**ALT's adds, first guess (Claude, 16 Oct ~23:45Z; to be refined from our own fills before the presets).**
+D's OPT stacks ((cap - 1) x add at cap 8) sit near one median day's range; an ALT stack of about two days'
+range at cap 7 gives add ~ daily range / 3, about 2.3-3.3 x OPT's add. Worked example: a 100-pip EURUSD
+fall fills OPT (add 7) by pip 42; ALT at add 18 holds 6 layers at pip 100 and has not yet rolled when price
+turns. Ranges: `research/pair_choice/spread_rank_2026-10-02.txt` (FTMO minute bars, 20 Sep - 3 Oct, a quiet
+fortnight; the last week was wider, GBPUSD ~200 pips on 16 Oct).
+
+| Pair | OPT add (D r3) | Median daily range | ALT add, first guess |
+|---|---|---|---|
+| EURUSD | 7 | 53.5 | 18 |
+| GBPUSD | 9 | 61.2 | 20 |
+| EURGBP | 3 | 21.3 | 7 |
+| AUDCAD | 6 | 59.1 | 20 |
+| AUDCHF | 4 | 39.4 | 13 |
+| CADCHF | 4 | 27.4 | 9 |
+
+Line count: 160
