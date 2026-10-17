@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | ALT's adds (first guess s8, from our own fills next) and exits per pair (s5); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
+| Open | ALT's exit per pair, and the quantile behind ALT's adds (s9: proposed adds from our own fills); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -157,4 +157,27 @@ fortnight; the last week was wider, GBPUSD ~200 pips on 16 Oct).
 | AUDCHF | 4 | 39.4 | 13 |
 | CADCHF | 4 | 27.4 | 9 |
 
-Line count: 160
+## 9. ALT'S ADDS FROM OUR OWN FILLS (17 OCT ~01:10Z; SUPERSEDES s8's FIRST GUESS)
+
+`research/alt_adds/` (`alt_excursions.py`, hand-valued tests, `results_2026-10-17.md`, inputs hashed): on
+D's archives (1-16 Oct), for a side opened at each hour, how far the market went against it before L0's
+exit filled. ALT add at cap 7 = the 90th percentile of the worse side / 6, the larger of the whole period
+and the week from 9 Oct.
+
+| Pair | OPT add | ALT add proposed | s8's guess |
+|---|---|---|---|
+| EURUSD | 7 | 16 | 18 |
+| GBPUSD | 9 | 21 | 20 |
+| EURGBP | 3 | 14 | 7 |
+| AUDCAD | 6 | 25 | 20 |
+| AUDCHF | 4 | 19 | 13 |
+| CADCHF | 4 | 9 | 9 |
+
+- **EURGBP's guess was wrong by half:** its daily range is the smallest of the 21, but it trended in early
+  October; 46% of its long anchors passed the live 21-pip stack. One-way distance decides a roll, not range.
+- **ALT's exit moves the answer as much as the add** (results s4): with exit = add, the 90th percentiles
+  grow by up to about 2x on AUDCAD long. Claude recommends ALT's exit = OPT's exit for the first build.
+- Lower bounds where many anchors are censored (EURGBP long, AUDCHF long). Open: the operator's choice of
+  quantile and ALT's exit; then the presets.
+
+Line count: 183

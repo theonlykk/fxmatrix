@@ -1,0 +1,8 @@
+# Fleet D's six kept pairs, archive exports (archive_counts.py --export-archive --instance GRIND_<PAIR>_OPTD),
+# desktop D:\pipshed, 17 Oct ~00:50Z (16 Oct 20:50 ET), IC closed. Not in git (Downloads). Size in bytes.
+3e8bf122f199361b5656ee592e3c838f4e63f9c55224f0e518bb13d91c7d65e5  archive_EURUSD_OPTD_2026-10-17_alt.jsonl  1530773
+9ad96404027591fa1b22cf4c56dfd08d62c2152440c66f627e1f0d200d4652b3  archive_GBPUSD_OPTD_2026-10-17_alt.jsonl  1415170
+048091de2c67ff087530fa839bed8c7c8f84a7478082ddf919cb7011a954d2bf  archive_EURGBP_OPTD_2026-10-17_alt.jsonl  1149386
+3cc269101c6c391719337027e4206ba98ad1e2af8c9c2c4a32ce9bfdf701594d  archive_AUDCAD_OPTD_2026-10-17_alt.jsonl  906014
+f078bd78fa995ff22aec01352426623ac89996e6889068ea1e1a8a47c1e513d4  archive_AUDCHF_OPTD_2026-10-17_alt.jsonl  926332
+297f2d363b21009208b3d9de206f79a73ef31dda53c4894558da4da35d03dc76  archive_CADCHF_OPTD_2026-10-17_alt.jsonl  724361
