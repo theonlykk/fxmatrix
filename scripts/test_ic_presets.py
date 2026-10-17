@@ -668,9 +668,11 @@ class TestTwoArm(unittest.TestCase):
         self.assertEqual(errs, [])
         self.assertEqual(len(files), 30)
         e_magics = []
-        for path in sorted(files):
-            self.assertRegex(path, r"ea[/\\]presets_[edc][/\\][a-z]+_(opt|alt)_[edc]_t1\.set")
-            if "presets_e" in path.replace("\\", "/"):
+        for path in files:
+            self.assertRegex(path.replace("\\", "/"), r"ea/presets_[edc]/[a-z]+_(opt|alt)_[edc]_t1\.set")
+        for pair in table["fleets"]["E"]["pairs"]:
+            for slot in ("OPT", "ALT"):
+                path = ip.twoarm_path(ROOT, "E", pair.upper(), slot, table["round"])
                 e_magics.append(kv(files[path])["InpMagic"])
         self.assertEqual(e_magics, ["22260101", "22260102", "22260201", "22260202", "22260301", "22260302",
                                     "22260401", "22260402", "22260501", "22260502", "22260601", "22260602"])

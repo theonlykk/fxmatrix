@@ -519,16 +519,140 @@ TWOARM_CHANGES = {"InpMagic", "InpSlot", "InpTelemetryInstance", "InpCapLegA", "
                   "InpRollGateOpposite", "InpBreakerEnable", "InpConfigWarning"}
 
 
+def twoarm_tag(fleet, pair, slot, table):
+    if slot.upper() == "OPT":
+        return "-"
+    if pair.upper() in table.get("template", {}):
+        return "range guess"
+    if fleet == "E":
+        return "q90"
+    return "q95"
+
+
+def twoarm_warning(fleet, pair, slot, add, width, table):
+    tag = twoarm_tag(fleet, pair, slot, table)
+    meta = table["fleets"][fleet]
+    cap = int(table["cap"])
+    db = float(table["deadband"])
+    rg = int(table["roll_gate"])
+    rnd = table["round"]
+    return ("FLEET %s two-arm %s %s %s %s: cap %d, add = exit %s, width %s, deadband %s; "
+            "lattice + reroll on, roll gate %d (%s, %s)" %
+            (fleet, rnd, pair.upper(), slot.upper(), tag, cap, _num(add), _num(width), _num(db), rg,
+             meta["account"], meta["box"]))
+
+
+def twoarm_template_path(root, pair, table):
+    pu = pair.upper()
+    src = table.get("template", {}).get(pu, pu)
+    return os.path.join(root, "ea", "presets_d", "%s_opt_d_r3.set" % src.lower())
+
+
+def twoarm_path(root, fleet, pair, slot, rnd):
+    f = fleet.lower()
+    return os.path.join(root, "ea", "presets_" + f,
+                        "%s_%s_%s_%s.set" % (pair.lower(), slot.lower(), f, rnd))
+
+
 def twoarm_preset(template_text, fleet, pair, slot, add, table):
-    raise NotImplementedError
+    pu, su = pair.upper(), slot.upper()
+    idx = int(table["pair_index"][pu])
+    magic = 2226 * 10000 + idx * 100 + (1 if su == "OPT" else 2)
+    w = tight_width([add])
+    leg_a, leg_b = pu[:3], pu[3:6]
+    inst = "GRIND_%s_%s%s" % (pu, su, fleet)
+    upd = {
+        "InpMagic": str(magic),
+        "InpSlot": su,
+        "InpTelemetryInstance": inst,
+        "InpCapLegA": leg_a,
+        "InpCapLegB": leg_b,
+        "InpAddPips": _num(add),
+        "InpExitPips": _num(add),
+        "InpAddPipsLong": "-1.0",
+        "InpAddPipsShort": "-1.0",
+        "InpExitPipsLong": "-1.0",
+        "InpExitPipsShort": "-1.0",
+        "InpWidthPipsLong": "-1.0",
+        "InpWidthPipsShort": "-1.0",
+        "InpWidthPips": _num(w),
+        "InpStrandedThreshPips": _num(w + 1.0),
+        "InpDeadbandPips": _num(float(table["deadband"])),
+        "InpMaxLayers": str(int(table["cap"])),
+        "InpRollGateOpposite": str(int(table["roll_gate"])),
+        "InpBreakerEnable": "false",
+        "InpConfigWarning": twoarm_warning(fleet, pu, su, add, w, table),
+    }
+    return render(_set(parse(template_text), upd))
 
 
 def validate_twoarm(template_text, out_text, fleet, pair, slot, add, table):
-    raise NotImplementedError
+    a, b = parse(template_text), parse(out_text)
+    if [k for k, _ in a] != [k for k, _ in b]:
+        return ["keys or order differ from the template"]
+    base = dict(a)
+    p = dict(b)
+    for k, v in base.items():
+        if k not in TWOARM_CHANGES and p.get(k) != v:
+            errs = ["%s changed outside TWOARM_CHANGES" % k]
+            return errs
+    want = dict(parse(twoarm_preset(template_text, fleet, pair, slot, add, table)))
+    errs = []
+    for k in sorted(TWOARM_CHANGES):
+        if k not in p:
+            errs.append("%s missing" % k)
+        elif p[k] != want[k]:
+            errs.append("%s %s, not %s" % (k, p[k], want[k]))
+    w = float(want["InpWidthPips"])
+    add_f = float(add)
+    if not guard_ok(w, add_f):
+        errs.append("guard ratio: add %s / width %s outside [%.1f, %.1f]" % (add_f, w, GUARD_MIN, GUARD_MAX))
+    if p.get("InpExitPips") != p.get("InpAddPips"):
+        errs.append("InpExitPips %s, not equal to InpAddPips %s" % (p.get("InpExitPips"), p.get("InpAddPips")))
+    for k, v in (("InpVirtualLattice", "true"), ("InpLatticeReroll", "true"),
+                 ("InpAutoEject", "false"), ("InpLots", "0.01")):
+        if p.get(k) != v:
+            errs.append("%s %s, not %s" % (k, p.get(k), v))
+    if p.get("TelemetryAPIKey", "") != "":
+        errs.append("TelemetryAPIKey not blank")
+    return errs
 
 
 def build_twoarm(table, root):
-    raise NotImplementedError
+    out, errs = {}, []
+    pair_index = table.get("pair_index", {})
+    inv = {}
+    for p, i in pair_index.items():
+        pi = int(i)
+        if pi in inv:
+            errs.append("duplicate pair_index %d for %s and %s" % (pi, inv[pi], p))
+        inv[pi] = p
+    rnd = table["round"]
+    for fleet, fspec in table["fleets"].items():
+        magics = []
+        for pair, arms in fspec["pairs"].items():
+            pu = pair.upper()
+            if pu not in pair_index:
+                errs.append("fleet %s pair %s missing from pair_index" % (fleet, pu))
+                continue
+            tpath = twoarm_template_path(root, pu, table)
+            if not os.path.isfile(tpath):
+                errs.append("missing template %s" % tpath)
+                continue
+            base = _read(tpath)
+            for slot in ("OPT", "ALT"):
+                if slot not in arms:
+                    continue
+                add = arms[slot]
+                text = twoarm_preset(base, fleet, pu, slot, add, table)
+                path = twoarm_path(root, fleet, pu, slot, rnd)
+                magics.append(dict(parse(text))["InpMagic"])
+                errs += ["%s: %s" % (os.path.basename(path), e)
+                         for e in validate_twoarm(base, text, fleet, pu, slot, add, table)]
+                out[path] = text
+        if len(magics) != len(set(magics)):
+            errs.append("fleet %s duplicate magic within fleet" % fleet)
+    return out, errs
 
 
 def summary(files):
@@ -546,15 +670,19 @@ def summary(files):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="IC presets for the cap-10 reload and round 2")
     ap.add_argument("--table", required=True)
-    ap.add_argument("--stage", choices=("c10", "p2", "round", "ftmo"), required=True)
+    ap.add_argument("--stage", choices=("c10", "p2", "round", "ftmo", "twoarm"), required=True)
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args(argv)
     geo = load_table(args.table)
     c10_texts = None
-    if args.stage in ("round", "ftmo"):
-        files, errs = build_round(geo, args.root) if args.stage == "round" \
-            else build_ftmo(args.root, int(geo["round"]))
+    if args.stage in ("round", "ftmo", "twoarm"):
+        if args.stage == "round":
+            files, errs = build_round(geo, args.root)
+        elif args.stage == "ftmo":
+            files, errs = build_ftmo(args.root, int(geo["round"]))
+        else:
+            files, errs = build_twoarm(geo, args.root)
         print("\n".join(summary(files)))
         if errs:
             print("\n".join("ERROR " + e for e in errs))
@@ -562,6 +690,7 @@ def main(argv=None):
         print("%d files, 0 errors%s" % (len(files), "" if args.write else " (dry run: nothing written)"))
         if args.write:
             for path, text in files.items():
+                os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "w", encoding="ascii", newline="\n") as fh:
                     fh.write(text)
         return 0
