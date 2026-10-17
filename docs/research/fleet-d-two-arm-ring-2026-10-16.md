@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | ALT's exit per pair, and the quantile behind ALT's adds (s9: proposed adds from our own fills); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
+| Open | **the layout ruled in s10 (FTMO and D the six with OPT + ALT; C three pairs; B unchanged)**; ALT's exit per pair, and the quantile behind ALT's adds (s9); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -180,4 +180,38 @@ and the week from 9 Oct.
 - Lower bounds where many anchors are censored (EURGBP long, AUDCHF long). Open: the operator's choice of
   quantile and ALT's exit; then the presets.
 
-Line count: 183
+## 10. THE LAYOUT FOR NEXT WEEK: FTMO, B, C, D (17 OCT ~02:43Z; SUPERSEDES s8's "D ONLY")
+
+The operator, 17 Oct ~02:37-02:43Z: "I think that OPT/ALT arms will be on FTMO (moved to linux) on the new
+demo. Fleet B will be unchanged. I could imagine the broken ring EURUSD GBPCHF AUDCAD on Fleet C"; on the
+request budget, "i think FTMO would be ok with 2500"; on wine-d, "we should be wary about logging out of
+the IC account on wine D - we might not be able to get back in ... i would be more keen to switch the
+windows vps to a new linux server"; then "perhaps we mirror the FTMO set up in wine -d. So if we do have to
+shut down FTMO for unforseen circumstances we still have the setup continued". **RULED.**
+
+| Fleet | Next week | Instances |
+|---|---|---|
+| **FTMO** (a new demo, on a NEW Linux + wine server replacing the Windows VPS; C158) | EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF, OPT + ALT, cap 7 | 12 |
+| **D** (wine-d, IC 53077984) | **a mirror of FTMO**: the same six, OPT + ALT, cap 7; retire NZDCHF, NZDCAD, AUDNZD | 12 |
+| **C** (wine-c, IC 53071896) | EURUSD, GBPCHF, AUDCAD (each currency once), OPT + ALT; retire the other seven; GBPCHF new on IC | 6 |
+| **B** (wine-test, IC 53066709) | unchanged: the control | 9 |
+
+- **What each comparison answers:** D against B, ALT's effect at one broker; D against FTMO, the same set-up
+  at two brokers; C, the each-currency-once exposure (s7) against D's each-currency-twice.
+- **wine-d's IC terminal is never logged out** (C150: the web login refused since 12 Oct; a fresh login may
+  fail): D changes charts inside the running terminal only.
+- **FTMO's request budget, recorded:** FTMO's email of 2 Oct: 2,000 requests a day, repeated alerts ->
+  account disabled (C106); A's seven used about 1,400-1,500 a day (~200 an instance), so twelve is about
+  2,500 (ALT's wider adds may need fewer; not measured). The operator judges FTMO will accept it. The EA
+  counts every request and stops none (`InpApiEntryStop` 1000000); watch the count per day on pipshed
+  for the first days, and any FTMO alert email.
+- **ALT's adds:** s9's (measured on D's fills) for FTMO and D; C's EURUSD and AUDCAD the same; GBPCHF (no
+  fills of ours) from its range (daily 63.5 pips): OPT about 9, ALT about 21 at cap 7 (the operator: "any
+  sensible guess is fine"). Still open: ALT's exit and the quantile (s9).
+- The replay's check of ALT on EURUSD comes after, not before, FTMO (s6 said before): on a fresh free demo
+  the stake is the trial.
+- **Order:** Tue 20 Oct night the export; then D and C in market hours (D first: the mirror), from Wed 21
+  Oct; FTMO when the new server is up and the trial on 1514878887 has ended (~21 Oct). One presets prompt
+  and one pipshed prompt cover all three fleets; a runbook per fleet.
+
+Line count: 217
