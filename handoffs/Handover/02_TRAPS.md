@@ -2817,4 +2817,17 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Exit = add needs a fixed point:** ALT's exit changes the depth that sizes its add
   (`research/alt_adds/solve_exit_eq_add.py`); an add measured at another exit is not the answer.
 
-Line count: 2820
+## TRAPS FROM 2026-10-17 EVENING (A PIPSHED BRANCH THAT CHANGES FLEETS; RESTATE TABLES)
+
+- **A pipshed change that retires instances must not be merged before the charts change:** the push deploys
+  every service in ~3 minutes and the strip hides retired ids at once. Verify the branch, park it, merge
+  in the runbook right after the fleet change (C119's rule).
+- **pipshed's verify scripts use live instances as fixtures:** retiring an instance breaks every check that
+  seeds it (about fourteen files for the two-arm build). Have the restate list each one with a rule (R1 a
+  pinned list, R2 a retired instance as a live fixture, R3 a cell for a pair gone) and approve the table
+  before "go"; check each substitute is not already used in the same file (OX: `INST2` was the proposed
+  `INST`).
+- **A reviewer may answer questions the prompt did not ask** (Argon's Q1-Q5 on pipshed): read its answers
+  as findings, check each against the prompt's actual text before taking it.
+
+Line count: 2833
