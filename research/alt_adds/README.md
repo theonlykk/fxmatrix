@@ -4,6 +4,7 @@ Read-only analysis of files; standard library only (Python 3.9+).
 
     python research/alt_adds/alt_excursions.py --exit-pips <L0's exit> --opt-add <OPT's add> [--since-utc-ms MS] <archive export .jsonl> [...]
     python research/alt_adds/test_alt_excursions.py
+    python research/alt_adds/solve_exit_eq_add.py <archive export .jsonl> [...]   # ALT add when exit = add (results s6)
 
 Input: `archive_counts.py --export-archive --instance GRIND_<PAIR>_<SLOT>` (one instance per file; a
 UTF-8 BOM is tolerated). Market samples: fill_logs IN deals and ROLL_ACCEPTED levels, never OUT_BY (its

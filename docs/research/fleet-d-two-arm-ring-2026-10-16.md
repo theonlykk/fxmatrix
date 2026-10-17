@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | **the layout ruled in s10 (FTMO and D the six with OPT + ALT; C three pairs; B unchanged)**; ALT's exit per pair, and the quantile behind ALT's adds (s9); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
+| Open | **the layout ruled in s10 (FTMO and D the six with OPT + ALT; C three pairs; B unchanged)**; the presets, pipshed and the runbooks (the geometry ruled in s11: exit = add on both arms; q90 FTMO, q95 D and C); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -214,4 +214,37 @@ shut down FTMO for unforseen circumstances we still have the setup continued". *
   Oct; FTMO when the new server is up and the trial on 1514878887 has ended (~21 Oct). One presets prompt
   and one pipshed prompt cover all three fleets; a runbook per fleet.
 
-Line count: 217
+## 11. THE GEOMETRY: EXIT = ADD ON BOTH ARMS; q90 ON FTMO, q95 ON D AND C (17 OCT ~02:46-02:52Z)
+
+The operator: "if OPT has 10 pip add, then it should have 10 pip exit. If ALT has 20 pip add, then it
+should also have 20 pip exit. in a tight range trading market it is ok if ALT is completely dormant." On
+keeping OPT's exits for a week (Claude's option (b)): "i think we dont learn much with b. if we have to
+flatten all positions - so be it. these are demo accounts." On the quantile: "why no q90 on FTMO and q95
+on Wine D? there is no compass probe optimisation, but lets just see if there is a material difference."
+**RULED: exit = add on OPT and ALT on FTMO, D and C; cap 7; ALT's adds at q90 on FTMO and q95 on D and C**
+(`research/alt_adds/results_2026-10-17.md` s6; `solve_exit_eq_add.py`).
+
+| Pair | OPT add = exit (all) | ALT add = exit, FTMO (q90) | ALT add = exit, D and C (q95) |
+|---|---|---|---|
+| EURUSD | 7 | 23 | 27 |
+| GBPUSD | 9 | 24 | 30 |
+| EURGBP | 3 | 16 | 19 |
+| AUDCAD | 6 | 27 | 27 |
+| AUDCHF | 4 | 21 | 22 |
+| CADCHF | 4 | 9 | 12 |
+| GBPCHF (C only; no fills, from its range, daily 63.5) | 9 | - | about 24 |
+
+- **The hurdle** (s5 of the roll-geometry notes): with exit = add, cap 7, 6 scalps a roll step on every pair
+  and arm.
+- **Recorded costs, accepted:** (1) commission is a larger share of a narrow scalp (IC about $0.08 a round
+  trip per 0.01 lot, about 0.6-1.1 pips): EURGBP at exit 3 about 20%, AUDCAD at 6 about 18%, AUDCHF and CADCHF
+  at 4 about 16%, against 6-12% at today's exits; (2) B stops being a pure control for ALT: D against B now
+  measures the whole set-up (OPT at exit = add plus ALT); (3) **an exit change on a live chart:** BOOT s6,
+  "exit and cap may not change mid-cycle (I6/I7)": D's and C's kept OPT charts are read in source before
+  their runbook; a fresh start with the instance's positions flattened by hand is permitted (the operator).
+  FTMO starts fresh.
+- **q90 against q95 is not a clean probe:** FTMO and D differ in broker as well (feed, spreads, fills), and
+  the adds by 0-6 pips. D stays a close fallback for FTMO's set-up. C against D isolates the exposure
+  question at one broker (same geometry, each currency once against twice).
+
+Line count: 250
