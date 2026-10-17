@@ -547,5 +547,152 @@ class TestFtmoStage(unittest.TestCase):
             self.assertEqual([k for k, _ in ip.parse(ip._read(f))], ea, os.path.basename(f))
 
 
+TWOARM_TABLE = os.path.join(HERE, "ic_geometry_twoarm.json")
+
+
+class TestTwoArm(unittest.TestCase):
+    """Two-arm stage (fleet E, D, C): OPT + ALT per pair, exit = add, cap 7 (prompt s4)."""
+
+    def test_tw1_width_and_stranded(self):
+        """TW1 width and stranded (GUARD: existing tight_width)."""
+        cases = [(3, 1.0), (4, 1.0), (6, 1.5), (7, 2.0), (9, 2.5), (12, 3.0), (16, 4.0),
+                 (19, 5.0), (21, 5.5), (22, 5.5), (23, 6.0), (24, 6.0), (27, 7.0), (30, 7.5)]
+        for add, w in cases:
+            self.assertAlmostEqual(ip.tight_width([add]), w, msg="add %s" % add)
+            self.assertAlmostEqual(float(w) + 1.0, w + 1.0)
+            self.assertTrue(ip.guard_ok(w, add), (add, w, add / w))
+
+    def test_tw2_one_preset_d_eurusd_alt(self):
+        """TW2 one preset, D EURUSD ALT from repo template."""
+        table = ip.load_table(TWOARM_TABLE)
+        base = ip._read(os.path.join(ROOT, "ea", "presets_d", "eurusd_opt_d_r3.set"))
+        out = ip.twoarm_preset(base, "D", "EURUSD", "ALT", 27, table)
+        p = kv(out)
+        self.assertEqual(p["InpMagic"], "22260202")
+        self.assertEqual(p["InpSlot"], "ALT")
+        self.assertEqual(p["InpTelemetryInstance"], "GRIND_EURUSD_ALTD")
+        self.assertEqual((p["InpAddPips"], p["InpExitPips"]), ("27.0", "27.0"))
+        self.assertEqual((p["InpWidthPips"], p["InpStrandedThreshPips"]), ("7.0", "8.0"))
+        self.assertEqual(p["InpDeadbandPips"], "2.0")
+        self.assertEqual(p["InpMaxLayers"], "7")
+        for k in ("InpAddPipsLong", "InpAddPipsShort", "InpExitPipsLong", "InpExitPipsShort",
+                  "InpWidthPipsLong", "InpWidthPipsShort"):
+            self.assertEqual(p[k], "-1.0", k)
+        self.assertEqual((p["InpCapLegA"], p["InpCapLegB"]), ("EUR", "USD"))
+        self.assertEqual(p["InpBreakerEnable"], "false")
+        want = ("FLEET D two-arm t1 EURUSD ALT q95: cap 7, add = exit 27.0, width 7.0, deadband 2.0; "
+                "lattice + reroll on, roll gate 0 (IC Markets demo 53077984, wine-d)")
+        self.assertEqual(p["InpConfigWarning"], want)
+
+    def test_tw3_gbpchf_on_c_from_eurusd_template(self):
+        """TW3 GBPCHF on C from EURUSD template."""
+        table = ip.load_table(TWOARM_TABLE)
+        base = ip._read(os.path.join(ROOT, "ea", "presets_d", "eurusd_opt_d_r3.set"))
+        opt = kv(ip.twoarm_preset(base, "C", "GBPCHF", "OPT", 9, table))
+        alt = kv(ip.twoarm_preset(base, "C", "GBPCHF", "ALT", 24, table))
+        self.assertEqual(opt["InpMagic"], "22261001")
+        self.assertEqual(alt["InpMagic"], "22261002")
+        self.assertEqual((opt["InpCapLegA"], opt["InpCapLegB"]), ("GBP", "CHF"))
+        self.assertEqual((opt["InpAddPips"], opt["InpExitPips"], opt["InpWidthPips"], opt["InpStrandedThreshPips"]),
+                         ("9.0", "9.0", "2.5", "3.5"))
+        self.assertEqual((alt["InpAddPips"], alt["InpExitPips"], alt["InpWidthPips"], alt["InpStrandedThreshPips"]),
+                         ("24.0", "24.0", "6.0", "7.0"))
+        self.assertIn("range guess", alt["InpConfigWarning"])
+        self.assertEqual(opt["InpTelemetryInstance"], "GRIND_GBPCHF_OPTC")
+        self.assertEqual(alt["InpTelemetryInstance"], "GRIND_GBPCHF_ALTC")
+
+    def test_tw4_e_audcad_and_eurusd_alt(self):
+        """TW4 E AUDCAD ALT and E EURUSD ALT."""
+        table = ip.load_table(TWOARM_TABLE)
+        base_aud = ip._read(os.path.join(ROOT, "ea", "presets_d", "audcad_opt_d_r3.set"))
+        aud = kv(ip.twoarm_preset(base_aud, "E", "AUDCAD", "ALT", 27, table))
+        self.assertEqual(aud["InpMagic"], "22260402")
+        self.assertEqual(aud["InpTelemetryInstance"], "GRIND_AUDCAD_ALTE")
+        self.assertEqual((aud["InpAddPips"], aud["InpWidthPips"], aud["InpStrandedThreshPips"]),
+                         ("27.0", "7.0", "8.0"))
+        self.assertIn("q90", aud["InpConfigWarning"])
+        self.assertTrue(aud["InpConfigWarning"].endswith("(FTMO demo, new account, new Linux server)"))
+        base_eur = ip._read(os.path.join(ROOT, "ea", "presets_d", "eurusd_opt_d_r3.set"))
+        eur = kv(ip.twoarm_preset(base_eur, "E", "EURUSD", "ALT", 23, table))
+        self.assertEqual((eur["InpAddPips"], eur["InpWidthPips"], eur["InpStrandedThreshPips"]),
+                         ("23.0", "6.0", "7.0"))
+
+    def test_tw5_only_twoarm_changes_and_key_order(self):
+        """TW5 changed <= TWOARM_CHANGES and key order equals template for all 30 outputs."""
+        table = ip.load_table(TWOARM_TABLE)
+        files, errs = ip.build_twoarm(table, ROOT)
+        self.assertEqual(errs, [])
+        self.assertEqual(len(files), 30)
+        for path, text in files.items():
+            pair = os.path.basename(path).split("_")[0].upper()
+            base = ip._read(ip.twoarm_template_path(ROOT, pair, table))
+            a, b = ip.parse(base), ip.parse(text)
+            self.assertEqual([k for k, _ in a], [k for k, _ in b], path)
+            changed = {k for (k, v1), (_k, v2) in zip(a, b) if v1 != v2}
+            self.assertTrue(changed <= ip.TWOARM_CHANGES, (path, sorted(changed - ip.TWOARM_CHANGES)))
+
+    def test_tw6_validate_twoarm_catches_each_rule(self):
+        """TW6 validate_twoarm: one mutation each."""
+        table = ip.load_table(TWOARM_TABLE)
+        base = ip._read(os.path.join(ROOT, "ea", "presets_d", "eurusd_opt_d_r3.set"))
+        good = ip.twoarm_preset(base, "D", "EURUSD", "ALT", 27, table)
+        self.assertEqual(ip.validate_twoarm(base, good, "D", "EURUSD", "ALT", 27, table), [])
+
+        def chk(text, needle):
+            errs = ip.validate_twoarm(base, text, "D", "EURUSD", "ALT", 27, table)
+            self.assertTrue(errs and any(needle in e for e in errs), (needle, errs))
+
+        chk(good.replace("InpMaxLayers=7", "InpMaxLayers=8"), "InpMaxLayers")
+        chk(good.replace("InpExitPips=27.0", "InpExitPips=26.0"), "InpExitPips")
+        chk(good.replace("InpWidthPips=7.0", "InpWidthPips=6.5"), "InpWidthPips")
+        chk(good.replace("InpStrandedThreshPips=8.0", "InpStrandedThreshPips=7.0"), "InpStrandedThreshPips")
+        chk(good.replace("InpAddPipsLong=-1.0", "InpAddPipsLong=1.0"), "InpAddPipsLong")
+        chk(good.replace("InpMagic=22260202", "InpMagic=22260201"), "InpMagic")
+        chk(good.replace("GRIND_EURUSD_ALTD", "GRIND_EURUSD_OPTD"), "InpTelemetryInstance")
+        chk(good.replace("InpCapLegA=EUR", "InpCapLegA=USD"), "InpCapLegA")
+        chk(good.replace("InpBreakerEnable=false", "InpBreakerEnable=true"), "InpBreakerEnable")
+        chk(good.replace("TelemetryAPIKey=", "TelemetryAPIKey=x"), "TelemetryAPIKey")
+        bad_keys = good + "ExtraKey=1\n"
+        errs = ip.validate_twoarm(base, bad_keys, "D", "EURUSD", "ALT", 27, table)
+        self.assertTrue(any("keys or order" in e for e in errs))
+        pairs = ip.parse(good)
+        swapped = list(pairs)
+        swapped[2], swapped[3] = swapped[3], swapped[2]
+        errs = ip.validate_twoarm(base, ip.render(swapped), "D", "EURUSD", "ALT", 27, table)
+        self.assertTrue(any("keys or order" in e for e in errs))
+
+    def test_tw7_build_twoarm_on_repo(self):
+        """TW7 build_twoarm: 30 files, magics, table errors."""
+        table = ip.load_table(TWOARM_TABLE)
+        files, errs = ip.build_twoarm(table, ROOT)
+        self.assertEqual(errs, [])
+        self.assertEqual(len(files), 30)
+        e_magics = []
+        for path in sorted(files):
+            self.assertRegex(path, r"ea[/\\]presets_[edc][/\\][a-z]+_(opt|alt)_[edc]_t1\.set")
+            if "presets_e" in path.replace("\\", "/"):
+                e_magics.append(kv(files[path])["InpMagic"])
+        self.assertEqual(e_magics, ["22260101", "22260102", "22260201", "22260202", "22260301", "22260302",
+                                    "22260401", "22260402", "22260501", "22260502", "22260601", "22260602"])
+        bad = json.loads(json.dumps(table))
+        del bad["pair_index"]["GBPCHF"]
+        _files, errs = ip.build_twoarm(bad, ROOT)
+        self.assertTrue(any("pair_index" in e.lower() or "GBPCHF" in e for e in errs))
+        bad2 = json.loads(json.dumps(table))
+        bad2["pair_index"]["EURUSD"] = 2
+        bad2["pair_index"]["GBPUSD"] = 2
+        _files, errs2 = ip.build_twoarm(bad2, ROOT)
+        self.assertTrue(any("duplicate" in e.lower() for e in errs2))
+
+    def test_tw8_committed_files_match_generator(self):
+        """TW8 call build_twoarm first, then byte compare each path."""
+        table = ip.load_table(TWOARM_TABLE)
+        files, errs = ip.build_twoarm(table, ROOT)
+        self.assertEqual(errs, [])
+        for path, text in files.items():
+            on_disk = ip._read(path)
+            self.assertEqual(on_disk, text, os.path.basename(path))
+
+
 if __name__ == "__main__":
     unittest.main()

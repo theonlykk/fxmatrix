@@ -510,6 +510,27 @@ def build_ftmo(root, rnd):
     return out, errs
 
 
+# ---------------------------------------------------------------- two-arm presets (fleet E, D, C; HANDOFF s85)
+
+TWOARM_CHANGES = {"InpMagic", "InpSlot", "InpTelemetryInstance", "InpCapLegA", "InpCapLegB",
+                  "InpAddPips", "InpExitPips", "InpAddPipsLong", "InpAddPipsShort",
+                  "InpExitPipsLong", "InpExitPipsShort", "InpWidthPipsLong", "InpWidthPipsShort",
+                  "InpWidthPips", "InpStrandedThreshPips", "InpDeadbandPips", "InpMaxLayers",
+                  "InpRollGateOpposite", "InpBreakerEnable", "InpConfigWarning"}
+
+
+def twoarm_preset(template_text, fleet, pair, slot, add, table):
+    raise NotImplementedError
+
+
+def validate_twoarm(template_text, out_text, fleet, pair, slot, add, table):
+    raise NotImplementedError
+
+
+def build_twoarm(table, root):
+    raise NotImplementedError
+
+
 def summary(files):
     rows = []
     for path in sorted(files):

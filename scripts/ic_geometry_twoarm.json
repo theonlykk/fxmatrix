@@ -1,0 +1,23 @@
+{
+  "status": "TWO-ARM t1 (HANDOFF s85, fleet D note s10-s11): OPT + ALT per pair, exit = add on both, cap 7. E (FTMO) ALT at q90, D and C at q95 (research/alt_adds/results_2026-10-17.md s6); GBPCHF from its range.",
+  "round": "t1",
+  "cap": 7,
+  "deadband": 2.0,
+  "roll_gate": 0,
+  "pair_index": {"GBPUSD": 1, "EURUSD": 2, "EURGBP": 3, "AUDCAD": 4, "AUDCHF": 5, "CADCHF": 6,
+                 "NZDCHF": 7, "NZDCAD": 8, "AUDNZD": 9, "GBPCHF": 10},
+  "template": {"GBPCHF": "EURUSD"},
+  "fleets": {
+    "E": {"account": "FTMO demo, new account", "box": "new Linux server",
+          "pairs": {"GBPUSD": {"OPT": 9, "ALT": 24}, "EURUSD": {"OPT": 7, "ALT": 23},
+                    "EURGBP": {"OPT": 3, "ALT": 16}, "AUDCAD": {"OPT": 6, "ALT": 27},
+                    "AUDCHF": {"OPT": 4, "ALT": 21}, "CADCHF": {"OPT": 4, "ALT": 9}}},
+    "D": {"account": "IC Markets demo 53077984", "box": "wine-d",
+          "pairs": {"GBPUSD": {"OPT": 9, "ALT": 30}, "EURUSD": {"OPT": 7, "ALT": 27},
+                    "EURGBP": {"OPT": 3, "ALT": 19}, "AUDCAD": {"OPT": 6, "ALT": 27},
+                    "AUDCHF": {"OPT": 4, "ALT": 22}, "CADCHF": {"OPT": 4, "ALT": 12}}},
+    "C": {"account": "IC Markets demo 53071896", "box": "wine-c",
+          "pairs": {"EURUSD": {"OPT": 7, "ALT": 27}, "AUDCAD": {"OPT": 6, "ALT": 27},
+                    "GBPCHF": {"OPT": 9, "ALT": 24}}}
+  }
+}
