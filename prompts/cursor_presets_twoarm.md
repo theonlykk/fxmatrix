@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Written | 17 Oct 2026 (HANDOFF s85 continued 7), Claude (Lead Engineer) |
 | Why | Next week's layout and geometry are RULED (`docs/research/fleet-d-two-arm-ring-2026-10-16.md` s10, s11): OPT and a wide ALT arm per pair, exit = add on both, cap 7, on a new FTMO demo (fleet E), on D (its mirror) and on C. `scripts/ic_presets.py` has no stage for it (FLEETS B, C, D; no ALT; no E) |
 | Base | Branch `presets-twoarm` from `main` at the commit that adds THIS file. Python only: `scripts/ic_presets.py`, `scripts/test_ic_presets.py`, a new table, new preset files |
-| Review | Gemini (Argon, in Cursor) reviews this file before Cursor sees it; its questions are s6 |
+| Review | Argon (Gemini, in Cursor) on `333e7e6`: `review/argon-presets-twoarm` `ce53c05`, every point checked by Claude in source; T3 corrected and six fixes made in this version (s8). Cursor reads THIS version |
 
 ## 0. RESTATE AND STOP (do this first; write nothing else)
 
@@ -22,7 +22,7 @@ This message has a line count at the bottom
 |---|---|---|---|
 | T1 | B, C, D and A presets of one pair differ ONLY in add, exit (and per-side exits), width where probed, `InpTelemetryInstance`, `InpConfigWarning` and A's `InpBreakerEnable`; all nine `ea/presets_d/*_opt_d_r3.set` have the same 41 keys in the same order | `diff` of `eurusd` and `audcad` r3 across `presets_b/c/d`, `presets/eurusd_opt_a_r2.set` | READ |
 | T2 | Magic scheme `2226` + pair index (2 digits) + slot (`01` OPT, `02` ALT): GBPUSD 01, EURUSD 02, EURGBP 03, AUDCAD 04, AUDCHF 05, CADCHF 06, NZDCHF 07, NZDCAD 08, AUDNZD 09. The same magic on every account | `presets_d/*_r3.set`, `presets/*_alt.set` | READ |
-| T3 | `GRIND_CAP_ALL_MAGICS` (18 magics, pairs 01-09) feeds only the currency cap, which is disabled (`InpCapLegAThresh` / `B` 0.0 everywhere): a magic outside it (GBPCHF, index 10) publishes its own exposure GV and is not summed by peers. No EA change | `ea/grind_cap.mqh` 17-29, 207-232, 236-264 | READ |
+| T3 | `GRIND_CAP_ALL_MAGICS` (18 magics, pairs 01-09) feeds the currency cap (disabled: `InpCapLegAThresh` / `B` 0.0 everywhere) AND `Grind_IsFleetMagic`, by which the slot guard counts resting ENT orders a second time (`Grind_SlotRestingEnt`). A magic outside it (GBPCHF, index 10): its exposure GV is not summed (cap off), and its resting entries (at most 4 on C) are counted once, not twice: the guard reads up to 4 low on C (6 instances, about 90-96 of 194). Harmless now; no EA change in this prompt (backlog: add index 10 before a 12-instance fleet runs GBPCHF). The other two users are tests only | `ea/grind_cap.mqh` 17-31, 207-264; `ea/grind_exitq.mqh` 105-161; `ea/grind_engine.mqh` 145 (order-test harness); `ea/grind_magic_lock.mqh` 26-30 (called from `fxgrind_tests.mq5` only) | READ (Argon T3, G5) |
 | T4 | ADR-153 guard, FATAL at init: 0.5 <= add / width <= 4.0 per side | `ea/fxgrind.mq5` 174-205; `ea/grind_pure.mqh` 10, 49; `GUARD_MIN/MAX` in `ic_presets.py` 47 | READ |
 | T5 | Width is the L0 quote distance: buy at mid - width, sell at mid + width | ADR-123, ADR-124 | READ |
 | T6 | The round stage's width rule: `tight_width(adds)` = ceil to the half pip of max(add) / 4; stranded = width + 1 | `ic_presets.py` 377-380, 393-413 | READ |
@@ -66,7 +66,8 @@ Each number is the arm's add AND exit, in pips.
 - **Template:** for pair P, `ea/presets_d/<p>_opt_d_r3.set`; for a pair in `"template"` (GBPCHF), the
   named pair's D r3 file (EURUSD). The output keeps the template's keys and their order exactly.
 - **Output:** one file per fleet, pair and slot: `ea/presets_<f>/<pair>_<slot>_<f>_t1.set`, all lower
-  case (`ea/presets_e/` is new). 12 for E, 12 for D, 6 for C: 30 files.
+  case (`ea/presets_e/` is new: `--write` calls `os.makedirs(os.path.dirname(path), exist_ok=True)`
+  before each `open`). 12 for E, 12 for D, 6 for C: 30 files.
 - **The keys the stage sets (`TWOARM_CHANGES`); every other key is the template's value:**
   - `InpMagic` = 2226 * 10000 + pair_index * 100 + (1 for OPT, 2 for ALT); `InpSlot` = `OPT` / `ALT`;
     `InpTelemetryInstance` = `GRIND_<PAIR>_<SLOT><F>` (e.g. `GRIND_EURUSD_ALTD`, `GRIND_GBPCHF_OPTC`,
@@ -77,11 +78,15 @@ Each number is the arm's add AND exit, in pips.
   - `InpWidthPips` = `tight_width([add])`; `InpStrandedThreshPips` = width + 1; `InpDeadbandPips` = the
     table's 2.0; `InpMaxLayers` = 7; `InpRollGateOpposite` = 0; `InpBreakerEnable` = `false`.
   - `InpConfigWarning` = `FLEET <F> two-arm t1 <PAIR> <SLOT> <tag>: cap 7, add = exit <a>, width <w>,
-    deadband 2.0; lattice + reroll on, roll gate 0 (<account>, <box>)`, where `<tag>` is `q90` for E's
-    ALT, `q95` for D's and C's ALT, `range guess` for GBPCHF's ALT, and `-` for OPT. Numbers as `_num`
-    (one decimal).
+    deadband 2.0; lattice + reroll on, roll gate 0 (<account>, <box>)`. `<tag>`, in this order: OPT
+    -> `-`; a pair in the table's `"template"` (GBPCHF) -> `range guess`; fleet E -> `q90`; fleets D and
+    C -> `q95`. `<account>` and `<box>` are `table["fleets"][F]["account"]` and `["box"]` (not
+    `ACCOUNT`, which has no E). Numbers as `_num` (one decimal).
+- **`twoarm_preset(template_text, fleet, pair, slot, add, table)`** returns the preset text (the bullets
+  above applied to the template; key order kept).
 - **`validate_twoarm(template_text, out_text, fleet, pair, slot, add, table)`** returns a list of errors:
-  keys or order differ from the template; a key outside `TWOARM_CHANGES` differs; any value of the
+  keys or order differ from the template (one error containing `keys or order`); every single-key error
+  names its key (e.g. `InpWidthPips 6.5, not 7.0`); a key outside `TWOARM_CHANGES` differs; any value of the
   bullets above not as specified; the guard (T4) on both sides; `InpVirtualLattice` / `InpLatticeReroll`
   `true`, `InpAutoEject` `false`, `InpLots` `0.01`, `TelemetryAPIKey` blank. **`build_twoarm(table,
   root)`** returns `({path: text}, [errors])`, adding: a duplicate magic within one fleet, or a fleet
@@ -90,9 +95,9 @@ Each number is the arm's add AND exit, in pips.
 
 ## 4. TESTS (their own commit, first; hand values)
 
-Add `class TestTwoArm` to `scripts/test_ic_presets.py`. At the tests commit, add a stub
-`build_twoarm` / `validate_twoarm` / `twoarm_preset` that raise `NotImplementedError` so the file
-imports. Run `python -B -m unittest scripts/test_ic_presets.py -v` at both commits; report counts.
+Add `class TestTwoArm` to `scripts/test_ic_presets.py`. At the tests commit, add the TABLE of s2 and
+stubs `twoarm_preset` / `validate_twoarm` / `build_twoarm` that raise `NotImplementedError`, so the file
+imports and every test reaches a stub (never a missing file). Run `python -B -m unittest scripts/test_ic_presets.py -v` at both commits; report counts.
 
 - **TW1 width and stranded** (`tight_width`): adds 3, 4, 6, 7, 9, 12, 16, 19, 21, 22, 23, 24, 27, 30 give
   widths 1.0, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 5.5, 5.5, 6.0, 6.0, 7.0, 7.5 (add / 4 = 0.75 -> 1.0;
@@ -109,18 +114,24 @@ imports. Run `python -B -m unittest scripts/test_ic_presets.py -v` at both commi
   `GRIND_GBPCHF_OPTC` / `GRIND_GBPCHF_ALTC`.
 - **TW4 E AUDCAD ALT:** magic `22260402`, `GRIND_AUDCAD_ALTE`, 27.0 / 7.0 / 8.0, tag `q90`, warning ends
   `(FTMO demo, new account, new Linux server)`. **E EURUSD ALT:** 23.0, width 6.0, stranded 7.0.
-- **TW5 only `TWOARM_CHANGES` change** and the key order equals the template's, for all 30 outputs.
+- **TW5 no key outside `TWOARM_CHANGES` changes** (`changed <= TWOARM_CHANGES`, a subset: many of its keys
+  already hold the target value, e.g. GBPUSD D changes only `InpMaxLayers` and `InpConfigWarning`), and
+  the key order equals the template's, for all 30 outputs.
 - **TW6 `validate_twoarm` catches each rule** (one mutation each, from a valid output): cap 8; exit !=
   add; width 6.5 for add 27; stranded = width; a per-side input not `-1.0`; magic of the wrong slot;
   instance of the wrong fleet; legs swapped; `InpBreakerEnable=true`; `TelemetryAPIKey=x`; a key added;
-  two keys swapped in order. Each returns at least one error naming the key.
+  two keys swapped in order. Each single-key mutation returns an error naming that key; the added key
+  and the swapped order return the error containing `keys or order`.
 - **TW7 `build_twoarm` on the repo:** 30 files, 0 errors; paths as s3; the 12 E magics are 22260101,
   22260102, ..., 22260601, 22260602 (no duplicate); a table with GBPCHF in a fleet but not in
   `pair_index` gives an error; a table giving two pairs the same index gives a duplicate-magic error.
-- **TW8 the committed files equal the generator's output byte for byte** (run after `--write`).
-- **TW9 nothing else moved:** every test that existed before this branch passes unchanged, and no file
-  under `ea/presets/`, `ea/presets_b/`, or any existing `*_r3.set`, `*_r2.set` changes (`git diff --stat
-  main` lists only the files of s7).
+- **TW8 the committed files equal the generator's output byte for byte:** call `build_twoarm` FIRST
+  (the stub raises at the tests commit), then compare each returned text with the file at its path.
+- **TW9 nothing else moved (a REPORT check in s7, not a test method):** every test that existed before
+  this branch passes unchanged at both commits, and `git diff --stat main..presets-twoarm` lists only
+  the files of s7 (no file under `ea/presets/`, `ea/presets_b/`, no existing `*_r3.set` / `*_r2.set`).
+- **At the tests commit** TW1 passes (GUARD: it uses the existing `tight_width`); TW2-TW8 fail on
+  `NotImplementedError`; every older test passes.
 
 ## 5. NEGATIVE SPACE (do NOT)
 
@@ -153,8 +164,23 @@ commit, and commit it; Claude reads it there.
 
 ## 7. COMMITS AND REPORT
 
-1. Tests (TestTwoArm and the stubs). 2. The code, the table and the 30 presets (`--write`). Nothing else.
+1. Tests (TestTwoArm), the stubs and the table. 2. The code and the 30 presets (`--write`). Nothing else.
 Report: both commit hashes; the unittest counts at each; the dry-run summary (30 rows); `git diff --stat
 main..presets-twoarm`. STOP on any failure you cannot explain from this prompt.
 
-Line count: 160
+## 8. THE REVIEW (Argon, `ce53c05`, on `333e7e6`) AND CLAUDE'S CHECK
+
+Every quote checked in source at `333e7e6`. T1, T2, T4-T8 confirmed. Points taken:
+
+- **T3 / G5 / G7-1, accepted (a premise of ours was incomplete):** the table also feeds the slot guard's
+  second count of resting entries (T3 now). Harmless on C; backlog before GBPCHF on a 12-instance fleet.
+- **Fixes 1-6, accepted:** `os.makedirs` for `ea/presets_e/` (s3); `twoarm_preset`'s signature (s3); the
+  table in the tests commit and TW8 calling the build first (s4, s7); TW5 a subset check; TW6's error
+  matching; the tag precedence and the account and box from the table (s3).
+- **G1 (ALT's width), G2 (fleet E), G3 (breaker off on E), G4 (carry on ALT), G6 (one template):** the
+  reviewer agrees with each. G3's consequence goes in the FTMO runbook: nothing on E halts entries before
+  FTMO's own daily limit (C155 before any paid account).
+- **G7-3 (downstream):** `scripts/deploy_presets.ps1` targets the Windows VPS (`c:\fxmatrix`); E's preset
+  deployment on the new Linux server is the FTMO runbook's (not this prompt; s5 forbids changing it).
+
+Line count: 186
