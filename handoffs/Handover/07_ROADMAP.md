@@ -123,9 +123,12 @@ NZDCHF, so AUD, CAD, CHF and NZD appear three times each. Read IC results as dat
 ring limits how many legs share a currency; it does not stop one currency's move hitting both legs (15
 Oct: A's AUDCHF L and AUDNZD L, -640 and -633 pips). `docs/research/roll-geometry-notes-2026-10-15.md` s2.
 
-**Next (proposed 16 Oct, C157):** fleet D becomes a six-pair single ring (USDCAD, EURUSD, EURGBP, GBPCHF,
-AUDCHF, AUDCAD; each currency twice) with two arms per pair (OPT and a wide ALT), cap 7, after plan 4's
-window. `docs/research/fleet-d-two-arm-ring-2026-10-16.md`.
+**Next (RULED 17 Oct, C157, C158):** two arms per pair (OPT and a wide ALT), exit = add on both, cap 7.
+FTMO (a new demo on a new Linux + wine server replacing the Windows VPS) and D as its mirror run EURUSD,
+GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF (each currency twice); C runs EURUSD, GBPCHF, AUDCAD (each once);
+B unchanged as the control. ALT's adds from our own fills (`research/alt_adds/`). Longer term the
+operator's ring (USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD). From Wed 21 Oct, after plan 4's window.
+`docs/research/fleet-d-two-arm-ring-2026-10-16.md` s7-s12.
 
 ---
 
@@ -201,4 +204,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 204
+Line count: 207

@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | **the layout ruled in s10 (FTMO and D the six with OPT + ALT; C three pairs; B unchanged)**; the presets, pipshed and the runbooks (the geometry ruled in s11: exit = add on both arms; q90 FTMO, q95 D and C); the runbook (retirements, cap 7, ids, pipshed). Answered: "0.04 lots" (s1); **the first set (s8): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF; the ring of s3 later** |
+| Open | the presets, pipshed and the runbooks (ruled: the layout s10, the geometry s11; the reload path read in source s12). Answered: "0.04 lots" (s1); the pair set (s8, then s10) |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -247,4 +247,29 @@ on Wine D? there is no compass probe optimisation, but lets just see if there is
   the adds by 0-6 pips. D stays a close fallback for FTMO's set-up. C against D isolates the exposure
   question at one broker (same geometry, each currency once against twice).
 
-Line count: 250
+## 12. THE RELOAD PATH FOR D's AND C's KEPT OPT CHARTS (READ IN SOURCE, 17 OCT ~03:00Z)
+
+D keeps six `_OPTD` charts and C two `_OPTC` charts; each changes exit (to = add), cap (8 -> 7) and, on C,
+add. What a reload does to a chart holding layers, read at `84c825e` (EA code `5bb5fdb`):
+
+- **Exit: supported.** At `OnInit` the EA compares the new exit with the label it wrote at its last start
+  (`GRIND_GEO_EXIT_<magic>_L/_S`; `Grind_GeoExitChanged`, `grind_carry.mqh` 635-642). If it differs, the
+  start-up reconciliation tolerates the old exit prices and `Grind_RebuildExitsAtStart` re-prices every
+  resting exit to the new formula (`grind_engine.mqh` 3074-3167); an exit that would cross the market is
+  clamped passive and the difference recorded as a carry shift. Done live on wine-d 1 Oct (D1: nine charts,
+  `rebuild=true/true`, `EXIT_REBUILT` x5, clean; HANDOFF ~1140, `docs/architecture/fleet-d.md`). Worked
+  example: AUDCHF long at 0.5200 with its exit resting at 0.5211 (exit 11): reloaded at exit 4 it moves to
+  0.5204, or to just above the market if the market is already above 0.5204. **The label must exist:** it
+  does on any chart that has run; a chart moved to a new terminal (new GVs) would not rebuild and its old
+  exits would read as I6.
+- **Cap: a side above the new cap halts the chart.** The rebuilt book is checked against `max_layers`
+  (`I7_LONG_DEPTH` / `I7_SHORT_DEPTH`, `grind_recon.mqh` 489-495): a side holding 8 at a reload to cap 7 is
+  a RECON_FAIL, halted in place (I7 is not quarantinable). So each kept chart reloads only with both sides
+  at 7 or fewer (read from its heartbeat just before); otherwise wait, or flatten that chart by hand and
+  start it fresh (permitted, s11).
+- Add (C): changes at a reload as in round 2 and 3 (`docs/architecture/geometry-cycle3.md` A1).
+- New ALT charts and FTMO's charts start empty: none of this applies.
+- BOOT s6's line "Exit and cap may not change mid-cycle (I6/I7)" was geometry cycle 3's pre-registration
+  rule, not a mechanical limit on the exit (corrected there, s85g).
+
+Line count: 275

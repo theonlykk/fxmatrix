@@ -2801,4 +2801,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   from before `dc74051`; the input is minutes and the code is the same. Read the dialog's rows back by
   order and value.
 
-Line count: 2804
+## TRAPS FROM 2026-10-17 (A CAP CUT ON RELOAD; ONE PATCH PER LINE; A BIG DOWNLOADS FOLDER)
+
+- **A reload to a lower cap halts a chart whose side holds more layers than the new cap** (I7 at the
+  start-up reconciliation, `grind_recon.mqh` 489-495; not quarantinable). Read both sides from the
+  heartbeat just before; wait, or flatten by hand (demo only, operator's call). **A reload to a new exit is
+  fine** (the exit label triggers the rebuild; fleet D note s12) **only while the label GV exists:** never
+  move a live chart to a new terminal.
+- **One `git am` per command line, or a line per patch the operator has NOT applied yet:** a line that
+  re-applies an applied patch stops halfway (`.git/rebase-apply`) and skips the next; `git am --abort`
+  returns to the last good commit (17 Oct: s85e applied twice; aborted, s85f applied alone).
+- **The operator's Downloads holds more than 2,000 files:** the bridge's listing truncates at 2,000, so
+  "not in the listing" proves nothing. Test a new patch name by staging that exact path (a "does not
+  exist" error is the answer).
+- **Exit = add needs a fixed point:** ALT's exit changes the depth that sizes its add
+  (`research/alt_adds/solve_exit_eq_add.py`); an add measured at another exit is not the answer.
+
+Line count: 2820
