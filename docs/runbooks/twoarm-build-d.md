@@ -37,7 +37,7 @@ presets only (s2.2 checks it); no compile.
 
 **Expected at an exit reload (not a STOP):** a layer already further in profit than its NEW exit (e.g.
 AUDCHF long +6 pips when the exit drops 11 -> 4) cannot rest at entry + 4: the rebuild clamps it just
-outside the market (`Grind_ExitQClampPassive`, `grind_engine.mqh` 3116-3134) and records the difference as
+outside the market (`Grind_ExitQClampPassive`, `grind_exitq.mqh` 258, called at `grind_engine.mqh` 3118) and records the difference as
 a carry shift; it fills almost at once, as a scalp.
 
 ## 1. BEFORE (Claude, sandbox, the day before)
@@ -104,7 +104,8 @@ the minute before the OK):
     L="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"/logs/$(date -u +%Y%m%d).log; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 -f /home/khalid/fxmatrix-repo/scripts/build_logcheck.awk; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 '{if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/) && substr($0,RSTART,8)>=from && /telemetry dropped/) n++} END{print "telemetry dropped since FROM:", n+0}'
 
 Expected one row: `deinit=5 replay=ready(...) lattice=true reroll=true gate=0 api=1000000/999000 geo=` and
-`rebuild=` as s0, BAD 0, a POST ok, `telemetry dropped since FROM: 0`. **Then the Trade tab for that symbol:
+`rebuild=` as s0, BAD 0 (one `WARN STARTUP_EXIT_SHORTFALL` with 1 on a side allowed if an entry filled in the
+restart: its `|EXT` must rest; 2 or more is a STOP; C's runbook s9), a POST ok, `telemetry dropped since FROM: 0`. **Then the Trade tab for that symbol:
 no resting `GRIND|OPT|L|L07|ENT` or `GRIND|OPT|S|L07|ENT`** (a 6 -> 7 fill between the read and the OK would
 leave one). If one rests: delete it by hand (the EA clears its pointer and, at cap 7, never re-places it).
 The pilot's row first; then the other five, one chart and one check at a time.
@@ -129,9 +130,10 @@ pair's OPT also posts there:** the ALT's own heartbeat is proved by pipshed read
 
 ## 6. AFTER (desktop, `D:\pipshed`)
 
-1. Archive codes, last hour (expected `none.`; the codes quoted, 02_TRAPS 15 Oct evening):
+1. Archive codes, last hour (expected `none.`; the codes quoted, 02_TRAPS 15 Oct evening; the start-up
+   criticals added 18 Oct, C's runbook s9):
 
-       railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes "ROLL_STRANDED,ROLL_CLOSING_STUCK,ROLL_REFUSED,DEAL_EVENT_MISSED,REPLAY_SEED_FAILED,EJECT_ACCEPTED,INVARIANT_FAIL,QUARANTINE_HALT" --hours 1
+       railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes "ROLL_STRANDED,ROLL_CLOSING_STUCK,ROLL_REFUSED,DEAL_EVENT_MISSED,REPLAY_SEED_FAILED,EJECT_ACCEPTED,INVARIANT_FAIL,QUARANTINE_HALT,RECON_SCAN_RACE,RECON_FAIL,REBUILD_EXIT_FAILED,REBUILD_EXIT_UNREADABLE,STARTUP_EXIT_SHORTFALL_SIDE,API_LIMITS_MISMATCH,API_LIMITS_INVALID,WARN_API_ENTRY_STOP" --hours 1
 
 2. pipshed's D page still lists the old nine (the new ids appear at s7): the six OPT LIVE; the three
    retired show CONNECTION LOST; the ALT heartbeats are in Redis but not on the page yet.
@@ -187,4 +189,4 @@ Every claim used below was checked in source at `3086316`.
   it quotes as this runbook's s3 and s5 that are not in it; `InpEntryHorizonPips=50.0` (the presets say 0).
   02_TRAPS: every quote with its line, checked.
 
-Line count: 190
+Line count: 192

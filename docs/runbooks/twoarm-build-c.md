@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT** (Claude, 18 Oct ~01:30Z), for review. Built from D's REVIEWED runbook (`docs/runbooks/twoarm-build-d.md`, `c39d59d`): every step that is the same there is the same here; what differs on C is s0, s2.5-2.6 (the Experts copy, C88), s4 (re-attach, not F7) and s5 (a new pair) |
+| Status | **REVIEWED** (Argon `review/argon-runbook-c` `de1c107` on `3860a17`, checked by Claude in source, s9; amended 18 Oct ~03:50Z). Before: DRAFT (Claude, 18 Oct ~01:30Z). Built from D's REVIEWED runbook (`docs/runbooks/twoarm-build-d.md`, `c39d59d`): every step that is the same there is the same here; what differs on C is s0, s2.5-2.6 (the Experts copy, C88), s4 (re-attach, not F7) and s5 (a new pair) |
 | What | C runs the broken ring (fleet D note s10): EURUSD, GBPCHF, AUDCAD with OPT + ALT, exit = add, cap 7 (6 instances); GBPUSD, EURGBP, AUDCHF, CADCHF, NZDCHF, NZDCAD, AUDNZD retire. **C88 closes:** after this build every chart on wine-c runs the Experts copy |
 | Uses | `main` `c39d59d` or later: `ea/presets_c/<pair>_{opt,alt}_c_t1.set` (6 files; fingerprint s1); `scripts/build_logcheck.awk` on wine-c after the pull; cap10-reload s4.3-4.4 (the Experts compile and Remove-then-Attach, Gemini GW-5, accepted 4 Oct); pipshed branch `twoarm-fleets` `320afe6` (merged after D AND C: D's runbook s7) |
 | When | **After D's build is done and its checks clean** (the same day if the slot allows, else the next market day), in market hours (London / New York, about 12:00-16:00Z). Never 20:50-21:15Z; not within 30 minutes of a tier-1 release. Never D and C at the same time. Safe to stop between steps 4, 5 and 6 |
@@ -34,7 +34,7 @@ since `5bb5fdb` (s2.2); one compile, of the Experts copy that no chart loads (s2
 
 **Expected at an exit reload (not a STOP):** as D's s0: a layer already further in profit than its NEW exit
 (EURUSD 10 -> 7, AUDCAD 10 -> 6) is clamped just outside the market (`Grind_ExitQClampPassive`,
-`grind_engine.mqh` 3116-3134), recorded as a carry shift, and fills almost at once as a scalp.
+`grind_exitq.mqh` 258, called in the rebuild at `grind_engine.mqh` 3118), recorded as a carry shift, and fills almost at once as a scalp.
 
 **Expected at an add change (EURUSD 6 -> 7, AUDCAD 5 -> 6):** after a successful exit rebuild `OnInit` sets
 the one-shot add re-price (`fxgrind.mq5` 289-292); `Grind_EnsureAddNext` runs every grid step
@@ -103,6 +103,11 @@ GBPUSD, EURGBP, AUDCHF, CADCHF, NZDCHF, NZDCAD, AUDNZD (`_OPTC`). For each chart
 
 Their Global Variables stay in the terminal (harmless; cleaned later as the twins', monday-build s7).
 
+**After the seven** (FROM = the minute before the first Remove; expected seven lines, the seven symbols, each
+`reason=1`; no EURUSD or AUDCAD; a `reason=4` means a chart was closed with its EA on: tell Claude):
+
+    L="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"/logs/$(date -u +%Y%m%d).log; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 '{if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/) && substr($0,RSTART,8)>=from && /fxgrind deinit reason=/ && match($0,/fxgrind \([A-Z]+,/)) print substr($0,RSTART+9,RLENGTH-10), $NF}'
+
 ## 4. RE-ATTACH EURUSD AND AUDCAD OPT FROM THE EXPERTS COPY (VNC; EURUSD first as the pilot)
 
 **Remove, then Attach (cap10-reload s4.4, GW-5): never drag over a running EA, never F7** (F7 + Load keeps
@@ -118,21 +123,26 @@ or 8: wait, or flatten the chart (s3 steps 1-4, KEEP the chart) and attach it em
 
 Per chart (FROM = the minute before the Remove):
 1. Right-click the chart -> Expert Advisors -> Remove; gate as s3 step 1 (`deinit reason=1`, icon gone).
-2. Drag **Navigator -> Expert Advisors -> fxmatrix -> fxgrind** (the Experts copy; never Scripts) onto the
+2. **Trade tab for that symbol, now: no resting `GRIND|OPT|L|L07|ENT` or `GRIND|OPT|S|L07|ENT`.** One can
+   rest if a 7th layer filled between the count and the Remove; delete it NOW (no EA is attached to re-place
+   it), then go on.
+3. Drag **Navigator -> Expert Advisors -> fxmatrix -> fxgrind** (the Experts copy; never Scripts) onto the
    now-empty chart -> Inputs -> Load `<pair>_opt_c_t1.set` -> read back BEFORE OK: `InpMagic`,
    `InpTelemetryInstance` (`GRIND_<PAIR>_OPTC`), width, add, exit, the six per-side rows (`-1.0`), cap 7,
    `InpStrandedThreshPips`, deadband 2.0, lattice and re-roll true, roll gate 0, auto-eject and breaker
    false, the warning (`FLEET C two-arm t1 <PAIR> OPT -`), the key row not blank. Common tab: Algo Trading
    allowed. OK; note the UTC time.
-3. The checker (as D's s4, same two commands):
+4. The checker (as D's s4, same two commands):
 
        L="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"/logs/$(date -u +%Y%m%d).log; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 -f /home/khalid/fxmatrix-repo/scripts/build_logcheck.awk; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 '{if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/) && substr($0,RSTART,8)>=from && /telemetry dropped/) n++} END{print "telemetry dropped since FROM:", n+0}'
 
    Expected one row: `deinit=1 replay=ready(N) lattice=true reroll=true gate=0 api=1000000/999000 geo=` and
-   `rebuild=` as s0, BAD 0, a POST ok, `telemetry dropped since FROM: 0`.
-4. **Trade tab for that symbol: no resting `GRIND|OPT|L|L07|ENT` or `GRIND|OPT|S|L07|ENT`.** If one rests,
+   `rebuild=` as s0, BAD 0, a POST ok, `telemetry dropped since FROM: 0`. Exception: a single `WARN STARTUP_EXIT_SHORTFALL long=1 short=0` (or `0 / 1`) is the one BAD line allowed: an entry
+   filled while no EA was attached and its exit is placed at start-up (`fxgrind.mq5` 271-282); check that
+   layer's `|EXT` rests in the Trade tab. `long` or `short` >= 2 (`STARTUP_EXIT_SHORTFALL_SIDE`, CRITICAL) is a STOP.
+5. **Trade tab for that symbol, again: no resting `GRIND|OPT|L|L07|ENT` or `GRIND|OPT|S|L07|ENT`.** If one rests,
    delete it by hand.
-5. The build it loaded (desktop, `D:\pipshed`): `ea_build` = the Experts `.ex5` time of s2.6, NOT 7 Oct
+6. The build it loaded (desktop, `D:\pipshed`): `ea_build` = the Experts `.ex5` time of s2.6, NOT 7 Oct
    02:06:35:
 
        railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --table config_events --instance GRIND_EURUSD_OPTC --limit 2
@@ -146,7 +156,8 @@ Claude; retry later under the cap rule.
 ## 5. ATTACH GBPCHF OPT, THEN THE THREE ALT CHARTS (VNC)
 
 **GBPCHF first:** Market Watch -> right-click -> Symbols -> GBPCHF -> Show; its Specification: digits 5
-(pip 0.0001; every geometry above assumes it: STOP if not). File -> New Chart -> GBPCHF; M5 (as C's charts).
+(pip 0.0001; every geometry above assumes it) and Trade "Full access" (else `Grind_GuardsAllowTrading`
+refuses every order silently, `grind_engine.mqh` 2001-2003): STOP if either is not. File -> New Chart -> GBPCHF; M5 (as C's charts).
 
 Order: GBPCHF OPT (the new pair's pilot), then EURUSD ALT, AUDCAD ALT, GBPCHF ALT, one chart and one check at
 a time. Per chart: drag **Navigator -> Expert Advisors -> fxmatrix -> fxgrind (the Experts copy)** (ALT on a
@@ -165,8 +176,11 @@ about `width` from mid (GBPCHF OPT 2.5 pips, the ALTs 7.0 / 7.0 / 6.0). The chec
 
 ## 6. AFTER (desktop, `D:\pipshed`)
 
-1. Archive codes, last hour (expected `none.`): D's s6 step 1, the same command.
-2. `ea_build` of each of the six = the s2.6 Experts time (s4 step 5's command per instance). With the
+1. Archive codes, last hour (expected `none.`; the start-up criticals included, Argon 18 Oct):
+
+       railway ssh --service archive-worker -i "$HOME\.ssh\id_ed25519" python scripts/archive_counts.py --codes "ROLL_STRANDED,ROLL_CLOSING_STUCK,ROLL_REFUSED,DEAL_EVENT_MISSED,REPLAY_SEED_FAILED,EJECT_ACCEPTED,INVARIANT_FAIL,QUARANTINE_HALT,RECON_SCAN_RACE,RECON_FAIL,REBUILD_EXIT_FAILED,REBUILD_EXIT_UNREADABLE,STARTUP_EXIT_SHORTFALL_SIDE,API_LIMITS_MISMATCH,API_LIMITS_INVALID,WARN_API_ENTRY_STOP" --hours 1
+
+2. `ea_build` of each of the six = the s2.6 Experts time (s4 step 6's command per instance). With the
    seven retired, no chart on wine-c loads the Scripts copy: **C88 closed** (record the six `ea_build`).
 3. pipshed's C page still lists the old nine (the new ids appear at D's s7 merge): EURUSD and AUDCAD OPT
    LIVE; the seven retired CONNECTION LOST; GBPCHF and the ALTs in Redis (s5), not on the page yet.
@@ -177,10 +191,11 @@ about `width` from mid (GBPCHF OPT 2.5 pips, the ALTs 7.0 / 7.0 / 6.0). The chec
 
 D's s8 list, all of it, plus: an init row at the Experts compile with BAD lines (s2.6); `cmp bad` not 0
 (s2.5); a re-attached chart whose `ea_build` is still 7 Oct (it loaded the Scripts copy: Remove it and
-attach again from Experts); GBPCHF not 5 digits; GBPCHF OPT not `replay=ready(0)` / `rebuild=false/false`;
+attach again from Experts); GBPCHF not 5 digits or not Full access; s3's check not seven `reason=1` lines;
+`STARTUP_EXIT_SHORTFALL` with 2 or more on a side, or a layer left without a resting `|EXT`; GBPCHF OPT not `replay=ready(0)` / `rebuild=false/false`;
 a resting `|L07|ENT` on EURUSD or AUDCAD OPT after the attach that will not delete.
 
-## 8. FOR THE REVIEWER (Argon): attack the premises, say which fact is missing
+## 8. FOR THE REVIEWER (Argon, answered in s9): attack the premises, say which fact is missing
 
 Quote the line of every source or runbook passage you cite; Claude checks each quote.
 
@@ -201,4 +216,29 @@ Quote the line of every source or runbook passage you cite; Claude checks each q
   a new symbol with no history (spread sampling, deal history, the carry pass)?
 - **GC-7.** What failure is not on s7? What fact is missing?
 
-Line count: 204
+## 9. THE REVIEW (Argon, `de1c107`, on `3860a17`) AND CLAUDE'S CHECK
+
+Every claim used below was checked in source at `3860a17`.
+
+- **Taken:** (1) **an entry filled in the Remove-to-Attach gap** (GC-1): the start-up places its missing exit
+  (`fxgrind.mq5` 271-282) but prints `WARN STARTUP_EXIT_SHORTFALL`, which `build_logcheck.awk` line 12 counts
+  as BAD: one per side allowed and checked, two a STOP (`Grind_StartupShortfallCritical` is `>= 2`,
+  `grind_pure.mqh` 283-286) (s4, s7); (2) a resting `|L07|ENT` checked and deleted between Remove and
+  Attach, when no EA can re-place it (s4 step 2); (3) GBPCHF's Specification also "Full access"
+  (`grind_engine.mqh` 2001-2003) (s5); (4) the seven `reason=1` lines after s3; (5) the archive check with
+  the start-up criticals (`Grind_TelemetryCritical` archives its event as the code, `grind_telemetry.mqh`
+  161-184) (s6, also D's s6); (6) the clamp's definition is `grind_exitq.mqh` 258 (s0, also D's s0).
+- **Agreed answers:** GC-1 (deals in the gap are seeded as seen, `grind_replay.mqh` 149-184: no fill row for
+  them; an exit filled in the gap passes `Grind_ReconExitMatchesEntry` as a filled exit, `grind_recon.mqh`
+  385-395, and is closed by the derived Close By); GC-2 (`OnDeinit` writes the deinit GVs and frees the lock
+  only: the exit label stays, `rebuild=true`); GC-3 (confirmed: adopted at `grind_recon.mqh` 1079-1086,
+  re-priced once with 0.05 pips; if that one modify is refused the add rests at the old distance, 1 pip
+  closer: acceptable); GC-4 (no); GC-5 (no other use: replay, recon, carry and archive filter by the chart's
+  own magic); GC-6 (no check fails on a new symbol; ADR-153 ratio 4.0 on GBPCHF ALT passes at the limit).
+- **Void (the reviewer invented):** every runbook passage it "quoted" in its findings 1-6 (`rebuilt=L:1/S:1`,
+  "10-20 seconds per chart", "Any of: cmp DIFF or MISS", `InpFillTimePlace`, "First, add GBPCHF to Market
+  Watch": none is in the runbook); `cap10-reload.md` 121-124 as quoted (not its text); the source quoted for
+  `Grind_ExitQClampPassive` (it is `bool`, three arguments), for `grind_engine.mqh` 3234-3237 (argument order)
+  and a comment at 2560 that does not exist. Its substance on GC-1..GC-6 held where checked.
+
+Line count: 244
