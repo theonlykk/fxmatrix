@@ -2840,4 +2840,12 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **The log checkers count POST ok per SYMBOL:** two charts on one symbol (OPT and ALT) share the count. Prove a
   new instance's heartbeat on pipshed's `/api/telemetry/live?instance=<id>` (any page service; Redis state).
 
-Line count: 2843
+## TRAPS FROM 2026-10-18 (POWERSHELL ON THE DESKTOP)
+
+- **Commands for the desktop are PowerShell, not bash.** `sha256sum` does not exist (`Get-FileHash <file>
+  -Algorithm SHA256`, upper-case hex); `HEAD^{tree}` must be quoted (`git rev-parse 'HEAD^{tree}'`):
+  unquoted, `{tree}` is a script block, git sees `HEAD^` and prints the PARENT commit, which looks like an
+  answer; `~` is not expanded for git (`"$HOME\Downloads\<file>"`); `&&` fails in Windows PowerShell 5.1
+  (use `;`). And `<repo>` placeholders are redirections: write the real path (`D:\fxmatrix`).
+
+Line count: 2851

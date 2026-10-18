@@ -140,7 +140,7 @@ pair's OPT also posts there:** the ALT's own heartbeat is proved by pipshed read
 
 The branch `twoarm-fleets` retires C's and D's pairs on the strip: merge only once C's runbook is done too.
 Then, outside 20:50-21:00Z (expected: `fb0f9c8..320afe6`, a fast-forward; the tree `git rev-parse
-origin/twoarm-fleets^{tree}`): `git checkout main; git fetch origin; git merge --ff-only
+'origin/twoarm-fleets^{tree}'`, quoted: PowerShell reads `{...}` as a script block): `git checkout main; git fetch origin; git merge --ff-only
 origin/twoarm-fleets; git push origin main`. Deployed in ~3 minutes. Then the Railway service "pipshed
 Fleet E" (duplicate "pipshed Fleet D"; `GRIND_FLEET=E`; domain `linuxe.pipshed.com`; start command as
 "pipshed Copy", RAILWAY.md). Check: D's strip 12 / 12 LIVE; C's 6 / 6; E's card NOT BUILT.
