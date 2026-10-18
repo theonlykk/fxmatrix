@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | the presets, pipshed and the runbooks (ruled: the layout s10, the geometry s11; the reload path read in source s12). Answered: "0.04 lots" (s1); the pair set (s8, then s10) |
+| Open | **18 Oct: presets merged (`2426f94`); pipshed `twoarm-fleets` verified, parked; D's and C's runbooks REVIEWED (`docs/runbooks/twoarm-build-{d,c}.md`); FTMO's server runbook next (C158).** Was: the presets, pipshed and the runbooks (ruled: the layout s10, the geometry s11; the reload path read in source s12). Answered: "0.04 lots" (s1); the pair set (s8, then s10) |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 

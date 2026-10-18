@@ -128,7 +128,9 @@ FTMO (a new demo on a new Linux + wine server replacing the Windows VPS) and D a
 GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF (each currency twice); C runs EURUSD, GBPCHF, AUDCAD (each once);
 B unchanged as the control. ALT's adds from our own fills (`research/alt_adds/`). Longer term the
 operator's ring (USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD). From Wed 21 Oct, after plan 4's window.
-`docs/research/fleet-d-two-arm-ring-2026-10-16.md` s7-s12.
+`docs/research/fleet-d-two-arm-ring-2026-10-16.md` s7-s12. **18 Oct: the 30 `_t1` presets merged
+(`2426f94`); pipshed `twoarm-fleets` `320afe6` verified, parked until D and C are built; D's and C's
+runbooks REVIEWED (`docs/runbooks/twoarm-build-d.md`, `twoarm-build-c.md`); FTMO's server runbook next (C158).**
 
 ---
 
@@ -204,4 +206,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 207
+Line count: 209
