@@ -2830,4 +2830,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A reviewer may answer questions the prompt did not ask** (Argon's Q1-Q5 on pipshed): read its answers
   as findings, check each against the prompt's actual text before taking it.
 
-Line count: 2833
+## TRAPS FROM 2026-10-18 (A STRANDED ADD AT A CAP CUT)
+
+- **A cap cut leaves a side at the new cap with its next add still resting.** At cap 8 a side holding 7
+  rests `|L07|ENT`; reloaded at cap 7 the EA keeps it (the label matches the next index, then
+  `Grind_CanPlaceEntryLayer(7, 7)` returns before any cancel: `grind_engine.mqh` 2492-2528). If it fills, the
+  side holds 8 and halts on I7. Before a cap cut: depth from the Trade tab (not pipshed, up to 60 s old), at
+  most cap - 1 on each side; after: no resting add above the new cap (delete it by hand).
+- **The log checkers count POST ok per SYMBOL:** two charts on one symbol (OPT and ALT) share the count. Prove a
+  new instance's heartbeat on pipshed's `/api/telemetry/live?instance=<id>` (any page service; Redis state).
+
+Line count: 2843
