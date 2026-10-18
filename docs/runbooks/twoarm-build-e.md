@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT for review** (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
+| Status | **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
 | What | FTMO's fleet E: EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF with OPT + ALT, exit = add, cap 7, ALT at q90 (12 instances, fleet D note s10-s11), on a NEW FTMO demo, on a NEW Linux + wine server `wine-e`. Fleet A (FTMO 1514878887) is stopped and the Windows VPS closed |
 | Uses | `main` `ceab0f7` or later: `ea/presets_e/<pair>_{opt,alt}_e_t1.set` (12 files, fingerprint `a448f4abb8a6`); `scripts/build_logcheck.awk`; pipshed `twoarm-fleets` `320afe6` (merged at D's s7) and a small pipshed patch for E's card (s9) |
 | When | **Wed 21 Oct.** wine-e built any time before (s1; it needs no account). A off soon after 5 PM ET (21:00Z), after the carry pass (20:50-20:59Z). E's first chart after 6 PM ET (22:00Z), so its first FTMO day is full. Not within 30 minutes of a tier-1 release |
@@ -102,19 +102,30 @@ expected): `sudo -u khalid x11vnc -display :10 -auth /home/khalid/.Xauthority -l
 tunnels have wedged X, 02_TRAPS 1 Oct).
 
 **1.8 Terminal options (GUI).** Tools -> Options -> Expert Advisors: "Allow WebRequest for listed URL"
-ticked, `https://pipshed.com` typed in the list; Trade: One Click Trading OFF. **Algo Trading OFF** (toolbar).
+ticked, `https://pipshed.com` typed in the list; Trade: One Click Trading OFF; Charts: "Show trade levels"
+UNticked (a dragged order line modifies the order at once and an exit moved this way halts on I6: 02_TRAPS
+OPERATIONAL, lines 112-115; each new chart is checked again in s7). **Algo Trading OFF** (toolbar).
 No account yet. (A MetaTrader LiveUpdate right after install may refresh components: let it, nothing is
 attached.)
 
-**1.9 The EA into Experts ONLY, then compile.** Experts only, so no chart can ever load a Scripts copy (C88).
-As root by ssh (expected `cmp ok=79 bad=0`, the count of `ea/*.mq5` + `ea/*.mqh` at `ceab0f7`; Claude
+**1.9 The EA into Experts; the suite and the box scripts into Scripts; then compile.** As the desktop does
+(`desktop_sync.ps1`: `*_tests.mq5` and the headers to `MQL5\Scripts`, the EA to Experts; 02_TRAPS 20 Sep:
+"The suite runs from `MQL5\Scripts\`"). **`fxgrind.mq5` is never copied to Scripts**, so no chart can load a
+Scripts build of the EA (C88). The box scripts (`scripts/grind_*.mq5`, 12 at `81f7d70`: the tick, bid / ask,
+bar and history dumps, the GV tools, the probes, eject) go to Scripts too (Argon GE-1: s1.9 had none).
+As root by ssh; first the Experts copy (expected `cmp ok=79 bad=0`, every `ea/*.mq5` + `ea/*.mqh`; Claude
 re-counts on the day):
 
     R=/home/khalid/fxmatrix-repo; M="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"; sudo -u khalid mkdir -p "$M/Experts/fxmatrix" && sudo -u khalid cp $R/ea/*.mq5 $R/ea/*.mqh "$M/Experts/fxmatrix/" && ok=0; bad=0; for f in $R/ea/*.mq5 $R/ea/*.mqh; do if cmp -s "$f" "$M/Experts/fxmatrix/$(basename "$f")"; then ok=$((ok+1)); else bad=$((bad+1)); fi; done; echo "cmp ok=$ok bad=$bad"
 
-MetaEditor (GUI): Navigator -> Experts -> Refresh; open `MQL5\Experts\fxmatrix\fxgrind.mq5`, Compile: `0
-errors, 0 warnings`; then `fxgrind_tests.mq5` the same, ONE file at a time. The suite waits for an account
-(s6).
+Then Scripts (expected `scripts cmp ok=81 bad=0` = 68 headers + `fxgrind_tests.mq5` + 12 box scripts, then
+`no fxgrind.mq5 in Scripts`):
+
+    R=/home/khalid/fxmatrix-repo; M="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"; sudo -u khalid cp $R/ea/*.mqh $R/ea/fxgrind_tests.mq5 $R/scripts/grind_*.mq5 "$M/Scripts/" && ok=0; bad=0; for f in $R/ea/*.mqh $R/ea/fxgrind_tests.mq5 $R/scripts/grind_*.mq5; do if cmp -s "$f" "$M/Scripts/$(basename "$f")"; then ok=$((ok+1)); else bad=$((bad+1)); fi; done; echo "scripts cmp ok=$ok bad=$bad"; ls "$M/Scripts/fxgrind.mq5" "$M/Scripts/fxmatrix" 2>/dev/null || echo "no fxgrind.mq5 in Scripts"
+
+MetaEditor (GUI): Navigator -> Refresh; open `MQL5\Experts\fxmatrix\fxgrind.mq5`, Compile: `0 errors, 0
+warnings`; then `MQL5\Scripts\fxgrind_tests.mq5` the same, ONE file at a time (the path in MetaEditor's tab).
+The box scripts are compiled one at a time when first needed. The suite waits for an account (s6).
 
 **1.10 Stage E's presets with the key** (as D's s2.3-2.4; expected `a448f4abb8a6`, `12`, then 12 lines
 `SAME_EXCEPT_KEY key_len=43`):
@@ -136,12 +147,19 @@ before Wednesday, s1.5's pull and s1.9-1.10 are repeated on the day (`git pull -
 
 ## 3. A's LAST HOUR AND ITS RECORDS (from ~21:00Z, after the carry pass)
 
-1. The carry pass for every fleet as usual (BOOT s6), A's seven included: then A is no longer needed.
+1. The carry pass for every fleet as usual (BOOT s6), A's seven included: then A is no longer needed. If
+   1514878887 has already expired or been disconnected (its 14 days ran from 7 Oct 22:08Z; Argon GE-8.4), A's
+   carry pass may not run: not a STOP; take 2-5 from what remains (the desktop's history, the archives).
 2. **A's final status** (pipshed status read, fresh URL segment, plain text; saved whole): live, halts,
    `api_count`, balance, equity, open MTM. VPS Toolbox: balance, equity, positions, orders (written here).
-3. **VPS: Algo Trading OFF**, then remove the EA from all seven charts (right-click -> Expert Advisors ->
-   Remove). Experts tab: seven `fxgrind deinit reason=1`. Positions and orders are left as they are (the
-   trial is closed with them; the dump below records them).
+3. **VPS: Algo Trading OFF**; wait a minute (the EA flushes queued archive events every 2 s from `OnTimer`;
+   `OnDeinit` does not flush: `grind_archive_flush.mqh` 40-43, `fxgrind.mq5` 396-405); then remove the EA from
+   all seven charts (right-click -> Expert Advisors -> Remove). Experts tab: seven `fxgrind deinit reason=1`.
+   Positions and orders are left as they are (the trial is closed with them; the dump below records them).
+   Then A's Global Variables to a file, as the twins' (monday-build s7): `grind_gv_list` from the Navigator
+   (copy `C:\fxmatrix\scripts\grind_gv_list.mq5` into `$T\MQL5\Scripts` and compile it if it is not there),
+   `InpContains` `GRIND`: `MQL5\Files\gv_list_1514878887.csv` (zipped in s4.2). Then **close MT5 on the VPS**
+   (File -> Exit), so its logs are complete on disk before s4.2.
 4. **Desktop terminal** (logged in to 1514878887, Algo off): `grind_history_dump.mq5` -> Downloads
    `history_1514878887.csv` (`HISTDUMP|deals=...|bad=0`). The operator: FTMO MetriX for 1514878887 as a PDF
    into Downloads.
@@ -157,11 +175,11 @@ before Wednesday, s1.5's pull and s1.9-1.10 are repeated on the day (`git pull -
 
        cd C:\fxmatrix; git status -sb; git fetch -q origin; git log --oneline origin/main..HEAD; git tag -l "vps-*"; git ls-remote --tags origin "vps-*"
 
-2. **The files only the VPS holds**, zipped: `C:\fxmatrix-local` (cycle 3's binary, the checker's copies), the
-   Experts logs (`MQL5\Logs`) and the Journal (`logs`), each under its own name (the two `logs` folders
-   would collide in one zip root):
+2. **The files only the VPS holds**, zipped with MT5 CLOSED (s3.3): `C:\fxmatrix-local` (cycle 3's binary, the
+   checker's copies), the Experts logs (`MQL5\Logs`), the Journal (`logs`) and `MQL5\Files` (s3.3's GV list),
+   each under its own name (the two `logs` folders would collide in one zip root):
 
-       $T = "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850"; $Z = "C:\vps_final_2026-10-21"; New-Item -ItemType Directory -Force $Z | Out-Null; Copy-Item -Recurse C:\fxmatrix-local "$Z\fxmatrix-local"; Copy-Item -Recurse "$T\MQL5\Logs" "$Z\experts_logs"; Copy-Item -Recurse "$T\logs" "$Z\journal_logs"; Compress-Archive -Path "$Z\*" -DestinationPath "$Z.zip"; Get-FileHash "$Z.zip" -Algorithm SHA256
+       $T = "$env:APPDATA\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850"; $Z = "C:\vps_final_2026-10-21"; New-Item -ItemType Directory -Force $Z | Out-Null; Copy-Item -Recurse C:\fxmatrix-local "$Z\fxmatrix-local"; Copy-Item -Recurse "$T\MQL5\Logs" "$Z\experts_logs"; Copy-Item -Recurse "$T\logs" "$Z\journal_logs"; Copy-Item -Recurse "$T\MQL5\Files" "$Z\mql5_files"; Compress-Archive -Path "$Z\*" -DestinationPath "$Z.zip"; Get-FileHash "$Z.zip" -Algorithm SHA256
 
    Copied to the desktop's Downloads (the RDP window's copy and paste, or `\\tsclient\` if drives are
    shared); `Get-FileHash` on the desktop equal.
@@ -182,29 +200,40 @@ before Wednesday, s1.5's pull and s1.9-1.10 are repeated on the day (`git pull -
       L="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/logs/$(date -u +%Y%m%d).log"; iconv -f UTF-16LE -t UTF-8 "$L" | grep -a -o "'[0-9]*': authorized on [^ ]*" | tail -2; iconv -f UTF-16LE -t UTF-8 "$L" | grep -a -i 'hedging' | tail -1
 
 - Toolbox -> Trade: $10,000, zero positions, zero orders. STOP on a netting account (Close By needs hedging).
+- **Market Watch shows all six** (GBPUSD, EURUSD, EURGBP, AUDCAD, AUDCHF, CADCHF), each quote ticking (a fresh
+  install may list only some: right-click -> Symbols -> Show; Argon GE-8.1). Their Specification: 5 digits and
+  Trade "Full access" (else `Grind_GuardsAllowTrading` refuses silently, C's runbook s5).
 
 ## 6. THE SUITE, ONCE, BEFORE ANY EA (Algo OFF)
 
-On a GBPUSD chart (M5): drag `fxgrind_tests` from the Navigator; it places no order (06 s7 step 5).
+On a GBPUSD chart (M5): drag **Navigator -> Scripts -> fxgrind_tests** (s1.9's Scripts build), OK in its inputs
+dialog; it places no order (its sends are intercepted by the test hooks, `grind_engine.mqh` 268-274,
+`grind_closeby.mqh` 126-140; Argon GE-2) and clears `GRIND*` GVs at its start and end (`fxgrind_tests.mq5`
+95-108, 8778-8781, 9464-9467).
 Expected `SUMMARY` 2597 / 2597 (the EA suite at `5bb5fdb`, BOOT s6), then close that chart; F3 (Global
 Variables): EMPTY. **Never run it again on wine-e once an EA is attached** (it deletes shared GVs by prefix:
 02_TRAPS 25 Sep, C52). A different total: STOP, tell Claude.
 
 ## 7. ATTACH (from 22:05Z; the pilot, then five OPT, then six ALT)
 
-**Spreads first** (Market Watch, points): hold a pair whose spread is above 2 x its OPT width (EURUSD 40,
-GBPUSD 50, AUDCAD 30, EURGBP / AUDCHF / CADCHF 20); 7 Oct at 22:07Z the CHF crosses read 10-12 and the NZD
-crosses 61-88 (held until 22:15Z). **Algo Trading ON** (on this terminal an EA attached with Algo off stays
+**Spreads first** (Market Watch, points): attach a pair's charts only while its spread is at most 1.5 x its OPT
+width (EURUSD 30, GBPUSD 37, AUDCAD 22, EURGBP / AUDCHF / CADCHF 15). Why: an empty side's L0 is placed ONCE
+(`Grind_TryPlaceL0`, `grind_engine.mqh` 2062-2071: "ADR-123 place-once ... Re-centering is ADR-124's job and is
+fill-triggered"), and at a spread of 2 x width or more its target crosses the quote and is clamped just
+outside it (`Grind_Adr013ClampBuy` / `Sell`): it then rests there until a fill (Argon GE-6). 7 Oct at 22:07Z
+the CHF crosses read 10-12 and the NZD crosses 61-88 (held until 22:15Z). **Algo Trading ON** (on this terminal an EA attached with Algo off stays
 inactive, so each EA trades from its OK: the read-back is the only gate, ftmo-ic-start GF-1).
 
-Per chart: File -> New Chart -> the symbol, M5; drag **Navigator -> Expert Advisors -> fxmatrix ->
+Per chart: File -> New Chart -> the symbol, M5; F8 -> Show: "Show trade levels" unticked (s1.8); drag **Navigator -> Expert Advisors -> fxmatrix ->
 fxgrind**; Inputs -> Load `<pair>_<arm>_e_t1.set` -> read back BEFORE OK: `InpMagic`, `InpSlot`,
 `InpTelemetryInstance` and the warning as s0, width / add / exit, the six per-side rows (`-1.0`), cap 7,
 `InpStrandedThreshPips`, deadband 2.0, lattice and re-roll true, roll gate 0, auto-eject false, **breaker
 false**, API 1000000 / 999000, the key row not blank. A row not as s0: Cancel, never OK. OK; note the UTC
 time. ALT on its OWN new chart of the pair (two charts per symbol).
 
-The checker (as D's s4; FROM = the minute before the chart's OK; one row per chart since FROM):
+The checker (as D's s4; FROM = the minute before the chart's OK; one row per chart since FROM), run about a
+minute after the OK (the first `POST ok` comes from `OnTimer`, not `OnInit`, and the log reaches disk with a
+delay; Argon GE-8.3):
 
     L="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5"/logs/$(date -u +%Y%m%d).log; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 -f /home/khalid/fxmatrix-repo/scripts/build_logcheck.awk; iconv -f UTF-16LE -t UTF-8 "$L" | tr -d '\r' | awk -v from=HH:MM:00 '{if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/) && substr($0,RSTART,8)>=from && /telemetry dropped/) n++} END{print "telemetry dropped since FROM:", n+0}'
 
@@ -246,8 +275,17 @@ checks the tree, pushes outside 20:50-21:00Z. Check: E's card LIVE 12 / 12 on `h
   limit (the breaker is off: nothing stops at it, E7).
 - **Requests (C106, E6):** above 1,700 by 14:00Z (A's GF-4 trigger of 1,000 for seven, x 12 / 7), or above
   2,000 for a day: tell Claude the same hour. Any FTMO email about requests: tell Claude at once. The EA's
-  counter resets at server midnight (21:00Z), the FTMO day at 22:00Z.
-- The first scalp per arm, the first roll, the first `DAILY_SNAPSHOT` at 22:00Z.
+  counter resets at server midnight (21:00Z, `TimeCurrent()`: `grind_api_counter.mqh` 30-36), the FTMO day at
+  22:00Z.
+- The first scalp per arm, the first roll, the first `DAILY_SNAPSHOT` at 22:00Z. **That first snapshot reads
+  `"start_known":false`** (`equity_start`, `inventory_pnl`, `total`, `swap_day` null; `balance_start` from
+  history): the day-start GVs are written only at a rollover the EA saw (`grind_snapshot.mqh` 291-304, 340),
+  and E attaches after 22:00Z. Expected, as on A's first day (attached 22:08Z 7 Oct); from the second day
+  known. Not seeded by hand (Argon offered hand-set GVs: not taken).
+- **From Sun 25 Oct the FTMO day rolls at 23:00Z, not 22:00Z** (Prague leaves summer time on the last Sunday
+  of October at 01:00Z: `Grind_PragueUtcOffset`, `grind_pure.mqh` 502-551; Argon GE-3): the `DAILY_SNAPSHOT`
+  of every fleet moves an hour later; the brokers' midnight (21:00Z) and the carry window (20:50-20:59Z) stay
+  until the US clocks change on 1 Nov (BOOT s6: inferred, re-check then).
 - E is not changed during the trial except for a defect (as A, ftmo-ic-start s10).
 
 ## 11. STOP (before the next step)
@@ -257,7 +295,9 @@ not 0; a compile not 0 / 0; the presets fingerprint not `a448f4abb8a6` or any MI
 not `fc6b3d9c56a8`; a login not on `FTMO-Demo`, a netting account, or a balance not $10,000; the suite not
 2597 / 2597, or GVs not empty after it; any `STARTUP_EXIT_SHORTFALL` at a flat attach; a row other than
 `rebuild=false/false`; s4.1 showing an unpushed commit or a tag not on origin (the VPS is not destroyed
-then); an FTMO email about requests or a breach.
+then); s4.2 run with MT5 still open on the VPS; one of the six symbols missing from Market Watch, not 5
+digits or not Full access; a chart with "Show trade levels" ticked; a spread above s7's hold at its OK;
+`fxgrind.mq5` found in `MQL5/Scripts`; an FTMO email about requests or a breach.
 
 ## 12. FOR THE REVIEWER (Argon): attack the premises, say which fact is missing
 
@@ -279,4 +319,34 @@ Quote the line of every source or runbook passage you cite (file and line at the
   still on 1514878887. Any reason to keep the VPS until E's first day is clean?
 - **GE-8.** What failure is not on s11? What fact is missing?
 
-Line count: 282
+## 13. THE REVIEW (Argon, `3fb2523`, on `81f7d70`) AND CLAUDE'S CHECK
+
+Argon's reply: `reviews/argon_runbook_e.md` (1,137 lines, counted). **All 76 of its quoted blocks are exact
+at `81f7d70`** (each compared line by line against the file at its cited lines: a first for Argon); its prose
+claims were checked in source one by one.
+
+- **Taken:** (1) **GE-1:** s1.9 installed no box scripts; and the suite runs from `MQL5\Scripts` on the
+  desktop (`desktop_sync.ps1`; 02_TRAPS 20 Sep), so s1.9 now copies the headers, `fxgrind_tests.mq5` and the
+  12 `scripts/grind_*.mq5` to Scripts, never `fxgrind.mq5`, and s6 runs it from Scripts; (2) **GE-6:** an
+  empty side's L0 is place-once and a wide clamp is not re-centred until a fill (`grind_engine.mqh`
+  2062-2071, 3214-3229): the hold tightened from 2 x to 1.5 x OPT width; (3) **GE-7:** a minute after Algo
+  off for the archive flush, then MT5 closed on the VPS before its logs are zipped; A's GVs kept, but by the
+  repo's `grind_gv_list` (a CSV in `MQL5\Files`), not by copying a GV file; (4) **GE-8.1:** the six symbols
+  shown in Market Watch, with their Specification (s5); (5) **GE-8.2:** "Show trade levels" unticked (02_TRAPS
+  112-115; s1.8, s7); (6) **GE-8.3:** the checker a minute after OK; (7) **GE-8.4:** an expired A is not a STOP
+  (s3.1); (8) the STOP list (s11).
+- **Recorded as expected (s10):** **GE-3:** from Sun 25 Oct the FTMO day and every fleet's `DAILY_SNAPSHOT`
+  roll at 23:00Z (`grind_pure.mqh` 502-551; Prague's change at 01:00Z on the last Sunday of October); also
+  02_TRAPS 18 Oct. **GE-5:** E's first `DAILY_SNAPSHOT` has `start_known` false (`grind_snapshot.mqh` 340 is
+  the only writer of `GRIND_SNAPSHOT_START_DAY`): as A's first day.
+- **Agreed answers:** GE-2 (no request leaves the suite; it clears `GRIND*` GVs at start and end); GE-4 (near
+  the guard, adds farther than `add` from mid stop at `used + resting_ent` 187 with `InpSlotNearReserve` 8,
+  near ones at 195; exits need only `used <= 199`, `grind_exitq.mqh` 115-189: nothing else changes); GE-5's
+  first half (with the breaker off the trip, the float gate and the pre-midnight halt are off; the snapshot
+  and MAE still run, `fxgrind.mq5` 413-430).
+- **Not taken (not verifiable here):** the GV file `profiles\gvs.dat` (no such path in the repo or our records;
+  replaced by `grind_gv_list`); "MT5 runs it as a one-shot script even when compiled inside Experts" and its
+  Navigator path for the suite (our tested path is Scripts); hand-seeding the snapshot GVs (manual GV writes on
+  a live account: not worth one day's nulls).
+
+Line count: 352

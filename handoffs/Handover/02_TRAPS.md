@@ -2860,4 +2860,19 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **The handoff's stamps can run ahead of the clock** (s85's last ran about 15-25 minutes fast): take the time
   from the clock, never from the last stamp, before a time-gated step.
 
-Line count: 2863
+## TRAPS FROM 2026-10-18 (E's REVIEW: PRAGUE's CLOCK, A FIRST SNAPSHOT, L0 PLACED ONCE)
+
+- **From Sun 25 Oct the FTMO day rolls at 23:00Z, not 22:00Z** (Prague leaves summer time at 01:00Z on the last
+  Sunday of October: `Grind_PragueUtcOffset`, `ea/grind_pure.mqh` 502-551). Every fleet's `DAILY_SNAPSHOT` moves
+  an hour later; the brokers' midnight (21:00Z) and the carry window stay until 1 Nov (inferred). "The FTMO day
+  (22:00Z in summer)" in BOOT is summer only.
+- **A fleet attached after the FTMO rollover emits its first `DAILY_SNAPSHOT` with `start_known` false**
+  (null `equity_start`, `inventory_pnl`, `total`, `swap_day`): the day-start GVs are written only at a rollover
+  the EA saw (`ea/grind_snapshot.mqh` 340). Expected on a new fleet's first day; not a defect.
+- **An empty side's L0 is placed once and not re-centred until a fill** (`ea/grind_engine.mqh` 2062-2071).
+  Attached at a wide spread, an L0 clamped just outside the quote rests there: attach in normal spreads.
+- **Argon quoted all 76 blocks exactly on E's runbook (`3fb2523`)** when told an unquoted or misquoted claim is
+  void; its unquoted prose still held two unverifiable claims (a GV file path; MT5's handling of a script in
+  Experts). Keep the instruction; check the prose as before.
+
+Line count: 2878
