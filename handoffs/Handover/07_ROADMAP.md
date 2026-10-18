@@ -131,6 +131,8 @@ operator's ring (USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD). From Wed 21 Oc
 `docs/research/fleet-d-two-arm-ring-2026-10-16.md` s7-s12. **18 Oct: the 30 `_t1` presets merged
 (`2426f94`); pipshed `twoarm-fleets` `320afe6` verified, parked until D and C are built; D's and C's
 runbooks REVIEWED (`docs/runbooks/twoarm-build-d.md`, `twoarm-build-c.md`); FTMO's server runbook next (C158).**
+**18 Oct (C158 RULED): FTMO's fleet E on a new server wine-e (wine-d's recipe) and a new demo, first trade
+after 22:00Z Wed 21 Oct; A off ~21:00Z that evening and the Windows VPS closed.**
 
 ---
 
@@ -206,4 +208,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 209
+Line count: 211

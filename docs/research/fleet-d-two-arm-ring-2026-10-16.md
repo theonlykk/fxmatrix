@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed").** Nothing built: presets, ALT adds, the retirements and the pipshed strip come next. Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
+| Status | **RULED 17 Oct (the set s8, the layout s10, the geometry s11); presets merged and runbooks REVIEWED (the Open row).** Before: PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed"). Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
 | Open | **18 Oct: presets merged (`2426f94`); pipshed `twoarm-fleets` verified, parked; D's and C's runbooks REVIEWED (`docs/runbooks/twoarm-build-{d,c}.md`); FTMO's server runbook next (C158).** Was: the presets, pipshed and the runbooks (ruled: the layout s10, the geometry s11; the reload path read in source s12). Answered: "0.04 lots" (s1); the pair set (s8, then s10) |
@@ -137,7 +137,8 @@ GBPUSD, EURGBP + AUDCAD, AUDCHF, CADCHF first as we have the actual data." RULED
   books wound down, C119 the precedent). The ring of s3 (USDCAD, GBPCHF) stays the longer-term set.
 - Exposure as s7: each currency in two pairs, so four instances; 28 layers at full. Slots as s2.
 - **Every kept OPT chart moves cap 8 -> 7:** a side holding 8 at the change trips I7 (s4): the runbook
-  checks each side from the heartbeat and changes a chart only when both sides hold 7 or fewer.
+  checks each side and changes a chart only when both sides hold 6 or fewer, counted in the Trade tab
+  (18 Oct: a side at 7 keeps its resting 8th-layer add after the cut; s12, the runbooks s4).
 - **ALT for a pair with no fills of ours (operator, 16 Oct ~23:26Z): "the new pairs ALT can be from price
   ranges - basically any sensible guess is fine."** (For the ring later; the first set has fills.)
 
@@ -265,11 +266,13 @@ add. What a reload does to a chart holding layers, read at `84c825e` (EA code `5
 - **Cap: a side above the new cap halts the chart.** The rebuilt book is checked against `max_layers`
   (`I7_LONG_DEPTH` / `I7_SHORT_DEPTH`, `grind_recon.mqh` 489-495): a side holding 8 at a reload to cap 7 is
   a RECON_FAIL, halted in place (I7 is not quarantinable). So each kept chart reloads only with both sides
-  at 7 or fewer (read from its heartbeat just before); otherwise wait, or flatten that chart by hand and
+  at 6 or fewer, counted in the Trade tab just before (18 Oct, Argon's review of D's runbook: a side at 7
+  keeps its `|L07|ENT`, neither cancelled nor re-used at cap 7, and a fill halts on I7; `grind_engine.mqh`
+  2492-2528; was "7 or fewer, from its heartbeat"); otherwise wait, or flatten that chart by hand and
   start it fresh (permitted, s11).
 - Add (C): changes at a reload as in round 2 and 3 (`docs/architecture/geometry-cycle3.md` A1).
 - New ALT charts and FTMO's charts start empty: none of this applies.
 - BOOT s6's line "Exit and cap may not change mid-cycle (I6/I7)" was geometry cycle 3's pre-registration
   rule, not a mechanical limit on the exit (corrected there, s85g).
 
-Line count: 275
+Line count: 278

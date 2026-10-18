@@ -2804,8 +2804,9 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 ## TRAPS FROM 2026-10-17 (A CAP CUT ON RELOAD; ONE PATCH PER LINE; A BIG DOWNLOADS FOLDER)
 
 - **A reload to a lower cap halts a chart whose side holds more layers than the new cap** (I7 at the
-  start-up reconciliation, `grind_recon.mqh` 489-495; not quarantinable). Read both sides from the
-  heartbeat just before; wait, or flatten by hand (demo only, operator's call). **A reload to a new exit is
+  start-up reconciliation, `grind_recon.mqh` 489-495; not quarantinable). Count both sides in the
+  Trade tab just before, at most the new cap - 1 each (18 Oct: the stranded add, below; was "from the
+  heartbeat"); wait, or flatten by hand (demo only, operator's call). **A reload to a new exit is
   fine** (the exit label triggers the rebuild; fleet D note s12) **only while the label GV exists:** never
   move a live chart to a new terminal.
 - **One `git am` per command line, or a line per patch the operator has NOT applied yet:** a line that
@@ -2848,4 +2849,15 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   answer; `~` is not expanded for git (`"$HOME\Downloads\<file>"`); `&&` fails in Windows PowerShell 5.1
   (use `;`). And `<repo>` placeholders are redirections: write the real path (`D:\fxmatrix`).
 
-Line count: 2851
+## TRAPS FROM 2026-10-18 (NEW CHAT; THE EXPORT'S bad_px LINE; FLEET E's CARD)
+
+- **`docs/runbooks/plan3-holdout-export.md` stops on any `bad_px` above 0** (step 4, s4); plan 4's window
+  dump expects 1 (16 Oct night). Run Tuesday's export from its own runbook, not plan 3's "with new names".
+- **Merging pipshed `twoarm-fleets` does not make fleet E live:** E stays a placeholder ("NOT BUILT") until
+  its `placeholder` / `built`, `cycle_start` (`app.py` 268-279 on the branch) and the new login's
+  commission row in `sr_table.py` change (an account not listed reads "unknown"); `verify_twoarm_fleets.py`
+  pins the placeholder and flips with it (C158).
+- **The handoff's stamps can run ahead of the clock** (s85's last ran about 15-25 minutes fast): take the time
+  from the clock, never from the last stamp, before a time-gated step.
+
+Line count: 2863
