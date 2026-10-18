@@ -2875,4 +2875,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   void; its unquoted prose still held two unverifiable claims (a GV file path; MT5's handling of a script in
   Experts). Keep the instruction; check the prose as before.
 
-Line count: 2878
+## TRAPS FROM 2026-10-18 AFTERNOON (ARGON OUT OF CREDITS; ITS QUOTES ON A SHORT FILE)
+
+- **Argon can run out of credits between writing and committing:** its branch exists only locally, its reply
+  sits untracked in `reviews/`, and the operator's copy is left on its review branch. Read the file from the
+  desktop first (complete? its last line), then the operator commits it on that branch and pushes, then
+  `git switch main`. Its reply's own line count is not to be trusted (353 stated, 680 counted).
+- **Argon's quote discipline held on E's runbook (76 of 76) and not on the export runbook (5 of 49 not in the
+  file, 14 a line or two off):** check every block by script against the commit it reviewed, every time.
+
+Line count: 2887
