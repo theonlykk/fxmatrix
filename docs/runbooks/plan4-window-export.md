@@ -66,7 +66,9 @@ Read every row back before OK (X6: the chunk row's label is old; its value is mi
 `InpTo` must NOT be empty and `InpProbeOnly` must be false. The file will be `ticks_53077984_EURUSD_win.csv`.
 Close the chart afterwards.
 
-**Step 4 (desktop): the dump's log lines.**
+**Step 4 (desktop): the dump's log lines.** The MQL5 log is named by the UTC day of the dump: `20261020.log` up to
+23:59Z Tue (7:59 PM Toronto), **`20261021.log` if the dump ran from 00:00Z Wed** (operator 20 Oct: the export may
+finish by ~02:10Z); Claude gives the name with the step.
 
     ssh root@216.128.158.33 'iconv -f UTF-16LE -t UTF-8 /home/khalid/.mt5/drive_c/Program*Files/MetaTrader*5/MQL5/logs/20261020.log | grep -a -e TICKS | tail -3'
 
@@ -157,4 +159,4 @@ the file** (void): `eurusd_holdout.sha256` 2-3, `twoarm-build-d.md` 8, `replay-c
 - **Recorded as the operator's option, not a step:** M6, a dump from wine-test or wine-c if wine-d is logged out
   (its supporting quote, plan 3's P7, is not in the file).
 
-Line count: 160
+Line count: 162
