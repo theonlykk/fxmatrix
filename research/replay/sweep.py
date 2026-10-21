@@ -21,6 +21,7 @@ import argparse
 import calendar
 import datetime as dt
 import json
+import math
 import os
 import sys
 
@@ -96,6 +97,20 @@ SW8 = {"EURUSD": ((2.0, 7.0), (7.0, 27.0), (6.0, 23.0)),
 SESSIONS8 = "sessions_eurusd_ic.csv"
 
 
+# sw9 (21 Oct, docs/research/two-arm-viability-2026-10-21.md s6): the October surface. One flat start Thu 1 Oct
+# 04:00 server (w2's first tick), the book carried to Tue 20 Oct 23:45, EURUSD, the joined w2hw ticks (plan 4's),
+# carry ON (the window set's swaps.csv), sessions on. Cap 8 add x exit, one run file per exit; the add = exit
+# diagonal at cap 7. Width = add / 4 rounded up to 0.5, at least 2.0 (ADR-153: add / width <= 4).
+WINDOW9 = (("oct", "2026-10-01 04:00", "2026-10-20 23:45"),)
+ADDS9 = (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23, 27)
+EXITS9 = (4, 5, 7, 9, 11, 14, 18, 23, 27)
+TICKS9 = "ticks_53077984_EURUSD_w2hw.csv"
+
+
+def width9(add):
+    return max(2.0, math.ceil(add / 4.0 * 2.0 - 1e-9) / 2.0)
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -140,6 +155,16 @@ def get_set(tag):
         st["windows"] = WINDOW7
         st["geoms"] = (live[:5] + (None, None), ("live_w%g" % WIDTH7,) + live[1:5] + (None, WIDTH7))
         return st
+    if tag.startswith("sw9_") and tag[4:] in (["e%d" % e for e in EXITS9] + ["d7"]):
+        base = dict(BASE)
+        base.update({"carry": 1})
+        if tag == "sw9_d7":
+            geoms = tuple(("a%de%dn7" % (a, a), float(a), float(a), 7, None, None, width9(a)) for a in ADDS9)
+        else:
+            e = int(tag[5:])
+            geoms = tuple(("a%de%dn8" % (a, e), float(a), float(e), 8, None, None, width9(a)) for a in ADDS9)
+        return {"windows": WINDOW9, "geoms": geoms, "base": base, "ticks": TICKS9,
+                "comm_pips": COMM_USD / 0.100, "pip_usd": 0.100, "sessions": SESSIONS8}
     if tag.startswith("sw8_") and tag[4:].upper() in SW8:
         st = get_set("sw4_" + tag[4:])
         st["windows"] = tuple(st["windows"]) + WINDOW7
