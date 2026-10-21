@@ -2912,4 +2912,26 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Close RDP with the window's X (a disconnect), never XFCE's Log Out:** a log-out ends the desktop session and MT5
   with it.
 
-Line count: 2915
+## TRAPS FROM 2026-10-21 AFTERNOON (THE BUILDS; A PLATFORM OUTAGE; READING A FIRST HEARTBEAT)
+
+- **The cap rule turned a reload day into a flatten day:** at 14:50-16:02Z eight of the eight kept OPT charts (D six, C
+  two) had a side at 7 or 8, and the counts moved within minutes (EURGBP 6 / 6 at 15:15, 7 / 5 at 15:21). On a cap cut,
+  expect to flatten; read the count once, just before the chart, not at the start.
+- **A bulk flatten is safe only with no EA running on the terminal:** prove it by the deinit lines since the first
+  Remove, one `reason=1` per symbol for every chart the terminal ran (C: nine). Then Bulk Operations (delete all
+  pending orders, Close By, close all). Never with an EA attached anywhere on that terminal.
+- **A Railway outage stops `railway ssh`, deploys and new services, not the running pipshed** (21 Oct, from 07:24Z):
+  telemetry, the live API and the fleet strip kept working. Fall back to the box's MQL5 log by grep for every archive
+  code check; hold any pipshed push (it would not deploy). `ssh: connect to host ssh.railway.com port 22: Connection
+  timed out` is the symptom.
+- **A heartbeat read in the first seconds after an attach can predate the L0s:** pipshed holds the newest heartbeat,
+  and the first is sent about a second after `OnInit` (GRIND_AUDCHF_ALTD showed one L0, GRIND_CADCHF_ALTD none); read
+  it again after a minute. The fetch tool caches a URL for 15 minutes: add `&r=2` (then 3) to read it again.
+- **`telemetry dropped status=1003` is MT5's WebRequest not completing,** not an HTTP answer (`grind_telemetry.mqh`
+  93-99 print whatever WebRequest returns): one is a blip; several a minute, an outage.
+- **The chart's timeframe does not matter to fxgrind** (no `Period()` or `PERIOD_CURRENT`; `CopyRates(_Symbol,
+  PERIOD_M1, ...)` only, `grind_engine.mqh` 645, 655): an EA on the wrong period is left alone (a change re-inits it).
+- **The Journal's `expert fxgrind (...) loaded successfully` names no folder:** which `.ex5` a chart runs is read from
+  the INIT row's `ea_build` in the archive (`fxgrind <compile time>`, `fxgrind.mq5` 56, 345), nowhere else.
+
+Line count: 2937

@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED** (Argon `review/argon-runbook-d` `f61fe96` on `3086316`, checked by Claude in source, s10; amended 18 Oct ~00:45Z). Before: DRAFT (17 Oct ~23:30Z) |
+| Status | **REVIEWED** (Argon `review/argon-runbook-d` `f61fe96` on `3086316`, checked by Claude in source, s10; amended 18 Oct ~00:45Z). **RUN 21 Oct 14:55-15:58Z** (HANDOFF s87 continued): s2-s6 done; every OPT chart over the cap rule, so all six flattened (s4's flatten path) and attached empty; counts read from pipshed's fleet API; s6 by the log (Railway down); **s7 waits for Railway.** Before: DRAFT (17 Oct ~23:30Z) |
 | What | D becomes FTMO's mirror (fleet D note s10-s12): EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF with OPT + ALT, exit = add, cap 7 (12 instances); NZDCHF, NZDCAD, AUDNZD retire |
 | Uses | `main` `2426f94` or later: `ea/presets_d/<pair>_{opt,alt}_d_t1.set` (verified byte for byte, HANDOFF s85 continued 9); the repo's `scripts/build_logcheck.awk` on wine-d after the pull (the Wednesday build's checker: `gate=`, `api=` and the API-limit lines as BAD); pipshed branch `twoarm-fleets` `320afe6` (merged AFTER D and C, s7) |
 | When | **Wed 21 Oct or later, in market hours (London / New York, about 12:00-16:00Z)**, after plan 4's export (Tue 20 Oct 22:10Z). Never 20:50-21:15Z; not within 30 minutes of a tier-1 release (check the calendar on the day). Safe to stop between steps 4, 5 and 6 |
