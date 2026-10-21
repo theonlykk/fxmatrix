@@ -8,7 +8,7 @@ This message has a line count at the bottom
 | When | **Tue 20 Oct 2026.** Steps 1-2 from **22:10Z** (18:10 Toronto; the window ends 22:00Z = Wed 21 Oct 01:00 server, and the archive worker runs minutes behind). Step 3 from **22:30Z** (18:30 Toronto = 01:30 server) |
 | Who | The operator runs every command. Claude gives ONE step per message, with the clock read first, and waits for its output |
 | Writes | Seven files in `Downloads` (3 sends, 3 archives, 1 tick file) and their sha256 in git (`research/replay/inputs/eurusd_window_p4_raw.sha256`, under "THE WINDOW SET"). Nothing else |
-| Status | **REVIEWED** (Argon `review/argon-plan4-export` `6f87f69` on `382622e`, committed by the operator: Argon's credits ran out before its commit; checked by Claude in source, s6; amended 18 Oct ~18:20Z). Before: DRAFT (Claude, 18 Oct ~06:10Z). From `docs/runbooks/plan3-holdout-export.md` (run clean 13 Oct) with plan 4's names, span and the one changed STOP line (X3) |
+| Status | **RUN Tue 20 Oct 22:11Z (steps 1-2) and Wed 21 Oct 02:23-02:27Z (steps 3-7)**, clean; `bad_px=0` reported (X3), the record in `eurusd_window_p4_raw.sha256` (HANDOFF s86 continued 7). Before: **REVIEWED** (Argon `review/argon-plan4-export` `6f87f69` on `382622e`, committed by the operator: Argon's credits ran out before its commit; checked by Claude in source, s6; amended 18 Oct ~18:20Z). Before: DRAFT (Claude, 18 Oct ~06:10Z). From `docs/runbooks/plan3-holdout-export.md` (run clean 13 Oct) with plan 4's names, span and the one changed STOP line (X3) |
 
 ## 0. AUDIT TRAIL
 

@@ -20,4 +20,24 @@ adba7ab82df92bcc58cb484ff3f63e689c85b08af92eab9b4e64af8fc1778fa2  ticks_53077984
 # eurusd_holdout.sha256's comments:
 #   fe37e42aa569689248296c3a06c3f1953abd413670bde9cd4e6530b7fb550392  ticks_53077984_EURUSD_w2h.csv  22397330
 #
-# THE WINDOW SET (Tue 20 Oct from 22:10Z): to be added below.
+# THE WINDOW SET (Tue 20 Oct from 22:10Z): exported and hashed ONLY (docs/runbooks/plan4-window-export.md, REVIEWED).
+# Steps 1-2 (desktop, D:\pipshed): sends and archives of B, C, D exported 22:11:56Z-~22:13Z Tue 20 Oct (after the
+# window's end at 22:00Z); each first line its _meta line (sends: true / archive: true, the right instance); every
+# last line closed ('}'); each archive larger than its 13 Oct copy (B 1,346,760, C 1,336,730, D 1,107,000).
+c3891f5e36e56a4e45d328f9a89adc5f9e030cd0b67020633298a3d8756946b6  archive_EURUSD_OPTB_2026-10-20_2210.jsonl  1933992
+810cba84b325358ae0643ac09ce95afbc8d805d3b49ec34d2a81807aed09b427  archive_EURUSD_OPTC_2026-10-20_2210.jsonl  1953750
+98bb2266a9e44bf382d8ac3d43c9b8ee90546287899cf5b189fa3824061db735  archive_EURUSD_OPTD_2026-10-20_2210.jsonl  1738483
+e9b2ad99f2ad6856ec27e1781ef27681c57bbd68fe3e243a6a67e4a8f78256d5  sends_EURUSD_OPTB_2026-10-20_2210.jsonl  926260
+f144a57942f1b4642c3c60b17cfc9ee5a813cb41ddc85535508c07448a179ab3  sends_EURUSD_OPTC_2026-10-20_2210.jsonl  987230
+07cefc43dc05b2266078c12b306bf7d044c31b4866371c89bac5e269f0410ece  sends_EURUSD_OPTD_2026-10-20_2210.jsonl  926578
+# Step 3 (wine-d, a fresh EURUSD H1 chart, the seven inputs typed and read back; no preset): the script loaded
+# 02:23:38Z Wed 21 Oct, removed 02:25:07Z (the operator ran it later than 22:30Z, as ruled; log 20261021.log).
+1cf40a64c22079d9bb191d6ff1023f4941d4b5f4fdd52378e1573da07f2f9383  ticks_53077984_EURUSD_win.csv  12748393
+#   TICKS|BEGIN 02:24:53Z, probe_only=false, from 2026.10.14 01:30:00.000 to 2026.10.21 01:30:00.000, account 53077984,
+#   ICMarketsSC-Demo, server_minus_gmt_s=10800; TICKS|EURUSD ticks=369975 bad_px=0 time_back=0 chunks=168
+#   empty_weekday_chunks=0 first 2026.10.14 01:30:00.144 last 2026.10.21 01:29:58.742; TICKS|END.
+#   Equal hash and size on wine-d (sha256sum, stat) and on the desktop (Get-FileHash).
+#   bad_px=0, NOT the 1 expected (X3): the insurance (win_ins) dropped one tick over 14 Oct 01:30 - 17 Oct 00:00 that
+#   the broker's history no longer returns as bad (inferred: corrected in IC's stored history; not checked). Not a
+#   STOP (X3: 0 is reported). Plan 4 s7 step 4's first check (runbook s5.1) compares win with win_ins over that span
+#   and expects them to differ by about that one tick, to be located and recorded there.

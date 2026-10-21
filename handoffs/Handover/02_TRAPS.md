@@ -2884,4 +2884,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Argon's quote discipline held on E's runbook (76 of 76) and not on the export runbook (5 of 49 not in the
   file, 14 a line or two off):** check every block by script against the commit it reviewed, every time.
 
-Line count: 2887
+## TRAPS FROM 2026-10-21 (A LATER DUMP OF THE SAME SPAN CAN DIFFER)
+
+- **The same span dumped twice can differ:** the insurance (16 Oct, `win_ins`) read `bad_px=1` over 14 Oct 01:30 -
+  17 Oct 00:00 server; the window dump (21 Oct, `win`) over a span containing it read `bad_px=0` (inferred: IC
+  corrected the tick in its stored history). Expect a re-dump to match an earlier one only after checking; a
+  prefix comparison (plan 4 export runbook s5.1) is how to find the difference.
+- **A dump after 00:00Z writes to the next UTC day's log:** step 4 of any export reads the log of the day the
+  script RAN (`20261021.log` for a dump at 02:23Z Wed), not the export's day.
+
+Line count: 2896
