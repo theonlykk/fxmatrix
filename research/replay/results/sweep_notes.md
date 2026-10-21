@@ -570,3 +570,49 @@ at 0.01 lots ($0.10 a pip), commission 0.6 pip a close:
   money and did not beat OPT; E's q90 lost to OPT. ALT's gross is about zero: its rare scalps (+27 pips each) are paid
   back by the inventory it carries. Swap is not counted (carry off), which would count against ALT. Counts are plan 4's
   scope; these nets are not a validated measure. The other five pairs not yet run.
+
+## sweep9: the October surface (pre-registered 21 Oct ~22:20Z, before any run; HANDOFF s87 continued 3)
+
+**Why:** the operator's go / no-go question, `docs/research/two-arm-viability-2026-10-21.md` (C162): is there an OPT /
+ALT (/ DUP) geometry whose wider arm meaningfully offsets OPT's losses through October's roll regime (EURUSD bursts 1
+and 5-7 Oct, 14-16 Oct)? sweep8 tested only the t1 ALT and only in Aug - Sep; this surface covers the regime itself.
+In-sample on purpose (the note s1, s6): the question is whether ANY geometry survives it; the calm weeks and live are
+the check after. The operator ruled 21 Oct: E's charts are held until this surface is read (option 1).
+
+**Build:** harness `8044284` (timing 1, Sens base, FREE), input files only; `sweep.py` `sw9_e<exit>` and `sw9_d7` (tests
+first: 7 failing, 1 guard in both states; four mutants caught); `inputs/sweep9/` ten run files, manifest
+`inputs/sweep9.sha256`. **Data:** `ticks_53077984_EURUSD_w2hw.csv` (plan 4's, `93816e45...6c81`); **one segment per
+geometry, flat at Thu 1 Oct 04:00 server, the book carried to Tue 20 Oct 23:45**; carry ON (`swaps.csv` = the window
+set's, `581dab22...4c2a`, to 21 Oct); sessions on (F1). **Grid:** cap 8, add {4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20,
+23, 27} x exit {4, 5, 7, 9, 11, 14, 18, 23, 27} (117, one file per exit, `a<add>e<exit>n8`); the add = exit diagonal at
+cap 7 (13, `sw9_d7`, `a<add>e<add>n7`: the t1 shape; OPT's live 7 / 7 is `a7e7n7`). Width = add / 4 rounded up to 0.5,
+at least 2 (ADR-153); stranded = width + 1; deadband 2; lattice and re-roll on; gate 0; EURUSD's magic and instance.
+
+**Measures and the decision: as the viability note s5 (the operator's definition, 21 Oct ~20:09Z), unchanged here:**
+per geometry S, R, A, scalps per roll step, realised, commission (0.6 pip a close), swap, the open book at the end,
+net, worst equity; **a daily equity curve** (the run's deals replayed into a book, marked at each server day's last
+tick, plus swap from the run's events); the **offset ratio** of every ALT candidate against OPT (the live `a7e7n7`,
+and each cap-8 OPT-like geometry with add <= 8 reported) over the period and per burst; **MEANINGFUL = >= 0.25 over the
+period AND > 0 in both bursts**; 2 x ALT (DUP) = the ALT curve doubled. The scorer (the daily curves and the ratio)
+is written with tests and committed BEFORE any output is opened (outputs are hashed when staged).
+
+**Self-checks first (any failure: STOP; an amendment, if any, before any net):** each run `exit=0`; `RPL|RUN|sw9_<x>|
+sync=0`, `RPL|TIMING|1|base`, `RPL|SESSIONS|sessions_eurusd_ic.csv|5`, `RPL|TICKS_LOADED|ticks_53077984_EURUSD_w2hw.csv`
+with 1,021,095 ticks, 13 `SEG_DONE` each `aborted=0`; any gap reported (plan 4 found none in this file); the run files
+equal the manifest.
+
+**Claude's predictions, written before any run:** (1) the live OPT `a7e7n7` ends the period negative (as B, C, D did);
+(2) the offset ratio is <= 0 for every ALT with add >= 20 (sweep8's lesson: too wide to trade the bursts); (3) somewhere
+in add 10-16 at least one ALT has a POSITIVE ratio over the period, and whether any reaches 0.25 in both bursts is the
+real unknown: no prediction; (4) scalps per roll step rise with add at a fixed exit, and fall with exit at a fixed add.
+
+**Limits:** one pair, one feed, one path (the regime happened once); chosen on the data it is judged on (deliberate);
+P&L is outside plan 4's validated counts (a guide); every geometry starts flat at 1 Oct (the live fleets carried books
+in); D's and E's other pairs need October tick dumps for the same surface.
+
+**Runs (the operator, overnight, from `D:\fxmatrix` detached at `8044284`; each run's timing file deleted at once:
+about 3.7 GB each, never scored):**
+
+    git checkout --detach 8044284
+    foreach ($t in 'e4','e5','e7','e9','e11','e14','e18','e23','e27','d7') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw9_$t" -Label "sw9_${t}_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a -TimeoutSec 3600; Remove-Item "D:\mt5-replay\MQL5\Files\replay\out_sw9_${t}_free_timing.csv" -ErrorAction SilentlyContinue }
+    git checkout main
