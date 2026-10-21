@@ -26,10 +26,12 @@ def deal(seg, t, pos, entry, dtype, price):
 
 class Positions(unittest.TestCase):
     def test_scalp_by_close_by(self):
-        # long ENT bought 1.15506; EXT sell opened 1.15583; close-by: the EXT short closes at 1.15506 (+7.7), the
-        # ENT long closes at 1.15506 (0.0): realised +7.7 pips
+        # long ENT bought 1.15506; EXT sell opened 1.15583; close-by: each OUT_BY leg carries the OTHER position's
+        # entry price (02_TRAPS): the short closes at 1.15506 (+7.7), the long at 1.15583 (+7.7); each counts
+        # half: realised +7.7 pips. (Corrected 21 Oct ~23:00Z: the first version had the long close at its own
+        # price; the cross-check against sweep8's scores found it, before any sweep9 output was read.)
         ds = [deal(1, 100, 1, 0, 0, 1.15506), deal(1, 200, 2, 0, 1, 1.15583),
-              deal(1, 201, 2, 3, 0, 1.15506), deal(1, 201, 1, 3, 1, 1.15506)]
+              deal(1, 201, 2, 3, 0, 1.15506), deal(1, 201, 1, 3, 1, 1.15583)]
         pos = s9.positions(ds)[1]
         self.assertEqual(len(pos), 2)
         self.assertAlmostEqual(s9.equity_at(pos, [], [], 300, lambda t: (1.2, 1.2001), 0.0), 7.7, places=6)
