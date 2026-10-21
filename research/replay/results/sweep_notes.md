@@ -448,3 +448,73 @@ valid, dollars from the pip value); one path.
 `compare.rho`) count roll CLOSES; every sweep here ran with re-roll on, so they read too high.
 Count roll STEPS: `docs/research/grid-edge-assessment-2026-10-12.md` s7; sweep7's by steps in
 `sweep7/extras.md` (3). Backlog C151.
+
+## sweep8: OPT against ALT out of sample (pre-registered 21 Oct ~18:15Z, before any run; HANDOFF s87 continued 2)
+
+**The operator (21 Oct ~18:08Z):** could the replay show what A would have done with the ALT arm, and would
+it have made money? Claude: not for A (FTMO's feed and seven pairs are outside plan 4's scope), and not on the
+last two weeks: ALT's adds were FITTED on D's fills of 1-16 Oct (`research/alt_adds/results_2026-10-17.md`), so
+that window flatters ALT. **The question asked instead (operator: "lets do your shorter question"; no Argon):**
+on IC's EURUSD, over weeks ALT's fit never saw, does ALT produce more net pips than OPT at the live t1
+geometries, and does it make money?
+
+**Build:** the plan 4 harness `8044284` (`replay-plan4`; validated for count-level use on EURUSD at timing 1,
+plan 4 s10), already on `D:\mt5-replay`. Input files only. `sweep.py` `sw8_<pair>` (tests first in their own
+commit: 7 failing, 2 guards passing in both states; then the code; three mutants caught); `inputs/sweep8/`
+(six run files and the sessions file), manifest `inputs/sweep8.sha256`.
+
+**Data:** the h8w ticks (sweep4: wine-d, 11 Oct; 3 Aug 00:00 to 1 Oct 04:00 server; sha256 starts EURUSD
+`10e95fec`, GBPUSD `d3c8c37a`, EURGBP `1de6ee93`, AUDCAD `a3791e0b`, AUDCHF `69b567b2`, CADCHF `6ff77bfa`).
+Seen before by sweeps 3-7 (OPT-like geometries only); never by ALT's fit.
+
+**Settings per pair, from the presets (a test checks each against `ea/presets_d` and `ea/presets_e`):**
+`opt_t1` (D's OPT), `alt_q95` (D's and C's ALT), `alt_q90` (E's ALT); add = exit, cap 7, stranded = width + 1,
+deadband 2, lattice and re-roll on, roll gate 0, carry OFF (no swap history for Aug-Sep), the sessions file
+`sessions_eurusd_ic.csv` (24th column; F1). EURUSD 2 / 7, 7 / 27, 6 / 23; GBPUSD 2.5 / 9, 7.5 / 30, 6 / 24; EURGBP
+1 / 3, 5 / 19, 4 / 16; AUDCAD 1.5 / 6, 7 / 27, 7 / 27 (q90 = q95 on AUDCAD: a free determinism check); AUDCHF 1 / 4,
+5.5 / 22, 5.5 / 21; CADCHF 1 / 4, 3 / 12, 2.5 / 9 (width / add = exit).
+
+**Segments per pair (27):** each setting x (eight weekly flat starts, Mon 00:00 to Fri 23:45 server, Mon 3 Aug
+... Mon 21 Sep) + one carried window (flat at Mon 3 Aug 00:00, carried to Fri 25 Sep 23:45). Timing 1, Sens base,
+FREE (no sync).
+
+**Measures (from `sweep.py score`, unchanged; pips at 0.01 lots):** per segment S (scalps), R (roll closes), A
+(roll acceptances = roll steps), realised, commission (0.06 USD a close / the pair's pip value), the open book at
+the end marked at the last tick, **net = realised - commission + open**. Scalps per roll STEP = S / A (not S / R:
+re-roll inflates R, C151).
+
+**Decision rules, EURUSD (deciding), from the eight weekly nets only:**
+- **Q1, ALT against OPT:** `alt_q95` BETTER if its eight-week sum exceeds `opt_t1`'s AND it is ahead in 6 or more
+  of the 8 weeks; OPT BETTER if the mirror; else NO DIFFERENCE SHOWN. The same rule reported for `alt_q90`.
+- **Q2, does ALT make money:** YES if `alt_q95`'s sum > 0 AND 6 or more weeks > 0; NO if its sum < 0 AND 6 or more
+  weeks < 0; else NOT SHOWN. Reported for `alt_q90` and `opt_t1` too.
+- Eight weeks decide little (6 of 8 is a one-sided sign-test p of about 0.14): a BETTER or YES is a lean, to be
+  confirmed by ALT's live weeks, not a ruling.
+
+**Reported, never deciding:** the carried window per setting (net, open book at the end); OPT + ALT summed per
+week (D's arrangement); S / A per setting; the other five pairs under the same rules (indicative: outside plan
+4's scope). **Not reported as a result:** dollars for A or E (FTMO's feed).
+
+**Self-checks first (any failure: STOP, nothing scored):** each run `exit=0`; its log's `RPL|RUN|` and `RPL|TIMING|` lines read against
+the label (sync off, timing 1; as plan 4's runs, HANDOFF s86 continued 9), `RPL|SESSIONS|sessions_eurusd_ic.csv|5`,
+`RPL|TICKS_LOADED|ticks_53077984_<PAIR>__h8w.csv`, gaps 0, aborted 0; the run files
+equal `inputs/sweep8.sha256`; AUDCAD's `alt_q95` and `alt_q90` segments identical.
+
+**Claude's predictions, written before any run:** (1) EURUSD gross (before commission) near zero for all three
+settings over the eight weeks (sweep2 and sweep4: a near random walk at these scales); (2) commission decides the
+sum, so `alt_q95` > `opt_t1` summed (ALT closes about a quarter as often), but ahead in only 4-5 weeks: **Q1 NO
+DIFFERENCE SHOWN**; (3) **Q2 NOT SHOWN** for ALT (3-5 weeks positive), NO or NOT SHOWN for OPT; (4) S / A within
++/-30% between OPT and ALT (both near N - 1 = 6 on a random walk at add = exit, cap 7); (5) ALT's open book at a
+week's end larger in pips than OPT's in most weeks.
+
+**Limits:** carry off (ALT holds layers longer: swap under-counted against ALT); P&L is not a plan 4 mark (plan
+4 validated counts; D long's whole-segment rho was off, 1.85 / 1.63); ALT at 23-30 pips is outside plan 4's
+tested geometries (a guide); IC's feed only; every pair on the EURUSD chart (prices valid, dollars from the pip
+value); weekly flat starts (live D carries its book); one path per week.
+
+**Runs (the operator, from `D:\fxmatrix` detached at `8044284`, the run files in `D:\mt5-replay\MQL5\Files\replay`;
+swaps.csv is the window set's, `581dab22...4c2a`, unused with carry off):**
+
+    git checkout --detach 8044284
+    foreach ($p in 'eurusd','gbpusd','eurgbp','audcad','audchf','cadchf') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw8_$p" -Label "sw8_${p}_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a }
+    git checkout main
