@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED** (Argon G5-1..6, 14 Oct ~04:20Z; every quote checked by Claude, s9); amended 14 Oct ~04:35Z (s82). Committed before **Thu 15 Oct 21:00Z (17:00 ET)**, when the window opens. **The operator agreed, blinding included, 14 Oct ~13:57Z** ("yes blinding side is fine"). Before: DRAFT (14 Oct ~04:10Z) |
+| Status | **RESULT (21 Oct ~03:10Z): PASS at timing 1, the deciding timing (s10).** Before: **REVIEWED** (Argon G5-1..6, 14 Oct ~04:20Z; every quote checked by Claude, s9); amended 14 Oct ~04:35Z (s82). Committed before **Thu 15 Oct 21:00Z (17:00 ET)**, when the window opens. **The operator agreed, blinding included, 14 Oct ~13:57Z** ("yes blinding side is fine"). Before: DRAFT (14 Oct ~04:10Z) |
 | Origin | Plan 3 CLOSED, FAIL on T1 (`replay-calibration-eurusd-3.md` s7, note of 14 Oct ~03:10Z). Its misses were read (C152) and the fixes F1-F4 found (`replay-consult-plan4.md` s3, s8, s10). Operator 14 Oct ~03:12Z: "why not work a bit more on that?"; ~04:10Z "lets do a bit more work tonight" |
 | Rules it keeps | Plan 3 entire, except where this file says otherwise: the question (s1), the marks, match rule and tolerances (plan 3 s3), what a result means (plan 3 s4), its known limits (plan 3 s5), seeding at an init, T0 on the order price, the scorer `score_plan3.py` unchanged |
 | Changes from plan 3 | The harness (s2: `145f092` + F1-F4); the window (s3); the development check (s4) |
@@ -157,4 +157,35 @@ Every quote and line number in the review was checked against the files at `0a17
   closed-span boundaries (s2).
 - No question from the reviewer to us; none of its points was a premise we supplied wrongly.
 
-Line count: 160
+## 10. THE RESULT (21 OCT ~03:10Z): PASS
+
+Run by s7 step 4 on the frozen pair (harness `8044284`, builders `a335ef0`); nothing in s1-s6 changed. The window
+was exported and hashed by `docs/runbooks/plan4-window-export.md` (REVIEWED; `eurusd_window_p4_raw.sha256`), built
+into `research/replay/inputs/eurusd_window_p4/` (`eurusd_window_p4.sha256`; `--sessions`, the 13 Oct sends joined,
+`--window-end-ms 1792544400000`, swaps to 21 Oct), and run twelve times (B, C, D x SYNC, FREE x timing 1, timing 0;
+every run `gaps=0`, `aborted=0`, the sessions file in use, every seed order kept; `research/replay/runs_window_p4/`).
+
+**Timing 1 (deciding), `score_plan3.py --tol results/plan3/live_spread_n3.txt --cut-ms 1792108800000`
+(`results/plan4/window_score_8044284.md`):**
+
+| fleet | T0 | T1 matched / touchable | replay-only | T0 | T1 |
+|---|---|---|---|---|---|
+| B | 114 / 114 | 112 / 114 = 98.2% | 2 = 1.8% | PASS | PASS |
+| C | 108 / 108 | 107 / 108 = 99.1% | 0 = 0.0% | PASS | PASS |
+| D | 127 / 127 | 126 / 127 = 99.2% | 0 = 0.0% | PASS | PASS |
+
+Counts after the cut (S / R / A per fleet and side): no side OUT; only C S scalps differ (20 real, 22 replay, tolerance
+3.57). Bias +2 of 156 real scalps: pass. Difference mark: every pair ok. Scoreable: every side.
+
+**VERDICT by s5 (from the T0 / T1 table and the counts verdict): PASS. The replay is fit for count-level use on
+EURUSD in markets without a scheduled-release burst** (geometries bracketed by the live fleets; rankings confirmed
+live). Plan 3 at `145f092` failed T1 on C (94.4%) and D (94.9%); F1-F4 and fix 1 close it on a window nobody saw.
+
+- **Timing 0 (reported, never deciding): FAIL** (`window_score_8044284_t0.md`): T1 86.8% / 87.0% / 89.8%, replay-only
+  16.7% / 12.0% / 7.9%; counts OUT on C S and D L. The same pattern as the gate (backlog C154).
+- **Reported, not a mark of this plan:** `compare.py`'s plan 1 T2 over whole segments (from each init) passes B and C
+  and fails D long (rho 1.85 live, 1.63 replay; S 80 / 79, R 6 / 7); plan 3 replaced it with the post-cut counts.
+- **The window's data:** `bad_px=0` (the insurance read 1): IC restored two ticks of Fri 16 Oct 16:16:00 server in its
+  history; the harness reads no tick flags (`eurusd_window_p4.sha256`).
+
+Line count: 191
