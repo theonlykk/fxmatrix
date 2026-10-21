@@ -531,3 +531,42 @@ are flagged. Q1 and Q2 are decided as pre-registered on the eight weeks AND, by 
 weeks (3 Aug - 18 Sep) with 5 of 7 in place of 6 of 8; **if the two answers differ, the answer is NOT SHOWN.** The other
 pairs' gaps, if any, are reported the same way. Prediction (4), S / A within +/-30%, is recorded FAILED (undefined):
 the counts show A = 0 in every weekly ALT segment.
+
+**sweep8 RESULT, EURUSD (21 Oct ~19:20Z; `sweep8/sw8_eurusd.md` from `sweep.py score`, unchanged; outputs hashed in
+`sweep8/sw8_eurusd_outputs.sha256`, not in git):** the run `DONE sw8_eurusd_free exit=0 sec=982` (14:45-15:01 local,
+the operator, `D:\fxmatrix` at `8044284`); 27 segments, `aborted=0`; the one gap as the amendment. Weekly nets, pips
+at 0.01 lots ($0.10 a pip), commission 0.6 pip a close:
+
+| week (Mon) | opt_t1 | alt_q95 | alt_q90 |
+|---|---|---|---|
+| 3 Aug | +275.2 | +53.2 | +83.0 |
+| 10 Aug | +124.7 | +50.8 | +112.9 |
+| 17 Aug | -199.1 | -57.5 | -106.1 |
+| 24 Aug | -138.3 | -93.7 | -147.6 |
+| 31 Aug | +236.4 | +116.4 | +151.7 |
+| 7 Sep | +202.0 | +76.6 | +68.0 |
+| 14 Sep | -158.2 | -148.5 | -183.1 |
+| 21 Sep (gap) | -24.9 | -16.5 | +8.9 |
+| **sum 8 / 7 weeks** | **+317.8 / +342.7** | **-19.2 / -2.7** | **-12.3 / -21.2** |
+| weeks > 0 (8 / 7) | 4 / 4 | 4 / 4 | 5 / 4 |
+| gross before commission, 8 weeks | +708.4 | +7.8 | +24.3 |
+| commission, 8 weeks | 390.6 | 27.0 | 36.6 |
+| carried 3 Aug - 25 Sep (gap): net (open book at the end) | -31.9 (-484.9, 11 layers) | -721.6 (-1444.3, 8) | -758.5 (-1456.7, 8) |
+
+- **Q1, `alt_q95` against `opt_t1`: NO DIFFERENCE SHOWN** (OPT's sum higher, but ALT ahead in 4 of 8 weeks and 3 of
+  7). **`alt_q90` against `opt_t1`: OPT BETTER** on both (OPT ahead in 6 of 8 and 6 of 7, its sum higher).
+- **Q2, does ALT make money: NOT SHOWN** for both ALTs (sums near zero, 4-5 weeks positive); **OPT: NOT SHOWN** (sum
+  +317.8, but only 4 of 8 weeks positive).
+- **Counts:** OPT 60-96 scalps and 3-11 roll closes a week; ALT 3-10 scalps a week and NO roll in any week (A = 0):
+  each week's ALT book is open at Friday's mark instead (3-8 layers). Carried, ALT rolled 2-4 times in eight weeks and
+  ended with 8 layers and -1,444 pips open: its losses wait in inventory rather than in roll closes (rho with the open
+  book 0.67-0.68 against OPT's 1.07).
+- **OPT + ALT per week** (D's arrangement): sum +298.6 (q95), +305.5 (q90): OPT carries the pair.
+- **Predictions:** (1) gross near zero: HELD for ALT (+7.8, +24.3), FAILED for OPT (+708.4); (2) commission decides,
+  ALT's sum above OPT's: FAILED (OPT +317.8, ALT -19.2), ahead in 4-5 weeks: HELD (4), Q1 NO DIFFERENCE SHOWN: HELD for
+  q95 (q90 OPT BETTER); (3) Q2 NOT SHOWN: HELD; (4) FAILED (undefined, the amendment); (5) ALT's Friday book larger
+  than OPT's in most weeks: FAILED (2 of 8 for each ALT).
+- **What it means, within the limits written first:** on IC's EURUSD over eight weeks ALT never saw, ALT did not make
+  money and did not beat OPT; E's q90 lost to OPT. ALT's gross is about zero: its rare scalps (+27 pips each) are paid
+  back by the inventory it carries. Swap is not counted (carry off), which would count against ALT. Counts are plan 4's
+  scope; these nets are not a validated measure. The other five pairs not yet run.
