@@ -435,5 +435,72 @@ class Sweep8(unittest.TestCase):
             self.assertEqual(len(sw.to_csv(rows, st["ticks"]).split("\n")[1].split(",")), 23)
 
 
+# sw9: the October surface (21 Oct): one flat start 1 Oct 04:00 server, the book carried to 20 Oct 23:45, EURUSD
+# w2hw ticks, carry ON, sessions on; cap 8 grid add x exit, one run file per exit (sw9_e<exit>), plus the add = exit
+# diagonal at cap 7 (sw9_d7). Width = add / 4 rounded UP to 0.5, at least 2.0 (ADR-153: add / width <= 4).
+ADDS9 = (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23, 27)
+EXITS9 = (4, 5, 7, 9, 11, 14, 18, 23, 27)
+WIDTH9 = {4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0, 8: 2.0, 10: 2.5, 12: 3.0, 14: 3.5, 16: 4.0, 18: 4.5, 20: 5.0, 23: 6.0, 27: 7.0}
+
+
+class Sweep9(unittest.TestCase):
+    def test_one_carried_window(self):
+        for tag in ("sw9_e4", "sw9_e27", "sw9_d7"):
+            st = sw.get_set(tag)
+            self.assertEqual(st["windows"], (("oct", "2026-10-01 04:00", "2026-10-20 23:45"),))
+
+    def test_exit_files_cap8_grid(self):
+        seen = set()
+        for e in EXITS9:
+            g = sw.get_set("sw9_e%d" % e)["geoms"]
+            self.assertEqual(len(g), 13)
+            for (name, a, ex, cap, carry, light, w), add in zip(g, ADDS9):
+                self.assertEqual((name, a, ex, cap, carry, light, w),
+                                 ("a%de%dn8" % (add, e), float(add), float(e), 8, None, None, WIDTH9[add]))
+                seen.add(name)
+        self.assertEqual(len(seen), 117)
+
+    def test_diagonal_cap7(self):
+        g = sw.get_set("sw9_d7")["geoms"]
+        self.assertEqual([x[0] for x in g], ["a%de%dn7" % (a, a) for a in ADDS9])
+        for (name, a, ex, cap, carry, light, w), add in zip(g, ADDS9):
+            self.assertEqual((a, ex, cap, w), (float(add), float(add), 7, WIDTH9[add]))
+
+    def test_width_rule_ratio_at_most_4(self):
+        for add, w in WIDTH9.items():
+            self.assertLessEqual(add / w, 4.0)
+            self.assertEqual(w, sw.width9(float(add)))
+
+    def test_rows_carry_on_ticks_and_window(self):
+        st = sw.get_set("sw9_e7")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 13)
+        for r in rows:
+            self.assertEqual((r["carry"], r["gate"], r["lattice"], r["reroll"], r["deadband"], r["cap"]), (1, 0, 1, 1, 2.0, 8))
+            self.assertEqual((r["seed_file"], r["orders_file"]), ("", ""))
+            self.assertEqual(r["ticks_file"], "ticks_53077984_EURUSD_w2hw.csv")
+            self.assertEqual((r["from_ms"], r["to_ms"]), (1790827200000, 1792540800000 - 15 * 60000))
+            self.assertEqual(r["stranded"], round(r["width_l"] + 1.0, 6))
+            self.assertEqual((r["instance"], r["magic"]), ("GRIND_EURUSD_OPTD", 22260201))
+        self.assertEqual((rows[3]["add_l"], rows[3]["exit_s"], rows[3]["width_s"]), (7.0, 7.0, 2.0))
+
+    def test_csv_sessions_column(self):
+        st = sw.get_set("sw9_d7")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        lines = sw.to_csv(rows, st["ticks"], st["sessions"]).rstrip("\n").split("\n")
+        self.assertEqual(len(lines), 14)
+        self.assertTrue(all(len(x.split(",")) == 24 and x.endswith(",sessions_eurusd_ic.csv") for x in lines[1:]))
+
+    def test_commission_as_sweep8(self):
+        st = sw.get_set("sw9_e9")
+        self.assertAlmostEqual(st["comm_pips"], 0.6)
+        self.assertAlmostEqual(st["pip_usd"], 0.1)
+
+    def test_no_other_sw9_tags(self):
+        for bad in ("sw9_e6", "sw9_d8", "sw9_eurusd"):
+            with self.assertRaises(KeyError):
+                sw.get_set(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
