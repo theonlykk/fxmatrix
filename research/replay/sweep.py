@@ -84,6 +84,18 @@ WINDOW7 = (("8w", "2026-08-03 00:00", "2026-09-25 23:45"),)
 WIDTH7 = 0.2
 
 
+# sw8 (21 Oct, HANDOFF s87): OPT against ALT, the two-arm t1 presets (D: OPT and ALT q95; E: ALT q90),
+# on the eight pre-fit weeks (ALT's adds were fitted on D's fills of 1-16 Oct). Per pair:
+# (OPT width, add = exit), (ALT q95 width, add = exit), (ALT q90 width, add = exit); cap 7.
+SW8 = {"EURUSD": ((2.0, 7.0), (7.0, 27.0), (6.0, 23.0)),
+       "GBPUSD": ((2.5, 9.0), (7.5, 30.0), (6.0, 24.0)),
+       "EURGBP": ((1.0, 3.0), (5.0, 19.0), (4.0, 16.0)),
+       "AUDCAD": ((1.5, 6.0), (7.0, 27.0), (7.0, 27.0)),
+       "AUDCHF": ((1.0, 4.0), (5.5, 22.0), (5.5, 21.0)),
+       "CADCHF": ((1.0, 4.0), (3.0, 12.0), (2.5, 9.0))}
+SESSIONS8 = "sessions_eurusd_ic.csv"
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -127,6 +139,13 @@ def get_set(tag):
         live = st["geoms"][-1]
         st["windows"] = WINDOW7
         st["geoms"] = (live[:5] + (None, None), ("live_w%g" % WIDTH7,) + live[1:5] + (None, WIDTH7))
+        return st
+    if tag.startswith("sw8_") and tag[4:].upper() in SW8:
+        st = get_set("sw4_" + tag[4:])
+        st["windows"] = tuple(st["windows"]) + WINDOW7
+        st["geoms"] = tuple((name, a, a, 7, None, None, w) for name, (w, a) in
+                            zip(("opt_t1", "alt_q95", "alt_q90"), SW8[tag[4:].upper()]))
+        st["sessions"] = SESSIONS8
         return st
     if tag.startswith("sw5_") and tag[4:].upper() in PAIRS:
         st = get_set("sw4_" + tag[4:])
@@ -181,10 +200,16 @@ def labels(windows, geoms):
     return out
 
 
-def to_csv(rows, ticks=TICKS_FILE):
+def to_csv(rows, ticks=TICKS_FILE, sessions=None):
     """The harness run file. Rows that carry "light_add" (sweep6) add the optional 24th column
-    (ADR-167 replay build); every other set is written exactly as before."""
+    (ADR-167 replay build); with `sessions` (sw8) the 24th column is the plan 4 harness's
+    sessions file (8044284, `fxgrind_replay_core.mqh` 3905); every other set as before."""
     text = bs.to_run_csv(rows, ticks, [""] * len(rows), first_id=rows[0]["seg_id"])
+    if sessions is not None:
+        if any("light_add" in r for r in rows):
+            raise ValueError("light_add and sessions share the 24th column")
+        lines = text.rstrip("\n").split("\n")
+        return "\n".join([lines[0] + ",sessions_file"] + [ln + "," + sessions for ln in lines[1:]]) + "\n"
     if not any("light_add" in r for r in rows):
         return text
     lines = text.rstrip("\n").split("\n")
@@ -319,7 +344,7 @@ def main(argv=None):
     if a.cmd == "build":
         os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
         with open(a.out, "w", newline="\n") as f:
-            f.write(to_csv(build_rows(windows, geoms, st["base"], st["ticks"]), st["ticks"]))
+            f.write(to_csv(build_rows(windows, geoms, st["base"], st["ticks"]), st["ticks"], st.get("sessions")))
         return 0
     segs = cmp.segments(cmp.read_csv(a.run))
     sc = score(segs, cmp.read_events(a.events), cmp.read_csv(a.book), cmp.Ticks.load(a.ticks),
