@@ -165,6 +165,10 @@ script the second time it is built, not the fifth.**
 
 ## 6. STRATEGY WORK THAT GATES THE ABOVE
 
+- **The replay (21 Oct): plan 4 PASSED at timing 1** (T1 B 98.2%, C 99.1%, D 99.2%; `docs/research/
+  replay-calibration-eurusd-4.md` s10): fit for count-level use on EURUSD (IC's feed, timing 1, geometries near
+  those tested, no scheduled-release burst; rankings confirmed live). Geometry questions now go to it first,
+  one pre-registered question at a time: ALT's add 2x against 3.5x; C160's DUP. Timing 0 still fails (C154).
 - **Passive ejection -- one of the two central planks (operator,
   2026-09-25):** "it leans into the fact that we enter positions randomly
   and hence should not feel any loyalty to them, especially if they are
@@ -208,4 +212,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 211
+Line count: 215
