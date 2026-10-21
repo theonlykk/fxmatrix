@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
+| Status | **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). **s1 RUN 21 Oct 03:38-04:40Z** (HANDOFF s87): wine-e 104.207.140.130; two departures recorded there: the installer's MT5 6274 refuses Wine 9.0, so wine-d's 6231 binaries were copied (C161; 02_TRAPS 21 Oct early), and the RDP window sized at 1920 x 1080 (`mstsc /w /h`). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
 | What | FTMO's fleet E: EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF with OPT + ALT, exit = add, cap 7, ALT at q90 (12 instances, fleet D note s10-s11), on a NEW FTMO demo, on a NEW Linux + wine server `wine-e`. Fleet A (FTMO 1514878887) is stopped and the Windows VPS closed |
 | Uses | `main` `ceab0f7` or later: `ea/presets_e/<pair>_{opt,alt}_e_t1.set` (12 files, fingerprint `a448f4abb8a6`); `scripts/build_logcheck.awk`; pipshed `twoarm-fleets` `320afe6` (merged at D's s7) and a small pipshed patch for E's card (s9) |
 | When | **Wed 21 Oct.** wine-e built any time before (s1; it needs no account). A off soon after 5 PM ET (21:00Z), after the carry pass (20:50-20:59Z). E's first chart after 6 PM ET (22:00Z), so its first FTMO day is full. Not within 30 minutes of a tier-1 release |
@@ -53,7 +53,7 @@ click is done by ssh. **Claude gives each command with wine-e's address filled i
 angle brackets: PowerShell reads them as redirections).
 
 **1.1 Vultr (the operator).** Cloud Compute, Shared CPU `vc2-2c-4gb`, **Chicago** (as every box and the VPS),
-Ubuntu 24.04 LTS x64, label `fxgrind-wine-e`, hostname `wine-e`; the desktop's SSH key if it is on the Vultr
+Ubuntu 24.04 LTS x64, label `fxgrind-wine-e`, hostname `fxgrind-wine-e` (as the other boxes; operator 21 Oct); the desktop's SSH key if it is on the Vultr
 account (else root's password). Record the address and the creation time (UTC).
 
 **1.2 Upgrade, then reboot while empty** (06 s9). As root over ssh: `apt update && apt -y upgrade` (answer

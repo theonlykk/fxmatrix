@@ -7,7 +7,7 @@ This message has a line count at the bottom
 | Status | **RULED 17 Oct (the set s8, the layout s10, the geometry s11); presets merged and runbooks REVIEWED (the Open row).** Before: PROPOSED, agreed in principle by the operator 16 Oct ~19:23Z ("yep proceed"). Not before plan 4's window closes (**Tue 20 Oct 22:00Z**) |
 | Origin | `docs/research/roll-geometry-notes-2026-10-15.md` s7-s8 (rolls realise at the turns of a range wider than the stack; ALT back or one geometry per fleet) |
 | Operator's rulings in it | ALT with wider adds as a second arm; more pairs rather than fewer; **cap 7 on this fleet** (overriding "the cap stays 8" here); the ring USDCAD, EURUSD, EURGBP, GBPCHF, AUDCHF, AUDCAD |
-| Open | **18 Oct: presets merged (`2426f94`); pipshed `twoarm-fleets` verified, parked; D's and C's runbooks REVIEWED (`docs/runbooks/twoarm-build-{d,c}.md`); FTMO's server runbook next (C158).** Was: the presets, pipshed and the runbooks (ruled: the layout s10, the geometry s11; the reload path read in source s12). Answered: "0.04 lots" (s1); the pair set (s8, then s10) |
+| Open | **18 Oct: presets merged (`2426f94`); pipshed `twoarm-fleets` verified, parked; D's and C's runbooks REVIEWED (`docs/runbooks/twoarm-build-{d,c}.md`); FTMO's server runbook next (C158).** **21 Oct: E's runbook REVIEWED (18 Oct, `twoarm-build-e.md`); wine-e built (HANDOFF s87); the builds D, C, E on Wed 21 Oct.** Was: the presets, pipshed and the runbooks (ruled: the layout s10, the geometry s11; the reload path read in source s12). Answered: "0.04 lots" (s1); the pair set (s8, then s10) |
 
 ## 1. THE OPERATOR'S PLAN (16 OCT)
 
@@ -207,7 +207,7 @@ shut down FTMO for unforseen circumstances we still have the setup continued". *
   counts every request and stops none (`InpApiEntryStop` 1000000); watch the count per day on pipshed
   for the first days, and any FTMO alert email.
 - **ALT's adds:** s9's (measured on D's fills) for FTMO and D; C's EURUSD and AUDCAD the same; GBPCHF (no
-  fills of ours) from its range (daily 63.5 pips): OPT about 9, ALT about 21 at cap 7 (the operator: "any
+  fills of ours) from its range (daily 63.5 pips): OPT about 9, ALT about 21 at cap 7 (before exit = add; at s11's fixed point about 24, the preset) (the operator: "any
   sensible guess is fine"). Still open: ALT's exit and the quantile (s9).
 - The replay's check of ALT on EURUSD comes after, not before, FTMO (s6 said before): on a fresh free demo
   the stake is the trial.

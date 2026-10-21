@@ -408,4 +408,30 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
   prompt; stale RDP tunnels can wedge X (02_TRAPS 1 Oct early morning). The rest of the path (pipshed page, Railway, Cloudflare,
   `fleet-d.md`, presets, attach) is backlog C85.
 
-Line count: 411
+## 11. WINE-E = FLEET E (FTMO; BUILT 21 OCT 03:38-04:40Z BY `twoarm-build-e.md` s1)
+
+- **Instance:** Vultr `fxgrind-wine-e` (label and hostname, as the other boxes), Chicago, Ubuntu 24.04,
+  `vc2-2c-4gb`, **104.207.140.130**, created 03:38:23Z; root by Vultr's password (no SSH key; no ssh-config short
+  name: `root@104.207.140.130`). Kernel `6.8.0-147-generic` after the upgrade and reboot; `Etc/UTC`, synchronised;
+  `wine-9.0` from Ubuntu. User `khalid` (uid 1001, sudo).
+- **MT5 is build 6231, copied from wine-d, not the installer's.** Today's `mt5setup.exe` installs 6274, which stops
+  at start under Wine 9.0 ("A debugger has been found running in your system"). The install was kept and its three
+  binaries replaced by wine-d's (`scp` as root; `terminal64.exe` `49a205f54f0ae609`, `MetaEditor64.exe`
+  `c4641eda510ffea8`, `metatester64.exe` `865350d313d221e3`); 6274's are in `/root/mt5_6274`. Answer every LiveUpdate
+  offer Later (02_TRAPS 21 Oct early; C161).
+- **GUI:** RDP once for the install (tunnel `ssh -L 3393:localhost:3389 root@104.207.140.130`; `mstsc /v:localhost:3393
+  /w:1920 /h:1080`: the RDP window sets the desktop's size); then x11vnc as root `sudo -u khalid x11vnc -display :10
+  -auth /home/khalid/.Xauthority -localhost -rfbport 5913 -nopw -forever -noipv6 -shared -noxdamage -bg -o
+  /tmp/x11vnc-e.log`, tunnel `ssh -o ServerAliveInterval=15 -L 5913:localhost:5913 root@104.207.140.130`, viewer
+  `localhost::5913`. Desktop 1920 x 1080; Wine DPI 96 (the default).
+- **MT5 started detached from a terminal on the VNC desktop** (as `khalid`, never root): `setsid nohup env
+  WINEPREFIX=$HOME/.mt5 wine "$HOME/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe" >/dev/null 2>&1 &`.
+- **Options (21 Oct, read from a screenshot):** WebRequest for `https://pipshed.com`; "Allow algorithmic trading"
+  unticked; DLL imports off; One Click Trading off; "Show trade levels" off.
+- **Repo** `~/fxmatrix-repo` at `57e3e89` (as root: `sudo -u khalid git -C /home/khalid/fxmatrix-repo ...`). **EA in
+  Experts only** (`MQL5/Experts/fxmatrix`, 79 files, `fxgrind.ex5` 04:36:40Z, 0 / 0); the headers, `fxgrind_tests.mq5`
+  (`.ex5` 04:38:22Z, 0 / 0) and the 12 box scripts flat in `MQL5/Scripts` (81 files); no `fxgrind.mq5` in Scripts
+  (C88 cannot recur). The key 44 bytes, `fc6b3d9c56a8`; E's twelve `_t1` presets staged with it.
+- **Not yet:** an account (E's s5), the suite run (s6), any chart. Fleet E's page `linuxe.pipshed.com` after D's s7.
+
+Line count: 437

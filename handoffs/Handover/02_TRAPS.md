@@ -2893,4 +2893,23 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A dump after 00:00Z writes to the next UTC day's log:** step 4 of any export reads the log of the day the
   script RAN (`20261021.log` for a dump at 02:23Z Wed), not the export's day.
 
-Line count: 2896
+## TRAPS FROM 2026-10-21 EARLY (MT5 6274 ON WINE 9; AN RDP-SIZED DESKTOP; A ROOT PREFIX)
+
+- **MetaQuotes' installer now gives MT5 build 6274, which will not start under Wine 9.0** ("A debugger has been
+  found running in your system": the Wine 11 message of 06 s2, now on Wine 9). 6231 (wine-d) runs, with the C71
+  warning. A new box gets wine-d's three binaries by `scp` (06 s11). **Any LiveUpdate offer on any box: Later**;
+  a terminal that took 6274 would not start again (inferred). C161.
+- **Read a build without starting MT5:** as root, `python3 -c "import sys;d=open(sys.argv[1],'rb').read();k=
+  'FileVersion'.encode('utf-16-le');i=d.rfind(k);print(d[i:i+80].decode('utf-16-le','ignore').replace(chr(0),' '))"
+  "<install>/terminal64.exe"` prints `... 5.0.0.NNNN`.
+- **The first RDP window sets the xrdp desktop's size, and VNC keeps it:** a full-screen RDP on a 4K monitor made
+  wine-e 3840 x 2160, unreadable in VNC (the viewer's 100% scaling did not help; Wine's DPI is not the fix). Connect
+  with `mstsc /v:localhost:<port> /w:1920 /h:1080`; a reconnect of the same session resizes it (MT5 keeps running).
+  Check with `sudo -u khalid env DISPLAY=:10 xrandr | head -1`.
+- **A `$HOME` command meant for khalid's desktop terminal, run in the root ssh window, uses `/root`:** it created an
+  empty prefix `/root/.mt5` and started nothing. MT5 is started from a terminal on the VNC desktop (prompt
+  `khalid@`), never from root.
+- **Close RDP with the window's X (a disconnect), never XFCE's Log Out:** a log-out ends the desktop session and MT5
+  with it.
+
+Line count: 2915
