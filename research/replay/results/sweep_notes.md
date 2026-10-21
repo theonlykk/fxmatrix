@@ -518,3 +518,16 @@ swaps.csv is the window set's, `581dab22...4c2a`, unused with carry off):**
     git checkout --detach 8044284
     foreach ($p in 'eurusd','gbpusd','eurgbp','audcad','audchf','cadchf') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw8_$p" -Label "sw8_${p}_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a }
     git checkout main
+
+**AMENDMENT (21 Oct ~19:20Z, the operator's choice (a); written after the EURUSD run's log was read and BEFORE any
+net was computed):** the self-check STOPPED on `gaps=1` in six of EURUSD's 27 segments (the week of 21 Sep and the
+carried window, every setting): one hole in the h8w ticks, `RPL|GAP|1790210065409|581` = no tick from Thu 24 Sep
+00:34:25 to 00:44:06 server (Wed 23 Sep 21:34-21:44Z); the harness reports a weekday gap over 60 s outside 00:00-00:15
+server and does not abort or alter the simulation (`fxgrind_replay_core.mqh` 2899-2915 at `8044284`). The same data
+sweeps 4-7 used. **Disclosed: the log's `SEG_DONE` lines print each segment's counts (scalps, roll closes, roll
+acceptances); Claude read them before this amendment; no net was computed.** The operator: "it seems harsh to reject 8
+weeks of data due to a 10min gap". **Amended rules:** the gap is accepted and reported; week 8 and the carried window
+are flagged. Q1 and Q2 are decided as pre-registered on the eight weeks AND, by the same rules, on the seven clean
+weeks (3 Aug - 18 Sep) with 5 of 7 in place of 6 of 8; **if the two answers differ, the answer is NOT SHOWN.** The other
+pairs' gaps, if any, are reported the same way. Prediction (4), S / A within +/-30%, is recorded FAILED (undefined):
+the counts show A = 0 in every weekly ALT segment.
