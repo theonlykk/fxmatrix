@@ -327,5 +327,113 @@ class Sweep7(unittest.TestCase):
         self.assertEqual({(r["width_l"], r["stranded"]) for r in rows}, {(2.0, 3.0)})
 
 
+# sw8: OPT against ALT (the two-arm t1 presets, 21 Oct) on the eight pre-fit weeks. Hand values
+# from the presets (D: ea/presets_d/*_t1.set; E's ALT: ea/presets_e/*_alt_e_t1.set):
+# (OPT width, add = exit), (ALT q95 width, add = exit), (ALT q90 width, add = exit)
+SW8 = {"eurusd": ((2.0, 7.0), (7.0, 27.0), (6.0, 23.0)),
+       "gbpusd": ((2.5, 9.0), (7.5, 30.0), (6.0, 24.0)),
+       "eurgbp": ((1.0, 3.0), (5.0, 19.0), (4.0, 16.0)),
+       "audcad": ((1.5, 6.0), (7.0, 27.0), (7.0, 27.0)),
+       "audchf": ((1.0, 4.0), (5.5, 22.0), (5.5, 21.0)),
+       "cadchf": ((1.0, 4.0), (3.0, 12.0), (2.5, 9.0))}
+REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+
+def preset(path):
+    out = {}
+    with open(os.path.join(REPO, path)) as f:
+        for line in f:
+            line = line.strip()
+            if "=" in line:
+                k, v = line.split("=", 1)
+                out[k] = v
+    return out
+
+
+class Sweep8(unittest.TestCase):
+    def test_windows_eight_weeks_then_the_carried_window(self):
+        st = sw.get_set("sw8_eurusd")
+        self.assertEqual(len(st["windows"]), 9)
+        self.assertEqual(st["windows"][0], ("2026-08-03", "2026-08-03 00:00", "2026-08-07 23:45"))
+        self.assertEqual(st["windows"][7], ("2026-09-21", "2026-09-21 00:00", "2026-09-25 23:45"))
+        self.assertEqual(st["windows"][8], ("8w", "2026-08-03 00:00", "2026-09-25 23:45"))
+
+    def test_geometries_per_pair(self):
+        for pair, ((ow, oa), (aw, aa), (bw, ba)) in SW8.items():
+            g = sw.get_set("sw8_" + pair)["geoms"]
+            self.assertEqual([x[0] for x in g], ["opt_t1", "alt_q95", "alt_q90"], pair)
+            self.assertEqual(g[0][1:4] + (g[0][6],), (oa, oa, 7, ow), pair)
+            self.assertEqual(g[1][1:4] + (g[1][6],), (aa, aa, 7, aw), pair)
+            self.assertEqual(g[2][1:4] + (g[2][6],), (ba, ba, 7, bw), pair)
+
+    def test_geometries_equal_the_live_presets(self):
+        for pair in SW8:
+            g = sw.get_set("sw8_" + pair)["geoms"]
+            files = ("ea/presets_d/%s_opt_d_t1.set" % pair, "ea/presets_d/%s_alt_d_t1.set" % pair,
+                     "ea/presets_e/%s_alt_e_t1.set" % pair)
+            for geo, path in zip(g, files):
+                p = preset(path)
+                self.assertEqual(float(p["InpWidthPips"]), geo[6], path)
+                self.assertEqual(float(p["InpAddPips"]), geo[1], path)
+                self.assertEqual(float(p["InpExitPips"]), geo[2], path)
+                self.assertEqual(int(p["InpMaxLayers"]), geo[3], path)
+                self.assertEqual(float(p["InpStrandedThreshPips"]), round(geo[6] + 1.0, 6), path)
+                self.assertEqual(float(p["InpDeadbandPips"]), 2.0, path)
+                self.assertEqual(p["InpRollGateOpposite"], "0", path)
+
+    def test_rows_flat_start_carry_off(self):
+        st = sw.get_set("sw8_gbpusd")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 27)
+        self.assertEqual([r["seg_id"] for r in rows], list(range(1, 28)))
+        for r in rows:
+            self.assertEqual((r["cap"], r["carry"], r["gate"], r["lattice"], r["reroll"], r["deadband"]),
+                             (7, 0, 0, 1, 1, 2.0))
+            self.assertEqual((r["seed_file"], r["orders_file"]), ("", ""))
+            self.assertEqual(r["ticks_file"], "ticks_53077984_GBPUSD__h8w.csv")
+            self.assertEqual(r["width_l"], r["width_s"])
+            self.assertEqual(r["stranded"], round(r["width_l"] + 1.0, 6))
+        self.assertEqual((rows[9]["width_l"], rows[9]["add_l"], rows[9]["exit_s"]), (7.5, 30.0, 30.0))
+        self.assertEqual((rows[26]["width_l"], rows[26]["add_s"], rows[26]["exit_l"]), (6.0, 24.0, 24.0))
+        self.assertEqual((rows[8]["from_ms"], rows[8]["to_ms"]), (1785715200000, 1790379900000))
+
+    def test_labels(self):
+        st = sw.get_set("sw8_eurusd")
+        lab = sw.labels(st["windows"], st["geoms"])
+        self.assertEqual(lab[1], ("opt_t1", "2026-08-03"))
+        self.assertEqual(lab[9], ("opt_t1", "8w"))
+        self.assertEqual(lab[10], ("alt_q95", "2026-08-03"))
+        self.assertEqual(lab[27], ("alt_q90", "8w"))
+
+    def test_csv_has_the_sessions_column(self):
+        st = sw.get_set("sw8_eurusd")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        lines = sw.to_csv(rows, st["ticks"], st["sessions"]).rstrip("\n").split("\n")
+        self.assertEqual(lines[0].split(",")[-1], "sessions_file")
+        self.assertEqual(len(lines), 28)
+        for line in lines[1:]:
+            f = line.split(",")
+            self.assertEqual(len(f), 24)
+            self.assertEqual(f[23], "sessions_eurusd_ic.csv")
+            self.assertEqual(f[21], "ticks_53077984_EURUSD__h8w.csv")
+
+    def test_commission_and_pip_value(self):
+        st = sw.get_set("sw8_audcad")
+        self.assertAlmostEqual(st["pip_usd"], 0.0714)
+        self.assertAlmostEqual(st["comm_pips"], 0.06 / 0.0714)
+
+    def test_only_fleet_es_six_pairs(self):
+        for bad in ("sw8_nzdcad", "sw8_audnzd", "sw8_nzdchf", "sw8_gbpchf"):
+            with self.assertRaises(KeyError):
+                sw.get_set(bad)
+
+    def test_older_sets_have_no_sessions_column(self):
+        for tag in ("sw7_eurusd", "sw4_cadchf", "sweep2"):
+            st = sw.get_set(tag)
+            self.assertIsNone(st.get("sessions"))
+            rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+            self.assertEqual(len(sw.to_csv(rows, st["ticks"]).split("\n")[1].split(",")), 23)
+
+
 if __name__ == "__main__":
     unittest.main()
