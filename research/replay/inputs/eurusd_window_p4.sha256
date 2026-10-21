@@ -1,0 +1,38 @@
+# Plan 4's WINDOW (docs/research/replay-calibration-eurusd-4.md s3, s7 step 4; Fri 16 Oct 00:00 to Wed 21 Oct 01:00 server;
+# cut 1792108800000, end 1792544400000), built by Claude 21 Oct ~02:45Z with the FROZEN builders plan4-tools a335ef0 from the
+# window set (eurusd_window_p4_raw.sha256; all seven raw files, win_ins, the three 13 Oct _2210 sends and w2h hash equal):
+#   build_holdout.py join --w2 ticks_53077984_EURUSD_w2h.csv --hold ticks_53077984_EURUSD_win.csv --out ticks_53077984_EURUSD_w2hw.csv
+#     (651,120 + 369,975 = 1,021,095 ticks; seam 2026.10.14 01:30 server, gap 18,730 ms)
+#   build_holdout.py build --out DIR --ticks ticks_53077984_EURUSD_w2hw.csv --sessions inputs/sessions_eurusd_ic.csv
+#     --window-end-ms 1792544400000 --first-ids 61,71,81 --b/--c/--d archive_*_2026-10-20_2210.jsonl
+#     --sends-b/c/d sends_*_2026-10-20_2210.jsonl --sends-extra-b/c/d sends_*_2026-10-13_2210.jsonl
+#   build_swaps.py --from 2026-10-01 --to 2026-10-21 --out swaps.csv archive_EURUSD_OPT{B,C,D}_2026-10-20_2210.jsonl
+# One segment a fleet, from its last init to the end: B 61 from 1791350480000, C 71 from 1791349956002, D 81 from 1791530654290
+# (as plan 4 s3); no init inside the window, no gate code, no cap warning. Ids 61 / 71 / 81 so the window's seed and orders
+# files cannot be confused with the gate's 31 / 41 / 51 in Files\replay (compare.py reads ids from the run files).
+# Checks: seed_ and orders_ files equal the gate's (eurusd_holdout_p4) but for the id (the same inits); sessions file equal;
+# run files 24 columns; swaps.csv equal to the gate's through 2026.10.14, then 15-21 Oct from the new archives.
+# win against win_ins over 14 Oct 01:30 - 17 Oct 00:00 server (runbook s5.1): prices and times equal but TWO ticks win holds
+# and win_ins lacks (Fri 16 Oct 16:16:00.051 and 16:16:00.241 server, 1.12414/1.12415 and 1.12414/1.12414: the insurance's
+# bad_px=1 and one tick missing then, both restored in IC's history); and the flags of 21,778 ticks from 16:16 server to
+# 17 Oct 00:00 (6 -> 134, 2 -> 130: the 128 bit set once IC's history consolidates). The harness reads time, bid and ask
+# only (Rpl_LoadTicksCsv, ea/fxgrind_replay_core.mqh 3522-3554 at 8044284): flags cannot change a run.
+# Ticks NOT in git: ticks_53077984_EURUSD_w2hw.csv, 35,145,549 bytes, sha256 below as a comment.
+#   93816e45c11f38cacc2df1e472fe4d051cf514e48321a2573ba444590c836c81  ticks_53077984_EURUSD_w2hw.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_b.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_c.csv
+434edc6671e6daee72bdacaf61645f412c91dcae7e31e3bb53c6fdf348cdf928  intervals_eurusd_d.csv
+bddf34a0aa3e24613c81af49996c25542f4dbca5126802ac3797e67900ddbc08  orders_61.csv
+8f12692da9f8121ff30cb843b0ea9d73da0ec88ed5f49c40d9020c0eb8fb6457  orders_71.csv
+29926144287975a95bf7ca5cceefd38c1f14bc0645fd4dc37b040dfb5369fe06  orders_81.csv
+246b3597cb0b4c5cfcc32830273f63d5da71e98d4331f1eff932b20b998638d0  real_eurusd_b.csv
+c753f092c5dacd66ac34f1484c5dedbe0130f9ebb9c74a002390d72849e7cd1b  real_eurusd_c.csv
+c9615e9544f30caba0c6a1ae709b44946b2df29fcfc89327131b6e45f991bad9  real_eurusd_d.csv
+2d42292fbc57e75a28810db122239f19ca2ee73c44ce87543cfad8ef8c42f6e3  run_eurusd_b.csv
+67e4935f9d9328296641c35acbf9221217fc8e2c9dd5ab28a71d816bb61d1028  run_eurusd_c.csv
+0fc8aa48842d956cc31afeb9f479362d7af58695bcf6a88f4b3e9a50b45046a7  run_eurusd_d.csv
+c6ef9e26a0f16769273d81789256ae15b5d32d41ec2bdf9186d24341c2e16a3f  seed_61.csv
+af91d8c432bad4310681d60f58fefde05ef13af6744bae6c713852723efb623c  seed_71.csv
+08a110b567fde69bf92467331f3a2e662589e04c5fd61b2acf3747567a6b96a7  seed_81.csv
+cea175f0c26177b4762b4445be295282fc9e8e9143cd65825d843166fcb08640  sessions_eurusd_ic.csv
+581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a  swaps.csv
