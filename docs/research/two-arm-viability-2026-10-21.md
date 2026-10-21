@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **OPEN.** Written 21 Oct ~20:05Z (HANDOFF s87 continued 2). The surface (sweep9, s6) to be built and pre-registered next; the definition of "stabilise" (s5) is PROPOSED, for the operator to confirm |
+| Status | **OPEN.** Written 21 Oct ~20:05Z (HANDOFF s87 continued 2); s5 rewritten ~20:10Z with the operator's definition of "stabilise" (a meaningful offset of OPT's losses by the wider arm's gains; the 0.25 mark Claude's placeholder). The surface (sweep9, s6) to be built and pre-registered next |
 | Owner | The operator (Lead Quant); Claude (Lead Engineer) builds and reads the replay |
 | Evidence so far | sweep8 on EURUSD (`research/replay/results/sweep_notes.md`, sweep8 and its result); the live EURUSD rolls of B, C, D 1-20 Oct (s3); the two-arm fleets built today (D, C; E tonight) |
 | Related | `docs/research/fleet-d-two-arm-ring-2026-10-16.md` (why ALT); `research/alt_adds/results_2026-10-17.md` (ALT's adds, fitted on 1-16 Oct); backlog C157, C160 (DUP), C162 (this question) |
@@ -83,14 +83,26 @@ carried book through a roll burst. Aug - Sep was a regime OPT earned in; there w
 answer s1's question; it says the t1 ALT (23-30 pips) is too wide to offset in a calm regime, consistent with the
 operator's "we probably set the add pips too wide for alt".
 
-## 5. "STABILISE": PROPOSED DEFINITION (for the operator to confirm before any run)
+## 5. "STABILISE": THE OPERATOR'S DEFINITION (21 OCT ~20:09Z), AND HOW IT IS MEASURED
 
-Over 1 Oct 04:00 to 20 Oct 23:45 server (the "last few weeks"), one flat start, the book carried, EURUSD at 0.01 lots:
-a combination STABILISES if (a) its net at the end (realised - commission + swap + the open book marked) is >= 0, and
-(b) its worst equity (the same, marked each day) is no lower than OPT alone's. It PASSES the regime if (a) and (b)
-hold and it is at least as good as OPT alone over the two bursts (1-7 Oct and 14-16 Oct) marked at each burst's
-end. Combinations: OPT alone; OPT + ALT(add, exit) for every ALT on the surface; OPT + 2 x ALT (DUP: the same orders
-twice, so its curve is ALT's doubled, C160: no extra run).
+**The operator:** "Stabilise means that there is some meaningful offset to the losses on OPT with the gains on the
+wider add pip arms." Not that the book ends flat: that the wider arm GAINS when OPT LOSES.
+
+**Measured on the daily equity curves (s6), EURUSD at 0.01 lots, 1 Oct 04:00 to 20 Oct 23:45 server, one flat start,
+the book carried; a day's P&L = the change in (realised - commission + swap + the open book marked at the server
+day's last tick):**
+- **Offset ratio** = (ALT's summed P&L on the days OPT's P&L < 0) / -(OPT's summed P&L on those days). Worked example:
+  OPT loses -100 pips over its losing days and ALT makes +40 on the same days: offset 0.40; ALT -10 on them: -0.10.
+- **The same per burst:** 1-7 Oct and 14-16 Oct, each on its own days.
+- **MEANINGFUL (the pass mark, Claude's placeholder; the operator may move it before any run):** the offset ratio is
+  at least **0.25** over the period AND positive in BOTH bursts.
+- Computed for OPT (the live 7 / 7, cap 7, and each OPT candidate on the surface) against every ALT geometry on the
+  surface, and against 2 x ALT (DUP, C160: the same curve doubled). Reported for every pair as a table, so where any
+  offset lives on the surface is visible, not only whether one passes.
+- **Also reported, not deciding:** OPT + ALT's end net and worst equity against OPT alone's (whether the offset also
+  leaves the book better off), and scalps per roll step for OPT alone and OPT + ALT on the burst days.
+- sweep8's eight calm weeks would score NEGATIVE on this measure (ALT lost on OPT's losing weeks): the failure it is
+  built to catch.
 
 ## 6. THE SURFACE (SWEEP9, TO BE PRE-REGISTERED)
 
@@ -117,11 +129,11 @@ twice, so its curve is ALT's doubled, C160: no extra run).
 
 ## 7. WHAT EACH ANSWER MEANS
 
-- **Some combination passes s5:** the two-arm idea has a basis; its geometry is the candidate for D's next reload
+- **Some combination offsets meaningfully (s5):** the two-arm idea has a basis; its geometry is the candidate for D's next reload
   (after ALT's first live week), and the replay knows where it is fragile (the surface around it).
-- **None passes, but some stabilise (a and b only):** the arms can hold the book through the regime without earning;
-  read the cost per roll step against the scalps for the next idea.
-- **None stabilises:** no geometry of this grid survives a ranging, rolling fortnight on EURUSD. By the operator's
+- **Some offset, none meaningfully (a positive ratio below the mark, or in one burst only):** the mechanism exists
+  but is too weak at these geometries; read where on the surface it is strongest before the next idea.
+- **No offset anywhere (every ratio <= 0):** no geometry of this grid survives a ranging, rolling fortnight on EURUSD. By the operator's
   own test (s1), the work as built has no future without a different premise.
 
-Line count: 127
+Line count: 139
