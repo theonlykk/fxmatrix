@@ -2934,4 +2934,17 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **The Journal's `expert fxgrind (...) loaded successfully` names no folder:** which `.ex5` a chart runs is read from
   the INIT row's `ea_build` in the archive (`fxgrind <compile time>`, `fxgrind.mq5` 56, 345), nowhere else.
 
-Line count: 2937
+## TRAPS FROM 2026-10-21 NIGHT (A REPLAY TERMINAL CLOSED; TIMING FILES; CLOSE-BY PRICES IN P&L)
+
+- **The replay loop opens its own MT5 window on the desktop** (`D:\mt5-replay`); closing it kills the run (`exit=-1`;
+  sw9_e4 at 2,235 s, taken for the old FTMO window). While a replay runs, leave every MT5 window alone.
+- **A timing-1 run writes `out_<tag>_free_timing.csv` at about 20 MB per geometry-day** (sweep8's EURUSD run 4.9 GB):
+  delete it after each run (it is never scored). Small-add files run longest: raise `-TimeoutSec` (sw9_e4 3,549 s).
+- **P&L from the harness's deals: each OUT_BY leg carries the OTHER position's entry price, so both legs book the whole
+  close-by;** count each leg half (score9.py; found by cross-checking against `sweep.py score` before any result).
+- **The EA does not print the carry codes:** `CARRY_PASS_SUMMARY`, `_INCOMPLETE` and `CARRY_SNAPSHOT` go only to the
+  archive queue (`grind_carry.mqh` 921-922, 1367); a log grep for them reads 0 whatever happened.
+- **A Railway outage can also invalidate the CLI's login** ("Your saved login is no longer valid"): `railway login`
+  again once its API is back; until then no `railway ssh`.
+
+Line count: 2950

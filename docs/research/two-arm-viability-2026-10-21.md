@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **OPEN.** Written 21 Oct ~20:05Z (HANDOFF s87 continued 2); s5 rewritten ~20:10Z with the operator's definition of "stabilise" (a meaningful offset of OPT's losses by the wider arm's gains; the 0.25 mark Claude's placeholder). The surface (sweep9, s6) to be built and pre-registered next |
+| Status | **ANSWERED IN PART (22 Oct ~03:25Z, s8): the daily rule passes nothing; over the period every wide geometry covers OPT; the next step is E with narrower ALT adds (s8.4).** Written 21 Oct ~20:05Z (HANDOFF s87 continued 2); s5 rewritten ~20:10Z with the operator's definition of "stabilise" (a meaningful offset of OPT's losses by the wider arm's gains; the 0.25 mark Claude's placeholder). The surface (sweep9, s6) to be built and pre-registered next |
 | Owner | The operator (Lead Quant); Claude (Lead Engineer) builds and reads the replay |
 | Evidence so far | sweep8 on EURUSD (`research/replay/results/sweep_notes.md`, sweep8 and its result); the live EURUSD rolls of B, C, D 1-20 Oct (s3); the two-arm fleets built today (D, C; E tonight) |
 | Related | `docs/research/fleet-d-two-arm-ring-2026-10-16.md` (why ALT); `research/alt_adds/results_2026-10-17.md` (ALT's adds, fitted on 1-16 Oct); backlog C157, C160 (DUP), C162 (this question) |
@@ -136,4 +136,36 @@ day's last tick):**
 - **No offset anywhere (every ratio <= 0):** no geometry of this grid survives a ranging, rolling fortnight on EURUSD. By the operator's
   own test (s1), the work as built has no future without a different premise.
 
-Line count: 139
+
+## 8. THE RESULT (SWEEP9, 22 OCT ~03:25Z) AND WHAT FOLLOWS
+
+**8.1 By s5's rule: no geometry is MEANINGFUL** (`research/replay/results/sweep_notes.md`, sweep9 RESULT;
+`sweep9/sw9_report.md`). Against OPT live (`a7e7n7`, net -361, worst -608) every daily offset ratio is <= 0 but one
+(+0.00). On the days OPT loses, the wide arm mostly loses too (12 and 14 Oct both negative). By s7's letter: "no
+offset anywhere" - at the scale of days.
+
+**8.2 At the scale of the period, the offset is there.** Net rises with the add (cap 7, add = exit: 4 -1,861; 7 -361;
+10 +128; 14 +378; 18 +532; 20 +597; 23 +454; 27 +465), and every cap 8 cell with add >= 14 is positive at every exit
+(+126 to +862). OPT + ALT: with `a23e23n7` +93, `a27e27n7` +103, `a18e18n7` +170, `a20e20n7` +236; with DUP (2 x ALT)
++548 to +832. sweep8's calm weeks: OPT + ALT q95 +299, q90 +306. **The live two-arm set was positive on EURUSD in both
+regimes: OPT carries the calm weeks, the wide arm the rolling fortnight.** This reading is post hoc (s5 was daily) and
+in-sample for the t1 adds; the whole 14-27 band being positive, not one cell, is what makes it more than a fit.
+
+**8.3 The operator's reading (21 Oct ~23:34-23:43Z):** ALT is cheap insurance; a second ALT (DUP) at about the same
+adds makes it work harder when it works; ALT rolls mean "we are screwed anyway", and should be rare. **Claude's
+caveat:** the cost of the insurance in calm weeks is small (ALT about -20 over sweep8's eight weeks), but the tail is a
+slow one-way drift larger than ALT's stack: sweep8 carried 3 Aug - 25 Sep, ALT realised +747 and held **-1,444 pips
+open** at the end (EURUSD 1.1545 to 1.1711, then down to 1.1312, ended 1.1393); with DUP the carried loss is -1,475 /
+-1,549. A weekly flat start hides it; a live book does not. ALT's roll steps and its open book are the live signal.
+
+**8.4 What follows (operator: "proceed as you recommend", 22 Oct ~03:30Z):**
+- **(A)** E runs OPT + ALT on its six pairs with **narrower ALT adds**: q80 / q85 of the excursion method
+  (`research/alt_adds/`, on D's archives of 1-16 Oct) in place of q90; the operator picks; E attached from Thu 22:05Z.
+  DUP is read afterwards by doubling ALT's contribution; a real DUP arm only on C's ring (C160), three pairs, so the
+  slots allow it.
+- **(B)** The same surface per pair (tick dumps of 1-21 Oct from wine-d), pre-registered, to check that EURUSD's band
+  is not EURUSD's alone.
+- **Watch, live:** ALT's roll steps and open book per pair (8.3). If ALT rolls through a drift, that is the tail, not
+  noise.
+
+Line count: 171
