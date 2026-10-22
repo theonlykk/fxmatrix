@@ -502,5 +502,82 @@ class Sweep9(unittest.TestCase):
                 sw.get_set(bad)
 
 
+# sw10 (22 Oct, HANDOFF s88, (B)): the October surface per pair for E's other five pairs. As sw9 (one flat start 1 Oct
+# 04:00 server, carried to 20 Oct 23:45, carry ON, sessions on, every pair on the EURUSD chart as sw8) on each pair's
+# own October dump (ticks_53077984_<PAIR>_oct.csv, 22 Oct); cap 7, add = exit: the live OPT (E's / D's t1) and eight
+# ALT adds around E's q88 (t2). ALT width = add / 4 rounded UP to the half pip (no floor: ic_presets.tight_width, so
+# the q88 cell equals E's t2 preset); OPT keeps its live width. Hand values:
+OPT10 = {"gbpusd": (2.5, 9), "eurgbp": (1.0, 3), "audcad": (1.5, 6), "audchf": (1.0, 4), "cadchf": (1.0, 4)}
+ALT10 = {"gbpusd": (12, 15, 18, 21, 24, 27, 30, 34), "eurgbp": (6, 8, 10, 12, 14, 16, 19, 23),
+         "audcad": (10, 14, 18, 22, 26, 27, 30, 34), "audchf": (8, 11, 14, 17, 20, 22, 25, 28),
+         "cadchf": (6, 8, 9, 10, 12, 14, 17, 20)}
+Q88 = {"gbpusd": 21, "eurgbp": 16, "audcad": 26, "audchf": 20, "cadchf": 9}
+WIDTH10 = {6: 1.5, 8: 2.0, 9: 2.5, 10: 2.5, 11: 3.0, 12: 3.0, 14: 3.5, 15: 4.0, 16: 4.0, 17: 4.5, 18: 4.5,
+           19: 5.0, 20: 5.0, 21: 5.5, 22: 5.5, 23: 6.0, 24: 6.0, 25: 6.5, 26: 6.5, 27: 7.0, 28: 7.0, 30: 7.5,
+           34: 8.5}
+PIP_USD10 = {"gbpusd": 0.100, "eurgbp": 0.134, "audcad": 0.0714, "audchf": 0.122, "cadchf": 0.122}
+
+
+class Sweep10(unittest.TestCase):
+    def test_one_carried_window_as_sw9(self):
+        for pair in OPT10:
+            self.assertEqual(sw.get_set("sw10_" + pair)["windows"], (("oct", "2026-10-01 04:00", "2026-10-20 23:45"),))
+
+    def test_geometries_opt_then_eight_alt(self):
+        for pair, (ow, oa) in OPT10.items():
+            g = sw.get_set("sw10_" + pair)["geoms"]
+            self.assertEqual(len(g), 9, pair)
+            self.assertEqual(g[0], ("a%de%dn7" % (oa, oa), float(oa), float(oa), 7, None, None, ow), pair)
+            for geo, add in zip(g[1:], ALT10[pair]):
+                self.assertEqual(geo, ("a%de%dn7" % (add, add), float(add), float(add), 7, None, None, WIDTH10[add]),
+                                 pair)
+
+    def test_alt_width_tightest_half_pip_ratio_at_most_4(self):
+        for add, w in WIDTH10.items():
+            self.assertLessEqual(add / w, 4.0)
+            self.assertGreater(add / (w - 0.5), 4.0)
+
+    def test_q88_on_the_grid_and_equal_to_e_t2_presets(self):
+        for pair, q in Q88.items():
+            self.assertIn(q, ALT10[pair])
+            g = {x[1]: x for x in sw.get_set("sw10_" + pair)["geoms"]}[float(q)]
+            p = preset("ea/presets_e/%s_alt_e_t2.set" % pair)
+            self.assertEqual((float(p["InpWidthPips"]), float(p["InpAddPips"]), float(p["InpExitPips"]),
+                              int(p["InpMaxLayers"])), (g[6], g[1], g[2], g[3]), pair)
+
+    def test_opt_equals_e_t1_opt_presets(self):
+        for pair in OPT10:
+            g = sw.get_set("sw10_" + pair)["geoms"][0]
+            p = preset("ea/presets_e/%s_opt_e_t1.set" % pair)
+            self.assertEqual((float(p["InpWidthPips"]), float(p["InpAddPips"]), float(p["InpExitPips"]),
+                              int(p["InpMaxLayers"])), (g[6], g[1], g[2], g[3]), pair)
+
+    def test_rows_carry_on_ticks_window_sessions(self):
+        st = sw.get_set("sw10_audchf")
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 9)
+        for r in rows:
+            self.assertEqual((r["carry"], r["gate"], r["lattice"], r["reroll"], r["deadband"], r["cap"]), (1, 0, 1, 1, 2.0, 7))
+            self.assertEqual((r["seed_file"], r["orders_file"]), ("", ""))
+            self.assertEqual(r["ticks_file"], "ticks_53077984_AUDCHF_oct.csv")
+            self.assertEqual((r["from_ms"], r["to_ms"]), (1790827200000, 1792540800000 - 15 * 60000))
+            self.assertEqual(r["stranded"], round(r["width_l"] + 1.0, 6))
+        self.assertEqual((rows[5]["add_l"], rows[5]["exit_s"], rows[5]["width_s"], rows[5]["stranded"]), (20.0, 20.0, 5.0, 6.0))
+        lines = sw.to_csv(rows, st["ticks"], st["sessions"]).rstrip("\n").split("\n")
+        self.assertEqual(len(lines), 10)
+        self.assertTrue(all(len(x.split(",")) == 24 and x.endswith(",sessions_eurusd_ic.csv") for x in lines[1:]))
+
+    def test_commission_and_pip_value_per_pair(self):
+        for pair, pu in PIP_USD10.items():
+            st = sw.get_set("sw10_" + pair)
+            self.assertAlmostEqual(st["pip_usd"], pu)
+            self.assertAlmostEqual(st["comm_pips"], 0.06 / pu)
+
+    def test_only_the_five(self):
+        for bad in ("sw10_eurusd", "sw10_gbpchf", "sw10_nzdcad", "sw10_d7"):
+            with self.assertRaises(KeyError):
+                sw.get_set(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
