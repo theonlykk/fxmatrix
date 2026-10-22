@@ -616,3 +616,32 @@ about 3.7 GB each, never scored):**
     git checkout --detach 8044284
     foreach ($t in 'e4','e5','e7','e9','e11','e14','e18','e23','e27','d7') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw9_$t" -Label "sw9_${t}_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a -TimeoutSec 3600; Remove-Item "D:\mt5-replay\MQL5\Files\replay\out_sw9_${t}_free_timing.csv" -ErrorAction SilentlyContinue }
     git checkout main
+
+**sweep9 RESULT (22 Oct ~03:25Z; `sweep9/sw9_report.md` and `sw9_curves.csv` from `score9.py`, committed before any
+output was opened; outputs hashed in `sweep9/sw9_outputs.sha256`, not in git).** Runs: nine in the overnight loop
+(`exit=0`, 474-2,512 s), `sw9_e4` rerun after its terminal was closed by mistake (`exit=-1` at 2,235 s; rerun `exit=0`,
+3,549 s, timeout raised to 7,200). **Self-checks all clean:** every log `sync=0`, `TIMING|1|base`, `SESSIONS|...|5`,
+`TICKS_LOADED|...w2hw|count=1021095`, 13 `SEG_DONE` each `aborted=0`, no gap, no abort; the ticks `93816e45...`. Swap:
+13 `CARRY_SNAPSHOT` per segment = every weekday night in the window (weekends via Wednesday's triple; the report's
+"19 nights" counts calendar days: its wording, not a shortfall).
+
+- **OPT live (`a7e7n7`): net -361.2 pips, worst -608.4** (S 424, R 66, A 73): the replay loses in October as B, C, D
+  did.
+- **Q, the pre-registered rule (the note s5, the offset ratio on OPT's losing DAYS): NO geometry is MEANINGFUL.**
+  Against `a7e7n7` every ratio is <= 0 but one (`a14e27n8` +0.00); per burst a few wide ones are positive in burst 2
+  only. By s7: "no offset anywhere".
+- **What the surface shows beside the rule (not pre-registered as a mark; reported):** net rises with add and the
+  worst equity shrinks: at cap 7 add = exit 4 -1,861, 7 -361, 10 +128, 14 +378, 18 +532, 20 +597, 23 +454, 27 +465
+  (worst -2,018 to -28); at cap 8 the add >= 14 cells are positive at every exit (+126 to +862). **Every wide geometry
+  makes money over the regime that sank OPT, losing less on the trend days and scalping the swings.** The arms are
+  not a daily hedge (on 12 and 14 Oct both lose), but over the PERIOD the wide arm more than covers OPT: OPT +
+  `a23e23n7` (E's q90 ALT on EURUSD) +93.2, OPT + `a27e27n7` (D's q95) +103.3, OPT + `a18e18n7` +170.4, OPT + `a20e20n7`
+  +235.6; with DUP (2 x ALT) +548 to +832.
+- **With sweep8 (Aug - Sep, weekly flat starts):** OPT + ALT q95 +298.6, q90 +305.5. **So on EURUSD the live two-arm
+  set was positive in both regimes: OPT carries the calm weeks, the wide arm the rolling fortnight** - the operator's
+  hypothesis holds at the scale of regimes, not of days.
+- **Predictions:** (1) OPT negative: HELD; (2) ratio <= 0 for every add >= 20: HELD; (3) a positive ratio somewhere in
+  add 10-16: FAILED (best +0.00); (4) scalps per roll step up with add, down with exit: HELD.
+- **Limits:** the t1 ALT adds were FITTED on 1-16 Oct (in-sample for `a23` / `a27`, though the whole add 14-27 band
+  is positive, not one cell); one pair, one feed, one path; every geometry flat at 1 Oct; P&L outside plan 4's
+  validated counts; the regime-level reading is post hoc (the pre-registered rule was daily).
