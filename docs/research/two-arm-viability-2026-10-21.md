@@ -174,4 +174,11 @@ where sweep9's OPT + ALT is +17 (14) to +129 (16), no better than t1's 23 (+93);
 q88. **The operator: q88 on all six** (ALT add = exit 21, 18, 16, 26, 20, 9; `ea/presets_e/*_alt_e_t2.set`), chosen to
 land EURUSD in the band (in-sample; (B) checks the other five).
 
-Line count: 177
+**8.6 (B), sweep10 (22 Oct ~15:15Z; `sweep_notes` sweep10): EURUSD's answer does not carry to E's other five.** By the
+rule ruled before the runs: the offset at q88 on 2 of 5 (GBPUSD barely, CADCHF), no retune anywhere. OPT lost on every
+pair (-168 to -727 pips); ALT at q88 made +11 to +181 on four and -432 on EURGBP (a one-way fall); OPT + ALT negative
+on all five. E's six as one fleet over 1-20 Oct: OPT -$310, OPT + ALT -$264 (worst -$358), with DUP -$217. **By s7: "some
+offset, none meaningfully" on the five; the loss sits in OPT's tight adds, and only on EURUSD did the wide arm out-earn
+it.** What follows is the operator's call (E's set for tonight; whether OPT's geometry, not ALT's, is the next question).
+
+Line count: 184

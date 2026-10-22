@@ -736,3 +736,38 @@ copied there from Downloads; about 30-90 min a pair; each timing file deleted at
 
 The backup's hash and the restored one must both read `581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a`.
 A `swaps.csv SHA mismatch` from the runner means the copy did not land: STOP. A timeout: that pair is rerun alone.
+
+**sweep10 RESULT (22 Oct ~15:15Z; `sweep10/sw10_<pair>.md` and `sw10_<pair>_curves.csv` from `score10.py`, committed
+before any run; outputs hashed in `sweep10/sw10_outputs.sha256`, not in git).** Runs: the operator's loop from
+`D:\fxmatrix` at `8044284`, `DONE sw10_<pair>_free exit=0`, 297-472 s each (GBPUSD 452, EURGBP 297, AUDCAD 430,
+AUDCHF 472, CADCHF 386); `swaps.csv` backed up and restored (`581dab22...4c2a` both). **Self-checks all clean:** every
+log `sync=0`, `TIMING|1|base`, `SESSIONS|sessions_eurusd_ic.csv|5`, `TICKS_LOADED` equal to the dump's count on all
+five, 9 `SEG_DONE` each `gaps=0 aborted=0`; 13 `CARRY_SNAPSHOT` per segment; the run and swaps files equal the manifest
+(read back through the bridge). **Cross-check:** `score10` with swap off equals `sweep.py score`'s `total_net` on all 45
+segments to 0.05 pip (rounding); swap -15 to -64 pips a segment.
+
+The October move (mid, 1 Oct 04:00 to 20 Oct 23:45 server): GBPUSD +111 (range -132 / +141), EURGBP -144 (one-way,
+high +6), AUDCAD -40, AUDCHF -23, CADCHF 0 (low -79).
+
+| Pair | OPT live | ALT q88 | OPT + ALT (worst) | OPT worst | DUP | OFFSET at q88 | RETUNE |
+|---|---|---|---|---|---|---|---|
+| GBPUSD (9 / 21) | -167.8 | +11.3 | -156.5 (-156.5) | -167.8 | -145.2 | YES | NO |
+| EURGBP (3 / 16) | -727.4 | -432.3 | -1159.7 (-1159.7) | -727.4 | -1591.9 | NO | NO |
+| AUDCAD (6 / 26) | -487.5 | +181.4 | -306.0 (-958.1) | -953.9 | -124.6 | NO (worst 4 pips lower) | NO |
+| AUDCHF (4 / 20) | -566.2 | +179.6 | -386.6 (-781.3) | -736.3 | -206.9 | NO (worst 45 lower) | NO |
+| CADCHF (4 / 9) | -459.1 | +126.2 | -332.9 (-434.0) | -470.9 | -206.6 | YES | NO |
+| *EURUSD, sweep9 (7 / 18)* | *-361.2* | *+531.6* | *+170.4 (-333)* | *-608.4* | *+702* | *YES* | *NO* |
+
+- **By the rule: OFFSET at q88 on 2 of the 5 (GBPUSD, CADCHF); RETUNE on none** (no pair has two adjacent ALT cells
+  with OPT + ALT positive; GBPUSD's 12 and 34 are positive, not adjacent). OPT + ALT ends negative on every pair at
+  every ALT add but GBPUSD 12 (+67) and 34 (+6).
+- **E's six as one fleet (USD at 0.01 lots, the daily curves summed, flat 1 Oct):** OPT -$310 (worst -$362); ALT q88
+  +$47 (worst -$12); OPT + ALT -$264 (worst -$358); OPT + 2 x ALT -$217 (worst -$355).
+- **Predictions:** (1) OPT negative on >= 3: HELD (5 of 5); (2) OFFSET on >= 3: FAILED (2); (3) ALT's net at the fourth
+  add above the first on >= 4: FAILED (3: AUDCAD, AUDCHF, CADCHF); (4) RETUNE on <= 1: HELD (0).
+- **Beside the rule (post hoc, not pre-registered):** ALT alone at q88 made money on four of the five (and EURUSD's
+  +532); the losses sit in OPT's tight adds (OPT lost on all six; 62-88 roll steps on the CHF crosses and EURGBP).
+  EURUSD was the only pair where ALT's gain exceeded OPT's loss. EURGBP is the accepted trend case: every geometry
+  loses. CADCHF ended where it started and OPT still lost 459 pips (the operator's 21 Oct complaint, on another pair).
+- **Limits:** as written first (one path, one feed, every pair on the EURUSD chart, q88 in-sample, P&L outside plan 4's
+  validated counts); the fleet sum assumes no interaction between pairs (slots, the currency cap).
