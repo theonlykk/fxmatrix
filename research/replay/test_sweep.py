@@ -579,5 +579,74 @@ class Sweep10(unittest.TestCase):
                 sw.get_set(bad)
 
 
+# sw11 (22 Oct, HANDOFF s88, the operator ~18:40Z: OPT's add from the calm weeks, ALT's from October): per pair, cap 7,
+# add = exit. sw11w_<pair>: the eight Aug - Sep weeks (sweep4's windows, Mon 00:00 to Fri 23:45 server), weekly flat
+# starts, carry OFF (no swap history then, as sw8), the h8w ticks, every add of the pair's calm grid. sw11o_<pair>: the
+# October window as sw9 / sw10 (carry ON, the pair's swaps), only the adds the October line does not already have.
+# Width: EURUSD as sw9 (add / 4 up to the half pip, at least 2.0); the other pairs as sw10 (no floor). Hand values:
+CALM11 = {"eurusd": (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23, 27),
+          "gbpusd": (3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 21, 24, 27, 30, 34),
+          "eurgbp": (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 19, 23),
+          "audcad": (3, 4, 5, 6, 7, 8, 10, 14, 18, 22, 26, 27, 30, 34),
+          "audchf": (3, 4, 5, 6, 7, 8, 11, 14, 17, 20, 22, 25, 28),
+          "cadchf": (3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 17, 20)}
+OCT11 = {"eurusd": (3,), "gbpusd": (3, 4, 5, 6, 7, 8, 10), "eurgbp": (4, 5, 7), "audcad": (3, 4, 5, 7, 8),
+         "audchf": (3, 5, 6, 7), "cadchf": (3, 5, 7)}
+W11_EURUSD = {3: 2.0, 4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0, 8: 2.0, 10: 2.5, 12: 3.0, 14: 3.5, 16: 4.0, 18: 4.5, 20: 5.0,
+              23: 6.0, 27: 7.0}
+W11 = {3: 1.0, 4: 1.0, 5: 1.5, 6: 1.5, 7: 2.0, 8: 2.0, 9: 2.5, 10: 2.5, 11: 3.0, 12: 3.0, 14: 3.5, 15: 4.0, 16: 4.0,
+       17: 4.5, 18: 4.5, 19: 5.0, 20: 5.0, 21: 5.5, 22: 5.5, 23: 6.0, 24: 6.0, 25: 6.5, 26: 6.5, 27: 7.0, 28: 7.0,
+       30: 7.5, 34: 8.5}
+
+
+class Sweep11(unittest.TestCase):
+    def test_calm_weekly_windows_carry_off_h8w(self):
+        st = sw.get_set("sw11w_audchf")
+        self.assertEqual(len(st["windows"]), 8)
+        self.assertEqual(st["windows"][0], ("2026-08-03", "2026-08-03 00:00", "2026-08-07 23:45"))
+        self.assertEqual(st["windows"][7], ("2026-09-21", "2026-09-21 00:00", "2026-09-25 23:45"))
+        rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+        self.assertEqual(len(rows), 13 * 8)
+        for r in rows:
+            self.assertEqual((r["carry"], r["cap"], r["gate"], r["deadband"]), (0, 7, 0, 2.0))
+            self.assertEqual(r["ticks_file"], "ticks_53077984_AUDCHF__h8w.csv")
+            self.assertEqual(r["add_l"], r["exit_s"])
+        self.assertEqual(st["sessions"], "sessions_eurusd_ic.csv")
+
+    def test_calm_grids_and_widths(self):
+        for pair, adds in CALM11.items():
+            g = sw.get_set("sw11w_" + pair)["geoms"]
+            wt = W11_EURUSD if pair == "eurusd" else W11
+            self.assertEqual(g, tuple(("a%de%dn7" % (a, a), float(a), float(a), 7, None, None, wt[a]) for a in adds), pair)
+
+    def test_october_extra_adds(self):
+        for pair, adds in OCT11.items():
+            st = sw.get_set("sw11o_" + pair)
+            wt = W11_EURUSD if pair == "eurusd" else W11
+            self.assertEqual(st["geoms"], tuple(("a%de%dn7" % (a, a), float(a), float(a), 7, None, None, wt[a])
+                                                for a in adds), pair)
+            self.assertEqual(st["windows"], (("oct", "2026-10-01 04:00", "2026-10-20 23:45"),))
+            self.assertEqual(st["base"]["carry"], 1)
+        self.assertEqual(sw.get_set("sw11o_eurusd")["ticks"], "ticks_53077984_EURUSD_w2hw.csv")
+        self.assertEqual(sw.get_set("sw11o_gbpusd")["ticks"], "ticks_53077984_GBPUSD_oct.csv")
+
+    def test_calm_grid_holds_every_october_add(self):
+        # every add on a pair's October line (sw9's diagonal / sw10's grid / sw11o) has its calm cost
+        oct_adds = {"eurusd": (4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23, 27)}
+        for p in ("gbpusd", "eurgbp", "audcad", "audchf", "cadchf"):
+            oct_adds[p] = tuple(int(x[1]) for x in sw.get_set("sw10_" + p)["geoms"])
+        for p, adds in oct_adds.items():
+            self.assertTrue(set(adds) | set(OCT11[p]) <= set(CALM11[p]), p)
+
+    def test_commission_per_pair(self):
+        self.assertAlmostEqual(sw.get_set("sw11w_eurgbp")["comm_pips"], 0.06 / 0.134)
+        self.assertAlmostEqual(sw.get_set("sw11o_eurusd")["comm_pips"], 0.6)
+
+    def test_no_other_sw11_tags(self):
+        for bad in ("sw11w_gbpchf", "sw11o_nzdcad", "sw11_eurusd"):
+            with self.assertRaises(KeyError):
+                sw.get_set(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
