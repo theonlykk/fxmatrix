@@ -4,7 +4,9 @@ Read-only analysis of files; standard library only (Python 3.9+).
 
     python research/alt_adds/alt_excursions.py --exit-pips <L0's exit> --opt-add <OPT's add> [--since-utc-ms MS] <archive export .jsonl> [...]
     python research/alt_adds/test_alt_excursions.py
-    python research/alt_adds/solve_exit_eq_add.py <archive export .jsonl> [...]   # ALT add when exit = add (results s6)
+    python research/alt_adds/solve_exit_eq_add.py [--q 0.80,0.85] <archive export .jsonl> [...]   # ALT add when exit = add (results s6)
+    python research/alt_adds/test_solve_exit_eq_add.py
+    python research/alt_adds/check_e_t2.py   # E's ALT t2 presets against the t1 (repo root)
 
 Input: `archive_counts.py --export-archive --instance GRIND_<PAIR>_<SLOT>` (one instance per file; a
 UTF-8 BOM is tolerated). Market samples: fill_logs IN deals and ROLL_ACCEPTED levels, never OUT_BY (its
@@ -13,7 +15,8 @@ the market went against it before L0's exit filled (the side empty again); ancho
 the end are censored at their running excursion. A side rolls when its excursion passes its stack,
 (cap - 1) x add; ALT's add at cap 7 is the stack covering a share of anchors / 6.
 
-First run 17 Oct ~01:10Z on fleet D's six kept pairs: `results_2026-10-17.md`, inputs in
+22 Oct ~04:15Z: q75 - q95 and E's t2 ALT at q88: `results_2026-10-22.md` (the exit = add solve can have several
+fixed points at lower quantiles: scan before using one). First run 17 Oct ~01:10Z on fleet D's six kept pairs: `results_2026-10-17.md`, inputs in
 `inputs.sha256` (the exports are not in git). Hindsight at grid resolution, one fleet, about 16 days.
 
 Tests: hand values (a short's 35-pip excursion, a censored long, the exit not reached, hourly anchors,

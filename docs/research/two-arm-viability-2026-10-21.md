@@ -151,14 +151,14 @@ offset anywhere" - at the scale of days.
 regimes: OPT carries the calm weeks, the wide arm the rolling fortnight.** This reading is post hoc (s5 was daily) and
 in-sample for the t1 adds; the whole 14-27 band being positive, not one cell, is what makes it more than a fit.
 
-**8.3 The operator's reading (21 Oct ~23:34-23:43Z):** ALT is cheap insurance; a second ALT (DUP) at about the same
+**8.3 The operator's reading (22 Oct ~03:34-03:43Z; first written ~23:34-23:43Z: local EDT, corrected HANDOFF s88):** ALT is cheap insurance; a second ALT (DUP) at about the same
 adds makes it work harder when it works; ALT rolls mean "we are screwed anyway", and should be rare. **Claude's
 caveat:** the cost of the insurance in calm weeks is small (ALT about -20 over sweep8's eight weeks), but the tail is a
 slow one-way drift larger than ALT's stack: sweep8 carried 3 Aug - 25 Sep, ALT realised +747 and held **-1,444 pips
 open** at the end (EURUSD 1.1545 to 1.1711, then down to 1.1312, ended 1.1393); with DUP the carried loss is -1,475 /
 -1,549. A weekly flat start hides it; a live book does not. ALT's roll steps and its open book are the live signal.
 
-**8.4 What follows (operator: "proceed as you recommend", 22 Oct ~03:30Z):**
+**8.4 What follows (operator: "proceed as you recommend", 22 Oct ~03:43Z):**
 - **(A)** E runs OPT + ALT on its six pairs with **narrower ALT adds**: q80 / q85 of the excursion method
   (`research/alt_adds/`, on D's archives of 1-16 Oct) in place of q90; the operator picks; E attached from Thu 22:05Z.
   DUP is read afterwards by doubling ALT's contribution; a real DUP arm only on C's ring (C160), three pairs, so the
@@ -168,4 +168,10 @@ open** at the end (EURUSD 1.1545 to 1.1711, then down to 1.1312, ended 1.1393); 
 - **Watch, live:** ALT's roll steps and open book per pair (8.3). If ALT rolls through a drift, that is the tail, not
   noise.
 
-Line count: 171
+**8.5 (A) done (22 Oct ~04:15Z, HANDOFF s88; `research/alt_adds/results_2026-10-22.md`).** q80 has no single answer
+(several fixed points of the exit = add solve on EURUSD, GBPUSD and AUDCAD: the seed decides); q85 puts EURUSD at 15,
+where sweep9's OPT + ALT is +17 (14) to +129 (16), no better than t1's 23 (+93); sweep9's 18 - 20 band sits at q87 -
+q88. **The operator: q88 on all six** (ALT add = exit 21, 18, 16, 26, 20, 9; `ea/presets_e/*_alt_e_t2.set`), chosen to
+land EURUSD in the band (in-sample; (B) checks the other five).
+
+Line count: 177

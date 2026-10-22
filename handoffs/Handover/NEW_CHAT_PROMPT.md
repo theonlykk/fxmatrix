@@ -58,10 +58,10 @@ Do not start any fleet action before the answers are in.
   (DUP) +548 to +832.** The pre-registered DAILY offset rule found no geometry meaningful (both arms lose on the
   trend days); the offset holds across REGIMES (post hoc). The cost: a slow drift bigger than ALT's stack (Aug - Sep
   carried: ALT realised +747 but -1,444 pips open at the end; with DUP -1,475 / -1,549).
-- **Operator 21 Oct ~23:40Z:** E runs OPT + ALT on its six pairs with "optimised" ALT adds; DUP is computed afterwards
+- **Operator 22 Oct ~03:40Z (first written ~23:40Z: local EDT, corrected s88):** E runs OPT + ALT on its six pairs with "optimised" ALT adds; DUP is computed afterwards
   by doubling ALT's contribution (exact: the same orders); a real DUP arm only on three pairs (C's ring), C160.
 
-**THE PLAN (operator ~23:43Z: "proceed as you recommend"):**
+**THE PLAN (operator ~03:43Z: "proceed as you recommend"):**
 - **(A) for E's start, Thu 22:05Z:** rerun `research/alt_adds/solve_exit_eq_add.py` at **q80 and q85** (it prints
   q90 / q95 only, line 45: add the quantiles with a test) on D's six archives `archive_<PAIR>_OPTD_2026-10-17_alt.jsonl`
   (operator's Downloads; hashes in `research/alt_adds/inputs.sha256`). EURUSD's sweet spot in sweep9 (add = exit
@@ -97,7 +97,7 @@ Do not start any fleet action before the answers are in.
    (`fxgrind 2026.10.21 16:21:37`), the archive codes for D and C, A's seven archives, the pipshed merge and the
    "pipshed Fleet E" service, **then C163's rotation** (new Postgres / Redis credentials; the telemetry key via
    `TELEMETRY_API_KEY_NEXT`: E's charts take the NEW key from the start if it exists by then).
-5. Thu 22 Oct 20:50Z: B, C, D carry pass (and E's first night if attached). From Sun 25 Oct the FTMO day rolls at
+5. Thu 22 Oct 20:50Z: B, C, D carry pass (E attaches after it, from 22:05Z: its first carry night is Fri 23 Oct). From Sun 25 Oct the FTMO day rolls at
    23:00Z.
 6. After ALT's first live week: C160 (DUP on C), and D's ALT re-tuned if (A) / (B) say so.
 

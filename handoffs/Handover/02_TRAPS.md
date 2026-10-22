@@ -2947,4 +2947,17 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A Railway outage can also invalidate the CLI's login** ("Your saved login is no longer valid"): `railway login`
   again once its API is back; until then no `railway ssh`.
 
-Line count: 2950
+## TRAPS FROM 2026-10-22 EARLY (A FIXED POINT THAT IS NOT UNIQUE; A STAMP IN THE WRONG ZONE; A TAG IN CODE)
+
+- **The exit = add solve (`solve_exit_eq_add.py`) can have several fixed points:** a smaller add means a smaller exit,
+  which clears sooner, which reads a smaller depth. At q80 EURUSD, GBPUSD and AUDCAD each have two to five, and the
+  iteration returns the one nearest its seed. Before using a solved add, scan g(a) = depth(a) / 6 against a over the
+  range (0.5-pip steps) and count the crossings; a quantile with more than one is not an answer
+  (`research/alt_adds/results_2026-10-22.md` s1-s2).
+- **A stamp copied from the operator's clock is EDT, not Z:** s87j wrote 03:34-03:43Z as "~23:34-23:43Z". Read
+  `date -u` and convert any time the operator gives (EDT = Z - 4 until 1 Nov).
+- **`ic_presets.twoarm_tag` writes E's ALT tag as fixed text (`q90`):** a different quantile through the generator
+  keeps the old tag in `InpConfigWarning`. The t2 warnings were re-tagged after generation and checked by
+  `check_e_t2.py`; a future round needs the same, or a table key (a generator change: the full pipeline).
+
+Line count: 2963

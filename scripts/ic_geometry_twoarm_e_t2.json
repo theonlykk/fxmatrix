@@ -1,0 +1,16 @@
+{
+  "status": "TWO-ARM t2, FLEET E ALT ONLY (HANDOFF s88; the operator's pick 22 Oct ~04:15Z): ALT add = exit at q88 of the excursion method (research/alt_adds/results_2026-10-22.md), cap 7; E's OPT stays t1. The generator's ALT tag for E reads q90 (ic_presets.twoarm_tag): the six warnings are re-tagged q88 after generation and checked by research/alt_adds/check_e_t2.py.",
+  "round": "t2",
+  "cap": 7,
+  "deadband": 2.0,
+  "roll_gate": 0,
+  "pair_index": {"GBPUSD": 1, "EURUSD": 2, "EURGBP": 3, "AUDCAD": 4, "AUDCHF": 5, "CADCHF": 6,
+                 "NZDCHF": 7, "NZDCAD": 8, "AUDNZD": 9, "GBPCHF": 10},
+  "template": {"GBPCHF": "EURUSD"},
+  "fleets": {
+    "E": {"account": "FTMO demo, new account", "box": "new Linux server",
+          "pairs": {"GBPUSD": {"ALT": 21}, "EURUSD": {"ALT": 18},
+                    "EURGBP": {"ALT": 16}, "AUDCAD": {"ALT": 26},
+                    "AUDCHF": {"ALT": 20}, "CADCHF": {"ALT": 9}}}
+  }
+}
