@@ -1,0 +1,8 @@
+seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file,sessions_file
+1,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,1.0,1.0,3.0,3.0,3.0,3.0,7,2.0,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
+2,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,1.0,1.0,4.0,4.0,4.0,4.0,7,2.0,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
+3,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,1.5,1.5,5.0,5.0,5.0,5.0,7,2.5,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
+4,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,1.5,1.5,6.0,6.0,6.0,6.0,7,2.5,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
+5,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,2.0,2.0,7.0,7.0,7.0,7.0,7,3.0,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
+6,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,2.0,2.0,8.0,8.0,8.0,8.0,7,3.0,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
+7,GRIND_EURUSD_OPTD,22260201,1790827200000,1792539900000,2.5,2.5,10.0,10.0,10.0,10.0,7,3.5,2.0,1,1,0,1,1,8,,ticks_53077984_GBPUSD_oct.csv,,sessions_eurusd_ic.csv
