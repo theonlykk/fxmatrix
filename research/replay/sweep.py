@@ -111,6 +111,21 @@ def width9(add):
     return max(2.0, math.ceil(add / 4.0 * 2.0 - 1e-9) / 2.0)
 
 
+# sw10 (22 Oct, HANDOFF s88, (B)): sw9's October window per pair for E's other five pairs, on each pair's own dump
+# (ticks_53077984_<PAIR>_oct.csv, wine-d 22 Oct 04:38-04:43Z); cap 7, add = exit: the live OPT (E's t1: width, add) and
+# eight ALT adds around E's q88 (t2). ALT width = add / 4 rounded UP to the half pip with no floor
+# (ic_presets.tight_width: the q88 cell is E's t2 preset); stranded = width + 1. Every pair on the EURUSD chart (sw8).
+OPT10 = {"GBPUSD": (2.5, 9), "EURGBP": (1.0, 3), "AUDCAD": (1.5, 6), "AUDCHF": (1.0, 4), "CADCHF": (1.0, 4)}
+ALT10 = {"GBPUSD": (12, 15, 18, 21, 24, 27, 30, 34), "EURGBP": (6, 8, 10, 12, 14, 16, 19, 23),
+         "AUDCAD": (10, 14, 18, 22, 26, 27, 30, 34), "AUDCHF": (8, 11, 14, 17, 20, 22, 25, 28),
+         "CADCHF": (6, 8, 9, 10, 12, 14, 17, 20)}
+Q88 = {"GBPUSD": 21, "EURGBP": 16, "AUDCAD": 26, "AUDCHF": 20, "CADCHF": 9}
+
+
+def width10(add):
+    return math.ceil(add / 4.0 * 2.0 - 1e-9) / 2.0
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -165,6 +180,16 @@ def get_set(tag):
             geoms = tuple(("a%de%dn8" % (a, e), float(a), float(e), 8, None, None, width9(a)) for a in ADDS9)
         return {"windows": WINDOW9, "geoms": geoms, "base": base, "ticks": TICKS9,
                 "comm_pips": COMM_USD / 0.100, "pip_usd": 0.100, "sessions": SESSIONS8}
+    if tag.startswith("sw10_") and tag[5:].upper() in OPT10:
+        pair = tag[5:].upper()
+        base = dict(BASE)
+        base.update({"carry": 1})
+        ow, oa = OPT10[pair]
+        geoms = (("a%de%dn7" % (oa, oa), float(oa), float(oa), 7, None, None, ow),) + tuple(
+            ("a%de%dn7" % (a, a), float(a), float(a), 7, None, None, width10(a)) for a in ALT10[pair])
+        pip_usd = PAIRS[pair][1]
+        return {"windows": WINDOW9, "geoms": geoms, "base": base, "ticks": "ticks_53077984_%s_oct.csv" % pair,
+                "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd, "sessions": SESSIONS8}
     if tag.startswith("sw8_") and tag[4:].upper() in SW8:
         st = get_set("sw4_" + tag[4:])
         st["windows"] = tuple(st["windows"]) + WINDOW7
