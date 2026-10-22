@@ -126,6 +126,28 @@ def width10(add):
     return math.ceil(add / 4.0 * 2.0 - 1e-9) / 2.0
 
 
+# sw11 (22 Oct, HANDOFF s88; the operator ~18:44Z: OPT's add from the calm weeks, ALT's from October): per pair, cap 7,
+# add = exit. sw11w_<pair>: sweep4's eight Aug - Sep weeks, weekly flat starts, carry OFF, h8w ticks, every add of the
+# calm grid (the OPT range and every add of the pair's October line). sw11o_<pair>: sw9's October window, carry ON,
+# only the October adds not run before. Width: EURUSD width9 (as sw9), the others width10 (as sw10).
+CALM11 = {"EURUSD": (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23, 27),
+          "GBPUSD": (3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 21, 24, 27, 30, 34),
+          "EURGBP": (3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 19, 23),
+          "AUDCAD": (3, 4, 5, 6, 7, 8, 10, 14, 18, 22, 26, 27, 30, 34),
+          "AUDCHF": (3, 4, 5, 6, 7, 8, 11, 14, 17, 20, 22, 25, 28),
+          "CADCHF": (3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 17, 20)}
+OCT11 = {"EURUSD": (3,), "GBPUSD": (3, 4, 5, 6, 7, 8, 10), "EURGBP": (4, 5, 7), "AUDCAD": (3, 4, 5, 7, 8),
+         "AUDCHF": (3, 5, 6, 7), "CADCHF": (3, 5, 7)}
+
+
+def width11(pair, add):
+    return width9(add) if pair == "EURUSD" else width10(add)
+
+
+def _geoms11(pair, adds):
+    return tuple(("a%de%dn7" % (a, a), float(a), float(a), 7, None, None, width11(pair, a)) for a in adds)
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -180,6 +202,21 @@ def get_set(tag):
             geoms = tuple(("a%de%dn8" % (a, e), float(a), float(e), 8, None, None, width9(a)) for a in ADDS9)
         return {"windows": WINDOW9, "geoms": geoms, "base": base, "ticks": TICKS9,
                 "comm_pips": COMM_USD / 0.100, "pip_usd": 0.100, "sessions": SESSIONS8}
+    if tag.startswith("sw11w_") and tag[6:].upper() in CALM11:
+        pair = tag[6:].upper()
+        st = get_set("sw4_" + pair.lower())
+        st["geoms"] = _geoms11(pair, CALM11[pair])
+        st["windows"] = tuple(st["windows"])
+        st["sessions"] = SESSIONS8
+        return st
+    if tag.startswith("sw11o_") and tag[6:].upper() in OCT11:
+        pair = tag[6:].upper()
+        base = dict(BASE)
+        base.update({"carry": 1})
+        pip_usd = PAIRS[pair][1]
+        return {"windows": WINDOW9, "geoms": _geoms11(pair, OCT11[pair]), "base": base,
+                "ticks": TICKS9 if pair == "EURUSD" else "ticks_53077984_%s_oct.csv" % pair,
+                "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd, "sessions": SESSIONS8}
     if tag.startswith("sw10_") and tag[5:].upper() in OPT10:
         pair = tag[5:].upper()
         base = dict(BASE)
