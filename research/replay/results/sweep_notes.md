@@ -645,3 +645,94 @@ output was opened; outputs hashed in `sweep9/sw9_outputs.sha256`, not in git).**
 - **Limits:** the t1 ALT adds were FITTED on 1-16 Oct (in-sample for `a23` / `a27`, though the whole add 14-27 band
   is positive, not one cell); one pair, one feed, one path; every geometry flat at 1 Oct; P&L outside plan 4's
   validated counts; the regime-level reading is post hoc (the pre-registered rule was daily).
+
+## sweep10: the October surface per pair for E's other five (pre-registered 22 Oct ~05:00Z, before any run; HANDOFF s88, (B))
+
+**Why:** sweep9 found, on EURUSD only, that every wide add made money over 1-20 Oct while OPT lost, so OPT + ALT ended
+positive (the viability note s8.2); E's ALT adds were then set at q88 of the excursion method (`research/alt_adds/
+results_2026-10-22.md`), chosen to land EURUSD in sweep9's 18-20 band. **Does the same hold on E's other five pairs,
+and does q88 sit in the right place on each?** The operator (22 Oct ~04:51Z) ruled the rule below: decided on the
+period, not the day (his "meaningful offset" as he read sweep9); the daily ratio reported, never deciding.
+
+**Build:** harness `8044284` (timing 1, Sens base, FREE), input files only; `sweep.py` `sw10_<pair>` (tests first:
+6 failing, 2 guards in both states; then the code); `results/sweep10/score10.py` (tests first, all failing; then the
+code; six mutants caught), committed with this text BEFORE any run. `inputs/sweep10/` (five run files, five swaps
+files, the sessions file), manifest `inputs/sweep10.sha256`.
+
+**Data:** each pair's own October dump from wine-d (`grind_tick_dump`, 22 Oct 04:38:57-04:42:57Z, 1 Oct 01:30 to 21
+Oct 01:30 server, every pair `bad_px=0 time_back=0 chunks=480 empty_weekday_chunks=0`): `ticks_53077984_<PAIR>_oct.csv`,
+not in git, sha256 equal on wine-d and in the desktop's Downloads:
+
+    7c1c080f5b3d71a313f32d2538472a935c0e3b0513e82af574ac35350db59e95  48935532  ticks_53077984_GBPUSD_oct.csv  (1,417,912 ticks)
+    9139142b3bf03c268f1b165dc58a99e1367737e1a3e3efe73ee83e41f52e2379  29725639  ticks_53077984_EURGBP_oct.csv  (857,097)
+    f1be6881364bc7228729169748ed79543bddf9cb1cd243a1f410ffcb5c503ae2  51793365  ticks_53077984_AUDCAD_oct.csv  (1,504,955)
+    df6a785dae72432976ce447605b463820450ab97f28fb3eae698ab5b81baaaad  46667538  ticks_53077984_AUDCHF_oct.csv  (1,359,002)
+    09d6aced415c024232ea7df69239ff96c01b142e3350e3e8b55cb163588d14b5  39639857  ticks_53077984_CADCHF_oct.csv  (1,154,993)
+
+**Swaps per pair:** `build_swaps.py --from 2026-10-01 --to 2026-10-20` on D's 17 Oct archive of that pair
+(`research/alt_adds/inputs.sha256`), so the harness charges each pair its own carry (sw9's `swaps.csv` is EURUSD's).
+Check of the method: the same command on EURUSD's 17 Oct archive reproduces the window set's `swaps.csv` (built from
+the 20 Oct archives) row for row, 1-20 Oct; 17-20 Oct come from the 16 Oct snapshot (within `MAX_RATE_GAP`, 96 h).
+The window ends 20 Oct 23:45, so no 21 Oct row is needed. The harness file name is fixed (`swaps.csv`): the loop below
+copies each pair's file over it and passes its hash; EURUSD's window `swaps.csv` (`581dab22...4c2a`) is backed up
+first and restored after.
+
+**Geometries per pair (one segment each, flat at Thu 1 Oct 04:00 server, carried to Tue 20 Oct 23:45; cap 7, add =
+exit, deadband 2, lattice and re-roll on, gate 0, carry ON, sessions on; every pair on the EURUSD chart and its magic,
+as sw8):** the live OPT (E's t1 width / add) and eight ALT adds around E's q88 (t2, starred); ALT width = add / 4
+rounded up to the half pip (the t2 presets' rule), stranded = width + 1.
+
+| Pair | OPT width / add | ALT adds (q88 starred) | commission a close (pips) |
+|---|---|---|---|
+| GBPUSD | 2.5 / 9 | 12, 15, 18, **21***, 24, 27, 30, 34 | 0.600 |
+| EURGBP | 1.0 / 3 | 6, 8, 10, 12, 14, **16***, 19, 23 | 0.448 |
+| AUDCAD | 1.5 / 6 | 10, 14, 18, 22, **26***, 27, 30, 34 | 0.840 |
+| AUDCHF | 1.0 / 4 | 8, 11, 14, 17, **20***, 22, 25, 28 | 0.492 |
+| CADCHF | 1.0 / 4 | 6, 8, **9***, 10, 12, 14, 17, 20 | 0.492 |
+
+(27 on AUDCAD and 30 on GBPUSD are D's live q95; 24 on GBPUSD, 21 / 22 on AUDCHF and 9 / 12 on CADCHF are E's and D's
+t1.)
+
+**Measures (`score10.py`, score9's tested functions with the pair's commission):** per cell S, R, A, S / A, the daily
+equity curve, ALT's net and worst, OPT + ALT's net and worst, OPT + 2 x ALT's (DUP) net and worst, the daily offset
+ratio (reported, never deciding).
+
+**THE RULE (per pair; the operator 22 Oct ~04:51Z):**
+- **OFFSET at q88: YES** if OPT + ALT at E's q88 add ends 1-20 Oct ABOVE OPT alone AND its worst point is NO LOWER
+  than OPT alone's worst; else NO.
+- **RETUNE: YES** only if OPT + ALT at q88 ends NEGATIVE while two ADJACENT ALT cells (by add) both end POSITIVE; the
+  candidate is the lower-middle add of the longest run of positive cells (ties: the larger summed net), for a later
+  reload, not before ALT's first live week. Else **KEEP** q88.
+- DUP reported the same way, not deciding (a real DUP arm is C's only, C160).
+- **EURUSD** is reported beside the five from sweep9's curves under the same rule (q88 = 18 on the cap-7 diagonal):
+  already read, so in-sample and not part of this test.
+
+**Self-checks first (any failure: STOP; an amendment, if any, before any net is read):** each run `exit=0`;
+`RPL|RUN|sw10_<pair>|sync=0`, `RPL|TIMING|1|base`, `RPL|SESSIONS|sessions_eurusd_ic.csv|5`, `RPL|TICKS_LOADED|
+ticks_53077984_<PAIR>_oct.csv` with the count above (a difference reported), 9 `SEG_DONE` each `aborted=0`, any gap
+reported; the run and swaps files equal the manifest; 13 `CARRY_SNAPSHOT` per segment (every weekday night, as sw9).
+
+**Claude's predictions, written before any run:** (1) the live OPT ends negative on at least 3 of the 5; (2) OFFSET
+YES at q88 on at least 3 of the 5 (sweep9's pattern repeats); (3) ALT's own net is higher at the grid's fourth add than
+at its first on at least 4 of the 5 (wider loses less on the trends, as sweep9's diagonal); (4) RETUNE on at most 1 of
+the 5.
+
+**Limits:** one feed, one path per pair (the regime happened once); every pair on the EURUSD chart (prices valid; the
+harness's dollars are EURUSD's, so everything is scored in the pair's pips from prices); the swap points' cent rounding
+is exact for USD-quoted pairs only (`build_swaps.py`, tick value 1.0): a small error on EURGBP, AUDCAD and the CHF
+crosses; 17-20 Oct swaps from the 16 Oct rate; q88 was fitted on D's fills of 1-16 Oct (in-sample); P&L is outside plan
+4's validated counts (EURUSD only): a guide.
+
+**Runs (the operator, from `D:\fxmatrix` detached at `8044284`; the run and swaps files placed in
+`D:\mt5-replay\MQL5\Files\replay` by Claude through the bridge and checked against the manifest; the five tick files
+copied there from Downloads; about 30-90 min a pair; each timing file deleted at once):**
+
+    git checkout --detach 8044284
+    $R = 'D:\mt5-replay\MQL5\Files\replay'; Copy-Item "$R\swaps.csv" "$R\swaps_EURUSD_window.csv"; (Get-FileHash "$R\swaps_EURUSD_window.csv").Hash.ToLower()
+    $H = @{ GBPUSD='2e9943b6b84a8463c30fd2eace12e3ebbb48081268dfae2b6d07979ec167a7f0'; EURGBP='0f7928ae3de1011aca11ed0fb7f35a9b4ff31fe52daef99649a7f38acebe3499'; AUDCAD='dcddf6dd1f05b4b26c95952628c70e4de5875b5dc7555c71b49729af3160c5cd'; AUDCHF='903f577c079b61b2a1379a785a6225c3803e6e88b13ce3a76bcb83c6aa22f6b0'; CADCHF='a6bf5e356ba1873343d1b9554ce7ec22e1daeda424c97bc1499d869deef5245b' }
+    foreach ($p in 'GBPUSD','EURGBP','AUDCAD','AUDCHF','CADCHF') { $l = $p.ToLower(); Copy-Item "$R\swaps_$p.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw10_$l" -Label "sw10_${l}_free" -Timing 1 -Sens base -SwapsSha $H[$p] -TimeoutSec 7200; Remove-Item "$R\out_sw10_${l}_free_timing.csv" -ErrorAction SilentlyContinue }
+    Copy-Item "$R\swaps_EURUSD_window.csv" "$R\swaps.csv" -Force; (Get-FileHash "$R\swaps.csv").Hash.ToLower()
+    git checkout main
+
+The backup's hash and the restored one must both read `581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a`.
+A `swaps.csv SHA mismatch` from the runner means the copy did not land: STOP. A timeout: that pair is rerun alone.
