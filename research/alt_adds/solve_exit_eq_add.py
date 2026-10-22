@@ -1,6 +1,8 @@
 """ALT's add when ALT's exit = its add (fleet D note s11): the add and the exit depend on each other.
 
-    python research/alt_adds/solve_exit_eq_add.py <archive export .jsonl> [...]
+    python research/alt_adds/solve_exit_eq_add.py [--q 0.80,0.85] <archive export .jsonl> [...]
+
+--q: the quantiles to solve, in the order given (default 0.90,0.95: the 17 Oct table's format).
 
 Uses only alt_excursions.py's tested functions (load, anchors, excursion, quantile). For a quantile q,
 start from add a0 = q-depth with the pair's OPT exit / (cap - 1), then repeat a <- q-depth with exit a /
@@ -37,12 +39,30 @@ def solve(pts, opt_exit, q, cap=7):
     return a
 
 
+def parse_quantiles(text):
+    """'0.80,0.85' -> [0.80, 0.85]; each in (0, 1]."""
+    try:
+        qs = [float(x) for x in text.split(",")]
+    except ValueError:
+        raise SystemExit("--q: numbers in (0, 1], comma-separated: %r" % text)
+    if not qs or any(not (0.0 < q <= 1.0) for q in qs):
+        raise SystemExit("--q: numbers in (0, 1], comma-separated: %r" % text)
+    return qs
+
+
 def main(argv):
+    argv = list(argv)
+    qs = [0.90, 0.95]
+    if argv[:1] == ["--q"]:
+        if len(argv) < 2:
+            raise SystemExit("--q needs a value")
+        qs = parse_quantiles(argv[1])
+        argv = argv[2:]
     for f in argv:
         inst = ax.instance_of(f)
         pair = inst.split("_")[1]
         pts = ax.load(f)
-        print("%s  q90: %.1f  q95: %.1f" % (inst, solve(pts, OPT_EXIT[pair], 0.90), solve(pts, OPT_EXIT[pair], 0.95)))
+        print(inst + "".join("  q%d: %.1f" % (round(q * 100), solve(pts, OPT_EXIT[pair], q)) for q in qs))
 
 
 if __name__ == "__main__":
