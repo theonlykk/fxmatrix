@@ -855,3 +855,38 @@ calm loop then the October loop, each October run with its pair's swaps; about 3
     foreach ($p in 'GBPUSD','EURGBP','AUDCAD','AUDCHF','CADCHF') { $l = $p.ToLower(); Copy-Item "$R\swaps_$p.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw11o_$l" -Label "sw11o_${l}_free" -Timing 1 -Sens base -SwapsSha $H[$p] -TimeoutSec 7200; Remove-Item "$R\out_sw11o_${l}_free_timing.csv" -ErrorAction SilentlyContinue }
     Copy-Item "$R\swaps_EURUSD_window.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "sw11o_eurusd" -Label "sw11o_eurusd_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a -TimeoutSec 7200; Remove-Item "$R\out_sw11o_eurusd_free_timing.csv" -ErrorAction SilentlyContinue; (Get-FileHash "$R\swaps.csv").Hash.ToLower(); git checkout main
 
+**sweep11 RESULT (23 Oct ~02:50Z; `sweep11/sw11_<pair>.md` from `score11.py`, committed before any run; outputs hashed
+in `sweep11/sw11_outputs.sha256`, not in git).** Runs: the operator's loops at `8044284`; calm six `exit=0` (537-2,613
+s), October five `exit=0` (129-7,177 s; GBPUSD's add 3 alone 4,347 s, 23 s inside the 7,200 limit); `sw11o_eurusd`
+(add 3 only) still running at the selection: it is neither an OPT nor an ALT candidate (EURUSD's OPT is 7) and cannot
+change the choice. **Self-checks all clean:** every log `sync=0`, `TIMING|1|base`, `SESSIONS|...|5`, `TICKS_LOADED`
+equal to sweep8's (calm) and the dumps' (October) counts, every segment done, `aborted=0`; the only gap sweep8's (week
+8 segments only); h8w hashes as sweep4's. **Cross-check:** every calm cell sweep8 also ran reproduces it exactly (e.g.
+EURUSD 7 +318, GBPUSD 9 +873, AUDCAD 6 -805, EURUSD 23 -12, CADCHF 9 +98).
+
+| Pair | By the rule (OPT / ALT) | E's t3 (OPT / ALT) | Both periods, t3 | Both periods, staged t1 + t2 |
+|---|---|---|---|---|
+| EURUSD | 7 / 23 | 7 / 23 | +398.7 | +298.1 |
+| GBPUSD | 6 / 15 | **9** / 15 | +1004.2 (rule's 6: +676) | +949.6 |
+| EURGBP | 5 / none | 5 / **23** | -460.6 | -950.2 |
+| AUDCAD | 18 / 26 | 18 / 26 | +1270.5 | -817.0 |
+| AUDCHF | none / 20 | **14** / 20 | -28.7 | -1587.1 |
+| CADCHF | 10 / 17 | 10 / 17 | +531.6 | -375.5 |
+| **Six, USD** | | | **+$230.64** | **-$300.33** |
+
+- **The operator's three rulings, all made AFTER nets were read (disclosed; post hoc):** (1) AUDCHF (~22:35Z): "we
+  cant have just an ALT arm"; first the old OPT 4, then, offered the calm line's milder band, **OPT 14** ("a milder
+  starting point"; calm -215, October +32). (2) **GBPUSD OPT 9** (live), not the rule's 6: 6 is the calm line's best
+  (+1,365) but lost -988 in October; over both periods 9 is the best of GBPUSD's calm band (+705) - the both-periods
+  report pre-registered as "reported, not deciding" decided it. (3) **EURGBP ALT 23**, the least-bad October add (calm
+  +19, October -307), not the rule's none (no October add earned on EURGBP's one-way fall).
+- **Predictions:** (1) OPT within 2 pips of live on EURUSD, GBPUSD, EURGBP: FAILED (GBPUSD's rule pick 6 is 3 off);
+  (2) no OPT or >= 3 wider on AUDCHF and AUDCAD: HELD (none; 18); (3) ALT within one grid step of q88 on >= 3: FAILED
+  (2: AUDCAD 26, AUDCHF 20); (4) the chosen set beats the staged over both periods in USD: HELD (+$231 against -$300).
+- **What it shows:** the calm line is the OPT range's own story by pair: EURUSD 6-8, GBPUSD 4-10 (best 6), EURGBP 4-8 earn;
+  AUDCAD earns only from add 14 (its tight adds lose every calm week but a few); AUDCHF loses at every add (a one-way
+  drift up in four of the eight weeks: weekly net 55-80% of the range); CADCHF earns little (9-12). EURUSD's 12-18
+  lose 151-201 in the calm weeks, so its ALT is 23, not 18.
+- **Limits:** both samples short and in-sample for the selection, and three choices are the operator's after the nets
+  (above); weekly flat starts hide the calm-period drift; every pair on the EURUSD chart; P&L outside plan 4's counts.
+

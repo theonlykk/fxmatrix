@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **AMENDED 22 Oct ~04:25Z (HANDOFF s88): E's ALT arm is now `_t2` at q88 (the operator's pick; `research/alt_adds/results_2026-10-22.md`): add = exit 21, 18, 16, 26, 20, 9; OPT stays `_t1`. Changed here: Uses, What, E1, the worked example, s0's six ALT rows, s1.10b (stage the t2 files), s7 (file names), s9 and s10 (E attaches Thu 22 Oct: its first FTMO day is Thu 22:00Z to Fri 22:00Z), s11 (fingerprint). Numbers only, from the reviewed generator (`scripts/ic_presets.py --stage twoarm`, which reproduces all 30 t1 files byte for byte) and checked by `research/alt_adds/check_e_t2.py`; no Argon (operator).** Before: **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). **s1 RUN 21 Oct 03:38-04:40Z** (HANDOFF s87): wine-e 104.207.140.130; two departures recorded there: the installer's MT5 6274 refuses Wine 9.0, so wine-d's 6231 binaries were copied (C161; 02_TRAPS 21 Oct early), and the RDP window sized at 1920 x 1080 (`mstsc /w /h`). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
+| Status | **AMENDED 23 Oct ~03:00Z (HANDOFF s88 continued 4): E's set is now `_t3` for BOTH arms (sweep11: OPT from the calm weeks, ALT from October, with the operator's rulings): OPT / ALT add = exit GBPUSD 9 / 15, EURUSD 7 / 23, EURGBP 5 / 23, AUDCAD 18 / 26, AUDCHF 14 / 20, CADCHF 10 / 17; `ea/presets_e/<pair>_{opt,alt}_e_t3.set`, fingerprint `211cb64a25ac` (12), checked by `research/alt_adds/check_e_t3.py` 12 / 12; staged by s1.10c; s7 loads `_t3` only; the spread hold in s7 follows the t3 OPT widths (below). s0's table and s1.10b are superseded by this row.** Before: **AMENDED 22 Oct ~04:25Z (HANDOFF s88): E's ALT arm is now `_t2` at q88 (the operator's pick; `research/alt_adds/results_2026-10-22.md`): add = exit 21, 18, 16, 26, 20, 9; OPT stays `_t1`. Changed here: Uses, What, E1, the worked example, s0's six ALT rows, s1.10b (stage the t2 files), s7 (file names), s9 and s10 (E attaches Thu 22 Oct: its first FTMO day is Thu 22:00Z to Fri 22:00Z), s11 (fingerprint). Numbers only, from the reviewed generator (`scripts/ic_presets.py --stage twoarm`, which reproduces all 30 t1 files byte for byte) and checked by `research/alt_adds/check_e_t2.py`; no Argon (operator).** Before: **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). **s1 RUN 21 Oct 03:38-04:40Z** (HANDOFF s87): wine-e 104.207.140.130; two departures recorded there: the installer's MT5 6274 refuses Wine 9.0, so wine-d's 6231 binaries were copied (C161; 02_TRAPS 21 Oct early), and the RDP window sized at 1920 x 1080 (`mstsc /w /h`). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
 | What | FTMO's fleet E: EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF with OPT + ALT, exit = add, cap 7, ALT at q88 (`_t2`, 22 Oct; q90 `_t1` before) (12 instances, fleet D note s10-s11), on a NEW FTMO demo, on a NEW Linux + wine server `wine-e`. Fleet A (FTMO 1514878887) is stopped and the Windows VPS closed |
 | Uses | `main` at the s88a patch or later: **`ea/presets_e/<pair>_opt_e_t1.set` (6) + `<pair>_alt_e_t2.set` (6): fingerprint `c3e48182f357`** (the attach set, s1.10b; before: the 12 `_t1`, `a448f4abb8a6`, still on `main` as the record); `scripts/build_logcheck.awk`; pipshed `twoarm-fleets` `320afe6` (merged at D's s7) and a small pipshed patch for E's card (s9) |
 | When | **E's charts Thu 22 Oct from 22:05Z (held from Wed by the operator for sweep9, HANDOFF s87 continued 3).** Before: **Wed 21 Oct.** wine-e built any time before (s1; it needs no account). A off soon after 5 PM ET (21:00Z), after the carry pass (20:50-20:59Z). E's first chart after 6 PM ET (22:00Z), so its first FTMO day is full. Not within 30 minutes of a tier-1 release |
@@ -142,6 +142,13 @@ attach set's fingerprint (expected `c3e48182f357`, `12`), then the six `_t2` sta
 
     K=$(tr -d '\r\n' < /home/khalid/.fxgrind_telemetry.key); P="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5/Presets"; R=/home/khalid/fxmatrix-repo; for f in $R/ea/presets_e/*_alt_e_t2.set; do sed "s|^TelemetryAPIKey=.*|TelemetryAPIKey=$K|" "$f" | sudo -u khalid tee "$P/$(basename $f)" >/dev/null; done; unset K; for f in $R/ea/presets_e/*_alt_e_t2.set; do b=$(basename $f); if diff -q <(grep -v '^TelemetryAPIKey=' "$P/$b") <(grep -v '^TelemetryAPIKey=' "$f") >/dev/null; then k=$(grep '^TelemetryAPIKey=' "$P/$b" | cut -d= -f2- | tr -d '\r\n' | wc -c); echo "SAME_EXCEPT_KEY key_len=$k $b"; else echo "MISMATCH $b"; fi; done
 
+**1.10c The t3 set (23 Oct, HANDOFF s88 continued 4): after `git pull --ff-only`, the fingerprint (expected
+`211cb64a25ac`, `12`), then the twelve `_t3` staged with the key (expected 12 lines `SAME_EXCEPT_KEY key_len=43`).**
+
+    (cd /home/khalid/fxmatrix-repo && for f in ea/presets_e/*_e_t3.set; do sha256sum $f | cut -c1-64; done | sha256sum | cut -c1-12; ls ea/presets_e/*_e_t3.set | wc -l)
+
+    K=$(tr -d '\r\n' < /home/khalid/.fxgrind_telemetry.key); P="/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5/Presets"; R=/home/khalid/fxmatrix-repo; for f in $R/ea/presets_e/*_e_t3.set; do sed "s|^TelemetryAPIKey=.*|TelemetryAPIKey=$K|" "$f" | sudo -u khalid tee "$P/$(basename $f)" >/dev/null; done; unset K; for f in $R/ea/presets_e/*_e_t3.set; do b=$(basename $f); if diff -q <(grep -v '^TelemetryAPIKey=' "$P/$b") <(grep -v '^TelemetryAPIKey=' "$f") >/dev/null; then k=$(grep '^TelemetryAPIKey=' "$P/$b" | cut -d= -f2- | tr -d '\r\n' | wc -c); echo "SAME_EXCEPT_KEY key_len=$k $b"; else echo "MISMATCH $b"; fi; done
+
 wine-e is ready: MT5 running detached, Algo OFF, no account, EA compiled, presets staged. If `main` moves
 before Wednesday, s1.5's pull and s1.9-1.10 are repeated on the day (`git pull --ff-only` first).
 
@@ -225,7 +232,7 @@ Variables): EMPTY. **Never run it again on wine-e once an EA is attached** (it d
 ## 7. ATTACH (from 22:05Z; the pilot, then five OPT, then six ALT)
 
 **Spreads first** (Market Watch, points): attach a pair's charts only while its spread is at most 1.5 x its OPT
-width (EURUSD 30, GBPUSD 37, AUDCAD 22, EURGBP / AUDCHF / CADCHF 15). Why: an empty side's L0 is placed ONCE
+width (t3, 23 Oct: EURUSD 30, GBPUSD 37, EURGBP 22, AUDCAD 67, AUDCHF 52, CADCHF 37 points; before: AUDCAD 22, EURGBP / AUDCHF / CADCHF 15). Why: an empty side's L0 is placed ONCE
 (`Grind_TryPlaceL0`, `grind_engine.mqh` 2062-2071: "ADR-123 place-once ... Re-centering is ADR-124's job and is
 fill-triggered"), and at a spread of 2 x width or more its target crosses the quote and is clamped just
 outside it (`Grind_Adr013ClampBuy` / `Sell`): it then rests there until a fill (Argon GE-6). 7 Oct at 22:07Z
@@ -233,7 +240,7 @@ the CHF crosses read 10-12 and the NZD crosses 61-88 (held until 22:15Z). **Algo
 inactive, so each EA trades from its OK: the read-back is the only gate, ftmo-ic-start GF-1).
 
 Per chart: File -> New Chart -> the symbol, M5; F8 -> Show: "Show trade levels" unticked (s1.8); drag **Navigator -> Expert Advisors -> fxmatrix ->
-fxgrind**; Inputs -> Load **`<pair>_opt_e_t1.set` (OPT) or `<pair>_alt_e_t2.set` (ALT; never `_alt_e_t1`)** -> read back BEFORE OK: `InpMagic`, `InpSlot`,
+fxgrind**; Inputs -> Load **`<pair>_opt_e_t3.set` (OPT) or `<pair>_alt_e_t3.set` (ALT); never `_t1` or `_t2` (23 Oct)** -> read back BEFORE OK: `InpMagic`, `InpSlot`,
 `InpTelemetryInstance` and the warning as s0, width / add / exit, the six per-side rows (`-1.0`), cap 7,
 `InpStrandedThreshPips`, deadband 2.0, lattice and re-roll true, roll gate 0, auto-eject false, **breaker
 false**, API 1000000 / 999000, the key row not blank. A row not as s0: Cancel, never OK. OK; note the UTC
@@ -299,7 +306,7 @@ checks the tree, pushes outside 20:50-21:00Z. Check: E's card LIVE 12 / 12 on `h
 ## 11. STOP (before the next step)
 
 D's s8 list, all of it, plus: the box clock not UTC or not synchronised; `wine --version` not 9.0; `cmp bad`
-not 0; a compile not 0 / 0; the attach set's fingerprint not `c3e48182f357` (s1.10b) or any MISMATCH; an ALT chart loaded from `_alt_e_t1`; a key not 44 bytes or
+not 0; a compile not 0 / 0; the set's fingerprint not `211cb64a25ac` (s1.10c) or any MISMATCH; a chart loaded from any file but `_t3`; a key not 44 bytes or
 not `fc6b3d9c56a8`; a login not on `FTMO-Demo`, a netting account, or a balance not $10,000; the suite not
 2597 / 2597, or GVs not empty after it; any `STARTUP_EXIT_SHORTFALL` at a flat attach; a row other than
 `rebuild=false/false`; s4.1 showing an unpushed commit or a tag not on origin (the VPS is not destroyed
@@ -357,4 +364,4 @@ claims were checked in source one by one.
   Navigator path for the suite (our tested path is Scripts); hand-seeding the snapshot GVs (manual GV writes on
   a live account: not worth one day's nulls).
 
-Line count: 360
+Line count: 367
