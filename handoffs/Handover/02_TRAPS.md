@@ -2977,4 +2977,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Read every candidate both ways before it becomes a preset:** sweep11's calm-only rule picked GBPUSD OPT 6 (calm
   +1,365), which lost -988 in October; the pre-registered both-periods report caught it (live 9 kept).
 
-Line count: 2980
+## TRAPS FROM 2026-10-23 EARLY (A FETCH CACHE THAT IGNORES THE QUERY; FIELDS THAT ARE NOT THE INSTANCE'S)
+
+- **The fetch tool's cache can ignore the query string:** at ~04:10Z four reads of `linuxd.pipshed.com/api/telemetry/live`
+  (with `&r=2`, a never-used `&r=`, and even `instance=GRIND_GBPUSD_OPTD`) all returned GRIND_GBPUSD_OPTE's heartbeat of
+  03:05:08Z, over an hour old, while pipshed's key expires in 300 s (`REDIS_TTL_SECONDS`, `app.py` 60) and E was posting
+  every minute. A `_received_at` more than about 5 minutes old on a key that answers at all is the tell. Read instead in
+  the built-in browser (allowed for `linuxd.pipshed.com`): a same-origin `fetch(..., {cache: 'no-store'})` per instance.
+  The sandbox's shell cannot reach pipshed.com (the proxy refuses it).
+- **`intraday_mae` in `/api/telemetry/live` is not the instance's:** the handler replaces it with the page service's
+  account-level scan over ITS OWN fleet's instances (`telemetry_live`, `app.py` 4058-4075; `_read_global_account_metrics`
+  2255-2300), so any instance read through `linuxd` shows D's account MAE (`source_instance` names it). The pilot's
+  "intraday equity low 9,736.51" was D's (IC 53077984). E's own MAE shows only once its page service (`linuxe`) exists.
+- **`api_count` is the terminal's, not the instance's:** one GV `GRIND_DAILY_API_COUNT` (`grind_api_counter.mqh` 11) per
+  terminal, reset at server midnight (21:00Z); every E instance shows the same number (37 at 04:14Z): read one, never
+  the sum.
+- **A heartbeat book's times are server time (GMT+3):** `open_time` `2026.10.23 06:29:01` is 03:29:01Z.
+
+Line count: 2997

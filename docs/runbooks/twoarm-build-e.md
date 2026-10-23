@@ -4,17 +4,17 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **s7 RUN 23 Oct 03:04-03:25Z with `_t3` (HANDOFF s88 continued 5): twelve charts, every row clean (`rebuild=false/false`, BAD 0, nothing dropped); EURGBP OPT on an H1 chart (harmless, left). s8-s9 wait for Railway.** **AMENDED 23 Oct ~03:00Z (HANDOFF s88 continued 4): E's set is now `_t3` for BOTH arms (sweep11: OPT from the calm weeks, ALT from October, with the operator's rulings): OPT / ALT add = exit GBPUSD 9 / 15, EURUSD 7 / 23, EURGBP 5 / 23, AUDCAD 18 / 26, AUDCHF 14 / 20, CADCHF 10 / 17; `ea/presets_e/<pair>_{opt,alt}_e_t3.set`, fingerprint `211cb64a25ac` (12), checked by `research/alt_adds/check_e_t3.py` 12 / 12; staged by s1.10c; s7 loads `_t3` only; the spread hold in s7 follows the t3 OPT widths (below). s0's table and s1.10b are superseded by this row.** Before: **AMENDED 22 Oct ~04:25Z (HANDOFF s88): E's ALT arm is now `_t2` at q88 (the operator's pick; `research/alt_adds/results_2026-10-22.md`): add = exit 21, 18, 16, 26, 20, 9; OPT stays `_t1`. Changed here: Uses, What, E1, the worked example, s0's six ALT rows, s1.10b (stage the t2 files), s7 (file names), s9 and s10 (E attaches Thu 22 Oct: its first FTMO day is Thu 22:00Z to Fri 22:00Z), s11 (fingerprint). Numbers only, from the reviewed generator (`scripts/ic_presets.py --stage twoarm`, which reproduces all 30 t1 files byte for byte) and checked by `research/alt_adds/check_e_t2.py`; no Argon (operator).** Before: **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). **s1 RUN 21 Oct 03:38-04:40Z** (HANDOFF s87): wine-e 104.207.140.130; two departures recorded there: the installer's MT5 6274 refuses Wine 9.0, so wine-d's 6231 binaries were copied (C161; 02_TRAPS 21 Oct early), and the RDP window sized at 1920 x 1080 (`mstsc /w /h`). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
-| What | FTMO's fleet E: EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF with OPT + ALT, exit = add, cap 7, ALT at q88 (`_t2`, 22 Oct; q90 `_t1` before) (12 instances, fleet D note s10-s11), on a NEW FTMO demo, on a NEW Linux + wine server `wine-e`. Fleet A (FTMO 1514878887) is stopped and the Windows VPS closed |
-| Uses | `main` at the s88a patch or later: **`ea/presets_e/<pair>_opt_e_t1.set` (6) + `<pair>_alt_e_t2.set` (6): fingerprint `c3e48182f357`** (the attach set, s1.10b; before: the 12 `_t1`, `a448f4abb8a6`, still on `main` as the record); `scripts/build_logcheck.awk`; pipshed `twoarm-fleets` `320afe6` (merged at D's s7) and a small pipshed patch for E's card (s9) |
-| When | **E's charts Thu 22 Oct from 22:05Z (held from Wed by the operator for sweep9, HANDOFF s87 continued 3).** Before: **Wed 21 Oct.** wine-e built any time before (s1; it needs no account). A off soon after 5 PM ET (21:00Z), after the carry pass (20:50-20:59Z). E's first chart after 6 PM ET (22:00Z), so its first FTMO day is full. Not within 30 minutes of a tier-1 release |
+| Status | **s0's table, E1, the worked example and What / Uses / When rewritten for `_t3` (23 Oct ~04:30Z, HANDOFF s89): the read-back source is s0 again.** **s7 RUN 23 Oct 03:04-03:25Z with `_t3` (HANDOFF s88 continued 5): twelve charts, every row clean (`rebuild=false/false`, BAD 0, nothing dropped); EURGBP OPT on an H1 chart (harmless, left). s8-s9 wait for Railway.** **AMENDED 23 Oct ~03:00Z (HANDOFF s88 continued 4): E's set is now `_t3` for BOTH arms (sweep11: OPT from the calm weeks, ALT from October, with the operator's rulings): OPT / ALT add = exit GBPUSD 9 / 15, EURUSD 7 / 23, EURGBP 5 / 23, AUDCAD 18 / 26, AUDCHF 14 / 20, CADCHF 10 / 17; `ea/presets_e/<pair>_{opt,alt}_e_t3.set`, fingerprint `211cb64a25ac` (12), checked by `research/alt_adds/check_e_t3.py` 12 / 12; staged by s1.10c; s7 loads `_t3` only; the spread hold in s7 follows the t3 OPT widths (below). s0's table and s1.10b are superseded by this row.** Before: **AMENDED 22 Oct ~04:25Z (HANDOFF s88): E's ALT arm is now `_t2` at q88 (the operator's pick; `research/alt_adds/results_2026-10-22.md`): add = exit 21, 18, 16, 26, 20, 9; OPT stays `_t1`. Changed here: Uses, What, E1, the worked example, s0's six ALT rows, s1.10b (stage the t2 files), s7 (file names), s9 and s10 (E attaches Thu 22 Oct: its first FTMO day is Thu 22:00Z to Fri 22:00Z), s11 (fingerprint). Numbers only, from the reviewed generator (`scripts/ic_presets.py --stage twoarm`, which reproduces all 30 t1 files byte for byte) and checked by `research/alt_adds/check_e_t2.py`; no Argon (operator).** Before: **REVIEWED** (Argon `review/argon-runbook-e` `3fb2523` on `81f7d70`, checked by Claude in source, s13; amended 18 Oct ~05:50Z). **s1 RUN 21 Oct 03:38-04:40Z** (HANDOFF s87): wine-e 104.207.140.130; two departures recorded there: the installer's MT5 6274 refuses Wine 9.0, so wine-d's 6231 binaries were copied (C161; 02_TRAPS 21 Oct early), and the RDP window sized at 1920 x 1080 (`mstsc /w /h`). Before: DRAFT (Claude, 18 Oct ~04:45Z). Built from D's and C's REVIEWED runbooks (`twoarm-build-d.md` `c39d59d`, `twoarm-build-c.md`), the box recipe (`handoffs/Handover/06_LINUX_WINE_BOX.md` s3, s9, s10) and the last FTMO switch (`ftmo-ic-start.md` s3-s12, run 7 Oct) |
+| What | FTMO's fleet E: EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF with OPT + ALT, exit = add, cap 7, **both arms `_t3` (sweep11, 23 Oct: OPT from the calm weeks, ALT from October)**; before: ALT q88 `_t2` (22 Oct), q90 `_t1` (12 instances, fleet D note s10-s11), on a NEW FTMO demo, on a NEW Linux + wine server `wine-e`. Fleet A (FTMO 1514878887) is stopped and the Windows VPS closed |
+| Uses | `main` at the s88e patch or later: **`ea/presets_e/<pair>_{opt,alt}_e_t3.set` (12): fingerprint `211cb64a25ac`** (s1.10c); before: six `_opt_e_t1` + six `_alt_e_t2` (`c3e48182f357`, s1.10b) and the 12 `_t1` (`a448f4abb8a6`), still on `main` as the record; `scripts/build_logcheck.awk`; pipshed `twoarm-fleets` `320afe6` (merged at D's s7) and a small pipshed patch for E's card (s9) |
+| When | **DONE: Fri 23 Oct 03:04-03:25Z (`_t3`); first fill 03:29:01Z (AUDCAD OPT short L0).** Before: **E's charts Thu 22 Oct from 22:05Z (held from Wed by the operator for sweep9, HANDOFF s87 continued 3).** Before: **Wed 21 Oct.** wine-e built any time before (s1; it needs no account). A off soon after 5 PM ET (21:00Z), after the carry pass (20:50-20:59Z). E's first chart after 6 PM ET (22:00Z), so its first FTMO day is full. Not within 30 minutes of a tier-1 release |
 | Rulings | Operator 18 Oct ~04:00Z (HANDOFF s86): "we will make a new linux server. wine-e is fine"; "copy wine-d"; "new ftmo demo after this current one expires - same time limit. account size"; "utc is fine. we can only fit one terminal per vps"; close A "soon after 5PM ET - and then immediatley close the vps server"; "wait past 6PM ET on 21 Oct". 17 Oct: the layout, exit = add, q90 on FTMO, the request budget ("FTMO would be ok with 2500"). Presets G3: the breaker OFF on E |
 
 ## 0. AUDIT TRAIL AND WHAT E RUNS
 
 | # | Fact | Where | Status |
 |---|---|---|---|
-| E1 | E's twelve presets = D's `_t1` but ALT's geometry (q90, not q95; **from 22 Oct ALT `_t2` at q88, each equal to its `_t1` but for add, exit, width, stranded and the warning: `check_e_t2.py` 6 / 6**), the ids `_OPTE` / `_ALTE` and the warning; magics as D's (`2226` + pair + slot); a different account, so no clash | `diff ea/presets_e/eurusd_alt_e_t1.set ea/presets_d/eurusd_alt_d_t1.set` at `ceab0f7` | VERIFIED |
+| E1 | E's twelve presets = D's `_t1` but ALT's geometry (q90, not q95; **from 22 Oct ALT `_t2` at q88, each equal to its `_t1` but for add, exit, width, stranded and the warning: `check_e_t2.py` 6 / 6**; **from 23 Oct BOTH arms `_t3` (sweep11): the generator from `scripts/ic_geometry_twoarm_e_t3.json`, tags re-tagged `sw11`, `check_e_t3.py` 12 / 12, fingerprint `211cb64a25ac`**), the ids `_OPTE` / `_ALTE` and the warning; magics as D's (`2226` + pair + slot); a different account, so no clash | `diff ea/presets_e/eurusd_alt_e_t1.set ea/presets_d/eurusd_alt_d_t1.set` at `ceab0f7` | VERIFIED |
 | E2 | Every E preset: cap 7, deadband 2.0, lattice and re-roll true, roll gate 0, `InpBreakerEnable=false`, auto-eject false, API 1000000 / 999000, session off | the twelve files | VERIFIED |
 | E3 | E's twelve magics (22260101 to 22260602) are all in `GRIND_CAP_ALL_MAGICS` (`ea/grind_cap.mqh` 20-31): the slot guard counts their resting entries as designed (C159 does not apply) | source at `ceab0f7` | VERIFIED |
 | E4 | The EA reads `TimeGMT()` for the FTMO day and the snapshot keys (`fxgrind.mq5` 358-423; `grind_engine.mqh` 1704-1723; `grind_snapshot.mqh` 261-356); no `TimeLocal()` in `fxgrind.mq5` or `grind_*.mqh`. Under Wine `TimeGMT()` follows the Linux clock: the box must be UTC and NTP-synchronised | `git grep` at `ceab0f7` | VERIFIED (source); the box clock read in s1.3 |
@@ -23,25 +23,28 @@ This message has a line count at the bottom
 | E7 | With the breaker off nothing in the EA stops at FTMO's daily loss ($500 on $10k) or overall loss; what FTMO does to a free trial at a breach is not known here | presets G3; `ftmo-ic-start.md` K3 | RULED (breaker off); FTMO's reaction UNKNOWN |
 | E8 | pipshed's E card is a placeholder ("NOT BUILT") on `twoarm-fleets` (`app.py` 268-279: `placeholder` True, `built` False, `cycle_start` "2026-10-21"); `verify_twoarm_fleets.py` TA4 (E's fields) and TA7 (E NOT BUILT; books A-D) pin it; the new login needs a commission row in `sr_table.py` (an account not listed reads "unknown") | pipshed `320afe6` | VERIFIED |
 
-**One worked example.** EURUSD at 1.1600 when E's EURUSD charts attach. OPT (width 2, add = exit 7) rests its
-L0 straddle about 2 pips each side; ALT (width 4.5, add = exit 18; t2) about 4.5 pips each side. A 50-pip fall fills
-OPT's long stack to 7 layers by pip 42 (6 x 7) and rolls after; ALT holds 3 longs (L0 at 1.1594, adds at
-1.1571 and 1.1548) and scalps each back at +23 pips.
+**One worked example (t3).** EURUSD at 1.1600 when E's EURUSD charts attach. OPT (width 2, add = exit 7) rests its
+L0 straddle about 2 pips each side; ALT (width 6, add = exit 23) about 6 pips each side. A 50-pip fall to 1.1550
+fills OPT's long stack to 7 layers by about pip 44 (the L0 2 below, then six adds of 7) and rolls after; ALT holds
+2 longs (L0 at 1.1594, the add at 1.1571; the next add at 1.1548 is 2 pips below the low) and scalps each back at
++23 pips (exits 1.1617 and 1.1594).
 
 | Chart | Magic | Instance | `geo=` (L w/a/e S w/a/e) | Stranded | Warning starts |
 |---|---|---|---|---|---|
-| GBPUSD OPT (pilot) | 22260101 | `GRIND_GBPUSD_OPTE` | L2.5/9/9 S2.5/9/9 | 3.5 | `FLEET E two-arm t1 GBPUSD OPT -` |
-| EURUSD OPT | 22260201 | `GRIND_EURUSD_OPTE` | L2/7/7 S2/7/7 | 3.0 | `... EURUSD OPT -` |
-| EURGBP OPT | 22260301 | `GRIND_EURGBP_OPTE` | L1/3/3 S1/3/3 | 2.0 | `... EURGBP OPT -` |
-| AUDCAD OPT | 22260401 | `GRIND_AUDCAD_OPTE` | L1.5/6/6 S1.5/6/6 | 2.5 | `... AUDCAD OPT -` |
-| AUDCHF OPT | 22260501 | `GRIND_AUDCHF_OPTE` | L1/4/4 S1/4/4 | 2.0 | `... AUDCHF OPT -` |
-| CADCHF OPT | 22260601 | `GRIND_CADCHF_OPTE` | L1/4/4 S1/4/4 | 2.0 | `... CADCHF OPT -` |
-| GBPUSD ALT | 22260102 | `GRIND_GBPUSD_ALTE` | L5.5/21/21 S5.5/21/21 | 6.5 | `FLEET E two-arm t2 GBPUSD ALT q88` |
-| EURUSD ALT | 22260202 | `GRIND_EURUSD_ALTE` | L4.5/18/18 S4.5/18/18 | 5.5 | `... t2 EURUSD ALT q88` |
-| EURGBP ALT | 22260302 | `GRIND_EURGBP_ALTE` | L4/16/16 S4/16/16 | 5.0 | `... t2 EURGBP ALT q88` |
-| AUDCAD ALT | 22260402 | `GRIND_AUDCAD_ALTE` | L6.5/26/26 S6.5/26/26 | 7.5 | `... t2 AUDCAD ALT q88` |
-| AUDCHF ALT | 22260502 | `GRIND_AUDCHF_ALTE` | L5/20/20 S5/20/20 | 6.0 | `... t2 AUDCHF ALT q88` |
-| CADCHF ALT | 22260602 | `GRIND_CADCHF_ALTE` | L2.5/9/9 S2.5/9/9 | 3.5 | `... t2 CADCHF ALT q88` |
+| GBPUSD OPT (pilot) | 22260101 | `GRIND_GBPUSD_OPTE` | L2.5/9/9 S2.5/9/9 | 3.5 | `FLEET E two-arm t3 GBPUSD OPT sw11:` |
+| EURUSD OPT | 22260201 | `GRIND_EURUSD_OPTE` | L2/7/7 S2/7/7 | 3.0 | `... t3 EURUSD OPT sw11:` |
+| EURGBP OPT | 22260301 | `GRIND_EURGBP_OPTE` | L1.5/5/5 S1.5/5/5 | 2.5 | `... t3 EURGBP OPT sw11:` |
+| AUDCAD OPT | 22260401 | `GRIND_AUDCAD_OPTE` | L4.5/18/18 S4.5/18/18 | 5.5 | `... t3 AUDCAD OPT sw11:` |
+| AUDCHF OPT | 22260501 | `GRIND_AUDCHF_OPTE` | L3.5/14/14 S3.5/14/14 | 4.5 | `... t3 AUDCHF OPT sw11:` |
+| CADCHF OPT | 22260601 | `GRIND_CADCHF_OPTE` | L2.5/10/10 S2.5/10/10 | 3.5 | `... t3 CADCHF OPT sw11:` |
+| GBPUSD ALT | 22260102 | `GRIND_GBPUSD_ALTE` | L4/15/15 S4/15/15 | 5.0 | `FLEET E two-arm t3 GBPUSD ALT sw11:` |
+| EURUSD ALT | 22260202 | `GRIND_EURUSD_ALTE` | L6/23/23 S6/23/23 | 7.0 | `... t3 EURUSD ALT sw11:` |
+| EURGBP ALT | 22260302 | `GRIND_EURGBP_ALTE` | L6/23/23 S6/23/23 | 7.0 | `... t3 EURGBP ALT sw11:` |
+| AUDCAD ALT | 22260402 | `GRIND_AUDCAD_ALTE` | L6.5/26/26 S6.5/26/26 | 7.5 | `... t3 AUDCAD ALT sw11:` |
+| AUDCHF ALT | 22260502 | `GRIND_AUDCHF_ALTE` | L5/20/20 S5/20/20 | 6.0 | `... t3 AUDCHF ALT sw11:` |
+| CADCHF ALT | 22260602 | `GRIND_CADCHF_ALTE` | L4.5/17/17 S4.5/17/17 | 5.5 | `... t3 CADCHF ALT sw11:` |
+
+(t3, 23 Oct: each row read from `ea/presets_e/<pair>_{opt,alt}_e_t3.set`. Before: OPT `_t1` 2.5/9, 2/7, 1/3, 1.5/6, 1/4, 1/4 and ALT `_t2` q88 21, 18, 16, 26, 20, 9.)
 
 Every chart starts empty: `deinit=- replay=ready(0) rebuild=false/false` expected (a fresh terminal, no GVs).
 
@@ -363,4 +366,4 @@ claims were checked in source one by one.
   replaced by `grind_gv_list`); "MT5 runs it as a one-shot script even when compiled inside Experts" and its
   Navigator path for the suite (our tested path is Scripts); hand-seeding the snapshot GVs (manual GV writes on
   a live account: not worth one day's nulls).
-Line count: 366
+Line count: 369

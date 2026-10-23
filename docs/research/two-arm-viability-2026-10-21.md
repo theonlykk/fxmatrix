@@ -181,4 +181,21 @@ on all five. E's six as one fleet over 1-20 Oct: OPT -$310, OPT + ALT -$264 (wor
 offset, none meaningfully" on the five; the loss sits in OPT's tight adds, and only on EURUSD did the wide arm out-earn
 it.** What follows is the operator's call (E's set for tonight; whether OPT's geometry, not ALT's, is the next question).
 
-Line count: 184
+**8.7 sweep11 and E's t3 (22 Oct ~18:50Z to 23 Oct ~03:25Z; `sweep_notes` sweep11; HANDOFF s88 continued 3-5).** After 8.6
+the operator dropped the premise that OPT's live adds are fixed ("we should not need to be married to the OPT presets"):
+each pair's OPT add from the calm Aug - Sep weeks (OPT's revenue), its ALT add from October (the insurance), by a rule
+ruled before the runs. **Over both periods, at 0.01 lots, the six as one fleet: t3 +$231 against the staged t1 + t2's
+-$300.** Per pair, both periods, pips: EURUSD +399, GBPUSD +1,004, EURGBP -461, AUDCAD +1,271, AUDCHF -29, CADCHF +532.
+Three picks are the operator's, made after the nets were read (AUDCHF OPT 14, GBPUSD OPT 9, EURGBP ALT 23): disclosed
+as post hoc. E attached on t3 23 Oct 03:04-03:25Z; its first fill 03:29:01Z.
+
+- **Where s1's question stands:** in-sample, the two-set geometry ends positive over both regimes on four of the six
+  pairs and as a fleet; EURGBP (a one-way fall in October) and AUDCHF (a one-way drift up in four of the calm weeks)
+  are the trend cases where nothing here earns. Out of sample is live: E's weeks, beside D's t1 set on the same six
+  pairs. **Status: OPEN, E's live weeks against D are the test** (the previous chat's reading, 23 Oct; the operator to
+  confirm).
+- **Not yet measured:** the calm-period drift at the t3 adds (weekly flat starts hide it, 8.3); ALT's live roll steps
+  and open book per pair; whether a first-week read may reload E (not ruled; E's runbook s10 still says no change
+  except for a defect).
+
+Line count: 201
