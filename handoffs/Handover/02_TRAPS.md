@@ -2960,4 +2960,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   keeps the old tag in `InpConfigWarning`. The t2 warnings were re-tagged after generation and checked by
   `check_e_t2.py`; a future round needs the same, or a table key (a generator change: the full pipeline).
 
-Line count: 2963
+## TRAPS FROM 2026-10-22 DAY AND NIGHT (THE BRIDGE'S SIZE; SLOW TIGHT ADDS; SWAPS PER PAIR; PASTED LINES)
+
+- **The bridge's staging times out on large files:** four 40-50 MB files in one call timed out (one at a time passed, up
+  to 147 MB); a 156 MB file timed out twice. Stage one file a call; past ~150 MB, `Compress-Archive` it on the desktop
+  and stage the zip (AUDCAD's h8w: 156 MB -> 27.5 MB).
+- **A carried October segment at a tight add is slow at timing 1:** GBPUSD add 3 took 4,347 s, EURUSD add 3 2,306 s
+  alone; a run file of tight adds can pass the 7,200 s ceiling (GBPUSD's sw11o: 7,177 s). Split tight adds into their
+  own run files, or keep them out unless they are candidates.
+- **The harness reads one `swaps.csv` (EURUSD's):** with carry ON, any other pair needs its own file
+  (`build_swaps.py` on that pair's archive) copied over `swaps.csv` for its run and EURUSD's restored after, each by hash.
+- **A multi-line paste into PowerShell runs line by line:** the later lines wait and run when the first finishes; the
+  operator sees only the running line. Expected; if a queued line did not run, paste it again.
+- **A chart attached on H1 by mistake is left alone** (again: E's EURGBP OPT, 23 Oct): the EA reads no period; changing
+  it re-inits the instance.
+- **Read every candidate both ways before it becomes a preset:** sweep11's calm-only rule picked GBPUSD OPT 6 (calm
+  +1,365), which lost -988 in October; the pre-registered both-periods report caught it (live 9 kept).
+
+Line count: 2980

@@ -2,13 +2,13 @@
 
 **E's t3: OPT 7, ALT 23** (staged: OPT 7, ALT 18)
 
-By the rule: OPT 7.0, ALT 23.0 (EURUSD's October add 3 not yet scored: it cannot change the choice).
+By the rule: OPT 7.0, ALT 23.0 (with every October cell, add 3 included).
 
 Both periods (calm 8 weeks + October): chosen OPT -43.4, ALT +442.1, total +398.7; staged OPT -43.4, ALT +341.5, total +298.1
 
 | add | calm net | weeks > 0 | weekly | October net |
 |---|---|---|---|---|
-| 3 | -845.9 | 4 / 8 | +227 +67 -433 +120 +40 -91 -449 -328 | - |
+| 3 | -845.9 | 4 / 8 | +227 +67 -433 +120 +40 -91 -449 -328 | -2636.5 |
 | 4 | +157.6 | 5 / 8 | +254 +152 -262 +98 +156 +27 -212 -55 | -1860.5 |
 | 5 | +146.6 | 5 / 8 | +233 +99 -276 +8 +166 +54 -95 -42 | -1370.3 |
 | 6 | +521.5 | 4 / 8 | +400 +122 -238 -45 +230 +221 -109 -60 | -655.1 |

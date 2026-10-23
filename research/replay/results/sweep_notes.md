@@ -889,4 +889,6 @@ EURUSD 7 +318, GBPUSD 9 +873, AUDCAD 6 -805, EURUSD 23 -12, CADCHF 9 +98).
   lose 151-201 in the calm weeks, so its ALT is 23, not 18.
 - **Limits:** both samples short and in-sample for the selection, and three choices are the operator's after the nets
   (above); weekly flat starts hide the calm-period drift; every pair on the EURUSD chart; P&L outside plan 4's counts.
+- **Addendum (23 Oct ~03:25Z):** `sw11o_eurusd` (add 3) `exit=0`, 2,316 s; `TICKS_LOADED` 1,021,095, `aborted=0`, no gap;
+  October net **-2,636.5**, the worst cell of EURUSD's line; the selection unchanged (OPT 7, ALT 23 with every cell).
 
