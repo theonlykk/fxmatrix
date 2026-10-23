@@ -2994,4 +2994,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   the sum.
 - **A heartbeat book's times are server time (GMT+3):** `open_time` `2026.10.23 06:29:01` is 03:29:01Z.
 
-Line count: 2997
+## TRAPS FROM 2026-10-23 DAY (FRIDAY'S CARRY COUNTS; TWO BUILD TIMES; CHECK OUTPUT IN TWO FORMS; A SERVICE COPY)
+
+- **On a Friday every carry pass reads `failed` 2-4 on every instance:** Saturday's swap is 0 (`grind_carry.mqh`
+  207-208), so each exit's target is the one already set and the modify comes back 10025, `duration_ms` 0 (C60). Read
+  `send_logs`' retcodes before calling it a fault; a 10009 alongside is a real shift (a position opened that day).
+- **`ea_build` is the compile's START (`__DATETIME__`, `fxgrind.mq5` 56), about 15 s before the `.ex5` file's time:**
+  C 16:21:21 against 16:21:37, E 04:36:25 against 04:36:40. Compare like with like.
+- **pipshed's verify scripts print results in two forms** (`ST3 FAIL: ...` and `FAIL BK1 ...`): a comparison that greps
+  one form misses the other (23 Oct: four scripts missed). Compare each script's own `n/m` and both forms.
+- **Committing a prompt moves `main`:** a prompt that pins "HEAD = <base>" stops its agent at once. Pin the code base by
+  diff instead (`git diff --stat <base> HEAD` lists only the prompt).
+- **A duplicated Railway service copies every variable, including `GRIND_FLEET_LABEL`:** set the label with the fleet,
+  or the page header names the source fleet's account. The plain `pipshed` service (pipshed.com) had no `GRIND_FLEET`
+  and defaulted to A (`app.py` 285); it is now `E`.
+- **A removed EA's DEINIT never reaches the archive** (inferred: C's retirements and A's removal left none; a re-attach's
+  DEINIT arrives with its INIT, same timestamp). Read a removal from the box's log, not `config_events`.
+
+Line count: 3014
