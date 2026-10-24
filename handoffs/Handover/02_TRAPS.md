@@ -3011,4 +3011,21 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A removed EA's DEINIT never reaches the archive** (inferred: C's retirements and A's removal left none; a re-attach's
   DEINIT arrives with its INIT, same timestamp). Read a removal from the box's log, not `config_events`.
 
-Line count: 3014
+## TRAPS FROM 2026-10-24 EARLY (THE WRONG REPO; A BRANCH LEFT CHECKED OUT; WINDOWS-ONLY VERIFY FAILURES; CLI DELETES)
+
+- **A patch applied in the wrong repo commits there:** the pipshed prompt patch was first `git am`-ed in `D:\fxmatrix`
+  (the shell was still there), making a local commit on fxmatrix `main` (undone by `git reset --hard c237fb9`, never
+  pushed). Every pipshed step now starts `cd D:\pipshed;` and every fxmatrix step `cd D:\fxmatrix;`.
+- **Cursor leaves its branch checked out:** after a Cursor run `D:\pipshed` is on the feature branch, so
+  `git merge --ff-only origin/<branch>` says "Already up to date" and `main` does not move. Merge with
+  `git checkout main;` first.
+- **Three pipshed verify scripts fail on the desktop (Windows) but pass in Claude's sandbox (Linux):**
+  `verify_c137_sr_table` ST9 and ST12 (`UnicodeDecodeError`: `open()` of `dashboard.html` without an encoding),
+  `verify_fleet_strip_slots` and `verify_layer_table_market`. They fail the same way at every base, so compare per
+  host (base against change), never the desktop's counts against the sandbox's.
+- **PowerShell eats `{...}` in git revisions:** `git rev-parse HEAD^{tree}` prints the commit hash and an error.
+  Quote it: `git rev-parse "HEAD^{tree}"`.
+- **`railway variable delete` (CLI 5.52) applies with no redeploy** (the dashboard showed no staged-changes banner;
+  `railway deployment list` no new deployment): the running container keeps the old value until the next deploy.
+
+Line count: 3031
