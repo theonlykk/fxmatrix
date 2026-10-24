@@ -1,0 +1,16 @@
+pair    arm  add      S      R   net USD     comm     gross    c/g
+GBPUSD  OPT    9    614     51    +87.32    39.90   +127.22    31%
+GBPUSD  ALT   15    218     12    +22.37    13.80    +36.17    38%
+EURUSD  OPT    7    606     45    +31.78    39.06    +70.84    55%
+EURUSD  ALT   23     61      0     -1.23     3.66     +2.43   151%
+EURGBP  OPT    5    229      9    +31.65    14.28    +45.93    31%
+EURGBP  ALT   23      5      0     +2.60     0.30     +2.90    10%
+AUDCAD  OPT   18    103      0    +36.89     6.18    +43.07    14%
+AUDCAD  ALT   26     44      0    +20.98     2.64    +23.62    11%
+AUDCHF  OPT   14     61      1    -26.25     3.72    -22.53   nan%
+AUDCHF  ALT   20     32      0     -3.11     1.92     -1.19   nan%
+CADCHF  OPT   10    106      2     +5.99     6.48    +12.47    52%
+CADCHF  ALT   17     31      0     +6.08     1.86     +7.94    23%
+tight: net +130.49, commission 103.44, gross +233.93
+wide: net +84.57, commission 30.36, gross +114.93
+FLEET calm: net +215.05, commission 133.80, gross +348.85, commission/gross 38%

@@ -1,0 +1,55 @@
+12-cell fleet, 1-20 Oct, 5-min marks: end +15.59, lowest equity -133.79 at Fri 16 Oct 14:30Z, highest +174.77
+max peak-to-trough -308.57: from +174.77 (Tue 13 Oct 07:45Z) to -133.79 (Fri 16 Oct 14:30Z)
+
+FTMO daily loss (day-start BALANCE - day's lowest EQUITY), worst first:
+FTMO day         loss start bal  start eq    low eq at                  end eq
+Fri 16 Oct     626.51   +492.72    -21.85   -133.79 Fri 16 Oct 14:30Z    -78.50
+Sun 18 Oct     501.39   +379.61    -78.50   -121.79 Sun 18 Oct 21:10Z   -101.91
+Mon 19 Oct     497.64   +402.62    -95.02    -95.02 Sun 18 Oct 22:00Z    +13.89
+Tue 20 Oct     486.57   +442.78    +12.90    -43.78 Tue 20 Oct 14:30Z    +15.59
+Thu 15 Oct     473.34   +439.95    +55.75    -33.39 Thu 15 Oct 13:55Z    -22.76
+Sat 17 Oct     458.11   +379.61    -78.50    -78.50 Fri 16 Oct 22:00Z    -78.50
+days: 20, days with loss > $50: 20
+
+worst FTMO-day loss 626.51; max drawdown 308.57
+
+day-start (01:00 server): balance, equity, open = equity - balance
+  Thu 01 Oct  bal    +0.00  eq    +0.00  open    +0.00
+  Fri 02 Oct  bal  +121.77  eq   -74.74  open  -196.51
+  Sat 03 Oct  bal  +219.33  eq   +40.38  open  -178.95
+  Sun 04 Oct  bal  +219.33  eq   +40.38  open  -178.95
+  Mon 05 Oct  bal  +219.96  eq    -3.76  open  -223.72
+  Tue 06 Oct  bal  +272.81  eq    +9.66  open  -263.15
+  Wed 07 Oct  bal  +298.30  eq    +7.63  open  -290.68
+  Thu 08 Oct  bal  +325.38  eq    +8.15  open  -317.24
+  Fri 09 Oct  bal  +389.34  eq  +104.93  open  -284.41
+  Sat 10 Oct  bal  +418.16  eq  +136.35  open  -281.81
+  Sun 11 Oct  bal  +418.16  eq  +136.35  open  -281.81
+  Mon 12 Oct  bal  +419.82  eq   +79.79  open  -340.03
+  Tue 13 Oct  bal  +440.08  eq   +73.84  open  -366.23
+  Wed 14 Oct  bal  +462.19  eq  +135.69  open  -326.50
+  Thu 15 Oct  bal  +439.95  eq   +55.75  open  -384.20
+  Fri 16 Oct  bal  +492.72  eq   -21.85  open  -514.56
+  Sat 17 Oct  bal  +379.61  eq   -78.50  open  -458.11
+  Sun 18 Oct  bal  +379.61  eq   -78.50  open  -458.11
+  Mon 19 Oct  bal  +402.62  eq   -95.02  open  -497.64
+  Tue 20 Oct  bal  +442.78  eq   +12.90  open  -429.88
+
+at the low (Fri 16 Oct 14:30Z), per cell: balance, open
+  AUDCAD|ALT   bal   +37.70 open   -31.11
+  AUDCAD|OPT   bal   +28.63 open   -22.52
+  AUDCHF|ALT   bal   +48.72 open   -52.06
+  AUDCHF|OPT   bal   +30.69 open   -45.66
+  CADCHF|ALT   bal   +45.89 open   -19.93
+  CADCHF|OPT   bal   +33.01 open   -25.09
+  EURGBP|ALT   bal   +24.40 open   -49.37
+  EURGBP|OPT   bal   +17.02 open   -62.41
+  EURUSD|ALT   bal   +53.36 open   -46.15
+  EURUSD|OPT   bal   -37.37 open   -32.36
+  GBPUSD|ALT   bal  +102.00 open  -105.14
+  GBPUSD|OPT   bal   +46.71 open   -72.78
+
+FTMO-day losses in order: 01 Oct 120 02 Oct 198 03 Oct 179 04 Oct 235 05 Oct 297 06 Oct 280 07 Oct 292 08 Oct 317 09 Oct 284 10 Oct 282 11 Oct 364 12 Oct 355 13 Oct 366 14 Oct 450 15 Oct 473 16 Oct 627 17 Oct 458 18 Oct 501 19 Oct 498 20 Oct 487
+days over $300: 11; first Thu 08 Oct
+days over $500: 2; first Fri 16 Oct
+Instant trailing max loss: largest (highest balance so far - equity) 641.92 at Fri 16 Oct 14:30Z (limit $1,000 on $10k)

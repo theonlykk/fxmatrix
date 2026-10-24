@@ -1,0 +1,19 @@
+OCTOBER (1-20 Oct, day-end marks), USD at 0.01 lots; missing: ['EURGBP OPT 5']
+pair    arm  add       net     worst  closes     comm     gross
+GBPUSD  OPT    9    -16.78    -16.78     324    19.44     +2.66
+GBPUSD  ALT   15     +7.51     -1.91     116     6.96    +14.47
+EURUSD  OPT    7    -36.12    -60.84     490    29.40     -6.72
+EURUSD  ALT   23    +45.44     -8.78      57     3.42    +48.86
+EURGBP  ALT   23    -41.14    -41.14      10     0.60    -40.54
+AUDCAD  OPT   18    +19.90     -7.45      47     2.82    +22.72
+AUDCAD  ALT   26    +12.95     -4.81      22     1.32    +14.27
+AUDCHF  OPT   14     +3.95    -17.95      45     2.70     +6.65
+AUDCHF  ALT   20    +21.91     -8.49      23     1.38    +23.29
+CADCHF  OPT   10    +21.63    -11.00      65     3.90    +25.53
+CADCHF  ALT   17    +31.16     -1.61      26     1.56    +32.72
+
+Fleet (11 cells): net +70.42, worst equity -39.53, max drawdown -216.24, worst day -88.11 (2026-10-15), best day +132.90
+Fleet path:  +0 10-01 -39 10-02 +46 10-03 +46 10-04 +46 10-05 +62 10-06 +45 10-07 +69 10-08 +165 10-09 +153 10-10 +153 10-11 +153 10-12 +124 10-13 +177 10-14 +124 10-15 +36 10-16 -40 10-17 -40 10-18 -40 10-19 +93 10-20 +70
+Commission 73.50, net +70.42, gross before commission +143.92 (commission / gross = 51%)
+
+CALM (8 Aug-Sep weeks, flat starts), fleet USD per week: +93.1 +49.7 -43.8 -58.2 +137.7 +125.1 -66.7 -21.2 | total +215.58, worst week -66.72, weeks > 0: 4 / 8

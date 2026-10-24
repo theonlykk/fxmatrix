@@ -3028,4 +3028,18 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`railway variable delete` (CLI 5.52) applies with no redeploy** (the dashboard showed no staged-changes banner;
   `railway deployment list` no new deployment): the running container keeps the old value until the next deploy.
 
-Line count: 3031
+## TRAPS FROM 2026-10-24 DAY (A ROLL CLOSES NOTHING; FTMO COUNTS CARRIED LOSSES; DAY-END MARKS; A WAIT LOOP)
+
+- **A lattice roll does not close a layer:** the highest-entry long not yet rolled gets a virtual level (one add below
+  the deepest) and its exit moves to that level + exit (`grind_engine.mqh` 1025-1097); the position stays open and the
+  loss is realised only when that exit fills. Do not explain a roll as an immediate realised loss (24 Oct: it was,
+  in chat, and corrected).
+- **FTMO's daily loss counts floating losses carried from earlier days:** day-start BALANCE - the day's lowest EQUITY.
+  A grid that banks scalps while its stacks sit open shows a balance well above equity, and the whole gap counts
+  against every day (t3 October replay: $497-$627 from 14 Oct at 0.01 lots).
+- **Day-end marks understate a fleet's drawdown:** t3 October $216 at day ends, $309 on 5-minute marks; FTMO-day loss
+  $88 worst day-to-day change against $627 by FTMO's measure. Use intraday marks and FTMO's own formula.
+- **A wait loop `while pgrep -f "<pattern>"` matches its own command line** and never ends (24 Oct: a background task
+  hit its one-hour limit after the runs had finished). Wait on the output file instead.
+
+Line count: 3045

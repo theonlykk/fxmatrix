@@ -1,0 +1,26 @@
+| measure | calm BASE | calm BUDGET | October BASE | October BUDGET |
+|---|---|---|---|---|
+| fleet net USD | +229.86 | +104.03 | -13.86 | +40.07 |
+| commission | 134.16 | 98.04 | 81.30 | 55.02 |
+| gross | +364.02 | +202.07 | +67.44 | +95.09 |
+| OPT S | 1724 | 1203 | 969 | 628 |
+| OPT R | 107 | 26 | 133 | 36 |
+| OPT A | 133 | 31 | 160 | 44 |
+| worst calm week | -68.16 | -70.53 | | |
+| largest FTMO-day loss | | | 616.52 | 613.63 |
+| days > $300 / > $500 | | | 11 / 3 | 15 / 5 |
+| max peak-to-trough | | | 325.72 | 278.88 |
+
+| pair | calm BASE | calm BUDGET | October BASE | October BUDGET |
+|---|---|---|---|---|
+| GBPUSD | +94.91 | +57.96 | -21.72 | +4.30 |
+| EURUSD | +36.81 | -18.29 | +2.13 | -6.95 |
+| EURGBP | +31.99 | +13.79 | -101.02 | -84.06 |
+| AUDCAD | +60.85 | +42.89 | +32.83 | +23.50 |
+| AUDCHF | -8.57 | -3.80 | +25.65 | +48.64 |
+| CADCHF | +13.87 | +11.48 | +48.27 | +54.64 |
+
+criterion 1 (calm net >= 80% of BASE): False (45%)
+criterion 2 (October net >= BASE - $20): True (+53.93)
+criterion 3 (October FTMO-day loss <= 80%, or both periods >= 120%): False (100%; both +144.10 vs +216.00)
+VERDICT: NOT WORTH IT
