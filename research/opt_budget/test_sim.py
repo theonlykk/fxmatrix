@@ -71,7 +71,8 @@ def test_l0_fill_and_scalp():
     # tick 0 places the buy L0 at 1.09981 (one ENT a tick), tick 1 the sell at 1.10021; ask 1.09981 fills the buy at
     # 1.09981 (deal at +261 ms at the market then: the same tick's ask); its exit rests at 1.10051; bid 1.10051 fills
     # it: one scalp, +7.0 pips, not rolled
-    tk = ticks_from([1.10002, 1.10002, 1.09981, 1.09981, 1.10010, 1.10053, 1.10053])
+    # (the last tick only lets the close-by complete: it is sent on the tick after the exit's deal, +294 ms)
+    tk = ticks_from([1.10002, 1.10002, 1.09981, 1.09981, 1.10010, 1.10053, 1.10053, 1.10053])
     r = sim.run_single(tk, cfg(7.0), carry_rows=None)
     closes = [(c.side, c.entry, c.exit, c.rolled) for c in r.closes]
     assert closes == [("L", 1.09981, 1.10051, False)]
@@ -82,7 +83,7 @@ def test_roll_at_cap_and_rolled_close():
     # ask 1.09841 rolls L0 (highest entry) to VL 1.09841, its exit moves to 1.09911 (VL + 7); bid 1.09911 fills it:
     # a rolled close, 1.09911 - 1.09981 = -7.0 pips
     tk = ticks_from([1.10002, 1.10002, 1.09981, 1.09981, 1.09911, 1.09911, 1.09841, 1.09841, 1.09841,
-                     1.09880, 1.09913, 1.09913])
+                     1.09880, 1.09913, 1.09913, 1.09913])   # (last tick: the close-by completes)
     r = sim.run_single(tk, cfg(7.0, cap=2), carry_rows=None)
     assert r.rolls == 1
     rolled = [(c.entry, c.exit) for c in r.closes if c.rolled]
