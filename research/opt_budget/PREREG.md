@@ -67,4 +67,14 @@ Else **NOT WORTH IT** (the idea stops here, no EA code). Either way the per-pair
 In-sample adds (sweep11); one October path; every pair on the EURUSD chart in the replay; the simulator is not the
 harness (C1-C3 bound the gap); OPT and ALT share no slot, cap or roll gate (they are separate instances live).
 
-Line count: 70
+
+## 9. CALIBRATION RESULT AND AMENDMENT A1 (24 Oct; before any BUDGET run)
+
+**October (BASE, `runs.py oct`): C1 PASS** (every cell's closes within 4% of the replay's); **C2 PASS** (fleet net
+-$13.86 against +$15.59); **C3 PASS** (largest FTMO-day loss $616.52 against $626.51, -2%; max peak-to-trough $325.72
+against $308.57, +6%).
+**Calm (BASE, `runs.py calm`): C2 PASS** (fleet net +$229.86 against +$215.05); **C1 FAILED on two cells:** EURGBP ALT
+4 closes against 5 (-20%: one close in five) and CADCHF ALT 36 against 31 (+16%); the other ten within 5%.
+**A1 (operator, 24 Oct, asked before any BUDGET run): C1 reads "within +-15% or +-5 closes, whichever is larger".**
+Both cells pass under A1. Nothing else changes.
+Line count: 80
