@@ -84,12 +84,14 @@ class Close:
 
 
 # ---------------------------------------------------------------- pure rules (tested)
-def budget(a):
+def budget(a, variant="B"):
+    if variant == "B2":                      # PREREG_B2.md: two sections of four (cap 7: layers 1-4, 5-7)
+        return 4 if a <= 4 else 7
     return 3 if a <= 3 else (6 if a <= 6 else 7)
 
 
-def opt_add_target(d, a, own, alt_resting):
-    if d < budget(a):
+def opt_add_target(d, a, own, alt_resting, variant="B"):
+    if d < budget(a, variant):
         return own
     if d < 7 and a == d and alt_resting is not None:
         return alt_resting
@@ -200,6 +202,7 @@ class Instance:
         self.rolls = 0
         self.peer = None          # ALT instance, for OPT under the budget
         self.budget = False
+        self.variant = "B"
         self.bid = self.ask = None
         self.ent_sent = False
 
@@ -273,7 +276,7 @@ class Instance:
         if own is None or not (self.budget and self.peer is not None):
             return own
         a = self.peer.side[s].depth()
-        return opt_add_target(sd.depth(), a, own, self.peer.resting_add_price(s, t))
+        return opt_add_target(sd.depth(), a, own, self.peer.resting_add_price(s, t), self.variant)
 
     def _add_px(self, sd, tgt):
         px = clamp_buy(tgt, self.bid) if sd.is_long else clamp_sell(tgt, self.ask)
@@ -549,9 +552,9 @@ def run_single(ticks, cfg, carry_rows=None, sessions=None):
     return it
 
 
-def run_pair(ticks, cfg_opt, cfg_alt, carry_rows=None, budget=False, sessions=None):
+def run_pair(ticks, cfg_opt, cfg_alt, carry_rows=None, budget=False, sessions=None, variant="B"):
     alt = Instance(cfg_alt, "ALT")
     opt = Instance(cfg_opt, "OPT")
-    opt.peer, opt.budget = alt, budget
+    opt.peer, opt.budget, opt.variant = alt, budget, variant
     marks = run_instances(ticks, [alt, opt], carry_rows, sessions)
     return PairResult(opt=opt, alt=alt, marks=marks)

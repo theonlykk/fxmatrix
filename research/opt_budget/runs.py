@@ -68,7 +68,7 @@ def window(ticks, a, b):
     return ticks[bisect.bisect_left(ts, a):bisect.bisect_right(ts, b)]
 
 
-def run(period, data, budget, pairs):
+def run(period, data, budget, pairs, variant="B"):
     sessions = load_sessions(os.path.join(data, "sessions_eurusd_ic.csv"))
     out = {}
     for pair in pairs:
@@ -91,7 +91,8 @@ def run(period, data, budget, pairs):
             assert so["from_ms"] == sa["from_ms"] and so["to_ms"] == sa["to_ms"] and so["ticks_file"] == sa["ticks_file"]
             co, ca = seg_cfg(so), seg_cfg(sa)
             tk = window(tk_all, int(so["from_ms"]), int(so["to_ms"]))
-            r = sim.run_pair(tk, co, ca, carry_rows=swaps if co.carry else None, budget=budget, sessions=sessions)
+            r = sim.run_pair(tk, co, ca, carry_rows=swaps if co.carry else None, budget=budget, sessions=sessions,
+                             variant=variant)
             def summ(it):
                 S = sum(1 for c in it.closes if not c.rolled)
                 R = sum(1 for c in it.closes if c.rolled)
@@ -113,7 +114,8 @@ if __name__ == "__main__":
     ap.add_argument("--out", required=True)
     ap.add_argument("--budget", action="store_true")
     ap.add_argument("--pairs", default=",".join(T3))
+    ap.add_argument("--variant", default="B", choices=["B", "B2"])
     a = ap.parse_args()
-    res = run(a.period, a.data, a.budget, a.pairs.split(","))
+    res = run(a.period, a.data, a.budget, a.pairs.split(","), a.variant)
     with open(a.out, "w") as f:
         json.dump(res, f)
