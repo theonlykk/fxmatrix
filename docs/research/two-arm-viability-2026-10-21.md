@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **ANSWERED IN PART (22 Oct ~03:25Z, s8): the daily rule passes nothing; over the period every wide geometry covers OPT; the next step is E with narrower ALT adds (s8.4).** Written 21 Oct ~20:05Z (HANDOFF s87 continued 2); s5 rewritten ~20:10Z with the operator's definition of "stabilise" (a meaningful offset of OPT's losses by the wider arm's gains; the 0.25 mark Claude's placeholder). The surface (sweep9, s6) to be built and pre-registered next |
+| Status | **OPEN (operator CONFIRMED 24 Oct ~03:50Z, HANDOFF s90): E's live weeks against D's t1 set on the same six pairs are the out-of-sample test (s8.7); a reload of E after its first week NOT ruled.** Before: **ANSWERED IN PART (22 Oct ~03:25Z, s8): the daily rule passes nothing; over the period every wide geometry covers OPT; the next step is E with narrower ALT adds (s8.4).** Written 21 Oct ~20:05Z (HANDOFF s87 continued 2); s5 rewritten ~20:10Z with the operator's definition of "stabilise" (a meaningful offset of OPT's losses by the wider arm's gains; the 0.25 mark Claude's placeholder). The surface (sweep9, s6) to be built and pre-registered next |
 | Owner | The operator (Lead Quant); Claude (Lead Engineer) builds and reads the replay |
 | Evidence so far | sweep8 on EURUSD (`research/replay/results/sweep_notes.md`, sweep8 and its result); the live EURUSD rolls of B, C, D 1-20 Oct (s3); the two-arm fleets built today (D, C; E tonight) |
 | Related | `docs/research/fleet-d-two-arm-ring-2026-10-16.md` (why ALT); `research/alt_adds/results_2026-10-17.md` (ALT's adds, fitted on 1-16 Oct); backlog C157, C160 (DUP), C162 (this question) |
@@ -192,8 +192,8 @@ as post hoc. E attached on t3 23 Oct 03:04-03:25Z; its first fill 03:29:01Z.
 - **Where s1's question stands:** in-sample, the two-set geometry ends positive over both regimes on four of the six
   pairs and as a fleet; EURGBP (a one-way fall in October) and AUDCHF (a one-way drift up in four of the calm weeks)
   are the trend cases where nothing here earns. Out of sample is live: E's weeks, beside D's t1 set on the same six
-  pairs. **Status: OPEN, E's live weeks against D are the test** (the previous chat's reading, 23 Oct; the operator to
-  confirm).
+  pairs. **Status: OPEN, E's live weeks against D are the test** (the previous chat's reading, 23 Oct; CONFIRMED by the
+  operator 24 Oct ~03:50Z, HANDOFF s90).
 - **Not yet measured:** the calm-period drift at the t3 adds (weekly flat starts hide it, 8.3); ALT's live roll steps
   and open book per pair; whether a first-week read may reload E (not ruled; E's runbook s10 still says no change
   except for a defect).
