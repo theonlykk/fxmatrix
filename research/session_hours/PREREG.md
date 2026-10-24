@@ -77,4 +77,25 @@ An era has a DIRECTION when, pooled over its pairs:
 - Open layers carry no outcome and are more often the late ones of an era: reported per block, not scored.
 - ADR-161's fixed window only; any other window needs an EA change (the full pipeline) and would be chosen
   in-sample. The study cannot say which window is best, only whether this one separates outcomes.
-Line count: 80
+## 8. RESULT (24 Oct ~03:40Z; `results.md` from `session_hours.py` unchanged, at `3cdcedb`)
+
+**Self-checks all clean:** 22 / 22 hashes; unlinked 0.13% (A), 0.36% (B), 0.11% (D1), 0.26% (D2), each under
+5%; closed layers A 793, B 1,379, D1 891 (each over 200); inside + outside and the four blocks sum to every
+era's total; no other broker offset.
+
+**VERDICT by the rule: NOT WORTH IT.** No era has a direction: in all three, layers entered OUTSIDE the window
+roll slightly more often (A 16.0% against 14.2%, B 16.0 / 14.6, D1 16.5 / 15.2) but earn MORE per closed layer
+(A +0.080 against +0.063 USD, B +0.173 / +0.097, D1 +0.078 / -0.064); the pairs split (outside worse on 2 of
+7, 5 of 9, 3 of 6). Session gating by ADR-161's window is dropped; the regime stays the axis.
+
+**Predictions:** (1) NOT WORTH IT: HELD. (2) LDN_AM the highest roll rate in two of three: FAILED (the
+highest: NY_PM in A 22.8% and D1 19.8%, ASIA in B 17.2%); LDN_AM is the best or second-best block on net per
+closed layer in all three (+0.185, +0.276, +0.300).
+
+**Beside the rule (post hoc, not deciding):** NY_PM (16-21Z) is the worst block in all three eras (net -69.88,
+-10.94, -32.03 USD), but the whole loss is ONE afternoon, Wed 14 Oct (the 14-16 Oct roll flurry): entries
+16-21Z that day -143.5 (19 rolled of 19 closed) on A, -116.4 (17 / 22) on B, -107.1 (16 / 17) on D1. Without
+it NY_PM is positive in all three (+73.6, +105.5, +75.0). The hour carries no effect the episode does not;
+14 Oct belongs to C153's autopsy, not to a session rule.
+
+Line count: 101
