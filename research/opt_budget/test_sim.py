@@ -106,3 +106,17 @@ def test_budget_cluster_entries():
     # rests, the next ask 1.09751 does not touch, 1.09521 does -> 1.09521; then 1.09451 rests, 1.09291 fills it;
     # 1.09221 fills the 7th
     assert [l.entry for l in base.opt.book("L")] == [1.09981, 1.09911, 1.09841, 1.09771, 1.09521, 1.09291, 1.09221]
+
+
+# ---------------------------------------------------------------- variant B2 (PREREG_B2.md): two sections of four
+def test_budget_b2():
+    # B2(a) = 4 if a <= 4, 7 if a >= 5
+    assert [sim.budget(a, "B2") for a in range(8)] == [4, 4, 4, 4, 4, 7, 7, 7]
+
+
+def test_opt_add_target_b2():
+    assert sim.opt_add_target(d=3, a=1, own=1.09771, alt_resting=None, variant="B2") == 1.09771
+    assert sim.opt_add_target(d=4, a=3, own=1.09701, alt_resting=1.09291, variant="B2") is None
+    assert sim.opt_add_target(d=4, a=4, own=1.09701, alt_resting=1.09061, variant="B2") == 1.09061
+    assert sim.opt_add_target(d=4, a=5, own=1.08991, alt_resting=1.08831, variant="B2") == 1.08991
+    assert sim.opt_add_target(d=6, a=5, own=1.08851, alt_resting=1.08831, variant="B2") == 1.08851
