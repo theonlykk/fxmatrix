@@ -648,5 +648,40 @@ class Sweep11(unittest.TestCase):
                 sw.get_set(bad)
 
 
+# swcap (24-25 Oct, research/opt_budget/PREREG_CAP.md; the operator ~02:22Z "proceed"): the harness check of the
+# simulator's OPT cap 9. Only t3's OPT add per pair, cap 9, add = exit, everything else as the cell it is compared with
+# (sw11w for the calm weeks, sw9 / sw10 / sw11o for October). Hand values (t3 OPT adds; widths as sw11's rule):
+CAP9 = {"eurusd": (7, 2.0), "gbpusd": (9, 2.5), "eurgbp": (5, 1.5), "audcad": (18, 4.5), "audchf": (14, 3.5),
+        "cadchf": (10, 2.5)}
+
+
+class SweepCap9(unittest.TestCase):
+    def test_calm_one_cell_cap9(self):
+        for pair, (add, w) in CAP9.items():
+            st = sw.get_set("swcapw_" + pair)
+            self.assertEqual(st["geoms"], (("a%de%dn9" % (add, add), float(add), float(add), 9, None, None, w),), pair)
+            self.assertEqual(st["windows"], sw.get_set("sw11w_" + pair)["windows"])
+            self.assertEqual(st["ticks"], "ticks_53077984_%s__h8w.csv" % pair.upper())
+            self.assertEqual(st["sessions"], "sessions_eurusd_ic.csv")
+            rows = sw.build_rows(st["windows"], st["geoms"], st["base"], st["ticks"])
+            self.assertEqual(len(rows), 8)
+            for r in rows:
+                self.assertEqual((r["carry"], r["cap"], r["add_l"], r["exit_l"]), (0, 9, float(add), float(add)))
+
+    def test_october_one_cell_cap9(self):
+        for pair, (add, w) in CAP9.items():
+            st = sw.get_set("swcapo_" + pair)
+            self.assertEqual(st["geoms"], (("a%de%dn9" % (add, add), float(add), float(add), 9, None, None, w),), pair)
+            self.assertEqual(st["windows"], (("oct", "2026-10-01 04:00", "2026-10-20 23:45"),))
+            self.assertEqual(st["base"]["carry"], 1)
+        self.assertEqual(sw.get_set("swcapo_eurusd")["ticks"], "ticks_53077984_EURUSD_w2hw.csv")
+        self.assertEqual(sw.get_set("swcapo_cadchf")["ticks"], "ticks_53077984_CADCHF_oct.csv")
+
+    def test_no_other_swcap_tags(self):
+        for bad in ("swcapw_gbpchf", "swcapo_nzdcad", "swcap_eurusd"):
+            with self.assertRaises(KeyError):
+                sw.get_set(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
