@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3), for review (Argon or Gemini, s8).** |
+| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3), for review: Argon (`prompts/argon_review_c_t2.md`; reply `reviews/argon_review_c_t2.md` on `review/argon-c-t2`), s8.** |
 | Ruled | The operator 25 Oct ~04:10-04:14Z: C first (not D or E: the guard; E stays as it is), AUDCAD OPT 6 -> 18 with cap 9, reviewed before Monday, in session |
 | Evidence | `research/opt_budget/PREREG_CAP.md` (simulator: cap 9 BETTER); `research/replay/results/sweep_notes.md` swcap (harness: CONFIRMED, both periods +$336.00 against +$230.64 at cap 7) |
 | Uses | `main` with `ea/presets_c/{eurusd,audcad}_opt_c_t2.set` (fingerprint s1), `research/opt_budget/check_c_t2.py`; twoarm-build-c s2 and s4 (the commands); cap10-reload s4.4 (Remove then Attach, Gemini GW-5) |
