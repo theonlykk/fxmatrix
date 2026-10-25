@@ -120,3 +120,22 @@ def test_opt_add_target_b2():
     assert sim.opt_add_target(d=4, a=4, own=1.09701, alt_resting=1.09061, variant="B2") == 1.09061
     assert sim.opt_add_target(d=4, a=5, own=1.08991, alt_resting=1.08831, variant="B2") == 1.08991
     assert sim.opt_add_target(d=6, a=5, own=1.08851, alt_resting=1.08831, variant="B2") == 1.08851
+
+
+# ---------------------------------------------------------------- the cap sweep (PREREG_CAP.md)
+def test_opt_cap_override():
+    # runs.opt_cfg(row, cap): the run file's OPT geometry with the cap replaced
+    import runs
+    row = {"width_l": "2.0", "add_l": "7.0", "exit_l": "7.0", "cap": "7", "stranded": "3.0", "deadband": "2.0",
+           "lattice": "1", "reroll": "1", "gate": "0", "carry": "1"}
+    c = runs.opt_cfg(row, 11)
+    assert (c.cap, c.add, c.exit, c.width, c.carry) == (11, 7.0, 7.0, 2.0, True)
+    assert runs.opt_cfg(row, None).cap == 7
+
+
+def test_cap9_holds_nine():
+    # every 7 pips touched (two ticks a level): cap 9 holds 1.09981 down to 1.09421 (9 layers), no 10th
+    levels = [round(1.09981 - 0.0007 * k, 5) for k in range(11)]
+    path = [1.10002, 1.10002] + [x for lv in levels for x in (lv, lv)]
+    r = sim.run_single(ticks_from(path), cfg(7.0, cap=9), carry_rows=None)
+    assert [l.entry for l in r.book("L")] == levels[:9]
