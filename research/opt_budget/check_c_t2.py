@@ -1,11 +1,12 @@
-"""Check C's two t2 presets against the live t1 presets (run from the repo root):
+"""Check C's three t2 presets against the live t1 presets (run from the repo root):
 
     python research/opt_budget/check_c_t2.py
 
 Read-only; standard library only. `ea/presets_c/<pair>_opt_c_t2.set` must equal `<pair>_opt_c_t1.set` line for line
 (same keys, same order) except the values written here by hand (the operator 25 Oct ~04:14Z; sweep_notes swcap):
 EURUSD OPT: InpMaxLayers 9 and the warning; AUDCAD OPT: add = exit 18.0, width 4.5 (add / 4, up to the half pip),
-stranded 5.5 (width + 1), InpMaxLayers 9 and the warning.
+stranded 5.5 (width + 1), InpMaxLayers 9 and the warning; GBPCHF OPT: InpMaxLayers 9 and the warning (the operator
+25 Oct ~21:31Z, "better to be consistent"; GBPCHF never replayed: a live test).
 """
 import os
 import sys
@@ -17,6 +18,7 @@ WANT = {
     "EURUSD": {"InpMaxLayers": "9", "InpConfigWarning": WARN % ("EURUSD", 7.0, 2.0)},
     "AUDCAD": {"InpAddPips": "18.0", "InpExitPips": "18.0", "InpWidthPips": "4.5", "InpStrandedThreshPips": "5.5",
                "InpMaxLayers": "9", "InpConfigWarning": WARN % ("AUDCAD", 18.0, 4.5)},
+    "GBPCHF": {"InpMaxLayers": "9", "InpConfigWarning": WARN % ("GBPCHF", 9.0, 2.5)},
 }
 
 
@@ -48,7 +50,7 @@ def check(pair):
 
 def main():
     bad = 0
-    for pair in ("EURUSD", "AUDCAD"):
+    for pair in ("EURUSD", "AUDCAD", "GBPCHF"):
         f = check(pair)
         bad += len(f)
         print("%s OPT t2: %s" % (pair, "OK" if not f else "; ".join(f)))

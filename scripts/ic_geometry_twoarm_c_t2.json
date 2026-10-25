@@ -1,5 +1,5 @@
 {
-  "status": "TWO-ARM t2, FLEET C, OPT ONLY (HANDOFF s90 continued 3; research/opt_budget/PREREG_CAP.md, sweep_notes swcap CONFIRMED): EURUSD OPT cap 7 -> 9 (add 7 unchanged); AUDCAD OPT add = exit 6 -> 18 and cap 7 -> 9 (the operator 25 Oct ~04:14Z). C's ALT charts and GBPCHF OPT stay on t1. Checked by research/opt_budget/check_c_t2.py.",
+  "status": "TWO-ARM t2, FLEET C, OPT ONLY (HANDOFF s90 continued 3; research/opt_budget/PREREG_CAP.md, sweep_notes swcap CONFIRMED): EURUSD OPT cap 7 -> 9 (add 7 unchanged); AUDCAD OPT add = exit 6 -> 18 and cap 7 -> 9 (the operator 25 Oct ~04:14Z). GBPCHF OPT cap 7 -> 9 (add 9 unchanged; the operator 25 Oct ~21:31Z: \"better to be consistent\"; GBPCHF never replayed: a live test). C's ALT charts stay on t1. Checked by research/opt_budget/check_c_t2.py.",
   "round": "t2",
   "cap": 9,
   "deadband": 2.0,
@@ -9,6 +9,6 @@
   "template": {"GBPCHF": "EURUSD"},
   "fleets": {
     "C": {"account": "IC Markets demo 53071896", "box": "wine-c",
-          "pairs": {"EURUSD": {"OPT": 7}, "AUDCAD": {"OPT": 18}}}
+          "pairs": {"EURUSD": {"OPT": 7}, "AUDCAD": {"OPT": 18}, "GBPCHF": {"OPT": 9}}}
   }
 }

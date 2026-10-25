@@ -1,39 +1,50 @@
 This message has a line count at the bottom
 
-# RUNBOOK -- FLEET C's OPT RELOAD TO t2 (wine-c, IC 53071896): EURUSD OPT CAP 9; AUDCAD OPT ADD = EXIT 18, CAP 9
+# RUNBOOK -- FLEET C's OPT RELOAD TO t2 (wine-c, IC 53071896): EURUSD OPT CAP 9; AUDCAD OPT ADD = EXIT 18, CAP 9; GBPCHF OPT CAP 9
 
 | | |
 |---|---|
-| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5); REVIEWED by Argon (Gemini 4 Argon in Antigravity, ~06:40Z): `reviews/argon_review_c_t2.md` on `review/argon-c-t2` (678 lines, 493 quotes all equal to `339923f`), GO WITH CHANGES, the one change (s5: 6 or fewer, 7(a)) applied ~06:55Z (HANDOFF s91 continued). **RULED by the operator ~17:51Z 25 Oct (HANDOFF s91 continued 2): the reload TONIGHT from 22:30Z (he picks the minute); s3 step 6 kept (take time on the pilot, quicker on AUDCAD if under control); AUDCAD's resting L0 accepted as is (s0.2). C's book read ~17:45Z (s0.2); wine-c staged ~17:48Z (s2.2-s2.4 done, the t1 presets present).** |
+| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5); REVIEWED by Argon (Gemini 4 Argon in Antigravity, ~06:40Z): `reviews/argon_review_c_t2.md` on `review/argon-c-t2` (678 lines, 493 quotes all equal to `339923f`), GO WITH CHANGES, the one change (s5: 6 or fewer, 7(a)) applied ~06:55Z (HANDOFF s91 continued). **RULED by the operator ~17:51Z 25 Oct (HANDOFF s91 continued 2): the reload TONIGHT from 22:30Z (he picks the minute); s3 step 6 kept (take time on the pilot, quicker on AUDCAD if under control); AUDCAD's resting L0 accepted as is (s0.2). C's book read ~17:45Z (s0.2); wine-c staged ~17:48Z (s2.2-s2.4 done, the t1 presets present).** **ADDED ~21:31Z (HANDOFF s91 continued 6): GBPCHF OPT cap 7 -> 9 (the operator: "better to be consistent"; ALT stays at 7); GBPCHF was never replayed, so its cap 9 is a live test, not a measured one; the third chart after AUDCAD; the fingerprint now 3 files; wine-c to restage (s2.2-s2.4); s0.2 re-read at the open ~21:31Z.** |
 | Ruled | The operator 25 Oct ~04:10-04:14Z: C first (not D or E: the guard; E stays as it is), AUDCAD OPT 6 -> 18 with cap 9, reviewed before Monday, in session |
 | Evidence | `research/opt_budget/PREREG_CAP.md` (simulator: cap 9 BETTER); `research/replay/results/sweep_notes.md` swcap (harness: CONFIRMED, both periods +$336.00 against +$230.64 at cap 7) |
-| Uses | `main` with `ea/presets_c/{eurusd,audcad}_opt_c_t2.set` (fingerprint s1), `research/opt_budget/check_c_t2.py`; twoarm-build-c s2 and s4 (the commands); cap10-reload s4.4 (Remove then Attach, Gemini GW-5) |
+| Uses | `main` with `ea/presets_c/{eurusd,audcad,gbpchf}_opt_c_t2.set` (fingerprint s1), `research/opt_budget/check_c_t2.py`; twoarm-build-c s2 and s4 (the commands); cap10-reload s4.4 (Remove then Attach, Gemini GW-5) |
 | When | Monday 26 Oct in session, spreads normal: not before 22:30Z Sunday, never 20:50-21:15Z, not within 30 minutes of a tier-1 release. The operator picks the minute. Never with the market closed. **Calendar (checked 25 Oct, Newsquawk's week ahead): Monday has no tier-1 release (German Ifo, Swedish PPI, a US Treasury buyback, China's Fifth Plenum opens); keep clear of Ifo's morning release. The week is heavy later: Wed 28 Oct Australian CPI, the BoC (a hike largely priced), the Fed, the RBNZ; Thu 29 Oct the ECB, US GDP and PCE; Fri 30 Oct the BoJ. AUDCAD's first days at 18 / cap 9 meet Wednesday.** |
 
-## 0. WHAT CHANGES (two charts; C's other four charts untouched)
+## 0. WHAT CHANGES (three charts; C's three ALT charts untouched)
 
 | Chart | Change | `geo=` after (L w/a/e S w/a/e) | `rebuild=` |
 |---|---|---|---|
 | EURUSD OPT (22260201) | cap 7 -> 9 | L2/7/7 S2/7/7 | false/false (exit unchanged) |
 | AUDCAD OPT (22260401) | add = exit 6 -> 18; width 1.5 -> 4.5; stranded 2.5 -> 5.5; cap 7 -> 9 | L4.5/18/18 S4.5/18/18 | true/true |
+| GBPCHF OPT (22261001) | cap 7 -> 9 | L2.5/9/9 S2.5/9/9 | false/false (exit unchanged) |
 
-Unchanged: EURUSD ALT, AUDCAD ALT, GBPCHF OPT and ALT (all t1, cap 7). ADR-153 add / width: 3.5, 4.0 (limit 4.0).
+Unchanged: EURUSD ALT, AUDCAD ALT, GBPCHF ALT (all t1, cap 7). ADR-153 add / width: 3.5, 4.0 (limit 4.0).
 
 **One worked example (AUDCAD OPT long, prices):** layers at 0.9800 and 0.9794 (6 apart), exits resting at 0.9806 and
 0.9800, the next add at 0.9788. After the reload the start-up rebuilds the exits to 0.9818 and 0.9812 (entry + 18) and
 moves the next add to 0.9776 (deepest - 18). Nothing fills at once: the exits move AWAY from the market (1 Oct's
 rebuild moved them closer).
 
-## 0.2 THE BOOK BEFORE THE RELOAD (pipshed `linuxc`, ~17:45Z Sun 25 Oct; unchanged since Friday's close)
+## 0.2 THE BOOK BEFORE THE RELOAD (pipshed `linuxc`, re-read at the open ~21:31Z Sun 25 Oct)
 
-- **EURUSD OPT:** long 6 (L03-L08, 1.12313 ... 1.11964), short 2; none rolled; the long's add `L09` rests at 1.11894
-  (the next index, so cap 9 keeps it, `grind_engine.mqh` 2506). One more long fill and s5's rollback needs a flatten.
-- **AUDCAD OPT:** short **7 at cap** (L00-L06, 0.98167 ... 0.9853), none rolled (each exit = entry - 6); long flat. After
-  the reload the short adds again at 18: the next at 0.9871 (0.9853 + 18); its two resting exits rebuild to L00 0.97987
-  and L06 0.9835 (away from price). **s5's rollback is closed from the start (7 > 6): flatten only.**
-- **AUDCAD's resting long L0 (BUY_LIMIT 0.98579, placed at width 1.5) is KEPT:** L0 is placed once and left
-  (`grind_engine.mqh` 2067-2070); it moves to mid - 4.5 only when mid is more than 5.5 pips (stranded) from it
-  (3046-3070). The first long fill may come about 3 pips tighter than t2's width. Accepted (the operator, (a)).
+- **EURUSD OPT:** long 5 (L03-L07, 1.12313 ... 1.12034), short 3 (L00 1.11915, L01 1.1199, L02 1.12207 filled in the
+  open's gap); none rolled; adds resting `L08` 1.11964 (long) and `L03` 1.12277 (short), each the next index, so cap 9
+  keeps them (`grind_engine.mqh` 2506). Both sides at 6 or fewer: s5's rollback is open until a side reaches 7.
+- **AUDCAD OPT:** short **7 at cap** (L00-L06, 0.98167 ... 0.9853); price rose about 19 pips over the weekend and
+  **three layers ROLLED** (virtual levels L00 0.9859, L01 0.9865, L02 0.9871; their exits 6 below); long flat, its L0
+  BUY_LIMIT re-centred (0.98711 at 21:31Z). After the reload the short stops rolling and adds at 18 from the most
+  extreme effective entry (K3): **the next short at 0.9889, then 0.9907** (cap 9), rolling again above about 0.9925.
+  Exits rebuild to the effective entry - 18: rolled L00 0.9841, L01 0.9847, L02 0.9853; L03 0.98167, L04 0.98228, L05
+  0.9829, L06 0.9835 (all away from price; only the rank-0 and furthest rest, ADR-151). **s5's rollback is closed
+  (7 > 6): flatten only.**
+- **AUDCAD's resting long L0 is KEPT at width 1.5:** L0 is placed once (`grind_engine.mqh` 2067-2070); it moves to mid
+  - 4.5 only when mid is more than 5.5 pips (stranded) from it (3046-3070, called every tick 3227-3229). The first
+  long fill may come about 3 pips tighter than t2's width. Accepted (the operator, (a)).
+- **GBPCHF OPT:** short **7 at cap** (L00-L06, 1.09772 ... 1.10315), none rolled (exit = entry - 9); long 1 (L01
+  1.10321, exit 1.10411) so the roll gate (0) holds the short from rolling. After the reload the short adds again at
+  9: **the next short at 1.10405** (1.10315 + 9). **s5's rollback is closed (7 > 6): flatten only.** Observed, not
+  changed by t2: the long's resting add `L02` at 1.10081 is 15 pips below its target (1.10321 - 9 = 1.10231); to
+  look at after the reload (a t1 behaviour).
 
 ## 0.1 AUDIT TRAIL (source at `main`, EA code `5bb5fdb`)
 
@@ -45,61 +56,65 @@ rebuild moved them closer).
 | K4 | A changed exit is rebuilt at start-up from the stored exit label (`GRIND_GEO_EXIT_<magic>_L/_S`), clamped passive where needed | `grind_carry.mqh` 614; `grind_engine.mqh` 3074-3169 | VERIFIED |
 | K5 | After an exit rebuild the one-shot add re-price moves the resting add to the new distance | `fxgrind.mq5` 289-292; `grind_engine.mqh` 2561-2575 | VERIFIED |
 | K6 | C's six charts load the Experts copy, built 21 Oct 16:21:21 (`ea_build`, C88 closed) | HANDOFF s89 continued 2 | VERIFIED (archive) |
-| K7 | Guard, by a bound: an entry needs `PositionsTotal() + OrdersTotal()` plus the fleet's non-EXT orders (counted again) `<= limit - (2 + 4 + reserve)`, reserve 8 when not near the market (C's presets `InpSlotNearReserve=8`): 194 near, 186 far on a 200 limit. Per side at most cap + 3 (cap - 1 layers, two exits, the resting add counted twice; at cap: cap + 2), so per instance 2 x (cap + 3): C after t2 = 2 x 24 + 4 x 20 = **128** with every side of all six full at once | `grind_exitq.mqh` 115-182; `grind_config.mqh` 9-10; `fxgrind.mq5` 40 | VERIFIED (bound; plus 1 per close-by in flight) |
+| K7 | Guard, by a bound: an entry needs `PositionsTotal() + OrdersTotal()` plus the fleet's non-EXT orders (counted again) `<= limit - (2 + 4 + reserve)`, reserve 8 when not near the market (C's presets `InpSlotNearReserve=8`): 194 near, 186 far on a 200 limit. Per side at most cap + 3 (cap - 1 layers, two exits, the resting add counted twice; at cap: cap + 2), so per instance 2 x (cap + 3): C after t2 = 3 x 24 + 3 x 20 = **132** with every side of all six full at once | `grind_exitq.mqh` 115-182; `grind_config.mqh` 9-10; `fxgrind.mq5` 40 | VERIFIED (bound; plus 1 per close-by in flight) |
 
 ## 1. BEFORE (Claude, sandbox)
 
-- `main` carries the two `_t2` presets; fingerprint (repo root, Linux checkout):
+- `main` carries the three `_t2` presets; fingerprint (repo root, Linux checkout):
   `for f in ea/presets_c/*_t2.set; do sha256sum $f | cut -c1-64; done | sha256sum | cut -c1-12` and
-  `ls ea/presets_c/*_t2.set | wc -l` = 2. **`7ecd5b582851`, 2** (computed 25 Oct). `python research/opt_budget/check_c_t2.py`:
+  `ls ea/presets_c/*_t2.set | wc -l` = 3. **`f8d65e41f089`, 3** (computed 25 Oct ~21:35Z; before GBPCHF: `7ecd5b582851`, 2). `python research/opt_budget/check_c_t2.py`:
   `C t2 presets: ALL OK`.
 
 ## 2. ON WINE-C (ssh box2; VNC 5911: twoarm-build-c s2.1)
 
 **2.1 Read the box (VNC):** Algo Trading ON; six charts; pipshed C page (`linuxc`): six LIVE, none halted. Note
-EURUSD OPT's and AUDCAD OPT's layers per side (Trade tab, `GRIND|OPT|L|` / `GRIND|OPT|S|`).
+EURUSD OPT's, AUDCAD OPT's and GBPCHF OPT's layers per side (Trade tab, `GRIND|OPT|L|` / `GRIND|OPT|S|`).
 
 **2.2 Repo to `main`** (twoarm-build-c s2.2's command; the last line prints nothing).
 
-**2.3 Fingerprint and checker** (expected `7ecd5b582851`, then 2, then `C t2 presets: ALL OK`):
+**2.3 Fingerprint and checker** (expected `f8d65e41f089`, then 3, then `C t2 presets: ALL OK`):
 
     (cd /home/khalid/fxmatrix-repo && for f in ea/presets_c/*_t2.set; do sha256sum $f | cut -c1-64; done | sha256sum | cut -c1-12; ls ea/presets_c/*_t2.set | wc -l; python3 research/opt_budget/check_c_t2.py | tail -1)
 
 **2.4 Stage with the key** (twoarm-build-c s2.4's command with `*_t1.set` replaced by `*_t2.set` in BOTH loops;
-expected 2 lines `SAME_EXCEPT_KEY key_len=43`).
+expected 3 lines `SAME_EXCEPT_KEY key_len=43`; then `ls -la` of the three `_t1` files (the rollback)).
 
 No compile: no EA code changes; the charts keep the Experts `.ex5` of 21 Oct (K6).
 
-## 3. RELOAD EURUSD OPT, THEN AUDCAD OPT (VNC; one chart at a time; EURUSD is the pilot)
+## 3. RELOAD EURUSD OPT, THEN AUDCAD OPT, THEN GBPCHF OPT (VNC; one chart at a time; EURUSD is the pilot)
 
 **Remove, then Attach (cap10-reload s4.4, GW-5): never drag over a running EA, never F7.** Per chart (FROM = the
 minute before the Remove):
 1. Right-click the chart -> Expert Advisors -> Remove. Gate: the Experts log shows `fxgrind deinit reason=1` for
    that symbol and the EA icon is gone.
 2. Drag **Navigator -> Expert Advisors -> fxmatrix -> fxgrind** (the Experts copy) onto the chart -> Inputs -> Load
-   `<pair>_opt_c_t2.set` -> read back BEFORE OK: `InpMagic` (22260201 / 22260401), `InpTelemetryInstance`
-   (`GRIND_<PAIR>_OPTC`), width, add, exit (s0), the six per-side rows `-1.0`, **cap 9**, stranded (3.0 / 5.5),
+   `<pair>_opt_c_t2.set` -> read back BEFORE OK: `InpMagic` (22260201 / 22260401 / 22261001), `InpTelemetryInstance`
+   (`GRIND_<PAIR>_OPTC`), width, add, exit (s0), the six per-side rows `-1.0`, **cap 9**, stranded (3.0 / 5.5 / 3.5),
    deadband 2.0, lattice and re-roll true, roll gate 0, auto-eject and breaker false, the warning (`FLEET C two-arm t2
    <PAIR> OPT -: cap 9 ...`), the key row not blank. Common: Algo Trading allowed. OK; note the UTC time.
 3. The checker (twoarm-build-c s4 step 4's two commands, FROM as above). Expected one row: `deinit=1
    replay=ready(N) lattice=true reroll=true gate=0 api=1000000/999000`, `geo=` and `rebuild=` as s0, BAD 0, a POST
    ok, `telemetry dropped since FROM: 0`. The single `WARN STARTUP_EXIT_SHORTFALL long=1 short=0` (or 0 / 1) is
    allowed as in twoarm-build-c s4; 2 or more on a side is a STOP.
-4. Trade tab for that symbol: each layer's exits as K4 (AUDCAD: entry + 18 on the rank-0 and the furthest layer;
-   the middle layers' exits are held, ADR-151); the resting add at the new distance within a minute (K5).
+4. Trade tab for that symbol: EURUSD and GBPCHF: nothing moves but the short add returning (GBPCHF 1.10405, s0.2).
+   AUDCAD: the two resting exits rebuilt to the effective entry - 18 (s0.2; the middle layers' exits are held,
+   ADR-151) and a short add resting at 0.9889 within a minute (K3, K5).
 5. pipshed `linuxc`: the instance LIVE, its geometry row cap 9 (AUDCAD 18 / 18).
 6. **After the pilot only (EURUSD; RULED: no rush on the pilot): watch about 5 minutes before AUDCAD:** no new
    `WARN` or halt in the Experts log for EURUSD, its heartbeat posting on pipshed, nothing on C's other five charts
-   changed. No fill is waited for. Then AUDCAD OPT from step 1.
+   changed. No fill is waited for. Then AUDCAD OPT from step 1; then GBPCHF OPT from step 1 (no watch needed between
+   them if AUDCAD's steps 3-5 are clean).
 
 ## 4. AFTER
 
 - Tonight's carry pass (from ~21:00Z): C 6 / 6, none incomplete (01_BOOT s6's command).
-- Watch, not act: EURUSD OPT's 8th and 9th layers when they come; AUDCAD's first scalps at 18.
+- Watch, not act: the 8th and 9th layers on each OPT when they come; AUDCAD's first scalps at 18; GBPCHF's cap 9
+  (no replay behind it).
 
 ## 5. ROLLBACK (only if a chart misbehaves; tell Claude first)
 
-Remove, then Attach with `<pair>_opt_c_t1.set` (staged 21 Oct). **Roll back only when BOTH sides hold 6 layers or
+Remove, then Attach with `<pair>_opt_c_t1.set` (staged 21 Oct). **AUDCAD's and GBPCHF's shorts hold 7 now (s0.2): for
+them the rollback is a flatten.** **Roll back only when BOTH sides hold 6 layers or
 fewer** (Trade tab, counted immediately before the Remove; the same rule as twoarm-build-c s4's cap rule). Cap 9 -> 7
 trips I7 on a side holding 8 or 9 (K1); and a side at 7 under cap 9 rests its 8th layer's ENT, which the cap-7 EA
 adopts at start-up and neither cancels nor re-prices (`grind_recon.mqh` 1079-1086; `grind_engine.mqh` 2492-2528,
@@ -116,7 +131,7 @@ so the exit goes to ask + the minimum distance and closes the layer about 10 pip
 
 ## 6. NEGATIVE SPACE
 
-No compile; no change to C's other four charts, to D, E or B; no F7; no attach outside session or in 20:50-21:15Z;
+No compile; no change to C's three ALT charts, to D, E or B; no F7; no attach outside session or in 20:50-21:15Z;
 no change to the telemetry key; no flattening except under s5.
 
 ## 8. FOR THE REVIEWER (Argon or Gemini): attack the premises
@@ -132,4 +147,4 @@ no change to the telemetry key; no flattening except under s5.
    is the carry shift it records (3130) right for a later carry pass, and can any passed exit close at a loss, trip an
    invariant (I6 on an EXT order's price) or quarantine?
 
-Line count: 135
+Line count: 150
