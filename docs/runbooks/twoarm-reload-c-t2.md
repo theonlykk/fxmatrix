@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5), for review: Argon (`prompts/argon_review_c_t2.md`; reply `reviews/argon_review_c_t2.md` on `review/argon-c-t2`), s8.** |
+| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5); REVIEWED by Argon (Gemini 4 Argon in Antigravity, ~06:40Z): `reviews/argon_review_c_t2.md` on `review/argon-c-t2` (678 lines, 493 quotes all equal to `339923f`), GO WITH CHANGES, the one change (s5: 6 or fewer, 7(a)) applied ~06:55Z (HANDOFF s91 continued). The 5-minute watch (s3 step 6) still for the operator.** |
 | Ruled | The operator 25 Oct ~04:10-04:14Z: C first (not D or E: the guard; E stays as it is), AUDCAD OPT 6 -> 18 with cap 9, reviewed before Monday, in session |
 | Evidence | `research/opt_budget/PREREG_CAP.md` (simulator: cap 9 BETTER); `research/replay/results/sweep_notes.md` swcap (harness: CONFIRMED, both periods +$336.00 against +$230.64 at cap 7) |
 | Uses | `main` with `ea/presets_c/{eurusd,audcad}_opt_c_t2.set` (fingerprint s1), `research/opt_budget/check_c_t2.py`; twoarm-build-c s2 and s4 (the commands); cap10-reload s4.4 (Remove then Attach, Gemini GW-5) |
@@ -88,9 +88,12 @@ minute before the Remove):
 
 ## 5. ROLLBACK (only if a chart misbehaves; tell Claude first)
 
-Remove, then Attach with `<pair>_opt_c_t1.set` (staged 21 Oct). **Cap 9 -> 7 trips I7 on a side holding 8 or 9
-layers (K1): roll back only when both sides hold 7 or fewer** (Trade tab), or flatten the chart first (twoarm-build-c
-s3 steps 1-4, keep the chart). Flattening is the alternative to I7 only.
+Remove, then Attach with `<pair>_opt_c_t1.set` (staged 21 Oct). **Roll back only when BOTH sides hold 6 layers or
+fewer** (Trade tab, counted immediately before the Remove; the same rule as twoarm-build-c s4's cap rule). Cap 9 -> 7
+trips I7 on a side holding 8 or 9 (K1); and a side at 7 under cap 9 rests its 8th layer's ENT, which the cap-7 EA
+adopts at start-up and neither cancels nor re-prices (`grind_recon.mqh` 1079-1086; `grind_engine.mqh` 2492-2528,
+the cap test 2525): if it fills, the side holds 8 and halts on I7 (Argon 7(a)). A side at 7, 8 or 9: wait, or flatten
+the chart first (twoarm-build-c s3 steps 1-4, keep the chart). Flattening is the alternative to I7 only.
 
 **AUDCAD's rollback moves every exit 12 pips CLOSER (18 -> 6), unlike the reload.** A resting exit whose t1 target the
 market has already passed is rebuilt clamped passive (`grind_engine.mqh` 3118, the offset kept as a carry shift at
@@ -118,4 +121,4 @@ no change to the telemetry key; no flattening except under s5.
    is the carry shift it records (3130) right for a later carry pass, and can any passed exit close at a loss, trip an
    invariant (I6 on an EXT order's price) or quarantine?
 
-Line count: 121
+Line count: 124
