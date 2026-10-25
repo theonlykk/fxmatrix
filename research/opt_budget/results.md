@@ -2,7 +2,7 @@ This message has a line count at the bottom
 
 # OPT BUDGET -- RESULT (24 Oct 2026): NOT WORTH IT
 
-Rule, gate and decision: `PREREG.md` (pre-registered `31c7761`; amendment A1 `7958379`, before any BUDGET run).
+Rule, gate and decision: `PREREG.md` (pre-registered `02d3af9` on `main`; amendment A1 `d764faa`, before any BUDGET run).
 Simulator `sim.py` (`MECHANICS.md`; 9 / 9 tests). Runs `runs.py` (outputs hashed in `runs_outputs.sha256`, not in
 git); scoring `score.py`, `compare.py` (`compare_output.txt`). GBPUSD's October BUDGET run re-run: identical.
 
@@ -52,4 +52,24 @@ The operator (24 Oct ~23:07Z): "boring remains best, but best is far from suffic
 As PREREG s8; the simulator is not the harness (calibration bounds the gap at the fleet level; per-cell nets differ
 by up to about $20).
 
-Line count: 55
+## 6. VARIANT B2 (two sections of four; `PREREG_B2.md`): NOT WORTH IT
+
+Calm +$121.24 (BASE +$229.86, 53%); October +$12.04 (-$13.86); largest FTMO-day loss $575.67 ($616.52, 93%); days over
+$300 / $500 15 / 4. Predictions: (1) calm between B and 80% of BASE: HELD; (2) FTMO-day loss within 5%: FAILED (-7%);
+(3) NOT WORTH IT: HELD. `compare_b2_output.txt`.
+
+## 7. WHY SECTIONS LOSE (`depth.py`; `depth_calm_output.txt`, `depth_oct_output.txt`)
+
+OPT's scalps by place in the stack, calm, BASE / B2: layers 1-4 1,206 (+$1,025) / 1,189 (+$1,010); layers 5-7 518
+(+$417) / 171 (+$143). About $0.8 a scalp at every depth. Time at depth, calm: OPT 1-4 75%, 5-7 17%; ALT at 1 49%, 5-7
+5%; while OPT holds 5-7, ALT holds 2-4 77% of the time (October 60%). ALT reaches its 5th layer after 4 x 23 = 92 pips,
+OPT after 4 x 7 = 28: tying OPT's 5th to ALT's 5th waits for a 92-pip move.
+
+## 8. THE OPT CAP SWEEP (`PREREG_CAP.md`; `capcmp_output.txt`) AND ITS HARNESS CHECK (sweep_notes swcap)
+
+Simulator (both periods; largest FTMO-day loss): cap 7 +$216.00, $616.52; cap 9 +$305.93, $643.85 (BETTER); cap 11
++$297.10, $678.39; cap 13 +$236.60, $750.76. Harness, cap 9: +$336.00, $638.94: CONFIRMED. Per pair the wide-add pairs
+(AUDCAD 18, AUDCHF 14, CADCHF 10) barely change past 9; GBPUSD and EURUSD trade calm revenue for October; EURGBP's
+October worsens at every cap.
+
+Line count: 75

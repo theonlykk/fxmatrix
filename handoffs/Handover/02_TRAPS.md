@@ -3042,4 +3042,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A wait loop `while pgrep -f "<pattern>"` matches its own command line** and never ends (24 Oct: a background task
   hit its one-hour limit after the runs had finished). Wait on the output file instead.
 
-Line count: 3045
+## TRAPS FROM 2026-10-25 EARLY (A SECOND BACKGROUND JOB WITHOUT ITS VARIABLES; LOGS OUTSIDE THE GRANT; RE-HASHED COMMITS)
+
+- **`a=1 && b=2 && ( job1 ) & ( job2 ) & wait` sets the variables for the first job only:** `&` ends the `&&` chain, so
+  the second subshell runs with them unset ("oct: command not found"). Set variables with `;` first, then start the jobs.
+- **The harness's run logs (`RPL|RUN`, `TIMING`, `SESSIONS`) live in `D:\fxmatrix\research\replay\runs`,** not in the
+  replay folder: a chat granted only `D:\mt5-replay\MQL5\Files\replay` cannot read them; ask for that folder too, or
+  record the self-check as not read.
+- **`git am` re-hashes every commit of a series:** a doc that cites a sandbox hash is wrong on `main` (24 Oct: four). Cite
+  commits by message in the same patch; fix hashes in the next.
+
+Line count: 3055
