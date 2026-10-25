@@ -1,0 +1,9 @@
+seg_id,instance,magic,from_ms,to_ms,width_l,width_s,add_l,add_s,exit_l,exit_s,cap,stranded,deadband,lattice,reroll,gate,carry,fill_time_place,reserve,seed_file,ticks_file,orders_file,sessions_file
+1,GRIND_EURUSD_OPTD,22260201,1785715200000,1786146300000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+2,GRIND_EURUSD_OPTD,22260201,1786320000000,1786751100000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+3,GRIND_EURUSD_OPTD,22260201,1786924800000,1787355900000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+4,GRIND_EURUSD_OPTD,22260201,1787529600000,1787960700000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+5,GRIND_EURUSD_OPTD,22260201,1788134400000,1788565500000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+6,GRIND_EURUSD_OPTD,22260201,1788739200000,1789170300000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+7,GRIND_EURUSD_OPTD,22260201,1789344000000,1789775100000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv
+8,GRIND_EURUSD_OPTD,22260201,1789948800000,1790379900000,2.0,2.0,7.0,7.0,7.0,7.0,9,3.0,2.0,1,1,0,0,1,8,,ticks_53077984_EURUSD__h8w.csv,,sessions_eurusd_ic.csv

@@ -148,6 +148,16 @@ def _geoms11(pair, adds):
     return tuple(("a%de%dn7" % (a, a), float(a), float(a), 7, None, None, width11(pair, a)) for a in adds)
 
 
+# swcap (24-25 Oct, research/opt_budget/PREREG_CAP.md): the harness check of the simulator's OPT cap 9. t3's OPT add per
+# pair, cap 9, add = exit; everything else as the cap-7 cell it is compared with (sw11w calm; sw9 / sw10 / sw11o October).
+T3_OPT = {"EURUSD": 7, "GBPUSD": 9, "EURGBP": 5, "AUDCAD": 18, "AUDCHF": 14, "CADCHF": 10}
+
+
+def _geoms_cap9(pair):
+    a = T3_OPT[pair]
+    return (("a%de%dn9" % (a, a), float(a), float(a), 9, None, None, width11(pair, a)),)
+
+
 GRID5 = (("a5e5n10", 5.0, 5.0, 10, None), ("a7.5e7.5n6", 7.5, 7.5, 6, None),
          ("a7.5e7.5n10", 7.5, 7.5, 10, None), ("a10e10n6", 10.0, 10.0, 6, None),
          ("a10e10n10", 10.0, 10.0, 10, None))
@@ -217,6 +227,14 @@ def get_set(tag):
         return {"windows": WINDOW9, "geoms": _geoms11(pair, OCT11[pair]), "base": base,
                 "ticks": TICKS9 if pair == "EURUSD" else "ticks_53077984_%s_oct.csv" % pair,
                 "comm_pips": COMM_USD / pip_usd, "pip_usd": pip_usd, "sessions": SESSIONS8}
+    if tag.startswith("swcapw_") and tag[7:].upper() in T3_OPT:
+        st = get_set("sw11w_" + tag[7:])
+        st["geoms"] = _geoms_cap9(tag[7:].upper())
+        return st
+    if tag.startswith("swcapo_") and tag[7:].upper() in T3_OPT:
+        st = get_set("sw11o_" + tag[7:])
+        st["geoms"] = _geoms_cap9(tag[7:].upper())
+        return st
     if tag.startswith("sw10_") and tag[5:].upper() in OPT10:
         pair = tag[5:].upper()
         base = dict(BASE)

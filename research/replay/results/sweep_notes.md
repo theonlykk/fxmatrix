@@ -892,3 +892,39 @@ EURUSD 7 +318, GBPUSD 9 +873, AUDCAD 6 -805, EURUSD 23 -12, CADCHF 9 +98).
 - **Addendum (23 Oct ~03:25Z):** `sw11o_eurusd` (add 3) `exit=0`, 2,316 s; `TICKS_LOADED` 1,021,095, `aborted=0`, no gap;
   October net **-2,636.5**, the worst cell of EURUSD's line; the selection unchanged (OPT 7, ALT 23 with every cell).
 
+## swcap: the harness check of OPT cap 9 (pre-registered 25 Oct ~02:45Z, before any run; research/opt_budget/PREREG_CAP.md)
+
+**Why:** the simulator's cap sweep (`research/opt_budget/capcmp.py`, 25 Oct) found OPT cap 9 BETTER by PREREG_CAP's rule
+(both periods +$305.93 against +$216.00; October's largest FTMO-day loss $643.85 against $616.52); the operator ~02:22Z:
+"proceed" (the harness check before anything live). The cap is an input: no EA or harness change.
+
+**Build:** harness `8044284` (timing 1, Sens base, FREE), input files only; `sweep.py` `swcapw_<pair>` (calm: sw11w's
+eight weeks, weekly flat starts, carry OFF, h8w ticks) and `swcapo_<pair>` (October: sw9's window, one flat start, carry
+ON with each pair's swaps); ONE cell each: t3's OPT add (EURUSD 7, GBPUSD 9, EURGBP 5, AUDCAD 18, AUDCHF 14, CADCHF 10),
+add = exit, **cap 9**, width as sw11's rule. Tests first (`test_sweep.py` SweepCap9: 2 failing, 1 guard), then the code;
+`inputs/swcap/` (twelve run files), manifest `inputs/swcap.sha256`. **Every row equals the cap-7 cell it is compared with
+(sw11w; sw9_d7, sw10, sw11o) in every field but `cap` and `seg_id`** (checked by script).
+
+**The comparison:** the fleet = these six OPT cells at cap 9 + the six ALT cells as run (sw11w calm; sw9 / sw10 October),
+against t3 at cap 7 from the same harness (calm +$215.05 over the eight weeks; October +$15.59; October's largest FTMO-day
+loss $626.51; t3_drawdown). Scored as before: calm by `sweep.py score` (weekly nets), October by `score9`'s accounting at
+5-minute marks (`research/t3_drawdown/intraday.py`, FTMO day from 01:00 server).
+
+**THE RULE:** **CONFIRMED** if both: (a) calm + October net >= 1.2 x +$230.64; (b) October's largest FTMO-day loss <= 1.1
+x $626.51. Else NOT CONFIRMED (the simulator's cap-9 result is not carried forward). Per pair reported, not deciding.
+
+**Self-checks first (any failure: STOP, amend before any net is read):** each run `exit=0`; `RPL|RUN` sync 0,
+`TIMING|1|base`, `SESSIONS|...|5`; `TICKS_LOADED` equal to sweep11's counts for the same ticks; every segment
+`aborted=0`; the run files equal the manifest; the swaps hash per October run.
+
+**Claude's predictions, before any run:** (1) CONFIRMED; (2) the harness's cap-9 October net within $40 of the
+simulator's (+$71.05); (3) the harness's largest FTMO-day loss within 10% of the simulator's ($643.85).
+
+**Runs (the operator, from `D:\fxmatrix` detached at `8044284`; run files placed by Claude through the bridge; calm then
+October; one cell per run, expected well under an hour in all):**
+
+    git checkout --detach 8044284; $R = 'D:\mt5-replay\MQL5\Files\replay'
+    foreach ($p in 'gbpusd','eurgbp','audcad','audchf','cadchf','eurusd') { powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "swcapw_$p" -Label "swcapw_${p}_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a -TimeoutSec 7200; Remove-Item "$R\out_swcapw_${p}_free_timing.csv" -ErrorAction SilentlyContinue }
+    $H = @{ GBPUSD='2e9943b6b84a8463c30fd2eace12e3ebbb48081268dfae2b6d07979ec167a7f0'; EURGBP='0f7928ae3de1011aca11ed0fb7f35a9b4ff31fe52daef99649a7f38acebe3499'; AUDCAD='dcddf6dd1f05b4b26c95952628c70e4de5875b5dc7555c71b49729af3160c5cd'; AUDCHF='903f577c079b61b2a1379a785a6225c3803e6e88b13ce3a76bcb83c6aa22f6b0'; CADCHF='a6bf5e356ba1873343d1b9554ce7ec22e1daeda424c97bc1499d869deef5245b' }
+    foreach ($p in 'GBPUSD','EURGBP','AUDCAD','AUDCHF','CADCHF') { $l = $p.ToLower(); Copy-Item "$R\swaps_$p.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "swcapo_$l" -Label "swcapo_${l}_free" -Timing 1 -Sens base -SwapsSha $H[$p] -TimeoutSec 7200; Remove-Item "$R\out_swcapo_${l}_free_timing.csv" -ErrorAction SilentlyContinue }
+    Copy-Item "$R\swaps_EURUSD_window.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "swcapo_eurusd" -Label "swcapo_eurusd_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a -TimeoutSec 7200; Remove-Item "$R\out_swcapo_eurusd_free_timing.csv" -ErrorAction SilentlyContinue; (Get-FileHash "$R\swaps.csv").Hash.ToLower(); git checkout main
