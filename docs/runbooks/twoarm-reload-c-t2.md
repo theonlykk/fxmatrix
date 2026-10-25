@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5); REVIEWED by Argon (Gemini 4 Argon in Antigravity, ~06:40Z): `reviews/argon_review_c_t2.md` on `review/argon-c-t2` (678 lines, 493 quotes all equal to `339923f`), GO WITH CHANGES, the one change (s5: 6 or fewer, 7(a)) applied ~06:55Z (HANDOFF s91 continued). The 5-minute watch (s3 step 6) still for the operator.** |
+| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5); REVIEWED by Argon (Gemini 4 Argon in Antigravity, ~06:40Z): `reviews/argon_review_c_t2.md` on `review/argon-c-t2` (678 lines, 493 quotes all equal to `339923f`), GO WITH CHANGES, the one change (s5: 6 or fewer, 7(a)) applied ~06:55Z (HANDOFF s91 continued). **RULED by the operator ~17:51Z 25 Oct (HANDOFF s91 continued 2): the reload TONIGHT from 22:30Z (he picks the minute); s3 step 6 kept (take time on the pilot, quicker on AUDCAD if under control); AUDCAD's resting L0 accepted as is (s0.2). C's book read ~17:45Z (s0.2); wine-c staged ~17:48Z (s2.2-s2.4 done, the t1 presets present).** |
 | Ruled | The operator 25 Oct ~04:10-04:14Z: C first (not D or E: the guard; E stays as it is), AUDCAD OPT 6 -> 18 with cap 9, reviewed before Monday, in session |
 | Evidence | `research/opt_budget/PREREG_CAP.md` (simulator: cap 9 BETTER); `research/replay/results/sweep_notes.md` swcap (harness: CONFIRMED, both periods +$336.00 against +$230.64 at cap 7) |
 | Uses | `main` with `ea/presets_c/{eurusd,audcad}_opt_c_t2.set` (fingerprint s1), `research/opt_budget/check_c_t2.py`; twoarm-build-c s2 and s4 (the commands); cap10-reload s4.4 (Remove then Attach, Gemini GW-5) |
@@ -23,6 +23,17 @@ Unchanged: EURUSD ALT, AUDCAD ALT, GBPCHF OPT and ALT (all t1, cap 7). ADR-153 a
 0.9800, the next add at 0.9788. After the reload the start-up rebuilds the exits to 0.9818 and 0.9812 (entry + 18) and
 moves the next add to 0.9776 (deepest - 18). Nothing fills at once: the exits move AWAY from the market (1 Oct's
 rebuild moved them closer).
+
+## 0.2 THE BOOK BEFORE THE RELOAD (pipshed `linuxc`, ~17:45Z Sun 25 Oct; unchanged since Friday's close)
+
+- **EURUSD OPT:** long 6 (L03-L08, 1.12313 ... 1.11964), short 2; none rolled; the long's add `L09` rests at 1.11894
+  (the next index, so cap 9 keeps it, `grind_engine.mqh` 2506). One more long fill and s5's rollback needs a flatten.
+- **AUDCAD OPT:** short **7 at cap** (L00-L06, 0.98167 ... 0.9853), none rolled (each exit = entry - 6); long flat. After
+  the reload the short adds again at 18: the next at 0.9871 (0.9853 + 18); its two resting exits rebuild to L00 0.97987
+  and L06 0.9835 (away from price). **s5's rollback is closed from the start (7 > 6): flatten only.**
+- **AUDCAD's resting long L0 (BUY_LIMIT 0.98579, placed at width 1.5) is KEPT:** L0 is placed once and left
+  (`grind_engine.mqh` 2067-2070); it moves to mid - 4.5 only when mid is more than 5.5 pips (stranded) from it
+  (3046-3070). The first long fill may come about 3 pips tighter than t2's width. Accepted (the operator, (a)).
 
 ## 0.1 AUDIT TRAIL (source at `main`, EA code `5bb5fdb`)
 
@@ -77,7 +88,7 @@ minute before the Remove):
 4. Trade tab for that symbol: each layer's exits as K4 (AUDCAD: entry + 18 on the rank-0 and the furthest layer;
    the middle layers' exits are held, ADR-151); the resting add at the new distance within a minute (K5).
 5. pipshed `linuxc`: the instance LIVE, its geometry row cap 9 (AUDCAD 18 / 18).
-6. **After the pilot only (EURUSD; PROPOSED, the operator to confirm): watch about 5 minutes before AUDCAD:** no new
+6. **After the pilot only (EURUSD; RULED: no rush on the pilot): watch about 5 minutes before AUDCAD:** no new
    `WARN` or halt in the Experts log for EURUSD, its heartbeat posting on pipshed, nothing on C's other five charts
    changed. No fill is waited for. Then AUDCAD OPT from step 1.
 
@@ -121,4 +132,4 @@ no change to the telemetry key; no flattening except under s5.
    is the carry shift it records (3130) right for a later carry pass, and can any passed exit close at a loss, trip an
    invariant (I6 on an EXT order's price) or quarantine?
 
-Line count: 124
+Line count: 135
