@@ -4,11 +4,11 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3), for review: Argon (`prompts/argon_review_c_t2.md`; reply `reviews/argon_review_c_t2.md` on `review/argon-c-t2`), s8.** |
+| Status | **DRAFT 25 Oct ~04:40Z (Claude, HANDOFF s90 continued 3); AMENDED ~05:45Z (HANDOFF s91: the calendar, K7 by a bound, s3 step 6, s5's AUDCAD exits, s8 Q5), for review: Argon (`prompts/argon_review_c_t2.md`; reply `reviews/argon_review_c_t2.md` on `review/argon-c-t2`), s8.** |
 | Ruled | The operator 25 Oct ~04:10-04:14Z: C first (not D or E: the guard; E stays as it is), AUDCAD OPT 6 -> 18 with cap 9, reviewed before Monday, in session |
 | Evidence | `research/opt_budget/PREREG_CAP.md` (simulator: cap 9 BETTER); `research/replay/results/sweep_notes.md` swcap (harness: CONFIRMED, both periods +$336.00 against +$230.64 at cap 7) |
 | Uses | `main` with `ea/presets_c/{eurusd,audcad}_opt_c_t2.set` (fingerprint s1), `research/opt_budget/check_c_t2.py`; twoarm-build-c s2 and s4 (the commands); cap10-reload s4.4 (Remove then Attach, Gemini GW-5) |
-| When | Monday 26 Oct in session, spreads normal: not before 22:30Z Sunday, never 20:50-21:15Z, not within 30 minutes of a tier-1 release. The operator picks the minute. Never with the market closed. |
+| When | Monday 26 Oct in session, spreads normal: not before 22:30Z Sunday, never 20:50-21:15Z, not within 30 minutes of a tier-1 release. The operator picks the minute. Never with the market closed. **Calendar (checked 25 Oct, Newsquawk's week ahead): Monday has no tier-1 release (German Ifo, Swedish PPI, a US Treasury buyback, China's Fifth Plenum opens); keep clear of Ifo's morning release. The week is heavy later: Wed 28 Oct Australian CPI, the BoC (a hike largely priced), the Fed, the RBNZ; Thu 29 Oct the ECB, US GDP and PCE; Fri 30 Oct the BoJ. AUDCAD's first days at 18 / cap 9 meet Wednesday.** |
 
 ## 0. WHAT CHANGES (two charts; C's other four charts untouched)
 
@@ -34,7 +34,7 @@ rebuild moved them closer).
 | K4 | A changed exit is rebuilt at start-up from the stored exit label (`GRIND_GEO_EXIT_<magic>_L/_S`), clamped passive where needed | `grind_carry.mqh` 614; `grind_engine.mqh` 3074-3169 | VERIFIED |
 | K5 | After an exit rebuild the one-shot add re-price moves the resting add to the new distance | `fxgrind.mq5` 289-292; `grind_engine.mqh` 2561-2575 | VERIFIED |
 | K6 | C's six charts load the Experts copy, built 21 Oct 16:21:21 (`ea_build`, C88 closed) | HANDOFF s89 continued 2 | VERIFIED (archive) |
-| K7 | Guard: C's six instances peak far below 194 (harness, cap 9 on two OPT: well inside) | swcap; twoarm-build-c s0 | INFERRED |
+| K7 | Guard, by a bound: an entry needs `PositionsTotal() + OrdersTotal()` plus the fleet's non-EXT orders (counted again) `<= limit - (2 + 4 + reserve)`, reserve 8 when not near the market (C's presets `InpSlotNearReserve=8`): 194 near, 186 far on a 200 limit. Per side at most cap + 3 (cap - 1 layers, two exits, the resting add counted twice; at cap: cap + 2), so per instance 2 x (cap + 3): C after t2 = 2 x 24 + 4 x 20 = **128** with every side of all six full at once | `grind_exitq.mqh` 115-182; `grind_config.mqh` 9-10; `fxgrind.mq5` 40 | VERIFIED (bound; plus 1 per close-by in flight) |
 
 ## 1. BEFORE (Claude, sandbox)
 
@@ -76,7 +76,10 @@ minute before the Remove):
    allowed as in twoarm-build-c s4; 2 or more on a side is a STOP.
 4. Trade tab for that symbol: each layer's exits as K4 (AUDCAD: entry + 18 on the rank-0 and the furthest layer;
    the middle layers' exits are held, ADR-151); the resting add at the new distance within a minute (K5).
-5. pipshed `linuxc`: the instance LIVE, its geometry row cap 9 (AUDCAD 18 / 18). Then the next chart.
+5. pipshed `linuxc`: the instance LIVE, its geometry row cap 9 (AUDCAD 18 / 18).
+6. **After the pilot only (EURUSD; PROPOSED, the operator to confirm): watch about 5 minutes before AUDCAD:** no new
+   `WARN` or halt in the Experts log for EURUSD, its heartbeat posting on pipshed, nothing on C's other five charts
+   changed. No fill is waited for. Then AUDCAD OPT from step 1.
 
 ## 4. AFTER
 
@@ -87,7 +90,15 @@ minute before the Remove):
 
 Remove, then Attach with `<pair>_opt_c_t1.set` (staged 21 Oct). **Cap 9 -> 7 trips I7 on a side holding 8 or 9
 layers (K1): roll back only when both sides hold 7 or fewer** (Trade tab), or flatten the chart first (twoarm-build-c
-s3 steps 1-4, keep the chart).
+s3 steps 1-4, keep the chart). Flattening is the alternative to I7 only.
+
+**AUDCAD's rollback moves every exit 12 pips CLOSER (18 -> 6), unlike the reload.** A resting exit whose t1 target the
+market has already passed is rebuilt clamped passive (`grind_engine.mqh` 3118, the offset kept as a carry shift at
+3130; for a long, the clamp is ask + the minimum distance, `grind_carry.mqh` 453-455), so it rests on the PROFIT side
+and fills as soon as the bid reaches it; a held middle exit (skipped by the rebuild, 3088) is placed by ExitQ the same
+way when its rank comes (3494). Expect a burst of closes in profit on the rollback, not a loss (Argon Q5 checks this).
+Example (long): a layer at 0.9800 with its exit at 0.9818 and the bid at 0.9810; at t1 its target is 0.9806, passed,
+so the exit goes to ask + the minimum distance and closes the layer about 10 pips up on the next small rise.
 
 ## 6. NEGATIVE SPACE
 
@@ -103,5 +114,8 @@ no change to the telemetry key; no flattening except under s5.
 3. Is Remove-then-Attach still the right path when the chart already runs the Experts copy (K6), or is F7 + Load now
    equivalent?
 4. Is anything missing that a reload with a new cap needs on pipshed or the archive (the geometry table, `vs_anchor`)?
+5. s5's AUDCAD rollback (exits 12 pips closer): does the clamp put a passed exit on the profit side for both sides,
+   is the carry shift it records (3130) right for a later carry pass, and can any passed exit close at a loss, trip an
+   invariant (I6 on an EXT order's price) or quarantine?
 
-Line count: 107
+Line count: 121

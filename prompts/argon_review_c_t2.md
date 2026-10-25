@@ -4,11 +4,11 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Written | 25 Oct 2026 ~04:50Z (HANDOFF s90 continued 4), Claude (Lead Engineer) |
+| Written | 25 Oct 2026 ~04:50Z (HANDOFF s90 continued 4), Claude (Lead Engineer); amended ~05:45Z (HANDOFF s91: K7, item 7, Q5, the reply's bookends) |
 | What | Read the runbook against the EA source and the presets. Find what is wrong or missing before the operator runs it on Monday 26 Oct |
-| The runbook | `docs/runbooks/twoarm-reload-c-t2.md` on `origin/main` (all 107 lines) |
+| The runbook | `docs/runbooks/twoarm-reload-c-t2.md` on `origin/main` (all 121 lines) |
 | The presets | `ea/presets_c/eurusd_opt_c_t2.set`, `ea/presets_c/audcad_opt_c_t2.set` against their `_t1` twins; `scripts/ic_geometry_twoarm_c_t2.json`; `research/opt_budget/check_c_t2.py` |
-| The source | `ea/fxgrind.mq5`, `ea/grind_engine.mqh`, `ea/grind_recon.mqh`, `ea/grind_carry.mqh` at `origin/main` (EA code unchanged since `5bb5fdb`) |
+| The source | `ea/fxgrind.mq5`, `ea/grind_engine.mqh`, `ea/grind_recon.mqh`, `ea/grind_carry.mqh`, `ea/grind_exitq.mqh`, `ea/grind_config.mqh` at `origin/main` (EA code unchanged since `5bb5fdb`) |
 | Your reply | ONE new file `reviews/argon_review_c_t2.md` on a NEW branch `review/argon-c-t2` from `origin/main`; commit, push, then `git checkout main` |
 
 ## 0. RULES FOR THIS REVIEW (read first)
@@ -48,7 +48,7 @@ After the reload the claim is: exits rebuilt to 0.9818 and 0.9812 (entry + 18), 
 | K4 | A changed exit is rebuilt at start-up from the stored exit label (`GRIND_GEO_EXIT_<magic>_L/_S`), clamped passive where needed | `grind_carry.mqh` 614; `grind_engine.mqh` 3074-3169 |
 | K5 | After an exit rebuild the one-shot add re-price moves the resting add to the new distance | `fxgrind.mq5` 289-292; `grind_engine.mqh` 2561-2575 |
 | K6 | C's six charts load the Experts copy built 21 Oct 16:21:21 | archive (`ea_build`), HANDOFF s89 continued 2: say NOT READ if you cannot check it |
-| K7 | The commitment guard (positions + orders + resting entries <= 194) is not at risk on C's six instances with two at cap 9 | INFERRED (harness); check whether anything in source makes this unsafe |
+| K7 | The guard by a bound: per side at most cap + 3 guard units (cap - 1 layers, two resting exits, the resting add counted twice), so C after t2 = 2 x 24 + 4 x 20 = 128 against 186 (far entries, reserve 8) / 194 (near) on a 200 limit | `grind_exitq.mqh` 115-182, `grind_config.mqh` 9-10, `fxgrind.mq5` 40; check the per-side bound itself (can a side hold more resting orders than that?) |
 
 ## 3. THE RUNBOOK's OWN QUESTIONS (s8): answer each
 
@@ -59,20 +59,35 @@ After the reload the claim is: exits rebuilt to 0.9818 and 0.9812 (entry + 18), 
 3. Is Remove-then-Attach still the right path when the chart already runs the Experts copy (K6), or is F7 + Load
    now equivalent? (Claude's view: keep Remove-then-Attach; disagree only with a quote.)
 4. Does a reload with a new cap need anything on pipshed or the archive (the geometry table, `vs_anchor`)?
+   Also for Q2: when a rebuilt exit is not clamped the rebuild DELETES the layer's carry shift record
+   (`grind_engine.mqh` 3132). Is anything lost that a later carry pass or recon needs?
+5. (New, runbook s5's AUDCAD paragraph) A rollback to `_t1` moves AUDCAD's exits 12 pips CLOSER. For a resting exit
+   the market has passed, trace the rebuild (`grind_engine.mqh` 3088, 3116-3133) and the clamp
+   (`grind_exitq.mqh` 258-271, `grind_carry.mqh` 443-476) for BOTH sides: where does the exit rest, on which side
+   of the market, at what price, and is the fill then in profit? Then the held middle exits (skipped at 3088, placed
+   later at 3494). Can any passed exit close at a loss, trip an invariant (I6 on an EXT order's price) or
+   quarantine, or leave a carry shift record (3130) that a later carry pass mis-applies?
 
 ## 4. ALSO CHECK
 
 5. The two `_t2` presets differ from their `_t1` twins ONLY in the lines s1 names (and the warning line); nothing else
    moved (the magic, the telemetry instance, the key row, the per-side `-1.0` rows).
 6. Runbook s3 step 2's read-back list against the preset files: is any input named wrong or missing?
-7. Runbook s5 (rollback): is "cap 9 -> 7 trips I7 on a side holding 8 or 9 layers" right, and is there any other
-   state (a virtual level, a stored exit label) that a rollback to `_t1` would trip on?
+7. Runbook s5 (rollback), three parts: (a) is "cap 9 -> 7 trips I7 on a side holding 8 or 9 layers" right (quote
+   the check); (b) a layer rolled at cap 9 (its virtual level set one add of 18 below a deeper anchor) and then
+   rolled back to add 6: does any check compare a stored virtual level, or a stored exit label
+   (`GRIND_GEO_EXIT_<magic>_L/_S`), against the new add or exit and halt or quarantine; (c) is the runbook's s5
+   example (a long at 0.9800, exit 0.9818, bid 0.9810, t1 target 0.9806) right as to where the exit goes and when it
+   fills (answer with Q5's trace).
 8. Anything else in the runbook that would hurt a live chart. Keep it to what you can quote.
 
 ## 5. YOUR REPLY's SHAPE
 
-`reviews/argon_review_c_t2.md`: a header (branch, base hash, files read), then one row per item above (K1-K7, Q1-Q4,
+`reviews/argon_review_c_t2.md`: a header (branch, base hash, files read), then one row per item above (K1-K7, Q1-Q5,
 items 5-8): the verdict, the quotes, and for a DEFECT or GAP the fixed runbook text. End with one line: **GO** (the
 runbook may run as written), **GO WITH CHANGES** (list them) or **NO GO** (why).
 
-Line count: 78
+**Line-count bookends:** the reply's FIRST line is exactly `This message has a line count at the bottom` and its LAST
+line is exactly `Line count: N`, N being the file's total number of lines including both bookend lines. ASCII only.
+
+Line count: 93

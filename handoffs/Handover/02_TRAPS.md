@@ -3052,4 +3052,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`git am` re-hashes every commit of a series:** a doc that cites a sandbox hash is wrong on `main` (24 Oct: four). Cite
   commits by message in the same patch; fix hashes in the next.
 
-Line count: 3055
+## TRAPS FROM 2026-10-25 DAY (A PASSIVE CLAMP SITS A SPREAD AWAY; THE GUARD COUNTS A RESTING ENTRY TWICE)
+
+- **A long exit clamped passive rests at ASK + the minimum distance, not 1 point off the bid** (`grind_carry.mqh`
+  453-455; a short exit at bid - the minimum distance, 471-473): it fills when the bid climbs a spread or more, not on the
+  next tick. Say "fills on the next small rise", not "at once" (MECHANICS.md s2's "1 point off market" is loose).
+- **The commitment guard counts a fleet magic's resting entry twice** (`OrdersTotal()` and `Grind_SlotRestingEnt`,
+  `grind_exitq.mqh` 115-182): a side's worst case is cap + 3 guard units (at cap - 1 with its add resting), not cap + 2;
+  a DUP arm's 03 magics are not fleet magics, so theirs count once. Far entries stop at 186 (reserve 8), near ones at 194.
+
+Line count: 3064
