@@ -928,3 +928,18 @@ October; one cell per run, expected well under an hour in all):**
     $H = @{ GBPUSD='2e9943b6b84a8463c30fd2eace12e3ebbb48081268dfae2b6d07979ec167a7f0'; EURGBP='0f7928ae3de1011aca11ed0fb7f35a9b4ff31fe52daef99649a7f38acebe3499'; AUDCAD='dcddf6dd1f05b4b26c95952628c70e4de5875b5dc7555c71b49729af3160c5cd'; AUDCHF='903f577c079b61b2a1379a785a6225c3803e6e88b13ce3a76bcb83c6aa22f6b0'; CADCHF='a6bf5e356ba1873343d1b9554ce7ec22e1daeda424c97bc1499d869deef5245b' }
     foreach ($p in 'GBPUSD','EURGBP','AUDCAD','AUDCHF','CADCHF') { $l = $p.ToLower(); Copy-Item "$R\swaps_$p.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "swcapo_$l" -Label "swcapo_${l}_free" -Timing 1 -Sens base -SwapsSha $H[$p] -TimeoutSec 7200; Remove-Item "$R\out_swcapo_${l}_free_timing.csv" -ErrorAction SilentlyContinue }
     Copy-Item "$R\swaps_EURUSD_window.csv" "$R\swaps.csv" -Force; powershell -ExecutionPolicy Bypass -File tools\replay_run.ps1 -Mode Run -Tag "swcapo_eurusd" -Label "swcapo_eurusd_free" -Timing 1 -Sens base -SwapsSha 581dab2282484cefd90c56f2d8a7844d11e4070115677e9bac6820c980064c2a -TimeoutSec 7200; Remove-Item "$R\out_swcapo_eurusd_free_timing.csv" -ErrorAction SilentlyContinue; (Get-FileHash "$R\swaps.csv").Hash.ToLower(); git checkout main
+
+**swcap RESULT (25 Oct ~03:55Z; `results/swcap/`: `swcapw_<pair>.md` from `sweep.py score`, `score_cap9.py` and its
+output; the twelve runs `exit=0`).** **Self-checks:** every segment's `TICKS_LOADED` equal to the cap-7 run's, `aborted=0`,
+gaps as before (sweep8's week-8 hole only); run files equal the manifest; swaps checked by `replay_run.ps1` per run
+(the last `581dab22`). The `RPL|RUN`, `TIMING` and `SESSIONS` log lines were NOT read (the logs sit in a folder this chat
+was not granted). `score_cap9.py` re-run on the cap-7 cells reproduces t3_drawdown's October exactly (+$15.59; $626.51).
+
+**VERDICT: CONFIRMED.** Calm +$232.89 (t3 at cap 7: +$215.05), October +$103.11 (+$15.59): both +$336.00 against the
+rule's $276.77; October's largest FTMO-day loss $638.94 against the rule's $689.16 (cap 7: $626.51). Days over $300 /
+$500: 15 / 5 (cap 7: 11 / 3); max peak-to-trough $299.44 ($308.57). Per pair, calm OPT cap 9 / October OPT cap 9 (USD):
+GBPUSD +80.36 / +20.91, EURUSD +24.99 / -12.69, EURGBP +43.40 / -74.96, AUDCAD +36.89 / +22.97, AUDCHF -17.30 / +27.18,
+CADCHF +16.87 / +41.86. **Predictions:** (1) CONFIRMED: HELD; (2) October net within $40 of the simulator's +$71.05:
+HELD (+$32.06); (3) FTMO-day loss within 10% of the simulator's $643.85: HELD (-0.8%).
+**Reading:** cap 9 earns more in both regimes on the harness, but FTMO's daily-loss breaches rise (the carried
+inventory, t3_drawdown); it is a candidate for the next trial or a fleet reload, not a fix for C164.

@@ -1,0 +1,13 @@
+| pair | calm OPT cap 9 | calm ALT | October OPT cap 9 | October ALT |
+|---|---|---|---|---|
+| GBPUSD | +80.36 | +22.37 | +20.91 | +7.51 |
+| EURUSD | +24.99 | -1.23 | -12.69 | +45.44 |
+| EURGBP | +43.40 | +2.60 | -74.96 | -41.14 |
+| AUDCAD | +36.89 | +20.98 | +22.97 | +12.96 |
+| AUDCHF | -17.30 | -3.11 | +27.18 | +21.92 |
+| CADCHF | +16.87 | +6.08 | +41.86 | +31.16 |
+
+calm net +232.89; October net +103.11; both +336.00 (rule: >= 276.77) -> True
+October largest FTMO-day loss 638.94 (rule: <= 689.16) -> True; days > $300 15, > $500 5; max peak-to-trough 299.44
+OPT cap 9 October S / R / A: {'GBPUSD': (311, 25, 32), 'EURUSD': (464, 50, 52), 'EURGBP': (151, 16, 27), 'AUDCAD': (47, 0, 0), 'AUDCHF': (45, 1, 1), 'CADCHF': (68, 0, 0)}
+VERDICT: CONFIRMED
