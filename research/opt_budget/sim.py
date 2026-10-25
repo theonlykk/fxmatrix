@@ -41,6 +41,7 @@ class Layer:
     closing: bool = False
     exit_fill: float = None
     swap_pips: float = 0.0
+    depth_open: int = 0
 
     def eff(self):
         return self.vl if self.vl is not None else self.entry
@@ -81,6 +82,7 @@ class Close:
     open_ms: int
     close_ms: int
     swap_pips: float
+    depth_open: int = 0      # (output only) the side's depth once this layer joined: its place in the stack
 
 
 # ---------------------------------------------------------------- pure rules (tested)
@@ -440,7 +442,7 @@ class Instance:
                 sd.l0 = None
             if o is sd.add:
                 sd.add = None
-            sd.layers.append(Layer(entry=r5(price), idx=sd.next_idx(), open_ms=due))
+            sd.layers.append(Layer(entry=r5(price), idx=sd.next_idx(), open_ms=due, depth_open=sd.depth() + 1))
             cur = self.exitq(s, cur)
             save = self.ent_sent
             self.ent_sent = False
@@ -462,7 +464,8 @@ class Instance:
             return cur
         sd.layers.remove(l)
         self.closes.append(Close(side=s, entry=l.entry, exit=l.exit_fill, rolled=l.vl is not None,
-                                 open_ms=l.open_ms, close_ms=due, swap_pips=l.swap_pips))
+                                 open_ms=l.open_ms, close_ms=due, swap_pips=l.swap_pips,
+                                 depth_open=l.depth_open))
         return self.exitq(s, cur)
 
     # --- carry
@@ -510,7 +513,7 @@ def _session_open(ms, sessions):
     return rng[0] <= m <= rng[1]
 
 
-def run_instances(ticks, insts, carry_rows=None, sessions=None, mark_ms=300000):
+def run_instances(ticks, insts, carry_rows=None, sessions=None, mark_ms=300000, occ=None):
     """Run instances on the same ticks, in order (ALT before OPT). Returns marks every mark_ms:
     (t, [(realised_pips, open_pips, closes) per instance]), plus the last tick."""
     prev = None
@@ -532,6 +535,12 @@ def run_instances(ticks, insts, carry_rows=None, sessions=None, mark_ms=300000):
             marks.append((next_mark, [(it.realised_pips(), it.open_pips(prev[1], prev[2]), len(it.closes))
                                       for it in insts]))
             next_mark += mark_ms
+        if occ is not None and len(insts) == 2:
+            # (output only) time at each (side, OPT depth, ALT depth); gaps over 60 s count 60 s
+            dt_ms = min(t - prev[0], 60000)
+            for sd in ("L", "S"):
+                k = "%s|%d|%d" % (sd, insts[1].side[sd].depth(), insts[0].side[sd].depth())
+                occ[k] = occ.get(k, 0) + dt_ms
         sess = _session_open(t, sessions)
         for it in insts:
             it.run_events(t, prev, tk)
@@ -556,5 +565,8 @@ def run_pair(ticks, cfg_opt, cfg_alt, carry_rows=None, budget=False, sessions=No
     alt = Instance(cfg_alt, "ALT")
     opt = Instance(cfg_opt, "OPT")
     opt.peer, opt.budget, opt.variant = alt, budget, variant
-    marks = run_instances(ticks, [alt, opt], carry_rows, sessions)
-    return PairResult(opt=opt, alt=alt, marks=marks)
+    occ = {}
+    marks = run_instances(ticks, [alt, opt], carry_rows, sessions, occ=occ)
+    r = PairResult(opt=opt, alt=alt, marks=marks)
+    r.occ = occ
+    return r

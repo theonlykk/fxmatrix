@@ -96,10 +96,18 @@ def run(period, data, budget, pairs, variant="B"):
             def summ(it):
                 S = sum(1 for c in it.closes if not c.rolled)
                 R = sum(1 for c in it.closes if c.rolled)
+                bd = {}
+                for c in it.closes:
+                    v = bd.setdefault(str(c.depth_open), [0, 0.0, 0, 0.0])
+                    pips = ((c.exit - c.entry) if c.side == "L" else (c.entry - c.exit)) / sim.PIP + c.swap_pips
+                    if c.rolled:
+                        v[2] += 1; v[3] = round(v[3] + pips, 1)
+                    else:
+                        v[0] += 1; v[1] = round(v[1] + pips, 1)
                 return {"S": S, "R": R, "A": it.rolls, "realised": round(it.realised_pips(), 1),
-                        "open": round(it.open_pips(tk[-1][1], tk[-1][2]), 1)}
+                        "open": round(it.open_pips(tk[-1][1], tk[-1][2]), 1), "by_depth": bd}
             res.append({"from_ms": int(so["from_ms"]), "to_ms": int(so["to_ms"]), "ticks": len(tk),
-                        "OPT": summ(r.opt), "ALT": summ(r.alt),
+                        "OPT": summ(r.opt), "ALT": summ(r.alt), "occ": r.occ,
                         "marks": [(m[0], m[1][1][0], m[1][1][1], m[1][1][2], m[1][0][0], m[1][0][1], m[1][0][2])
                                   for m in r.marks]})
             print(pair, so["from_ms"], "OPT", res[-1]["OPT"], "ALT", res[-1]["ALT"], flush=True)
