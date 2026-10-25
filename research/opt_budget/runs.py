@@ -50,6 +50,13 @@ def seg_cfg(row):
                    carry=row["carry"] == "1")
 
 
+def opt_cfg(row, cap):
+    c = seg_cfg(row)
+    if cap is not None:
+        c.cap = int(cap)
+    return c
+
+
 def oct_run_file(pair, add):
     if pair == "EURUSD":
         return "run_sw9_d7.csv"
@@ -68,7 +75,7 @@ def window(ticks, a, b):
     return ticks[bisect.bisect_left(ts, a):bisect.bisect_right(ts, b)]
 
 
-def run(period, data, budget, pairs, variant="B"):
+def run(period, data, budget, pairs, variant="B", opt_cap=None):
     sessions = load_sessions(os.path.join(data, "sessions_eurusd_ic.csv"))
     out = {}
     for pair in pairs:
@@ -89,7 +96,7 @@ def run(period, data, budget, pairs, variant="B"):
         res = []
         for so, sa in segs:
             assert so["from_ms"] == sa["from_ms"] and so["to_ms"] == sa["to_ms"] and so["ticks_file"] == sa["ticks_file"]
-            co, ca = seg_cfg(so), seg_cfg(sa)
+            co, ca = opt_cfg(so, opt_cap), seg_cfg(sa)
             tk = window(tk_all, int(so["from_ms"]), int(so["to_ms"]))
             r = sim.run_pair(tk, co, ca, carry_rows=swaps if co.carry else None, budget=budget, sessions=sessions,
                              variant=variant)
@@ -108,8 +115,8 @@ def run(period, data, budget, pairs, variant="B"):
                         "open": round(it.open_pips(tk[-1][1], tk[-1][2]), 1), "by_depth": bd}
             res.append({"from_ms": int(so["from_ms"]), "to_ms": int(so["to_ms"]), "ticks": len(tk),
                         "OPT": summ(r.opt), "ALT": summ(r.alt), "occ": r.occ,
-                        "marks": [(m[0], m[1][1][0], m[1][1][1], m[1][1][2], m[1][0][0], m[1][0][1], m[1][0][2])
-                                  for m in r.marks]})
+                        "marks": [(m[0], m[1][1][0], m[1][1][1], m[1][1][2], m[1][0][0], m[1][0][1], m[1][0][2],
+                                   m[1][1][3], m[1][0][3]) for m in r.marks]})
             print(pair, so["from_ms"], "OPT", res[-1]["OPT"], "ALT", res[-1]["ALT"], flush=True)
         out[pair] = res
     return out
@@ -123,7 +130,8 @@ if __name__ == "__main__":
     ap.add_argument("--budget", action="store_true")
     ap.add_argument("--pairs", default=",".join(T3))
     ap.add_argument("--variant", default="B", choices=["B", "B2"])
+    ap.add_argument("--opt-cap", type=int, default=None)
     a = ap.parse_args()
-    res = run(a.period, a.data, a.budget, a.pairs.split(","), a.variant)
+    res = run(a.period, a.data, a.budget, a.pairs.split(","), a.variant, a.opt_cap)
     with open(a.out, "w") as f:
         json.dump(res, f)

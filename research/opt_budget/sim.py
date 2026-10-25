@@ -482,6 +482,9 @@ class Instance:
                     l.exit_order.mods.append((t + D_MODIFY, tgt))
 
     # --- marks
+    def open_layers(self):
+        return self.side["L"].depth() + self.side["S"].depth()
+
     def realised_pips(self):
         return sum(((c.exit - c.entry) if c.side == "L" else (c.entry - c.exit)) / PIP + c.swap_pips
                    for c in self.closes)
@@ -532,8 +535,8 @@ def run_instances(ticks, insts, carry_rows=None, sessions=None, mark_ms=300000, 
                 it.rollover(t, carry_rows.get(key))
         day = d
         while next_mark <= t:
-            marks.append((next_mark, [(it.realised_pips(), it.open_pips(prev[1], prev[2]), len(it.closes))
-                                      for it in insts]))
+            marks.append((next_mark, [(it.realised_pips(), it.open_pips(prev[1], prev[2]), len(it.closes),
+                                       it.open_layers()) for it in insts]))
             next_mark += mark_ms
         if occ is not None and len(insts) == 2:
             # (output only) time at each (side, OPT depth, ALT depth); gaps over 60 s count 60 s
@@ -550,8 +553,8 @@ def run_instances(ticks, insts, carry_rows=None, sessions=None, mark_ms=300000, 
             it.on_tick(t)
         prev = tk
     if prev is not None:
-        marks.append((prev[0], [(it.realised_pips(), it.open_pips(prev[1], prev[2]), len(it.closes))
-                                for it in insts]))
+        marks.append((prev[0], [(it.realised_pips(), it.open_pips(prev[1], prev[2]), len(it.closes),
+                                 it.open_layers()) for it in insts]))
     return marks
 
 
