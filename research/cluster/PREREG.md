@@ -1,130 +1,119 @@
 This message has a line count at the bottom
 
-# THE CLUSTER MEASUREMENT -- PRE-REGISTRATION v2 (26 Oct 2026 ~03:35Z; before any tick is read for it)
+# ROUND NUMBERS IN FX -- AN OSLER REPLICATION -- PRE-REGISTRATION v3 (26 Oct 2026 ~04:55Z; before any bar is read)
 
 | | |
 |---|---|
-| Status | **DRAFT v2 for review** (Argon: `prompts/argon_review_cluster_v2.md`; reply on `review/argon-cluster-v2`). v1 (`b058521`) reviewed by Argon (`reviews/argon_review_cluster.md` on `review/argon-cluster`, `2875f99`): SOUND WITH CHANGES; its item 1(b) a real flaw (s1). No code, no run yet. |
-| Why | The operator (25 Oct): "we are searching for a cluster of tight mean reversion"; "there is a drop of in range trading activity after a certain distance. the ideal place for the roll would be at that point"; and (~03:23Z 26 Oct) "if this is random walk, then we are just trying to read tea leaves and any repeated pattern we do see might end as soon as we deploy capital ... there is a lot of back and forth around 'whole' numbers ... maybe we use those as clusters where we add and are more sparse between add layers ... i feel we could test this". |
-| What follows | **Nothing live.** A result that holds in both regimes AND on the confirmation ticks (s7) becomes a candidate geometry for its own pre-registered simulator, then harness, check. No result: reported as such. |
-| Prior evidence | Osler, "Currency Orders and Exchange-Rate Dynamics" (FRBNY Staff Report 125, 2001; J. Finance 2003): take-profit orders cluster at round numbers (trends tend to reverse there), stop-loss orders just beyond them (trends accelerate once through). A mechanism, so a reason the pattern might outlive its discovery; in 1990s bank order books, not tested here before. |
+| Status | **DRAFT v3 for review** (Argon: `prompts/argon_review_cluster_v3.md`; reply on `review/argon-cluster-v3`). v1 (`b058521`) and v2 (`9623022`) reviewed by Argon (`review/argon-cluster`, `review/argon-cluster-v2`); v2's Part A dropped (s1); v2's Part B rebuilt as a replication of Osler (s2). No code, no bar read. |
+| Why | The operator (26 Oct ~03:23-04:39Z): "if this is random walk, then we are just trying to read tea leaves and any repeated pattern we do see might end as soon as we deploy capital ... there is a lot of back and forth around 'whole' numbers ... maybe we use those as clusters where we add and are more sparse between add layers"; "it would be interesting to explore ... and use the work of carol osler in determining it ... why dont we start with the definitions/findings from the osler paper?"; "agree to all - proceed". |
+| What follows | **Nothing live.** A reversal effect that holds in BOTH halves (s7) becomes the premise of a round-aware lattice (denser adds approaching R100 / R50, wider after a crossing), pre-registered and checked in the simulator, then the harness. A crossing effect bears on where that lattice must widen. No effect: the idea stops, and that is reported. |
 
-## 1. WHY v1 WAS WRONG, AND ONE WORKED EXAMPLE (EURUSD, 7-pip steps, prices)
+## 1. WHAT CHANGED FROM v2, AND WHY
 
-v1 measured p_k, the share of steps at depth k that went back toward the anchor. Take the cleanest range there is:
-price swings 1.1600 -> 1.1572 -> 1.1600 for ever (depth 0 to 4 and back). Each swing gives at depth 1 one step out
-and one back (50%), the same at depths 2 and 3 (50%), and at depth 4 one turn (100%): **50 / 50 / 50 / 100**. Every
-step out past a level is matched by a step back before the excursion ends, so inside ANY range p_k sits near 50%, as
-for a random walk; p_k moves only where crossings stop. **p_k finds a wall, not a range.** Hence:
+- **Part A (activity per depth from a stack's anchor) is dropped.** Argon's v2 review: its anchor never moves (an
+  excursion ends only at the segment's first level), so a trending week is one excursion, unlike the EA's re-anchoring;
+  on finite weeks a random walk's profile is not flat; the worked example was wrong (the apex is arrived at once per
+  swing). The question it reached for (how deep a stack should go) was answered directly by the cap sweep
+  (`research/opt_budget/PREREG_CAP.md`, swcap), where the EA's anchoring is modelled.
+- **Part B becomes a replication** with Osler's definitions (s2), on four years of minute data never used here (s3).
 
-- **Part A** counts activity per depth (the operator's "drop in range trading activity"): in the example 2
-  crossings per swing at each of depths 1-4 and none at 5, a cliff at K = 4.
-- **Part B** asks the wall question directly, where it belongs: does price turn more often at round numbers?
-  Example: EURUSD reaches 1.1600 from above; does it come back to 1.1605 before it reaches 1.1595 more often than it
-  does at 1.1615 or 1.1585?
+## 2. OSLER's DEFINITIONS AND FINDINGS (the prior)
 
-## 2. DATA (as v1 s3; the replay's ticks; hashes checked before anything is read)
+- **Order clustering** (Osler, "Currency Orders and Exchange-Rate Dynamics", FRBNY Staff Report 125, 2001; a bank's
+  order book, 1 Sep 1999 - 11 Apr 2000, 9,667 orders): about 8.7% of orders at rates ending 00 against about 1% if
+  uniform; then 50, other 0s, 5s; 25 and 75 not special. Take-profits cluster AT 00 (9.3% against stop-losses' 4.4%);
+  stop-loss buys just above round numbers (14.4% at 01-10 against 7.4% at 90-99), stop-loss sells just below.
+- **Price behaviour** (Osler, "Stop-Loss Orders and Price Cascades in Currency Markets", FRBNY Staff Report 150, 2002;
+  Reuters minute quotes 9:00-16:00 New York, Jan 1996 - Apr 1998, DEM, JPY, GBP against the dollar): **round = rates
+  ending 00 or 50; a hit = within 0.01% of the level; a reversal = the rate is not beyond the level 15 minutes after
+  the hit; a crossing = it is beyond, in the direction of the move.** Comparison levels: arbitrary numbers drawn
+  uniformly in the period's range. Inference: 58 ten-trading-day intervals, each a Bernoulli trial (p = 0.5). Reversal
+  frequency, round against arbitrary: DEM 59.3% / 54.8% (+4.5 points, 46 of 58 intervals), JPY 60.1 / 57.3 (+2.8),
+  GBP 58.1 / 56.6 (+1.5, not significant). After crossings, round-number moves larger (DEM 0.061% against 0.054% at 15
+  minutes); the crossing effect lasts hours, the reversal effect under 30 minutes.
 
-| regime | files (`D:\mt5-replay\MQL5\Files\replay`) | segments | recorded sha256 (`sweep_notes.md`) |
-|---|---|---|---|
-| calm | `ticks_53077984_<PAIR>__h8w.csv` | the 8 weekly segments of `inputs/swcap/run_swcapw_<pair>.csv` (3 Aug - 25 Sep, server time) | starts EURUSD `10e95fec`, GBPUSD `d3c8c37a`, EURGBP `1de6ee93`, AUDCAD `a3791e0b`, AUDCHF `69b567b2`, CADCHF `6ff77bfa` |
-| October | `ticks_53077984_<PAIR>_oct.csv`; EURUSD `ticks_53077984_EURUSD_w2hw.csv` | the one segment of `run_swcapo_<pair>.csv` (1 Oct 04:00 - 20 Oct 23:45 server) | GBPUSD `7c1c080f`, EURGBP `9139142b`, AUDCAD `f1be6881`, AUDCHF `df6a785d`, CADCHF `09d6aced`, EURUSD `93816e45` |
+## 3. DATA (dumped 26 Oct ~04:42-04:44Z; not read before this is committed)
 
-E's six pairs. Mid = (bid + ask) / 2 per tick; a tick is in a segment when `from_ms <= time_msc_server <= to_ms`
-(`research/opt_budget/runs.py` `window`). Pips: 0.0001 (all six pairs quote 5 digits). Prices compared to a level
-with eps = 1e-9. One broker (IC 53077984); the ticks chose t3's adds (in-sample for Part A's scales; never used for
-round numbers).
+- **Source:** `grind_bar_dump.mq5` (read-only, `scripts/`, unchanged since `91dd953`; sha256 starts `a5370e009b4aa46e`)
+  on the desktop's MT5, FTMO-Demo, account 1514878887 (Fleet A's closed trial; history only), Max bars Unlimited.
+  M1 bars, bid OHLC, `spread_points`, server time (`server_minus_gmt_s` in each file's header).
+- **Span:** 2 Jan 2023 00:05 - 23 Oct 2026 23:54 server; about 1.41 million bars a pair. **Seven pairs:** E's six
+  (EURUSD, GBPUSD, EURGBP, AUDCAD, AUDCHF, CADCHF) and C's GBPCHF; all quote 5 digits (pip 0.0001).
+- **Files** (`D:\fxmatrix-exports\bars_ftmo\bars_1514878887_<PAIR>.csv`; sha256 first 16, bytes): AUDCAD
+  `B8ECCFF28A6BCAD0` 93,922,653; AUDCHF `091FB6B90C308FF4` 93,257,760; CADCHF `A136CD9577EC0448` 93,895,970; EURGBP
+  `E9A2BE7535EA8D76` 93,018,928; EURUSD `2BDF7E05817E41A6` 92,973,101; GBPCHF `BFC4346FF988130A` 94,323,103; GBPUSD
+  `742D88ADD02017E0` 93,112,293. Bar counts: 1,410,650; 1,410,274; 1,409,386; 1,409,300; 1,407,677; 1,410,930;
+  1,407,893 (the dump's log).
+- **New to this project:** no study here has used 2023 - Jul 2026; Aug - Oct 2026 overlaps the replay's ticks (another
+  broker's feed; never used for round numbers).
 
-## 3. PART A -- ACTIVITY PER DEPTH FROM A STACK's ANCHOR
+## 4. THE MEASURE (Osler's, made exact for minute bars)
 
-- **Series:** pair x scale a x regime; a = the pair's t3 OPT add and t3 ALT add (GBPUSD 9 / 15, EURUSD 7 / 23, EURGBP
-  5 / 23, AUDCAD 18 / 26, AUDCHF 14 / 20, CADCHF 10 / 17): 24 series.
-- **Lattice:** levels at L0 + j x a, L0 = the segment's first mid; state n = the level index of the last level
-  reached, relative to the anchor; the anchor = the level at the start of each excursion (the first, L0).
-- **Moves:** a tick whose mid reaches the next level up or down. A tick that passes m > 1 levels counts every
-  level passed (m moves, in order). **An excursion** runs from leaving n = 0 to the next arrival at n = 0; a gap
-  that passes through n = 0 ends the excursion at 0 and starts the next on the other side.
-- **The measure:** V_k = arrivals at depth k = |n| (from either side), summed over the series; **A_k = V_k / V_1**,
-  k = 1 ... 14. A driftless random walk's profile is flat (equal expected arrivals at every depth per excursion);
-  the cliff example gives A_1 ... A_4 = 1, A_5 = 0.
-- **Null (the shuffle):** the series' moves (a gap's m moves kept together as one block, in its direction) permuted
-  1,000 times, generator `random.Random(20261025 + i)`, i = the series' index in s3's order (pairs as listed, OPT
-  then ALT, calm then October); A_k recomputed each time; the band = the 26th and 975th of the 1,000 sorted values.
-  A permutation with V_1 = 0 or V_k undefined is skipped and counted.
-- **DROP at k:** A_k below the band's lower edge, counted only where the shuffle's median V_k is at least 20 (with
-  fewer, depth k is too thin to read: reported as THIN).
-- **The fall-off K:** the smallest k >= 2 with DROP at k and at k + 1 (two in a row). None: K = none.
-- **A CLUSTER (pair, scale):** K exists in BOTH regimes; its depth = the smaller K.
-- **Against the caps (Argon 1(c)):** a stack with cap c holds layers at depths 0 ... c - 1 (L0 at the anchor) and
-  rolls at depth c. **A CLUSTER of depth K reads: the layers at depths < K sit inside it; cap K would roll at the
-  fall-off.** Against today's caps (OPT 7; C's three OPT 9; ALT 7): K > cap says more layers; K < cap fewer.
+- **The minute quote:** q_t = the bar's open + spread_points x point / 2 (the mid at the minute's first quote).
+- **Levels:** round = multiples of 0.0050 (Osler's rates ending 00 or 50 at four decimals: 1.1600, 1.1650);
+  **R100** = multiples of 0.0100, **R50** = the others. **Arbitrary:** per interval (s5), 200 levels drawn uniformly in [the
+  interval's lowest q, highest q] (`random.Random(20261026 + 1000 x pair_index + interval_index)`, pairs in s3's
+  order), rounded to 0.00001; a draw within 0.0001 x L of a round level redrawn.
+- **The band:** |q_t - L| <= 0.0001 x L (Osler's 0.01%; about 1.2 pips on EURUSD at 1.16).
+- **A hit at L:** the first minute whose q is inside L's band after the last minute outside it; its **side** = the
+  side of that last outside minute (+1 above, -1 below). The level is re-armed only after a minute outside the band.
+- **The outcome:** q at the hit minute + 15 (the first bar at or after it, within 5 minutes; else dropped and
+  counted): **CROSSING** if beyond L in the direction of the move ((q_15 - L) x side < 0), else **REVERSAL**.
+- **Rates:** RVR = reversals / hits at round levels; RVA = the same at the interval's arbitrary levels (all their
+  hits pooled); also per class R100, R50.
+- **Crossing size (Osler's second effect):** after a CROSSING, the move in the crossing's direction from L at 15
+  minutes, as a percentage of L: MVR (round) against MVA (arbitrary); and at 30, 60, 120 minutes.
 
-## 4. PART B -- ROUND NUMBERS
+## 5. INFERENCE
 
-- **Levels:** every 5 pips (multiples of 0.0005). **Classes:** R100 (multiples of 100 pips: 1.1600, 0.9800), R50
-  (multiples of 50 pips, not of 100: 1.1650), OTHER (the rest).
-- **Scale:** s = 5 pips (primary) and s = 10 pips (reported, not deciding).
-- **An arrival at level L:** the first tick whose mid reaches L (at or beyond it, eps) from one side, after the mid
-  has been at least s away from L on that side since L's last arrival (re-armed). The arrival side = the side it came
-  from.
-- **The outcome:** after the arrival, which comes first: the mid back at L + s on the arrival side (**TURN**) or at L
-  - s on the far side (**THROUGH**); a gap past L - s is THROUGH. An arrival still open at the segment's end is
-  dropped and counted.
-- **Rates:** t_class = TURN / (TURN + THROUGH), per pair, per regime, and pooled over the six pairs.
-- **The effect:** d100 = t_R100 - t_OTHER and d50 = t_R50 - t_OTHER (pooled). Interval: a day-block bootstrap (the
-  arrivals grouped by server date; 2,000 resamples of days with replacement, `random.Random(20261026)`; the 51st and
-  1,950th of the sorted differences). A random walk gives the same t in every class (a class has no meaning to it),
-  so the classes are each other's control; no shuffle.
-- **A ROUND EFFECT (class R100 or R50):** its d above 0 with the bootstrap interval above 0, pooled, in BOTH
-  regimes at s = 5. Per pair reported, not deciding. **Reported beside it (Osler's second effect):** after a THROUGH
-  at a round level, the share that reach a further s beyond before returning to L, against OTHER.
+- **Intervals:** consecutive blocks of 10 trading days (a trading day = a server date with at least 600 bars),
+  per pair; the last partial block dropped. About 95 a pair.
+- **Per interval:** a WIN if RVR > RVA (ties and intervals with fewer than 10 round hits dropped and counted).
+- **The test:** one-sided binomial sign test against p = 0.5 on the WINs, per pair and pooled (all pairs' intervals);
+  effect = the mean of RVR - RVA over intervals, with a 95% interval from 2,000 resamples of intervals
+  (`random.Random(20261027)`; the 51st and 1,950th of the sorted means).
+- **The same for crossing size** (WIN if MVR > MVA at 15 minutes) and per class (R100, R50).
 
-## 5. SELF-CHECKS FIRST (any failure: STOP, record, amend before any real number is read)
+## 6. SELF-CHECKS FIRST (any failure: STOP, record, amend before any real number is read)
 
-1. The tick files' sha256 equal the recorded ones; counts equal the replay's `TICKS_LOADED` where recorded
-   (October: sweep10's; EURUSD w2hw 1,021,095; calm: sweep8's logs, `sweep_notes.md` 833-834).
-2. The tests pass (s8).
-3. **Synthetic random walks** (seed 20261027; per series the same number of moves and the same overall up / down
-   count as the real series, i.e. one shuffle each): Part A gives a CLUSTER on at most 1 of the 12 pair-scales.
-   Part B, 10 runs per regime: a Gaussian walk of the mid per pair (the real series' tick count, first mid and
-   standard deviation of tick-to-tick mid changes), the same rules; the d100 and d50 intervals include 0 on at least
-   9 of the 10 runs. More false findings than that: the rules are too loose; amend before reading real data.
-4. Identities: per series, the sum over k of arrivals = the moves less the moves into n = 0; per class, TURN +
-   THROUGH + dropped = arrivals.
+1. Each file's sha256 and bar count equal s3's; each header says digits=5, server=FTMO-Demo, the expected symbol;
+   times strictly increasing.
+2. The tests pass (s9).
+3. **False-finding rate:** 20 synthetic runs (`random.Random(20261028 + run)`): each pair's minute returns permuted
+   within each interval (keeps each interval's drift and volatility, removes any level structure), q rebuilt from the
+   interval's first q; s5's pooled sign test on reversals significant at p < 0.01 in at most 1 of the 20. Else the
+   rule is too loose: amend before reading the real result.
 
-## 6. CLAUDE's PREDICTIONS (before any tick is read)
+## 7. THE DECISION
 
-1. Part A: a CLUSTER on at most 1 of the 12 pair-scales; none at ALT's scale.
-2. Part B, calm, s = 5: pooled d100 between +1 and +8 points; d50 smaller than d100.
-3. Part B: a ROUND EFFECT at R100 in both regimes (lean, from Osler); none at R50.
-4. Osler's second effect (reported): after a THROUGH at R100 the continuation share above OTHER's.
+- **ROUND REVERSAL EFFECT** if the pooled sign test gives p < 0.01 with RVR - RVA > 0 **in BOTH halves**: 2023-01-02 to
+  2024-12-31 and 2025-01-01 to 2026-10-23 (the second half is the hold-out for the first: the operator's "tea
+  leaves"). One half only: IN ONE HALF (reported, not built on). Neither: NONE.
+- **ROUND CROSSING EFFECT** by the same rule on MVR > MVA at 15 minutes.
+- Per pair, per class and Osler's hours (09:00-16:00 New York local time, server time converted with each file's
+  offset and New York's DST) reported, not deciding.
+- **Watching, not deciding:** the same measures on the live weeks from 26 Oct (the desktop dump repeated after 6 Nov),
+  reported beside the result.
 
-## 7. THE CONFIRMATION (the operator's "tea leaves": what counts is what holds on ticks nobody has seen)
+## 8. CLAUDE's PREDICTIONS (before any bar is read)
 
-A finding from s3 or s4 counts as **CONFIRMED** only if it also holds, by the same rule, on **new ticks: E's six
-pairs from Mon 26 Oct 00:00 to Fri 6 Nov 23:57 server**, dumped on wine-d (IC 53077984, as every h8w and `_oct`
-file) after 6 Nov's close with `grind_tick_dump`, hashed, and read once. Until then a finding is IN-SAMPLE only and
-nothing is built on it beyond a simulator pre-registration.
+1. Pooled RVR - RVA between +1 and +5 points in each half.
+2. ROUND REVERSAL EFFECT: yes (both halves), larger at R100 than R50.
+3. ROUND CROSSING EFFECT: yes in the first half; the second half weaker.
+4. Synthetic check: 0 or 1 of 20 significant.
 
-## 8. THE CODE AND THE RUN
+## 9. THE CODE AND THE RUN
 
-`research/cluster/cluster.py` with `test_cluster.py` first, in their own commit, against a stub, hand values: A: the
-v1 cliff (1.1600 <-> 1.1572 at 7 pips) gives A_1 ... A_4 = 1 and A_5 = 0; a 10-level straight run gives V_1 ... V_10 =
-1; a gap of 3 levels counts 3 arrivals; a gap across n = 0 ends one excursion and starts the next; the shuffle keeps
-the up / down count and the gap blocks. B: a bounce off 1.1600 from above is TURN; a gap from 1.1607 to 1.1592 is
-THROUGH; a re-arm needs s away first; an open arrival at the end is dropped. Then the code; then the operator runs
-it on the desktop (`python research\cluster\cluster.py --data D:\mt5-replay\MQL5\Files\replay`, outputs to
-`research/cluster/out/`); outputs and a hash manifest committed; then `results.md`.
-
-## 9. IF PART B HOLDS (the operator's grid idea; NOT pre-registered here)
-
-A round-aware lattice: adds denser within a few pips of R100 / R50 levels, sparser between them. Its own
-pre-registration and simulator check (as the OPT budget and the cap sweep), after s7's confirmation.
+`research/cluster/osler.py` with `test_osler.py` first, in their own commit, against a stub; hand values: a hit from
+above that is back above at +15 is REVERSAL; one below is CROSSING; the band at 1.1600 is 1.159884 to 1.160116; no
+re-hit without a minute outside; an interval with 9 round hits is dropped; the sign test's p for 8 wins of 10. Then
+the code; then the operator runs it on the desktop (`python research\cluster\osler.py --data
+D:\fxmatrix-exports\bars_ftmo`); outputs and a hash manifest committed; then `results.md`.
 
 ## 10. LIMITS
 
-In-sample ticks (s7 is the answer); one broker; mid prices; one level grid (5 pips) and two scales for B; A's
-lattice starts at the segment's first mid (a sensitivity run at L0 + a / 2 reported, not deciding); arrivals within
-a day are dependent (the day-block bootstrap is the guard for B; the shuffle and s5.3 for A).
+One feed (FTMO's), minute quotes from bars (the open plus half the bar's spread); Osler's band and horizon taken as
+published, not tuned; dependence between levels in one interval (intervals are the unit); the arbitrary levels'
+range is the interval's; a reversal effect of a few points is a premise for a geometry, not a profit.
 
-Line count: 130
+Line count: 119
