@@ -3084,4 +3084,16 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`git push` "Everything up-to-date" means the commit was already pushed** (an earlier run): check GitHub's HEAD, do
   not push again.
 
-Line count: 3087
+## TRAPS FROM 2026-10-26 (LATER: ANTIGRAVITY'S BRANCH; POWERSHELL BRACES; A NULL THAT KEEPS A TILT)
+
+- **After an Argon run in Antigravity the desktop can be left on Argon's review branch** (26 Oct: `review/argon-c165`;
+  a patch applied there). Before every `git am` on the desktop: `git switch main; git branch --show-current`.
+- **PowerShell eats `{...}`:** `git rev-parse HEAD^{tree}` passes `HEAD^` plus a script block (it prints the parent
+  and an `-encodedCommand` error). Quote it: `git rev-parse "HEAD^{tree}"`.
+- **A comparison must share the tested set's sampling structure:** a pooled mean over hundreds of levels against a
+  mean over a handful tilts whenever volatility changes from day to day (Osler v3.1's selfcheck, `research/cluster/`
+  PREREG s1b). Check a null on heteroskedastic synthetic data, not only on a constant-volatility walk.
+- **Large files over the bridge go one per call:** four 93 MB files in one `device_stage_files` call timed out; one
+  per call took about two minutes each.
+
+Line count: 3099
