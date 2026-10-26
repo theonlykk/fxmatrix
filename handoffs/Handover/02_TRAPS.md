@@ -3061,4 +3061,27 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   `grind_exitq.mqh` 115-182): a side's worst case is cap + 3 guard units (at cap - 1 with its add resting), not cap + 2;
   a DUP arm's 03 magics are not fleet magics, so theirs count once. Far entries stop at 186 (reserve 8), near ones at 194.
 
-Line count: 3064
+## TRAPS FROM 2026-10-26 (MAX BARS ON A LIVE BOX; SHORT TICK HISTORY; THE DESKTOP'S LOG; AGENTS' PERMISSIONS)
+
+- **MT5's "Max bars in chart" caps `CopyRates`:** wine-d's terminal returned 99,542 M1 bars (from 20 Jul 2026) for a
+  request from 2023; chunking does not help (the cap counts back from now). Raising it needs a terminal restart, which
+  restarts a live fleet: pull long bar history on the desktop's terminal (no EAs; Max bars Unlimited) instead.
+- **IC's tick history (CopyTicks) is short:** on wine-d from 2 Jan 2026 (GBPUSD, EURGBP, AUDCAD, AUDCHF) and 1 Apr 2026
+  (EURUSD, CADCHF, GBPCHF). Probe first: `grind_tick_dump` with `InpProbeOnly=true`.
+- **A script must be in the terminal's own Scripts folder and compiled there:** wine-d had no `grind_bar_dump`
+  (copy from the repo, hash both, compile in MetaEditor). The desktop's terminal folder is `C:\Users\Khalid
+  Khan\AppData\Roaming\MetaQuotes\Terminal\81A933A9AFC5DE3C23B15CAB19C63850\MQL5`; its files land in `MQL5\Files` on
+  C: (move them to D: at once); its log is `MQL5\Logs\<yyyymmdd>.log`, read with `Select-String -Encoding Unicode`.
+- **Linux shell: `cd ..` needs the space** (`cd..` is not a command); the boxes' grep commands use full paths, so
+  they work from any folder.
+- **Antigravity's Default preset asks before every terminal command and every read outside the workspace:** a
+  read-only review of pipshed files means many prompts. Allow-list read-only git commands, or a Custom preset (terminal
+  commands without review, file access in the workspace only, deny rules for push to main, merge, reset, rebase,
+  stash, railway, deletes); after every Argon run check in git that `main` did not move and its commit touches only its
+  reply file.
+- **An agent's quotes can be of another branch's file** (Argon quoting its own earlier review): check those against
+  that branch, not `main`; a quote of a line that itself starts with a backtick differs only in wrapping.
+- **`git push` "Everything up-to-date" means the commit was already pushed** (an earlier run): check GitHub's HEAD, do
+  not push again.
+
+Line count: 3087
