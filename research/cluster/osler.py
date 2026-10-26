@@ -1,4 +1,4 @@
-"""Round numbers in FX: an Osler replication (research/cluster/PREREG.md v3.1).
+"""Round numbers in FX: an Osler replication (research/cluster/PREREG.md v3.2: v3.1 with structure-matched comparison grids).
 
     python research/cluster/osler.py --data <dir of bars_1514878887_<PAIR>.csv> --out <dir> --stage selfcheck
     python research/cluster/osler.py --data <dir> --out <dir> --stage real      (refused unless selfcheck PASSED)
@@ -7,7 +7,8 @@
 Prices are integers in tenths of a point ("t10": 1.16000 -> 1160000; one point = 10 t10), so the band (0.0001 x L)
 and every comparison are exact; PREREG s4's 1e-12 tolerance is a 1e-6 t10 tolerance (inclusive edges).
 Implementation choices PREREG leaves to the code (stated here, fixed before any bar is read):
-- block_index for the arbitrary levels' seed counts blocks over the whole run (H1's first, then H2's), from 0;
+- block_index for the comparison grids' seed counts blocks over the whole run (H1's first, then H2's), from 0
+  (v3.1: the arbitrary levels' seed; `draw_arbitrary` is kept for its test, unused since v3.2);
 - the synthetic runs' permutation uses numpy's PCG64 seeded by random.Random(20261028 + run).getrandbits(63), the
   pairs permuted in PREREG s4's order from that one generator;
 - the "move" after a crossing is (L - q_h) x side / L x 100 (positive in the crossing's direction), in % of L.
@@ -126,24 +127,56 @@ def draw_arbitrary(rng, qmin, qmax, n):
     return out
 
 
-# ---------------------------------------------------------------- v3.2: the comparison grids (STUB)
+# ---------------------------------------------------------------- v3.2: the comparison grids (PREREG s1b, s4)
 K_GRIDS = 20
 
 
 def comparison_offsets(rng, qmax, k=K_GRIDS):
-    raise NotImplementedError
+    """k offsets in t10, multiples of one point in (0, ROUND_STEP), none within 0.0002 x qmax of 0 or ROUND_STEP."""
+    out = []
+    while len(out) < k:
+        off = rng.randrange(10, ROUND_STEP, 10)
+        if min(off, ROUND_STEP - off) <= 0.0002 * qmax:
+            continue
+        out.append(off)
+    return out
 
 
 def grid_levels(qmin, qmax, off):
-    raise NotImplementedError
+    lo = -(-(int(qmin) - off) // ROUND_STEP) * ROUND_STEP + off
+    return list(range(lo, int(qmax) + 1, ROUND_STEP))
 
 
 def comparison_stats(t, q, qmin, qmax, offsets, min_hits=10, min_cross=5):
-    raise NotImplementedError
+    """Each comparison grid measured exactly as the round grid (its own pooled rates and minimums), then averaged."""
+    rv, ny, mv = [], [], {h: [] for h in HORIZONS}
+    hits = cross = ny_hits = 0
+    for off in offsets:
+        sk = pair_block_stats(t, q, grid_levels(qmin, qmax, off), [], min_hits, min_cross)
+        hits += sk["round_hits"]
+        cross += sk["round_cross"]
+        ny_hits += sk["ny_round_hits"]
+        if sk["counted_reversal"]:
+            rv.append(sk["rvr"])
+        if sk["counted_ny"]:
+            ny.append(sk["ny_rvr"])
+        if sk["counted_cross"]:
+            for h in HORIZONS:
+                if sk["mvr_%d" % h] is not None:
+                    mv[h].append(sk["mvr_%d" % h])
+
+    def mean(v):
+        return sum(v) / len(v) if v else None
+
+    out = {"rva": mean(rv), "ny_rva": mean(ny), "arb_hits": hits, "arb_cross": cross, "ny_arb_hits": ny_hits,
+           "grids_rev": len(rv), "grids_cross": len(mv[15])}
+    for h in HORIZONS:
+        out["mva_%d" % h] = mean(mv[h])
+    return out
 
 
 def selfcheck_ok(text):
-    raise NotImplementedError
+    return "PREREG v3.2" in text and "SELFCHECK: PASS" in text
 
 
 # ---------------------------------------------------------------- a pair-block
@@ -312,8 +345,9 @@ def run(loaded, min_hits=10, min_cross=5, log=None):
             t, q = t_all[m], q_all[m]
             qmin, qmax = int(q.min()), int(q.max())
             rnd = round_levels(qmin, qmax)
-            arb = draw_arbitrary(random.Random(20261026 + 1000 * pi + bi), qmin, qmax, 200)
-            st = pair_block_stats(t, q, rnd, arb, min_hits, min_cross)
+            offsets = comparison_offsets(random.Random(20261026 + 1000 * pi + bi), qmax)   # PREREG v3.2 s4
+            st = pair_block_stats(t, q, rnd, [], min_hits, min_cross)
+            st.update(comparison_stats(t, q, qmin, qmax, offsets, min_hits, min_cross))
             st.update({"pair": p, "half": half, "block": bi, "first_day": bdays[0], "last_day": bdays[-1],
                        "round_levels": len(rnd)})
             rows.append(st)
@@ -395,7 +429,7 @@ def main(argv=None):
         log("FILE " + ln)
     sc_path = os.path.join(a.out, "selfcheck.txt")
     if a.stage == "selfcheck":
-        rep = ["s6.1 files: %s" % ("PASS" if ok else "FAIL")] + ["  " + ln for ln in lines]
+        rep = ["PREREG v3.2", "s6.1 files: %s" % ("PASS" if ok else "FAIL")] + ["  " + ln for ln in lines]
         if not ok:
             open(sc_path, "w").write("\n".join(rep + ["SELFCHECK: FAIL"]) + "\n")
             log("SELFCHECK: FAIL (files)")
@@ -422,8 +456,8 @@ def main(argv=None):
         log(rep[-1])
         return 0 if good else 1
     # real
-    if not os.path.exists(sc_path) or "SELFCHECK: PASS" not in open(sc_path).read() or not ok:
-        log("REFUSED: run --stage selfcheck first (it must PASS on these files)")
+    if not os.path.exists(sc_path) or not selfcheck_ok(open(sc_path).read()) or not ok:
+        log("REFUSED: run --stage selfcheck first (a PREREG v3.2 selfcheck that PASSED on these files)")
         return 2
     rows, blk = run(loaded, log=log)
     res = tests(rows, blk)
