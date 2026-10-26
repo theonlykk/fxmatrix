@@ -4,7 +4,7 @@ This message has a line count at the bottom
 
 | | |
 |---|---|
-| Status | **DRAFT 26 Oct ~21:50Z (Claude, HANDOFF s92 continued 5).** Runs in market hours on the operator's go, before Fri 30 Oct's close. |
+| Status | **RUN 26 Oct 21:59-22:18Z (HANDOFF s92 continued 6): DONE, every check clean.** wine-e at `11c3086` (EA code `bf832c0`), kept 79, cmp 80, compile 22:06Z (0 / 0), 12 rows `deinit=2` with the `_t3` `geo=`, BAD 0, `ea_build` `fxgrind 2026.10.26 22:06:31`; the watch to 22:18Z clean (s8). DRAFT 26 Oct ~21:50Z (Claude, HANDOFF s92 continued 5). |
 | Why | C165: at Sunday's open E's terminal sent ~1,700 requests in two hours (FTMO's limit 2,000 a day), ~1,550 of them three clamped adds chasing the spread. The next weekly open is Sun 1 Nov (~22:00Z after New York's change). |
 | What | E's twelve charts go from EA code `5bb5fdb` to `main` `bf832c0` (merge of `c165-clamp-hold`): `Grind_AddClampHold` + a two-line guard in `Grind_EnsureAddNext`; the rest of the diff is tests. No input, preset, geometry or telemetry change. |
 | Evidence | Prompt `prompts/cursor_c165_clamp_hold.md` (Argon GO); suite on the desktop 2612/2624 at the stub (exactly the 12 F) and **2624/2624** at `9b44b57`; DeepSeek `review/deepseek-c165` (NO GO on pre-existing behaviour only: HANDOFF s92 continued 5) |
@@ -102,4 +102,17 @@ No preset Load, no Remove / Attach, no F7 on any chart, no change to inputs, no 
 file, nothing on B, C or D, no `fxgrind_tests` on wine-e, no attach or compile in 20:50-21:15Z or with the market
 closed.
 
-Line count: 105
+## 8. RECORD (RUN 26 OCT; the operator ran each step, Claude read each output)
+
+- 21:54Z pipshed: E 12/12 LIVE, none halted, equity 9,986.76, FTMO-day loss $76, 0 requests since 21:00Z; 64
+  positions, 62 orders, guard 149.
+- 3.1 (~21:59Z): `11c3086`, the four files (+316), `211cb64a25ac`, 12. 3.2: `kept 79`. 3.3: `cmp ok=80 bad=0`.
+- 3.4: MetaEditor compile of `Experts/fxmatrix/fxgrind.mq5` at 22:06Z: 0 errors, 0 warnings (15.2 s).
+- 3.5 (FROM 22:06:00): 12 rows at 22:06:46, all `deinit=2 replay=ready(0) lattice=true reroll=true gate=0
+  api=1000000/999000 rebuild=false/false`, every `geo=` as s0; POST ok 8-9 per symbol; one `ROLL_DEFERRED` (EURUSD:
+  the gate holding a due roll, OPT long at 7); BAD 0. `config_events` GRIND_GBPUSD_OPTE: DEINIT reason 2 and INIT at
+  22:06:47Z, `ea_build` `fxgrind 2026.10.26 22:06:31`.
+- 3.6 (22:17:52Z pipshed): 12/12 LIVE, none halted, no alerts; `api_count` 10 (unchanged since 22:09Z); the book as
+  before the compile (64 / 62, guard 149; every pair's long / short unchanged); equity 10,002.26.
+
+Line count: 118
