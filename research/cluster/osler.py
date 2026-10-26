@@ -126,6 +126,26 @@ def draw_arbitrary(rng, qmin, qmax, n):
     return out
 
 
+# ---------------------------------------------------------------- v3.2: the comparison grids (STUB)
+K_GRIDS = 20
+
+
+def comparison_offsets(rng, qmax, k=K_GRIDS):
+    raise NotImplementedError
+
+
+def grid_levels(qmin, qmax, off):
+    raise NotImplementedError
+
+
+def comparison_stats(t, q, qmin, qmax, offsets, min_hits=10, min_cross=5):
+    raise NotImplementedError
+
+
+def selfcheck_ok(text):
+    raise NotImplementedError
+
+
 # ---------------------------------------------------------------- a pair-block
 def _level_outcomes(t, q, level, ny):
     """For one level: per hit, (reversal at 15, crossing moves at each horizon or nan, ny-hours flag)."""

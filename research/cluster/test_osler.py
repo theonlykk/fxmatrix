@@ -1,4 +1,5 @@
-"""Tests for osler.py (written first, against a stub; expected values derived by hand from PREREG.md v3.1).
+"""Tests for osler.py (written first, against a stub; expected values derived by hand from PREREG.md v3.1; the v3.2
+tests at the end, also first, against a stub).
 Run: python -m pytest -q research/cluster/test_osler.py
 
 Units: prices are held as integers in tenths of a point ("t10": 1.16000 -> 1160000; 1 point = 10 t10), so the
@@ -144,3 +145,60 @@ def test_bootstrap_ci_constant():
     # all D_j equal: every resampled mean equals it
     lo, hi = osler.bootstrap_ci([0.02] * 30, seed=20261027, n=2000)
     assert abs(lo - 0.02) < 1e-12 and abs(hi - 0.02) < 1e-12
+
+
+# ---------------------------------------------------------------- v3.2: the comparison grids (PREREG s1b, s4)
+def test_comparison_offsets():
+    # 20 offsets, multiples of one point (10 t10) in (0, 5000), none within 0.0002 x qmax of 0 or 5000; seeded
+    qmax = 1166300                                      # 0.0002 x qmax = 233.26 t10
+    a = osler.comparison_offsets(random.Random(7), qmax)
+    b = osler.comparison_offsets(random.Random(7), qmax)
+    assert a == b and len(a) == 20
+    for off in a:
+        assert off % 10 == 0 and 0 < off < 5000
+        assert min(off, 5000 - off) > 0.0002 * qmax
+
+
+def test_grid_levels_inside_range():
+    # offset 2500 (levels ending 25 / 75): 1.15750 and 1.16250 inside 1.15720 .. 1.16630; 1.16750 outside
+    assert osler.grid_levels(1157200, 1166300, 2500) == [1157500, 1162500]
+    # offset 1000: 1.16100 and 1.16600
+    assert osler.grid_levels(1157200, 1166300, 1000) == [1161000, 1166000]
+
+
+def test_comparison_stats_averages_each_grid_on_its_own():
+    # grid A (offset 1000, level X = 1.16100): 10 hits from above, each back above at +15 -> RV = 1.0, 0 crossings
+    # grid B (offset 2500, level Y = 1.16250): 10 hits from above, each below at +15 -> RV = 0.0, 10 crossings,
+    #   each move 300 t10 = 300 / Y x 100 %
+    # grid C (offset 4000): no level inside the range 1.16100 .. 1.16300 -> no hits, not counted
+    # RVA = mean(1.0, 0.0) = 0.5 (NOT the pooled 10 / 20, which happens to agree, so MVA checks the grid count);
+    # MVA_15 = B's alone (A has 0 crossings < 5)
+    X, Y = 1161000, 1162500
+    qs = []
+    for _ in range(10):
+        qs += [X + 500, X] + [X + 300] * 16
+    for _ in range(10):
+        qs += [Y + 500, Y] + [Y - 300] * 16
+    t, q = series(qs)
+    c = osler.comparison_stats(t, q, min(qs), max(qs), [1000, 2500, 4000], min_hits=10, min_cross=5)
+    assert c["grids_rev"] == 2 and abs(c["rva"] - 0.5) < 1e-12
+    assert c["grids_cross"] == 1 and abs(c["mva_15"] - 300 / Y * 100) < 1e-12
+    assert c["arb_hits"] == 20 and c["arb_cross"] == 10
+
+
+def test_comparison_grid_with_nine_hits_not_counted():
+    # one grid, nine reversed hits: below the round grid's minimum of 10 -> no RVA
+    X = 1161000
+    qs = []
+    for _ in range(9):
+        qs += [X + 500, X] + [X + 300] * 16
+    t, q = series(qs)
+    c = osler.comparison_stats(t, q, min(qs), max(qs), [1000], min_hits=10, min_cross=5)
+    assert c["grids_rev"] == 0 and c["rva"] is None
+
+
+def test_selfcheck_version_gate():
+    # --stage real runs only on a v3.2 selfcheck that PASSED
+    assert osler.selfcheck_ok("PREREG v3.2\nSELFCHECK: PASS\n")
+    assert not osler.selfcheck_ok("PREREG v3.2\nSELFCHECK: FAIL\n")
+    assert not osler.selfcheck_ok("s6.1 files: PASS\nSELFCHECK: PASS\n")        # a v3.1 file has no version line
