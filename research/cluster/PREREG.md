@@ -1,102 +1,130 @@
 This message has a line count at the bottom
 
-# THE CLUSTER MEASUREMENT -- PRE-REGISTRATION (25 Oct 2026 ~19:50Z; before any tick is read for it)
+# THE CLUSTER MEASUREMENT -- PRE-REGISTRATION v2 (26 Oct 2026 ~03:35Z; before any tick is read for it)
 
 | | |
 |---|---|
-| Status | **DRAFT for review** (Argon: `prompts/argon_review_cluster.md`; reply on `review/argon-cluster`). No code, no run yet. |
-| Why | The operator (25 Oct): "we are searching for a cluster of tight mean reversion"; "there is a drop of in range trading activity after a certain distance. the ideal place for the roll would be at that point"; "we might end up with more layers but less fx pairs". The OPT cap sweep (`research/opt_budget/PREREG_CAP.md`) found cap 9 better than 7 but not 11 or 13; this asks the price question underneath: **from a stack's anchor, how far does price stay more likely to come back than to go on?** |
-| What follows | **Nothing live.** A pair with a cluster in both regimes becomes a candidate (a cap or a pair choice) for its own pre-registered simulator, then harness, check (as swcap). No cluster: the idea is not supported at these scales, and that is reported. |
+| Status | **DRAFT v2 for review** (Argon: `prompts/argon_review_cluster_v2.md`; reply on `review/argon-cluster-v2`). v1 (`b058521`) reviewed by Argon (`reviews/argon_review_cluster.md` on `review/argon-cluster`, `2875f99`): SOUND WITH CHANGES; its item 1(b) a real flaw (s1). No code, no run yet. |
+| Why | The operator (25 Oct): "we are searching for a cluster of tight mean reversion"; "there is a drop of in range trading activity after a certain distance. the ideal place for the roll would be at that point"; and (~03:23Z 26 Oct) "if this is random walk, then we are just trying to read tea leaves and any repeated pattern we do see might end as soon as we deploy capital ... there is a lot of back and forth around 'whole' numbers ... maybe we use those as clusters where we add and are more sparse between add layers ... i feel we could test this". |
+| What follows | **Nothing live.** A result that holds in both regimes AND on the confirmation ticks (s7) becomes a candidate geometry for its own pre-registered simulator, then harness, check. No result: reported as such. |
+| Prior evidence | Osler, "Currency Orders and Exchange-Rate Dynamics" (FRBNY Staff Report 125, 2001; J. Finance 2003): take-profit orders cluster at round numbers (trends tend to reverse there), stop-loss orders just beyond them (trends accelerate once through). A mechanism, so a reason the pattern might outlive its discovery; in 1990s bank order books, not tested here before. |
 
-## 1. ONE WORKED EXAMPLE (EURUSD, a = 7 pips, prices)
+## 1. WHY v1 WAS WRONG, AND ONE WORKED EXAMPLE (EURUSD, 7-pip steps, prices)
 
-A stack's anchor at 1.1600. Price falls to 1.1593 (depth k = 1), then 1.1586 (k = 2). From 1.1586 the next 7-pip move is
-either back to 1.1593 (**RETRACE**) or on to 1.1579 (**EXTEND**). A driftless random walk retraces 50% of the time at
-every depth. **A cluster of tight mean reversion** is a run of depths k = 1 ... K where it retraces clearly more than
-that, say 60%, and beyond K about 50%: a stack's layers down to depth K sit inside it, deeper ones do not. If K = 4 for
-EURUSD at 7 pips, the layers below 1.1572 (the anchor less 4 x 7) add exposure outside the cluster.
+v1 measured p_k, the share of steps at depth k that went back toward the anchor. Take the cleanest range there is:
+price swings 1.1600 -> 1.1572 -> 1.1600 for ever (depth 0 to 4 and back). Each swing gives at depth 1 one step out
+and one back (50%), the same at depths 2 and 3 (50%), and at depth 4 one turn (100%): **50 / 50 / 50 / 100**. Every
+step out past a level is matched by a step back before the excursion ends, so inside ANY range p_k sits near 50%, as
+for a random walk; p_k moves only where crossings stop. **p_k finds a wall, not a range.** Hence:
 
-## 2. THE MEASURE (one series = one pair x one scale a x one regime)
+- **Part A** counts activity per depth (the operator's "drop in range trading activity"): in the example 2
+  crossings per swing at each of depths 1-4 and none at 5, a cliff at K = 4.
+- **Part B** asks the wall question directly, where it belongs: does price turn more often at round numbers?
+  Example: EURUSD reaches 1.1600 from above; does it come back to 1.1605 before it reaches 1.1595 more often than it
+  does at 1.1615 or 1.1585?
 
-- **Price:** mid = (bid + ask) / 2 of every tick, in order, within each segment (s3). Pips as the pair's point x 10.
-- **Lattice:** levels at L0 + j x a, L0 = the segment's first mid; the state n (an integer) = the current level
-  minus the anchor's, in steps of a; the anchor starts at the first level.
-- **A move:** a tick whose mid reaches the next level up or down from the current level (first passage). A tick
-  that crosses m > 1 levels at once (a gap) moves n by m and counts as ONE decision, at the level it left.
-- **A decision:** at |n| = k >= 1, the next move is RETRACE (|n| falls) or EXTEND (|n| rises). Long and short
-  excursions pooled (|n|). At n = 0 the excursion ends and the next move starts a new one (no decision at k = 0).
-- **p_k** = RETRACE / (RETRACE + EXTEND) at depth k, for k = 1 ... 14 and a pooled "15 or more". Reported with N_k.
-- **Segment ends:** the state is carried across a weekend inside one segment (October); the open decision at a
-  segment's end is dropped (neither outcome).
+## 2. DATA (as v1 s3; the replay's ticks; hashes checked before anything is read)
 
-## 3. DATA (the replay's tick files; nothing new dumped; hashes checked before the measure is read)
-
-| regime | files (`D:\mt5-replay\MQL5\Files\replay`) | segments | recorded sha256 (sweep_notes) |
+| regime | files (`D:\mt5-replay\MQL5\Files\replay`) | segments | recorded sha256 (`sweep_notes.md`) |
 |---|---|---|---|
-| calm | `ticks_53077984_<PAIR>__h8w.csv` | the 8 weekly segments of `inputs/swcap/run_swcapw_<pair>.csv` (Mon 3 Aug - Fri 25 Sep, server time) | starts EURUSD `10e95fec`, GBPUSD `d3c8c37a`, EURGBP `1de6ee93`, AUDCAD `a3791e0b`, AUDCHF `69b567b2`, CADCHF `6ff77bfa` |
+| calm | `ticks_53077984_<PAIR>__h8w.csv` | the 8 weekly segments of `inputs/swcap/run_swcapw_<pair>.csv` (3 Aug - 25 Sep, server time) | starts EURUSD `10e95fec`, GBPUSD `d3c8c37a`, EURGBP `1de6ee93`, AUDCAD `a3791e0b`, AUDCHF `69b567b2`, CADCHF `6ff77bfa` |
 | October | `ticks_53077984_<PAIR>_oct.csv`; EURUSD `ticks_53077984_EURUSD_w2hw.csv` | the one segment of `run_swcapo_<pair>.csv` (1 Oct 04:00 - 20 Oct 23:45 server) | GBPUSD `7c1c080f`, EURGBP `9139142b`, AUDCAD `f1be6881`, AUDCHF `df6a785d`, CADCHF `09d6aced`, EURUSD `93816e45` |
 
-Pairs: E's six (GBPUSD, EURUSD, EURGBP, AUDCAD, AUDCHF, CADCHF). **Scales a:** each pair's t3 OPT add and t3 ALT add
-(GBPUSD 9 / 15, EURUSD 7 / 23, EURGBP 5 / 23, AUDCAD 18 / 26, AUDCHF 14 / 20, CADCHF 10 / 17). 6 x 2 x 2 = 24 series.
-One broker's ticks (IC 53077984); the same ticks chose t3's adds (in-sample: disclosed, s8).
+E's six pairs. Mid = (bid + ask) / 2 per tick; a tick is in a segment when `from_ms <= time_msc_server <= to_ms`
+(`research/opt_budget/runs.py` `window`). Pips: 0.0001 (all six pairs quote 5 digits). Prices compared to a level
+with eps = 1e-9. One broker (IC 53077984); the ticks chose t3's adds (in-sample for Part A's scales; never used for
+round numbers).
 
-## 4. THE NULLS
+## 3. PART A -- ACTIVITY PER DEPTH FROM A STACK's ANCHOR
 
-1. **50%** (a driftless random walk), with a Wilson 95% interval on p_k.
-2. **The shuffle** (keeps each segment's drift, removes everything else): the segment's sequence of move directions
-   (up / down, gaps kept as their own runs of m) permuted 200 times (seed 20261025); p_k recomputed on each; the 2.5%
-   and 97.5% of the 200 values per k.
+- **Series:** pair x scale a x regime; a = the pair's t3 OPT add and t3 ALT add (GBPUSD 9 / 15, EURUSD 7 / 23, EURGBP
+  5 / 23, AUDCAD 18 / 26, AUDCHF 14 / 20, CADCHF 10 / 17): 24 series.
+- **Lattice:** levels at L0 + j x a, L0 = the segment's first mid; state n = the level index of the last level
+  reached, relative to the anchor; the anchor = the level at the start of each excursion (the first, L0).
+- **Moves:** a tick whose mid reaches the next level up or down. A tick that passes m > 1 levels counts every
+  level passed (m moves, in order). **An excursion** runs from leaving n = 0 to the next arrival at n = 0; a gap
+  that passes through n = 0 ends the excursion at 0 and starts the next on the other side.
+- **The measure:** V_k = arrivals at depth k = |n| (from either side), summed over the series; **A_k = V_k / V_1**,
+  k = 1 ... 14. A driftless random walk's profile is flat (equal expected arrivals at every depth per excursion);
+  the cliff example gives A_1 ... A_4 = 1, A_5 = 0.
+- **Null (the shuffle):** the series' moves (a gap's m moves kept together as one block, in its direction) permuted
+  1,000 times, generator `random.Random(20261025 + i)`, i = the series' index in s3's order (pairs as listed, OPT
+  then ALT, calm then October); A_k recomputed each time; the band = the 26th and 975th of the 1,000 sorted values.
+  A permutation with V_1 = 0 or V_k undefined is skipped and counted.
+- **DROP at k:** A_k below the band's lower edge, counted only where the shuffle's median V_k is at least 20 (with
+  fewer, depth k is too thin to read: reported as THIN).
+- **The fall-off K:** the smallest k >= 2 with DROP at k and at k + 1 (two in a row). None: K = none.
+- **A CLUSTER (pair, scale):** K exists in BOTH regimes; its depth = the smaller K.
+- **Against the caps (Argon 1(c)):** a stack with cap c holds layers at depths 0 ... c - 1 (L0 at the anchor) and
+  rolls at depth c. **A CLUSTER of depth K reads: the layers at depths < K sit inside it; cap K would roll at the
+  fall-off.** Against today's caps (OPT 7; C's three OPT 9; ALT 7): K > cap says more layers; K < cap fewer.
 
-## 5. DEFINITIONS (fixed now)
+## 4. PART B -- ROUND NUMBERS
 
-- **REVERTING at k:** p_k above BOTH 50% and the shuffle's 97.5% value, with N_k >= 30.
-- **TRENDING at k:** p_k below both 50% and the shuffle's 2.5% value, with N_k >= 30.
-- **K\* (the cluster's depth)** for a series: the largest K with REVERTING at every k = 1 ... K (0 if not at k = 1).
-- **The fall-off:** the first k > K\* that is not REVERTING (reported with its p_k).
-- **A CLUSTER (pair, scale):** K\* >= 2 in BOTH calm and October. Its depth: the smaller of the two K\*.
-- **Reference only (not deciding): the break-even** p\* = (a + c + s) / (2a), c = the commission per close in pips at
-  0.01 lots ($0.06 / the pair's USD per pip at 0.01 lots, `research/replay/sweep.py` 56-59), s = the series' median spread in pips: a one-step bet
-  of a pips each way needs p\* to pay its costs.
+- **Levels:** every 5 pips (multiples of 0.0005). **Classes:** R100 (multiples of 100 pips: 1.1600, 0.9800), R50
+  (multiples of 50 pips, not of 100: 1.1650), OTHER (the rest).
+- **Scale:** s = 5 pips (primary) and s = 10 pips (reported, not deciding).
+- **An arrival at level L:** the first tick whose mid reaches L (at or beyond it, eps) from one side, after the mid
+  has been at least s away from L on that side since L's last arrival (re-armed). The arrival side = the side it came
+  from.
+- **The outcome:** after the arrival, which comes first: the mid back at L + s on the arrival side (**TURN**) or at L
+  - s on the far side (**THROUGH**); a gap past L - s is THROUGH. An arrival still open at the segment's end is
+  dropped and counted.
+- **Rates:** t_class = TURN / (TURN + THROUGH), per pair, per regime, and pooled over the six pairs.
+- **The effect:** d100 = t_R100 - t_OTHER and d50 = t_R50 - t_OTHER (pooled). Interval: a day-block bootstrap (the
+  arrivals grouped by server date; 2,000 resamples of days with replacement, `random.Random(20261026)`; the 51st and
+  1,950th of the sorted differences). A random walk gives the same t in every class (a class has no meaning to it),
+  so the classes are each other's control; no shuffle.
+- **A ROUND EFFECT (class R100 or R50):** its d above 0 with the bootstrap interval above 0, pooled, in BOTH
+  regimes at s = 5. Per pair reported, not deciding. **Reported beside it (Osler's second effect):** after a THROUGH
+  at a round level, the share that reach a further s beyond before returning to L, against OTHER.
 
-## 6. WHAT IS REPORTED
+## 5. SELF-CHECKS FIRST (any failure: STOP, record, amend before any real number is read)
 
-Per series: N_k, p_k (Wilson), the shuffle band, REVERTING / TRENDING per k, K\*, the fall-off, p\*. Per pair: CLUSTER
-or not at each scale; for a CLUSTER its depth against the current caps (OPT 7 on D and E, 9 on C's EURUSD and AUDCAD;
-ALT 7). A figure per pair: p_k against k, both regimes, with 50% and the shuffle band.
+1. The tick files' sha256 equal the recorded ones; counts equal the replay's `TICKS_LOADED` where recorded
+   (October: sweep10's; EURUSD w2hw 1,021,095; calm: sweep8's logs, `sweep_notes.md` 833-834).
+2. The tests pass (s8).
+3. **Synthetic random walks** (seed 20261027; per series the same number of moves and the same overall up / down
+   count as the real series, i.e. one shuffle each): Part A gives a CLUSTER on at most 1 of the 12 pair-scales.
+   Part B, 10 runs per regime: a Gaussian walk of the mid per pair (the real series' tick count, first mid and
+   standard deviation of tick-to-tick mid changes), the same rules; the d100 and d50 intervals include 0 on at least
+   9 of the 10 runs. More false findings than that: the rules are too loose; amend before reading real data.
+4. Identities: per series, the sum over k of arrivals = the moves less the moves into n = 0; per class, TURN +
+   THROUGH + dropped = arrivals.
 
-**Reading rule (fixed now):** a CLUSTER deeper than the cap says the arm rolls inside it (more layers is the
-direction); shallower says layers past it sit outside (fewer layers, or the roll at the fall-off). Either is a
-candidate for its own pre-registered simulator check, not a change.
+## 6. CLAUDE's PREDICTIONS (before any tick is read)
 
-## 7. SELF-CHECKS FIRST (any failure: STOP, record, amend before any p_k is read)
+1. Part A: a CLUSTER on at most 1 of the 12 pair-scales; none at ALT's scale.
+2. Part B, calm, s = 5: pooled d100 between +1 and +8 points; d50 smaller than d100.
+3. Part B: a ROUND EFFECT at R100 in both regimes (lean, from Osler); none at R50.
+4. Osler's second effect (reported): after a THROUGH at R100 the continuation share above OTHER's.
 
-1. Each tick file's sha256 equals the recorded one (s3); the tick counts equal the replay's `TICKS_LOADED` where
-   recorded (October: sweep10's counts; EURUSD w2hw 1,021,095).
-2. The tests (s9) pass; a synthetic random walk (seeded, 1,000,000 steps) gives every p_k within its Wilson interval
-   of 50% for k = 1 ... 10 (at most one miss).
-3. Per series the decisions add up: the sum of N_k equals the number of moves less the moves from n = 0 less the
-   dropped end decisions.
+## 7. THE CONFIRMATION (the operator's "tea leaves": what counts is what holds on ticks nobody has seen)
 
-## 8. CLAUDE's PREDICTIONS (before any tick is read)
+A finding from s3 or s4 counts as **CONFIRMED** only if it also holds, by the same rule, on **new ticks: E's six
+pairs from Mon 26 Oct 00:00 to Fri 6 Nov 23:57 server**, dumped on wine-d (IC 53077984, as every h8w and `_oct`
+file) after 6 Nov's close with `grind_tick_dump`, hashed, and read once. Until then a finding is IN-SAMPLE only and
+nothing is built on it beyond a simulator pre-registration.
 
-1. Most p_k sit inside the shuffle band: price at these scales is close to a random walk.
-2. At OPT's scales in calm, p_1 to p_3 lean above 50% (OPT earns in calm); in October they do not.
-3. **A CLUSTER (both regimes) on at most one pair at OPT's scale and on none at ALT's.**
-4. No clear fall-off inside 7 at OPT's scale (as `depth.py`: layers 5-7 scalp as well as 1-4).
+## 8. THE CODE AND THE RUN
 
-## 9. THE CODE AND THE RUN (after this is reviewed and committed)
+`research/cluster/cluster.py` with `test_cluster.py` first, in their own commit, against a stub, hand values: A: the
+v1 cliff (1.1600 <-> 1.1572 at 7 pips) gives A_1 ... A_4 = 1 and A_5 = 0; a 10-level straight run gives V_1 ... V_10 =
+1; a gap of 3 levels counts 3 arrivals; a gap across n = 0 ends one excursion and starts the next; the shuffle keeps
+the up / down count and the gap blocks. B: a bounce off 1.1600 from above is TURN; a gap from 1.1607 to 1.1592 is
+THROUGH; a re-arm needs s away first; an open arrival at the end is dropped. Then the code; then the operator runs
+it on the desktop (`python research\cluster\cluster.py --data D:\mt5-replay\MQL5\Files\replay`, outputs to
+`research/cluster/out/`); outputs and a hash manifest committed; then `results.md`.
 
-`research/cluster/cluster.py` with `test_cluster.py` first, in their own commit, against a stub (hand values: a
-zig-zag of one level gives p_1 = 100%; a straight run of 10 levels gives p_1 ... p_9 = 0% with N = 1 each; a gap of 3
-levels counts one decision; a segment end drops its open decision; the shuffle keeps the up / down count). Then the
-code; then the operator runs it on the desktop (`python research\cluster\cluster.py --data
-D:\mt5-replay\MQL5\Files\replay`, outputs to `research/cluster/out/`, about a minute a file). The outputs and a hash
-manifest committed; then `results.md`.
+## 9. IF PART B HOLDS (the operator's grid idea; NOT pre-registered here)
+
+A round-aware lattice: adds denser within a few pips of R100 / R50 levels, sparser between them. Its own
+pre-registration and simulator check (as the OPT budget and the cap sweep), after s7's confirmation.
 
 ## 10. LIMITS
 
-In-sample ticks (they chose t3's adds); one broker; mid prices (the spread is in p\* only); decisions within one
-excursion are not independent, so the Wilson interval is too narrow and the shuffle band is the guard; a 1-pip lattice
-offset (L0) could move a level: a sensitivity run at L0 + a/2 is reported beside the main one, not deciding.
+In-sample ticks (s7 is the answer); one broker; mid prices; one level grid (5 pips) and two scales for B; A's
+lattice starts at the segment's first mid (a sensitivity run at L0 + a / 2 reported, not deciding); arrivals within
+a day are dependent (the day-block bootstrap is the guard for B; the shuffle and s5.3 for A).
 
-Line count: 102
+Line count: 130
