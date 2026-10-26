@@ -6,8 +6,11 @@ This message has a line count at the bottom
 Branch `c165-clamp-hold` from `origin/main` at the commit that carries THIS file. Background:
 backlog C165 (`handoffs/Handover/08_BACKLOG.md`), HANDOFF s91 continued 7 (E's request burst),
 ADR-013 (the passive clamp). Written by Claude from source at `2f773ae` (EA code == `5bb5fdb`),
-26 Oct. Line numbers are that code. Argon (Gemini 4 Argon, Antigravity) reviews THIS file before
-Cursor starts; its questions are in s8.
+26 Oct. Line numbers are that code. **REVIEWED by Argon** (`reviews/argon_review_c165.md` on
+`review/argon-c165`, `8aa2da3`, 320 lines, 137 quotes exact): **GO**; Q1-Q6 and Q8 checked in source by
+Claude. Its Q7 checked hand values that are NOT this prompt's (another set-up): void; s5's values were
+checked by Claude's script before the review. Taken: CE5's price assertion is G (s5); the entry horizon's
+two modify sites stay uncovered (s6). s8 is kept as asked.
 
 ## 0. RESTATE AND STOP (do this first, then wait)
 
@@ -148,7 +151,7 @@ with `Grind_OrderGetPriceOpen`):
 | CE2 short toward | S, 0.83975 | 0.83900 / 0.83914 (clamp 0.83915) | 1 modify; price 0.83915 | G |
 | CE3 short unclamped | S, 0.83975 | 0.83800 / 0.83814 (clamp off) | 1 modify; price 0.83882 | G |
 | CE4 short worse | S, 0.83870 | 0.83860 / 0.83900 (clamp 0.83901) | 1 modify; price 0.83901 | G |
-| CE5 flicker | S, 0.83975 | 50 x [0.83960 / 0.84009 then 0.83960 / 0.83974], one call each | 0 modifies in 100 calls; price 0.83975 | F |
+| CE5 flicker | S, 0.83975 | 50 x [0.83960 / 0.84009 then 0.83960 / 0.83974], one call each | 0 modifies in 100 calls; price 0.83975 | F (price assertion G: the 100th call is a narrow one) |
 | CE6 long held | L, 1.11930 | 1.11900 / 1.11940 (clamp 1.11899) | 0 modifies; price 1.11930 | F |
 | CE7 long toward | L, 1.11894 | 1.11961 / 1.11971 (clamp 1.11960) | 1 modify; price 1.11960 | G |
 | CE8 one-shot held | S, 0.83975, `g_grind_start_add_reprice_short = true` | 0.83960 / 0.84009 | 0 modifies; price 0.83975; flag false after | F (flag assertion G) |
@@ -165,6 +168,8 @@ test must still pass at commit 2 (RB12's clamp is off: its result does not chang
   helpers, `Grind_SendNextAddEnt`, the entry horizon path, the L0 re-centre, any exit or carry path, the
   API counter, any preset, input, define or `GRIND_*` constant.
 - No rate limit, timer or per-order counter (not in this change; s8 Q4).
+- Do not add the guard to the entry horizon's modifies (`grind_engine.mqh` 1890, 1938): the horizon is 0 in every
+  preset (Argon Q1); enabling it later needs the same guard (recorded in the backlog, not here).
 - Do not deploy, do not CLI compile, do not launch MetaTrader, do not run the suite (the operator
   compiles in MetaEditor and runs `fxgrind_tests` on the desktop terminal, which has no EAs; the suite
   figure is PENDING in your report).
@@ -208,4 +213,4 @@ count at the bottom`, last line `Line count: N`), ASCII; verdict GO / GO WITH CH
 Commit ONLY that file on a new branch `review/argon-c165` from `origin/main`, push it, and stop. Do
 not edit any other file, do not merge, do not touch main.
 
-Line count: 211
+Line count: 216
