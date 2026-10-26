@@ -1,0 +1,15 @@
+{
+  "files_to_audit": {
+    "c165_branch.diff":          "d:/fxmatrix/temp/deepseek_c165/c165_branch.diff",
+    "grind_engine_add_path.mqh": "d:/fxmatrix/temp/deepseek_c165/grind_engine_add_path.mqh",
+    "grind_pure.mqh":            "d:/fxmatrix/temp/deepseek_c165/grind_pure.mqh",
+    "fxgrind.mq5":               "d:/fxmatrix/temp/deepseek_c165/fxgrind.mq5"
+  },
+  "docs_to_include": {
+    "cursor_c165_clamp_hold.md": "d:/fxmatrix/prompts/cursor_c165_clamp_hold.md"
+  },
+  "prompt_path":  "d:/fxmatrix/prompts/deepseek_c165_audit.md",
+  "latest_adr":   null,
+  "output_path":  "d:/fxmatrix/prompts/deepseek_c165_audit_response.md",
+  "preview_path": "d:/fxmatrix/temp/deepseek_c165_preview.md"
+}
