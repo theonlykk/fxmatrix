@@ -2567,6 +2567,8 @@ void Grind_EnsureAddNext(GrindSideState &side,
 
    if(side.add_pending_ticket != 0) {
       const double resting = Grind_OrderGetPriceOpen(side.add_pending_ticket);
+      if(Grind_AddClampHold(is_long, add_target, clamped, resting, _Point))
+         return;
       if(Grind_PriceWithinDeadband(resting, clamped, add_deadband, _Point))
          return;
       Grind_ModifyPendingPrice(side.add_pending_ticket, clamped, magic);

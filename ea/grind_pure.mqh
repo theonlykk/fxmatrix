@@ -234,7 +234,12 @@ bool Grind_AddClampHold(const bool is_long,
                         const double resting,
                         const double point)
 {
-   return false;
+   const double eps = point * 0.1;
+   if(MathAbs(clamped - theoretical) <= eps)
+      return false;
+   if(is_long)
+      return (resting <= theoretical + eps) && (clamped < resting - eps);
+   return (resting >= theoretical - eps) && (clamped > resting + eps);
 }
 
 //+------------------------------------------------------------------+
