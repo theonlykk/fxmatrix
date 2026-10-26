@@ -1,0 +1,30 @@
+s6.1 files: PASS
+  EURUSD OK sha=2BDF7E05817E41A6 bytes=92973101 bars=1407677 
+  GBPUSD OK sha=742D88ADD02017E0 bytes=93112293 bars=1407893 
+  EURGBP OK sha=E9A2BE7535EA8D76 bytes=93018928 bars=1409300 
+  AUDCAD OK sha=B8ECCFF28A6BCAD0 bytes=93922653 bars=1410650 
+  AUDCHF OK sha=091FB6B90C308FF4 bytes=93257760 bars=1410274 
+  CADCHF OK sha=A136CD9577EC0448 bytes=93895970 bars=1409386 
+  GBPCHF OK sha=BFC4346FF988130A bytes=94323103 bars=1410930 
+run  0: rev H1 p=0.3899 H2 p=0.1215 mv15 H1 p=0.1312 H2 p=0.8092
+run  1: rev H1 p=0.5000 H2 p=0.1215 mv15 H1 p=0.2005 H2 p=0.2800
+run  2: rev H1 p=0.7121 H2 p=0.7200 mv15 H1 p=0.2879 H2 p=0.0719
+run  3: rev H1 p=0.7121 H2 p=0.9907 mv15 H1 p=0.1312 H2 p=0.7200
+run  4: rev H1 p=0.3899 H2 p=0.8092 mv15 H1 p=0.2005 H2 p=0.2800
+run  5: rev H1 p=0.2879 H2 p=0.8092 mv15 H1 p=0.2879 H2 p=0.7200
+run  6: rev H1 p=0.2005 H2 p=0.5000 mv15 H1 p=0.0460 H2 p=0.1908
+run  7: rev H1 p=0.0804 H2 p=0.8092 mv15 H1 p=0.0804 H2 p=0.0015 SIG
+run  8: rev H1 p=0.5000 H2 p=0.9800 mv15 H1 p=0.0460 H2 p=0.0719
+run  9: rev H1 p=0.2005 H2 p=0.6146 mv15 H1 p=0.1312 H2 p=0.6146
+run 10: rev H1 p=0.2879 H2 p=0.9605 mv15 H1 p=0.0804 H2 p=0.6146
+run 11: rev H1 p=0.1312 H2 p=0.8092 mv15 H1 p=0.0055 H2 p=0.1215 SIG
+run 12: rev H1 p=0.2879 H2 p=0.1908 mv15 H1 p=0.3899 H2 p=0.8785
+run 13: rev H1 p=0.8688 H2 p=0.1215 mv15 H1 p=0.0460 H2 p=0.5000
+run 14: rev H1 p=0.7121 H2 p=0.0395 mv15 H1 p=0.0460 H2 p=0.6146
+run 15: rev H1 p=0.2879 H2 p=0.9281 mv15 H1 p=0.3899 H2 p=0.2800
+run 16: rev H1 p=0.9540 H2 p=0.2800 mv15 H1 p=0.2005 H2 p=0.6146
+run 17: rev H1 p=0.5000 H2 p=0.6146 mv15 H1 p=0.7121 H2 p=0.8785
+run 18: rev H1 p=0.9540 H2 p=0.2800 mv15 H1 p=0.2005 H2 p=0.8092
+run 19: rev H1 p=0.0460 H2 p=0.2800 mv15 H1 p=0.6101 H2 p=0.1908
+s6.3 synthetic: reversal significant in 0 of 20 runs, crossing size in 2 of 20 (bar: <= 1)
+SELFCHECK: FAIL
