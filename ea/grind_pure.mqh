@@ -226,6 +226,23 @@ bool Grind_Adr013ClampSell(const double theoretical,
 }
 
 //+------------------------------------------------------------------+
+// C165: hold a clamped add that rests at or beyond its target rather than
+// chase the spread away from the target.
+bool Grind_AddClampHold(const bool is_long,
+                        const double theoretical,
+                        const double clamped,
+                        const double resting,
+                        const double point)
+{
+   const double eps = point * 0.1;
+   if(MathAbs(clamped - theoretical) <= eps)
+      return false;
+   if(is_long)
+      return (resting <= theoretical + eps) && (clamped < resting - eps);
+   return (resting >= theoretical - eps) && (clamped > resting + eps);
+}
+
+//+------------------------------------------------------------------+
 bool Grind_CanPlaceEntryLayer(const int current_layers, const int max_layers)
 {
    return (current_layers < max_layers);

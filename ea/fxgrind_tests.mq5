@@ -29,6 +29,7 @@
 #include "fxgrind_tests_adr165.mqh"
 #include "fxgrind_tests_v22a.mqh"
 #include "fxgrind_tests_adr166.mqh"
+#include "fxgrind_tests_c165.mqh"
 
 int g_tests_run = 0;
 int g_tests_passed = 0;
@@ -9462,6 +9463,23 @@ void OnStart()
    Test_RG15_GatedInBackoffRestarts();
    Test_RG16_InitRestart();
    Test_RG17_ShortRestartWhileGated();
+   Test_CH1_SellHeld();
+   Test_CH2_SellToward();
+   Test_CH3_SellUnclamped();
+   Test_CH4_SellWorse();
+   Test_CH5_SellAtTarget();
+   Test_CH6_BuyHeld();
+   Test_CH7_BuyToward();
+   Test_CH8_BuyWorse();
+   Test_CE1_ShortHeld();
+   Test_CE2_ShortToward();
+   Test_CE3_ShortUnclamped();
+   Test_CE4_ShortWorse();
+   Test_CE5_Flicker();
+   Test_CE6_LongHeld();
+   Test_CE7_LongToward();
+   Test_CE8_OneShotHeld();
+   Test_CE9_ShortAtTarget();
    Print("SUMMARY: ", g_tests_passed, "/", g_tests_run, " passed");
    Test_SuiteResetGlobals();
 }
