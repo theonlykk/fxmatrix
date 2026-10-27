@@ -13,7 +13,7 @@ import magnet as mg
 L = 1600000
 S = 5000
 D = 1000
-T0 = 1704700800            # 2024-01-08 00:00 server, a Monday
+T0 = 1704672000            # 2024-01-08 00:00 server, a Monday (19730 x 86400)
 
 
 def bars(rows, t0=T0 + 12 * 3600):
