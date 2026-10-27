@@ -1,0 +1,31 @@
+MAGNET PREREG v1
+s5.1 files: PASS
+  EURUSD OK sha=2BDF7E05817E41A6 bytes=92973101 bars=1407677 
+  GBPUSD OK sha=742D88ADD02017E0 bytes=93112293 bars=1407893 
+  EURGBP OK sha=E9A2BE7535EA8D76 bytes=93018928 bars=1409300 
+  AUDCAD OK sha=B8ECCFF28A6BCAD0 bytes=93922653 bars=1410650 
+  AUDCHF OK sha=091FB6B90C308FF4 bytes=93257760 bars=1410274 
+  CADCHF OK sha=A136CD9577EC0448 bytes=93895970 bars=1409386 
+  GBPCHF OK sha=BFC4346FF988130A bytes=94323103 bars=1410930 
+run  0: pooled rank H1 20 H2 16
+run  1: pooled rank H1 4 H2 20
+run  2: pooled rank H1 6 H2 20
+run  3: pooled rank H1 17 H2 9
+run  4: pooled rank H1 13 H2 18
+run  5: pooled rank H1 21 H2 21
+run  6: pooled rank H1 10 H2 8
+run  7: pooled rank H1 10 H2 3
+run  8: pooled rank H1 17 H2 12
+run  9: pooled rank H1 7 H2 4
+run 10: pooled rank H1 4 H2 11
+run 11: pooled rank H1 14 H2 5
+run 12: pooled rank H1 13 H2 15
+run 13: pooled rank H1 1 H2 13
+run 14: pooled rank H1 2 H2 9
+run 15: pooled rank H1 1 H2 12
+run 16: pooled rank H1 19 H2 4
+run 17: pooled rank H1 2 H2 12
+run 18: pooled rank H1 21 H2 17
+run 19: pooled rank H1 17 H2 7
+s5.3: first in both halves in 0 of 20 runs (bar <= 1); mean pooled rank 11.38 (bar 7-15)
+SELFCHECK: PASS
