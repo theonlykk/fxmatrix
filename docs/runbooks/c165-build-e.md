@@ -115,4 +115,10 @@ closed.
 - 3.6 (22:17:52Z pipshed): 12/12 LIVE, none halted, no alerts; `api_count` 10 (unchanged since 22:09Z); the book as
   before the compile (64 / 62, guard 149; every pair's long / short unchanged); equity 10,002.26.
 
-Line count: 118
+## 9. THE IC FLEETS (RUN 27 OCT 03:15-03:32Z by s3, HANDOFF s92 continued 7)
+
+D (wine-d) 03:17Z, 12 rows, `ea_build` 03:17:33; C (wine-c) 03:21Z, 6 rows, 03:21:46; B (wine-test) 03:26Z, 9 rows,
+03:26:18; each kept 79, cmp 80, compile 0 / 0, BAD 0, `geo=` as pipshed's live geometry, the book unchanged. On B an
+Edge updater (`setup.exe`, WebView2) crashed under Wine at the compile; the terminal was untouched (02_TRAPS 27 Oct).
+
+Line count: 124

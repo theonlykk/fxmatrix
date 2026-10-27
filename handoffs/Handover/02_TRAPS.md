@@ -3096,4 +3096,13 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Large files over the bridge go one per call:** four 93 MB files in one `device_stage_files` call timed out; one
   per call took about two minutes each.
 
-Line count: 3099
+## TRAPS FROM 2026-10-27 (A WINE "PROGRAM ERROR" THAT IS NOT MT5; THE WRONG REPO WINDOW)
+
+- **A Wine "Program Error: setup.exe" on a box may be Edge's updater, not MT5's.** On wine-test at C165's compile a
+  `Microsoft\EdgeUpdate\...\setup.exe` (WebView2) crashed under Wine. Before touching it: `pgrep -af
+  'terminal64|metaeditor|setup.exe|winedbg'` (the path names the program) and the checker; click Close, never Show
+  Details; confirm the terminal's pid is unchanged after. MT5's own LiveUpdate stays "Later" (C161).
+- **`git am` in the pipshed window applies nothing and leaves a session open** (26 Oct: "does not exist in index").
+  `git am --abort` there; before any patch: `cd D:\fxmatrix; git switch main; git branch --show-current`.
+
+Line count: 3108
