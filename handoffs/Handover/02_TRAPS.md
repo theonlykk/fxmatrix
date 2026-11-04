@@ -3105,4 +3105,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **`git am` in the pipshed window applies nothing and leaves a session open** (26 Oct: "does not exist in index").
   `git am --abort` there; before any patch: `cd D:\fxmatrix; git switch main; git branch --show-current`.
 
-Line count: 3108
+## TRAPS FROM 2026-11-03 (A VNC VIEWER THAT CLOSES IS NOT A REBOOT; A DEAD ACCOUNT THAT KEEPS ITS EA BUSY)
+
+- **A VNC viewer closing during host maintenance is the tunnel, not the box.** Vultr's window (3 Nov) closed the
+  viewers on 5912 and 5913; the terminals ran on (orders placed through it; `uptime` 33 and 13 days). Check pipshed
+  (all LIVE: a reboot leaves MT5 down, it never starts itself) and `uptime` before any restart.
+- **When the broker empties the book, the EA does not stop.** E (3 Nov): 0 positions, 0 orders, the EA's state still
+  95 layers, `api_count` ~57,000 an instance and ~3,000 a minute for the terminal, `recon_ok` still TRUE. pipshed's
+  LIVE and recon flags do not catch it: compare the book (positions + orders) with the layers, and watch `api_count`.
+  Stop it with a graceful `wine taskkill /IM terminal64.exe` (as khalid, `DISPLAY=:10 WINEPREFIX=/home/khalid/.mt5`).
+
+Line count: 3118
