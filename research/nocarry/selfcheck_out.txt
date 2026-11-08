@@ -1,0 +1,65 @@
+a  AUDCAD  93f03256cddceaf1  93f03256cddceaf1  IDENTICAL
+a  AUDCHF  769fba0519d0a3c6  769fba0519d0a3c6  IDENTICAL
+a  CADCHF  f2962576ae65fe7e  f2962576ae65fe7e  IDENTICAL
+a  EURGBP  bde916c5a4640490  bde916c5a4640490  IDENTICAL
+a  EURUSD  1189dc6b1063d184  1189dc6b1063d184  IDENTICAL
+a  GBPUSD  6fd40063de683d39  6fd40063de683d39  IDENTICAL
+c  DAY      AUDCAD  windows  989  flat ticks   247518 (five-minute marks among them  12417)  violations 0
+c  DAY      AUDCHF  windows  989  flat ticks   246213 (five-minute marks among them  12389)  violations 0
+c  DAY      CADCHF  windows  989  flat ticks   243769 (five-minute marks among them  12324)  violations 0
+c  DAY      EURGBP  windows  989  flat ticks   246261 (five-minute marks among them  12421)  violations 0
+c  DAY      EURUSD  windows  989  flat ticks   238361 (five-minute marks among them  12121)  violations 0
+c  DAY      GBPUSD  windows  989  flat ticks   239365 (five-minute marks among them  12119)  violations 0
+c  WEEK     AUDCAD  windows  199  flat ticks    49536 (five-minute marks among them   2490)  violations 0
+c  WEEK     AUDCHF  windows  199  flat ticks    49288 (five-minute marks among them   2485)  violations 0
+c  WEEK     CADCHF  windows  199  flat ticks    48156 (five-minute marks among them   2442)  violations 0
+c  WEEK     EURGBP  windows  199  flat ticks    49640 (five-minute marks among them   2500)  violations 0
+c  WEEK     EURUSD  windows  199  flat ticks    47784 (five-minute marks among them   2435)  violations 0
+c  WEEK     GBPUSD  windows  199  flat ticks    48064 (five-minute marks among them   2427)  violations 0
+c  DAY _w05 AUDCAD  windows  989  flat ticks   247518 (five-minute marks among them  12417)  violations 0
+c  DAY _w05 AUDCHF  windows  989  flat ticks   246213 (five-minute marks among them  12389)  violations 0
+c  DAY _w05 CADCHF  windows  989  flat ticks   243769 (five-minute marks among them  12324)  violations 0
+c  DAY _w05 EURGBP  windows  989  flat ticks   246261 (five-minute marks among them  12421)  violations 0
+c  DAY _w05 EURUSD  windows  989  flat ticks   238361 (five-minute marks among them  12121)  violations 0
+c  DAY _w05 GBPUSD  windows  989  flat ticks   239365 (five-minute marks among them  12119)  violations 0
+c  WEEK_w05 AUDCAD  windows  199  flat ticks    49536 (five-minute marks among them   2490)  violations 0
+c  WEEK_w05 AUDCHF  windows  199  flat ticks    49288 (five-minute marks among them   2485)  violations 0
+c  WEEK_w05 CADCHF  windows  199  flat ticks    48156 (five-minute marks among them   2442)  violations 0
+c  WEEK_w05 EURGBP  windows  199  flat ticks    49640 (five-minute marks among them   2500)  violations 0
+c  WEEK_w05 EURUSD  windows  199  flat ticks    47784 (five-minute marks among them   2435)  violations 0
+c  WEEK_w05 GBPUSD  windows  199  flat ticks    48064 (five-minute marks among them   2427)  violations 0
+d  60 splits: net = the rounded parts in all; the largest gap to the unrounded total $0.0088; failures 0
+e  GBPUSD OPT, DAY, 19-23 Oct 2026: every cut close (entry from that day's run; exit against the bar)
+e  Mon 19 Oct 23:45  L  opened 01:30:30 at 1.33329  cut at 1.33025 (bar open bid 1.33025)  -30.4 pips  $-3.10  ok
+e  Mon 19 Oct 23:45  L  opened 15:25:30 at 1.33239  cut at 1.33025 (bar open bid 1.33025)  -21.4 pips  $-2.20  ok
+e  Mon 19 Oct 23:45  L  opened 17:14:30 at 1.33149  cut at 1.33025 (bar open bid 1.33025)  -12.4 pips  $-1.30  ok
+e  Mon 19 Oct 23:45  L  opened 18:45:30 at 1.33059  cut at 1.33025 (bar open bid 1.33025)   -3.4 pips  $-0.40  ok
+e  Mon 19 Oct 23:45  S  opened 19:06:30 at 1.33022  cut at 1.33037 (bar open ask 1.33037)   -1.5 pips  $-0.21  ok
+e  Tue 20 Oct 23:45  S  opened 01:00:30 at 1.33059  cut at 1.33805 (bar open ask 1.33805)  -74.6 pips  $-7.52  ok
+e  Tue 20 Oct 23:45  S  opened 15:13:30 at 1.33509  cut at 1.33805 (bar open ask 1.33805)  -29.6 pips  $-3.02  ok
+e  Tue 20 Oct 23:45  S  opened 15:22:30 at 1.33599  cut at 1.33805 (bar open ask 1.33805)  -20.6 pips  $-2.12  ok
+e  Tue 20 Oct 23:45  L  opened 17:25:30 at 1.34027  cut at 1.33793 (bar open bid 1.33793)  -23.4 pips  $-2.40  ok
+e  Tue 20 Oct 23:45  L  opened 17:45:30 at 1.33937  cut at 1.33793 (bar open bid 1.33793)  -14.4 pips  $-1.50  ok
+e  Tue 20 Oct 23:45  L  opened 17:49:30 at 1.33847  cut at 1.33793 (bar open bid 1.33793)   -5.4 pips  $-0.60  ok
+e  Tue 20 Oct 23:45  S  opened 20:19:15 at 1.33779  cut at 1.33805 (bar open ask 1.33805)   -2.6 pips  $-0.32  ok
+e  Wed 21 Oct 23:45  S  opened 01:00:30 at 1.33707  cut at 1.33962 (bar open ask 1.33962)  -25.5 pips  $-2.61  ok
+e  Wed 21 Oct 23:45  S  opened 09:49:30 at 1.33797  cut at 1.33962 (bar open ask 1.33962)  -16.5 pips  $-1.71  ok
+e  Wed 21 Oct 23:45  L  opened 12:00:30 at 1.33986  cut at 1.33950 (bar open bid 1.33950)   -3.6 pips  $-0.42  ok
+e  Wed 21 Oct 23:45  L  opened 21:50:30 at 1.33896  cut at 1.33950 (bar open bid 1.33950)   +5.4 pips  $+0.48  ok
+e  Wed 21 Oct 23:45  S  opened 22:29:30 at 1.33887  cut at 1.33962 (bar open ask 1.33962)   -7.5 pips  $-0.81  ok
+e  Thu 22 Oct 23:45  L  opened 11:27:30 at 1.34165  cut at 1.33973 (bar open bid 1.33973)  -19.2 pips  $-1.98  ok
+e  Thu 22 Oct 23:45  L  opened 11:34:30 at 1.34075  cut at 1.33973 (bar open bid 1.33973)  -10.2 pips  $-1.08  ok
+e  Thu 22 Oct 23:45  L  opened 12:50:30 at 1.33985  cut at 1.33973 (bar open bid 1.33973)   -1.2 pips  $-0.18  ok
+e  Thu 22 Oct 23:45  S  opened 17:45:30 at 1.33588  cut at 1.33985 (bar open ask 1.33985)  -39.7 pips  $-4.03  ok
+e  Thu 22 Oct 23:45  S  opened 18:05:30 at 1.33678  cut at 1.33985 (bar open ask 1.33985)  -30.7 pips  $-3.13  ok
+e  Thu 22 Oct 23:45  S  opened 18:49:30 at 1.33768  cut at 1.33985 (bar open ask 1.33985)  -21.7 pips  $-2.23  ok
+e  Thu 22 Oct 23:45  S  opened 19:06:30 at 1.33858  cut at 1.33985 (bar open ask 1.33985)  -12.7 pips  $-1.33  ok
+e  Thu 22 Oct 23:45  S  opened 19:43:30 at 1.33948  cut at 1.33985 (bar open ask 1.33985)   -3.7 pips  $-0.43  ok
+e  Fri 23 Oct 23:45  L  opened 02:16:30 at 1.34019  cut at 1.33626 (bar open bid 1.33626)  -39.3 pips  $-3.99  ok
+e  Fri 23 Oct 23:45  L  opened 05:00:30 at 1.33929  cut at 1.33626 (bar open bid 1.33626)  -30.3 pips  $-3.09  ok
+e  Fri 23 Oct 23:45  L  opened 09:57:30 at 1.33839  cut at 1.33626 (bar open bid 1.33626)  -21.3 pips  $-2.19  ok
+e  Fri 23 Oct 23:45  L  opened 18:30:15 at 1.33749  cut at 1.33626 (bar open bid 1.33626)  -12.3 pips  $-1.29  ok
+e  Fri 23 Oct 23:45  L  opened 19:20:30 at 1.33659  cut at 1.33626 (bar open bid 1.33626)   -3.3 pips  $-0.39  ok
+e  Fri 23 Oct 23:45  S  opened 20:24:30 at 1.33635  cut at 1.33638 (bar open ask 1.33638)   -0.3 pips  $-0.09  ok
+e  the week run alone matches the full DAY run's OPT balance tick by tick: yes
+SELF-CHECKS: a PASS, c PASS, d PASS, e PASS
