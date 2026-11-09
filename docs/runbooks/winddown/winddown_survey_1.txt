@@ -1,0 +1,72 @@
+﻿=== box1
+fxgrind-wine-test
+/dev/vda2        75G   30G   42G  42% /
+du: cannot access 'bases': No such file or directory
+7.2G	MQL5
+29M	logs
+du: cannot access 'bases/*/*': No such file or directory
+832K	MQL5/Files
+7.1G	MQL5/logs
+5.7M	MQL5/Profiles
+3
+history_53066709.csv
+ticks_53066709_EURUSD_cmp.csv
+=== box2
+fxgrind-wine-c
+/dev/vda2        75G   25G   47G  35% /
+du: cannot access 'bases': No such file or directory
+5.4G	MQL5
+21M	logs
+du: cannot access 'bases/*/*': No such file or directory
+7.5M	MQL5/Files
+5.3G	MQL5/logs
+9.9M	MQL5/Profiles
+21
+history_53071896.csv
+ticks_53071896_EURUSD_cmp.csv
+=== root@216.128.158.33
+fxgrind-wine-d
+/dev/vda2        75G   28G   44G  39% /
+du: cannot access 'bases': No such file or directory
+7.9G	MQL5
+30M	logs
+du: cannot access 'bases/*/*': No such file or directory
+1.6G	MQL5/Files
+6.3G	MQL5/logs
+15M	MQL5/Profiles
+40
+history_53077984.csv
+ticks_53077984_AUDCAD__h8w.csv
+ticks_53077984_AUDCAD_oct.csv
+ticks_53077984_AUDCAD__w2.csv
+ticks_53077984_AUDCHF__h8w.csv
+ticks_53077984_AUDCHF_oct.csv
+ticks_53077984_AUDCHF__w2.csv
+ticks_53077984_AUDNZD__h8w.csv
+ticks_53077984_AUDNZD__w2.csv
+ticks_53077984_CADCHF__h8w.csv
+ticks_53077984_CADCHF_oct.csv
+ticks_53077984_CADCHF__w2.csv
+ticks_53077984_EURGBP__h8w.csv
+ticks_53077984_EURGBP_oct.csv
+ticks_53077984_EURGBP__w2.csv
+ticks_53077984_EURUSD_cmp.csv
+ticks_53077984_EURUSD__h8w.csv
+ticks_53077984_EURUSD_hold.csv
+ticks_53077984_EURUSD_hold_early.csv
+ticks_53077984_EURUSD_t0b_a.csv
+=== root@104.207.140.130
+fxgrind-wine-e
+/dev/vda2        75G   24G   48G  34% /
+du: cannot access 'bases': No such file or directory
+2.0G	MQL5
+25M	logs
+du: cannot access 'bases/*/*': No such file or directory
+8.0K	MQL5/Files
+1.9G	MQL5/logs
+4.0M	MQL5/Profiles
+1
+grind_bar_dump.mq5
+grind_bidask_dump.mq5
+grind_history_dump.mq5
+grind_tick_dump.mq5

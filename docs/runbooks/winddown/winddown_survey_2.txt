@@ -1,0 +1,142 @@
+﻿=== box1
+fxgrind-wine-test
+Bases
+Config
+llm-agent
+logs
+MetaEditor64.exe
+metatester64.exe
+MQL5
+Profiles
+Sounds
+terminal64.exe
+Terminal.ico
+Tester
+uninstall.exe
+2.0G	Bases
+-rw-rw-r--  1 khalid khalid 718900 2026-10-03_04:20 history_53066709.csv
+20260924.log
+20261109.log
+47
+Experts
+Files
+Images
+Include
+Indicators
+Libraries
+logs
+Presets
+Profiles
+Scripts
+Services
+Shared Projects
+/usr/bin/zstd
+/usr/bin/xz
+2
+=== box2
+fxgrind-wine-c
+Bases
+Config
+llm-agent
+logs
+MetaEditor64.exe
+metatester64.exe
+MQL5
+Profiles
+Sounds
+terminal64.exe
+Terminal.ico
+Tester
+uninstall.exe
+1.5G	Bases
+-rw-rw-r--  1 khalid khalid 608167 2026-10-03_04:22 history_53071896.csv
+20260927.log
+20261109.log
+44
+Experts
+experts.dat
+Files
+Images
+Include
+Indicators
+Libraries
+logs
+Presets
+Profiles
+Scripts
+Services
+Shared Projects
+/usr/bin/zstd
+/usr/bin/xz
+2
+=== root@216.128.158.33
+fxgrind-wine-d
+Bases
+Config
+llm-agent
+logs
+MetaEditor64.exe
+metatester64.exe
+MQL5
+Profiles
+Sounds
+terminal64.exe
+Terminal.ico
+Tester
+uninstall.exe
+1.5G	Bases
+-rw-rw-r--  1 khalid khalid    332150 2026-10-03_04:26 history_53077984.csv
+20260930.log
+20261109.log
+41
+Experts
+experts.dat
+Files
+Images
+Include
+Indicators
+Libraries
+logs
+Presets
+Profiles
+Scripts
+Services
+Shared Projects
+/usr/bin/zstd
+/usr/bin/xz
+2
+=== root@104.207.140.130
+fxgrind-wine-e
+Bases
+Config
+llm-agent
+logs
+MetaEditor64.exe
+metatester64.exe
+MQL5
+Profiles
+Sounds
+terminal64.exe
+Terminal.ico
+Tester
+uninstall.exe
+4.1G	Bases
+20261021.log
+20261104.log
+14
+Experts
+experts.dat
+Files
+Images
+Include
+Indicators
+Libraries
+logs
+Presets
+Profiles
+Scripts
+Services
+Shared Projects
+/usr/bin/zstd
+/usr/bin/xz
+2

@@ -20,6 +20,9 @@
 # Python: LF is the cross-platform norm.
 *.py    text eol=lf
 
+# Shell scripts run on the Linux boxes (scp'd from the desktop): CRLF would break bash.
+*.sh    text eol=lf
+
 # Binaries - never touch.
 *.ex5   binary
 *.png   binary
