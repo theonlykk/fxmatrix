@@ -1,0 +1,10 @@
+Micro-perturbation of (width, stranded, deadband): 45 runs per arm and fill model. Total pips over 46 months, real bid/ask.
+pair   arm add | fill | base run | mean of 45 |   sd | min .. max | rolled closes min .. max
+AUDCAD OPT  18 | cont |    +7833 |    +8319   |  626 |    +7693 ..    +9551 | 477 .. 489
+AUDCAD OPT  18 | one |   +11808 |   +12316   |  479 |   +11682 ..   +13380 | 423 .. 444
+AUDCAD ALT  26 | cont |    +9709 |    +9697   |  495 |    +9057 ..   +10538 | 204 .. 212
+AUDCAD ALT  26 | one |   +12691 |   +12688   |  485 |   +11987 ..   +13555 | 196 .. 205
+EURGBP ALT  23 | cont |    +5492 |    +5295   |  174 |    +4984 ..    +5538 | 85 .. 90
+EURGBP ALT  23 | one |    +5444 |    +5285   |  147 |    +5030 ..    +5492 | 85 .. 90
+EURUSD OPT   7 | cont |   -31761 |   -31419   |  851 |   -32728 ..   -30155 | 5474 .. 5554
+EURUSD OPT   7 | one |   -22243 |   -21790   |  461 |   -22402 ..   -20801 | 5065 .. 5125

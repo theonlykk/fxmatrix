@@ -1,0 +1,5 @@
+config_events: 1537 rows, latest received_at 2026-10-27 03:26:36.821897+00:00
+send_logs: 93017 rows, latest received_at 2026-11-11 15:49:46.880741+00:00
+fill_logs: 69298 rows, latest received_at 2026-11-11 15:49:46.880741+00:00
+ea_events: 67778 rows, latest received_at 2026-11-11 16:29:07.329011+00:00
+scalp_history: 16884 rows, latest received_at 2026-11-11 15:50:22.980130+00:00

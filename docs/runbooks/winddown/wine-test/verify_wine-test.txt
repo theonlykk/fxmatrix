@@ -1,0 +1,4 @@
+MATCH winddown_wine-test_core.tar.zst
+MATCH winddown_wine-test_cache.tar.zst
+MATCH winddown_wine-test_appdata.tar.zst
+MATCH winddown_wine-test_manifest.txt

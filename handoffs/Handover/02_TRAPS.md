@@ -3115,4 +3115,22 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   LIVE and recon flags do not catch it: compare the book (positions + orders) with the layers, and watch `api_count`.
   Stop it with a graceful `wine taskkill /IM terminal64.exe` (as khalid, `DISPLAY=:10 WINEPREFIX=/home/khalid/.mt5`).
 
-Line count: 3118
+
+## TRAPS FROM 2026-11-10 (THE WIND-DOWN: MT5 HIDES FROM PGREP UNDER WINE; A FORGOTTEN METAEDITOR)
+
+- **Under Wine, MT5 is not found by its process NAME.** `pgrep -a terminal64` printed nothing on three boxes whose
+  terminals were running (9 Nov). Match the command line: `pgrep -af [t]erminal64` (the brackets keep the calling
+  shell's own command line out). `tools/winddown/archive_box.sh` does this and skips its own parent shells.
+- **A MetaEditor opened for a recompile can stay open for weeks,** minimised on display :10 (wine-e: since 26 Oct).
+  It keeps the Wine session up and can write into MQL5: check `pgrep -afi [m]etaeditor64` before archiving or
+  copying an MQL5 folder.
+- **git as root on khalid's repo clone** refuses ("dubious ownership"): `git -c safe.directory=<repo> -C <repo> ...`
+  for a one-off read; no config change.
+- **scp with two remote sources** opens a second connection, asks the password again and can drop (wine-test,
+  10 Nov): use one remote pattern (`"host:/root/winddown_<host>*"`).
+- **PowerShell 5.1 writes `Out-File -Encoding utf8` with a BOM and `Tee-Object` as UTF-16:** read such files as
+  utf-8-sig or utf-16, and convert before committing.
+- **Correction to the 3 Nov trap above:** the terminal's request rate in E's storm was about 465 a minute (journal
+  counts, HANDOFF s93), not ~3,000.
+
+Line count: 3136

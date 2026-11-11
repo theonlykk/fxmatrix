@@ -1,0 +1,63 @@
+=== box1
+fatal: detected dubious ownership in repository at '/home/khalid/fxmatrix-repo'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /home/khalid/fxmatrix-repo
+fatal: detected dubious ownership in repository at '/home/khalid/fxmatrix-repo'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /home/khalid/fxmatrix-repo
+total 96
+drwx------  4 root root  4096 Oct  8 16:04 .
+drwxr-xr-x 23 root root  4096 Sep 24 01:38 ..
+-rw-------  1 root root 33425 Nov  8 20:35 .bash_history
+-rw-r--r--  1 root root  3106 Apr 22  2024 .bashrc
+-rw-r--r--  1 root root  2493 Oct  1 01:20 c63_logcheck.awk
+drwx------  3 root root  4096 Sep 24 01:38 .cache
+-rw-r--r--  1 root root  4415 Sep 30 17:49 grind_history_dump.mq5
+-rw-r--r--  1 root root  8306 Oct  8 16:05 grind_tick_dump.mq5
+-rw-------  1 root root    20 Sep 26 03:33 .lesshst
+-rw-r--r--  1 root root  2688 Oct  5 03:46 mon_logcheck.awk
+-rw-r--r--  1 root root   161 Apr 22  2024 .profile
+drwx------  2 root root  4096 Sep 27 04:45 .ssh
+/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5/Scripts/fxmatrix/grind_history_dump.ex5
+=== root@216.128.158.33
+fatal: detected dubious ownership in repository at '/home/khalid/fxmatrix-repo'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /home/khalid/fxmatrix-repo
+fatal: detected dubious ownership in repository at '/home/khalid/fxmatrix-repo'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /home/khalid/fxmatrix-repo
+total 80
+drwx------  4 root root  4096 Oct 11 14:52 .
+drwxr-xr-x 23 root root  4096 Sep 30 18:39 ..
+-rw-------  1 root root 39701 Nov  3 07:19 .bash_history
+-rw-r--r--  1 root root  3106 Apr 22  2024 .bashrc
+-rw-r--r--  1 root root  2493 Oct  1 04:34 c63_logcheck.awk
+drwx------  2 root root  4096 Sep 30 18:36 .cache
+-rw-r--r--  1 root root  2688 Oct  5 03:48 mon_logcheck.awk
+-rw-r--r--  1 root root   161 Apr 22  2024 .profile
+drwx------  2 root root  4096 Oct 21 03:55 .ssh
+-rw-r--r--  1 root root   386 Oct 11 14:52 tickdump_h8w.set
+/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/MQL5/Scripts/fxmatrix/grind_history_dump.ex5
+=== root@104.207.140.130
+fatal: detected dubious ownership in repository at '/home/khalid/fxmatrix-repo'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /home/khalid/fxmatrix-repo
+fatal: detected dubious ownership in repository at '/home/khalid/fxmatrix-repo'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /home/khalid/fxmatrix-repo
+total 48
+drwx------  6 root root  4096 Oct 21 04:31 .
+drwxr-xr-x 23 root root  4096 Oct 21 03:44 ..
+-rw-------  1 root root 15125 Nov  8 19:41 .bash_history
+-rw-r--r--  1 root root  3106 Apr 22  2024 .bashrc
+drwx------  2 root root  4096 Oct 21 03:40 .cache
+drwxr-xr-x  2 root root  4096 Oct 21 04:06 mt5_6231
+drwxr-xr-x  2 root root  4096 Oct 21 04:07 mt5_6274
+-rw-r--r--  1 root root   161 Apr 22  2024 .profile
+drwx------  2 root root  4096 Oct  3 10:14 .ssh

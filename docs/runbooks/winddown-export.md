@@ -124,4 +124,30 @@ copy-and-compile step for that box.
 Claude writes the HANDOFF block: per box the archive sizes, the four hashes, the file counts, the deal and GV
 counts, and the time Vultr destroyed it; for pipshed each export's size, lines and hash.
 
-Line count: 127
+## 8. AS RUN (9-11 Nov 2026; Claude's record; the per-box evidence is in `docs/runbooks/winddown/`)
+
+| box | history dump | archive (PASS) | MT5 files = core + cache; AppData | archives | destroyed |
+|---|---|---|---|---|---|
+| wine-test (B, 53066709) | 04:33Z 10 Nov, 19,488 deals, bad 0 | 04:38Z | 1,827 = 1,588 + 239; 19 | 1.41 GB | 00:05 EST 10 Nov (05:05Z) |
+| wine-d (D, 53077984) | 05:08Z, 20,549 deals, bad 0 | 05:11Z | 1,772 = 1,600 + 172; 15 | 1.46 GB (incl. the IC tick dumps) | 00:21 EST (05:21Z) |
+| wine-e (E, 1515045375) | skipped (s4 step 1: the login was not to hand) | 05:32Z (second run) | 2,012 = 1,484 + 528; 12 | 4.02 GB (incl. FTMO's tick caches) | 00:48 EST (05:48Z) |
+
+Every archive four MATCH on the desktop; each `.sha256` equal to the hashes the box printed. Changes from s1-s5:
+- **s2:** git refuses a khalid-owned repo for root ("dubious ownership"): run with `-c safe.directory=<repo>`
+  (`boxes_before_2.txt`). All three repos clean, nothing unpushed.
+- **GV lists skipped:** `grind_gv_list.ex5` was compiled on no box; `Bases/gvariables.dat` (written at each exit)
+  is in every core archive, and these instances never restart.
+- **Added:** each box's `/root/.bash_history`, copied to the desktop before Destroy (not in the repo).
+- **s3 step 6:** naming the `.sha256` as a second source made scp open a second connection, which dropped on
+  wine-test; from wine-d one pattern `winddown_<host>*` copied all five files in one connection.
+- **wine-e:** the first run ABORTED, correctly: MetaEditor (pid 128977) had stood open, minimised on display :10,
+  since 26 Oct 22:05:55 (C165's recompile). `terminal64` was not running: E's MT5 stayed closed throughout. The
+  operator closed MetaEditor (File -> Exit) and the second run passed.
+- **E's deals** without the desktop dump: `Bases/FTMO-Demo/trades/1515045375/` (October and November) and
+  `logs/20261104.log` in E's core archive, pipshed's archive, and `review_1104\snap_1102_1104.csv`. MetriX's PDF
+  and CSV stay optional.
+- **s5 (11 Nov):** the archive and all 72 instances' send logs exported (`winddown/pipshed/EXPORTS.md`; E's 57,918
+  refused sends of 4 Nov kept before pipshed's 14-day deletion); `state_snapshots` left in pipshed (no retention).
+  The send-log export ran as `tools/winddown/export_sends.ps1` (72 Railway calls; skips files that exist).
+
+Line count: 153

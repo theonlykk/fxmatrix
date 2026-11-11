@@ -1,0 +1,7 @@
+Cross-check AUDCAD: project sim.py (--fill limit) vs core.ladder on run_bars.py's ticks (5642600 ticks, sim.py took 225 s)
+OPT add 18 | sim.py:            closes=3946 rolled=426 rolls=488 scalp=+63578 rolled=-49230 open=-215 total=+14133 pips, net USD=+772
+          | core.ladder one:  closes=3845 rolled=423 rolls=489 realised=+12077 (rolled part -49519) open=-333 total=+11745 pips, net USD=+608
+          | core.ladder cont: closes=4076 rolled=491 rolls=556 realised=+7578 (rolled part -56952) open=-229 total=+7349 pips, net USD=+280
+ALT add 26 | sim.py:            closes=1990 rolled=192 rolls=226 scalp=+46802 rolled=-30814 open=-2053 total=+13935 pips, net USD=+876
+          | core.ladder one:  closes=2014 rolled=194 rolls=230 realised=+14981 (rolled part -32339) open=-1137 total=+13844 pips, net USD=+868
+          | core.ladder cont: closes=1961 rolled=204 rolls=241 realised=+11778 (rolled part -33904) open=-1315 total=+10463 pips, net USD=+629

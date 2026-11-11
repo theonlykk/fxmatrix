@@ -1,0 +1,15 @@
+=== box1
+## main...origin/main
+b4c0084 s92g: C165 live on E (26 Oct 22:06Z; c165-build-e.md run, every check clean, record s8); HANDOFF s92 continued 6; BOOT s6
+39872_2026-11-09_/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/Bases/gvariables.dat
+/home/khalid/fxmatrix-repo/scripts/grind_gv_list.mq5
+=== root@216.128.158.33
+## main...origin/main
+b4c0084 s92g: C165 live on E (26 Oct 22:06Z; c165-build-e.md run, every check clean, record s8); HANDOFF s92 continued 6; BOOT s6
+59157_2026-11-09_/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/Bases/gvariables.dat
+/home/khalid/fxmatrix-repo/scripts/grind_gv_list.mq5
+=== root@104.207.140.130
+## main...origin/main
+11c3086 s92f: E's C165 deploy runbook (docs/runbooks/c165-build-e.md: recompile, checker, rollback); DeepSeek's audit checked (NO GO on pre-existing behaviour only; C167 to the backlog); HANDOFF s92 continued 5; BOOT s6 lead
+38712_2026-11-04_/home/khalid/.mt5/drive_c/Program Files/MetaTrader 5/Bases/gvariables.dat
+/home/khalid/fxmatrix-repo/scripts/grind_gv_list.mq5

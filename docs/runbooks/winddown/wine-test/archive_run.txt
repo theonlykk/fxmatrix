@@ -1,0 +1,12 @@
+ARCHIVE|START|wine-test|2026-11-10T04:38:30Z|caches 13|appdata 1
+ARCHIVE|COUNT|mt5 manifest 1827|core 1588|cache 239|appdata manifest 19|appdata 19
+ARCHIVE|FILE|242051765|/root/winddown_wine-test_appdata.tar.zst
+ARCHIVE|FILE|921300318|/root/winddown_wine-test_cache.tar.zst
+ARCHIVE|FILE|247102210|/root/winddown_wine-test_core.tar.zst
+ARCHIVE|FILE|134466|/root/winddown_wine-test_manifest.txt
+ARCHIVE|FILE|396|/root/winddown_wine-test.sha256
+ARCHIVE|SHA256|39d3cd9745ce306d4008b1e5b99826cca89364430851e811df36eb9b55a993d3  winddown_wine-test_core.tar.zst
+ARCHIVE|SHA256|3e92241434d861dfe87a37bae372e83643ab24f9d6bac7c6ed3b198be7ef8b0b  winddown_wine-test_cache.tar.zst
+ARCHIVE|SHA256|1a999911f940d93d229aeb9708f9d67b5c63f9c83c72b889cfab735f59572ffc  winddown_wine-test_appdata.tar.zst
+ARCHIVE|SHA256|c2578f7ffdcfcc754a6bd5e7f0269fb5a1934b6874ed4bec5abc32d7fe2fc9ab  winddown_wine-test_manifest.txt
+ARCHIVE|PASS|wine-test

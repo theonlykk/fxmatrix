@@ -1,0 +1,4 @@
+MATCH winddown_wine-d_core.tar.zst
+MATCH winddown_wine-d_cache.tar.zst
+MATCH winddown_wine-d_appdata.tar.zst
+MATCH winddown_wine-d_manifest.txt

@@ -1,0 +1,7 @@
+Cross-check EURUSD: project sim.py (--fill limit) vs core.ladder on run_bars.py's ticks (5630708 ticks, sim.py took 884 s)
+OPT add 7 | sim.py:            closes=35949 rolled=4989 rolls=5871 scalp=+220961 rolled=-233142 open=-425 total=-12606 pips, net USD=-3418
+          | core.ladder one:  closes=36003 rolled=4985 rolls=5953 realised=-20513 (rolled part -237639) open=-456 total=-20969 pips, net USD=-4257
+          | core.ladder cont: closes=37808 rolled=5569 rolls=6530 realised=-31178 (rolled part -256851) open=-388 total=-31565 pips, net USD=-5425
+ALT add 23 | sim.py:            closes=3806 rolled=484 rolls=560 scalp=+76729 rolled=-72355 open=-1004 total=+3370 pips, net USD=+109
+          | core.ladder one:  closes=3776 rolled=485 rolls=560 realised=+3572 (rolled part -72121) open=-926 total=+2646 pips, net USD=+38
+          | core.ladder cont: closes=3671 rolled=490 rolls=572 realised=-460 (rolled part -73623) open=-982 total=-1442 pips, net USD=-364

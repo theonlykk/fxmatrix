@@ -1,0 +1,301 @@
+S1. T1 at the live rungs. r = share of rung-sized steps of the mid that reverse the previous step; 0.5 = random walk.
+    Bars: FTMO, 46 months, clean path, entries in server hours 2-21, limit convention (node on the grid line);
+    std = conservative intra-bar order, alt = optimistic; SE and t across months. F = add x (2r - 1), gross pips per
+    one-rung fade; k = commission + recorded spread. Ticks: IC, Aug-Oct 2026, same hours: grid = limit convention,
+    act = node at the actual price of the crossing tick (market convention).
+pair   arm add |  steps | r std  (SE)     t   | r alt   t   | F std   F alt |   k   | B4 verdict std / alt  | ticks: n   r grid  r act
+EURUSD OPT   7 |  40911 | 0.4894 (0.0030)  -3.2 | 0.5183  +3.0 | -0.15  +0.26 | 0.79  | ABSENT     / WEAK       | a=7   1230  0.490   0.514
+EURUSD ALT  23 |   3877 | 0.5055 (0.0088)  +1.0 | 0.5259  +3.6 | +0.26  +1.19 | 0.80  | ABSENT     / PRESENT    | a=23   124  0.508   0.477
+GBPUSD OPT   9 |  37345 | 0.4904 (0.0030)  -3.1 | 0.5112  +2.3 | -0.17  +0.20 | 1.05  | ABSENT     / BORDERLINE | a=9   1087  0.508   0.542
+GBPUSD ALT  15 |  13687 | 0.4986 (0.0049)  -0.5 | 0.5102  +1.8 | -0.04  +0.31 | 1.05  | ABSENT     / ABSENT     | a=14   434  0.502   0.530
+EURGBP OPT   5 |  23382 | 0.5101 (0.0047)  +2.8 | 0.5275  +5.7 | +0.10  +0.27 | 1.00  | BORDERLINE / WEAK       | a=5    479  0.522   0.548
+EURGBP ALT  23 |   1034 | 0.5058 (0.0165)  +1.1 | 0.5170  +1.6 | +0.27  +0.78 | 1.00  | ABSENT     / ABSENT     | a=23    23  0.435   0.476
+AUDCAD OPT  18 |   4473 | 0.4963 (0.0075)  +0.4 | 0.5181  +3.6 | -0.13  +0.65 | 1.81  | ABSENT     / WEAK       | a=18   165  0.497   0.518
+AUDCAD ALT  26 |   2183 | 0.5066 (0.0114)  +0.7 | 0.5226  +1.8 | +0.35  +1.18 | 1.81  | ABSENT     / ABSENT     | a=23   108  0.556   0.559
+AUDCHF OPT  14 |   4497 | 0.4901 (0.0085)  -0.3 | 0.5069  +1.0 | -0.28  +0.19 | 1.24  | ABSENT     / ABSENT     | a=14   126  0.468   0.460
+AUDCHF ALT  20 |   2221 | 0.4939 (0.0131)  -0.5 | 0.5081  +0.3 | -0.24  +0.32 | 1.23  | ABSENT     / ABSENT     | a=18    83  0.518   0.474
+CADCHF OPT  10 |   7112 | 0.5143 (0.0070)  +2.7 | 0.5280  +4.2 | +0.29  +0.56 | 1.60  | BORDERLINE / WEAK       | a=10   186  0.511   0.548
+CADCHF ALT  17 |   2390 | 0.5130 (0.0112)  +1.5 | 0.5251  +2.2 | +0.44  +0.85 | 1.61  | ABSENT     / BORDERLINE | a=18    52  0.519   0.462
+
+S2. T3 at the live parameters on FTMO bars (46 months, 0.01 lot), four bar variants:
+    fill model cont (every traversed level fills) or one (one resting add, EA-like but slow on bars) x intra-bar order std or alt.
+    All four fill at the limit price. Net = recorded bid/ask + 0.06 USD per close. yrs+ = calendar years of 4 with net > 0.
+    B4 verdict per variant: A = ABSENT (no gross evidence, or net < 0 with t <= -2), I- / I+ = INCONCLUSIVE leaning -, +, P = PRESENT.
+pair   arm add | gross pips/close, 4 variants     | cost/close FTMO (IC) | net USD/month (t), yrs+ : cont-std | cont-alt | one-std | one-alt                                   | verdicts
+EURUSD OPT   7 | -0.65  +0.26  -0.42  +0.25     | 0.79 (0.71)          |  -118.1 ( -6.4) 0 |   -49.8 ( -4.7) 0 |   -96.2 ( -5.7) 0 |   -46.6 ( -4.5) 0 | A  A  A  A 
+EURUSD ALT  23 | -0.26  +1.20  +0.76  +1.37     | 0.81 (0.74)          |    -8.5 ( -0.9) 1 |    +2.6 ( +0.3) 2 |    -1.1 ( -0.1) 2 |    +5.0 ( +0.5) 3 | A  A  A  A 
+GBPUSD OPT   9 | -0.51  +0.42  -0.05  +0.65     | 1.05 (0.87)          |  -113.0 ( -7.1) 0 |   -44.6 ( -3.3) 0 |   -78.7 ( -5.5) 0 |   -31.0 ( -2.3) 1 | A  A  A  A 
+GBPUSD ALT  15 | -0.59  +0.55  +0.28  +0.98     | 1.05 (0.86)          |   -40.8 ( -3.2) 0 |   -16.7 ( -1.3) 1 |   -17.8 ( -1.4) 0 |    +0.5 ( +0.0) 3 | A  A  A  I+
+EURGBP OPT   5 | +0.33  +0.73  +0.53  +0.80     | 0.99 (0.74)          |   -34.2 ( -3.0) 0 |   -13.7 ( -1.4) 0 |   -25.9 ( -2.6) 0 |   -10.3 ( -1.2) 2 | A  I- A  I-
+EURGBP ALT  23 | +6.23  +6.45  +6.24  +6.45     | 1.00 (0.98)          |   +14.7 ( +1.9) 2 |   +15.4 ( +2.2) 3 |   +14.6 ( +1.9) 2 |   +15.0 ( +2.1) 2 | I+ I+ I+ I+
+AUDCAD OPT  18 | +2.86  +3.90  +3.75  +4.42     | 1.81 (1.51)          |    +6.8 ( +1.1) 3 |   +16.2 ( +2.7) 4 |   +13.1 ( +2.1) 3 |   +21.5 ( +3.7) 4 | I+ P  I+ P 
+AUDCAD ALT  26 | +5.58  +6.46  +7.03  +7.39     | 1.82 (1.39)          |   +12.5 ( +1.8) 4 |   +15.8 ( +2.4) 4 |   +17.1 ( +2.4) 4 |   +20.7 ( +3.1) 4 | I+ I+ I+ P 
+AUDCHF OPT  14 | -0.59  +0.32  -0.67  +0.37     | 1.25 (0.91)          |   -23.6 ( -2.0) 1 |   -12.0 ( -1.1) 1 |   -18.8 ( -1.7) 1 |   -14.9 ( -1.5) 1 | A  A  A  A 
+AUDCHF ALT  20 | +0.27  +0.99  +0.76  +1.41     | 1.25 (0.79)          |    -5.9 ( -0.5) 2 |    +0.5 ( +0.0) 2 |    -3.8 ( -0.3) 2 |    +3.1 ( +0.3) 2 | A  A  A  A 
+CADCHF OPT  10 | +0.19  +0.82  +0.58  +1.06     | 1.60 (0.90)          |   -19.9 ( -1.7) 1 |    -9.0 ( -0.9) 2 |   -14.9 ( -1.4) 1 |    -7.8 ( -0.8) 2 | A  A  A  I-
+CADCHF ALT  17 | +1.98  +2.49  +2.24  +2.77     | 1.59 (1.13)          |    +3.7 ( +0.4) 2 |    +2.3 ( +0.3) 2 |    +4.9 ( +0.5) 2 |    +5.2 ( +0.6) 2 | A  A  A  A 
+
+    fleet of 12 arms, cont-std:  -326.1 USD/month (SE 83.9, t -3.9); total -15002; by year: 2023 -4662  2024 -4659  2025 -4857  2026 -822
+    fleet of 12 arms, cont-alt:   -93.0 USD/month (SE 64.9, t -1.4); total -4277; by year: 2023 -1319  2024 -2739  2025 -946  2026 +727
+    fleet of 12 arms, one-std:  -207.5 USD/month (SE 76.8, t -2.7); total -9547; by year: 2023 -2914  2024 -3675  2025 -3162  2026 +204
+    fleet of 12 arms, one-alt:   -39.5 USD/month (SE 63.4, t -0.6); total -1816; by year: 2023 -247  2024 -2224  2025 -530  2026 +1184
+
+S2b. The same with the replay's fill convention approximated: a touched limit deals at the market, which on IC ticks is
+     better than the limit by d pips per fill on average (10_fill_improvement.py). Bars cannot see this; first-order
+     adjustment: net + 2 x d x closes x USD-per-pip. Range over the four bar variants. This assumes the broker passes the
+     improvement on and that d on FTMO equals d on IC; neither is checked here.
+pair   arm add |  d (pips/fill) | net USD/month at limit fills: min .. max | with market-fill adjustment: min .. max
+EURUSD OPT   7 |  0.25          |  -118.1 ..   -46.6                       |   -76.9 ..    -2.9
+EURUSD ALT  23 |  0.46          |    -8.5 ..    +5.0                       |    -1.1 ..   +12.9
+GBPUSD OPT   9 |  0.31          |  -113.0 ..   -31.0                       |   -68.5 ..   +15.1
+GBPUSD ALT  15 |  0.32          |   -40.8 ..    +0.5                       |   -24.2 ..   +18.1
+EURGBP OPT   5 |  0.08          |   -34.2 ..   -10.3                       |   -25.2 ..    -0.9
+EURGBP ALT  23 |  0.11          |   +14.6 ..   +15.4                       |   +15.2 ..   +16.1
+AUDCAD OPT  18 |  0.27          |    +6.8 ..   +21.5                       |   +10.2 ..   +24.9
+AUDCAD ALT  26 |  0.21          |   +12.5 ..   +20.7                       |   +13.8 ..   +22.1
+AUDCHF OPT  14 |  0.14          |   -23.6 ..   -12.0                       |   -20.9 ..    -9.0
+AUDCHF ALT  20 |  0.11          |    -5.9 ..    +3.1                       |    -4.7 ..    +4.2
+CADCHF OPT  10 |  0.08          |   -19.9 ..    -7.8                       |   -17.3 ..    -5.1
+CADCHF ALT  17 |  0.08          |    +2.3 ..    +5.2                       |    +3.1 ..    +6.0
+    sum of the 12 arms (sum of per-arm minima .. sum of per-arm maxima): limit fills -328 .. -36 USD/month ; adjusted -196 .. +101 USD/month
+
+S3. Which bar variant is nearest the tick truth? IC ticks Aug-Oct 2026; truth = ladder on ticks, one resting add, real bid/ask,
+    limit fills. Bar variants are built from the same ticks (bid OHLC + minimum spread). Sum of pips over scan rungs 3..10.
+pair   | tick truth | bars cont-std  cont-alt | bars one-std  one-alt | nearest
+EURUSD |     -9238  |     -9806      -736     |     -6982     -1308   | cont-std
+GBPUSD |     +4600  |     -2013    +13798     |     +5123    +16726   | one-std
+EURGBP |     -1272  |     -1129      -263     |      -552      -184   | cont-std
+AUDCAD |     -6827  |     -6940     -1080     |     -3784      +564   | cont-std
+AUDCHF |     -9067  |     -9401     -7101     |     -7466     -6067   | cont-std
+CADCHF |      +446  |     +1054     +2622     |     +1998     +3093   | cont-std
+
+S4. Live arms on IC ticks, 2026-08-03 .. 2026-10-21 (12 calendar weeks touched), one resting add, real bid/ask,
+    0.06 USD per close. limit = touched limits fill at their price; market = at the touching tick's market when better.
+pair   arm add | closes | gross pips (%/rung, weekly t) | spread at fills | net USD, limit fills (per week, t) | net USD, market fills
+EURUSD OPT   7 |   1139 |    -529 (  -6.5, -0.6)       | 0.11            |  -132.2 (-11.02, -1.4)          |   -60.3 ( -5.03, -0.6)
+EURUSD ALT  23 |    117 |   -1201 ( -44.3, -1.1)       | 0.14            |  -125.9 (-10.49, -1.2)          |  -101.5 ( -8.46, -0.9)
+GBPUSD OPT   9 |    957 |   +1351 ( +15.5, +1.0)       | 0.27            |   +11.1 ( +0.92, +0.1)          |  +123.8 (+10.32, +0.9)
+GBPUSD ALT  15 |    353 |    -143 (  -2.6, -0.1)       | 0.26            |   -63.8 ( -5.32, -0.5)          |   -25.1 ( -2.09, -0.2)
+EURGBP OPT   5 |    458 |    +129 (  +5.0, +0.4)       | 0.29            |   -31.5 ( -2.62, -0.6)          |   -17.5 ( -1.46, -0.3)
+EURGBP ALT  23 |     24 |    -377 ( -68.3, -1.3)       | 0.53            |   -52.3 ( -4.36, -1.4)          |   -51.2 ( -4.27, -1.4)
+AUDCAD OPT  18 |    176 |   +1595 ( +48.2, +2.2)       | 0.67            |   +75.0 ( +6.25, +1.4)          |   +82.2 ( +6.85, +1.6)
+AUDCAD ALT  26 |     78 |   +1393 ( +60.2, +2.3)       | 0.55            |   +75.0 ( +6.25, +1.8)          |   +84.5 ( +7.04, +1.9)
+AUDCHF OPT  14 |    122 |    -297 ( -16.6, -0.6)       | 0.41            |   -28.7 ( -2.39, -0.4)          |   -16.1 ( -1.34, -0.2)
+AUDCHF ALT  20 |     62 |    +377 ( +27.7, +0.6)       | 0.29            |   +27.3 ( +2.27, +0.4)          |   +28.2 ( +2.35, +0.4)
+CADCHF OPT  10 |    194 |    +369 ( +18.4, +0.8)       | 0.41            |   +24.3 ( +2.03, +0.4)          |   +12.3 ( +1.02, +0.2)
+CADCHF ALT  17 |     68 |    +594 ( +49.9, +1.1)       | 0.63            |   +67.0 ( +5.59, +1.1)          |   +65.8 ( +5.49, +1.0)
+    all 12 arms: limit fills -155 USD ; market fills +125 USD
+
+S5. What a plain bar replay sees at the rollover (bars built from the IC ticks, so the truth is known). Ladder, cap 7,
+    width add/4, every traversed level fills, Aug-Oct 2026. raw = bid OHLC + minimum spread, blow-out bars left in
+    (run_bars.py's construction); std = the same with blow-out bars frozen. Pips over the window.
+pair   add | GROSS (mid): tick truth    raw    std | REAL BID/ASK: tick truth    raw    std | raw - truth, USD per year at 0.01 lot
+EURUSD   5 |                -1416   -1422   -1477 |                 -1597   -1432   -1457 |    +76
+EURUSD  10 |                 -770    -572    -712 |                  -870    -662    -602 |    +96
+GBPUSD   5 |                +1054   +1545    +595 |                  -357     +53     -97 |   +190
+GBPUSD  10 |                 +568    +424    +304 |                  +598    +244    +134 |   -164
+EURGBP   5 |                 +208    +869     +18 |                  -113    +235     +54 |   +215
+EURGBP  10 |                 -318      -4    -244 |                  -282    -159    -265 |    +76
+AUDCAD   5 |                 -657    +230   -1165 |                 -1953   -1217   -1487 |   +243
+AUDCAD  10 |                 +588    +961    +741 |                  +566    +500    +670 |    -22
+AUDCHF   5 |                 -887      +8    -947 |                 -1472   -1041   -1381 |   +243
+AUDCHF  10 |                 -897    -727   -1047 |                 -1031    -848    -958 |   +103
+CADCHF   5 |                 +138    +672     +47 |                   -51    +106     -14 |    +89
+CADCHF  10 |                 +369    +398    +268 |                  +279    +385    +305 |    +60
+
+S6. Reversal rate by session (FTMO bars, clean path, std order; server hours; server 00:00 = New York 17:00).
+    binomial SE in brackets (a lower bound on the true uncertainty). Fnet = a(2r-1) - commission - recorded spread.
+  EURUSD a= 5 | 1-8 Asia: r=0.479 (0.004) n=13028 Fnet=-1.00 | 9-14 London: r=0.493 (0.003) n=24910 Fnet=-0.85 | 15-21 NY: r=0.473 (0.002) n=43053 Fnet=-1.07 | 22-23 late: r=0.494 (0.009) n=3186 Fnet=-0.92
+  EURUSD a=10 | 1-8 Asia: r=0.494 (0.009) n=3347 Fnet=-0.91 | 9-14 London: r=0.499 (0.006) n=6164 Fnet=-0.79 | 15-21 NY: r=0.497 (0.005) n=11290 Fnet=-0.86 | 22-23 late: r=0.501 (0.017) n=821 Fnet=-0.84
+  EURUSD a=20 | 1-8 Asia: r=0.498 (0.017) n=849 Fnet=-0.87 | 9-14 London: r=0.486 (0.013) n=1524 Fnet=-1.37 | 15-21 NY: r=0.500 (0.009) n=2846 Fnet=-0.80 | 22-23 late: r=0.546 (0.034) n=218 Fnet=+0.99
+  GBPUSD a= 5 | 1-8 Asia: r=0.491 (0.004) n=17171 Fnet=-1.24 | 9-14 London: r=0.480 (0.002) n=40188 Fnet=-1.22 | 15-21 NY: r=0.471 (0.002) n=61581 Fnet=-1.33 | 22-23 late: r=0.519 (0.008) n=4142 Fnet=-0.94
+  GBPUSD a=10 | 1-8 Asia: r=0.500 (0.008) n=4266 Fnet=-1.16 | 9-14 London: r=0.490 (0.005) n=10359 Fnet=-1.23 | 15-21 NY: r=0.490 (0.004) n=16137 Fnet=-1.24 | 22-23 late: r=0.508 (0.016) n=996 Fnet=-0.97
+  GBPUSD a=20 | 1-8 Asia: r=0.511 (0.016) n=1039 Fnet=-0.71 | 9-14 London: r=0.500 (0.010) n=2672 Fnet=-1.03 | 15-21 NY: r=0.494 (0.008) n=4168 Fnet=-1.29 | 22-23 late: r=0.527 (0.031) n=258 Fnet=-0.04
+  EURGBP a= 5 | 1-8 Asia: r=0.545 (0.009) n=2775 Fnet=-0.62 | 9-14 London: r=0.495 (0.005) n=10256 Fnet=-1.03 | 15-21 NY: r=0.518 (0.005) n=11011 Fnet=-0.83 | 22-23 late: r=0.577 (0.020) n=615 Fnet=-0.35
+  EURGBP a=10 | 1-8 Asia: r=0.553 (0.020) n=600 Fnet=-0.00 | 9-14 London: r=0.499 (0.010) n=2578 Fnet=-1.01 | 15-21 NY: r=0.543 (0.010) n=2626 Fnet=-0.16 | 22-23 late: r=0.519 (0.040) n=158 Fnet=-0.73
+  EURGBP a=20 | 1-8 Asia: r=0.486 (0.085) n=35 Fnet=-1.69 | 9-14 London: r=0.503 (0.020) n=630 Fnet=-0.87 | 15-21 NY: r=0.539 (0.020) n=597 Fnet=+0.57 | 22-23 late: n<30
+  AUDCAD a= 5 | 1-8 Asia: r=0.485 (0.004) n=18249 Fnet=-2.04 | 9-14 London: r=0.510 (0.004) n=14190 Fnet=-1.65 | 15-21 NY: r=0.488 (0.003) n=27039 Fnet=-1.90 | 22-23 late: r=0.530 (0.010) n=2354 Fnet=-1.76
+  AUDCAD a=10 | 1-8 Asia: r=0.486 (0.007) n=4660 Fnet=-2.16 | 9-14 London: r=0.501 (0.008) n=3496 Fnet=-1.74 | 15-21 NY: r=0.504 (0.006) n=6960 Fnet=-1.72 | 22-23 late: r=0.540 (0.021) n=585 Fnet=-1.23
+  AUDCAD a=20 | 1-8 Asia: r=0.499 (0.015) n=1174 Fnet=-1.91 | 9-14 London: r=0.486 (0.017) n=858 Fnet=-2.34 | 15-21 NY: r=0.496 (0.012) n=1684 Fnet=-1.94 | 22-23 late: r=0.506 (0.040) n=156 Fnet=-1.70
+  AUDCHF a= 5 | 1-8 Asia: r=0.471 (0.005) n=9971 Fnet=-1.58 | 9-14 London: r=0.491 (0.005) n=10403 Fnet=-1.28 | 15-21 NY: r=0.497 (0.004) n=14886 Fnet=-1.25 | 22-23 late: r=0.522 (0.014) n=1206 Fnet=-1.16
+  AUDCHF a=10 | 1-8 Asia: r=0.468 (0.010) n=2575 Fnet=-1.92 | 9-14 London: r=0.483 (0.010) n=2605 Fnet=-1.53 | 15-21 NY: r=0.508 (0.008) n=3757 Fnet=-1.09 | 22-23 late: r=0.500 (0.029) n=302 Fnet=-1.36
+  AUDCHF a=20 | 1-8 Asia: r=0.477 (0.019) n=671 Fnet=-2.20 | 9-14 London: r=0.497 (0.019) n=670 Fnet=-1.32 | 15-21 NY: r=0.502 (0.016) n=952 Fnet=-1.16 | 22-23 late: r=0.548 (0.059) n=73 Fnet=+0.58
+  CADCHF a= 5 | 1-8 Asia: r=0.509 (0.008) n=4143 Fnet=-1.60 | 9-14 London: r=0.489 (0.005) n=9123 Fnet=-1.67 | 15-21 NY: r=0.499 (0.004) n=15669 Fnet=-1.60 | 22-23 late: r=0.532 (0.014) n=1332 Fnet=-1.43
+  CADCHF a=10 | 1-8 Asia: r=0.505 (0.016) n=970 Fnet=-1.58 | 9-14 London: r=0.501 (0.010) n=2347 Fnet=-1.56 | 15-21 NY: r=0.522 (0.008) n=3996 Fnet=-1.17 | 22-23 late: r=0.537 (0.028) n=311 Fnet=-0.96
+  CADCHF a=20 | 1-8 Asia: r=0.529 (0.036) n=189 Fnet=-0.54 | 9-14 London: r=0.517 (0.021) n=545 Fnet=-0.90 | 15-21 NY: r=0.531 (0.016) n=960 Fnet=-0.35 | 22-23 late: r=0.427 (0.055) n=82 Fnet=-4.59
+
+S7. The best cells of the scans (FTMO bars, std path, recorded bid/ask + commission, limit fills), ranked by net t.
+    6 pairs x 20 rungs x 6 designs = 720 cells per fill model; the largest t expected by chance alone is about 3.
+  fill model cont, rungs 3..30
+    AUDCAD exit2a   add  23 : net  +22.58 USD/month, t +3.5, years+ 4/4, closes/day 1.2, maxDD 2189 pips
+    AUDCAD exit2a   add  18 : net  +18.28 USD/month, t +3.4, years+ 4/4, closes/day 1.8, maxDD 2179 pips
+    AUDCAD exit2a   add  17 : net  +21.69 USD/month, t +3.2, years+ 3/4, closes/day 2.2, maxDD 2516 pips
+    AUDCAD exit2a   add  20 : net  +19.22 USD/month, t +3.0, years+ 4/4, closes/day 1.5, maxDD 2058 pips
+    AUDCAD cap7     add  23 : net  +14.93 USD/month, t +2.3, years+ 4/4, closes/day 2.6, maxDD 2430 pips
+    AUDCAD exit2a   add  30 : net  +14.89 USD/month, t +2.1, years+ 4/4, closes/day 0.7, maxDD 2325 pips
+    EURGBP cap7     add  20 : net  +15.53 USD/month, t +2.1, years+ 3/4, closes/day 1.2, maxDD 1754 pips
+    AUDCAD cap7     add  20 : net  +14.54 USD/month, t +2.1, years+ 3/4, closes/day 3.4, maxDD 2270 pips
+    cells with net t >= 3.5: 1 of 612 ; net t >= 2: 11 ; net t <= -2: 356 ; by pair, cells with net t >= 2: EURUSD 0 GBPUSD 0 EURGBP 2 AUDCAD 8 AUDCHF 0 CADCHF 1
+  fill model cont, rungs 40..100 (context only)
+    AUDCAD cap3     add  40 : net   +7.41 USD/month, t +2.6, years+ 3/4, closes/day 0.8, maxDD 1073 pips
+    AUDCAD cap3     add  60 : net   +6.53 USD/month, t +2.4, years+ 4/4, closes/day 0.3, maxDD 990 pips
+    CADCHF cap7     add  60 : net  +11.21 USD/month, t +2.0, years+ 4/4, closes/day 0.2, maxDD 1767 pips
+    EURGBP cap15    add 100 : net  +12.24 USD/month, t +1.9, years+ 3/4, closes/day 0.1, maxDD 1080 pips
+    EURGBP cap7     add 100 : net  +11.95 USD/month, t +1.9, years+ 3/4, closes/day 0.1, maxDD 1080 pips
+    EURGBP cap3     add 100 : net   +5.59 USD/month, t +1.8, years+ 3/4, closes/day 0.1, maxDD 443 pips
+    CADCHF exit2a   add  40 : net  +12.07 USD/month, t +1.8, years+ 4/4, closes/day 0.2, maxDD 2306 pips
+    CADCHF exit2a   add  60 : net  +11.75 USD/month, t +1.8, years+ 4/4, closes/day 0.1, maxDD 1672 pips
+    cells with net t >= 3.5: 0 of 108 ; net t >= 2: 3 ; net t <= -2: 3 ; by pair, cells with net t >= 2: EURUSD 0 GBPUSD 0 EURGBP 0 AUDCAD 2 AUDCHF 0 CADCHF 1
+  fill model one, rungs 3..30
+    AUDCAD exit2a   add  23 : net  +21.88 USD/month, t +3.6, years+ 4/4, closes/day 1.2, maxDD 2189 pips
+    AUDCAD exit2a   add  18 : net  +19.56 USD/month, t +3.4, years+ 3/4, closes/day 1.8, maxDD 2002 pips
+    AUDCAD exit2a   add  20 : net  +21.67 USD/month, t +3.3, years+ 4/4, closes/day 1.6, maxDD 2058 pips
+    AUDCAD exit2a   add  17 : net  +22.34 USD/month, t +3.3, years+ 3/4, closes/day 2.2, maxDD 2466 pips
+    AUDCAD cap7     add  23 : net  +17.53 USD/month, t +2.6, years+ 4/4, closes/day 2.6, maxDD 2409 pips
+    AUDCAD cap7     add  20 : net  +15.79 USD/month, t +2.4, years+ 3/4, closes/day 3.4, maxDD 2212 pips
+    AUDCAD cap7     add  26 : net  +17.07 USD/month, t +2.4, years+ 4/4, closes/day 2.0, maxDD 2538 pips
+    AUDCAD exit2a   add  15 : net  +16.12 USD/month, t +2.2, years+ 3/4, closes/day 2.7, maxDD 3107 pips
+    cells with net t >= 3.5: 1 of 612 ; net t >= 2: 15 ; net t <= -2: 325 ; by pair, cells with net t >= 2: EURUSD 0 GBPUSD 0 EURGBP 2 AUDCAD 12 AUDCHF 0 CADCHF 1
+  fill model one, rungs 40..100 (context only)
+    AUDCAD cap3     add  40 : net   +7.90 USD/month, t +2.8, years+ 3/4, closes/day 0.8, maxDD 1073 pips
+    AUDCAD cap3     add  60 : net   +7.66 USD/month, t +2.8, years+ 4/4, closes/day 0.3, maxDD 955 pips
+    CADCHF cap7     add  60 : net  +11.21 USD/month, t +2.0, years+ 4/4, closes/day 0.2, maxDD 1767 pips
+    EURGBP cap15    add 100 : net  +12.24 USD/month, t +1.9, years+ 3/4, closes/day 0.1, maxDD 1080 pips
+    EURGBP cap7     add 100 : net  +11.95 USD/month, t +1.9, years+ 3/4, closes/day 0.1, maxDD 1080 pips
+    EURGBP cap3     add 100 : net   +5.59 USD/month, t +1.8, years+ 3/4, closes/day 0.1, maxDD 443 pips
+    CADCHF exit2a   add  40 : net  +12.07 USD/month, t +1.8, years+ 4/4, closes/day 0.2, maxDD 2306 pips
+    CADCHF exit2a   add  60 : net  +11.75 USD/month, t +1.8, years+ 4/4, closes/day 0.1, maxDD 1672 pips
+    cells with net t >= 3.5: 0 of 108 ; net t >= 2: 3 ; net t <= -2: 3 ; by pair, cells with net t >= 2: EURUSD 0 GBPUSD 0 EURGBP 0 AUDCAD 2 AUDCHF 0 CADCHF 1
+
+S8. By calendar year, the three arms that lean positive: NET USD at 0.01 lot, cont-std / cont-alt / one-std / one-alt.
+  EURGBP ALT 23 : 2023  +513/ +531/ +509/ +521   2024  +192/ +216/ +192/ +216   2025   -21/  -52/  -24/  -35   2026    -5/  +16/   -5/  -10
+  AUDCAD OPT 18 : 2023   +18/ +153/ +213/ +326   2024   -79/  +29/  -33/  +37   2025  +262/ +408/ +288/ +402   2026  +113/ +156/ +134/ +225
+  AUDCAD ALT 26 : 2023  +132/ +217/ +265/ +351   2024   +18/  +30/  +31/  +50   2025  +215/ +248/ +223/ +253   2026  +211/ +231/ +267/ +299
+
+S9. Scale scan, cap 7, exit = add, width = add/4: net USD/month (t) by rung, min .. max over the four bar variants, limit fills.
+  EURUSD
+    add   3 : closes/day  182.5 | gross %/rung  -19.5 ..  +11.3 | net  -542.97 (t  -7.8) ..  -214.62 (t  -7.4) | years+ 0 .. 0
+    add   4 : closes/day  107.6 | gross %/rung  -15.8 ..   +6.8 | net  -330.77 (t  -7.3) ..  -137.83 (t  -7.8) | years+ 0 .. 0
+    add   5 : closes/day   71.5 | gross %/rung  -13.4 ..   +5.3 | net  -223.92 (t  -7.2) ..   -90.39 (t  -6.3) | years+ 0 .. 0
+    add   6 : closes/day   51.2 | gross %/rung  -11.4 ..   +4.5 | net  -163.37 (t  -6.8) ..   -62.07 (t  -5.1) | years+ 0 .. 0
+    add   7 : closes/day   37.8 | gross %/rung   -9.4 ..   +4.0 | net  -117.39 (t  -6.4) ..   -44.72 (t  -4.5) | years+ 0 .. 0
+    add   8 : closes/day   29.2 | gross %/rung   -8.6 ..   +4.4 | net   -97.97 (t  -6.1) ..   -29.13 (t  -2.6) | years+ 0 .. 0
+    add   9 : closes/day   23.6 | gross %/rung   -6.3 ..   +4.9 | net   -69.02 (t  -5.1) ..   -19.49 (t  -1.8) | years+ 0 .. 0
+    add  10 : closes/day   19.3 | gross %/rung   -6.5 ..   +4.3 | net   -59.94 (t  -5.1) ..   -13.62 (t  -1.5) | years+ 0 .. 0
+    add  12 : closes/day   13.4 | gross %/rung   -5.2 ..   +6.1 | net   -40.87 (t  -4.3) ..    -3.18 (t  -0.3) | years+ 0 .. 2
+    add  14 : closes/day    9.8 | gross %/rung   -5.6 ..   +5.7 | net   -33.63 (t  -3.6) ..    +1.60 (t  +0.2) | years+ 0 .. 2
+    add  15 : closes/day    8.7 | gross %/rung   -3.8 ..   +7.0 | net   -24.94 (t  -2.6) ..    +0.10 (t  +0.0) | years+ 0 .. 2
+    add  17 : closes/day    6.7 | gross %/rung   -6.8 ..   +6.7 | net   -28.52 (t  -2.5) ..    +5.71 (t  +0.5) | years+ 0 .. 3
+    add  18 : closes/day    5.8 | gross %/rung   -3.3 ..   +6.5 | net   -18.64 (t  -1.8) ..    +4.71 (t  +0.5) | years+ 1 .. 3
+    add  20 : closes/day    4.8 | gross %/rung   -5.2 ..   +5.6 | net   -17.12 (t  -1.7) ..    +4.16 (t  +0.4) | years+ 1 .. 3
+    add  23 : closes/day    3.7 | gross %/rung   -0.3 ..   +6.2 | net    -7.74 (t  -0.8) ..    +3.45 (t  +0.3) | years+ 1 .. 3
+    add  26 : closes/day    3.1 | gross %/rung   +1.6 ..   +7.8 | net    -0.68 (t  -0.1) ..    +7.89 (t  +0.8) | years+ 2 .. 3
+    add  30 : closes/day    2.3 | gross %/rung   +3.9 ..   +6.4 | net    +2.62 (t  +0.3) ..    +5.88 (t  +0.6) | years+ 2 .. 2
+    add  40 : closes/day    1.3 | gross %/rung   -5.6 ..   -1.5 | net    -6.06 (t  -0.6) ..    -2.60 (t  -0.3) | years+ 1 .. 2
+    add  60 : closes/day    0.6 | gross %/rung   +6.4 ..   +9.8 | net    +2.60 (t  +0.2) ..    +5.14 (t  +0.5) | years+ 2 .. 2
+    add 100 : closes/day    0.2 | gross %/rung  +24.1 ..  +25.8 | net   +10.40 (t  +1.0) ..   +11.46 (t  +1.1) | years+ 2 .. 2
+  GBPUSD
+    add   3 : closes/day  252.7 | gross %/rung  -20.3 ..  +14.4 | net  -867.10 (t -14.3) ..  -375.16 (t -13.1) | years+ 0 .. 0
+    add   4 : closes/day  152.2 | gross %/rung  -15.1 ..  +11.5 | net  -531.15 (t -13.5) ..  -223.21 (t  -9.5) | years+ 0 .. 0
+    add   5 : closes/day  101.1 | gross %/rung  -11.6 ..   +9.5 | net  -348.19 (t -11.8) ..  -141.99 (t  -7.2) | years+ 0 .. 0
+    add   6 : closes/day   71.8 | gross %/rung  -10.1 ..   +7.6 | net  -249.34 (t -10.7) ..   -98.98 (t  -5.6) | years+ 0 .. 0
+    add   7 : closes/day   53.5 | gross %/rung   -8.3 ..   +6.9 | net  -183.71 (t  -9.8) ..   -65.87 (t  -4.5) | years+ 0 .. 0
+    add   8 : closes/day   41.3 | gross %/rung   -6.6 ..   +7.3 | net  -135.55 (t  -8.0) ..   -47.07 (t  -3.4) | years+ 0 .. 0
+    add   9 : closes/day   33.2 | gross %/rung   -5.9 ..   +6.7 | net  -108.53 (t  -7.2) ..   -26.96 (t  -2.0) | years+ 0 .. 2
+    add  10 : closes/day   27.3 | gross %/rung   -5.1 ..   +7.4 | net   -86.02 (t  -6.3) ..   -18.61 (t  -1.5) | years+ 0 .. 1
+    add  12 : closes/day   19.1 | gross %/rung   -5.6 ..   +6.9 | net   -65.00 (t  -4.6) ..    -5.88 (t  -0.5) | years+ 0 .. 2
+    add  14 : closes/day   14.2 | gross %/rung   -4.5 ..   +5.9 | net   -46.85 (t  -3.6) ..    -5.52 (t  -0.5) | years+ 0 .. 2
+    add  15 : closes/day   12.1 | gross %/rung   -4.4 ..   +6.6 | net   -46.15 (t  -3.5) ..    +3.41 (t  +0.3) | years+ 0 .. 3
+    add  17 : closes/day    9.4 | gross %/rung   -3.7 ..   +6.8 | net   -34.80 (t  -2.9) ..    +1.88 (t  +0.1) | years+ 0 .. 3
+    add  18 : closes/day    8.5 | gross %/rung   -1.1 ..   +8.1 | net   -27.48 (t  -2.0) ..    +2.18 (t  +0.2) | years+ 0 .. 2
+    add  20 : closes/day    7.1 | gross %/rung   -2.5 ..   +7.6 | net   -23.05 (t  -1.6) ..    +1.83 (t  +0.1) | years+ 0 .. 3
+    add  23 : closes/day    5.4 | gross %/rung   -3.7 ..   +6.4 | net   -15.44 (t  -1.1) ..    +9.48 (t  +0.7) | years+ 0 .. 3
+    add  26 : closes/day    4.4 | gross %/rung   +2.0 ..   +7.9 | net    -1.93 (t  -0.1) ..   +12.54 (t  +0.9) | years+ 2 .. 3
+    add  30 : closes/day    3.2 | gross %/rung   -0.4 ..   +8.9 | net    -6.69 (t  -0.5) ..   +12.05 (t  +0.8) | years+ 2 .. 3
+    add  40 : closes/day    1.8 | gross %/rung   -4.7 ..  +10.1 | net    -4.62 (t  -0.4) ..    +8.94 (t  +0.8) | years+ 3 .. 3
+    add  60 : closes/day    0.8 | gross %/rung   +1.7 ..   +9.1 | net    +0.14 (t  +0.0) ..    +7.79 (t  +0.7) | years+ 2 .. 3
+    add 100 : closes/day    0.3 | gross %/rung  +17.2 ..  +20.1 | net   +11.37 (t  +0.8) ..   +13.31 (t  +1.0) | years+ 4 .. 4
+  EURGBP
+    add   3 : closes/day   51.4 | gross %/rung   +4.3 ..  +20.7 | net  -114.20 (t  -5.3) ..   -51.60 (t  -3.8) | years+ 0 .. 0
+    add   4 : closes/day   29.9 | gross %/rung   +5.0 ..  +17.3 | net   -62.38 (t  -4.3) ..   -24.17 (t  -2.2) | years+ 0 .. 0
+    add   5 : closes/day   19.4 | gross %/rung   +5.9 ..  +15.6 | net   -33.99 (t  -3.0) ..   -10.14 (t  -1.2) | years+ 0 .. 1
+    add   6 : closes/day   14.0 | gross %/rung   +6.6 ..  +14.6 | net   -22.31 (t  -2.3) ..    -5.84 (t  -0.7) | years+ 0 .. 1
+    add   7 : closes/day   10.1 | gross %/rung   +5.3 ..  +13.3 | net   -16.40 (t  -2.0) ..    +0.19 (t  +0.0) | years+ 0 .. 1
+    add   8 : closes/day    8.0 | gross %/rung   +7.6 ..  +13.3 | net    -7.73 (t  -1.0) ..    +2.21 (t  +0.3) | years+ 0 .. 2
+    add   9 : closes/day    6.3 | gross %/rung   +4.5 ..  +13.3 | net    -7.26 (t  -0.9) ..    +7.19 (t  +1.0) | years+ 0 .. 3
+    add  10 : closes/day    5.1 | gross %/rung   +6.5 ..  +15.8 | net    -5.45 (t  -0.8) ..    +6.89 (t  +1.0) | years+ 1 .. 3
+    add  12 : closes/day    3.5 | gross %/rung  +12.8 ..  +16.4 | net    +4.49 (t  +0.6) ..   +12.07 (t  +1.7) | years+ 3 .. 3
+    add  14 : closes/day    2.6 | gross %/rung   +9.4 ..  +16.0 | net    +2.84 (t  +0.4) ..   +10.78 (t  +1.4) | years+ 2 .. 3
+    add  15 : closes/day    2.2 | gross %/rung   +8.0 ..  +16.1 | net    +6.04 (t  +0.9) ..    +9.63 (t  +1.4) | years+ 2 .. 3
+    add  17 : closes/day    1.8 | gross %/rung  +13.5 ..  +19.0 | net    +6.02 (t  +0.8) ..   +10.32 (t  +1.3) | years+ 3 .. 4
+    add  18 : closes/day    1.6 | gross %/rung  +17.6 ..  +19.8 | net    +7.50 (t  +1.0) ..   +12.43 (t  +1.6) | years+ 2 .. 3
+    add  20 : closes/day    1.2 | gross %/rung  +24.7 ..  +28.1 | net   +15.53 (t  +2.1) ..   +18.09 (t  +2.4) | years+ 3 .. 4
+    add  23 : closes/day    0.9 | gross %/rung  +26.1 ..  +26.5 | net   +13.19 (t  +1.8) ..   +13.77 (t  +1.8) | years+ 2 .. 3
+    add  26 : closes/day    0.8 | gross %/rung  +28.2 ..  +29.3 | net   +14.50 (t  +2.0) ..   +15.04 (t  +2.1) | years+ 3 .. 3
+    add  30 : closes/day    0.6 | gross %/rung  +25.4 ..  +27.0 | net   +11.48 (t  +1.6) ..   +12.78 (t  +1.8) | years+ 2 .. 3
+    add  40 : closes/day    0.3 | gross %/rung  +31.1 ..  +31.6 | net    +7.80 (t  +1.1) ..    +8.73 (t  +1.2) | years+ 2 .. 2
+    add  60 : closes/day    0.1 | gross %/rung  +33.3 ..  +33.3 | net    +7.52 (t  +1.1) ..    +7.52 (t  +1.1) | years+ 2 .. 2
+    add 100 : closes/day    0.1 | gross %/rung  +69.0 ..  +69.0 | net   +11.95 (t  +1.9) ..   +11.95 (t  +1.9) | years+ 3 .. 3
+  AUDCAD
+    add   3 : closes/day  113.9 | gross %/rung   -9.4 ..  +14.9 | net  -356.51 (t  -8.4) ..  -247.28 (t  -9.3) | years+ 0 .. 0
+    add   4 : closes/day   68.8 | gross %/rung   -8.4 ..  +11.1 | net  -220.37 (t  -7.5) ..  -144.89 (t  -8.2) | years+ 0 .. 0
+    add   5 : closes/day   46.3 | gross %/rung   -5.6 ..   +9.6 | net  -140.57 (t  -6.6) ..   -93.39 (t  -7.1) | years+ 0 .. 0
+    add   6 : closes/day   33.3 | gross %/rung   -4.6 ..   +8.3 | net  -105.71 (t  -6.2) ..   -66.20 (t  -5.9) | years+ 0 .. 0
+    add   7 : closes/day   24.8 | gross %/rung   -2.4 ..   +8.5 | net   -74.13 (t  -5.5) ..   -44.14 (t  -4.4) | years+ 0 .. 0
+    add   8 : closes/day   19.4 | gross %/rung   -2.1 ..   +8.9 | net   -56.19 (t  -5.0) ..   -28.44 (t  -3.7) | years+ 0 .. 0
+    add   9 : closes/day   15.4 | gross %/rung   +1.6 ..  +11.7 | net   -42.01 (t  -4.0) ..   -20.08 (t  -2.6) | years+ 0 .. 0
+    add  10 : closes/day   12.8 | gross %/rung   +2.9 ..  +12.7 | net   -25.44 (t  -2.8) ..    -6.65 (t  -1.0) | years+ 0 .. 1
+    add  12 : closes/day    9.3 | gross %/rung   +5.2 ..  +14.6 | net   -15.61 (t  -2.0) ..    -0.68 (t  -0.1) | years+ 0 .. 1
+    add  14 : closes/day    6.7 | gross %/rung   +9.2 ..  +17.1 | net    -4.98 (t  -0.6) ..    +9.86 (t  +1.5) | years+ 1 .. 3
+    add  15 : closes/day    5.7 | gross %/rung  +11.7 ..  +22.5 | net    +3.15 (t  +0.4) ..   +15.37 (t  +2.2) | years+ 3 .. 4
+    add  17 : closes/day    4.4 | gross %/rung  +17.6 ..  +24.3 | net   +10.08 (t  +1.4) ..   +20.07 (t  +2.7) | years+ 3 .. 3
+    add  18 : closes/day    4.1 | gross %/rung  +15.9 ..  +24.5 | net    +6.84 (t  +1.1) ..   +21.52 (t  +3.7) | years+ 3 .. 4
+    add  20 : closes/day    3.4 | gross %/rung  +19.7 ..  +27.2 | net   +14.54 (t  +2.1) ..   +19.90 (t  +3.3) | years+ 3 .. 4
+    add  23 : closes/day    2.6 | gross %/rung  +21.1 ..  +29.5 | net   +14.93 (t  +2.3) ..   +21.15 (t  +3.6) | years+ 4 .. 4
+    add  26 : closes/day    2.0 | gross %/rung  +21.4 ..  +28.4 | net   +12.52 (t  +1.8) ..   +20.73 (t  +3.1) | years+ 4 .. 4
+    add  30 : closes/day    1.6 | gross %/rung  +22.3 ..  +26.2 | net   +12.28 (t  +1.8) ..   +15.60 (t  +2.2) | years+ 4 .. 4
+    add  40 : closes/day    0.9 | gross %/rung  +18.6 ..  +23.8 | net    +8.88 (t  +1.3) ..   +11.02 (t  +1.6) | years+ 4 .. 4
+    add  60 : closes/day    0.4 | gross %/rung  +16.9 ..  +18.6 | net    +4.48 (t  +0.7) ..    +4.94 (t  +0.7) | years+ 3 .. 3
+    add 100 : closes/day    0.1 | gross %/rung   -0.5 ..   -0.5 | net    -0.72 (t  -0.1) ..    -0.72 (t  -0.1) | years+ 3 .. 3
+  AUDCHF
+    add   3 : closes/day   71.6 | gross %/rung  -11.3 ..   +8.6 | net  -292.43 (t  -5.3) ..  -192.61 (t  -6.0) | years+ 0 .. 0
+    add   4 : closes/day   42.7 | gross %/rung   -9.9 ..   +6.0 | net  -180.27 (t  -4.6) ..  -113.72 (t  -5.0) | years+ 0 .. 0
+    add   5 : closes/day   28.2 | gross %/rung   -7.0 ..   +5.5 | net  -118.28 (t  -4.0) ..   -76.40 (t  -4.2) | years+ 0 .. 0
+    add   6 : closes/day   20.1 | gross %/rung   -8.1 ..   +4.8 | net   -85.22 (t  -3.7) ..   -54.22 (t  -3.4) | years+ 0 .. 0
+    add   7 : closes/day   15.3 | gross %/rung   -9.5 ..   +3.0 | net   -71.96 (t  -3.2) ..   -40.80 (t  -2.9) | years+ 0 .. 0
+    add   8 : closes/day   11.8 | gross %/rung   -6.5 ..   +1.3 | net   -61.00 (t  -3.1) ..   -33.34 (t  -2.8) | years+ 0 .. 0
+    add   9 : closes/day    9.5 | gross %/rung   -6.3 ..   +2.9 | net   -48.57 (t  -2.9) ..   -24.70 (t  -1.9) | years+ 0 .. 1
+    add  10 : closes/day    7.6 | gross %/rung   -6.1 ..   +3.1 | net   -40.33 (t  -2.6) ..   -15.81 (t  -1.4) | years+ 0 .. 1
+    add  12 : closes/day    5.4 | gross %/rung   -5.8 ..   +1.1 | net   -30.55 (t  -2.2) ..   -14.39 (t  -1.4) | years+ 1 .. 1
+    add  14 : closes/day    3.7 | gross %/rung   -4.8 ..   +2.7 | net   -23.59 (t  -2.0) ..   -11.98 (t  -1.1) | years+ 1 .. 1
+    add  15 : closes/day    3.6 | gross %/rung   -7.5 ..   +2.2 | net   -20.04 (t  -1.6) ..   -11.66 (t  -1.2) | years+ 1 .. 2
+    add  17 : closes/day    2.5 | gross %/rung   -3.7 ..   +6.9 | net   -13.65 (t  -1.1) ..    -0.64 (t  -0.1) | years+ 1 .. 2
+    add  18 : closes/day    2.4 | gross %/rung   -1.3 ..   +6.7 | net    -7.49 (t  -0.7) ..    -0.18 (t  -0.0) | years+ 1 .. 2
+    add  20 : closes/day    2.0 | gross %/rung   +1.3 ..   +7.0 | net    -5.85 (t  -0.5) ..    +3.07 (t  +0.3) | years+ 2 .. 2
+    add  23 : closes/day    1.5 | gross %/rung   +4.2 ..   +6.8 | net    -2.86 (t  -0.3) ..    +0.75 (t  +0.1) | years+ 1 .. 2
+    add  26 : closes/day    1.2 | gross %/rung   -0.1 ..  +10.3 | net    -4.88 (t  -0.5) ..    +2.44 (t  +0.3) | years+ 2 .. 3
+    add  30 : closes/day    0.9 | gross %/rung   +6.6 ..  +10.2 | net    +0.41 (t  +0.0) ..    +2.48 (t  +0.3) | years+ 3 .. 3
+    add  40 : closes/day    0.5 | gross %/rung   +1.4 ..  +10.6 | net    -1.18 (t  -0.1) ..    +0.69 (t  +0.1) | years+ 2 .. 2
+    add  60 : closes/day    0.3 | gross %/rung  +10.1 ..  +10.4 | net    +2.94 (t  +0.4) ..    +2.94 (t  +0.4) | years+ 2 .. 2
+    add 100 : closes/day    0.1 | gross %/rung   -2.2 ..   -1.1 | net    -0.92 (t  -0.1) ..    -0.65 (t  -0.1) | years+ 1 .. 2
+  CADCHF
+    add   3 : closes/day   55.4 | gross %/rung   -1.2 ..  +16.4 | net  -219.96 (t  -6.9) ..  -154.64 (t  -7.4) | years+ 0 .. 0
+    add   4 : closes/day   33.5 | gross %/rung   +0.8 ..  +14.2 | net  -122.11 (t  -5.9) ..   -82.39 (t  -5.9) | years+ 0 .. 0
+    add   5 : closes/day   22.5 | gross %/rung   +2.6 ..  +12.5 | net   -78.80 (t  -5.4) ..   -51.76 (t  -4.6) | years+ 0 .. 0
+    add   6 : closes/day   16.0 | gross %/rung   +3.3 ..  +12.4 | net   -55.28 (t  -4.3) ..   -35.11 (t  -3.4) | years+ 0 .. 1
+    add   7 : closes/day   12.1 | gross %/rung   +3.4 ..  +11.2 | net   -43.29 (t  -3.5) ..   -27.18 (t  -2.7) | years+ 1 .. 1
+    add   8 : closes/day    9.5 | gross %/rung   +2.4 ..  +10.3 | net   -31.25 (t  -2.8) ..   -16.68 (t  -1.7) | years+ 1 .. 1
+    add   9 : closes/day    7.5 | gross %/rung   +3.6 ..  +10.8 | net   -24.41 (t  -2.1) ..   -12.05 (t  -1.2) | years+ 1 .. 2
+    add  10 : closes/day    6.1 | gross %/rung   +1.9 ..  +10.6 | net   -19.90 (t  -1.7) ..    -7.76 (t  -0.8) | years+ 1 .. 2
+    add  12 : closes/day    4.3 | gross %/rung   +4.7 ..  +12.3 | net   -13.11 (t  -1.3) ..    -3.73 (t  -0.4) | years+ 1 .. 2
+    add  14 : closes/day    3.2 | gross %/rung   +8.1 ..  +13.1 | net    -0.76 (t  -0.1) ..    +6.23 (t  +0.6) | years+ 2 .. 2
+    add  15 : closes/day    2.8 | gross %/rung  +10.5 ..  +15.1 | net    -1.12 (t  -0.1) ..    +2.40 (t  +0.2) | years+ 2 .. 2
+    add  17 : closes/day    2.2 | gross %/rung  +11.5 ..  +16.4 | net    +2.76 (t  +0.3) ..    +5.60 (t  +0.6) | years+ 2 .. 2
+    add  18 : closes/day    1.7 | gross %/rung   +8.1 ..  +17.1 | net    +2.30 (t  +0.2) ..   +10.27 (t  +1.1) | years+ 2 .. 2
+    add  20 : closes/day    1.4 | gross %/rung   +9.4 ..  +16.1 | net    +1.83 (t  +0.2) ..    +5.11 (t  +0.6) | years+ 2 .. 2
+    add  23 : closes/day    1.2 | gross %/rung  +17.5 ..  +20.8 | net    +6.40 (t  +0.8) ..    +9.82 (t  +1.2) | years+ 2 .. 3
+    add  26 : closes/day    1.0 | gross %/rung  +13.5 ..  +21.7 | net    +4.91 (t  +0.6) ..    +8.92 (t  +1.1) | years+ 2 .. 3
+    add  30 : closes/day    0.8 | gross %/rung  +22.1 ..  +23.7 | net   +11.56 (t  +1.4) ..   +11.95 (t  +1.5) | years+ 3 .. 3
+    add  40 : closes/day    0.4 | gross %/rung  +27.8 ..  +28.0 | net   +10.04 (t  +1.5) ..   +10.15 (t  +1.6) | years+ 4 .. 4
+    add  60 : closes/day    0.2 | gross %/rung  +40.4 ..  +40.6 | net   +11.21 (t  +2.0) ..   +11.21 (t  +2.0) | years+ 4 .. 4
+    add 100 : closes/day    0.1 | gross %/rung   +3.7 ..   +3.7 | net    +0.47 (t  +0.1) ..    +0.47 (t  +0.1) | years+ 3 .. 3

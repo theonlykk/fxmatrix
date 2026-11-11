@@ -1,0 +1,12 @@
+ARCHIVE|START|wine-e|2026-11-10T05:32:11Z|caches 7|appdata 1
+ARCHIVE|COUNT|mt5 manifest 2012|core 1484|cache 528|appdata manifest 12|appdata 12
+ARCHIVE|FILE|137076647|/root/winddown_wine-e_appdata.tar.zst
+ARCHIVE|FILE|3688748052|/root/winddown_wine-e_cache.tar.zst
+ARCHIVE|FILE|194483042|/root/winddown_wine-e_core.tar.zst
+ARCHIVE|FILE|145365|/root/winddown_wine-e_manifest.txt
+ARCHIVE|FILE|384|/root/winddown_wine-e.sha256
+ARCHIVE|SHA256|5ef50401b0badc12dcd1bef78f5d595d1b10c67d3ac298dd1f2912ea98421133  winddown_wine-e_core.tar.zst
+ARCHIVE|SHA256|52e546fe97a4ed5d91079a600e00ecd192801be999d03ed35adb6fba2792112e  winddown_wine-e_cache.tar.zst
+ARCHIVE|SHA256|1d9ea3c8858c4c83072eaf045eee5b8e8c41a9a246bd514f9f705c690df724a8  winddown_wine-e_appdata.tar.zst
+ARCHIVE|SHA256|d317a9f51f09e7fb5b943ab5753157af1d7962a5d21b31f55a829855b9815bc2  winddown_wine-e_manifest.txt
+ARCHIVE|PASS|wine-e
