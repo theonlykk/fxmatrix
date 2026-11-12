@@ -6,7 +6,7 @@ This message has a line count at the bottom
 |---|---|
 | Question | Fable's blind review found one region of the grid's design that leans positive on 2023-2026 FTMO bars: **AUDCAD, add 17 to 26 pips, exit = add or 2 x add, cap 7** (`reviews/fable_pass1/report_pass1.md` s1 item 5, s4.8, s5). It called it "a hypothesis worth testing out of sample, not a finding": one pair, one four-year regime, one cell of 612 at t 3.5. Does the same region make money on AUDCAD in **2018-2022**, data no one has looked at? |
 | Why asked | The operator (11 Nov) agreed to Fable's two concrete tests instead of a pass 2; the fill convention is measured (`research/fills/results.md`); this is the other. |
-| Status | **Pre-registered: committed, and reviewed by Argon, before any 2018-2022 bar is read.** The bars may be exported meanwhile; until then only their file's hash and header line are read. Amended 11 Nov after Argon's first review (`reviews/argon_review_audcad_oos.md` on `review/argon-audcad-oos`, `15c7a6e`), which **failed its quote check: 29 of 122 quotes are in the files**; its five proposed changes were each checked by Claude against the real code and taken (s3, s4, s6, s7, s8). |
+| Status | **Pre-registered: committed, and reviewed by Argon, before any 2018-2022 bar is read.** The bars may be exported meanwhile; until then only their file's hash and header line are read. Amended 11 Nov after Argon's first review (`reviews/argon_review_audcad_oos.md` on `review/argon-audcad-oos`, `15c7a6e`), which **failed its quote check: 29 of 122 quotes are in the files**; its five proposed changes were each checked by Claude against the real code and taken (s3, s4, s6, s7, s8). Argon's second review (`review/argon-audcad-oos-2`, `9250f33`): 134 of 136 quotes exact, SOUND. **Amended again 11 Nov, before any 2018-2022 ladder run (s2a): 2020-2022 decides**, the operator's choice after self-check c showed FTMO's stored 2018-2019 spreads. |
 | Bearing | Not C162: the project is wound down (ruled 8 Nov) whatever this shows. A HOLDS can only inform which setting the one small live remainder on wine-c runs, and only after a swap check (s7). |
 
 ## 1. ONE WORKED EXAMPLE (the region, in sample)
@@ -27,6 +27,19 @@ five years it never saw.
   needed; with fewer from both, the result is NOT TESTABLE and nothing else is run.
 - The file (`bars_<login>_AUDCAD.csv`, header line as in `bars_ftmo`) is hashed into `research/audcad_oos/MANIFEST.md`
   before it is opened for anything but its header.
+
+## 2a. AMENDMENT (11 Nov, after self-check c, before any ladder run on the new bars)
+
+- **What c showed** (`selfcheck_out.txt`): FTMO's stored history for AUDCAD carries a median recorded spread of
+  **1.4 pips in 2018 and 4.0 in 2019** (2020: 0.4, 2021: 0.4, 2022: 0.6; in sample 2023-2026: 0.8-1.0), and the
+  blow-out rule flags **47% and 54%** of their bars (2020-2022: 12%, 7%, 4%; in sample 4%). Run as registered, those
+  two years would charge two to four times the in-sample spread on every fill and freeze half the price path: a
+  verdict driven by the feed's old spread field, not by the region.
+- **The operator's ruling (11 Nov, before any result):** **2020-01-01 to 2022-12-31 decides**: 36 months, s2's own
+  floor. The ladder runs on those bars alone, from flat at the first bar of 2020 (so nothing is carried in from
+  2018-2019); the blow-out threshold is that subset's own median spread (`blowout_mask` on the bars passed).
+  **2018-2019 is run the same way on its own bars and reported beside it, as a description under this caveat; it does
+  not decide.** The null (s4 d) takes the 2020-2022 bars' median range.
 
 ## 3. THE ENGINE (Fable's, unchanged)
 
@@ -72,7 +85,7 @@ closes, maximum drawdown in pips; the region by year. In-sample values beside th
 
 ## 6. THE DECISION RULE (`cont-std` decides; fixed now)
 
-**HOLDS** only if all four, on 2018-2022, `cont-std`:
+**HOLDS** only if all four, on 2020-2022 (s2a), `cont-std`:
 1. The region's mean monthly net USD is above zero.
 2. Its t over months is **2.0 or more**.
 3. **At least ceil(0.6 x Y) of the Y calendar years** with 6 or more months in the file have a positive region net
@@ -95,6 +108,10 @@ closes, maximum drawdown in pips; the region by year. In-sample values beside th
 - **The recorded spread is a minimum**, and an IC feed (if used) is 0.4-0.8 pip narrower than FTMO's on the crosses
   in core hours (Fable s4.1): the sensitivity covers part of it.
 - **One more period of one pair.** A HOLDS does not make AUDCAD's ranging a law; it makes it two regimes, not one.
+- **Three years, not five (s2a):** at the in-sample effect (about +15 USD a month) and its monthly scatter, t >= 2.0
+  over 36 months is reachable but not certain; a real effect can come out INCONCLUSIVE. 2020-2022's spreads (0.4-0.6
+  pip) are narrower than the in-sample's (0.8-1.0), which favours the region by a few tenths of a pip a fill; the
+  0.2 pip sensitivity covers about that.
 - **Fixed constants from the in-sample code:** USD per pip 0.0714 (USDCAD ranged about 1.25-1.45 in 2018-2022, so
   the true value moved by up to about 8%); the blow-out threshold is the new file's own median spread
   (`blowout_mask`); the re-roll pause is 23:50-00:15 on the file's server clock (`core.py` 221); holidays only as
@@ -108,4 +125,4 @@ closes, maximum drawdown in pips; the region by year. In-sample values beside th
    refuses to run unless that output exists on `main` and reads all PASS.
 4. The result against s6 in `research/audcad_oos/results.md`.
 
-Line count: 111
+Line count: 128

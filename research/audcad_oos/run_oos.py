@@ -7,8 +7,8 @@ Fable's engine, unchanged (reviews/fable_pass1/core.py `ladder`, common.py `pseu
 `summarise` from 04_ladder_bars.py); this file only points them at a given bar file and runs the ten cells (s3).
 --selfcheck runs s4 a-d and prints `SELFCHECK: a .., b .., c .., d DONE`; it never runs the ladder on the new bars.
 --oos refuses unless research/audcad_oos/selfcheck_out.txt on origin/main reads all PASS (s8), then runs the ten
-cells in four variants on the new bars, the 0.2 pip sensitivity, and s6's rule; writes oos_result.json beside this
-file and prints the tables."""
+cells in four variants on 2020-2022 (decides, s2a) and on 2018-2019 (reported only), each from flat on its own bars,
+with the 0.2 pip sensitivity and s6's rule; writes oos_result.json beside this file and prints the tables."""
 import hashlib
 import importlib.util
 import json
@@ -59,6 +59,17 @@ def decide(base, sens):
 
 def gate_ok(text):
     return bool(text) and GATE_LINE in text
+
+
+def slice_bars(b, y0, y1):
+    """The bars whose server-clock date falls in calendar years y0..y1 (PREREG s2a)."""
+    yr = pd.to_datetime(b["t"], unit="s").year.values
+    m = (yr >= y0) & (yr <= y1)
+    return {k: v[m] for k, v in b.items()}
+
+
+DECIDE = (2020, 2022)                                    # PREREG s2a: decides
+REPORT = (2018, 2019)                                    # PREREG s2a: reported beside it, does not decide
 
 
 def load_bars_file(path):
@@ -197,6 +208,12 @@ def check_c(path):
           % (n_bad, n_neg, MIN_BARS_MONTH, short if short else "none"))
     print("c  blow-out bars %.2f%%; median recorded spread %.2f pip overall, %.2f in server hours 2-21"
           % (100 * bo.mean(), np.median(sp) / 1e-4, np.median(sp[(hr >= 2) & (hr <= 21)]) / 1e-4))
+    yv = t.year.values
+    for y in np.unique(yv):
+        sel = yv == y
+        core_h = sel & (hr >= 2) & (hr <= 21)
+        print("c  %d: median spread %.2f pip (hours 2-21: %.2f), blow-out bars %.2f%% (hours 2-21: %.2f%%)"
+              % (y, np.median(sp[sel]) / 1e-4, np.median(sp[core_h]) / 1e-4, 100 * bo[sel].mean(), 100 * bo[core_h].mean()))
     print("c  months dropped from the statistics (s4 c): %d" % len(short))
     return bad, [u for u, k in zip(um, cnt) if k < MIN_BARS_MONTH]
 
@@ -205,7 +222,7 @@ def check_d(path):
     """Fable's 01_null_calibration.py method: a +/-0.1 pip lattice walk cut into bars, four pseudo-ticks a bar,
     k steps a bar chosen so that the median bar range matches the new file's weekday bars."""
     common, core, _ = engine()
-    b = load_bars_file(path)
+    b = slice_bars(load_bars_file(path), *DECIDE)
     m = common.weekday_mask(b["t"])
     target = float(np.median((b["h"][m] - b["l"][m]) / 1e-4))
     rng = np.random.default_rng(7)
@@ -220,8 +237,19 @@ def check_d(path):
     x = np.round(0.9 + np.cumsum(rng.choice(np.array([-1e-5, 1e-5]), k * nb)), 5)
     y = x[:nb * k].reshape(nb, k)
     o, h, l, c = y[:, 0], y.max(1), y.min(1), y[:, -1]
-    print("d  new file's median weekday bar range %.2f pips; lattice walk %d steps a bar (median range %.2f), %d bars"
+    print("d  2020-2022 median weekday bar range %.2f pips; lattice walk %d steps a bar (median range %.2f), %d bars"
           % (target, k, float(np.median((h - l) / 1e-4)), nb))
+    # the truth: the same walk, tick by tick (Fable's "fine" path); the bias of the bars is bar - fine
+    tod_f = np.full(len(x), 600, np.int64)
+    per_f = (np.arange(len(x)) // max(len(x) // 40, 1)).astype(np.int64)
+    fine = []
+    for a, xx in CELLS:
+        w = a / 4.0
+        lo = core.ladder(x, x, tod_f, per_f, per_f[-1] + 1, w, float(a), float(xx), w + 1, 2.0, 7, True, 0, 50,
+                         False, np.zeros((0, 7)), False)
+        fine.append((lo[0] + lo[1])[-1] / max(lo[2][-1], 1) / a)
+    del tod_f, per_f
+    print("d  fine (tick by tick) gross per close, in rungs, ten cells: %s" % " ".join("%+.3f" % v for v in fine))
     for fill in ("cont", "one"):
         for order in ("std", "alt"):
             up = c >= o
@@ -242,6 +270,8 @@ def check_d(path):
                 eq = lo[0] + lo[1]
                 res.append(eq[-1] / max(lo[2][-1], 1) / a)
             print("d  %s-%s gross per close, in rungs, ten cells: %s" % (fill, order, " ".join("%+.3f" % v for v in res)))
+            print("d  %s-%s bias (bars - fine), in rungs:         %s"
+                  % (fill, order, " ".join("%+.3f" % (v - f) for v, f in zip(res, fine))))
     return 0
 
 
@@ -262,22 +292,27 @@ def oos(args):
     if p.returncode != 0 or not gate_ok(p.stdout):
         sys.exit("OOS|REFUSED|selfcheck_out.txt is not on origin/main or does not read all PASS (PREREG s8)")
     _, short = check_c(new)
-    b = load_bars_file(new)
+    full = load_bars_file(new)
     res = {}
-    for fill, order in VARIANTS:
-        um, cells = run_variant(b, fill, order)
-        keep = ~np.isin(um, short)
-        base = region(um, cells, keep)
-        sens = region(um, cells, keep, sens=True)
-        res["%s-%s" % (fill, order)] = {"base": base, "sens": sens,
-                                        "cells": {"%d/%d" % k: {kk: (float(vv) if isinstance(vv, (int, float, np.floating, np.integer)) else vv)
-                                                                 for kk, vv in cells[k]["summary"].items()} for k in CELLS}}
-        print("%-9s region %+7.2f USD/month (se %.2f, t %+.2f) over %d months; years +%d of %d %s; cells +%d of 10"
-              % ("%s-%s" % (fill, order), base["mean"], base["se"], base["t"], base["months"], base["years_pos"],
-                 base["years"], {k: round(v, 1) for k, v in base["by_year"].items()}, base["cells_pos"]))
-        print("%-9s  sens %+7.2f USD/month (t %+.2f); years +%d of %d; cells +%d of 10"
-              % ("", sens["mean"], sens["t"], sens["years_pos"], sens["years"], sens["cells_pos"]))
-    d = res["cont-std"]
+    for label, (y0, y1) in (("2020-2022 (decides)", DECIDE), ("2018-2019 (reported only)", REPORT)):
+        b = slice_bars(full, y0, y1)                     # from flat at the first bar of y0 (s2a)
+        res[label] = {}
+        print("== %s: %d bars" % (label, len(b["t"])))
+        for fill, order in VARIANTS:
+            um, cells = run_variant(b, fill, order)
+            keep = ~np.isin(um, short)
+            base = region(um, cells, keep)
+            sens = region(um, cells, keep, sens=True)
+            res[label]["%s-%s" % (fill, order)] = {
+                "base": base, "sens": sens,
+                "cells": {"%d/%d" % k: {kk: (float(vv) if isinstance(vv, (int, float, np.floating, np.integer)) else vv)
+                                        for kk, vv in cells[k]["summary"].items()} for k in CELLS}}
+            print("%-9s region %+7.2f USD/month (se %.2f, t %+.2f) over %d months; years +%d of %d %s; cells +%d of 10"
+                  % ("%s-%s" % (fill, order), base["mean"], base["se"], base["t"], base["months"], base["years_pos"],
+                     base["years"], {k: round(v, 1) for k, v in base["by_year"].items()}, base["cells_pos"]))
+            print("%-9s  sens %+7.2f USD/month (t %+.2f); years +%d of %d; cells +%d of 10"
+                  % ("", sens["mean"], sens["t"], sens["years_pos"], sens["years"], sens["cells_pos"]))
+    d = res["2020-2022 (decides)"]["cont-std"]
     verdict = decide(d["base"], d["sens"])
     res["VERDICT"] = verdict
     print("VERDICT (cont-std, PREREG s6): %s" % verdict)

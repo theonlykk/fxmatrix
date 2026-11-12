@@ -65,3 +65,15 @@ def test_loader_matches_fables_on_a_small_file():
     assert sorted(b) == sorted(c)
     for k in b:
         assert np.array_equal(b[k], c[k]), k
+
+
+def test_slice_bars_keeps_whole_server_years():
+    t = np.array([1577836740, 1577836800, 1609459199, 1609459200, 1672531199, 1672531200], np.int64)
+    #            2019-12-31 23:59  2020-01-01 00:00  2020-12-31 23:59:59  2021-01-01  2022-12-31 23:59:59  2023-01-01
+    b = {k: np.arange(6, dtype=float) for k in ("o", "h", "l", "c", "sp")}
+    b["t"] = t
+    b["tv"] = np.arange(6, dtype=np.int64)
+    s = ro.slice_bars(b, 2020, 2022)
+    assert list(s["t"]) == [1577836800, 1609459199, 1609459200, 1672531199]
+    assert list(s["o"]) == [1.0, 2.0, 3.0, 4.0]
+    assert list(ro.slice_bars(b, 2019, 2019)["t"]) == [1577836740]
