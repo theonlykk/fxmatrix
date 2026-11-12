@@ -1,0 +1,31 @@
+c  header symbol=AUDCAD      ok
+c  header digits=5           ok
+c  header point=0.00001000   ok
+c  bars 1854026, first 2018-01-02 00:02:00, last 2022-12-30 23:54:00; months 60; bars by year 2018 371885, 2019 371500, 2020 371568, 2021 371680, 2022 367393
+c  OHLC inconsistent 0; negative spread 0; months under 15000 bars: none
+c  blow-out bars 24.80%; median recorded spread 0.80 pip overall, 0.70 in server hours 2-21
+c  2018: median spread 1.40 pip (hours 2-21: 1.10), blow-out bars 46.74% (hours 2-21: 44.63%)
+c  2019: median spread 4.00 pip (hours 2-21: 4.00), blow-out bars 54.10% (hours 2-21: 51.65%)
+c  2020: median spread 0.40 pip (hours 2-21: 0.40), blow-out bars 12.13% (hours 2-21: 10.10%)
+c  2021: median spread 0.40 pip (hours 2-21: 0.40), blow-out bars 7.21% (hours 2-21: 3.98%)
+c  2022: median spread 0.60 pip (hours 2-21: 0.60), blow-out bars 3.55% (hours 2-21: 0.27%)
+c  months dropped from the statistics (s4 c): 0
+== 2020-2022 (decides): 1110641 bars
+cont-std  region  -16.04 USD/month (se 16.47, t -0.97) over 36 months; years +2 of 3 {2020: -624.6, 2021: 16.2, 2022: 30.9}; cells +0 of 10
+           sens  -18.15 USD/month (t -1.08); years +2 of 3; cells +0 of 10
+cont-alt  region   -8.94 USD/month (se 13.03, t -0.69) over 36 months; years +2 of 3 {2020: -448.2, 2021: 21.4, 2022: 104.8}; cells +0 of 10
+           sens  -11.14 USD/month (t -0.83); years +2 of 3; cells +0 of 10
+one-std   region   -9.78 USD/month (se 15.41, t -0.63) over 36 months; years +2 of 3 {2020: -506.5, 2021: 55.6, 2022: 98.9}; cells +0 of 10
+           sens  -11.86 USD/month (t -0.75); years +2 of 3; cells +0 of 10
+one-alt   region   -5.48 USD/month (se 13.41, t -0.41) over 36 months; years +2 of 3 {2020: -383.3, 2021: 57.5, 2022: 128.4}; cells +0 of 10
+           sens   -7.61 USD/month (t -0.55); years +2 of 3; cells +0 of 10
+== 2018-2019 (reported only): 743385 bars
+cont-std  region   -8.50 USD/month (se 10.38, t -0.82) over 24 months; years +0 of 2 {2018: -192.5, 2019: -11.4}; cells +2 of 10
+           sens   -9.86 USD/month (t -0.95); years +0 of 2; cells +1 of 10
+cont-alt  region   -3.24 USD/month (se 10.43, t -0.31) over 24 months; years +1 of 2 {2018: -134.7, 2019: 57.0}; cells +4 of 10
+           sens   -4.67 USD/month (t -0.45); years +1 of 2; cells +4 of 10
+one-std   region   -7.38 USD/month (se 10.35, t -0.71) over 24 months; years +1 of 2 {2018: -185.3, 2019: 8.1}; cells +2 of 10
+           sens   -8.72 USD/month (t -0.84); years +0 of 2; cells +1 of 10
+one-alt   region   -4.55 USD/month (se 10.22, t -0.44) over 24 months; years +1 of 2 {2018: -156.4, 2019: 47.3}; cells +3 of 10
+           sens   -5.92 USD/month (t -0.58); years +1 of 2; cells +2 of 10
+VERDICT (cont-std, PREREG s6): FAILS
