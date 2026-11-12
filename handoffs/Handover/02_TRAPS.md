@@ -3111,7 +3111,7 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
   viewers on 5912 and 5913; the terminals ran on (orders placed through it; `uptime` 33 and 13 days). Check pipshed
   (all LIVE: a reboot leaves MT5 down, it never starts itself) and `uptime` before any restart.
 - **When the broker empties the book, the EA does not stop.** E (3 Nov): 0 positions, 0 orders, the EA's state still
-  95 layers, `api_count` ~57,000 an instance and ~3,000 a minute for the terminal, `recon_ok` still TRUE. pipshed's
+  95 layers, `api_count` ~57,000 (the TERMINAL's count, shown by every instance: HANDOFF s93) and ~465 a minute (corrected below), `recon_ok` still TRUE. pipshed's
   LIVE and recon flags do not catch it: compare the book (positions + orders) with the layers, and watch `api_count`.
   Stop it with a graceful `wine taskkill /IM terminal64.exe` (as khalid, `DISPLAY=:10 WINEPREFIX=/home/khalid/.mt5`).
 
@@ -3149,4 +3149,14 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **A random-walk null must compare bars with the same walk tick by tick** (`01_null_calibration.py`); the bar run
   alone measures nothing.
 
-Line count: 3152
+
+## TRAPS FROM 2026-11-12 LATER (RECON_OK IS AN ONINIT VALUE; AN EMPTY BOOK PASSES THE INVARIANTS)
+
+- **`recon_ok` on pipshed is the value from the last attach,** not a live check: `g_grind_recon_ok` is set only in
+  `Grind_ReconstructState` (`grind_recon.mqh` 1422), called only from `OnInit` (`fxgrind.mq5` 267; 516 is a test stub).
+- **The per-tick invariant check never looks at the EA's layers:** `Grind_CheckBookInvariants` (`grind_recon.mqh`
+  1363) rebuilds the broker's tickets into throwaway sides; with zero tickets nothing can fail, so an empty book
+  passes, and the deal replay (ADR-164) never runs. E, 4 Nov: 95 layers in state, 0 at the broker, all checks
+  green. Compare positions + orders with the layers yourself (`bf832c0`; HANDOFF s94).
+
+Line count: 3162
