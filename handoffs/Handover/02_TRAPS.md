@@ -3133,4 +3133,20 @@ word) crowded out the ENTER lines. Exclude heartbeats first.
 - **Correction to the 3 Nov trap above:** the terminal's request rate in E's storm was about 465 a minute (journal
   counts, HANDOFF s93), not ~3,000.
 
-Line count: 3136
+
+## TRAPS FROM 2026-11-12 (RESEARCH: INVENTED QUOTES; OLD SPREADS; A COST THAT DOES NOT BITE; A NULL THAT MEASURES NOTHING)
+
+- **A reviewing agent can invent its quotes.** Argon's first AUDCAD review: 29 of 122 quotes are in the files; the
+  rest are lines that exist on no branch, cited with line numbers. Check every quote by script before reading the
+  findings; return the review, and check any proposed change against the real code yourself.
+- **FTMO's stored history before 2020 carries wide spreads:** AUDCAD's median recorded spread 1.4 pips in 2018 and
+  4.0 in 2019 (2020-2022 0.4-0.6), and the blow-out rule flags about half those bars. Check spreads and blow-outs by
+  year before using old bars (`research/audcad_oos/selfcheck_out.txt`, PREREG s2a).
+- **A bar dump from a terminal that is not connected writes `server_minus_gmt_s=0`** in its header: an artefact,
+  not the feed's offset.
+- **In Fable's `core.ladder` (`mkt_fill` False) a limit fills at its own price,** so widening the quotes does not
+  make fills worse (it only delays triggers). A cost sensitivity there is a deduction from net per close.
+- **A random-walk null must compare bars with the same walk tick by tick** (`01_null_calibration.py`); the bar run
+  alone measures nothing.
+
+Line count: 3152

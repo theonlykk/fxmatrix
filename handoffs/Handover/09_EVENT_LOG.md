@@ -14,6 +14,25 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
 
 ---
 
+### 10 Nov 05:05-05:48Z -- the wind-down: wine-test, wine-d, wine-e archived and destroyed (B, D, E)
+- **What:** after C162's ruling (8 Nov, wind down), `docs/runbooks/winddown-export.md` one box at a time: MT5
+  stopped gracefully, `tools/winddown/archive_box.sh` (core, cache, appdata, manifest, sha256), copied to the
+  desktop, four MATCH lines, then Destroy: wine-test 05:05Z, wine-d 05:21Z, wine-e 05:48Z.
+- **Handled:** wine-e's first archive run refused, correctly: a MetaEditor open since 26 Oct. B's and D's deal
+  histories dumped (19,488 and 20,549 deals); E's skipped (login not to hand). pipshed exported 11 Nov, before the
+  send logs' 14-day deletion.
+- **Changed:** Fleet C on wine-c is the one live fleet. 02_TRAPS 2026-11-10.
+- **Evidence:** HANDOFF s93 continued 7; `docs/runbooks/winddown-export.md` s8; `docs/runbooks/winddown/`.
+
+### 4 Nov 01:36:55Z -- E's FTMO trial breached the daily loss; its EA then sent ~465 refused requests a minute (E; D)
+- **What:** FTMO's day from 23:00Z 3 Nov: the carried book had used $380.43 of the $500 before it began; a move
+  (USD down, CHF up, AUDCAD) took the book to -$523; FTMO closed all 95 positions in ~1.5 s (loss $505.35). 113 ms
+  later the EA's first re-send failed `[Trade disabled]`; it re-sent every tick (57,918 refused sends). D, in the
+  same move, reached $489.57 under its day-start balance (an IC demo has no limit).
+- **Handled:** E's MT5 closed gracefully 03:47Z; never restarted. The review: HANDOFF s93.
+- **Changed:** nothing in the EA tests retcode 10017 (C168). The C162 memo; the operator ruled to wind down (8 Nov).
+- **Evidence:** HANDOFF s93; `docs/research/c162-go-no-go-memo-2026-11-08.md`; 02_TRAPS 2026-11-03 and 2026-11-10.
+
 ### 12 Oct ~19:06Z -- IC: "service not available in this jurisdiction"; web dashboard locked (B, C, D; the replay login)
 - **What:** IC phoned the operator about verifying the account with
   government documents; he said he lives in Ontario; IC ended the call:
@@ -622,4 +641,4 @@ Fleets: A = cycle 3 (FTMO, VPS) to 7 Oct, then the FTMO-IC trial
   resync, the remote-desktop faults). The fleet kept trading through
   every desktop fault; the card is the source of truth.
 
-Line count: 625
+Line count: 644

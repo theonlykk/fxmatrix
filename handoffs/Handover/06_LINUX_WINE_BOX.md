@@ -8,6 +8,11 @@ Algo ON, `docs/architecture/fleet-b.md`) -- a different account from cycle
 3, so the order limit and the GlobalVariable store are NOT shared. Never log
 this terminal into the FTMO account while Algo is on.
 
+**12 Nov 2026: WOUND DOWN (C162, 8 Nov).** wine-test (Fleet B), wine-d (D) and wine-e (E) were archived,
+verified and DESTROYED on 10 Nov (05:05Z, 05:21Z, 05:48Z): `docs/runbooks/winddown-export.md` s8, archives in
+`D:\fxmatrix-exports\winddown\`. **wine-c (Fleet C, IC 53071896) is the last box** and trades on. The rest of
+this file is the build record, kept for a rebuild (06 s2 and C161: keep MT5 build 6231's binaries).
+
 ---
 
 ## 1. WHAT IT IS
@@ -434,4 +439,4 @@ Built fresh from s3 with the s9 lessons, 30 Sep afternoon (holiday):
   (C88 cannot recur). The key 44 bytes, `fc6b3d9c56a8`; E's twelve `_t1` presets staged with it.
 - **Not yet:** an account (E's s5), the suite run (s6), any chart. Fleet E's page `linuxe.pipshed.com` after D's s7.
 
-Line count: 437
+Line count: 442

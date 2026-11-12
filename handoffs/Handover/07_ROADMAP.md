@@ -10,6 +10,10 @@ the Handover folder so a new chat sees the direction, not just the state.
 Written 2026-09-20 from the operator's stated vision. Revisit when a
 horizon item becomes a live decision.
 
+**8 Nov 2026: the effort is WOUND DOWN** (C162 ruled, option A; `docs/research/c162-go-no-go-memo-2026-11-08.md`).
+Nothing below is live direction; it is kept as the record. What remains is in `08_BACKLOG.md` C0: Fleet C on
+wine-c, a tick recorder, C on one more FTMO demo after the stop-on-refusal fix.
+
 **The CURRENT operational roadmap (operator, 27 Sep) is
 `docs/architecture/cycle4-live-geometry-search.md` s8.12:** box 2 (Fleet C),
 Monday code check, C63 lattice + dual add/exit on boxes 1 and 2, watch
@@ -212,4 +216,4 @@ API requests, so it interacts with the per-account budget in s1.
 - **Passive ejection working** would raise the useful depth per account
   and might make one account go further than it does today.
 
-Line count: 215
+Line count: 219
