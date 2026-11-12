@@ -1,0 +1,50 @@
+a  cont 17/17  closes  4394/ 4394  rolled  504/ 504  rolls   581/  581  net   +463.85/  +463.85  same
+a  cont 17/34  closes  2136/ 2136  rolled  410/ 410  rolls   506/  506  net   +997.76/  +997.76  same
+a  cont 18/18  closes  4074/ 4074  rolled  487/ 487  rolls   552/  552  net   +314.83/  +314.83  same
+a  cont 18/36  closes  1790/ 1790  rolled  337/ 337  rolls   429/  429  net   +841.09/  +841.09  same
+a  cont 20/20  closes  3342/ 3342  rolled  359/ 359  rolls   410/  410  net   +668.88/  +668.88  same
+a  cont 20/40  closes  1524/ 1524  rolled  290/ 290  rolls   357/  357  net   +884.25/  +884.25  same
+a  cont 23/23  closes  2536/ 2536  rolled  265/ 265  rolls   308/  308  net   +686.77/  +686.77  same
+a  cont 23/46  closes  1152/ 1152  rolled  189/ 189  rolls   247/  247  net  +1038.46/ +1038.46  same
+a  cont 26/26  closes  1955/ 1955  rolled  208/ 208  rolls   243/  243  net   +575.89/  +575.89  same
+a  cont 26/52  closes   884/  884  rolled  157/ 157  rolls   211/  211  net   +608.78/  +608.78  same
+a  one  17/17  closes  4591/ 4591  rolled  519/ 519  rolls   577/  577  net   +641.09/  +641.09  same
+a  one  17/34  closes  2134/ 2134  rolled  406/ 406  rolls   500/  500  net  +1027.63/ +1027.63  same
+a  one  18/18  closes  4018/ 4018  rolled  444/ 444  rolls   512/  512  net   +602.00/  +602.00  same
+a  one  18/36  closes  1808/ 1808  rolled  332/ 332  rolls   428/  428  net   +899.66/  +899.66  same
+a  one  20/20  closes  3325/ 3325  rolled  354/ 354  rolls   399/  399  net   +726.49/  +726.49  same
+a  one  20/40  closes  1547/ 1547  rolled  286/ 286  rolls   352/  352  net   +996.84/  +996.84  same
+a  one  23/23  closes  2568/ 2568  rolled  260/ 260  rolls   297/  297  net   +806.18/  +806.18  same
+a  one  23/46  closes  1141/ 1141  rolled  192/ 192  rolls   249/  249  net  +1006.71/ +1006.71  same
+a  one  26/26  closes  2011/ 2011  rolled  201/ 201  rolls   232/  232  net   +785.45/  +785.45  same
+a  one  26/52  closes   888/  888  rolled  157/ 157  rolls   208/  208  net   +655.14/  +655.14  same
+b  lattice walk, a=3: steps=33636 reversal rate=0.5014
+b  lattice walk, a=7: steps=6115 reversal rate=0.4982
+b  lattice walk, a=23: steps=582 reversal rate=0.5112
+b  lattice walk, add 7: closes=5525 rolled=737 total=-1423 pips, t=-0.57, gross per close -0.0368 rung
+b  lattice walk, add 23: closes=531 rolled=60 total=793 pips, t=0.39, gross per close 0.0650 rung
+b  all tests passed
+b  test_core.py exit 0
+c  header symbol=AUDCAD      ok
+c  header digits=5           ok
+c  header point=0.00001000   ok
+c  bars 1854026, first 2018-01-02 00:02:00, last 2022-12-30 23:54:00; months 60; bars by year 2018 371885, 2019 371500, 2020 371568, 2021 371680, 2022 367393
+c  OHLC inconsistent 0; negative spread 0; months under 15000 bars: none
+c  blow-out bars 24.80%; median recorded spread 0.80 pip overall, 0.70 in server hours 2-21
+c  2018: median spread 1.40 pip (hours 2-21: 1.10), blow-out bars 46.74% (hours 2-21: 44.63%)
+c  2019: median spread 4.00 pip (hours 2-21: 4.00), blow-out bars 54.10% (hours 2-21: 51.65%)
+c  2020: median spread 0.40 pip (hours 2-21: 0.40), blow-out bars 12.13% (hours 2-21: 10.10%)
+c  2021: median spread 0.40 pip (hours 2-21: 0.40), blow-out bars 7.21% (hours 2-21: 3.98%)
+c  2022: median spread 0.60 pip (hours 2-21: 0.60), blow-out bars 3.55% (hours 2-21: 0.27%)
+c  months dropped from the statistics (s4 c): 0
+d  2020-2022 median weekday bar range 1.40 pips; lattice walk 100 steps a bar (median range 1.40), 400000 bars
+d  fine (tick by tick) gross per close, in rungs, ten cells: -0.298 -0.229 -0.282 -0.356 -0.281 -0.302 -0.222 -0.317 -0.280 -0.470
+d  cont-std gross per close, in rungs, ten cells: -0.244 -0.235 -0.270 -0.470 -0.276 -0.254 -0.235 -0.296 -0.307 -0.470
+d  cont-std bias (bars - fine), in rungs:         +0.054 -0.006 +0.012 -0.114 +0.005 +0.048 -0.014 +0.021 -0.027 +0.000
+d  cont-alt gross per close, in rungs, ten cells: -0.244 -0.235 -0.270 -0.470 -0.276 -0.254 -0.235 -0.296 -0.307 -0.470
+d  cont-alt bias (bars - fine), in rungs:         +0.054 -0.006 +0.012 -0.114 +0.005 +0.048 -0.014 +0.021 -0.027 +0.000
+d  one-std gross per close, in rungs, ten cells: -0.147 -0.148 -0.161 -0.465 -0.180 -0.254 -0.210 -0.288 -0.288 -0.481
+d  one-std bias (bars - fine), in rungs:         +0.150 +0.081 +0.120 -0.109 +0.101 +0.048 +0.012 +0.029 -0.008 -0.010
+d  one-alt gross per close, in rungs, ten cells: -0.147 -0.148 -0.161 -0.465 -0.180 -0.254 -0.210 -0.288 -0.288 -0.481
+d  one-alt bias (bars - fine), in rungs:         +0.150 +0.081 +0.120 -0.109 +0.101 +0.048 +0.012 +0.029 -0.008 -0.010
+SELFCHECK: a PASS, b PASS, c PASS, d DONE
